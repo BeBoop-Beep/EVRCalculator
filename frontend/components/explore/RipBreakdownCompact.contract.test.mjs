@@ -49,16 +49,18 @@ test("the compact stack removes the gap that made each row read as a card", () =
   assert.ok(!card.includes('className="grid gap-2"'), "no row container may keep the desktop-only gap below desktop");
 });
 
-test("the target is Decision Signals on Overview, not the deeper Insights module", () => {
+test("this pass's target is Decision Signals on Overview", () => {
   // Brief section 8's Profit / Safety / Stability / Opening Experience target.
-  // RipScoreBreakdownModule on Insights is a separate surface and is untouched.
+  //
+  // This used to also assert that RipScoreBreakdownModule on Insights carried
+  // no `max-desk:border-0` — a scope fence for THAT task, not a property of the
+  // page. A later mobile-Insights pass deliberately removed the Insights outer
+  // context card below 1200px, which requires exactly that utility, so the
+  // fence is gone. What this file is actually about — the Overview card's rows
+  // — is asserted above and is unaffected either way.
   assert.ok(source.includes("function DecisionSignalsCard("), "the Overview card is the one recomposed");
-  const breakdownStart = source.indexOf("function RipScoreBreakdownModule(");
-  if (breakdownStart >= 0) {
-    const breakdown = source.slice(breakdownStart, breakdownStart + 4000);
-    assert.ok(
-      !breakdown.includes("max-desk:border-0"),
-      "the Insights breakdown module must not be recomposed by this task"
-    );
-  }
+  assert.ok(
+    source.includes("function RipScoreBreakdownModule("),
+    "the Insights breakdown module is a separate surface with its own contract tests"
+  );
 });

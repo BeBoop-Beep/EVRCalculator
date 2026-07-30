@@ -223,7 +223,11 @@ test("Opening Profit vs Cost keeps hover, tap and exact tooltip values", () => {
 // ===========================================================================
 
 test("Decision Signals are untouched by this pass", () => {
-  assert.ok(compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem]"), "the compact grid is as it was");
+  // The track widths were re-cut by the edge-clipping fix (see
+  // DecisionSignalsEdge.contract.test.mjs); the column SYSTEM — one flexible
+  // name track over three fixed numeric tracks — is what this pass must not
+  // disturb.
+  assert.ok(compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]"), "the compact grid is as it was");
   assert.ok(compactList.includes('size="compact"'), "the tier pill is as it was");
   assert.ok(compactList.includes("setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))"));
   assert.ok(compactList.includes("selectedSignal.detailSummary || selectedSignal.summary"));

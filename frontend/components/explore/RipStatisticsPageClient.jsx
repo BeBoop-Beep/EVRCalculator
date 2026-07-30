@@ -6082,6 +6082,23 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
     const rankLabel = parsedRank === null ? null : Math.round(parsedRank);
     const isSelected = selectedSignal?.label === signal.label;
 
+    // The inset here is padding on both sides. It is deliberately NOT a
+    // negative left margin, which is what this row used to carry.
+    //
+    // The row is `w-full` and border-box, so `width: 100%` already resolves to
+    // the container's content width exactly. A negative left margin on top of
+    // that does not widen the row — it slides the whole box 6px left. Every row
+    // therefore bled 6px into the page gutter on the left (taking its accent
+    // edge with it, since the mobile feed reset zeroes this card's horizontal
+    // padding — see `[data-mobile-feed] .set-glass-surface` in globals.css)
+    // while stopping 6px short of the right edge that the aria-hidden column
+    // header and the shared detail region below both reach. With no trailing
+    // padding, the rank was pinned against that short edge, so a selected row's
+    // wash ended immediately after the rank instead of running out to the list
+    // edge.
+    //
+    // The accent edge is a border every row reserves as transparent, so
+    // selecting a row changes a colour and never a column position.
     return (
       <button
         key={`decision-signal-compact:${signal.label}`}
@@ -6093,10 +6110,10 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
         aria-controls={detailRegionId}
         data-decision-signal-row
         data-selected={isSelected ? "true" : undefined}
-        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem] items-center gap-x-1.5 border-b border-[var(--border-subtle)] py-1 pl-1.5 pr-0 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
           isSelected
-            ? "-ml-1.5 border-l-2 border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
-            : "border-l-2 border-l-transparent -ml-1.5 hover:bg-[var(--surface-hover)]"
+            ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+            : "border-l-transparent hover:bg-[var(--surface-hover)]"
         }`}
       >
         <span className="truncate text-xs font-medium text-[var(--text-primary)]">{signal.label}</span>
@@ -6130,12 +6147,15 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
   );
 
   return (
-    <div data-decision-signals-compact>
+    <div data-decision-signals-compact className="min-w-0">
       {/* One column header for the whole list instead of repeating the field
-          names on every row. */}
+          names on every row. It reserves the same transparent 2px left border
+          and the same left/right padding as a row, so the header labels sit
+          over their own columns instead of drifting by the width of the
+          selection edge. */}
       <div
         aria-hidden="true"
-        className="grid grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem] items-center gap-x-1.5 border-b border-[var(--border-subtle)] pb-1 pl-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+        className="grid grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
       >
         <span />
         <span className="text-right">Score</span>
@@ -6490,6 +6510,475 @@ function RipCompositionJoin() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// The RIP Score Breakdown below 1200px.
+//
+// Desktop presents the composition as nested surfaces: an outer section card, a
+// bordered RIP Core group, three bordered pillar cards inside it, and a bordered
+// Collector Appeal group. That reads correctly at 1200px+, where the three
+// pillars sit side by side and the borders are what separate columns.
+//
+// Below 1200px it is the SAME interaction Overview's Decision Signals uses, for
+// the same reason: compact rows on one column grid, exactly one selected row at
+// a time, and exactly one shared detail region underneath. There is no section
+// card, no per-pillar accordion, and no top-level Details dropdown — the
+// dropdown opened every pillar's secondary block at once, which rebuilt on one
+// screen the density problem it was meant to solve.
+//
+// Nothing here computes anything. Every score, tier, rank, weight, verdict
+// phrase, contribution and metric row is the same backend field the desktop
+// tiles render, read through the same props — the two trees are one data model
+// in two presentations, and only one of them is ever displayed (the other is
+// `display: none`, so assistive technology reaches exactly one).
+// ---------------------------------------------------------------------------
+
+// One column system for the whole compact breakdown: a flexible name track over
+// three fixed numeric tracks, so Overall, Profit, Safety, Stability and
+// Collector Appeal all put their score, tier and rank in the same place. The
+// fixed tracks are sized from their content — 3rem holds a `100.0`, 3.5rem
+// holds the `compact` "S Tier" pill with slack, 2.5rem holds `#100` — and at
+// 320px they still leave the row name ~108px inside the page gutter.
+const RIP_COMPACT_GRID = "grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]";
+
+const RIP_OVERALL_ROW_KEY = "overall";
+const RIP_APPEAL_ROW_KEY = "collector-appeal";
+
+// Both presentations quote the backend's own contribution field, so the string
+// that explains it lives in one place rather than being retyped per tree.
+const RIP_CONTRIBUTION_INFO_TEXT =
+  "The backend's own contribution field for this component: its score multiplied by its configured weight, in RIP Core model points.";
+const RIP_OUTLOOK_INFO_TEXT =
+  "This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance.";
+
+// The bare rank goes on the row; the cohort denominator stays in the tooltip,
+// where it is available without crowding a 40px column. Same rule as the
+// desktop tiles.
+function ripCompactRankTitle(rankValue, cohortSize) {
+  const parsedRank = toNumber(rankValue);
+  if (parsedRank === null) {
+    return "Rank unavailable";
+  }
+  const parsedCohort = toNumber(cohortSize);
+  return parsedCohort === null
+    ? `Rank #${Math.round(parsedRank)}`
+    : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohort)} ranked sets`;
+}
+
+// A metric inside the shared detail region. This is MetricRow's content at
+// MetricRow's semantics — same friendly label, same tooltip, same trend, same
+// negative-value treatment — at the type size the detail region can afford, so
+// a nine-row Profit detail stays readable instead of running two screens.
+function RipBreakdownDetailMetric({ label, value, trend = null, infoText = null, content = null }) {
+  const friendlyLabel = getFriendlyMetricLabel(label);
+  const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
+
+  if (content) {
+    return (
+      <div className="min-w-0 border-b border-[var(--border-subtle)] py-1.5 last:border-b-0">
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="text-[11px] font-medium text-[var(--text-primary)]">{friendlyLabel}</span>
+          {infoText ? <InfoPopover text={infoText} /> : null}
+        </div>
+        <div className="mt-1.5">{content}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-subtle)] py-1 last:border-b-0">
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate text-[11px] leading-snug text-[var(--text-secondary)]">{friendlyLabel}</span>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </span>
+      <span
+        className="inline-flex flex-none items-center gap-1 text-[11px] font-semibold tabular-nums text-[var(--text-primary)]"
+        style={isNegativeValue ? getDangerValueStyle() : undefined}
+      >
+        <TrendIndicator trend={trend} />
+        <span>{value}</span>
+      </span>
+    </div>
+  );
+}
+
+// One compact selectable row.
+//
+// The four scan fields share one grid with every other row in the section, so
+// each score, tier and rank lines up in the same three columns. The optional
+// second line in the name track is the backend's own short verdict phrase (or,
+// for the 10% term, its weight label) — the part a reader acts on — truncated
+// rather than wrapped so the row keeps one predictable height.
+//
+// A real <button> is what makes this keyboard-operable: Enter and Space,
+// focus-visible ring, and a tab stop per row, all without a key handler. The
+// selection edge is a border every row reserves as transparent, so selecting a
+// row changes a colour and never a column position.
+function RipBreakdownCompactRow({ row, isSelected, onSelect, detailRegionId }) {
+  const roundedRank = row.rankValue === null ? null : Math.round(row.rankValue);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(row.key)}
+      aria-expanded={isSelected}
+      aria-controls={detailRegionId}
+      data-rip-breakdown-row
+      data-rip-breakdown-row-key={row.key}
+      data-selected={isSelected ? "true" : undefined}
+      className={`grid min-h-11 w-full ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        isSelected
+          ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+          : "border-l-transparent hover:bg-[var(--surface-hover)]"
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{row.label}</span>
+        {row.secondary ? (
+          <span
+            data-rip-breakdown-row-secondary
+            className="block truncate text-[10px] font-normal leading-tight text-[var(--text-secondary)]"
+          >
+            {row.secondary}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+        {row.scoreText}
+      </span>
+      {/* `compact` + the badge's own whitespace-nowrap keep this on one line
+          ("A Tier"), and the track is sized from the pill rather than the pill
+          squeezed into the track. */}
+      <span className="flex justify-center">
+        {row.rankTier ? (
+          <RankBadge rank={row.rankTier} format="tier" size="compact" subtle title={row.rankTitle} />
+        ) : (
+          <span className="text-[10px] leading-none text-[var(--text-secondary)]" aria-label="Tier unavailable">
+            —
+          </span>
+        )}
+      </span>
+      <span
+        className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]"
+        title={row.rankTitle}
+      >
+        {roundedRank === null ? (
+          <span aria-label="Rank unavailable">—</span>
+        ) : (
+          <>
+            <span aria-hidden="true">{`#${roundedRank}`}</span>
+            <span className="sr-only">{`Rank ${roundedRank}`}</span>
+          </>
+        )}
+      </span>
+    </button>
+  );
+}
+
+// The full below-desktop presentation: compact summary, compact rows, one
+// shared detail region.
+//
+// Selection lives here in component state, so an unrelated rerender of the page
+// (a poll settling, a sibling section finishing its fetch) cannot reset it. The
+// score mode CAN remove the Collector Appeal row — it is not a term of RIP Core
+// — so the resolved selection falls back to Overall for render without writing
+// state, which means switching back to RIP Score restores what was selected.
+function RipBreakdownCompactFeed({
+  score,
+  rankTier,
+  rankValue,
+  cohortSize,
+  verdict,
+  explanation,
+  openingOutlook,
+  outlookAccent,
+  pillars,
+  collectorAppeal,
+  showsCollectorAppeal,
+  coreWeightLabel,
+  coreWeightsCaption,
+}) {
+  const [selectedKey, setSelectedKey] = useState(RIP_OVERALL_ROW_KEY);
+  const detailRegionId = useId();
+
+  const overallRank = toNumber(rankValue);
+  const overallRankTitle = ripCompactRankTitle(rankValue, cohortSize);
+
+  const rows = [
+    {
+      key: RIP_OVERALL_ROW_KEY,
+      label: "Overall",
+      scoreText: formatRawScore(score),
+      rankTier: rankTier || null,
+      rankValue: overallRank,
+      rankTitle: overallRankTitle,
+      // The verdict has its own line in the summary directly above; repeating
+      // it here would print the same phrase twice, a few pixels apart.
+      secondary: null,
+    },
+    ...pillars.map((pillar) => ({
+      key: `pillar:${pillar.title}`,
+      label: pillar.title,
+      scoreText: formatScore(pillar.score),
+      rankTier: pillar.rankTier || null,
+      rankValue: toNumber(pillar.rankValue),
+      rankTitle: ripCompactRankTitle(pillar.rankValue, pillar.cohortSize),
+      secondary: pillar.highlight || null,
+      pillar,
+    })),
+    ...(showsCollectorAppeal && collectorAppeal
+      ? [
+          {
+            key: RIP_APPEAL_ROW_KEY,
+            label: "Collector Appeal",
+            scoreText: collectorAppeal.available ? collectorAppeal.scoreLabel : "—",
+            rankTier: collectorAppeal.available ? collectorAppeal.tier || null : null,
+            rankValue: collectorAppeal.available ? toNumber(collectorAppeal.rank) : null,
+            rankTitle: ripCompactRankTitle(collectorAppeal.rank, collectorAppeal.cohortSize),
+            // The 10% term states its contribution on the row itself, as the
+            // brief requires, rather than only inside the detail region.
+            secondary: collectorAppeal.weightLabel ? `${collectorAppeal.weightLabel} of RIP Score` : null,
+          },
+        ]
+      : []),
+  ];
+
+  const selectedRow = rows.find((row) => row.key === selectedKey) || rows[0];
+
+  return (
+    <div data-rip-breakdown-compact className="min-w-0 desk:hidden">
+      {/* One coherent summary line, not five badges. The score is the only
+          large element; tier and rank are quiet metadata beside it; the verdict
+          is plain text behind a thin tier-toned rule rather than a filled pill,
+          so it can wrap on a narrow phone without becoming a block of colour.
+          Every value is the same field the desktop row renders. */}
+      <div
+        data-rip-compact-summary
+        className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+      >
+        <p className="inline-flex flex-none items-end gap-1 text-3xl font-semibold leading-none text-[var(--text-primary)]">
+          <span className="tabular-nums">{formatRawScore(score)}</span>
+          <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
+        </p>
+        {rankTier ? (
+          <RankBadge rank={rankTier} format="tier" size="compact" subtle title={overallRankTitle} />
+        ) : null}
+        {overallRank === null ? null : (
+          <span
+            data-rip-compact-summary-rank
+            className="flex-none text-[11px] font-medium tabular-nums text-[var(--text-secondary)]"
+            title={overallRankTitle}
+          >
+            Rank #{Math.round(overallRank)}
+          </span>
+        )}
+        {verdict ? (
+          <span
+            data-rip-compact-summary-verdict
+            className="min-w-0 border-l pl-2 text-[11px] font-medium leading-snug"
+            style={{
+              borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
+              color: outlookAccent.verdictPill.color,
+            }}
+          >
+            {verdict}
+          </span>
+        ) : null}
+        {explanation ? <InfoPopover text={explanation} /> : null}
+      </div>
+
+      {/* One column header for the whole list instead of repeating the field
+          names on every row. It reserves the same transparent 2px selection
+          edge and the same left/right padding as a row, so the labels sit over
+          their own columns instead of drifting by the width of that edge. */}
+      <p className="mt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+        Core breakdown
+      </p>
+      <div
+        aria-hidden="true"
+        className={`grid ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]`}
+      >
+        <span />
+        <span className="text-right">Score</span>
+        <span className="text-center">Tier</span>
+        <span className="text-right">Rank</span>
+      </div>
+
+      <div className="min-w-0">
+        {rows.map((row) => (
+          <RipBreakdownCompactRow
+            key={`rip-breakdown-compact:${row.key}`}
+            row={row}
+            isSelected={row.key === selectedRow.key}
+            onSelect={setSelectedKey}
+            detailRegionId={detailRegionId}
+          />
+        ))}
+      </div>
+
+      {/* ONE shared detail region. Only the selected row's secondary material is
+          ever on screen, it updates in place, and the change is announced
+          politely. Re-activating the selected row keeps it selected, so this
+          region is never empty and the outlook is never one tap away.
+
+          `pr-1.5` matches the rows' own trailing padding, so a right-aligned
+          value in here lands on the same edge as the Rank column above rather
+          than 6px further out. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-rip-breakdown-detail
+        className="mt-2 min-w-0 border-l-2 border-[var(--border-subtle)] pl-2.5 pr-1.5"
+      >
+        <RipBreakdownCompactDetail
+          row={selectedRow}
+          openingOutlook={openingOutlook}
+          outlookAccent={outlookAccent}
+          collectorAppeal={collectorAppeal}
+          showsCollectorAppeal={showsCollectorAppeal}
+          coreWeightLabel={coreWeightLabel}
+          coreWeightsCaption={coreWeightsCaption}
+        />
+      </div>
+    </div>
+  );
+}
+
+// The body of the shared detail region for whichever row is selected. Split out
+// so the feed above reads as structure and this reads as content; it renders
+// exactly one group, never all of them.
+function RipBreakdownCompactDetail({
+  row,
+  openingOutlook,
+  outlookAccent,
+  collectorAppeal,
+  showsCollectorAppeal,
+  coreWeightLabel,
+  coreWeightsCaption,
+}) {
+  if (row.key === RIP_OVERALL_ROW_KEY) {
+    // Opening Outlook in full. It is the default selection, so the complete
+    // canonical text is on screen without a tap — the treatment shrank, the
+    // copy did not. The tier rail is a 2px line on the region itself; no wash,
+    // no rounded box, no accented callout.
+    return (
+      <div data-rip-breakdown-outlook className="min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            Opening Outlook
+          </p>
+          <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
+        </div>
+        <p className="mt-0.5 text-xs font-medium leading-snug text-[var(--text-primary)]">
+          {openingOutlook || "No opening outlook is available for this set yet."}
+        </p>
+        {/* The two-level composition the score actually has. These are the same
+            backend weight labels the desktop group headers carry; the pillar
+            splits stay on each pillar's own detail. */}
+        {coreWeightsCaption || coreWeightLabel || (showsCollectorAppeal && collectorAppeal?.weightLabel) ? (
+          <p
+            data-rip-breakdown-composition
+            className="mt-1.5 text-[10px] leading-snug text-[var(--text-secondary)]"
+          >
+            {[
+              coreWeightLabel ? `RIP Core ${coreWeightLabel}` : null,
+              coreWeightsCaption,
+              showsCollectorAppeal && collectorAppeal?.weightLabel
+                ? `Collector Appeal ${collectorAppeal.weightLabel}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (row.key === RIP_APPEAL_ROW_KEY) {
+    if (!collectorAppeal?.available) {
+      // Never a fake 0 and never a fake tier: the backend says why the term is
+      // missing and that reason is what renders.
+      return (
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+          {collectorAppeal?.unavailableReason ||
+            "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
+        </p>
+      );
+    }
+    return (
+      <div data-rip-breakdown-appeal-detail className="min-w-0">
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+          Roster desirability translated through this set&apos;s modeled opening paths.
+        </p>
+        <div className="mt-1">
+          {collectorAppeal.weightLabel ? (
+            <RipBreakdownDetailMetric label="Weight in RIP Score" value={collectorAppeal.weightLabel} />
+          ) : null}
+          {collectorAppeal.contributionLabel ? (
+            <RipBreakdownDetailMetric
+              label="Contribution to RIP Score"
+              value={collectorAppeal.contributionLabel}
+              infoText={RIP_CONTRIBUTION_INFO_TEXT}
+            />
+          ) : null}
+          {collectorAppeal.rankLabel ? (
+            <RipBreakdownDetailMetric label="Collector Appeal rank" value={collectorAppeal.rankLabel} />
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const pillar = row.pillar;
+  if (!pillar) {
+    return null;
+  }
+  const parsedWeight = toNumber(pillar.weight);
+  const parsedContribution = toNumber(pillar.contribution);
+  const metrics = pillar.metrics || [];
+
+  return (
+    <div data-rip-breakdown-pillar-detail className="min-w-0">
+      {pillar.statusLabel ? (
+        <InterpretationBadge
+          label={pillar.statusLabel}
+          rankTier={pillar.rankTier}
+          className="px-2 py-0.5 text-[10px] tracking-[0.08em]"
+        />
+      ) : null}
+      {pillar.highlight ? (
+        <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{pillar.highlight}</p>
+      ) : null}
+      <div className="mt-1">
+        {parsedWeight === null ? null : (
+          // Label is bare "Weight" because the VALUE already names the whole it
+          // is a share of ("60% of RIP Core") — the desktop tile's exact
+          // string, which must not change. "Weight in RIP Core / 60% of RIP
+          // Core" said RIP Core twice on one line.
+          <RipBreakdownDetailMetric label="Weight" value={`${Math.round(parsedWeight * 100)}% of RIP Core`} />
+        )}
+        {parsedContribution === null ? null : (
+          <RipBreakdownDetailMetric
+            label="Contribution to RIP Core"
+            value={`${parsedContribution.toFixed(1)} pts`}
+            infoText={RIP_CONTRIBUTION_INFO_TEXT}
+          />
+        )}
+        {metrics.map((metric) => (
+          <RipBreakdownDetailMetric
+            key={`${pillar.title}-compact-detail-${metric.label}`}
+            label={metric.label}
+            value={metric.value}
+            trend={metric.trend}
+            infoText={metric.infoText || getMetricTooltip(metric.label)}
+            content={metric.content}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RipScoreBreakdownModule({
   score,
   rankTier,
@@ -6519,7 +7008,15 @@ function RipScoreBreakdownModule({
 
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
-      <article className="set-glass-surface rounded-2xl border p-4 sm:p-5">
+      {/* Below 1200px there is NO context card: the section joins the
+          continuous mobile feed and the page gutter is the only inset, so the
+          rows start at the same left edge as every other mobile section. The
+          `max-desk:` utilities are what actually strip it — `important: true`
+          in tailwind.config.js makes `p-4`/`border`/`rounded-2xl` !important,
+          so the non-important `[data-mobile-feed] .set-glass-surface` reset in
+          globals.css cannot beat them on its own. At 1200px+ the card is
+          untouched: same glass, same border, same radius, same p-5 inset. */}
+      <article className="set-glass-surface rounded-2xl border p-4 desk:p-5 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]">
         {/* Header row: the chapter marker and title on the left, the details
             disclosure on the right so it reads as controlling the whole
             section rather than the pillar it happens to sit above. */}
@@ -6531,13 +7028,20 @@ function RipScoreBreakdownModule({
               {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
             </div>
           </div>
+          {/* The desktop progressive-disclosure control. It is DESKTOP ONLY
+              now: below 1200px it opened every pillar's secondary block at
+              once, which is the density problem this section was supposed to
+              lose. There, the compact rows own disclosure instead — one
+              selected row, one shared detail region — so no dropdown of any
+              kind is mounted. */}
           <button
             type="button"
             onClick={() => setDetailsExpanded((current) => !current)}
-            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55"
+            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55 max-desk:hidden"
             aria-expanded={detailsExpanded}
+            aria-label={detailsExpanded ? "Hide RIP Score Breakdown details" : "Show RIP Score Breakdown details"}
           >
-            {detailsExpanded ? "Hide Details" : "Show Details"}
+            <span>{detailsExpanded ? "Hide Details" : "Show Details"}</span>
             <svg
               viewBox="0 0 20 20"
               aria-hidden="true"
@@ -6549,15 +7053,21 @@ function RipScoreBreakdownModule({
           </button>
         </div>
 
-        <div className="mt-3">
+        {/* ONE score-mode control, shared by both presentations — a second
+            mounted copy would give the page two radiogroups that can disagree.
+            It is already `compact`; below desktop it only loses vertical
+            breathing room. */}
+        <div className="mt-3 max-desk:mt-2">
           <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
         </div>
 
-        {/* Score, then metadata, then judgement — one descending hierarchy.
-            Tier and rank are plain text; only the interpretation keeps a
-            bordered treatment, so three pieces of metadata no longer compete
-            as three identical bubbles. */}
-        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        {/* 1200px+ only. Score, then metadata, then judgement — one descending
+            hierarchy. Tier and rank are plain text; only the interpretation
+            keeps a bordered treatment, so three pieces of metadata no longer
+            compete as three identical bubbles. Below desktop this is replaced
+            by the compact summary line inside RipBreakdownCompactFeed, which
+            renders the same four values without four competing chips. */}
+        <div className="mt-3 hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-2 desk:flex">
           <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
             <span>{formatRawScore(score)}</span>
             <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
@@ -6572,10 +7082,16 @@ function RipScoreBreakdownModule({
             the treatment changed - a narrow tier-coloured rail with a wash that
             fades to nothing well before the right edge, so the outlook reads as
             part of the breakdown rather than as a filled alert banner. The copy
-            keeps the full content width; only the colour stops early. */}
+            keeps the full content width; only the colour stops early.
+
+            1200px+ only. Below desktop this accented callout was the single
+            largest block in the default view, so the SAME canonical text moved
+            into the shared detail region as the Overall row's content, where it
+            is still on screen without a tap because Overall is selected by
+            default. */}
         <div
           data-insights-opening-outlook
-          className="rip-outlook-callout relative mt-4 min-w-0 border-l-2 px-3.5 py-2.5 sm:px-4"
+          className="rip-outlook-callout relative mt-4 hidden min-w-0 border-l-2 px-3.5 py-2.5 desk:block desk:px-4"
           style={{
             borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
             backgroundImage: outlookAccent.outlookWash,
@@ -6585,91 +7101,124 @@ function RipScoreBreakdownModule({
         >
           <div className="flex items-center gap-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening Outlook</p>
-            <InfoPopover text="This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance." />
+            <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
           </div>
           <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--text-primary)]">
             {openingOutlook || "No opening outlook is available for this set yet."}
           </p>
         </div>
 
+        {/* The whole below-desktop presentation, mounted ONCE for both score
+            modes so switching RIP Score <-> RIP Core cannot remount it and drop
+            the selected row. `showsCollectorAppeal` is what removes the 10%
+            term from the list in RIP Core mode. */}
+        <div className="mt-3 min-w-0 desk:hidden">
+          <RipBreakdownCompactFeed
+            score={score}
+            rankTier={rankTier}
+            rankValue={rankValue}
+            cohortSize={cohortSize}
+            verdict={verdict}
+            explanation={explanation}
+            openingOutlook={openingOutlook}
+            outlookAccent={outlookAccent}
+            pillars={pillars}
+            collectorAppeal={collectorAppeal}
+            showsCollectorAppeal={showsCollectorAppeal}
+            coreWeightLabel={coreWeightLabel}
+            coreWeightsCaption={coreWeightsCaption}
+          />
+        </div>
+
         {showsCollectorAppeal ? (
-          <div className="mt-4 min-w-0">
-            <RipCompositionGroup
-              eyebrow="RIP Core"
-              weightLabel={coreWeightLabel}
-              caption={coreWeightsCaption}
-            >
+          // 1200px+ only: the desktop composition is unchanged. Below desktop
+          // the compact feed above is the entire presentation, so exactly one
+          // tree renders at either width — and no empty wrapper is left behind
+          // here to pay margin for a subtree that draws nothing.
+          <div className="mt-4 hidden min-w-0 desk:block">
+            <div>
+              <RipCompositionGroup
+                eyebrow="RIP Core"
+                weightLabel={coreWeightLabel}
+                caption={coreWeightsCaption}
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {pillars.map((pillar) => (
+                    <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
+                  ))}
+                </div>
+              </RipCompositionGroup>
+
+              <RipCompositionJoin />
+
+              <RipCompositionGroup
+                tone="appeal"
+                eyebrow="Collector Appeal"
+                weightLabel={collectorAppeal?.weightLabel || null}
+                caption="Roster desirability translated through this set's modeled opening paths."
+              >
+                {collectorAppeal?.available ? (
+                  <div className="min-w-0">
+                    {/* Same hierarchy as the primary score row: score, tier
+                        bubble, plain rank. The contribution drops to its own
+                        line as secondary metadata so it stops competing with
+                        the three figures above it. */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                      <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+                        <span>{collectorAppeal.scoreLabel}</span>
+                        <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
+                      </p>
+                      {collectorAppeal.tier ? <RankBadge rank={collectorAppeal.tier} format="tier" /> : null}
+                      {collectorAppeal.rank !== null && collectorAppeal.rank !== undefined ? (
+                        <span
+                          data-rip-collector-appeal-rank
+                          className="text-xs font-medium tabular-nums text-[var(--text-secondary)]"
+                          title={
+                            collectorAppeal.cohortSize === null || collectorAppeal.cohortSize === undefined
+                              ? `Rank #${Math.round(collectorAppeal.rank)}`
+                              : `Rank #${Math.round(collectorAppeal.rank)} of ${Math.round(collectorAppeal.cohortSize)} ranked sets`
+                          }
+                        >
+                          Rank #{Math.round(collectorAppeal.rank)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {collectorAppeal.contributionLabel ? (
+                      <p
+                        data-rip-collector-appeal-contribution
+                        className="mt-1.5 text-[11px] tabular-nums text-[var(--text-secondary)]"
+                      >
+                        {collectorAppeal.contributionLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  // Never a fake 0 and never RIP Core wearing the RIP Score
+                  // label: the backend says why the term is missing and that
+                  // reason is what renders.
+                  <p className="text-xs leading-snug text-[var(--text-secondary)]">
+                    {collectorAppeal?.unavailableReason ||
+                      "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
+                  </p>
+                )}
+              </RipCompositionGroup>
+            </div>
+          </div>
+        ) : (
+          // RIP Core mode: the three financial cards only, using the full width.
+          // 1200px+ only: unchanged. Below desktop the compact feed above is the
+          // whole presentation, and it drops the 10% term in this mode by never
+          // building a row for it — not greyed, not emptied, not left as a gap.
+          <div className="mt-4 hidden min-w-0 desk:block">
+            <div>
+              {coreWeightsCaption ? (
+                <p className="mb-2 text-xs text-[var(--text-secondary)]">{coreWeightsCaption}</p>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-3">
                 {pillars.map((pillar) => (
                   <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
                 ))}
               </div>
-            </RipCompositionGroup>
-
-            <RipCompositionJoin />
-
-            <RipCompositionGroup
-              tone="appeal"
-              eyebrow="Collector Appeal"
-              weightLabel={collectorAppeal?.weightLabel || null}
-              caption="Roster desirability translated through this set's modeled opening paths."
-            >
-              {collectorAppeal?.available ? (
-                <div className="min-w-0">
-                  {/* Same hierarchy as the primary score row: score, tier
-                      bubble, plain rank. The contribution drops to its own
-                      line as secondary metadata so it stops competing with
-                      the three figures above it. */}
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                    <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                      <span>{collectorAppeal.scoreLabel}</span>
-                      <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
-                    </p>
-                    {collectorAppeal.tier ? <RankBadge rank={collectorAppeal.tier} format="tier" /> : null}
-                    {collectorAppeal.rank !== null && collectorAppeal.rank !== undefined ? (
-                      <span
-                        data-rip-collector-appeal-rank
-                        className="text-xs font-medium tabular-nums text-[var(--text-secondary)]"
-                        title={
-                          collectorAppeal.cohortSize === null || collectorAppeal.cohortSize === undefined
-                            ? `Rank #${Math.round(collectorAppeal.rank)}`
-                            : `Rank #${Math.round(collectorAppeal.rank)} of ${Math.round(collectorAppeal.cohortSize)} ranked sets`
-                        }
-                      >
-                        Rank #{Math.round(collectorAppeal.rank)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {collectorAppeal.contributionLabel ? (
-                    <p
-                      data-rip-collector-appeal-contribution
-                      className="mt-1.5 text-[11px] tabular-nums text-[var(--text-secondary)]"
-                    >
-                      {collectorAppeal.contributionLabel}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                // Never a fake 0 and never RIP Core wearing the RIP Score
-                // label: the backend says why the term is missing and that
-                // reason is what renders.
-                <p className="text-xs leading-snug text-[var(--text-secondary)]">
-                  {collectorAppeal?.unavailableReason ||
-                    "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
-                </p>
-              )}
-            </RipCompositionGroup>
-          </div>
-        ) : (
-          // RIP Core mode: the three financial cards only, using the full width.
-          <div className="mt-4 min-w-0">
-            {coreWeightsCaption ? (
-              <p className="mb-2 text-xs text-[var(--text-secondary)]">{coreWeightsCaption}</p>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-3">
-              {pillars.map((pillar) => (
-                <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
-              ))}
             </div>
           </div>
         )}
@@ -6710,13 +7259,35 @@ function SectionEyebrow({ children }) {
 
 // tone="plain" flattens the card (lighter surface tint, no inset highlight or
 // drop shadow) so neighbouring sections stop reading as identical clones.
-function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "" }) {
+// `mobileFlush` is opt-in per caller, not a default: SectionCard renders on
+// Explore, the Cards tab and the expert layouts too, and those keep their cards
+// at every width. Only the sections that joined the continuous mobile feed pass
+// it. The utilities are what actually strip the card — `important: true` in
+// tailwind.config.js makes `p-4`/`border`/`rounded-2xl` !important, so the
+// non-important `[data-mobile-feed] .set-glass-surface` reset in globals.css
+// cannot beat them on its own.
+const SECTION_CARD_MOBILE_FLUSH_CLASS =
+  "max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]";
+
+function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "", mobileFlush = false }) {
+  // A flush card states its 1200px+ inset with `desk:p-5`, not `sm:p-5`.
+  // `max-desk:` utilities are emitted BEFORE `sm:` in the stylesheet and both
+  // are !important, so an sm-scoped inset wins back 640-1199px and the card
+  // would still look inset on a tablet — the only band where the reset appears
+  // to do nothing. The two produce the identical p-5 at 1200px+; they differ
+  // only in the band that is supposed to be flush. Callers that keep their card
+  // are untouched.
+  const insetClass = mobileFlush ? "p-4 desk:p-5" : "p-4 sm:p-5";
   const toneClass =
     tone === "plain"
-      ? "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5"
-      : "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5";
+      ? `rounded-2xl border border-[var(--border-subtle)] ${insetClass}`
+      : `rounded-2xl border border-[var(--border-subtle)] ${insetClass}`;
   return (
-    <article className={["set-glass-surface w-full max-w-full min-w-0", toneClass, className].filter(Boolean).join(" ")}>
+    <article
+      className={["set-glass-surface w-full max-w-full min-w-0", toneClass, mobileFlush ? SECTION_CARD_MOBILE_FLUSH_CLASS : "", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div>
         <SectionEyebrow>{eyebrow}</SectionEyebrow>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -7276,12 +7847,17 @@ function CollectorProfileSection({
       <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
+      {/* Shell cleanup only. Below 1200px the outer context card is gone and
+          the section joins the continuous mobile feed; the flow strip, the
+          Roster Appeal / Opening Paths tabs and every panel inside are
+          untouched at every width. Desktop keeps the card exactly as it was. */}
       <SectionCard
         eyebrow="02 · Collector Profile"
         tone="plain"
         title="Collector Profile"
         titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}
         bodyClassName="space-y-4"
+        mobileFlush
       >
         {/* The relationship, in order. Three stages, one direction: roster
             demand -> modeled opening paths -> the weighted term. Stacked on
@@ -11765,6 +12341,17 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    // The control that opened the menu, so Escape hands focus back to it
+    // instead of dropping the user at the top of the document. Captured at open
+    // time rather than looked up on dismiss, because arrow-key navigation moves
+    // focus into the listbox and more than one picker trigger exists in the DOM
+    // (desktop and mobile compositions are both mounted).
+    const opener =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement.matches?.('[aria-haspopup="listbox"]')
+        ? document.activeElement
+        : null;
+
     const handleOutsideClick = (event) => {
       if (!event.target.closest?.("[data-set-picker]")) {
         setHeroSetPickerOpen(false);
@@ -11774,6 +12361,10 @@ export default function RipStatisticsPageClient({
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         setHeroSetPickerOpen(false);
+        const fallback = document.querySelector(
+          '[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-hidden="true"])'
+        );
+        (opener || fallback)?.focus?.();
       }
     };
 
@@ -13194,7 +13785,25 @@ export default function RipStatisticsPageClient({
                       Desktop is unaffected: this subtree is desk:hidden and the
                       desktop context header's own picker still owns selection
                       there. */}
-                  <div data-set-sticky-picker className="desk:hidden">
+                  {/* `data-set-picker` is what the document-level dismiss
+                      handler treats as "inside the picker". Without it, a
+                      mousedown/touchstart on an OPTION counted as an outside
+                      click, so the listbox unmounted before the option's click
+                      could fire and selection silently did nothing.
+
+                      `relative z-30` is what lifts the open menu over the tab
+                      strip. A z-index on the listbox itself cannot do it: the
+                      hero section carries `backdrop-filter` (from
+                      .set-context-premium), which creates a stacking context
+                      the listbox's own z-50 is sealed inside, and the tab
+                      strip's `backdrop-blur-md` creates a second one that
+                      paints later in DOM order. Raising this wrapper — an
+                      ancestor of the menu and an earlier sibling of the tabs —
+                      moves the whole trapped context above them. It stays
+                      inside the sticky block's own context (z-40, itself inside
+                      an `isolation: isolate` container), so the global header
+                      is unaffected. */}
+                  <div data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">
                     <PokemonSetMobileHero
                       model={mobileHeroModel}
                       pickerOpen={heroSetPickerOpen}
@@ -14152,7 +14761,13 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {setDetailMode ? (
-              <section id="set-detail-insights" className="scroll-mt-24 space-y-4 pt-0 md:scroll-mt-28">
+              // Below 1200px Insights is the same continuous analytical feed
+              // Overview already is: the three sections drop their outer cards
+              // and are separated by a divider plus breathing room instead. The
+              // `max-desk:space-y-0` is required, not decorative — `space-y-4`
+              // is an !important utility, so without it the feed's own
+              // margin-top would lose and the two spacings would stack.
+              <section id="set-detail-insights" data-mobile-feed className="scroll-mt-24 space-y-4 pt-0 max-desk:space-y-0 md:scroll-mt-28">
                 {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
@@ -14203,9 +14818,21 @@ export default function RipStatisticsPageClient({
                       sub-tab explorer renders on load. Deep links and left-nav
                       clicks only pick the sub-tab and scroll — there is no
                       collapse state to reveal. */}
+                  {/* Shell cleanup only. Below 1200px the outer context card is
+                      gone and the section joins the continuous mobile feed. The
+                      title, the supporting description, the view tabs and every
+                      simulation view (Outcome Distribution, Opening Profit vs
+                      Cost, Simulation Drivers, Value Structure, Pack Paths,
+                      Metrics) are unchanged at every width — the sub-tab strip
+                      still needs its own pass. Desktop keeps the card. */}
                   <article
                     className={[
-                      "set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 sm:p-5",
+                      // `desk:p-5`, not `sm:p-5` — see SectionCard's insetClass:
+                      // an sm-scoped inset outranks max-desk: and would leave
+                      // the card inset across the whole 640-1199px tablet band.
+                      // Identical p-5 at 1200px+.
+                      "set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 desk:p-5",
+                      SECTION_CARD_MOBILE_FLUSH_CLASS,
                       openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
                     ].filter(Boolean).join(" ")}
                   >
