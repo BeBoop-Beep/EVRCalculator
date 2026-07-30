@@ -21,6 +21,14 @@ const SIZE_STYLES = {
     className: "gap-1.5 px-2.5 py-0.5 text-[11px]",
     labelOpacity: 0.75,
   },
+  // For dense tabular contexts where the badge occupies a fixed narrow column
+  // (the mobile Decision Signals list). `supporting` at px-3/12px needs ~62px
+  // for "S Tier"; this needs ~47px, which is what lets the tier column stay
+  // narrow enough to leave the signal name a readable width on a 320px phone.
+  compact: {
+    className: "gap-1 px-2 py-0.5 text-[10px]",
+    labelOpacity: 0.82,
+  },
   supporting: {
     className: "gap-1.5 px-3 py-1 text-[12px]",
     labelOpacity: 0.82,
@@ -41,7 +49,7 @@ export default function RankBadge({ rank, label, title: titleProp, subtle = fals
   if (!config) {
     return (
       <span
-        className={`inline-flex items-center rounded-full border ${sizeStyle.className}`}
+        className={`inline-flex items-center whitespace-nowrap rounded-full border ${sizeStyle.className}`}
         style={{
           background: isHero ? "rgba(2,8,23,0.72)" : "rgba(2,8,23,0.55)",
           borderColor: subtle ? "rgba(255,255,255,0.1)" : isHero ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.12)",
@@ -63,7 +71,7 @@ export default function RankBadge({ rank, label, title: titleProp, subtle = fals
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border ${sizeStyle.className}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-full border ${sizeStyle.className}`}
       style={{
         background,
         borderColor,

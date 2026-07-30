@@ -10,6 +10,7 @@ const read = (relativePath) =>
 
 const client = read("RipStatisticsPageClient.jsx");
 const packValue = read("PackValueHistoryChart.jsx");
+const axis = read("minimalChartAxis.mjs");
 
 const setValueChart = client.slice(
   client.indexOf("function SetValueLineChart("),
@@ -29,80 +30,93 @@ test("Opening Profit vs Cost matches that sizing grammar", () => {
   assert.ok(packValue.includes("min-h-[19rem] flex-col tab:min-h-[23rem] desk:min-h-[26rem]"));
 });
 
-test("mobile drops the y-axis labels and gives the plot the full page width", () => {
-  // Superseding the earlier "reduce density but keep a 44px gutter" rule: below
-  // 1200px the vertical tick labels are removed entirely and the axis reserves
-  // no width, so the series spans the page. The scale itself is untouched
-  // (domain/ticks are unchanged) and exact values stay reachable by tap/scrub.
-  for (const [name, source, desktopWidth] of [
-    ["set value", setValueChart, "58"],
-    ["opening profit vs cost", packValue, "60"],
-  ]) {
-    assert.ok(source.includes("const isDesktopComposition = useMediaQuery"), `${name} must read the desktop composition`);
-    assert.ok(
-      source.includes('tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}'),
-      `${name} must hide y-axis tick labels below desktop`
-    );
-    assert.ok(
-      source.includes(`width={isDesktopComposition ? ${desktopWidth} : 0}`),
-      `${name} must reserve no y-axis gutter below desktop, and keep ${desktopWidth}px on desktop`
-    );
+// ---------------------------------------------------------------------------
+// The minimal axis is now the SHARED treatment at every width.
+//
+// Superseding the earlier "below 1200px only" rule: the y-axis tick labels and
+// the intermediate x-axis dates are gone at every size, and both charts read
+// their axis configuration from one module so Overview and Insights cannot
+// drift apart. The scales themselves are untouched — each chart still computes
+// and passes its own domain — and exact values stay reachable by hover and by
+// tap/scrub.
+// ---------------------------------------------------------------------------
+
+test("both charts take their axis treatment from one shared module", () => {
+  for (const [name, source] of [["set value", setValueChart], ["opening profit vs cost", packValue]]) {
+    assert.ok(source.includes("MINIMAL_Y_AXIS_PROPS"), `${name} must use the shared y-axis props`);
+    assert.ok(source.includes("buildEdgeDateTicks("), `${name} must use the shared edge-date builder`);
+    assert.ok(source.includes("getMinimalPlotMargin("), `${name} must use the shared plot margin`);
   }
-  // Desktop scale behaviour is unchanged.
-  assert.ok(setValueChart.includes("tickCount={isDesktopComposition ? undefined : 4}"));
-  assert.ok(setValueChart.includes("ticks={isDesktopComposition ? yAxisTicks : undefined}"));
+  assert.ok(packValue.includes('from "@/components/explore/minimalChartAxis.mjs"'));
+  assert.ok(client.includes('from "@/components/explore/minimalChartAxis.mjs"'));
 });
 
-test("mobile x-axis shows only the first and last date", () => {
-  for (const [name, source] of [
-    ["set value", setValueChart],
-    ["opening profit vs cost", packValue],
-  ]) {
-    assert.ok(
-      source.includes("mobileEdgeDateTicks"),
-      `${name} must compute a first/last-only tick set below desktop`
-    );
-    assert.ok(
-      /isDesktopComposition \|\| (chartData|numericPoints)\.length === 0/.test(source),
-      `${name} must leave desktop ticks untouched`
-    );
-    assert.ok(
-      source.includes('last && last !== first ? [first, last] : [first]'),
-      `${name} must emit exactly the first and last date (or one, when they coincide)`
-    );
-  }
-  // Desktop keeps preserveStartEnd spacing.
-  assert.ok(packValue.includes('interval: "preserveStartEnd"'));
-  assert.ok(setValueChart.includes('"preserveStartEnd"'));
+test("the shared module hides the y-axis labels and reserves no gutter", () => {
+  assert.ok(axis.includes("tick: false"), "no printed y tick labels");
+  assert.ok(axis.includes("width: 0"), "no reserved y gutter");
+  assert.ok(axis.includes("MINIMAL_PLOT_INSET_LEFT = 6"));
+  assert.ok(axis.includes("MINIMAL_PLOT_INSET_RIGHT = 8"));
 });
 
-test("the desktop composition defaults to true so desktop never flashes mobile", () => {
+test("neither chart reintroduces a y-axis label at any width", () => {
   for (const [name, source] of [["set value", setValueChart], ["opening profit vs cost", packValue]]) {
     assert.ok(
-      source.includes('useMediaQuery("(min-width: 1200px)", true)'),
-      `${name} must seed the desktop answer for SSR and first paint`
+      !/tick=\{isDesktopComposition \? \{ fill/.test(source),
+      `${name} must not gate the y tick labels back on for desktop`
     );
+    assert.ok(!/width=\{isDesktopComposition \? \d+ : 0\}/.test(source), `${name} must not restore the desktop y gutter`);
   }
 });
 
-test("the wide desktop right margin does not eat the phone plot", () => {
-  assert.ok(packValue.includes("right: isDesktopComposition ? 112 : 12"));
+test("the x-axis carries only the first and last date, at every width", () => {
+  for (const [name, source] of [["set value", setValueChart], ["opening profit vs cost", packValue]]) {
+    assert.ok(source.includes("ticks={edgeDateTicks}"), `${name} must place exactly the edge ticks`);
+    assert.ok(source.includes("interval={0}"), `${name} must not let Recharts drop or add ticks`);
+    assert.ok(
+      source.includes("<ChartEdgeDateTick ticks={edgeDateTicks}"),
+      `${name} must anchor the two edge dates inward so they cannot be clipped`
+    );
+    assert.ok(!source.includes('"preserveStartEnd"'), `${name} must not keep the old desktop spacing mode`);
+    assert.ok(!source.includes("mobileEdgeDateTicks"), `${name} must not keep a mobile-only tick path`);
+  }
+  assert.ok(
+    axis.includes("last && last !== first ? [first, last] : [first]"),
+    "one date when the series has a single point, two otherwise"
+  );
+});
+
+test("Set Value no longer needs a width branch at all", () => {
+  assert.ok(
+    !setValueChart.includes("isDesktopComposition"),
+    "with one shared axis treatment there is no desktop composition left to read"
+  );
+  assert.ok(setValueChart.includes("usePointerMode()"), "pointer capability is still read — it is not a width");
+});
+
+test("Opening Profit vs Cost keeps its desktop inline end labels and their margin", () => {
+  // These are the desktop presentation of the same three latest values the
+  // compact row carries below 1200px — series annotations, not axis labels — so
+  // the axis unification does not remove them.
+  assert.ok(packValue.includes('useMediaQuery("(min-width: 1200px)", true)'), "still seeded for SSR");
+  assert.equal(
+    (packValue.match(/index === latestDataIndex && isDesktopComposition/g) || []).length,
+    3,
+    "all three inline labels remain desktop-only"
+  );
+  assert.ok(
+    packValue.includes("rightExtra: isDesktopComposition ? 104 : 0"),
+    "the extra right margin is added to the shared inset, not substituted for it"
+  );
 });
 
 test("the three series values survive when the inline end labels do not", () => {
   // Expected Value / Typical Return / Realistic Upside are relocated, never
   // removed: below 1200px they render in a compact row under the legend.
   assert.ok(packValue.includes("data-latest-values"), "a latest-values row exists below desktop");
-  assert.equal(
-    (packValue.match(/index === latestDataIndex && isDesktopComposition/g) || []).length,
-    3,
-    "all three inline labels are desktop-only"
-  );
   assert.ok(
     !/index === latestDataIndex(?! &&)/.test(packValue),
     "no inline label may stay ungated"
   );
-  // The relocated row carries the same three series, with the same colours.
   for (const token of ["seriesLabels.mean", "seriesLabels.median", "seriesLabels.p95"]) {
     const row = packValue.slice(packValue.indexOf("data-latest-values"), packValue.indexOf("</dl>"));
     assert.ok(row.includes(token), `${token} must appear in the latest-values row`);

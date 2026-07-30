@@ -13,7 +13,13 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
+import {
+  MINIMAL_Y_AXIS_PROPS,
+  buildEdgeDateTicks,
+  getMinimalPlotMargin,
+} from "@/components/explore/minimalChartAxis.mjs";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
@@ -448,19 +454,9 @@ export default function PackValueHistoryChart({
   );
 
   const yAxisUpperBound = useMemo(() => getHistoricalRatioYAxisMax(chartData), [chartData]);
-  // Below 1200px the x-axis shows only the first and last date in the series.
-  // undefined on desktop so Recharts keeps its own preserveStartEnd spacing.
-  const mobileEdgeDateTicks = useMemo(() => {
-    if (isDesktopComposition || chartData.length === 0) {
-      return undefined;
-    }
-    const first = chartData[0]?.snapshotDate;
-    const last = chartData[chartData.length - 1]?.snapshotDate;
-    if (!first) {
-      return undefined;
-    }
-    return last && last !== first ? [first, last] : [first];
-  }, [chartData, isDesktopComposition]);
+  // One date system at every width, shared with Set Value Trend: the first and
+  // last date of the visible series and nothing between them.
+  const edgeDateTicks = useMemo(() => buildEdgeDateTicks(chartData, "snapshotDate"), [chartData]);
   const yAxisTicks      = useMemo(() => buildRatioTicks(yAxisUpperBound), [yAxisUpperBound]);
 
   const latestDataIndex = chartData.length - 1;
@@ -570,11 +566,15 @@ export default function PackValueHistoryChart({
 
       <ChartFrame className={flush ? "mt-3 min-h-[17rem] w-full flex-1 tab:min-h-[21rem] desk:min-h-[24rem]" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
-          {/* The 112px right margin exists only to park the inline end-of-series
-              labels. Below desktop those move to the data-latest-values row, so
-              the plot gets that width back instead of spending a third of a
-              phone screen on empty gutter. */}
-          <LineChart data={chartData} margin={{ top: 10, right: isDesktopComposition ? 112 : 12, left: 6, bottom: isDesktopComposition ? 14 : 6 }}>
+          {/* Shared insets from minimalChartAxis, so Overview and Insights (and
+              the Analysis rendering) cannot drift apart. The extra right margin
+              exists only to park the inline end-of-series labels, which are
+              still a desktop-only presentation of the same three latest values
+              the compact row carries below 1200px. */}
+          <LineChart
+            data={chartData}
+            margin={getMinimalPlotMargin({ top: 10, bottom: 6, rightExtra: isDesktopComposition ? 104 : 0 })}
+          >
             <defs>
               <filter id={lineGlowFilterId} x="-10%" y="-16%" width="120%" height="132%">
                 <feGaussianBlur stdDeviation="1.6" />
@@ -582,36 +582,33 @@ export default function PackValueHistoryChart({
             </defs>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
-            {/* Below 1200px the x-axis carries only the first and last date —
-                enough to place the series in time — instead of a row of
-                intermediate ticks. Exact values stay available by tap/scrub
-                through the tooltip. Desktop keeps preserveStartEnd. */}
+            {/* The x-axis carries only the first and last date — enough to
+                place the series in time — at every width. Exact values stay
+                available by hover and by tap/scrub through the tooltip. The
+                two edge dates are anchored inward so the SVG cannot clip them. */}
             <XAxis
               dataKey="snapshotDate"
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tick={<ChartEdgeDateTick ticks={edgeDateTicks} formatter={formatShortDate} dy={14} />}
               tickFormatter={formatShortDate}
               tickMargin={12}
-              minTickGap={isDesktopComposition ? 22 : 0}
-              {...(mobileEdgeDateTicks
-                ? { ticks: mobileEdgeDateTicks, interval: 0 }
-                : { interval: "preserveStartEnd" })}
+              minTickGap={0}
+              ticks={edgeDateTicks}
+              interval={0}
             />
 
-            {/* The y-axis scale is unchanged; only its tick labels and the
-                60px gutter they needed are dropped below desktop, so the plot
-                uses the full page width. The break-even reference line still
-                carries the one value that has to be readable at a glance. */}
+            {/* The y-axis scale is unchanged — the domain and the tick set still
+                come from the data and still place the gridlines. Only the
+                printed labels and the 60px gutter they needed are gone, so the
+                plot uses the full card width at every size. The break-even
+                reference line still carries the one value that has to be
+                readable at a glance. */}
             <YAxis
+              {...MINIMAL_Y_AXIS_PROPS}
               domain={[0, yAxisUpperBound]}
               ticks={yAxisTicks}
-              tickLine={false}
-              axisLine={false}
-              tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}
               tickFormatter={formatRatio}
-              tickMargin={10}
-              width={isDesktopComposition ? 60 : 0}
             />
 
             {/* See SetValueLineChart: tap on touch, hover on mouse, both at

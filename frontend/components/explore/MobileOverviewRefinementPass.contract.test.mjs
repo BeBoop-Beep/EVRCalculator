@@ -169,7 +169,7 @@ test("below 1200px Decision Signals renders the compact list, not the stacked ro
 
 test("the compact row exposes exactly the four scan fields in order", () => {
   assert.ok(
-    compactList.includes("grid-cols-[minmax(0,1fr)_3.5rem_2.75rem_2.75rem]"),
+    compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem]"),
     "a stable signal / score / tier / rank grid"
   );
   assert.ok(compactList.includes("{signal.label}"), "signal name");

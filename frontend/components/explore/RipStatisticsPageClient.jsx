@@ -18,7 +18,13 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
+import {
+  MINIMAL_Y_AXIS_PROPS,
+  buildEdgeDateTicks,
+  getMinimalPlotMargin,
+} from "@/components/explore/minimalChartAxis.mjs";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import CompactRankedBarChart from "@/components/explore/CompactRankedBarChart";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
@@ -2107,17 +2113,6 @@ function formatShortDate(value) {
   return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value).slice(0, 10);
 }
 
-function formatCompactDay(value) {
-  if (!value) {
-    return "";
-  }
-  const dateKey = getHistoryDateKey(value);
-  if (dateKey) {
-    return String(Number(dateKey.slice(8, 10)));
-  }
-  return String(value).slice(8, 10) || String(value).slice(0, 10);
-}
-
 function formatLongDate(value) {
   if (!value) {
     return "Date unavailable";
@@ -2497,7 +2492,17 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
       }
       // touch-pan-y emits touch-action: pan-y - the browser keeps vertical
       // scrolling and this component gets horizontal movement for scrubbing.
-      className={["group relative z-[60] touch-pan-y overflow-visible rounded-lg", className].filter(Boolean).join(" ")}
+      //
+      // z-30, and it must stay below the pinned set-control block.
+      // `.dashboard-container` is `isolate`, so this element and
+      // `.set-detail-sticky-tabs` (z-index 40) are painted in the SAME stacking
+      // context. At 60 — the value this carried — every Top Chase sparkline
+      // drew straight over the pinned block as its row scrolled underneath,
+      // which is what read as the title card being see-through. The tooltip
+      // below is scoped to this element's stacking context, so it rides on this
+      // value too: 30 still clears sibling rows and card chrome (all z-auto)
+      // while staying beneath the pinned block.
+      className={["group relative z-30 touch-pan-y overflow-visible rounded-lg", className].filter(Boolean).join(" ")}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -2703,8 +2708,9 @@ function getCanonicalChecklistSetValueMetrics({
 
 function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Checklist" }) {
   const isCoarsePointer = usePointerMode() === POINTER_MODE_COARSE;
-  // `true` on the server and first paint so desktop never flashes a mobile axis.
-  const isDesktopComposition = useMediaQuery("(min-width: 1200px)", true);
+  // No width branch left to make: the axis treatment is now identical at every
+  // size, so this chart no longer reads the desktop composition at all. Pointer
+  // mode still decides tap-vs-hover, which is a capability, not a width.
   const chartId = useId().replace(/:/g, "");
   let previousValuedPoint = null;
   const numericPoints = (Array.isArray(points) ? points : [])
@@ -2749,19 +2755,11 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
   const yAxisTicks = buildCurrencyTicks(valuedPoints);
   const yMin = Math.max(0, Math.min(...yAxisTicks, minValue - range * 0.14));
   const yMax = Math.max(...yAxisTicks, maxValue + range * 0.14);
-  const showEveryDayTick = numericPoints.length <= 8;
-  // Below 1200px the x-axis carries only the first and last date. Desktop keeps
-  // the existing every-day / preserveStartEnd behaviour untouched.
-  const mobileEdgeDateTicks =
-    isDesktopComposition || numericPoints.length === 0
-      ? undefined
-      : (() => {
-          const first = numericPoints[0]?.date;
-          const last = numericPoints[numericPoints.length - 1]?.date;
-          if (!first) return undefined;
-          return last && last !== first ? [first, last] : [first];
-        })();
-  const xAxisTicks = mobileEdgeDateTicks ?? (showEveryDayTick ? numericPoints.map((point) => point.date) : undefined);
+  // One date system at every width: the first and last date of the visible
+  // series, printed on the axis directly under the line they describe. The
+  // every-day / preserveStartEnd desktop tick set and the external bookend-date
+  // row it used to pair with are both gone — see minimalChartAxis.mjs.
+  const edgeDateTicks = buildEdgeDateTicks(numericPoints, "date");
   const trendColor =
     trendDirection === "negative"
       ? NEGATIVE_VALUE_COLOR
@@ -2775,7 +2773,13 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
     <div className="min-h-[16rem] w-full tab:min-h-[20rem] desk:min-h-[21rem]">
       <ChartFrame className="h-[16rem] w-full tab:h-[20rem] desk:h-[21rem]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={numericPoints} margin={{ top: isDesktopComposition ? 12 : 6, right: isDesktopComposition ? 18 : 10, left: 0, bottom: isDesktopComposition ? 8 : 2 }}>
+          {/* Shared insets: with the y-axis reserving no width at any size, a
+              zero left margin would put the first data point exactly on x=0,
+              where the SVG clips half its stroke and all of its 7px glow. */}
+          {/* The completed mobile values become the shared ones, so the phone
+              and tablet plot is byte-identical to before and desktop simply
+              adopts it (it had top 12 / bottom 8 to sit under its old axis). */}
+          <ComposedChart data={numericPoints} margin={getMinimalPlotMargin({ top: 6, bottom: 2 })}>
             <defs>
               <linearGradient id={fillGradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={trendColor} stopOpacity="0.13" />
@@ -2799,34 +2803,27 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
               isAnimationActive={false}
             />
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
+            {/* The two edge dates are the only dates, at every width, and they
+                are anchored inward so the SVG cannot clip them. */}
             <XAxis
               dataKey="date"
-              ticks={xAxisTicks}
+              ticks={edgeDateTicks}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-              tickFormatter={(value) =>
-                mobileEdgeDateTicks
-                  ? formatShortDate(value) || ""
-                  : showEveryDayTick
-                  ? formatCompactDay(value)
-                  : formatShortDate(value) || ""
-              }
-              minTickGap={mobileEdgeDateTicks ? 0 : showEveryDayTick ? 0 : 22}
-              interval={mobileEdgeDateTicks || showEveryDayTick ? 0 : "preserveStartEnd"}
+              tick={<ChartEdgeDateTick ticks={edgeDateTicks} formatter={(value) => formatShortDate(value) || ""} />}
+              tickFormatter={(value) => formatShortDate(value) || ""}
+              minTickGap={0}
+              interval={0}
             />
-            {/* Scale unchanged; below desktop the tick labels and their 44px
-                gutter are dropped so the series uses the full page width.
-                Exact values remain available by tap/scrub. */}
+            {/* Scale unchanged — the domain is still computed from the data and
+                still drives the gridlines. Only the printed labels and the
+                58px gutter they reserved are gone, so the series uses the full
+                card width. Exact values stay available by hover and tap/scrub. */}
             <YAxis
+              {...MINIMAL_Y_AXIS_PROPS}
               domain={[yMin, yMax]}
-              ticks={isDesktopComposition ? yAxisTicks : undefined}
-              tickCount={isDesktopComposition ? undefined : 4}
-              tickLine={false}
-              axisLine={false}
-              tick={isDesktopComposition ? { fill: "var(--text-secondary)", fontSize: 11 } : false}
+              tickCount={4}
               tickFormatter={formatAxisCurrency}
-              width={isDesktopComposition ? 58 : 0}
             />
             {/* Touch gets an explicit tap trigger: it persists after the finger
                 lifts, and it binds click rather than touchmove, so scrolling
@@ -3014,12 +3011,15 @@ function SetValueTrendCard({
 
           <SetValueLineChart key={chartKey} points={chartPoints} trendDirection={trendDirection} scopeLabel={selectedScopeLabel} />
 
-          <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
-            <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
-            <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
+          {/* One date system, at every width. The chart's own axis prints the
+              first and last date directly under the series they describe, so
+              the bookend dates that used to sit either side of this selector
+              stated the same two values a second time. This row is now the
+              scope selector alone. */}
+          <div className="grid min-w-0 grid-cols-1 items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)]">
+            <div className="min-w-0 justify-self-start">
               <SetValueScopeSelector scopes={scopeOptions} value={selectedTrend.scope} onChange={handleSelectedScopeChange} />
             </div>
-            <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
           </div>
         </div>
       )}
@@ -3111,20 +3111,52 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
   //
   // Compact ranked market row below 1200px: rank, small image, name + rarity,
   // and price + movement all share one line inside the link, with the sparkline
-  // spanning beneath it. At desk+ the outer grid restores the historical
-  // four-column reading order (rank | card | trend | price) by placing the
-  // chart sibling into the second column of row 1.
+  // spanning beneath it.
+  //
+  // At 1200px+ the row is the historical four-column table again — rank | card |
+  // trend | price — sharing ONE column template with the header above it. The
+  // mobile composition put the price inside the link, which made a true
+  // four-column desktop row impossible: the price and the sparkline would have
+  // had to interleave across an element boundary, and the only ways to do that
+  // (display:contents on the anchor) destroy the row's hover surface and focus
+  // ring. The price cell is therefore rendered per composition — mobile's
+  // inside the link, desktop's outside it — the same pattern the card image in
+  // this row already uses. Only the wrapper is duplicated; the values, the
+  // window state and the accessible label are computed once above.
   const NavigationRegion = href ? "a" : "div";
+  const priceCell = (
+    <MarketValueChange
+      value={price}
+      changeAmount={displayDeltaAmount}
+      changePercent={displayDelta}
+      windowLabel={getDeltaWindowLabel(selectedWindowKey)}
+      showWindowLabel={false}
+      accessiblePeriodLabel={
+        windowState.displayMovement?.isSinceFirstAvailable
+          ? getMovementAccessiblePeriod({
+              isPartialWindow: true,
+              windowCoverageDays: getDateSpanDays(
+                windowState.displayMovement.startDate,
+                windowState.displayMovement.endDate
+              ),
+            })
+          : null
+      }
+      alignment="right"
+      variant="table-row"
+      accessibleLabel={`${name} market price`}
+    />
+  );
 
   return (
     <div
       data-top-chase-row
-      className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 desk:grid-cols-[minmax(0,1fr)_minmax(9rem,14.5rem)] desk:items-center desk:gap-3 desk:px-3 desk:py-3"
+      className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 max-desk:px-0 desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] desk:items-center desk:gap-3 desk:px-3 desk:py-3"
     >
       <NavigationRegion
         {...(href ? { href, "aria-label": `${name} — open in Cards` } : {})}
         data-row-nav
-        className="grid min-h-11 min-w-0 grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-lg transition-colors hover:bg-[var(--surface-hover)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:grid-cols-[3rem_minmax(0,1fr)_minmax(8rem,10rem)] desk:gap-3"
+        className="grid min-h-11 min-w-0 grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-lg transition-colors hover:bg-[var(--surface-hover)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:col-span-2 desk:col-start-1 desk:row-start-1 desk:grid-cols-[3rem_minmax(0,1fr)] desk:gap-3"
       >
         <span className="self-center text-xs font-semibold tabular-nums text-[var(--text-secondary)]">#{index + 1}</span>
 
@@ -3162,35 +3194,19 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
           </div>
         </div>
 
-        <div className="min-w-0 justify-self-end">
-          <MarketValueChange
-            value={price}
-            changeAmount={displayDeltaAmount}
-            changePercent={displayDelta}
-            windowLabel={getDeltaWindowLabel(selectedWindowKey)}
-            showWindowLabel={false}
-            accessiblePeriodLabel={
-              windowState.displayMovement?.isSinceFirstAvailable
-                ? getMovementAccessiblePeriod({
-                    isPartialWindow: true,
-                    windowCoverageDays: getDateSpanDays(
-                      windowState.displayMovement.startDate,
-                      windowState.displayMovement.endDate
-                    ),
-                  })
-                : null
-            }
-            alignment="right"
-            variant="table-row"
-            accessibleLabel={`${name} market price`}
-          />
+        {/* Mobile/tablet price: on the row's single line, inside the link. */}
+        <div data-row-price="compact" className="min-w-0 justify-self-end desk:hidden">
+          {priceCell}
         </div>
       </NavigationRegion>
 
-      <div data-row-chart className="flex min-w-0 flex-col items-stretch desk:col-start-2 desk:row-start-1 desk:items-center">
+      {/* Trend — the table's third column on desktop, and the full-width strip
+          under the link below it. Start and end dates sit at the lower left and
+          lower right of the plot, outside the graph box, so this stays graph
+          height rather than row height. */}
+      <div data-row-chart className="flex min-w-0 flex-col items-stretch desk:col-start-3 desk:row-start-1 desk:items-center">
         {/* ~48px of plot below desktop (was 32px, which flattened real
-            movement into a decorative line). Date labels sit outside this box,
-            so this is graph height, not row height. */}
+            movement into a decorative line); the restored 56px on desktop. */}
         <CompactSparkline
           points={sparklinePoints}
           trendDirection={sparklineTone}
@@ -3202,6 +3218,17 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
             <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
           </div>
         ) : null}
+      </div>
+
+      {/* Desktop price / change: the table's fourth and final column, outside
+          the link so the sparkline can occupy column three between it and the
+          card. Rendered after the chart so the reading order matches the
+          visual order. */}
+      <div
+        data-row-price="table"
+        className="hidden min-w-0 desk:col-start-4 desk:row-start-1 desk:block desk:justify-self-end"
+      >
+        {priceCell}
       </div>
     </div>
   );
@@ -3402,22 +3429,36 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         onRetry={onRetry}
       />
       {totalRows > 5 ? (
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end max-desk:mt-1 max-desk:justify-center">
           {/* Compact visible label below 1200px; the accessible name stays the
-              full, descriptive wording at every width. */}
+              full, descriptive wording at every width.
+              The list expands in place, downward — so the affordance is a down
+              chevron that flips to point back up when the extra rows are
+              showing. The previous label used a right-pointing arrow, which
+              promises navigation to another destination; there is no such
+              destination, and rows 6-10 appear directly beneath this control. */}
           <button
             type="button"
             onClick={() => setShowAllChaseCards((value) => !value)}
             aria-expanded={showAllChaseCards}
             aria-label={showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:min-h-11 max-desk:border-0 max-desk:bg-transparent max-desk:px-1 max-desk:text-[var(--accent)]"
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:gap-1.5 max-desk:border-0 max-desk:bg-transparent max-desk:px-2 max-desk:text-[var(--accent)]"
           >
             <span aria-hidden="true" className="max-desk:hidden">
               {showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
             </span>
             <span aria-hidden="true" className="hidden max-desk:inline">
-              {showAllChaseCards ? "Show less" : `All ${Math.min(totalRows, 10)} →`}
+              {showAllChaseCards ? "Show less" : "Show more"}
             </span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              data-chase-reveal-chevron
+              className={`hidden h-4 w-4 flex-none transition-transform max-desk:block ${showAllChaseCards ? "rotate-180" : ""}`}
+            >
+              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+            </svg>
           </button>
         </div>
       ) : null}
@@ -6052,18 +6093,21 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
         aria-controls={detailRegionId}
         data-decision-signal-row
         data-selected={isSelected ? "true" : undefined}
-        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3.5rem_2.75rem_2.75rem] items-center gap-x-2 border-b border-[var(--border-subtle)] py-1.5 pl-2 pr-1 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem] items-center gap-x-1.5 border-b border-[var(--border-subtle)] py-1 pl-1.5 pr-0 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
           isSelected
-            ? "-ml-2 border-l-2 border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
-            : "border-l-2 border-l-transparent -ml-2 hover:bg-[var(--surface-hover)]"
+            ? "-ml-1.5 border-l-2 border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+            : "border-l-2 border-l-transparent -ml-1.5 hover:bg-[var(--surface-hover)]"
         }`}
       >
         <span className="truncate text-xs font-medium text-[var(--text-primary)]">{signal.label}</span>
         <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
           {signal.scoreText || "—"}
         </span>
+        {/* `compact` + the badge's own whitespace-nowrap keep this reading as
+            one line ("S Tier"), not a two-line "S" over "Tier" — the column is
+            sized from the pill rather than the pill squeezed into the column. */}
         <span className="flex justify-center">
-          <RankBadge rank={signal.rankTier} format="tier" size="supporting" subtle />
+          <RankBadge rank={signal.rankTier} format="tier" size="compact" subtle />
         </span>
         <span className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]">
           {rankLabel === null ? (
@@ -6080,7 +6124,7 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
   };
 
   const groupLabel = (text) => (
-    <p className="px-0 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:pt-0">
+    <p className="px-0 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:pt-0">
       {text}
     </p>
   );
@@ -6091,7 +6135,7 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
           names on every row. */}
       <div
         aria-hidden="true"
-        className="grid grid-cols-[minmax(0,1fr)_3.5rem_2.75rem_2.75rem] items-center gap-x-2 border-b border-[var(--border-subtle)] pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+        className="grid grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem] items-center gap-x-1.5 border-b border-[var(--border-subtle)] pb-1 pl-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
       >
         <span />
         <span className="text-right">Score</span>
@@ -6119,7 +6163,7 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
         id={detailRegionId}
         aria-live="polite"
         data-decision-signal-detail
-        className="mt-3 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-3 py-2"
+        className="mt-2 min-h-[2.5rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"
       >
         {selectedSignal ? (
           <p className="text-xs leading-snug text-[var(--text-primary)]">
@@ -13131,7 +13175,15 @@ export default function RipStatisticsPageClient({
                 <div
                   id="set-detail-content"
                   data-set-detail-sticky-tabs
-                  className="set-detail-sticky-tabs !mt-0 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
+                  // Below 1200px this block is pinned, and a pinned control has
+                  // to read as a solid surface: at 96% opacity plus a blur, the
+                  // bright chart strokes underneath stayed clearly legible
+                  // through it as the page scrolled. The opacity and the blur
+                  // are therefore desktop-only utilities rather than a CSS
+                  // override — `important: true` in tailwind.config.js makes
+                  // every utility !important, so a plain rule in globals.css
+                  // could never win against them. Desktop keeps the glass.
+                  className="set-detail-sticky-tabs !mt-0 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] desk:bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] desk:backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
                   aria-busy={isTabNavPending}
                 >
                   {/* Below 1200px the set picker is the top row of this same
@@ -13427,8 +13479,18 @@ export default function RipStatisticsPageClient({
                                       <span>{getFriendlyMetricLabel(metric.label)}</span>
                                       {getMetricTooltip(metric.label) ? <InfoPopover text={getMetricTooltip(metric.label)} /> : null}
                                     </dt>
+                                    {/* One right column for every value. The trend
+                                        arrow renders only for some metrics, so
+                                        with the arrow trailing the number each
+                                        row ended at a different x and the column
+                                        read as ragged. Reversing the pair below
+                                        desktop puts the arrow on the inside and
+                                        pins every value — arrow or not — to the
+                                        same right edge, which the helper line
+                                        below then shares. Desktop keeps the
+                                        original number-then-arrow order. */}
                                     <dd className="justify-self-end whitespace-nowrap text-sm font-semibold tabular-nums text-[var(--text-primary)] desk:justify-self-auto desk:whitespace-normal">
-                                      <span className="inline-flex items-center gap-1.5">
+                                      <span className="inline-flex items-center gap-1.5 max-desk:flex-row-reverse">
                                         {metric.value}
                                         <OpeningMetricTrendIndicator
                                           trend={metric.trend}
@@ -13436,7 +13498,7 @@ export default function RipStatisticsPageClient({
                                         />
                                       </span>
                                     </dd>
-                                    <dd className="col-span-2 text-[11px] font-normal leading-tight text-[var(--text-secondary)] desk:col-span-1">
+                                    <dd className="col-span-2 text-[11px] font-normal leading-tight text-[var(--text-secondary)] max-desk:text-right desk:col-span-1">
                                       {metric.label === RIP_COPY.simpleMetrics.averagePackValue && headerExpectedLossText
                                         ? (
                                         <span>

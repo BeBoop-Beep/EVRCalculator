@@ -20,13 +20,64 @@ const module_ = source.slice(
 
 test("the mobile row is a compact ranked row, not a stacked card", () => {
   // Rank, small image, name+rarity and price+movement share one line; the
-  // sparkline spans beneath it.
+  // sparkline spans beneath it. Unchanged by the desktop restoration.
   assert.ok(row.includes("grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto]"), "the compact mobile grid is in place");
-  // Desktop keeps its four reading columns: rank | card | trend | price. The
-  // trend is now a sibling placed into the second column of the outer grid.
-  assert.ok(row.includes("desk:grid-cols-[minmax(0,1fr)_minmax(9rem,14.5rem)]"), "the outer desktop grid reserves the trend column");
-  assert.ok(row.includes("desk:grid-cols-[3rem_minmax(0,1fr)_minmax(8rem,10rem)]"), "the desktop link keeps rank, card and price");
-  assert.ok(row.includes("desk:col-start-2 desk:row-start-1"), "the trend column sits beside the link at desktop");
+  assert.ok(row.includes('data-row-price="compact"'), "the compact price stays on the row's single line");
+  assert.ok(row.includes("desk:hidden"), "the compact price is mobile/tablet only");
+});
+
+test("the desktop row is the four-column table again: rank | card | trend | price", () => {
+  // The mobile composition briefly rendered rank | card | PRICE | trend, because
+  // the price had moved inside the link and the chart could only be placed after
+  // it. The row now declares the historical four-column template directly.
+  assert.ok(
+    row.includes("desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)]"),
+    "the restored desktop column template"
+  );
+  assert.ok(!row.includes("desk:grid-cols-[minmax(0,1fr)_minmax(9rem,14.5rem)]"), "the two-column regression is gone");
+
+  // Columns 1-2 are the link (rank, card); 3 is the trend; 4 is the price.
+  assert.ok(row.includes("desk:col-span-2 desk:col-start-1 desk:row-start-1"), "the link owns columns one and two");
+  assert.ok(row.includes("desk:grid-cols-[3rem_minmax(0,1fr)]"), "the link splits into rank and card only");
+  assert.ok(row.includes("desk:col-start-3 desk:row-start-1"), "the trend is column three");
+  assert.ok(row.includes("desk:col-start-4 desk:row-start-1"), "the price is column four");
+  assert.ok(row.includes('data-row-price="table"'), "the desktop price cell is identifiable");
+
+  // Order, not just placement: the sparkline must precede the price cell.
+  assert.ok(
+    row.indexOf("desk:col-start-3") < row.indexOf("desk:col-start-4"),
+    "the trend renders before the price so reading order matches visual order"
+  );
+});
+
+test("the desktop price column never holds the chart, and the trend column never holds the price", () => {
+  const chartStart = row.indexOf("data-row-chart");
+  const chartEnd = row.indexOf('data-row-price="table"');
+  assert.ok(chartStart >= 0 && chartEnd > chartStart, "both regions must be locatable and ordered");
+  const chartRegion = row.slice(chartStart, chartEnd);
+  assert.ok(chartRegion.includes("<CompactSparkline"), "the sparkline lives in the trend region");
+  assert.ok(!chartRegion.includes("MarketValueChange"), "no price or delta may render in the trend column");
+  const priceRegion = row.slice(chartEnd);
+  assert.ok(priceRegion.includes("priceCell"), "the price region renders the shared price cell");
+  assert.ok(!priceRegion.includes("CompactSparkline"), "no sparkline may render in the price column");
+});
+
+test("the desktop sparkline dimensions are the restored ones", () => {
+  // 56px tall, capped at 13.75rem, centred in its column — the pre-mobile values
+  // recovered from f310ee8.
+  assert.ok(row.includes('className="h-12 w-full desk:h-14 desk:max-w-[13.75rem]"'), "restored desktop plot box");
+  assert.ok(row.includes("desk:items-center"), "the plot is centred in the trend column");
+  assert.ok(row.includes("desk:max-w-[13.75rem] desk:text-[10px]"), "the start/end dates keep the plot's width and desktop size");
+  assert.ok(row.includes("desk:px-3 desk:py-3"), "the restored desktop row padding");
+  assert.ok(row.includes("h-[4.875rem] w-14"), "the restored desktop card image box");
+});
+
+test("the price cell is computed once and rendered per composition", () => {
+  // Duplicating the wrapper is the same pattern the card image already uses;
+  // duplicating the computation would be a data risk.
+  assert.equal((row.match(/const priceCell = \(/g) || []).length, 1, "one price cell definition");
+  assert.equal((row.match(/<MarketValueChange/g) || []).length, 1, "one MarketValueChange instance");
+  assert.equal((row.match(/\{priceCell\}/g) || []).length, 2, "rendered in exactly the two compositions");
 });
 
 test("every field the brief lists survives in the row", () => {

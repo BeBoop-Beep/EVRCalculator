@@ -58,13 +58,26 @@ test("the feed reset only lands after the desktop glass rules", () => {
   );
 });
 
-test("page gutters are 16px on phones and 24px on tablets", () => {
-  // Four strings: contentFramed + contentFlat in each of the two recipes.
+test("page gutters are tightened only for the set page's own recipe", () => {
+  // The `desk` recipe is selected exclusively by the set detail page, whose
+  // Overview strips its own card padding below 1200px — so the scaffold gutter
+  // is the last horizontal inset before the charts and 16/24px was spending
+  // width the plots need. It drops to 12/16px there. The `xl` recipe still
+  // serves Explore, the collection and public profiles, which keep their cards,
+  // so its 16/24px gutters are unchanged.
+  assert.equal(
+    (scaffold.match(/px-3 pt-3 tab:px-4/g) || []).length,
+    2,
+    "the desk recipe carries the tighter gutters in both content variants"
+  );
   assert.equal(
     (scaffold.match(/px-4 pt-3 tab:px-6/g) || []).length,
-    4,
-    "both breakpoint recipes carry the brief's gutters in both content variants"
+    2,
+    "the xl recipe keeps the original gutters in both content variants"
   );
+  const deskRecipe = scaffold.slice(scaffold.indexOf("  desk: {"), scaffold.indexOf("};", scaffold.indexOf("  desk: {")));
+  assert.ok(!deskRecipe.includes("px-4 pt-3 tab:px-6"), "no untightened string survives in the set page recipe");
+  assert.ok(deskRecipe.includes("desk:px-0"), "the desktop gutter is still owned by the content shell");
   assert.ok(!scaffold.includes("px-3 pt-3 sm:px-6"), "the old gutter is gone from every recipe");
 });
 

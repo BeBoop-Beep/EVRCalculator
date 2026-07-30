@@ -141,10 +141,29 @@ test("the compact sparkline is tall enough to read as a trend", () => {
 });
 
 test("the reveal control is compact but keeps a descriptive accessible name", () => {
-  assert.ok(chaseModule.includes("All ${Math.min(totalRows, 10)} →") || chaseModule.includes("All ${Math.min(totalRows, 10)}"));
+  // Superseding the earlier "All 10 →" label: the affordance must match the
+  // direction the list actually grows. See the dedicated expansion test below.
+  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : "Show more"'));
   assert.ok(chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards"'), "the accessible name stays descriptive");
   assert.ok(chaseModule.includes("aria-expanded={showAllChaseCards}"));
   assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"), "five preview, ten on reveal");
+});
+
+test("the reveal control reads as a downward expansion, not as navigation", () => {
+  // The extra rows appear directly below the control, in place. A right-pointing
+  // arrow promises a separate destination, and there is none.
+  assert.ok(!chaseModule.includes("→"), "no right-arrow affordance on the reveal control");
+  assert.ok(chaseModule.includes("data-chase-reveal-chevron"), "a chevron carries the direction");
+  assert.ok(
+    chaseModule.includes("${showAllChaseCards ? \"rotate-180\" : \"\"}"),
+    "the chevron points down to expand and flips up once expanded"
+  );
+  assert.ok(
+    chaseModule.includes("max-desk:block"),
+    "the chevron is part of the mobile/tablet treatment"
+  );
+  // Desktop wording is untouched.
+  assert.ok(chaseModule.includes('`View all chase cards (${Math.min(totalRows, 10)})`'));
 });
 
 test("chart interaction still cannot navigate", () => {

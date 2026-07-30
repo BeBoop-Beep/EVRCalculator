@@ -81,9 +81,15 @@ const SCAFFOLD_BREAKPOINTS = {
     toolsTrigger: "hidden lg:flex desk:hidden items-center mb-3",
     bottomNavHidden: "desk:hidden",
     toolsPanelHidden: "desk:hidden",
+    // Tighter gutters than the `xl` recipe. This recipe is selected only by the
+    // set detail page (desktopBreakpoint="desk"), whose Overview strips its own
+    // card padding below 1200px — so the scaffold gutter is the ONLY horizontal
+    // inset left before the charts, and 16/24px was spending width the plots
+    // need. 12px on a phone and 16px on a tablet still read as a deliberate
+    // gutter rather than a bleed. Desktop (desk:px-0 / desk:px-4) is untouched.
     contentFramed:
-      "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 desk:overflow-x-visible desk:rounded-3xl desk:border desk:border-[var(--border-subtle)] desk:bg-[var(--surface-page)]/70 desk:px-4 desk:py-4 2xl:px-5 2xl:py-5",
-    contentFlat: "min-w-0 overflow-x-clip px-4 pt-3 tab:px-6 desk:overflow-x-visible desk:px-0 desk:pt-0",
+      "min-w-0 overflow-x-clip px-3 pt-3 tab:px-4 desk:overflow-x-visible desk:rounded-3xl desk:border desk:border-[var(--border-subtle)] desk:bg-[var(--surface-page)]/70 desk:px-4 desk:py-4 2xl:px-5 2xl:py-5",
+    contentFlat: "min-w-0 overflow-x-clip px-3 pt-3 tab:px-4 desk:overflow-x-visible desk:px-0 desk:pt-0",
     // No stacked gap below desktop — the set page owns its own section rhythm.
     rootSpacing: "space-y-0 desk:space-y-6",
   },

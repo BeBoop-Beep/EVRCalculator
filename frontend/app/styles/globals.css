@@ -952,6 +952,13 @@ body::-webkit-scrollbar-thumb:hover {
        instead of the bottom-only pairing it has under the desktop hero. */
     border-top-width: 1px;
     border-radius: 0.75rem;
+    /* The opaque background and the absence of a backdrop blur below desktop
+       are NOT set here. `important: true` in tailwind.config.js makes every
+       utility !important, so a plain rule in this file cannot beat the
+       element's own background and backdrop-filter classes no matter its
+       specificity or source order. Those two are therefore gated with `desk:`
+       variants on the element itself — see the set-detail-sticky-tabs
+       className in RipStatisticsPageClient.jsx. */
   }
 
   /* backdrop-filter creates a stacking context. A chart tooltip inside a glass
