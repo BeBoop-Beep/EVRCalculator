@@ -1008,4 +1008,47 @@ body::-webkit-scrollbar-thumb:hover {
     margin-inline: auto;
     width: 100%;
   }
+
+  /* The selected row in a compact mobile analytical list — the RIP Score
+     Breakdown, Simulation Drivers and Metrics all share this one treatment so
+     the three read as the same interaction rather than three lookalikes.
+
+     The base fill is the OPAQUE page surface, set as a Tailwind utility on the
+     element (`bg-[var(--surface-page)]`, which is !important and would win
+     here anyway). That is deliberate: these lists sit directly above charts and
+     the page wash, and a translucent highlight let that content read through
+     the selected row. The accent arrives as a gradient tint ON TOP of that
+     opaque base, so the row stays readable at every scroll position.
+
+     The glow is the same restrained accent the lens tiles already use — a hair
+     of inner bloom plus a halo hugging the left rail. `blur + spread <= 0`
+     keeps the halo clipped to the rail instead of becoming a perimeter outline
+     around the row, and there is no animation and no filter, so this costs no
+     continuous work. Colours come from --accent, so both themes follow. */
+  .compact-row-selected {
+    background-image: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 15%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 6%, transparent) 45%,
+      color-mix(in srgb, var(--accent) 0%, transparent) 92%
+    );
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent),
+      -9px 0 14px -14px color-mix(in srgb, var(--accent) 75%, transparent);
+  }
+
+  /* The shared detail region continues the selected row's rail rather than
+     drawing a second, unrelated boundary beside it. */
+  .compact-row-detail {
+    border-left-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  /* The row's colour transition is a state change, not decoration, but a reader
+     who asked for less motion gets none of it. */
+  @media (prefers-reduced-motion: reduce) {
+    .compact-row-selected,
+    [data-compact-row] {
+      transition: none;
+    }
+  }
 }

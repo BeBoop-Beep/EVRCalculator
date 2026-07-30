@@ -64,7 +64,7 @@ test("the two compositions are mutually exclusive by class", () => {
   // area, so it no longer carries the standalone top margin it needed when it
   // sat below the tab bar. What must hold is that it is still desk:hidden.
   assert.ok(
-    source.includes('<div data-set-sticky-picker className="desk:hidden">'),
+    source.includes('data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">'),
     "the mobile hero is hidden at desktop"
   );
   assert.ok(

@@ -61,7 +61,12 @@ test("no section re-adds a horizontal inset inside the already-flush feed", () =
   );
   assert.ok(openingEconomics.includes("px-0 py-1.5"), "the OPvC metric rows are flush below desktop");
   assert.ok(openingEconomics.includes("desk:px-3 desk:py-2"), "desktop keeps its column padding");
-  assert.ok(compactList.includes("pl-1.5 pr-0"), "the Decision Signals rows reach the right edge");
+  // `pr-0` did not make the row reach the edge. Paired with the `-ml-1.5` the
+  // row also carried, it made the row STOP 6px short of the right edge its own
+  // column header reaches, with the rank pinned to that short edge. The row is
+  // symmetrically inset now — see DecisionSignalsEdge.contract.test.mjs.
+  assert.ok(compactList.includes("pl-1.5 pr-1.5"), "the Decision Signals rows stay inside the feed edge");
+  assert.ok(!compactList.includes("pr-0"), "the row no longer drops its trailing padding");
 });
 
 test("the feed reset still zeroes the card padding it is responsible for", () => {
@@ -215,13 +220,13 @@ test("the tier column is sized from the pill, not the pill squeezed into the col
   assert.ok(rankBadge.includes('className: "gap-1 px-2 py-0.5 text-[10px]"'));
   assert.ok(compactList.includes('size="compact"'), "the compact list uses it");
   assert.ok(!compactList.includes('size="supporting"'), "the oversized pill is gone from the compact list");
-  const tierTrack = /grid-cols-\[minmax\(0,1fr\)_3rem_(3\.25rem)_2\.25rem\]/.exec(compactList);
+  const tierTrack = /grid-cols-\[minmax\(0,1fr\)_3rem_(3\.5rem)_2\.5rem\]/.exec(compactList);
   assert.ok(tierTrack, "the tier track is wider than the pill it holds");
 });
 
 test("the header and the rows share one column system", () => {
   assert.equal(
-    (compactList.match(/grid-cols-\[minmax\(0,1fr\)_3rem_3\.25rem_2\.25rem\]/g) || []).length,
+    (compactList.match(/grid-cols-\[minmax\(0,1fr\)_3rem_3\.5rem_2\.5rem\]/g) || []).length,
     2,
     "the column header and the row grid must not drift apart"
   );
@@ -230,7 +235,7 @@ test("the header and the rows share one column system", () => {
 
 test("vertical bulk is reduced without losing the touch target", () => {
   assert.ok(compactList.includes("min-h-11"), "44px rows survive the compaction");
-  assert.ok(compactList.includes("py-1 pl-1.5 pr-0"), "row padding is tightened");
+  assert.ok(compactList.includes("py-1 pl-1.5 pr-1.5"), "row padding is tightened");
   assert.ok(compactList.includes("pb-0.5 pt-2"), "group labels are tightened");
   assert.ok(
     compactList.includes('className="mt-2 min-h-[2.5rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"'),
@@ -363,7 +368,10 @@ test("every change below 1200px is gated so desktop composition is unchanged", (
     client.includes("relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1"),
     "the desktop context header keeps its composition"
   );
-  assert.ok(client.includes('<div data-set-sticky-picker className="desk:hidden">'), "the sticky picker row is mobile-only");
+  // The row also carries `data-set-picker` + `relative z-30` so the open menu
+  // clears the tab strip (see SetPickerLayeringAndNavigation); what this pass
+  // locks is that the row itself stays below-desktop only.
+  assert.ok(client.includes('data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">'), "the sticky picker row is mobile-only");
   assert.ok(
     between(client, "function DecisionSignalsCard(", "// A Profit / Safety / Stability card.").includes(
       '<div className="hidden desk:block">'

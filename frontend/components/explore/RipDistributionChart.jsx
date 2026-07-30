@@ -191,24 +191,67 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick }) {
     return null;
   }
 
+  const activeMarker = markerRows.find((marker) => marker.key === activeMarkerKey) || null;
+
   return (
-    <div className="mt-4 flex flex-wrap gap-2">
-      {markerRows.map((marker) => (
-        <button
-          key={marker.key}
-          type="button"
-          onClick={() => onMarkerClick(marker.key)}
-          aria-pressed={activeMarkerKey === marker.key}
-          className={`inline-flex h-7 items-center rounded-full border px-3 text-xs transition-colors ${
-            activeMarkerKey === marker.key
-              ? "border-[var(--brand)] bg-[color:color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--text-primary)]"
-              : "border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          }`}
-        >
-          {marker.label}: <span className="ml-1 font-semibold text-[var(--text-primary)]">{formatCompactCurrency(marker.value)}</span>
-        </button>
-      ))}
-    </div>
+    <>
+      {/* Below 600px the selectors are a two-column grid rather than a flex
+          wrap: eight chips of eight different widths wrapped raggedly and could
+          leave a lone chip on its own row, so the block was taller and looked
+          accidental. Two even columns fix both. From 600px up the wrap already
+          fits several per row, so it is left alone. */}
+      <div className="mt-4 flex flex-wrap gap-2 max-desk:mt-2 max-desk:gap-1 max-tab:grid max-tab:grid-cols-2">
+        {markerRows.map((marker) => (
+          <button
+            key={marker.key}
+            type="button"
+            onClick={() => onMarkerClick(marker.key)}
+            aria-pressed={activeMarkerKey === marker.key}
+            // The value stays in the accessible name and the tooltip at every
+            // width, so dropping it from the visible face below desktop hides
+            // no data from anyone — it only stops each chip from being a card.
+            aria-label={`${marker.label}: ${formatCompactCurrency(marker.value)}`}
+            title={`${marker.label}: ${formatCompactCurrency(marker.value)}`}
+            data-distribution-marker-chip
+            // 40px instead of 44px, and centred: in the phone grid the chip is
+            // stretched to its column, so the target is the full cell and the
+            // height can come down a step without becoming hard to hit.
+            className={`inline-flex h-7 items-center rounded-full border px-3 text-xs transition-colors max-desk:h-auto max-desk:min-h-10 max-desk:justify-center max-desk:px-2 max-desk:text-[11px] ${
+              activeMarkerKey === marker.key
+                ? "border-[var(--brand)] bg-[color:color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--text-primary)]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            {/* Below 1200px the chip is a label-only selector. Six chips that
+                each carried "Label: $0.00" wrapped to three rows of numeric
+                cards under a chart that already plots those numbers. */}
+            <span className="whitespace-nowrap desk:hidden">{marker.label}</span>
+            <span className="hidden desk:inline">
+              {marker.label}: <span className="ml-1 font-semibold text-[var(--text-primary)]">{formatCompactCurrency(marker.value)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ONE compact active-value readout below desktop, replacing the value
+          that used to sit on every chip. The selected marker also draws its own
+          label+value callout on the plot, so the number is never more than the
+          current selection away. */}
+      <p
+        data-distribution-active-readout
+        aria-live="polite"
+        className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] desk:hidden"
+      >
+        {activeMarker ? (
+          <>
+            <span className="font-semibold text-[var(--text-primary)]">{activeMarker.label}</span>{" "}
+            <span className="tabular-nums text-[var(--text-primary)]">{formatCompactCurrency(activeMarker.value)}</span>
+          </>
+        ) : (
+          "Select a marker to place it on the chart."
+        )}
+      </p>
+    </>
   );
 }
 
@@ -275,6 +318,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
   const [showBars, setShowBars] = useState(true);
   const [showLine, setShowLine] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isBelowDesktop, setIsBelowDesktop] = useState(false);
   const [chartContainerWidth, setChartContainerWidth] = useState(0);
   const chartContainerRef = useRef(null);
   const hasThresholdBins = Array.isArray(thresholdBins) && thresholdBins.length > 0;
@@ -284,6 +328,20 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
     const mq = window.matchMedia("(max-width: 767px)");
     setIsMobile(mq.matches);
     const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // A SEPARATE flag from `isMobile` above, on purpose. `isMobile` is 767px and
+  // drives tick density and the marker layout — the approved graph behaviour,
+  // which this pass does not touch. Axis-label suppression is a below-DESKTOP
+  // decision and uses the project's own 1199.98px boundary, so the tablet band
+  // gets the recovered width too without inheriting phone tick density.
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const mq = window.matchMedia("(max-width: 1199.98px)");
+    setIsBelowDesktop(mq.matches);
+    const handler = (e) => setIsBelowDesktop(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
@@ -685,10 +743,15 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
         </div>
       </div>
 
-      <div ref={chartContainerRef} className="mt-4 h-[20rem] w-full max-w-full min-w-0 sm:h-[23rem]">
+      {/* The plot's own height is unchanged at every width — only the air above
+          it comes in below 1200px, which lifts the whole control set. */}
+      <div ref={chartContainerRef} className="mt-4 h-[20rem] w-full max-w-full min-w-0 max-desk:mt-2 sm:h-[23rem]">
         <ChartFrame className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={combinedData} margin={isMobile ? { top: 8, right: 8, left: 0, bottom: 8 } : { top: 8, right: 56, left: 4, bottom: 8 }}>
+          {/* The 56px right inset existed to hold the percentage axis. Below
+              desktop that axis draws nothing, so the inset is returned to the
+              plot instead of being reserved for absent labels. */}
+          <ComposedChart data={combinedData} margin={isBelowDesktop ? { top: 8, right: 8, left: 0, bottom: 8 } : { top: 8, right: 56, left: 4, bottom: 8 }}>
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
 
             <XAxis
@@ -710,23 +773,33 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
               dy={8}
             />
 
+            {/* The left axis already renders no ticks at any width — it exists
+                only to scale the bars. Below desktop it also gives up its 12px
+                gutter. */}
             <YAxis
               yAxisId="left"
               orientation="left"
               tickLine={false}
               axisLine={false}
-              width={isMobile ? 0 : 12}
+              width={isBelowDesktop ? 0 : 12}
               tick={false}
             />
 
+            {/* The percentage axis keeps its DOMAIN below desktop — the Chance
+                to Reach line is still scaled 0-100 and its exact value is still
+                in the tooltip — but renders no ticks and reserves no width, so
+                0% / 25% / 50% / 75% / 100% stop spending a phone's horizontal
+                budget on numbers the curve's shape already communicates.
+                `width: 0` + `tick: false` is the same suppression the left axis
+                has always used, so the scale is provably unaffected. */}
             <YAxis
               yAxisId="right"
               orientation="right"
               domain={[0, 100]}
               tickLine={false}
               axisLine={false}
-              width={isMobile ? 32 : 44}
-              tick={{ fill: "var(--text-secondary)", fontSize: isMobile ? 10 : 11 }}
+              width={isBelowDesktop ? 0 : 44}
+              tick={isBelowDesktop ? false : { fill: "var(--text-secondary)", fontSize: 11 }}
               tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
             />
 
@@ -813,7 +886,11 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
         </ChartFrame>
       </div>
 
-      <div className="mt-1 min-h-[1rem]" aria-hidden="true" />
+      {/* Desktop reserves a strip under the plot so the active-marker callout
+          never collides with the selectors. Below 1200px the callout is drawn
+          inside the plot area and this strip was 20px of nothing between the
+          graph and its controls, pushing the control set off-screen. */}
+      <div className="mt-1 min-h-[1rem] max-desk:mt-0 max-desk:min-h-0" aria-hidden="true" />
 
       <MarkerChips
         markers={markerRows}

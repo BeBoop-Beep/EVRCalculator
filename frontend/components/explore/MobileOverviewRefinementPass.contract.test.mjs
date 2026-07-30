@@ -88,7 +88,7 @@ test("there is exactly one picker owner and one local tabs tree", () => {
 
 test("desktop composition is untouched by the sticky unification", () => {
   assert.ok(
-    client.includes('<div data-set-sticky-picker className="desk:hidden">'),
+    client.includes('data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">'),
     "the sticky picker row is hidden at desktop"
   );
   assert.ok(
@@ -169,7 +169,7 @@ test("below 1200px Decision Signals renders the compact list, not the stacked ro
 
 test("the compact row exposes exactly the four scan fields in order", () => {
   assert.ok(
-    compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.25rem_2.25rem]"),
+    compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]"),
     "a stable signal / score / tier / rank grid"
   );
   assert.ok(compactList.includes("{signal.label}"), "signal name");

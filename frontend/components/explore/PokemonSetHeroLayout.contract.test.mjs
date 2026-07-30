@@ -354,7 +354,11 @@ test("Insights verdict owns the score mode and complete static Opening Outlook",
   assert.ok(verdict.includes("<RipScoreModeToggle"));
   assert.ok(verdict.includes("data-insights-opening-outlook"));
   assert.ok(verdict.includes("openingOutlook ||"));
-  assert.ok(verdict.includes("It does not evaluate sealed-product appreciation"));
+  // The disclaimer body is a shared constant now: the below-desktop tree shows
+  // the same outlook in its shared detail region and quotes the same sentence
+  // rather than a retyped near-copy. Still canonical, still one definition.
+  assert.ok(verdict.includes("<InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />"));
+  assert.ok(source.includes("It does not evaluate sealed-product appreciation"));
   assert.ok(!verdict.includes("<details"));
   assert.ok(!verdict.includes("Read full outlook"));
 });
