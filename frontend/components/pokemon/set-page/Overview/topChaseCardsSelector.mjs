@@ -10,7 +10,16 @@ function normalizeCard(card, index) {
     cardVariantId: toOptionalString(card?.cardVariantId ?? card?.card_variant_id),
     name,
     rank: toOptionalNumber(card?.rank ?? card?.marketRank ?? card?.market_rank) ?? index + 1,
-    marketPrice: toOptionalNumber(card?.marketPrice ?? card?.market_price ?? card?.estimatedMarketPrice ?? card?.estimated_market_price),
+    // Mirrors the price aliases normalizeTopMarketCardsPayload accepts, so a
+    // stored card carrying currentPrice still renders its price.
+    marketPrice: toOptionalNumber(
+      card?.marketPrice ??
+        card?.market_price ??
+        card?.currentPrice ??
+        card?.current_price ??
+        card?.estimatedMarketPrice ??
+        card?.estimated_market_price
+    ),
     priceHistory: Array.isArray(card?.priceHistory)
       ? card.priceHistory.map((point) => ({ ...point }))
       : Array.isArray(card?.price_history)

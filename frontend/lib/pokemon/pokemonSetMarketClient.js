@@ -25,15 +25,78 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 const slimModuleInflight = new Map();
 const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
+// Bounded completion policy for the slim module fetches.
+//
+// The Next proxy already aborts a stalled backend read after
+// BACKEND_FETCH_TIMEOUT_MS (12s) and answers with a structured, retryable 504
+// (see lib/pokemon/slimSetModuleProxyContract.mjs). This client-side bound is
+// the backstop for the leg the proxy cannot cover — a browser->Next request
+// that never produces a response at all. Without it, such a request left the
+// section's Promise permanently unsettled, which both stranded the section on
+// its skeleton and pinned this key in slimModuleInflight (only cleared in
+// .finally()), so every later visit and every Retry joined the same dead
+// Promise instead of issuing a new request.
+//
+// Deliberately larger than the proxy's own timeout so an ordinary slow read
+// still completes normally and is reported by the proxy, not pre-empted here.
+const SLIM_MODULE_REQUEST_TIMEOUT_MS = 20_000;
+
+export function createSlimModuleTimeoutError() {
+  const error = new Error("This section timed out while loading.");
+  error.code = "SLIM_MODULE_REQUEST_TIMEOUT";
+  error.status = 504;
+  error.retryable = true;
+  error.isTimeout = true;
+  return error;
+}
+
+/**
+ * Join identical concurrent calls onto one in-flight request, and guarantee
+ * that request settles. The key is released on success, on error and on
+ * timeout, so a retry always creates a fresh request rather than joining a
+ * request that can never resolve.
+ */
 function joinSlimModuleRequest(key, factory) {
   if (slimModuleInflight.has(key)) {
     return slimModuleInflight.get(key);
   }
-  const request = factory().finally(() => {
+
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  let timeoutHandle = null;
+
+  const request = new Promise((resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      // Abort the underlying request so the socket is released, then settle
+      // the Promise as an error the section can render a Retry for.
+      try {
+        controller?.abort();
+      } catch {
+        // An environment without abort support still gets a settled Promise.
+      }
+      debugTiming("slim_module.request_timeout", { key, timeoutMs: SLIM_MODULE_REQUEST_TIMEOUT_MS });
+      reject(createSlimModuleTimeoutError());
+    }, SLIM_MODULE_REQUEST_TIMEOUT_MS);
+
+    Promise.resolve()
+      .then(() => factory({ signal: controller?.signal }))
+      .then(resolve, reject);
+  }).finally(() => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
     slimModuleInflight.delete(key);
   });
+
   slimModuleInflight.set(key, request);
   return request;
+}
+
+export function __getSlimModuleInflightSizeForTests() {
+  return slimModuleInflight.size;
+}
+
+export function __hasSlimModuleInflightForTests(key) {
+  return slimModuleInflight.has(key);
 }
 
 function nowMs() {
@@ -378,7 +441,19 @@ function normalizeTopMarketCardsPayload(payload) {
         setNumber: toOptionalString(card?.setNumber ?? card?.set_number),
         cardNumber: toOptionalString(card?.setNumber ?? card?.set_number),
         estimatedMarketPrice: toOptionalNumber(card?.estimatedMarketPrice ?? card?.estimated_market_price),
-        marketPrice: toOptionalNumber(card?.marketPrice ?? card?.estimatedMarketPrice ?? card?.estimated_market_price),
+        // The stored top_chase_cards_json price is the snapshot builder's own
+        // marketPrice/currentPrice (see the comment above _pick_fresher_top_chase_row
+        // in pokemon_public_snapshot_service.py). Reading only marketPrice/
+        // estimatedMarketPrice rendered a priced card as a blank price cell
+        // whenever the stored row carried currentPrice or a snake_case key.
+        marketPrice: toOptionalNumber(
+          card?.marketPrice ??
+            card?.market_price ??
+            card?.currentPrice ??
+            card?.current_price ??
+            card?.estimatedMarketPrice ??
+            card?.estimated_market_price
+        ),
         marketDate: toOptionalString(card?.marketDate ?? card?.market_date),
         dashboardLatestMarketDate,
         windowConvention: toOptionalString(card?.windowConvention ?? card?.window_convention),
@@ -891,11 +966,12 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
   }
 
   const cacheKey = `top-chase:${resolvedSetId}:${window || ""}:${limit || ""}`;
-  return joinSlimModuleRequest(cacheKey, async () => {
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
       {
         method: "GET",
+        signal,
       }
     );
 
@@ -921,11 +997,12 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
   }
 
   const cacheKey = `value-history:${resolvedSetId}:${days || ""}:${scope || ""}`;
-  return joinSlimModuleRequest(cacheKey, async () => {
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/value-history${params.toString() ? `?${params}` : ""}`,
       {
         method: "GET",
+        signal,
       }
     );
 
@@ -936,9 +1013,14 @@ export async function getPokemonSetValueHistory(setId, { days = 365, scope = "st
 }
 
 export function normalizeOverviewPayload(payload) {
+  // Every field accepts the snake_case alias too. normalizeMarketDashboardPayload
+  // already did, and Opening Profit vs Cost silently rendered as "no data"
+  // if the slim /overview response ever came back snake_cased.
   const historiesByScope =
     payload?.setValueHistoriesByScope && typeof payload.setValueHistoriesByScope === "object"
       ? payload.setValueHistoriesByScope
+      : payload?.set_value_histories_by_scope && typeof payload.set_value_histories_by_scope === "object"
+      ? payload.set_value_histories_by_scope
       : {};
   const normalizedHistoriesByScope = Object.fromEntries(
     Object.entries(historiesByScope).map(([scope, history]) => [
@@ -946,7 +1028,14 @@ export function normalizeOverviewPayload(payload) {
       normalizeDailySetValueHistory(Array.isArray(history) ? history : []),
     ])
   );
-  const availableScopes = Array.isArray(payload?.availableScopes) ? payload.availableScopes : [];
+  const availableScopes = Array.isArray(payload?.availableScopes)
+    ? payload.availableScopes
+    : Array.isArray(payload?.available_scopes)
+    ? payload.available_scopes
+    : [];
+  const performanceVsCostHistory = normalizeSimulationPerformanceHistory(
+    payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
+  );
 
   return {
     set: {
@@ -954,17 +1043,19 @@ export function normalizeOverviewPayload(payload) {
       name: toOptionalString(payload?.set?.name),
       slug: toOptionalString(payload?.set?.slug),
     },
-    window: toOptionalString(payload?.window),
+    window: toOptionalString(payload?.window ?? payload?.window_key),
     setValueHistoriesByScope: normalizedHistoriesByScope,
-    performanceVsCostHistory: normalizeSimulationPerformanceHistory(payload?.performanceVsCostHistory || []),
+    set_value_histories_by_scope: normalizedHistoriesByScope,
+    performanceVsCostHistory,
+    performance_vs_cost_history: performanceVsCostHistory,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),
         label: toOptionalString(scope?.label),
-        latestDate: toOptionalString(scope?.latestDate),
+        latestDate: toOptionalString(scope?.latestDate ?? scope?.latest_date),
       }))
       .filter((scope) => scope.key),
-    latestMarketDate: toOptionalString(payload?.latestMarketDate),
+    latestMarketDate: toOptionalString(payload?.latestMarketDate ?? payload?.latest_market_date),
     meta: payload?.meta || { warnings: [] },
   };
 }
@@ -983,11 +1074,12 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   }
 
   const cacheKey = `overview:${resolvedSetId}:${normalizedWindow || ""}`;
-  return joinSlimModuleRequest(cacheKey, async () => {
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview${params.toString() ? `?${params}` : ""}`,
       {
         method: "GET",
+        signal,
       }
     );
 
@@ -1018,11 +1110,12 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
   }
 
   const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}`;
-  return joinSlimModuleRequest(cacheKey, async () => {
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,
       {
         method: "GET",
+        signal,
       }
     );
 

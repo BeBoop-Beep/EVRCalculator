@@ -57,10 +57,6 @@ export default function Header() {
 
   const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);
   const isTcgsRouteActive = isTopNavActive('/TCGs');
-  const isToolsRouteActive =
-    isTopNavActive('/tools') ||
-    isTopNavActive('/Learn') ||
-    isTopNavActive('/learn');
   const isMyCollectionRouteActive = isTopNavActive('/my-portfolio') || isTopNavActive('/dashboard');
   const publicProfileHref = accountUsername ? `/u/${encodeURIComponent(accountUsername)}/collection` : "/profile";
 
@@ -166,14 +162,6 @@ export default function Header() {
                 }`}
               >
                 Explore
-              </Link>
-              <Link
-                href="/tools"
-                className={`${navTabBase} inline-flex items-center justify-center ${
-                  isToolsRouteActive ? navTabActive : navTabInactive
-                }`}
-              >
-                Tools
               </Link>
               {/* Pokémon is the only live TCG, so TCGs is a direct link to its
                   Sets catalog rather than a one-item menu. It stays active for

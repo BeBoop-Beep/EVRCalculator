@@ -9,6 +9,7 @@ const cardClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCard
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const pricingContractPath = path.resolve(__dirname, "../../lib/pokemon/pricingSnapshotContract.mjs");
 const moversRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/market/movers/route.js");
+const slimProxyContractPath = path.resolve(__dirname, "../../lib/pokemon/slimSetModuleProxyContract.mjs");
 const topChaseWindowStatePath = path.resolve(__dirname, "topChaseWindowState.mjs");
 
 const read = (file) => fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");
@@ -172,9 +173,13 @@ test("Cards, Top Chase, and Market Movers share pricing-v4", () => {
   assert.ok(shared.includes('PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v4"'));
   assert.ok(!cards.includes('= "pricing-v3"'));
   assert.ok(!market.includes('= "pricing-v2"'));
+  // The movers proxy forwards snapshot_contract via the shared slim-module
+  // contract table rather than its own if-block.
   const route = read(moversRoutePath);
-  assert.ok(route.includes('get("snapshot_contract")'));
-  assert.ok(route.includes('backendUrl.searchParams.set("snapshot_contract", snapshotContract)'));
+  assert.ok(route.includes('proxySlimSetModuleRequest("movers"'));
+  const slimContract = read(slimProxyContractPath);
+  const moversContract = section(slimContract, "  movers: {", "  \"value-history\": {");
+  assert.ok(moversContract.includes('"snapshot_contract"'));
 });
 
 test("ticker thumbnail fills the three-line text stack without cropping", () => {
