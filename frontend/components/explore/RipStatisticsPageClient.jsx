@@ -3633,7 +3633,7 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default" }) {
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3678,6 +3678,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
         value={value}
         onChange={onChange}
         ariaLabel="Section view"
+        mobileScroll={mobileScroll}
       />
     );
   }
@@ -4140,21 +4141,31 @@ const METRIC_TAG_TONE_CLASSES = {
   neutral: "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-[var(--text-secondary)]",
 };
 
+// The tone pill for a metric's qualitative tag ("low", "concentrated", ...).
+// Extracted so the below-desktop Metrics rows show the SAME badge as the
+// desktop metric row rather than a second, drifting copy of it.
+function SimMetricTag({ tag }) {
+  if (!tag) {
+    return null;
+  }
+  return (
+    <span
+      className={`flex-none rounded-full border px-1.5 py-[1px] text-[10px] font-semibold leading-4 ${
+        METRIC_TAG_TONE_CLASSES[tag.tone] || METRIC_TAG_TONE_CLASSES.neutral
+      }`}
+    >
+      {tag.label}
+    </span>
+  );
+}
+
 function SimMetricRow({ label, value, infoText = null, muted = false, tag = null }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-white/5 py-1.5 last:border-b-0 last:pb-0 first:pt-0">
       <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-secondary)]">
         <span className="truncate">{label}</span>
         {infoText ? <InfoPopover text={infoText} /> : null}
-        {tag ? (
-          <span
-            className={`flex-none rounded-full border px-1.5 py-[1px] text-[10px] font-semibold leading-4 ${
-              METRIC_TAG_TONE_CLASSES[tag.tone] || METRIC_TAG_TONE_CLASSES.neutral
-            }`}
-          >
-            {tag.label}
-          </span>
-        ) : null}
+        <SimMetricTag tag={tag} />
       </span>
       <span className={`flex-none text-[13px] font-semibold tabular-nums ${muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>
         {value}
@@ -4423,6 +4434,92 @@ function SimMetricDisclosureCard({ question, defaultOpen = false, children }) {
   );
 }
 
+// Metrics below 1200px.
+//
+// Desktop presents five surfaces: the percentile strip in its own context panel
+// and four <details> cards, the first open by default. Stacked on a phone that
+// is five bordered boxes and roughly forty labelled rows before the reader has
+// chosen anything to look at.
+//
+// Below desktop it is the interaction the rest of this tab now uses: one row per
+// question on a shared column grid, one selected row, one shared detail region
+// holding that group's complete existing content. Nothing is summarised away —
+// every SimMetricLine the desktop cards render is rendered here too, from the
+// same element definitions, one group at a time.
+function SimulationMetricsCompactList({ groups }) {
+  const [selectedKey, setSelectedKey] = useState(groups[0]?.key || null);
+  const detailRegionId = useId();
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  const selected = groups.find((group) => group.key === selectedKey) || groups[0];
+
+  return (
+    <div data-simulation-metrics-compact className="min-w-0 desk:hidden">
+      <div className="min-w-0">
+        {groups.map((group) => {
+          const isSelected = group.key === selected.key;
+          return (
+            <button
+              key={`simulation-metric-group:${group.key}`}
+              type="button"
+              onClick={() => setSelectedKey(group.key)}
+              aria-expanded={isSelected}
+              aria-controls={detailRegionId}
+              data-simulation-metric-row
+              data-simulation-metric-row-key={group.key}
+              data-compact-row
+              data-selected={isSelected ? "true" : undefined}
+              className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{group.label}</span>
+                {/* The caption names WHICH of the group's own lines the value
+                    beside it is, so the figure is never unattributed. */}
+                <span className="block truncate text-[10px] leading-tight text-[var(--text-secondary)]">
+                  {group.caption}
+                </span>
+              </span>
+              <span className="flex min-w-0 items-center justify-end gap-1.5">
+                {group.tag ? <SimMetricTag tag={group.tag} /> : null}
+                <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+                  {group.value}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ONE shared detail region carrying the selected group's complete
+          existing content — the same JSX the desktop card renders. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-simulation-metric-detail
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <p className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
+            <span className="truncate">{selected.label}</span>
+            {selected.infoText ? <InfoPopover text={selected.infoText} /> : null}
+          </p>
+          {selected.key === "where-packs-land" ? (
+            <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
+              log scale
+            </span>
+          ) : null}
+        </div>
+        <div className="min-w-0">{selected.body}</div>
+      </div>
+    </div>
+  );
+}
+
 function SimulationMetricsContent({
   summary,
   percentiles = [],
@@ -4504,124 +4601,208 @@ function SimulationMetricsContent({
     safeSummary.median_loss_when_losing_fraction
   );
 
+  // Each group's rows are defined ONCE and handed to both presentations, so the
+  // below-desktop list cannot drift from the 1200px+ cards: same SimMetricLine
+  // components, same labels, same formatters, same order, same tags.
+  const packsLandBody = (
+    <>
+      <div className="mt-1 min-w-0 overflow-visible">
+        {stripModel ? (
+          <PercentileStripChart model={stripModel} />
+        ) : (
+          <p className="py-3 text-sm text-[var(--text-secondary)]">Percentile data is not available in the current snapshot.</p>
+        )}
+      </div>
+      {stripTakeaway ? <p className="text-[12px] leading-snug text-[var(--text-secondary)]">{stripTakeaway}</p> : null}
+    </>
+  );
+
+  const loseMoneyLines = (
+    <>
+      <SimMetricLine label="EV / Cost" value={ratio(safeSummary.mean_value_to_cost_ratio)} />
+      <SimMetricLine label="Typical / Cost" value={ratio(safeSummary.median_value_to_cost_ratio)} />
+      <SimMetricLine label="ROI %" value={roiPercentValue === null ? "—" : formatMetricSignedPercent(roiPercentValue)} />
+      <SimMetricLine label="Chance to Beat Pack Cost" value={probability(safeSummary.prob_profit)} />
+      <SimMetricLine label="P05 Shortfall to Cost" value={ratio(safeSummary.p05_shortfall_to_cost)} />
+      <SimMetricLine label="Bad Pack Floor (P05)" value={money(p05)} />
+      <SimMetricLine label="Average Loss When Missing" value={money(safeSummary.expected_loss_when_losing)} />
+      <SimMetricLine label="Typical Loss When Missing" value={money(safeSummary.median_loss_when_losing)} />
+      {lossFractionMerged ? (
+        <SimMetricLine label="Loss Fraction" value={share(safeSummary.expected_loss_when_losing_fraction)} />
+      ) : (
+        <>
+          <SimMetricLine label="Loss Fraction (Avg)" value={share(safeSummary.expected_loss_when_losing_fraction)} />
+          <SimMetricLine label="Loss Fraction (Typical)" value={share(safeSummary.median_loss_when_losing_fraction)} />
+        </>
+      )}
+      <SimMetricLine label="Expected Loss / Pack" value={money(safeSummary.expected_loss_per_pack)} />
+    </>
+  );
+
+  const upsideLines = (
+    <>
+      <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
+      <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
+      <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
+      <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
+      <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
+      <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
+      <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
+      <SimMetricLine label="Hit EV / Pack" value={money(safeSummary.hit_ev_per_pack)} />
+      <SimMetricLine label="Hit EV Share" value={share(safeSummary.hit_ev_share)} />
+      <SimMetricLine label="Non-hit EV" value={money(safeSummary.non_hit_ev)} />
+    </>
+  );
+
+  const swingyLines = (
+    <>
+      <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
+      <SimMetricLine
+        label="Coefficient of Variation"
+        value={formatMetricNumber(safeSummary.coefficient_of_variation, 2)}
+        tag={coefficientOfVariationTag}
+      />
+      <SimMetricLine
+        label="HHI EV Concentration"
+        value={formatMetricNumber(safeSummary.hhi_ev_concentration, 3)}
+        tag={hhiConcentrationTag}
+      />
+      <SimMetricLine label="Effective Chase Count" value={formatMetricNumber(safeSummary.effective_chase_count, 2)} />
+      <SimMetricLine label="Top Chase Share" value={share(safeSummary.top1_ev_share)} />
+      <SimMetricLine label="Top 3 Share" value={share(safeSummary.top3_ev_share)} />
+      <SimMetricLine label="Top 5 Share" value={share(safeSummary.top5_ev_share)} />
+    </>
+  );
+
+  const howSimulatedLines = (
+    <>
+      <SimMetricLine label="Pack Market Price" value={money(packCost)} />
+      <SimMetricLine label="Simulated Packs" value={countValue(simulationCount)} />
+      <SimMetricLine label="Run / As-of Date" value={dateValue(simulationAsOf)} />
+      <SimMetricLine label="Pack Paths" value={packPathsCount === null ? "—" : countValue(packPathsCount)} />
+      <SimMetricLine label="Normal Pack States" value={normalStatesCount === null ? "—" : countValue(normalStatesCount)} />
+      {agreement.available ? (
+        <>
+          <SimMetricLine label="Calculated EV" value={money(calculatedEV)} />
+          <SimMetricLine label="Simulated EV" value={money(simulatedEV)} />
+          <SimMetricLine label="EV Delta" value={formatSignedCurrency(agreement.delta)} />
+          <SimMetricLine label="EV Delta %" value={formatMetricSignedPercent(agreement.deltaPercent)} />
+          <SimMetricLine label="Model Agreement" value={formatMetricPercent(agreement.score)} />
+        </>
+      ) : (
+        <p className="border-b border-[var(--border-subtle)] pb-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+          Calculated-vs-simulated agreement is not available in this snapshot yet.
+        </p>
+      )}
+      {standardError !== null ? (
+        <>
+          <SimMetricLine label="Std Error (MC mean)" value={money(standardError)} />
+          <SimMetricLine label="95% Monte Carlo Band" value={monteCarloBand === null ? "—" : `± ${money(monteCarloBand)}`} />
+        </>
+      ) : null}
+      <SimMetricLine label="Simulation As-of" value={dateValue(simulationAsOf)} />
+      <SimMetricLine label="Performance History Latest" value={dateValue(historyLatestDate)} />
+      <SimMetricLine label="Simulated Set Value" value={money(safeSummary.simulated_set_value)} />
+      <SimMetricLine label="Simulated Set Value Cards" value={countValue(safeSummary.simulated_set_value_card_count)} />
+    </>
+  );
+
+  const packsLandInfoText =
+    "Distribution of simulated per-pack value across the run, plotted against pack market price. The shaded band spans P25-P75 (the middle half of packs); hover any marker for its exact value.";
+
+  // The below-desktop rows. Each scan value is a figure the group ALREADY
+  // displays — the row promotes one of its own lines, it does not compute a new
+  // summary — and the caption names which line it is so the number is never
+  // unattributed. Group order matches the desktop layout exactly.
+  const metricGroups = [
+    {
+      key: "where-packs-land",
+      label: "Where Packs Land",
+      caption: "Typical pack (P50)",
+      value: money(p50),
+      infoText: packsLandInfoText,
+      body: packsLandBody,
+    },
+    {
+      key: "will-i-lose-money",
+      label: "Will I lose money?",
+      caption: "Chance to beat pack cost",
+      value: probability(safeSummary.prob_profit),
+      body: loseMoneyLines,
+    },
+    {
+      key: "whats-the-upside",
+      label: "What's the upside?",
+      caption: "Chance at big pull",
+      value: probability(safeSummary.prob_big_hit),
+      body: upsideLines,
+    },
+    {
+      key: "how-swingy",
+      label: "How swingy is it?",
+      caption: "Coefficient of variation",
+      value: formatMetricNumber(safeSummary.coefficient_of_variation, 2),
+      tag: coefficientOfVariationTag,
+      body: swingyLines,
+    },
+    {
+      key: "how-simulated",
+      label: "How was this simulated?",
+      caption: "Simulated packs",
+      value: countValue(simulationCount),
+      body: howSimulatedLines,
+    },
+  ];
+
   return (
     <div className="space-y-3">
-      <p className="text-[12px] leading-snug text-[var(--text-secondary)]">
+      <p className="text-[12px] leading-snug text-[var(--text-secondary)] max-desk:text-[11px]">
         Raw simulation outputs and the metrics derived from them. Values shown as
         {" "}
         <span className="font-semibold text-[var(--text-primary)]">&mdash;</span> are not available in the current snapshot.
       </p>
 
-      {/* The former Tier-1 verdict cards (Expected Value, EV/Cost, Typical
-          Pack, Chance to Profit) were removed — that data already leads the
-          Overview hero and the RIP Score Breakdown, and every figure remains
-          in the grouped rows below. The percentile strip is now the tab's
-          first element. */}
+      {/* Below 1200px: five compact rows and ONE shared detail region. The four
+          disclosure cards plus the percentile surface were five stacked boxes,
+          each with its own border and inset, and the first one opened by
+          default — so the tab landed on a wall of forty labelled rows. */}
+      <SimulationMetricsCompactList groups={metricGroups} />
 
-      {/* Tier 2 — percentile strip (replaces the 9-row percentile table). */}
-      <SimulationContextSurface as="div" className="min-w-0 overflow-visible p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
-            Where Packs Land
-            <InfoPopover text="Distribution of simulated per-pack value across the run, plotted against pack market price. The shaded band spans P25-P75 (the middle half of packs); hover any marker for its exact value." />
-          </h4>
-          <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
-            log scale
-          </span>
+      {/* 1200px+: unchanged. Same surface, same grid, same first-card-open
+          disclosure behaviour. */}
+      <div className="hidden space-y-3 desk:block">
+        {/* The former Tier-1 verdict cards (Expected Value, EV/Cost, Typical
+            Pack, Chance to Profit) were removed — that data already leads the
+            Overview hero and the RIP Score Breakdown, and every figure remains
+            in the grouped rows below. The percentile strip is now the tab's
+            first element. */}
+
+        {/* Tier 2 — percentile strip (replaces the 9-row percentile table). */}
+        <SimulationContextSurface as="div" className="min-w-0 overflow-visible p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
+              Where Packs Land
+              <InfoPopover text={packsLandInfoText} />
+            </h4>
+            <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
+              log scale
+            </span>
+          </div>
+          {packsLandBody}
+        </SimulationContextSurface>
+
+        {/* Tier 3 — grouped by question; first card starts expanded. */}
+        <div className="grid items-start gap-3 md:grid-cols-2">
+          <SimMetricDisclosureCard question="Will I lose money?" defaultOpen>
+            {loseMoneyLines}
+          </SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="What's the upside?">{upsideLines}</SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="How swingy is it?">{swingyLines}</SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="How was this simulated?">{howSimulatedLines}</SimMetricDisclosureCard>
         </div>
-        <div className="mt-1 min-w-0 overflow-visible">
-          {stripModel ? (
-            <PercentileStripChart model={stripModel} />
-          ) : (
-            <p className="py-3 text-sm text-[var(--text-secondary)]">Percentile data is not available in the current snapshot.</p>
-          )}
-        </div>
-        {stripTakeaway ? <p className="text-[12px] leading-snug text-[var(--text-secondary)]">{stripTakeaway}</p> : null}
-      </SimulationContextSurface>
-
-      {/* Tier 3 — grouped by question; first card starts expanded. */}
-      <div className="grid items-start gap-3 md:grid-cols-2">
-        <SimMetricDisclosureCard question="Will I lose money?" defaultOpen>
-          <SimMetricLine label="EV / Cost" value={ratio(safeSummary.mean_value_to_cost_ratio)} />
-          <SimMetricLine label="Typical / Cost" value={ratio(safeSummary.median_value_to_cost_ratio)} />
-          <SimMetricLine label="ROI %" value={roiPercentValue === null ? "—" : formatMetricSignedPercent(roiPercentValue)} />
-          <SimMetricLine label="Chance to Beat Pack Cost" value={probability(safeSummary.prob_profit)} />
-          <SimMetricLine label="P05 Shortfall to Cost" value={ratio(safeSummary.p05_shortfall_to_cost)} />
-          <SimMetricLine label="Bad Pack Floor (P05)" value={money(p05)} />
-          <SimMetricLine label="Average Loss When Missing" value={money(safeSummary.expected_loss_when_losing)} />
-          <SimMetricLine label="Typical Loss When Missing" value={money(safeSummary.median_loss_when_losing)} />
-          {lossFractionMerged ? (
-            <SimMetricLine label="Loss Fraction" value={share(safeSummary.expected_loss_when_losing_fraction)} />
-          ) : (
-            <>
-              <SimMetricLine label="Loss Fraction (Avg)" value={share(safeSummary.expected_loss_when_losing_fraction)} />
-              <SimMetricLine label="Loss Fraction (Typical)" value={share(safeSummary.median_loss_when_losing_fraction)} />
-            </>
-          )}
-          <SimMetricLine label="Expected Loss / Pack" value={money(safeSummary.expected_loss_per_pack)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="What's the upside?">
-          <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
-          <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
-          <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
-          <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
-          <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
-          <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
-          <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
-          <SimMetricLine label="Hit EV / Pack" value={money(safeSummary.hit_ev_per_pack)} />
-          <SimMetricLine label="Hit EV Share" value={share(safeSummary.hit_ev_share)} />
-          <SimMetricLine label="Non-hit EV" value={money(safeSummary.non_hit_ev)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="How swingy is it?">
-          <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
-          <SimMetricLine
-            label="Coefficient of Variation"
-            value={formatMetricNumber(safeSummary.coefficient_of_variation, 2)}
-            tag={coefficientOfVariationTag}
-          />
-          <SimMetricLine
-            label="HHI EV Concentration"
-            value={formatMetricNumber(safeSummary.hhi_ev_concentration, 3)}
-            tag={hhiConcentrationTag}
-          />
-          <SimMetricLine label="Effective Chase Count" value={formatMetricNumber(safeSummary.effective_chase_count, 2)} />
-          <SimMetricLine label="Top Chase Share" value={share(safeSummary.top1_ev_share)} />
-          <SimMetricLine label="Top 3 Share" value={share(safeSummary.top3_ev_share)} />
-          <SimMetricLine label="Top 5 Share" value={share(safeSummary.top5_ev_share)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="How was this simulated?">
-          <SimMetricLine label="Pack Market Price" value={money(packCost)} />
-          <SimMetricLine label="Simulated Packs" value={countValue(simulationCount)} />
-          <SimMetricLine label="Run / As-of Date" value={dateValue(simulationAsOf)} />
-          <SimMetricLine label="Pack Paths" value={packPathsCount === null ? "—" : countValue(packPathsCount)} />
-          <SimMetricLine label="Normal Pack States" value={normalStatesCount === null ? "—" : countValue(normalStatesCount)} />
-          {agreement.available ? (
-            <>
-              <SimMetricLine label="Calculated EV" value={money(calculatedEV)} />
-              <SimMetricLine label="Simulated EV" value={money(simulatedEV)} />
-              <SimMetricLine label="EV Delta" value={formatSignedCurrency(agreement.delta)} />
-              <SimMetricLine label="EV Delta %" value={formatMetricSignedPercent(agreement.deltaPercent)} />
-              <SimMetricLine label="Model Agreement" value={formatMetricPercent(agreement.score)} />
-            </>
-          ) : (
-            <p className="border-b border-[var(--border-subtle)] pb-2 text-[12px] leading-snug text-[var(--text-secondary)]">
-              Calculated-vs-simulated agreement is not available in this snapshot yet.
-            </p>
-          )}
-          {standardError !== null ? (
-            <>
-              <SimMetricLine label="Std Error (MC mean)" value={money(standardError)} />
-              <SimMetricLine label="95% Monte Carlo Band" value={monteCarloBand === null ? "—" : `± ${money(monteCarloBand)}`} />
-            </>
-          ) : null}
-          <SimMetricLine label="Simulation As-of" value={dateValue(simulationAsOf)} />
-          <SimMetricLine label="Performance History Latest" value={dateValue(historyLatestDate)} />
-          <SimMetricLine label="Simulated Set Value" value={money(safeSummary.simulated_set_value)} />
-          <SimMetricLine label="Simulated Set Value Cards" value={countValue(safeSummary.simulated_set_value_card_count)} />
-        </SimMetricDisclosureCard>
       </div>
     </div>
   );
@@ -6543,6 +6724,25 @@ const RIP_COMPACT_GRID = "grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]";
 const RIP_OVERALL_ROW_KEY = "overall";
 const RIP_APPEAL_ROW_KEY = "collector-appeal";
 
+// The one selected/idle treatment shared by every compact mobile analytical list
+// on this page — the RIP Score Breakdown, Simulation Drivers and Metrics — so
+// the three read as the same interaction instead of three lookalikes.
+//
+// `bg-[var(--surface-page)]` is the load-bearing part: these lists sit directly
+// above charts and the page wash, and a translucent highlight let that content
+// read through the selected row. The opaque base goes down first and the accent
+// tint plus the rail halo arrive from `.compact-row-selected` in globals.css,
+// which is scoped inside the below-1200px media query and honours
+// prefers-reduced-motion. See that rule for why the halo cannot bloom into a
+// perimeter outline.
+const COMPACT_ROW_SELECTED_CLASS =
+  "compact-row-selected border-l-[var(--accent)] bg-[var(--surface-page)]";
+const COMPACT_ROW_IDLE_CLASS = "border-l-transparent hover:bg-[var(--surface-hover)]";
+// The shared detail region continues the selected row's rail instead of drawing
+// a second unrelated boundary beside it.
+const COMPACT_DETAIL_CLASS =
+  "compact-row-detail border-l-2 border-l-[color:color-mix(in_srgb,var(--accent)_45%,transparent)]";
+
 // Both presentations quote the backend's own contribution field, so the string
 // that explains it lives in one place rather than being retyped per tree.
 const RIP_CONTRIBUTION_INFO_TEXT =
@@ -6623,12 +6823,11 @@ function RipBreakdownCompactRow({ row, isSelected, onSelect, detailRegionId }) {
       aria-expanded={isSelected}
       aria-controls={detailRegionId}
       data-rip-breakdown-row
+      data-compact-row
       data-rip-breakdown-row-key={row.key}
       data-selected={isSelected ? "true" : undefined}
       className={`grid min-h-11 w-full ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-        isSelected
-          ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
-          : "border-l-transparent hover:bg-[var(--surface-hover)]"
+        isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
       }`}
     >
       <span className="min-w-0">
@@ -6827,7 +7026,7 @@ function RipBreakdownCompactFeed({
         id={detailRegionId}
         aria-live="polite"
         data-rip-breakdown-detail
-        className="mt-2 min-w-0 border-l-2 border-[var(--border-subtle)] pl-2.5 pr-1.5"
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
       >
         <RipBreakdownCompactDetail
           row={selectedRow}
@@ -6910,16 +7109,18 @@ function RipBreakdownCompactDetail({
         <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
           Roster desirability translated through this set&apos;s modeled opening paths.
         </p>
+        {/* The weighted model term ("Opening Desirability × 10% = 9.6 pts") is
+            deliberately NOT shown below desktop. It is a term of the internal
+            model, and the two scores printed on this screen — RIP Core and RIP
+            Score — are cohort-relative presentations that do not visibly sum
+            with it, so the line read as arithmetic the user could check and
+            then could not. The weight itself carries the same meaning without
+            the false invitation. Nothing was recomputed and no backend field
+            changed: `contributionLabel` is still produced by the selector and
+            is still rendered at 1200px+. */}
         <div className="mt-1">
           {collectorAppeal.weightLabel ? (
             <RipBreakdownDetailMetric label="Weight in RIP Score" value={collectorAppeal.weightLabel} />
-          ) : null}
-          {collectorAppeal.contributionLabel ? (
-            <RipBreakdownDetailMetric
-              label="Contribution to RIP Score"
-              value={collectorAppeal.contributionLabel}
-              infoText={RIP_CONTRIBUTION_INFO_TEXT}
-            />
           ) : null}
           {collectorAppeal.rankLabel ? (
             <RipBreakdownDetailMetric label="Collector Appeal rank" value={collectorAppeal.rankLabel} />
@@ -7409,9 +7610,13 @@ const OPENING_PATH_SUMMARY_INFO_BULLETS = [
 // border count per tab went from six to one.
 function CollectorPanel({ children }) {
   return (
+    // Below 1200px the panel keeps its DIVIDERS and loses its box: it already
+    // sits inside the (now card-less) Collector Profile section, so its border
+    // and fill were a second surface drawn around content that needed no
+    // second boundary. Desktop keeps the rounded panel exactly.
     <div
       data-collector-panel
-      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30"
+      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
     >
       {children}
     </div>
@@ -7423,7 +7628,10 @@ function CollectorPanel({ children }) {
 function CollectorBand({ title, infoBullets: bullets = null, children }) {
   return (
     <section data-collector-band className="min-w-0">
-      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 sm:px-4">
+      {/* The panel's own horizontal inset goes away below desktop along with
+          its border — the page gutter is the inset now — and the band label
+          keeps only the vertical room it needs to separate two groups. */}
+      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 max-desk:px-0 max-desk:pb-1 max-desk:pt-2.5 sm:px-4">
         <h4 className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{title}</h4>
         {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
       </header>
@@ -7436,8 +7644,14 @@ function CollectorBand({ title, infoBullets: bullets = null, children }) {
 // gaps, so the three read as one measurement of one thing.
 function CollectorMetricRow({ columns = 3, children }) {
   return (
+    // Three columns need roughly 100px each before labels like "Chase Subject
+    // Strength" start wrapping to three lines and stop being readable, so below
+    // the 600px tablet boundary a three-up band drops to two. From 600px it is
+    // the original three-column band at every width, desktop included.
     <div
-      className={`grid divide-x divide-[var(--border-subtle)] ${columns === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+      className={`grid divide-x divide-[var(--border-subtle)] ${
+        columns === 2 ? "grid-cols-2" : "grid-cols-3 max-tab:grid-cols-2"
+      }`}
     >
       {children}
     </div>
@@ -7446,16 +7660,18 @@ function CollectorMetricRow({ columns = 3, children }) {
 
 function CollectorMetricCell({ label, value, detail }) {
   return (
-    <div className="min-w-0 px-3 pb-3.5 pt-0.5 sm:px-4">
+    <div className="min-w-0 px-3 pb-3.5 pt-0.5 max-desk:px-2.5 max-desk:pb-2.5 sm:px-4">
       {/* Two lines of room while the labels wrap on a phone, so the values in a
           band still sit on one line whether or not their label wrapped. */}
       <p className="min-h-[2.5em] min-w-0 text-[10px] font-medium uppercase leading-tight tracking-[0.06em] text-[var(--text-secondary)] sm:min-h-0">
         {label}
       </p>
-      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] sm:text-xl">
+      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] max-desk:mt-1 max-desk:text-base sm:text-xl">
         {value ?? "—"}
       </p>
-      {detail ? <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">{detail}</p> : null}
+      {detail ? (
+        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] max-desk:mt-1 max-desk:text-[10px]">{detail}</p>
+      ) : null}
     </div>
   );
 }
@@ -7531,18 +7747,18 @@ function OpeningPathStepArrow() {
 function OpeningExperienceSubjectRow({ subject }) {
   const hasBothPaths = Boolean(subject.accessiblePath) && Boolean(subject.elitePath);
   return (
-    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 sm:px-4">
+    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 max-desk:px-0 max-desk:py-2.5 sm:px-4">
       <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
+        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)] max-desk:text-xs">
           {subject.subjectName}
         </p>
         {subject.demandShare !== null ? (
-          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)]">
+          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)] max-desk:text-[10px]">
             {`${(subject.demandShare * 100).toFixed(0)}% of roster demand`}
           </p>
         ) : null}
       </div>
-      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-2">
+      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 max-desk:mt-1.5 max-desk:gap-1.5 sm:flex-row sm:items-center sm:gap-2">
         <OpeningExperiencePathCard kind="Accessible Path" path={subject.accessiblePath} />
         {hasBothPaths ? <OpeningPathStepArrow /> : null}
         <OpeningExperiencePathCard kind="Elite Chase" path={subject.elitePath} />
@@ -7557,7 +7773,7 @@ function OpeningExperienceSubjectRow({ subject }) {
 // other — the list scans as a ladder, not as a stack of rows.
 function SetDesirabilitySubjectRow({ subject, position }) {
   return (
-    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 sm:px-4">
+    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 max-desk:gap-2 max-desk:px-0 max-desk:py-2 sm:px-4">
       <span className="w-3.5 flex-none text-right text-[11px] font-semibold tabular-nums text-[color:color-mix(in_srgb,var(--text-secondary)_70%,transparent)]">
         {position}
       </span>
@@ -7644,23 +7860,35 @@ function CollectorProfileLoading({ loadingTimedOut }) {
 // stage's note up and break that alignment.
 function CollectorProfileStage({ label, value, meta, note, infoBullets: bullets = null, muted = false }) {
   return (
-    // Sized to a fixed measure rather than a share of the row: three equal
-    // blocks joined by rules that absorb whatever width is left over.
-    <div data-collector-profile-stage className="min-w-0 lg:w-[17rem] lg:flex-none">
+    // At 1200px+ this is unchanged: a fixed-measure block, label over a 28px
+    // score over its meta and note, three of them joined by rules.
+    //
+    // Below desktop the same four fields become one compact grid row — label
+    // and score share the first line, the rank/cohort meta sits under the
+    // label, and the note runs across the foot — so a stage costs roughly a
+    // quarter of the height without dropping a single field. The score steps
+    // down from 1.75rem to text-xl: still the loudest thing in its row, no
+    // longer a headline that needs a line to itself.
+    <div
+      data-collector-profile-stage
+      className="min-w-0 max-desk:grid max-desk:grid-cols-[minmax(0,1fr)_auto] max-desk:items-baseline max-desk:gap-x-3 max-desk:py-1.5 lg:w-[17rem] lg:flex-none"
+    >
       <div className="flex min-w-0 items-center gap-1.5">
         <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{label}</p>
         {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
       </div>
       <p
-        className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums ${
+        className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums max-desk:mt-0 max-desk:text-xl ${
           muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"
         }`}
       >
         {value}
       </p>
-      <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-[var(--text-secondary)]">{meta || " "}</p>
+      <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-[var(--text-secondary)] max-desk:mt-0.5 max-desk:min-h-0 max-desk:text-[11px]">
+        {meta || " "}
+      </p>
       {note ? (
-        <p className="mt-1 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_78%,transparent)]">
+        <p className="mt-1 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_78%,transparent)] max-desk:col-span-2 max-desk:mt-0.5 max-desk:text-[10px]">
           {note}
         </p>
       ) : null}
@@ -7678,10 +7906,14 @@ function CollectorProfileArrow() {
   return (
     <span
       aria-hidden="true"
-      className="flex flex-none items-center justify-center gap-1.5 py-1 text-[var(--text-secondary)] lg:mt-[1.55rem] lg:min-w-[2.5rem] lg:flex-1 lg:py-0"
+      // Below desktop the connector shrinks to a 12px chevron with no padding
+      // and sits at the left edge, under the label column, so it reads as the
+      // step between two rows rather than as a centred ornament that costs
+      // 28px of height twice over. The direction it communicates is unchanged.
+      className="flex flex-none items-center justify-center gap-1.5 py-1 text-[var(--text-secondary)] max-desk:justify-start max-desk:py-0 lg:mt-[1.55rem] lg:min-w-[2.5rem] lg:flex-1 lg:py-0"
     >
       <span className="hidden h-px flex-1 bg-[var(--border-subtle)] lg:block" />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 lg:hidden">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 max-desk:h-3 max-desk:w-3 lg:hidden">
         <path d="M10 15.25a.85.85 0 0 1-.6-.25l-5-5a.85.85 0 1 1 1.2-1.2L10 13.2l4.4-4.4a.85.85 0 1 1 1.2 1.2l-5 5a.85.85 0 0 1-.6.25Z" />
       </svg>
       <svg viewBox="0 0 20 20" fill="currentColor" className="hidden h-5 w-5 flex-none lg:block">
@@ -7856,7 +8088,10 @@ function CollectorProfileSection({
         tone="plain"
         title="Collector Profile"
         titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}
-        bodyClassName="space-y-4"
+        // The 16px rhythm between the flow, the view control and the active
+        // panel is desktop's; below 1200px those three sit on a page that has
+        // no card around them, so 10px is enough to separate them.
+        bodyClassName="space-y-4 max-desk:space-y-2.5"
         mobileFlush
       >
         {/* The relationship, in order. Three stages, one direction: roster
@@ -7864,9 +8099,15 @@ function CollectorProfileSection({
             mobile, in a row once there is width for it. Each stage carries at
             most a six-word note; the rest of the explanation is in the tooltips
             on the stage labels, so the chain can be read at a glance. */}
+        {/* Below desktop the flow keeps its ORDER and its connectors and loses
+            its box: it sits inside a section that no longer draws a card, so
+            its own border and fill were a second surface around three rows.
+            The chevrons are the separator — a divider on both sides of each one
+            would frame the connector instead of the stages. Desktop keeps the
+            panel exactly. */}
         <div
           data-collector-profile-flow
-          className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
+          className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 max-desk:gap-0 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
         >
           <CollectorProfileStage
             label="Set Desirability"
@@ -8113,6 +8354,120 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
+// Simulation Drivers below 1200px.
+//
+// The condensed desktop presentation gives every driver a two-column block of
+// labelled values (Market Price, Value Contribution) beside a thumbnail. On a
+// phone those stack, so ten drivers became ten four-line cards and the panel ran
+// several screens.
+//
+// Below desktop it is the same interaction the RIP Score Breakdown and Metrics
+// use: a ranked list on one column grid, one selected row, one shared detail
+// region. The scan line is rank / name / value contribution — the field the list
+// is ordered by — and the thumbnail, market price and share move into the detail
+// for the selected driver only.
+//
+// Ordering, values and the row set are the backend's: this maps `hits` in place
+// and computes nothing the desktop tree did not already compute.
+function SimulationDriversCompactList({ hits, totalEV }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const detailRegionId = useId();
+
+  const rows = hits.map((hit, index) => {
+    const ev = toNumber(hit?.ev_contribution);
+    return {
+      key: `${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}:${index}`,
+      rank: index + 1,
+      name: hit?.card_name || "Unknown Card",
+      ev,
+      // Identical expression to the desktop tree's `evShare`, on the same two
+      // backend fields — not a second definition of "share".
+      evShare: ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null,
+      nearMintPrice: getTopHitNearMintPrice(hit),
+    };
+  });
+
+  const selected = rows[selectedIndex] || rows[0] || null;
+  if (!selected) {
+    return null;
+  }
+
+  return (
+    <div data-simulation-drivers-compact className="min-w-0 desk:hidden">
+      <div
+        aria-hidden="true"
+        className="grid grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+      >
+        <span className="text-right">#</span>
+        <span />
+        <span className="text-right">Value</span>
+      </div>
+
+      <div className="min-w-0">
+        {rows.map((row, index) => {
+          const isSelected = index === selectedIndex;
+          return (
+            <button
+              key={row.key}
+              type="button"
+              onClick={() => setSelectedIndex(index)}
+              aria-expanded={isSelected}
+              aria-controls={detailRegionId}
+              data-simulation-driver-row
+              data-compact-row
+              data-selected={isSelected ? "true" : undefined}
+              className={`grid min-h-11 w-full grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
+              }`}
+            >
+              <span className="text-right text-[11px] font-semibold tabular-nums text-[var(--text-secondary)]">
+                {row.rank}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{row.name}</span>
+                {row.evShare ? (
+                  <span className="block truncate text-[10px] leading-tight text-[var(--text-secondary)]">
+                    {row.evShare} of pack value
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+                {formatCurrency(row.ev)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ONE shared detail region for whichever driver is selected, and it
+          carries only what the row above it does NOT already say.
+
+          The row is already rank / name / share of pack value / value
+          contribution. A panel that repeated the value, repeated the share,
+          added a thumbnail and closed with a generic price caveat was four
+          blocks of chrome for one new number. Market Price is that number, so
+          Market Price is what is left. The list is the experience; this is a
+          footnote to it.
+
+          Nothing is lost — the desktop tree (TopHitCard) is a separate
+          component and still renders the image, the value contribution, the
+          share and the caveat at 1200px+. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-simulation-driver-detail
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
+      >
+        <p className="min-w-0 truncate text-xs font-semibold text-[var(--text-primary)]">{selected.name}</p>
+        <RipBreakdownDetailMetric
+          label="Market Price"
+          value={selected.nearMintPrice === null ? "—" : formatCurrency(selected.nearMintPrice)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostics = null, maxRows = null, compactImage = false, showSummary = true, showHiddenCountFooter = true }) {
   const allHits = Array.isArray(topHits) ? topHits : [];
   const hits = maxRows !== null && maxRows !== undefined ? allHits.slice(0, maxRows) : allHits;
@@ -8144,7 +8499,12 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostic
 
     return (
       <div className="w-full max-w-full min-w-0">
-        <div className="grid min-w-0 gap-x-5 lg:grid-cols-2">
+        {/* Below 1200px: the same drivers, in the same order, as a ranked
+            compact list with one shared detail region. */}
+        <SimulationDriversCompactList hits={hits} totalEV={totalEV} />
+
+        {/* 1200px+: unchanged two-column list of labelled blocks. */}
+        <div className="hidden min-w-0 gap-x-5 desk:grid lg:grid-cols-2">
           {driverColumns.map((columnHits, columnIndex) => (
             <div key={`driver-column:${columnIndex}`} className="min-w-0 divide-y divide-white/5 border-t border-white/10">
               {columnHits.map((hit, index) => {
@@ -8260,6 +8620,17 @@ function buildTopLevelPackPathRows(packPaths) {
 // of the backend's fixed 1-decimal format_percent strings that render a
 // nonzero rare path as "0.0%". Returns [] when no counts are available so the
 // caller can fall back to the interpretation-derived evidence rows.
+// The three Pack Paths summary chips that render at 1200px+ only. They are
+// still BUILT below desktop — same selector, same backend fields, same rows —
+// and only their visible chip is suppressed, so nothing downstream of this
+// list changes. Lower-cased because the fallback evidence path and the
+// counts path do not agree on capitalisation.
+const PACK_PATH_DESKTOP_ONLY_EVIDENCE = new Set([
+  "dominant path",
+  "dominant path share",
+  "special path share",
+]);
+
 function getPackPathEvidenceRowsFromCounts(packPaths) {
   const rows = buildTopLevelPackPathRows(packPaths);
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -8436,11 +8807,30 @@ function PackPathsVisualization({ packPaths, normalStateRows, evidenceRows = [],
   return (
     <>
       {evidenceRows.length > 0 ? (
-        <div className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2`}>
+        // Dominant path / Dominant path share / Special path share are hidden
+        // below 1200px — approved removals. Each restates something the donut
+        // and its legend already show: the legend names every path with its
+        // count AND its share, and the donut centre repeats the dominant one.
+        // On a phone they were a third printing of the same numbers.
+        //
+        // Hidden PER CHIP, by label, rather than by dropping rows from
+        // `evidenceRows`: the selector, the backend fields and the fallback
+        // `getPackBreakdownEvidence` path are untouched, any other evidence row
+        // still renders at every width, and desktop keeps all three in order.
+        <div
+          className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2${
+            evidenceRows.every(([label]) => PACK_PATH_DESKTOP_ONLY_EVIDENCE.has(String(label).toLowerCase()))
+              ? " max-desk:hidden"
+              : ""
+          }`}
+        >
           {evidenceRows.map(([label, value]) => (
             <span
               key={`${label}:${value}`}
-              className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+              data-pack-path-evidence-chip={String(label).toLowerCase()}
+              className={`inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]${
+                PACK_PATH_DESKTOP_ONLY_EVIDENCE.has(String(label).toLowerCase()) ? " max-desk:hidden" : ""
+              }`}
             >
               <span className="shrink-0 text-[var(--text-secondary)]">{label}</span>
               <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
@@ -14843,7 +15233,12 @@ export default function RipStatisticsPageClient({
                           <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>
                           <InfoPopover text={SIMULATION_RESULTS_INFO_TEXT} />
                         </div>
-                        <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The raw evidence — full simulation outputs behind the score.</p>
+                        {/* Below 1200px this line restates the eyebrow directly
+                            above it ("03 · Raw evidence") and costs a whole
+                            line of a phone screen before the sub-tabs. Hidden,
+                            not deleted: the copy is unchanged and 1200px+
+                            renders it exactly as before. */}
+                        <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)] max-desk:hidden">The raw evidence — full simulation outputs behind the score.</p>
                       </div>
                     </div>
 
@@ -14865,13 +15260,19 @@ export default function RipStatisticsPageClient({
                         }
                       }}
                       variant="secondary"
+                      mobileScroll
+                      // `shortLabel` is a VISIBLE abbreviation below 1200px
+                      // only. `label` stays the accessible name and the title,
+                      // and is what renders at 1200px+, so no view is renamed
+                      // and none is removed — the six values and their order
+                      // are byte-for-byte what they were.
                       options={[
-                        { value: "outcome-distribution", label: "Outcome Distribution" },
-                        { value: "historical-trend", label: "Opening Profit vs Cost" },
-                        { value: "simulation-drivers", label: "Simulation Drivers" },
-                        { value: "value-contribution", label: "Value Structure" },
-                        { value: "pack-breakdown", label: "Pack Paths" },
-                        { value: "simulation-metrics", label: "Metrics" },
+                        { value: "outcome-distribution", label: "Outcome Distribution", shortLabel: "Outcomes" },
+                        { value: "historical-trend", label: "Opening Profit vs Cost", shortLabel: "OPvC" },
+                        { value: "simulation-drivers", label: "Simulation Drivers", shortLabel: "Drivers" },
+                        { value: "value-contribution", label: "Value Structure", shortLabel: "Value" },
+                        { value: "pack-breakdown", label: "Pack Paths", shortLabel: "Paths" },
+                        { value: "simulation-metrics", label: "Metrics", shortLabel: "Metrics" },
                       ]}
                     />
 
@@ -14937,20 +15338,32 @@ export default function RipStatisticsPageClient({
                       )
                     ) : activeInsightsGraphMode === "simulation-drivers" ? (
                       <SimulationResultsPanel id="set-detail-simulation-drivers">
-                        <div className="mb-2 grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                        {/* Below desktop the intro loses vertical air and the
+                            interpretation drops a type step, so the panel opens
+                            on the ranked drivers rather than on a paragraph.
+                            The copy itself is unchanged and still complete —
+                            only its size and the gap around it move. */}
+                        <div className="mb-2 grid min-w-0 gap-2 max-desk:mb-1.5 max-desk:gap-1 max-desk:text-[11px] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                          {/* The callout's own padding and body size step down
+                              below 1200px so the panel opens on the drivers
+                              rather than on a paragraph. The badge, the accent
+                              rail and every word of the copy are untouched, and
+                              the shared component's defaults are not edited —
+                              so no other caller of InterpretationInsight
+                              moves. */}
                           <InterpretationInsight
                             sectionMeta={topEvDriversMeta}
                             fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
                             compact
                             showEvidence={false}
-                            className="min-w-0"
+                            className="min-w-0 max-desk:py-0.5 max-desk:[&>div]:mb-1 max-desk:[&>p]:text-xs max-desk:[&>p]:leading-snug"
                           />
-                          <div className="flex min-w-0 flex-col gap-0.5 lg:min-w-[12rem] lg:text-right">
+                          <div className="flex min-w-0 flex-col gap-0.5 max-desk:flex-row max-desk:items-baseline max-desk:justify-between max-desk:gap-2 lg:min-w-[12rem] lg:text-right">
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:justify-end">
                               Simulated Expected Value
                               <InfoPopover text={`${SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT}${formatSectionFreshnessInfo(simulationDrivers.diagnostics?.freshness)}`} />
                             </span>
-                            <span className="text-base font-semibold tabular-nums text-[var(--text-primary)]">{formatCurrency(simulationDriversSummaryValue)}</span>
+                            <span className="text-base font-semibold tabular-nums text-[var(--text-primary)] max-desk:text-sm">{formatCurrency(simulationDriversSummaryValue)}</span>
                           </div>
                         </div>
                         <TopEVDriversContent

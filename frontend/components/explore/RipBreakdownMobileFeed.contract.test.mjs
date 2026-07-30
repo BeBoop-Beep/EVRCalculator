@@ -211,10 +211,15 @@ test("exactly one shared detail region is rendered", () => {
   const region = between(feed, "id={detailRegionId}", "</div>");
   assert.ok(region.includes('aria-live="polite"'), "content changes are announced politely");
   assert.ok(region.includes("id={detailRegionId}"), "the rows' aria-controls resolves to it");
-  // One restrained treatment, not another context card.
+  // One restrained treatment, not another context card. The rule itself comes
+  // from the shared COMPACT_DETAIL_CLASS so the RIP, Drivers and Metrics detail
+  // regions cannot drift apart.
   assert.ok(!/rounded-(?:lg|xl|2xl|3xl)/.test(region), "the detail region must not draw a card");
   assert.ok(!region.includes("set-glass"), "no glass surface may wrap the detail region");
-  assert.ok(region.includes("border-l-2"), "a rule, not a box");
+  assert.ok(region.includes("COMPACT_DETAIL_CLASS"), "the shared detail treatment is used");
+  const detailClass = between(source, "const COMPACT_DETAIL_CLASS =", ";");
+  assert.ok(detailClass.includes("border-l-2"), "a rule, not a box");
+  assert.ok(detailClass.includes("compact-row-detail"), "it continues the selected row's accent rail");
 });
 
 test("Overall is selected by default and only one group ever renders", () => {
@@ -372,11 +377,10 @@ test("selecting Profit, Safety or Stability shows that pillar's existing details
   assert.ok(!/slice\(0,|\.filter\(/.test(pillar), "no metric may be dropped to hit a height target");
 });
 
-test("selecting Collector Appeal shows its contribution, model points and description", () => {
+test("selecting Collector Appeal shows its weight, rank and description", () => {
   const appeal = between(detail, "if (row.key === RIP_APPEAL_ROW_KEY) {", "const pillar = row.pillar;");
 
   assert.ok(appeal.includes("{collectorAppeal.weightLabel}"), "the contribution percentage");
-  assert.ok(appeal.includes("{collectorAppeal.contributionLabel}"), "the model points");
   assert.ok(appeal.includes("{collectorAppeal.rankLabel}"), "the denominated rank");
   assert.ok(
     appeal.includes("Roster desirability translated through this set&apos;s modeled opening paths."),
@@ -386,6 +390,25 @@ test("selecting Collector Appeal shows its contribution, model points and descri
   assert.ok(appeal.includes("{collectorAppeal?.unavailableReason ||"));
   assert.ok(appeal.includes("Collector Appeal (CA7) is unavailable for this set"));
   assert.ok(!/>\s*0\s*</.test(appeal));
+});
+
+test("the weighted contribution term is not printed below desktop", () => {
+  // Approved removal. "Opening Desirability x 10% = 9.6 pts" invited the reader
+  // to check arithmetic they cannot: the two scores on this screen are
+  // cohort-relative presentations that do not visibly sum with that model term.
+  // The WEIGHT still carries the same meaning, on the row and in the detail.
+  // Stripped, because the component's comment EXPLAINS the removal by naming
+  // the field it no longer renders.
+  const appeal = code(between(detail, "if (row.key === RIP_APPEAL_ROW_KEY) {", "const pillar = row.pillar;"));
+  assert.ok(!appeal.includes("contributionLabel"), "no weighted point term below desktop");
+  assert.ok(!appeal.includes("Contribution to RIP Score"), "and no row labelled as one");
+  assert.ok(appeal.includes("{collectorAppeal.weightLabel}"), "the 10% weight is what remains");
+  assert.ok(feed.includes("`${collectorAppeal.weightLabel} of RIP Score`"), "and the row still states it");
+
+  // Nothing was recomputed and nothing was deleted upstream: the selector still
+  // produces the field and 1200px+ still renders it.
+  assert.ok(section.includes("{collectorAppeal.contributionLabel}"), "desktop keeps the contribution line");
+  assert.ok(section.includes("data-rip-collector-appeal-contribution"));
 });
 
 // ===========================================================================
@@ -478,10 +501,15 @@ test("rows keep a 44px touch target and are fully keyboard operable", () => {
   assert.ok(!compactRow.includes("tabIndex={-1}"), "every row stays in the tab order");
   assert.ok(compactRow.includes("aria-expanded={isSelected}"));
   // Selection changes a colour, never a column position: the edge is a border
-  // every row reserves as transparent.
+  // every row reserves as transparent. Both states now come from the shared
+  // constants, so the three compact lists select identically.
   assert.ok(compactRow.includes("border-l-2"));
-  assert.ok(compactRow.includes("border-l-transparent"));
-  assert.ok(compactRow.includes("border-l-[var(--accent)]"));
+  assert.ok(compactRow.includes("COMPACT_ROW_SELECTED_CLASS"));
+  assert.ok(compactRow.includes("COMPACT_ROW_IDLE_CLASS"));
+  const selectedClass = between(source, "const COMPACT_ROW_SELECTED_CLASS =", ";");
+  const idleClass = between(source, "const COMPACT_ROW_IDLE_CLASS =", ";");
+  assert.ok(idleClass.includes("border-l-transparent"));
+  assert.ok(selectedClass.includes("border-l-[var(--accent)]"));
 });
 
 test("tier and direction are communicated in text, not by colour alone", () => {
