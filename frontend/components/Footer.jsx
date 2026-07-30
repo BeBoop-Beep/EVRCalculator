@@ -7,7 +7,6 @@ const NAV_COLUMNS = [
     links: [
       { label: "Explore", href: "/Explore" },
       { label: "TCGs", href: "/TCGs" },
-      { label: "Tools", href: "/tools" },
       { label: "My Portfolio", href: "/my-collection" },
     ],
   },

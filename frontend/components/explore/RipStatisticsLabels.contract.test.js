@@ -313,10 +313,16 @@ test("Metrics tab three-tier redesign: verdict row removed, log-scale percentile
     panelSource.includes('label="EV / Cost"') && panelSource.includes('label="Chance to Beat Pack Cost"'),
     "the removed verdict figures must stay reachable in the grouped rows"
   );
-  // The percentile strip is now the first content element after the tab's description line.
-  const descriptionIndex = panelSource.indexOf("Raw simulation outputs and the metrics derived from them.");
-  const stripIndex = panelSource.indexOf("Where Packs Land");
-  const disclosureIndex = panelSource.indexOf("<SimMetricDisclosureCard");
+  // The percentile strip is still the first content element after the tab's
+  // description line. Measured inside the RENDERED tree: each group's rows are
+  // now hoisted into consts above the return so the below-1200px compact list
+  // and the 1200px+ cards render the identical elements, which means the first
+  // textual occurrence of a group name in the function is a definition, not a
+  // render position.
+  const renderedSource = panelSource.slice(panelSource.indexOf('<div className="space-y-3">'));
+  const descriptionIndex = renderedSource.indexOf("Raw simulation outputs and the metrics derived from them.");
+  const stripIndex = renderedSource.indexOf("Where Packs Land");
+  const disclosureIndex = renderedSource.indexOf("<SimMetricDisclosureCard");
   assert.ok(
     descriptionIndex >= 0 && stripIndex > descriptionIndex && disclosureIndex > stripIndex,
     "Metrics must read description → percentile strip → question cards"

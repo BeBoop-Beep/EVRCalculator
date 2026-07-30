@@ -380,7 +380,16 @@ test("Opening Outlook renders once, from the canonical value handed to the secti
   // Canonical text only: no frontend rewriting, no score-range wording, no
   // verdict derived from the pillar scores.
   assert.ok(section.includes("{openingOutlook || \"No opening outlook is available for this set yet.\"}"));
-  assert.ok(section.includes("It does not evaluate sealed-product appreciation"));
+  // The tooltip body is now a shared constant (the below-desktop presentation
+  // renders the same outlook in its shared detail region and must quote the
+  // same sentence, not a retyped near-copy). Canonical text, one definition.
+  assert.ok(section.includes("<InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />"));
+  assert.ok(source.includes("It does not evaluate sealed-product appreciation"));
+  assert.equal(
+    (source.match(/It does not evaluate sealed-product appreciation/g) || []).length,
+    1,
+    "the disclaimer has exactly one definition"
+  );
   assert.ok(!section.includes("<details"), "the outlook stays complete rather than truncated behind a disclosure");
 });
 
@@ -595,7 +604,11 @@ test("a missing Opening Outlook degrades to the existing unavailable copy", () =
   // The existing unavailable-data convention is kept, so the callout is never
   // empty and never prints `undefined`.
   assert.ok(section.includes('"No opening outlook is available for this set yet."'));
-  assert.ok(!section.includes("{openingOutlook}"), "the raw value is never rendered unguarded");
+  // Never rendered unguarded. Handing the raw value to the below-desktop feed
+  // as a PROP is not rendering it — that tree applies the same `||` fallback,
+  // which the mobile contract test asserts separately.
+  assert.ok(!/>\s*\{openingOutlook\}\s*</.test(source), "the raw value is never rendered unguarded");
+  assert.ok(!/\{openingOutlook\}\s*<\/p>/.test(source), "no paragraph prints the raw value");
 });
 
 test("a missing score, rank or cohort renders unavailable rather than crashing", () => {

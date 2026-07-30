@@ -27,6 +27,8 @@ const dashboardRoutePath = path.resolve(
 const cardsRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/cards/route.js");
 const overviewRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/overview/route.js");
 const setPageRoutePath = path.resolve(__dirname, "../../app/api/tcgs/pokemon/sets/[setId]/page/route.js");
+const slimProxyContractPath = path.resolve(__dirname, "../../lib/pokemon/slimSetModuleProxyContract.mjs");
+const slimProxyRoutePath = path.resolve(__dirname, "../../lib/pokemon/slimSetModuleProxyRoute.js");
 const explorePageServicePath = path.resolve(__dirname, "../../../backend/db/services/explore_page_service.py");
 const snapshotServicePath = path.resolve(
   __dirname,
@@ -1154,7 +1156,15 @@ test("7D Movers ticker motion: CSS transform marquee, hover/focus pause, reduced
   const tickerEnd = source.indexOf("function normalizePullRateAssumptions", tickerStart);
   const tickerSource = source.slice(tickerStart, tickerEnd);
   assert.equal((tickerSource.match(/href=\{viewAllHref\}/g) || []).length, 2, "card chips and View all movers must share one real href");
-  assert.ok(!tickerSource.includes("onClick="), "ticker links must not intercept native clicks");
+  // Ticker *links* must not intercept native clicks. Scoped to anchors rather
+  // than banning onClick across the whole region, because the error state's
+  // section-local Retry control is a <button> and legitimately needs a click
+  // handler (see the movers retry path in OverviewSectionRetry.contract.test.js).
+  const tickerAnchorTags = tickerSource.match(/<a\b[^>]*>/gs) || [];
+  assert.ok(tickerAnchorTags.length > 0, "the ticker must still render real anchors");
+  tickerAnchorTags.forEach((tag) => {
+    assert.ok(!tag.includes("onClick"), "ticker links must not intercept native clicks");
+  });
 });
 
 test("Phase 5A: Overview does not require activeMarketDashboardDerivedState to render the Top Chase or Market Movers containers", () => {
@@ -1464,9 +1474,31 @@ test("compact sparkline tooltip is local to the sparkline wrapper", () => {
   assert.ok(compactSource.includes("event.clientX - bounds.left"));
   assert.ok(compactSource.includes("style={{ left: tooltipX }}"));
   assert.ok(compactSource.includes("absolute bottom-[calc(100%+0.55rem)]"));
+
+  // The guarantee this test exists for: the tooltip is positioned *inside* the
+  // sparkline wrapper, never torn out into a viewport-fixed layer.
   assert.ok(!compactSource.includes("pointer-events-none fixed"));
-  assert.ok(!compactSource.includes("window.innerWidth"));
-  assert.ok(!compactSource.includes("event.clientY"));
+  assert.ok(!compactSource.includes("position: fixed"));
+
+  // `window.innerWidth` and `event.clientY` used to be banned here as proxies
+  // for "not a fixed, viewport-driven tooltip". Touch support needs both and
+  // neither breaks the locality guarantee above:
+  //   - innerWidth is read only to clamp the tooltip's *local* left offset so a
+  //     sparkline at a screen edge is still readable (clampTooltipX);
+  //   - clientY is read only to tell a vertical page scroll from a horizontal
+  //     scrub, so a finger travelling down the page never selects a point.
+  assert.ok(
+    compactSource.includes("clampTooltipX({"),
+    "innerWidth may only reach the tooltip through the shared viewport clamp"
+  );
+  assert.ok(
+    compactSource.includes("classifyPointerGesture({"),
+    "clientY may only be read to classify the gesture, not to position anything"
+  );
+  assert.ok(
+    !/top:\s*`?\$\{[^}]*clientY/.test(compactSource),
+    "clientY must never drive the tooltip's position"
+  );
 });
 
 test("persistent header omits the compact sparkline and delegates trend evidence to Overview", () => {
@@ -1539,16 +1571,26 @@ test("proxy routes do not cache failed snapshot responses", () => {
 });
 
 test("overview proxy route serves no-store on failure and public cache on success", () => {
-  const source = fs.readFileSync(overviewRoutePath, "utf8");
-
-  assert.ok(source.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
-  assert.ok(source.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  // The overview route now delegates to the shared slim-module proxy, so the
+  // cache-control policy is asserted where it lives (one implementation for
+  // overview/top-chase/movers/value-history instead of four copies).
+  const route = fs.readFileSync(overviewRoutePath, "utf8");
   assert.ok(
-    source.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
+    route.includes('proxySlimSetModuleRequest("overview"'),
+    "overview route must delegate to the shared slim set module proxy"
+  );
+
+  const contract = fs.readFileSync(slimProxyContractPath, "utf8");
+  const proxy = fs.readFileSync(slimProxyRoutePath, "utf8");
+
+  assert.ok(contract.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
+  assert.ok(contract.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  assert.ok(
+    proxy.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
     "cache-control selection must be conditional on proxyResponse.ok"
   );
-  assert.ok(source.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
-  assert.ok(!source.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
+  assert.ok(proxy.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
+  assert.ok(!proxy.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");
 });
 
 test("backend set resolver accepts URL slugs like journey-together, shared across page/shell/cards/market/value-history", () => {
@@ -2438,11 +2480,25 @@ test("persistent shell has no title-card sparkline", () => {
 test("Overview Set Value Trend keeps its compact tooltip behavior", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The Overview Set Value Trend chart must reuse the same compact tooltip shape.
-  const overviewTooltipStart = source.indexOf("<RechartsTooltip content={<SetValueTooltip");
-  const overviewTooltipLineEnd = source.indexOf("\n", overviewTooltipStart);
-  const overviewTooltipSource = source.slice(overviewTooltipStart, overviewTooltipLineEnd);
+  // The Overview Set Value Trend chart must reuse the same compact tooltip
+  // shape. The element is now multi-line (it carries a pointer-aware `trigger`),
+  // so scope to SetValueLineChart and slice the element by its closing tag —
+  // the first `/>` after the opening tag belongs to `<SetValueTooltip />`, not
+  // to the tooltip element itself.
+  const setValueChart = source.slice(
+    source.indexOf("function SetValueLineChart("),
+    source.indexOf("function SetValueTrendCard(")
+  );
+  const overviewTooltipStart = setValueChart.indexOf("<RechartsTooltip");
+  const overviewTooltipSource = setValueChart.slice(
+    overviewTooltipStart,
+    setValueChart.indexOf("\n            />", overviewTooltipStart)
+  );
   assert.ok(overviewTooltipStart >= 0, "Overview chart RechartsTooltip must exist");
+  assert.ok(
+    overviewTooltipSource.includes('trigger={isCoarsePointer ? "click" : "hover"}'),
+    "the tooltip trigger follows the active pointer so touch can tap and mouse keeps hover"
+  );
   assert.ok(
     overviewTooltipSource.includes('content={<SetValueTooltip />}'),
     "Overview chart tooltip content must use the compact set value tooltip"
@@ -3254,10 +3310,21 @@ test("Phase 8B: set-switcher option lists filter hidden/unvalidated-era sets via
 test("Phase 8B: every set-switcher surface renders switcherTargets while non-switcher consumers keep the raw targets list", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
+  // The retired set-detail rail must not come back as a second switcher. The
+  // mobile hero *does* take `targets`, but it is the sole picker owner below
+  // 1200px and hands ownership back above it — see
+  // SetHeroPickerOwnership.contract.test.mjs, which proves only one operable
+  // picker and one listbox exist at any width.
+  const targetsConsumers = [...source.matchAll(/targets=\{switcherTargets\}/g)].map((match) => {
+    const lineStart = source.lastIndexOf("<", match.index);
+    return source.slice(lineStart, match.index);
+  });
+  assert.equal(targetsConsumers.length, 1, "exactly one component may receive the switcher targets list");
   assert.ok(
-    !source.includes("targets={switcherTargets}"),
-    "the retired set-detail rail must not receive or render a duplicate switcher"
+    source.includes("<PokemonSetMobileHero"),
+    "that one consumer is the mobile hero, not a reinstated rail"
   );
+  assert.ok(!/SetDetailRail|setDetailRail/.test(source), "the retired rail must stay retired");
 
   // Explore-mode sidebar select, mobile tools select, persistent set-detail
   // picker, and Explore-mode hero picker.
@@ -3355,7 +3422,10 @@ test("Phase 9D.2: the page client uses the shared branded panel only for its rem
 test("Phase 11: Overview renders 5 priority-ordered sections, each independently error-isolated, with no whole-tab loading gate", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  const renderStart = source.indexOf('id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28"');
+  // The section now also carries data-mobile-feed and max-desk:space-y-0 (the
+  // continuous mobile feed); anchor on the id so formatting changes to the
+  // class list do not break this test again.
+  const renderStart = source.indexOf('id="set-detail-overview" data-mobile-feed');
   assert.ok(renderStart >= 0, "the Overview section render must exist");
   const renderEnd = source.indexOf("</section>", renderStart);
   const renderSource = source.slice(renderStart, renderEnd);

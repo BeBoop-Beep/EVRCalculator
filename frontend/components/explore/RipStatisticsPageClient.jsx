@@ -18,13 +18,21 @@ import {
   YAxis,
 } from "recharts";
 
+import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
+import {
+  MINIMAL_Y_AXIS_PROPS,
+  buildEdgeDateTicks,
+  getMinimalPlotMargin,
+} from "@/components/explore/minimalChartAxis.mjs";
 import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
 import CompactRankedBarChart from "@/components/explore/CompactRankedBarChart";
 import PackValueHistoryChart from "@/components/explore/PackValueHistoryChart";
 import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalScaffold";
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
+import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
 import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
@@ -33,7 +41,16 @@ import SectionBoundary from "@/components/ui/SectionBoundary";
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import { useSectionTiming } from "@/hooks/useSectionTiming";
 import { useSectionFetchState } from "@/hooks/useSectionFetchState";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
+import {
+  TAP_MOVEMENT_THRESHOLD_PX,
+  classifyPointerGesture,
+  clampTooltipX,
+  findNearestPointIndex,
+} from "./compactSparklineInteraction.mjs";
 import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
+import { getCompactWindowLabel, needsAccessibleWindowLabel } from "@/lib/explore/compactWindowLabel.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "@/components/explore/MoversTickerViewport";
@@ -2096,17 +2113,6 @@ function formatShortDate(value) {
   return formatHistoryDate(value, { month: "short", day: "numeric" }) || String(value).slice(0, 10);
 }
 
-function formatCompactDay(value) {
-  if (!value) {
-    return "";
-  }
-  const dateKey = getHistoryDateKey(value);
-  if (dateKey) {
-    return String(Number(dateKey.slice(8, 10)));
-  }
-  return String(value).slice(8, 10) || String(value).slice(0, 10);
-}
-
 function formatLongDate(value) {
   if (!value) {
     return "Date unavailable";
@@ -2167,6 +2173,9 @@ function MarketWindowSelector({ windows, value, onChange, className = "" }) {
             aria-pressed={isActive}
             className={[
               "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+              // The compact glyph must not shrink the tap target. Below desktop
+              // the chip keeps a 36px box (up from ~22px) and centres its label.
+              "max-desk:inline-flex max-desk:min-h-9 max-desk:items-center max-desk:justify-center max-desk:px-2.5",
               isActive
                 ? ""
                 : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
@@ -2180,8 +2189,21 @@ function MarketWindowSelector({ windows, value, onChange, className = "" }) {
                   }
                 : undefined
             }
+            aria-label={needsAccessibleWindowLabel(entry.key, entry.label) ? entry.label : undefined}
           >
-            {entry.label}
+            {/* Compact glyph below 1200px (Lifetime -> LT), full wording at
+                desktop. The chip shrinks, the touch target does not, and the
+                accessible name stays the full label. */}
+            {needsAccessibleWindowLabel(entry.key, entry.label) ? (
+              <>
+                <span aria-hidden="true" className="max-desk:hidden">{entry.label}</span>
+                <span aria-hidden="true" className="hidden max-desk:inline">
+                  {getCompactWindowLabel(entry.key, entry.label)}
+                </span>
+              </>
+            ) : (
+              entry.label
+            )}
           </button>
         );
       })}
@@ -2313,6 +2335,10 @@ function SetValueTooltip({ active, payload }) {
 function CompactSparkline({ points, valueKey = "value", trendDirection = "neutral", className = "", showTooltip = true, emptyLabel = "Awaiting trend" }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [tooltipX, setTooltipX] = useState(null);
+  const pointerMode = usePointerMode();
+  const isCoarsePointer = pointerMode === POINTER_MODE_COARSE;
+  const containerRef = useRef(null);
+  const gestureRef = useRef(null);
   const chartId = useId().replace(/:/g, "");
   const chartPoints = Array.isArray(points)
     ? points.map((point, index) => ({
@@ -2334,38 +2360,101 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
   const firstPoint = numericPoints[0] || null;
   const activeDeltaAmount = activePoint && firstPoint ? getPriceDeltaAmount(activePoint.y, firstPoint.y) : null;
   const activeDeltaPercent = activePoint && firstPoint ? getPriceDeltaPercent(activePoint.y, firstPoint.y) : null;
-  const getLocalTooltipX = (bounds, localX) => {
-    const width = Number(bounds?.width) || 0;
-    const margin = Math.min(72, Math.max(width / 2, 0));
-    if (width <= 0) {
-      return 0;
-    }
-    return Math.max(margin, Math.min(width - margin, localX));
-  };
-
-  const handlePointerMove = (event) => {
-    if (numericPoints.length === 0) {
+  const selectAtClientX = (clientX) => {
+    const element = containerRef.current;
+    if (!element || numericPoints.length === 0) {
       return;
     }
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const ratio = bounds.width > 0 ? (event.clientX - bounds.left) / bounds.width : 0;
-    const targetIndex = Math.round(Math.max(0, Math.min(1, ratio)) * Math.max(chartPoints.length - 1, 1));
-    let nearestIndex = 0;
-    let nearestDistance = Infinity;
-    numericPoints.forEach((point, index) => {
-      const distance = Math.abs(point.index - targetIndex);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = index;
-      }
+    const bounds = element.getBoundingClientRect();
+    const ratio = bounds.width > 0 ? (clientX - bounds.left) / bounds.width : 0;
+    setActiveIndex(findNearestPointIndex(numericPoints, chartPoints.length, ratio));
+    setTooltipX(
+      clampTooltipX({
+        chartLeft: bounds.left,
+        chartWidth: bounds.width,
+        pointerX: clientX - bounds.left,
+        // Matches SetValueCompactTooltipCard's max-w-[14rem].
+        tooltipWidth: 224,
+        viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth,
+        gutter: 8,
+      })
+    );
+  };
+
+  const clearSelection = () => {
+    setActiveIndex(null);
+    setTooltipX(null);
+  };
+
+  // Mouse and trackpad keep the exact hover behaviour they have today.
+  const handlePointerMove = (event) => {
+    if (event.pointerType === "mouse") {
+      selectAtClientX(event.clientX);
+      return;
+    }
+    const gesture = gestureRef.current;
+    if (!gesture) {
+      return;
+    }
+    const classification = classifyPointerGesture({
+      startX: gesture.startX,
+      startY: gesture.startY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      threshold: TAP_MOVEMENT_THRESHOLD_PX,
     });
-    setActiveIndex(nearestIndex);
-    setTooltipX(getLocalTooltipX(bounds, event.clientX - bounds.left));
+    if (classification === "scroll") {
+      // The finger is heading down the page. Hand it back and stop tracking.
+      gestureRef.current = null;
+      return;
+    }
+    if (classification === "scrub") {
+      gesture.moved = true;
+      selectAtClientX(event.clientX);
+    }
+  };
+
+  const handlePointerDown = (event) => {
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    gestureRef.current = { startX: event.clientX, startY: event.clientY, moved: false };
+  };
+
+  const handlePointerUp = (event) => {
+    if (event.pointerType === "mouse") {
+      return;
+    }
+    const gesture = gestureRef.current;
+    gestureRef.current = null;
+    if (!gesture || gesture.moved) {
+      // A scrub already selected as it went; leave the selection visible.
+      return;
+    }
+    // A tap on the already-selected point dismisses it; any other tap selects.
+    const element = containerRef.current;
+    if (element && activePoint) {
+      const bounds = element.getBoundingClientRect();
+      const ratio = bounds.width > 0 ? (event.clientX - bounds.left) / bounds.width : 0;
+      if (findNearestPointIndex(numericPoints, chartPoints.length, ratio) === activeIndex) {
+        clearSelection();
+        return;
+      }
+    }
+    selectAtClientX(event.clientX);
+  };
+
+  const handlePointerLeave = (event) => {
+    // Touch selections must survive the finger leaving the screen — that is the
+    // whole point of tap-to-inspect. Only hover clears on leave.
+    if (event?.pointerType === "mouse" || !isCoarsePointer) {
+      clearSelection();
+    }
   };
 
   if (numericPoints.length < 2) {
     return (
-      <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)]", className].filter(Boolean).join(" ")}>
+      <div className={["flex h-16 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-xs text-[var(--text-secondary)] max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent", className].filter(Boolean).join(" ")}>
         {emptyLabel}
       </div>
     );
@@ -2392,29 +2481,70 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
 
   return (
     <div
+      ref={containerRef}
       data-compact-sparkline
-      className={["group relative z-[60] overflow-visible rounded-lg", className].filter(Boolean).join(" ")}
-      onMouseMove={handlePointerMove}
-      onMouseLeave={() => {
-        setActiveIndex(null);
-        setTooltipX(null);
-      }}
+      data-pointer-mode={pointerMode}
+      role="img"
+      aria-label={
+        activePoint
+          ? `Price trend. Selected ${formatLongDate(activePoint.date)}: ${formatCurrency(activePoint.y)}.`
+          : "Price trend"
+      }
+      // touch-pan-y emits touch-action: pan-y - the browser keeps vertical
+      // scrolling and this component gets horizontal movement for scrubbing.
+      //
+      // z-30, and it must stay below the pinned set-control block.
+      // `.dashboard-container` is `isolate`, so this element and
+      // `.set-detail-sticky-tabs` (z-index 40) are painted in the SAME stacking
+      // context. At 60 — the value this carried — every Top Chase sparkline
+      // drew straight over the pinned block as its row scrolled underneath,
+      // which is what read as the title card being see-through. The tooltip
+      // below is scoped to this element's stacking context, so it rides on this
+      // value too: 30 still clears sibling rows and card chrome (all z-auto)
+      // while staying beneath the pinned block.
+      className={["group relative z-30 touch-pan-y overflow-visible rounded-lg", className].filter(Boolean).join(" ")}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => { gestureRef.current = null; }}
+      onPointerLeave={handlePointerLeave}
       onFocus={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
         setActiveIndex(numericPoints.length - 1);
-        setTooltipX(getLocalTooltipX(bounds, bounds.width / 2));
+        setTooltipX(
+          clampTooltipX({
+            chartLeft: bounds.left,
+            chartWidth: bounds.width,
+            pointerX: bounds.width / 2,
+            tooltipWidth: 224,
+            viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth,
+            gutter: 8,
+          })
+        );
       }}
-      onBlur={() => {
-        setActiveIndex(null);
-        setTooltipX(null);
+      onBlur={clearSelection}
+      onKeyDown={(event) => {
+        if (numericPoints.length === 0) return;
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          event.preventDefault();
+          const step = event.key === "ArrowRight" ? 1 : -1;
+          const base = activeIndex === null ? numericPoints.length - 1 : activeIndex;
+          setActiveIndex(Math.max(0, Math.min(numericPoints.length - 1, base + step)));
+        } else if (event.key === "Escape") {
+          clearSelection();
+        }
       }}
       tabIndex={0}
     >
+      {/* Below 1200px the sparkline is integrated into the row instead of
+          sitting in its own mini-card: the border and fill are dropped so the
+          plot reads as part of the row and uses the full row width. Desktop
+          keeps the framed treatment. */}
       <svg
         aria-hidden="true"
         viewBox="0 0 100 42"
         preserveAspectRatio="none"
-        className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42"
+        className="h-full w-full overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -2577,6 +2707,10 @@ function getCanonicalChecklistSetValueMetrics({
 }
 
 function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Checklist" }) {
+  const isCoarsePointer = usePointerMode() === POINTER_MODE_COARSE;
+  // No width branch left to make: the axis treatment is now identical at every
+  // size, so this chart no longer reads the desktop composition at all. Pointer
+  // mode still decides tap-vs-hover, which is a capability, not a width.
   const chartId = useId().replace(/:/g, "");
   let previousValuedPoint = null;
   const numericPoints = (Array.isArray(points) ? points : [])
@@ -2621,8 +2755,11 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
   const yAxisTicks = buildCurrencyTicks(valuedPoints);
   const yMin = Math.max(0, Math.min(...yAxisTicks, minValue - range * 0.14));
   const yMax = Math.max(...yAxisTicks, maxValue + range * 0.14);
-  const showEveryDayTick = numericPoints.length <= 8;
-  const xAxisTicks = showEveryDayTick ? numericPoints.map((point) => point.date) : undefined;
+  // One date system at every width: the first and last date of the visible
+  // series, printed on the axis directly under the line they describe. The
+  // every-day / preserveStartEnd desktop tick set and the external bookend-date
+  // row it used to pair with are both gone — see minimalChartAxis.mjs.
+  const edgeDateTicks = buildEdgeDateTicks(numericPoints, "date");
   const trendColor =
     trendDirection === "negative"
       ? NEGATIVE_VALUE_COLOR
@@ -2633,10 +2770,16 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
   const glowFilterId = `set-value-glow-${chartId}`;
 
   return (
-    <div className="min-h-[21rem] w-full">
-      <ChartFrame className="h-[21rem] w-full">
+    <div className="min-h-[16rem] w-full tab:min-h-[20rem] desk:min-h-[21rem]">
+      <ChartFrame className="h-[16rem] w-full tab:h-[20rem] desk:h-[21rem]">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={numericPoints} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
+          {/* Shared insets: with the y-axis reserving no width at any size, a
+              zero left margin would put the first data point exactly on x=0,
+              where the SVG clips half its stroke and all of its 7px glow. */}
+          {/* The completed mobile values become the shared ones, so the phone
+              and tablet plot is byte-identical to before and desktop simply
+              adopts it (it had top 12 / bottom 8 to sit under its old axis). */}
+          <ComposedChart data={numericPoints} margin={getMinimalPlotMargin({ top: 6, bottom: 2 })}>
             <defs>
               <linearGradient id={fillGradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={trendColor} stopOpacity="0.13" />
@@ -2660,26 +2803,37 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "C
               isAnimationActive={false}
             />
             <CartesianGrid stroke="var(--border-subtle)" strokeOpacity={0.28} strokeDasharray="2 8" vertical={false} />
+            {/* The two edge dates are the only dates, at every width, and they
+                are anchored inward so the SVG cannot clip them. */}
             <XAxis
               dataKey="date"
-              ticks={xAxisTicks}
+              ticks={edgeDateTicks}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
-              tickFormatter={(value) => (showEveryDayTick ? formatCompactDay(value) : formatShortDate(value) || "")}
-              minTickGap={showEveryDayTick ? 0 : 22}
-              interval={showEveryDayTick ? 0 : "preserveStartEnd"}
+              tick={<ChartEdgeDateTick ticks={edgeDateTicks} formatter={(value) => formatShortDate(value) || ""} />}
+              tickFormatter={(value) => formatShortDate(value) || ""}
+              minTickGap={0}
+              interval={0}
             />
+            {/* Scale unchanged — the domain is still computed from the data and
+                still drives the gridlines. Only the printed labels and the
+                58px gutter they reserved are gone, so the series uses the full
+                card width. Exact values stay available by hover and tap/scrub. */}
             <YAxis
+              {...MINIMAL_Y_AXIS_PROPS}
               domain={[yMin, yMax]}
-              ticks={yAxisTicks}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "var(--text-secondary)", fontSize: 11 }}
+              tickCount={4}
               tickFormatter={formatAxisCurrency}
-              width={58}
             />
-            <RechartsTooltip content={<SetValueTooltip />} cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }} />
+            {/* Touch gets an explicit tap trigger: it persists after the finger
+                lifts, and it binds click rather than touchmove, so scrolling
+                past the chart can never select a random point. Mouse and
+                trackpad keep hover at every width. */}
+            <RechartsTooltip
+              trigger={isCoarsePointer ? "click" : "hover"}
+              content={<SetValueTooltip />}
+              cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }}
+            />
             <Line
               type="linear"
               dataKey="setValue"
@@ -2829,7 +2983,7 @@ function SetValueTrendCard({
           </div>
         </div>
       ) : (
-        <div className="flex min-h-[29rem] flex-col space-y-4">
+        <div className="flex min-h-0 flex-col space-y-4 desk:min-h-[29rem]">
           <div className="min-w-0">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
@@ -2845,7 +2999,9 @@ function SetValueTrendCard({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Below desktop the row scrolls rather than shrinking its labels, so
+              `Lifetime` stays reachable and legible on a 320px phone. */}
+          <div className="flex flex-wrap items-center gap-2 max-desk:overflow-x-auto max-desk:flex-nowrap max-desk:[-ms-overflow-style:none] max-desk:[scrollbar-width:none] max-desk:[&::-webkit-scrollbar]:hidden">
             <MarketWindowSelector
               windows={availableDeltaWindows}
               value={effectiveWindowKey}
@@ -2855,12 +3011,15 @@ function SetValueTrendCard({
 
           <SetValueLineChart key={chartKey} points={chartPoints} trendDirection={trendDirection} scopeLabel={selectedScopeLabel} />
 
-          <div className="grid min-w-0 grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)] items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)] max-[420px]:grid-cols-2">
-            <span className="min-w-0 justify-self-start truncate">{formatShortDate(firstPoint?.date) || "Start"}</span>
-            <div className="min-w-0 justify-self-center max-[420px]:order-3 max-[420px]:col-span-2">
+          {/* One date system, at every width. The chart's own axis prints the
+              first and last date directly under the series they describe, so
+              the bookend dates that used to sit either side of this selector
+              stated the same two values a second time. This row is now the
+              scope selector alone. */}
+          <div className="grid min-w-0 grid-cols-1 items-center gap-x-3 gap-y-2 pb-1 text-xs text-[var(--text-secondary)]">
+            <div className="min-w-0 justify-self-start">
               <SetValueScopeSelector scopes={scopeOptions} value={selectedTrend.scope} onChange={handleSelectedScopeChange} />
             </div>
-            <span className="min-w-0 justify-self-end truncate text-right">{formatShortDate(lastPoint?.date) || "Latest"}</span>
           </div>
         </div>
       )}
@@ -2918,7 +3077,7 @@ function OverviewReadPanel({ metrics, compactRead, detailRead }) {
   );
 }
 
-function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = null }) {
+function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = null, href = null }) {
   const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
   const name = card?.name || "Unknown card";
   const rarity = card?.rarity || null;
@@ -2946,65 +3105,130 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
       ? "positive"
       : "neutral";
 
-  // Fluid at lg+: the name column min dropped to 0 (it truncates) and the
-  // horizontal padding/gaps tightened so the 2/3-width Overview placement
-  // compresses padding before it ever shrinks the sparkline column.
+  // Correction 3: the information region is the link; the sparkline is its
+  // sibling. Nesting a focusable, arrow-key-driven chart inside an <a> is
+  // invalid interactive content, and stopPropagation would only paper over it.
+  //
+  // Compact ranked market row below 1200px: rank, small image, name + rarity,
+  // and price + movement all share one line inside the link, with the sparkline
+  // spanning beneath it.
+  //
+  // At 1200px+ the row is the historical four-column table again — rank | card |
+  // trend | price — sharing ONE column template with the header above it. The
+  // mobile composition put the price inside the link, which made a true
+  // four-column desktop row impossible: the price and the sparkline would have
+  // had to interleave across an element boundary, and the only ways to do that
+  // (display:contents on the anchor) destroy the row's hover surface and focus
+  // ring. The price cell is therefore rendered per composition — mobile's
+  // inside the link, desktop's outside it — the same pattern the card image in
+  // this row already uses. Only the wrapper is duplicated; the values, the
+  // window state and the accessible label are computed once above.
+  const NavigationRegion = href ? "a" : "div";
+  const priceCell = (
+    <MarketValueChange
+      value={price}
+      changeAmount={displayDeltaAmount}
+      changePercent={displayDelta}
+      windowLabel={getDeltaWindowLabel(selectedWindowKey)}
+      showWindowLabel={false}
+      accessiblePeriodLabel={
+        windowState.displayMovement?.isSinceFirstAvailable
+          ? getMovementAccessiblePeriod({
+              isPartialWindow: true,
+              windowCoverageDays: getDateSpanDays(
+                windowState.displayMovement.startDate,
+                windowState.displayMovement.endDate
+              ),
+            })
+          : null
+      }
+      alignment="right"
+      variant="table-row"
+      accessibleLabel={`${name} market price`}
+    />
+  );
+
   return (
-    <div className="grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] lg:items-center lg:gap-3 lg:px-3 lg:py-3">
-      <span className="self-start pt-1 text-xs font-semibold text-[var(--text-secondary)] lg:self-auto lg:pt-0">#{index + 1}</span>
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)]">
+    <div
+      data-top-chase-row
+      className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 max-desk:px-0 desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] desk:items-center desk:gap-3 desk:px-3 desk:py-3"
+    >
+      <NavigationRegion
+        {...(href ? { href, "aria-label": `${name} — open in Cards` } : {})}
+        data-row-nav
+        className="grid min-h-11 min-w-0 grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-lg transition-colors hover:bg-[var(--surface-hover)]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:col-span-2 desk:col-start-1 desk:row-start-1 desk:grid-cols-[3rem_minmax(0,1fr)] desk:gap-3"
+      >
+        <span className="self-center text-xs font-semibold tabular-nums text-[var(--text-secondary)]">#{index + 1}</span>
+
+        <div className="flex h-[3.4rem] w-[2.5rem] flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] desk:hidden">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imageUrl}
-              alt={name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-            />
+            <img src={imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
           ) : (
-            <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+            <span className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
               {getCardInitials(name)}
             </span>
           )}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name}</p>
-          <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
+
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="hidden h-[4.875rem] w-14 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.48)] shadow-[0_10px_24px_rgba(2,6,23,0.24)] desk:flex">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt={name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <span className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+                {getCardInitials(name)}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{name}</p>
+            <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{rarity || "N/A"}</p>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2 flex min-w-0 flex-col items-center lg:col-span-1">
-        <CompactSparkline points={sparklinePoints} trendDirection={sparklineTone} className="h-14 w-full max-w-[12.25rem] lg:max-w-[13.75rem]" />
+
+        {/* Mobile/tablet price: on the row's single line, inside the link. */}
+        <div data-row-price="compact" className="min-w-0 justify-self-end desk:hidden">
+          {priceCell}
+        </div>
+      </NavigationRegion>
+
+      {/* Trend — the table's third column on desktop, and the full-width strip
+          under the link below it. Start and end dates sit at the lower left and
+          lower right of the plot, outside the graph box, so this stays graph
+          height rather than row height. */}
+      <div data-row-chart className="flex min-w-0 flex-col items-stretch desk:col-start-3 desk:row-start-1 desk:items-center">
+        {/* ~48px of plot below desktop (was 32px, which flattened real
+            movement into a decorative line); the restored 56px on desktop. */}
+        <CompactSparkline
+          points={sparklinePoints}
+          trendDirection={sparklineTone}
+          className="h-12 w-full desk:h-14 desk:max-w-[13.75rem]"
+        />
         {sparklinePoints.length >= 2 ? (
-          <div className="mt-1 flex w-full max-w-[12.25rem] min-w-0 items-center justify-between gap-2 text-[9px] text-[var(--text-secondary)] lg:max-w-[13.75rem] lg:text-[10px]">
+          <div className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-[9px] text-[var(--text-secondary)] desk:max-w-[13.75rem] desk:text-[10px]">
             <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
             <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
           </div>
         ) : null}
       </div>
-      <div className="col-span-2 min-w-0 lg:col-span-1 lg:justify-self-end">
-        <MarketValueChange
-          value={price}
-          changeAmount={displayDeltaAmount}
-          changePercent={displayDelta}
-          windowLabel={getDeltaWindowLabel(selectedWindowKey)}
-          showWindowLabel={false}
-          accessiblePeriodLabel={
-            windowState.displayMovement?.isSinceFirstAvailable
-              ? getMovementAccessiblePeriod({
-                  isPartialWindow: true,
-                  windowCoverageDays: getDateSpanDays(
-                    windowState.displayMovement.startDate,
-                    windowState.displayMovement.endDate
-                  ),
-                })
-              : null
-          }
-          alignment="right"
-          variant="table-row"
-          accessibleLabel={`${name} market price`}
-        />
+
+      {/* Desktop price / change: the table's fourth and final column, outside
+          the link so the sparkline can occupy column three between it and the
+          card. Rendered after the chart so the reading order matches the
+          visual order. */}
+      <div
+        data-row-price="table"
+        className="hidden min-w-0 desk:col-start-4 desk:row-start-1 desk:block desk:justify-self-end"
+      >
+        {priceCell}
       </div>
     </div>
   );
@@ -3031,6 +3255,8 @@ function TopMarketCardsContent({
   selectedWindowKey: controlledSelectedWindowKey = null,
   onWindowChange = null,
   marketAsOfDate = null,
+  rowHref = null,
+  onRetry = null,
 }) {
   const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
   const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
@@ -3054,11 +3280,37 @@ function TopMarketCardsContent({
   const hasCards = Array.isArray(cards) && cards.length > 0;
 
   if ((status === "loading" || status === "idle") && !hasCards) {
-    return <InlinePanelSkeleton rows={5} />;
+    // The placeholder matches the final compact row box, so data arriving does
+    // not shift the page.
+    return (
+      <div data-top-chase-skeleton className="animate-pulse space-y-2" aria-hidden="true">
+        {Array.from({ length: 5 }).map((_, skeletonIndex) => (
+          <div
+            key={`top-chase-skeleton:${skeletonIndex}`}
+            className="max-desk:h-[4.25rem] h-12 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/50"
+          />
+        ))}
+      </div>
+    );
   }
 
   if (status === "error") {
-    return <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>;
+    // Section-local failure + Retry: retries only the top-chase request and
+    // never replaces the rest of Overview with a page-level loader.
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-sm text-red-300">{error || "Unable to load market cards for this set."}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[rgba(255,255,255,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] max-desk:min-h-11"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   if (!hasCards) {
@@ -3072,8 +3324,14 @@ function TopMarketCardsContent({
         value={effectiveWindowKey}
         onChange={setSelectedWindowKey}
       />
-      <div className="set-glass-inner overflow-visible rounded-xl border border-[var(--border-subtle)]">
-        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:grid">
+      {/* Below 1200px the outer list box is dropped: the rows already carry
+          their own dividers, so wrapping them in another bordered card only
+          spent horizontal width the sparkline needs. Desktop keeps the box. */}
+      <div className="set-glass-inner overflow-visible rounded-xl border border-[var(--border-subtle)] max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent">
+        {/* Column labels follow the desktop row grid, so they move to `desk:`
+            with it — in the 1024-1199px tablet band the rows are compact and
+            these labels would sit over the wrong columns. */}
+        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] desk:grid">
           <span>Rank</span>
           <span>Card</span>
           <span className="text-center">Trend</span>
@@ -3087,6 +3345,7 @@ function TopMarketCardsContent({
               index={index}
               selectedWindowKey={effectiveWindowKey}
               marketAsOfDate={marketAsOfDate}
+              href={rowHref}
             />
           ))}
         </div>
@@ -3146,12 +3405,13 @@ function getTopCardPriceHistory(card, selectedWindowKey, marketAsOfDate = null) 
   });
 }
 
-function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null }) {
-  // Default to a 6-row cap so the 2/3-width terminal row stays scannable;
+function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey, onWindowChange, marketAsOfDate = null, rowHref = null, onRetry = null }) {
+  // Default to a 5-row preview so the compact mobile feed stays scannable;
   // "View all chase cards" expands in place to the full fetched list (10 —
   // see the /market/top-chase fetch's limit), reusing the View-all-movers
   // button treatment. There is no dedicated chase-cards destination to link
-  // out to, so expand-in-place is the closest existing pattern.
+  // out to, so expand-in-place is the closest existing pattern — and it is
+  // what keeps rows 6-10 reachable rather than discarded (parity spec §6).
   const [showAllChaseCards, setShowAllChaseCards] = useState(false);
   const totalRows = Array.isArray(cards) ? cards.length : 0;
 
@@ -3161,19 +3421,44 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         cards={cards}
         status={status}
         error={error}
-        maxRows={showAllChaseCards ? 10 : 6}
+        maxRows={showAllChaseCards ? 10 : 5}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
+        rowHref={rowHref}
+        onRetry={onRetry}
       />
-      {totalRows > 6 ? (
-        <div className="mt-4 flex justify-end">
+      {totalRows > 5 ? (
+        <div className="mt-4 flex justify-end max-desk:mt-1 max-desk:justify-center">
+          {/* Compact visible label below 1200px; the accessible name stays the
+              full, descriptive wording at every width.
+              The list expands in place, downward — so the affordance is a down
+              chevron that flips to point back up when the extra rows are
+              showing. The previous label used a right-pointing arrow, which
+              promises navigation to another destination; there is no such
+              destination, and rows 6-10 appear directly beneath this control. */}
           <button
             type="button"
             onClick={() => setShowAllChaseCards((value) => !value)}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]"
+            aria-expanded={showAllChaseCards}
+            aria-label={showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:gap-1.5 max-desk:border-0 max-desk:bg-transparent max-desk:px-2 max-desk:text-[var(--accent)]"
           >
-            {showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+            <span aria-hidden="true" className="max-desk:hidden">
+              {showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+            </span>
+            <span aria-hidden="true" className="hidden max-desk:inline">
+              {showAllChaseCards ? "Show less" : "Show more"}
+            </span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              data-chase-reveal-chevron
+              className={`hidden h-4 w-4 flex-none transition-transform max-desk:block ${showAllChaseCards ? "rotate-180" : ""}`}
+            >
+              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+            </svg>
           </button>
         </div>
       ) : null}
@@ -3237,7 +3522,7 @@ function MoversTickerItemChip({ card, movement, href, tabIndex }) {
   );
 }
 
-function MarketMoversTicker({ items, status, error, viewAllHref }) {
+function MarketMoversTicker({ items, status, error, viewAllHref, onRetry = null }) {
   const hasItems = Array.isArray(items) && items.length > 0;
   // Overflow/reduced-motion choose the marquee structure. Focus and hover
   // only pause that existing structure, so neither can remount a clicked link.
@@ -3263,8 +3548,12 @@ function MarketMoversTicker({ items, status, error, viewAllHref }) {
     // Fixed strip height from first paint (h-14): loading, error, empty, and
     // populated states all render inside the same box, so the ticker never
     // shifts the Overview content below it.
-    <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] py-1 pl-3 pr-2">
-      <span className="flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+    // Below 1200px this is a plain full-width utility row: no outer card, no
+    // border, no rounding — just the label, the ticker and a compact
+    // destination arrow, separated from the feed by the divider the feed
+    // already draws between sections. Desktop keeps its boxed strip.
+    <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-page)_78%,transparent)] py-1 pl-3 pr-2 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0">
+      <span className="flex-none rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0">
         7D Movers
       </span>
       <MoversTickerViewport
@@ -3274,16 +3563,37 @@ function MarketMoversTicker({ items, status, error, viewAllHref }) {
         fallback={status === "loading" ? (
           <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" aria-hidden="true" />
         ) : status === "error" ? (
-          <p className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</p>
+          // Compact, section-local failure state inside the same fixed-height
+          // strip: a stalled or failed movers fetch is now a retryable message
+          // rather than an endless pulse, and Retry re-requests only movers.
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-xs text-red-300">{error || "Unable to load 7D movers for this set."}</span>
+            {onRetry ? (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="flex-none rounded-md border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.04)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[rgba(255,255,255,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                Retry
+              </button>
+            ) : null}
+          </span>
         ) : (
           <p className="truncate text-xs text-[var(--text-secondary)]">No reliable 7D movers yet.</p>
         )}
       />
+      {/* One destination, two presentations. Below 1200px the verbose button
+          collapses to an icon-sized arrow that keeps a 44px touch target; the
+          accessible name stays "View all movers" at every width. */}
       <a
         href={viewAllHref}
-        className="flex-none whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        aria-label="View all movers"
+        className="flex-none whitespace-nowrap rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] max-desk:inline-flex max-desk:h-11 max-desk:w-8 max-desk:items-center max-desk:justify-center max-desk:rounded-md max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0"
       >
-        View all movers →
+        <span aria-hidden="true" className="max-desk:hidden">View all movers →</span>
+        <svg aria-hidden="true" viewBox="0 0 20 20" className="hidden h-4 w-4 max-desk:block" fill="currentColor">
+          <path d="M7.21 5.23a.75.75 0 0 1 1.06-.02l4.45 4.25a.75.75 0 0 1 0 1.08l-4.45 4.25a.75.75 0 1 1-1.04-1.08L11.12 10 7.23 6.29a.75.75 0 0 1-.02-1.06Z" />
+        </svg>
       </a>
     </div>
   );
@@ -3323,7 +3633,7 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default" }) {
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3368,6 +3678,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
         value={value}
         onChange={onChange}
         ariaLabel="Section view"
+        mobileScroll={mobileScroll}
       />
     );
   }
@@ -3830,21 +4141,31 @@ const METRIC_TAG_TONE_CLASSES = {
   neutral: "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-[var(--text-secondary)]",
 };
 
+// The tone pill for a metric's qualitative tag ("low", "concentrated", ...).
+// Extracted so the below-desktop Metrics rows show the SAME badge as the
+// desktop metric row rather than a second, drifting copy of it.
+function SimMetricTag({ tag }) {
+  if (!tag) {
+    return null;
+  }
+  return (
+    <span
+      className={`flex-none rounded-full border px-1.5 py-[1px] text-[10px] font-semibold leading-4 ${
+        METRIC_TAG_TONE_CLASSES[tag.tone] || METRIC_TAG_TONE_CLASSES.neutral
+      }`}
+    >
+      {tag.label}
+    </span>
+  );
+}
+
 function SimMetricRow({ label, value, infoText = null, muted = false, tag = null }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-white/5 py-1.5 last:border-b-0 last:pb-0 first:pt-0">
       <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-secondary)]">
         <span className="truncate">{label}</span>
         {infoText ? <InfoPopover text={infoText} /> : null}
-        {tag ? (
-          <span
-            className={`flex-none rounded-full border px-1.5 py-[1px] text-[10px] font-semibold leading-4 ${
-              METRIC_TAG_TONE_CLASSES[tag.tone] || METRIC_TAG_TONE_CLASSES.neutral
-            }`}
-          >
-            {tag.label}
-          </span>
-        ) : null}
+        <SimMetricTag tag={tag} />
       </span>
       <span className={`flex-none text-[13px] font-semibold tabular-nums ${muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>
         {value}
@@ -4113,6 +4434,92 @@ function SimMetricDisclosureCard({ question, defaultOpen = false, children }) {
   );
 }
 
+// Metrics below 1200px.
+//
+// Desktop presents five surfaces: the percentile strip in its own context panel
+// and four <details> cards, the first open by default. Stacked on a phone that
+// is five bordered boxes and roughly forty labelled rows before the reader has
+// chosen anything to look at.
+//
+// Below desktop it is the interaction the rest of this tab now uses: one row per
+// question on a shared column grid, one selected row, one shared detail region
+// holding that group's complete existing content. Nothing is summarised away —
+// every SimMetricLine the desktop cards render is rendered here too, from the
+// same element definitions, one group at a time.
+function SimulationMetricsCompactList({ groups }) {
+  const [selectedKey, setSelectedKey] = useState(groups[0]?.key || null);
+  const detailRegionId = useId();
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  const selected = groups.find((group) => group.key === selectedKey) || groups[0];
+
+  return (
+    <div data-simulation-metrics-compact className="min-w-0 desk:hidden">
+      <div className="min-w-0">
+        {groups.map((group) => {
+          const isSelected = group.key === selected.key;
+          return (
+            <button
+              key={`simulation-metric-group:${group.key}`}
+              type="button"
+              onClick={() => setSelectedKey(group.key)}
+              aria-expanded={isSelected}
+              aria-controls={detailRegionId}
+              data-simulation-metric-row
+              data-simulation-metric-row-key={group.key}
+              data-compact-row
+              data-selected={isSelected ? "true" : undefined}
+              className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
+              }`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{group.label}</span>
+                {/* The caption names WHICH of the group's own lines the value
+                    beside it is, so the figure is never unattributed. */}
+                <span className="block truncate text-[10px] leading-tight text-[var(--text-secondary)]">
+                  {group.caption}
+                </span>
+              </span>
+              <span className="flex min-w-0 items-center justify-end gap-1.5">
+                {group.tag ? <SimMetricTag tag={group.tag} /> : null}
+                <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+                  {group.value}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ONE shared detail region carrying the selected group's complete
+          existing content — the same JSX the desktop card renders. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-simulation-metric-detail
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <p className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
+            <span className="truncate">{selected.label}</span>
+            {selected.infoText ? <InfoPopover text={selected.infoText} /> : null}
+          </p>
+          {selected.key === "where-packs-land" ? (
+            <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
+              log scale
+            </span>
+          ) : null}
+        </div>
+        <div className="min-w-0">{selected.body}</div>
+      </div>
+    </div>
+  );
+}
+
 function SimulationMetricsContent({
   summary,
   percentiles = [],
@@ -4194,124 +4601,208 @@ function SimulationMetricsContent({
     safeSummary.median_loss_when_losing_fraction
   );
 
+  // Each group's rows are defined ONCE and handed to both presentations, so the
+  // below-desktop list cannot drift from the 1200px+ cards: same SimMetricLine
+  // components, same labels, same formatters, same order, same tags.
+  const packsLandBody = (
+    <>
+      <div className="mt-1 min-w-0 overflow-visible">
+        {stripModel ? (
+          <PercentileStripChart model={stripModel} />
+        ) : (
+          <p className="py-3 text-sm text-[var(--text-secondary)]">Percentile data is not available in the current snapshot.</p>
+        )}
+      </div>
+      {stripTakeaway ? <p className="text-[12px] leading-snug text-[var(--text-secondary)]">{stripTakeaway}</p> : null}
+    </>
+  );
+
+  const loseMoneyLines = (
+    <>
+      <SimMetricLine label="EV / Cost" value={ratio(safeSummary.mean_value_to_cost_ratio)} />
+      <SimMetricLine label="Typical / Cost" value={ratio(safeSummary.median_value_to_cost_ratio)} />
+      <SimMetricLine label="ROI %" value={roiPercentValue === null ? "—" : formatMetricSignedPercent(roiPercentValue)} />
+      <SimMetricLine label="Chance to Beat Pack Cost" value={probability(safeSummary.prob_profit)} />
+      <SimMetricLine label="P05 Shortfall to Cost" value={ratio(safeSummary.p05_shortfall_to_cost)} />
+      <SimMetricLine label="Bad Pack Floor (P05)" value={money(p05)} />
+      <SimMetricLine label="Average Loss When Missing" value={money(safeSummary.expected_loss_when_losing)} />
+      <SimMetricLine label="Typical Loss When Missing" value={money(safeSummary.median_loss_when_losing)} />
+      {lossFractionMerged ? (
+        <SimMetricLine label="Loss Fraction" value={share(safeSummary.expected_loss_when_losing_fraction)} />
+      ) : (
+        <>
+          <SimMetricLine label="Loss Fraction (Avg)" value={share(safeSummary.expected_loss_when_losing_fraction)} />
+          <SimMetricLine label="Loss Fraction (Typical)" value={share(safeSummary.median_loss_when_losing_fraction)} />
+        </>
+      )}
+      <SimMetricLine label="Expected Loss / Pack" value={money(safeSummary.expected_loss_per_pack)} />
+    </>
+  );
+
+  const upsideLines = (
+    <>
+      <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
+      <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
+      <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
+      <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
+      <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
+      <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
+      <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
+      <SimMetricLine label="Hit EV / Pack" value={money(safeSummary.hit_ev_per_pack)} />
+      <SimMetricLine label="Hit EV Share" value={share(safeSummary.hit_ev_share)} />
+      <SimMetricLine label="Non-hit EV" value={money(safeSummary.non_hit_ev)} />
+    </>
+  );
+
+  const swingyLines = (
+    <>
+      <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
+      <SimMetricLine
+        label="Coefficient of Variation"
+        value={formatMetricNumber(safeSummary.coefficient_of_variation, 2)}
+        tag={coefficientOfVariationTag}
+      />
+      <SimMetricLine
+        label="HHI EV Concentration"
+        value={formatMetricNumber(safeSummary.hhi_ev_concentration, 3)}
+        tag={hhiConcentrationTag}
+      />
+      <SimMetricLine label="Effective Chase Count" value={formatMetricNumber(safeSummary.effective_chase_count, 2)} />
+      <SimMetricLine label="Top Chase Share" value={share(safeSummary.top1_ev_share)} />
+      <SimMetricLine label="Top 3 Share" value={share(safeSummary.top3_ev_share)} />
+      <SimMetricLine label="Top 5 Share" value={share(safeSummary.top5_ev_share)} />
+    </>
+  );
+
+  const howSimulatedLines = (
+    <>
+      <SimMetricLine label="Pack Market Price" value={money(packCost)} />
+      <SimMetricLine label="Simulated Packs" value={countValue(simulationCount)} />
+      <SimMetricLine label="Run / As-of Date" value={dateValue(simulationAsOf)} />
+      <SimMetricLine label="Pack Paths" value={packPathsCount === null ? "—" : countValue(packPathsCount)} />
+      <SimMetricLine label="Normal Pack States" value={normalStatesCount === null ? "—" : countValue(normalStatesCount)} />
+      {agreement.available ? (
+        <>
+          <SimMetricLine label="Calculated EV" value={money(calculatedEV)} />
+          <SimMetricLine label="Simulated EV" value={money(simulatedEV)} />
+          <SimMetricLine label="EV Delta" value={formatSignedCurrency(agreement.delta)} />
+          <SimMetricLine label="EV Delta %" value={formatMetricSignedPercent(agreement.deltaPercent)} />
+          <SimMetricLine label="Model Agreement" value={formatMetricPercent(agreement.score)} />
+        </>
+      ) : (
+        <p className="border-b border-[var(--border-subtle)] pb-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+          Calculated-vs-simulated agreement is not available in this snapshot yet.
+        </p>
+      )}
+      {standardError !== null ? (
+        <>
+          <SimMetricLine label="Std Error (MC mean)" value={money(standardError)} />
+          <SimMetricLine label="95% Monte Carlo Band" value={monteCarloBand === null ? "—" : `± ${money(monteCarloBand)}`} />
+        </>
+      ) : null}
+      <SimMetricLine label="Simulation As-of" value={dateValue(simulationAsOf)} />
+      <SimMetricLine label="Performance History Latest" value={dateValue(historyLatestDate)} />
+      <SimMetricLine label="Simulated Set Value" value={money(safeSummary.simulated_set_value)} />
+      <SimMetricLine label="Simulated Set Value Cards" value={countValue(safeSummary.simulated_set_value_card_count)} />
+    </>
+  );
+
+  const packsLandInfoText =
+    "Distribution of simulated per-pack value across the run, plotted against pack market price. The shaded band spans P25-P75 (the middle half of packs); hover any marker for its exact value.";
+
+  // The below-desktop rows. Each scan value is a figure the group ALREADY
+  // displays — the row promotes one of its own lines, it does not compute a new
+  // summary — and the caption names which line it is so the number is never
+  // unattributed. Group order matches the desktop layout exactly.
+  const metricGroups = [
+    {
+      key: "where-packs-land",
+      label: "Where Packs Land",
+      caption: "Typical pack (P50)",
+      value: money(p50),
+      infoText: packsLandInfoText,
+      body: packsLandBody,
+    },
+    {
+      key: "will-i-lose-money",
+      label: "Will I lose money?",
+      caption: "Chance to beat pack cost",
+      value: probability(safeSummary.prob_profit),
+      body: loseMoneyLines,
+    },
+    {
+      key: "whats-the-upside",
+      label: "What's the upside?",
+      caption: "Chance at big pull",
+      value: probability(safeSummary.prob_big_hit),
+      body: upsideLines,
+    },
+    {
+      key: "how-swingy",
+      label: "How swingy is it?",
+      caption: "Coefficient of variation",
+      value: formatMetricNumber(safeSummary.coefficient_of_variation, 2),
+      tag: coefficientOfVariationTag,
+      body: swingyLines,
+    },
+    {
+      key: "how-simulated",
+      label: "How was this simulated?",
+      caption: "Simulated packs",
+      value: countValue(simulationCount),
+      body: howSimulatedLines,
+    },
+  ];
+
   return (
     <div className="space-y-3">
-      <p className="text-[12px] leading-snug text-[var(--text-secondary)]">
+      <p className="text-[12px] leading-snug text-[var(--text-secondary)] max-desk:text-[11px]">
         Raw simulation outputs and the metrics derived from them. Values shown as
         {" "}
         <span className="font-semibold text-[var(--text-primary)]">&mdash;</span> are not available in the current snapshot.
       </p>
 
-      {/* The former Tier-1 verdict cards (Expected Value, EV/Cost, Typical
-          Pack, Chance to Profit) were removed — that data already leads the
-          Overview hero and the RIP Score Breakdown, and every figure remains
-          in the grouped rows below. The percentile strip is now the tab's
-          first element. */}
+      {/* Below 1200px: five compact rows and ONE shared detail region. The four
+          disclosure cards plus the percentile surface were five stacked boxes,
+          each with its own border and inset, and the first one opened by
+          default — so the tab landed on a wall of forty labelled rows. */}
+      <SimulationMetricsCompactList groups={metricGroups} />
 
-      {/* Tier 2 — percentile strip (replaces the 9-row percentile table). */}
-      <SimulationContextSurface as="div" className="min-w-0 overflow-visible p-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
-            Where Packs Land
-            <InfoPopover text="Distribution of simulated per-pack value across the run, plotted against pack market price. The shaded band spans P25-P75 (the middle half of packs); hover any marker for its exact value." />
-          </h4>
-          <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
-            log scale
-          </span>
+      {/* 1200px+: unchanged. Same surface, same grid, same first-card-open
+          disclosure behaviour. */}
+      <div className="hidden space-y-3 desk:block">
+        {/* The former Tier-1 verdict cards (Expected Value, EV/Cost, Typical
+            Pack, Chance to Profit) were removed — that data already leads the
+            Overview hero and the RIP Score Breakdown, and every figure remains
+            in the grouped rows below. The percentile strip is now the tab's
+            first element. */}
+
+        {/* Tier 2 — percentile strip (replaces the 9-row percentile table). */}
+        <SimulationContextSurface as="div" className="min-w-0 overflow-visible p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
+              Where Packs Land
+              <InfoPopover text={packsLandInfoText} />
+            </h4>
+            <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
+              log scale
+            </span>
+          </div>
+          {packsLandBody}
+        </SimulationContextSurface>
+
+        {/* Tier 3 — grouped by question; first card starts expanded. */}
+        <div className="grid items-start gap-3 md:grid-cols-2">
+          <SimMetricDisclosureCard question="Will I lose money?" defaultOpen>
+            {loseMoneyLines}
+          </SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="What's the upside?">{upsideLines}</SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="How swingy is it?">{swingyLines}</SimMetricDisclosureCard>
+
+          <SimMetricDisclosureCard question="How was this simulated?">{howSimulatedLines}</SimMetricDisclosureCard>
         </div>
-        <div className="mt-1 min-w-0 overflow-visible">
-          {stripModel ? (
-            <PercentileStripChart model={stripModel} />
-          ) : (
-            <p className="py-3 text-sm text-[var(--text-secondary)]">Percentile data is not available in the current snapshot.</p>
-          )}
-        </div>
-        {stripTakeaway ? <p className="text-[12px] leading-snug text-[var(--text-secondary)]">{stripTakeaway}</p> : null}
-      </SimulationContextSurface>
-
-      {/* Tier 3 — grouped by question; first card starts expanded. */}
-      <div className="grid items-start gap-3 md:grid-cols-2">
-        <SimMetricDisclosureCard question="Will I lose money?" defaultOpen>
-          <SimMetricLine label="EV / Cost" value={ratio(safeSummary.mean_value_to_cost_ratio)} />
-          <SimMetricLine label="Typical / Cost" value={ratio(safeSummary.median_value_to_cost_ratio)} />
-          <SimMetricLine label="ROI %" value={roiPercentValue === null ? "—" : formatMetricSignedPercent(roiPercentValue)} />
-          <SimMetricLine label="Chance to Beat Pack Cost" value={probability(safeSummary.prob_profit)} />
-          <SimMetricLine label="P05 Shortfall to Cost" value={ratio(safeSummary.p05_shortfall_to_cost)} />
-          <SimMetricLine label="Bad Pack Floor (P05)" value={money(p05)} />
-          <SimMetricLine label="Average Loss When Missing" value={money(safeSummary.expected_loss_when_losing)} />
-          <SimMetricLine label="Typical Loss When Missing" value={money(safeSummary.median_loss_when_losing)} />
-          {lossFractionMerged ? (
-            <SimMetricLine label="Loss Fraction" value={share(safeSummary.expected_loss_when_losing_fraction)} />
-          ) : (
-            <>
-              <SimMetricLine label="Loss Fraction (Avg)" value={share(safeSummary.expected_loss_when_losing_fraction)} />
-              <SimMetricLine label="Loss Fraction (Typical)" value={share(safeSummary.median_loss_when_losing_fraction)} />
-            </>
-          )}
-          <SimMetricLine label="Expected Loss / Pack" value={money(safeSummary.expected_loss_per_pack)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="What's the upside?">
-          <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
-          <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
-          <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
-          <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
-          <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
-          <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
-          <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
-          <SimMetricLine label="Hit EV / Pack" value={money(safeSummary.hit_ev_per_pack)} />
-          <SimMetricLine label="Hit EV Share" value={share(safeSummary.hit_ev_share)} />
-          <SimMetricLine label="Non-hit EV" value={money(safeSummary.non_hit_ev)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="How swingy is it?">
-          <SimMetricLine label="Std Dev" value={money(safeSummary.std_dev)} />
-          <SimMetricLine
-            label="Coefficient of Variation"
-            value={formatMetricNumber(safeSummary.coefficient_of_variation, 2)}
-            tag={coefficientOfVariationTag}
-          />
-          <SimMetricLine
-            label="HHI EV Concentration"
-            value={formatMetricNumber(safeSummary.hhi_ev_concentration, 3)}
-            tag={hhiConcentrationTag}
-          />
-          <SimMetricLine label="Effective Chase Count" value={formatMetricNumber(safeSummary.effective_chase_count, 2)} />
-          <SimMetricLine label="Top Chase Share" value={share(safeSummary.top1_ev_share)} />
-          <SimMetricLine label="Top 3 Share" value={share(safeSummary.top3_ev_share)} />
-          <SimMetricLine label="Top 5 Share" value={share(safeSummary.top5_ev_share)} />
-        </SimMetricDisclosureCard>
-
-        <SimMetricDisclosureCard question="How was this simulated?">
-          <SimMetricLine label="Pack Market Price" value={money(packCost)} />
-          <SimMetricLine label="Simulated Packs" value={countValue(simulationCount)} />
-          <SimMetricLine label="Run / As-of Date" value={dateValue(simulationAsOf)} />
-          <SimMetricLine label="Pack Paths" value={packPathsCount === null ? "—" : countValue(packPathsCount)} />
-          <SimMetricLine label="Normal Pack States" value={normalStatesCount === null ? "—" : countValue(normalStatesCount)} />
-          {agreement.available ? (
-            <>
-              <SimMetricLine label="Calculated EV" value={money(calculatedEV)} />
-              <SimMetricLine label="Simulated EV" value={money(simulatedEV)} />
-              <SimMetricLine label="EV Delta" value={formatSignedCurrency(agreement.delta)} />
-              <SimMetricLine label="EV Delta %" value={formatMetricSignedPercent(agreement.deltaPercent)} />
-              <SimMetricLine label="Model Agreement" value={formatMetricPercent(agreement.score)} />
-            </>
-          ) : (
-            <p className="border-b border-[var(--border-subtle)] pb-2 text-[12px] leading-snug text-[var(--text-secondary)]">
-              Calculated-vs-simulated agreement is not available in this snapshot yet.
-            </p>
-          )}
-          {standardError !== null ? (
-            <>
-              <SimMetricLine label="Std Error (MC mean)" value={money(standardError)} />
-              <SimMetricLine label="95% Monte Carlo Band" value={monteCarloBand === null ? "—" : `± ${money(monteCarloBand)}`} />
-            </>
-          ) : null}
-          <SimMetricLine label="Simulation As-of" value={dateValue(simulationAsOf)} />
-          <SimMetricLine label="Performance History Latest" value={dateValue(historyLatestDate)} />
-          <SimMetricLine label="Simulated Set Value" value={money(safeSummary.simulated_set_value)} />
-          <SimMetricLine label="Simulated Set Value Cards" value={countValue(safeSummary.simulated_set_value_card_count)} />
-        </SimMetricDisclosureCard>
       </div>
     </div>
   );
@@ -5748,24 +6239,178 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
   );
 }
 
+// Mobile/tablet Decision Signals (below 1200px).
+//
+// Design basis — this is the standard "dense analytical list" treatment used by
+// mobile finance/data apps (holdings lists, league tables): a fixed set of
+// right-aligned numeric columns under one column header, thin dividers instead
+// of per-item cards, and progressive disclosure for the prose. The scan fields
+// are Signal / Score / Tier / Rank; the interpretation is secondary and is
+// revealed one at a time in a single shared detail region rather than printed
+// under all seven rows at once (which is what made the old presentation read as
+// seven stacked mini-cards and run several screens tall).
+//
+// Nothing here recomputes anything: every score, tier, rank and interpretation
+// string comes straight off the same view model the desktop rows render.
+function DecisionSignalsCompactList({ pillarRows, openingRows }) {
+  const [selectedLabel, setSelectedLabel] = useState(null);
+  const detailRegionId = useId();
+  const allRows = [...pillarRows, ...openingRows];
+  const selectedSignal = allRows.find((signal) => signal.label === selectedLabel) || null;
+
+  const renderRow = (signal) => {
+    const parsedRank = toNumber(signal.rankValue);
+    const rankLabel = parsedRank === null ? null : Math.round(parsedRank);
+    const isSelected = selectedSignal?.label === signal.label;
+
+    // The inset here is padding on both sides. It is deliberately NOT a
+    // negative left margin, which is what this row used to carry.
+    //
+    // The row is `w-full` and border-box, so `width: 100%` already resolves to
+    // the container's content width exactly. A negative left margin on top of
+    // that does not widen the row — it slides the whole box 6px left. Every row
+    // therefore bled 6px into the page gutter on the left (taking its accent
+    // edge with it, since the mobile feed reset zeroes this card's horizontal
+    // padding — see `[data-mobile-feed] .set-glass-surface` in globals.css)
+    // while stopping 6px short of the right edge that the aria-hidden column
+    // header and the shared detail region below both reach. With no trailing
+    // padding, the rank was pinned against that short edge, so a selected row's
+    // wash ended immediately after the rank instead of running out to the list
+    // edge.
+    //
+    // The accent edge is a border every row reserves as transparent, so
+    // selecting a row changes a colour and never a column position.
+    return (
+      <button
+        key={`decision-signal-compact:${signal.label}`}
+        type="button"
+        // Enter and Space come free with a real button; activating the selected
+        // row again collapses the shared detail region.
+        onClick={() => setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))}
+        aria-expanded={isSelected}
+        aria-controls={detailRegionId}
+        data-decision-signal-row
+        data-selected={isSelected ? "true" : undefined}
+        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          isSelected
+            ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
+            : "border-l-transparent hover:bg-[var(--surface-hover)]"
+        }`}
+      >
+        <span className="truncate text-xs font-medium text-[var(--text-primary)]">{signal.label}</span>
+        <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+          {signal.scoreText || "—"}
+        </span>
+        {/* `compact` + the badge's own whitespace-nowrap keep this reading as
+            one line ("S Tier"), not a two-line "S" over "Tier" — the column is
+            sized from the pill rather than the pill squeezed into the column. */}
+        <span className="flex justify-center">
+          <RankBadge rank={signal.rankTier} format="tier" size="compact" subtle />
+        </span>
+        <span className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]">
+          {rankLabel === null ? (
+            <span aria-label="Rank unavailable">—</span>
+          ) : (
+            <>
+              <span aria-hidden="true">{`#${rankLabel}`}</span>
+              <span className="sr-only">{`Rank ${rankLabel}`}</span>
+            </>
+          )}
+        </span>
+      </button>
+    );
+  };
+
+  const groupLabel = (text) => (
+    <p className="px-0 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:pt-0">
+      {text}
+    </p>
+  );
+
+  return (
+    <div data-decision-signals-compact className="min-w-0">
+      {/* One column header for the whole list instead of repeating the field
+          names on every row. It reserves the same transparent 2px left border
+          and the same left/right padding as a row, so the header labels sit
+          over their own columns instead of drifting by the width of the
+          selection edge. */}
+      <div
+        aria-hidden="true"
+        className="grid grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+      >
+        <span />
+        <span className="text-right">Score</span>
+        <span className="text-center">Tier</span>
+        <span className="text-right">Rank</span>
+      </div>
+
+      {pillarRows.length > 0 ? (
+        <>
+          {groupLabel("Core")}
+          <div>{pillarRows.map(renderRow)}</div>
+        </>
+      ) : null}
+
+      {openingRows.length > 0 ? (
+        <>
+          {groupLabel("Also tracked")}
+          <div>{openingRows.map(renderRow)}</div>
+        </>
+      ) : null}
+
+      {/* One shared detail region: only the selected signal's interpretation is
+          ever on screen, and it is announced politely when it changes. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-decision-signal-detail
+        className="mt-2 min-h-[2.5rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"
+      >
+        {selectedSignal ? (
+          <p className="text-xs leading-snug text-[var(--text-primary)]">
+            <span className="font-semibold">{selectedSignal.label}: </span>
+            {selectedSignal.detailSummary || selectedSignal.summary}
+          </p>
+        ) : (
+          <p className="text-xs leading-snug text-[var(--text-secondary)]">
+            Select a signal to see what it means for this set.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DecisionSignalRow({ signal }) {
   const parsedRank = toNumber(signal.rankValue);
   const summaryText = signal.summary || signal.detailSummary;
 
   return (
-    <article className="set-glass-inner min-w-0 rounded-xl border border-[var(--border-subtle)] px-3 py-3">
-      <div className="grid min-w-0 gap-2.5 sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] sm:items-center">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{signal.label}</p>
-          <p className="mt-1 line-clamp-2 text-xs leading-snug text-[var(--text-primary)]">
+    // Below desktop each pillar reads as a divider-separated row rather than as
+    // its own bordered card inside the section card. Every score, tier, rank
+    // and interpretation is unchanged — only the container is.
+    <article className="set-glass-inner min-w-0 rounded-xl border border-[var(--border-subtle)] px-3 py-3 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:border-[var(--border-subtle)] max-desk:bg-transparent max-desk:px-0 max-desk:py-3 max-desk:last:border-b-0 max-desk:[backdrop-filter:none]">
+      {/* Two tight lines below desktop: `Label ........ score` then
+          `interpretation ..... tier #rank`. The desktop four-column grid moved
+          from `sm:` to `desk:` because `max-desk:` utilities are emitted before
+          `sm:` in the stylesheet, so an sm-scoped desktop grid would have won
+          back the 640-1199px band and undone the compaction. Desktop at 1200px+
+          gets the identical four columns it always had. */}
+      <div className="grid min-w-0 gap-2.5 max-desk:grid-cols-[minmax(0,1fr)_auto] max-desk:items-baseline max-desk:gap-x-3 max-desk:gap-y-0.5 desk:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] desk:items-center">
+        <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] max-desk:order-1 desk:hidden">
+          {signal.label}
+        </p>
+        <div className="min-w-0 max-desk:order-3 max-desk:col-span-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] max-desk:hidden">{signal.label}</p>
+          <p className="line-clamp-2 text-xs leading-snug text-[var(--text-primary)] desk:mt-1">
             {summaryText}
           </p>
         </div>
-        <span className="inline-flex min-w-[4.25rem] items-center justify-start gap-1 text-base font-semibold leading-none text-[var(--text-primary)] tabular-nums sm:min-w-0 sm:justify-end">
+        <span className="inline-flex min-w-[4.25rem] items-center justify-start gap-1 text-base font-semibold leading-none text-[var(--text-primary)] tabular-nums max-desk:order-2 max-desk:min-w-0 max-desk:justify-end desk:min-w-0 desk:justify-end">
           {signal.scoreText || "—"}
           {signal.scoreTrend ? <TrendIndicator trend={signal.scoreTrend} className="translate-y-px" /> : null}
         </span>
-        <div className="flex min-w-[5.75rem] justify-start sm:min-w-0 sm:justify-center">
+        <div className="flex min-w-[5.75rem] justify-start max-desk:order-4 max-desk:col-start-2 max-desk:min-w-0 max-desk:items-center max-desk:justify-end max-desk:gap-2 desk:min-w-0 desk:justify-center">
           <RankBadge
             rank={signal.rankTier}
             format="tier"
@@ -5773,8 +6418,11 @@ function DecisionSignalRow({ signal }) {
             subtle
             title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
           />
+          <span className="text-[10px] leading-none text-[var(--text-secondary)] tabular-nums desk:hidden">
+            {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
+          </span>
         </div>
-        <span className="min-w-[3.25rem] text-left text-[10px] leading-none text-[var(--text-secondary)] tabular-nums sm:min-w-0 sm:text-right">
+        <span className="min-w-[3.25rem] text-left text-[10px] leading-none text-[var(--text-secondary)] tabular-nums max-desk:hidden desk:min-w-0 desk:text-right">
           {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
         </span>
       </div>
@@ -5854,25 +6502,36 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       title="Decision Signals"
       titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
     >
-      <div className="grid gap-2">
-        {pillarRows.map((signal) => (
-          <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-        ))}
+      {/* Below 1200px: one condensed structured list with a single shared
+          interpretation region (see DecisionSignalsCompactList). */}
+      <div className="desk:hidden">
+        <DecisionSignalsCompactList pillarRows={pillarRows} openingRows={openingRows} />
       </div>
-      {openingRows.length > 0 ? (
-        <>
-          <div className="mt-4 mb-2 flex items-center gap-2">
-            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
-            <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-          </div>
-          <div className="grid gap-2">
-            {openingRows.map((signal) => (
-              <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-            ))}
-          </div>
-        </>
-      ) : null}
+
+      {/* 1200px+: the desktop presentation is unchanged. It is display:none
+          below desktop, so the compact list above is the only tree assistive
+          technology reaches there. */}
+      <div className="hidden desk:block">
+        <div className="grid gap-2 max-desk:gap-0">
+          {pillarRows.map((signal) => (
+            <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+          ))}
+        </div>
+        {openingRows.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+            </div>
+            <div className="grid gap-2 max-desk:gap-0">
+              {openingRows.map((signal) => (
+                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
     </SectionCard>
   );
 }
@@ -6032,6 +6691,495 @@ function RipCompositionJoin() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// The RIP Score Breakdown below 1200px.
+//
+// Desktop presents the composition as nested surfaces: an outer section card, a
+// bordered RIP Core group, three bordered pillar cards inside it, and a bordered
+// Collector Appeal group. That reads correctly at 1200px+, where the three
+// pillars sit side by side and the borders are what separate columns.
+//
+// Below 1200px it is the SAME interaction Overview's Decision Signals uses, for
+// the same reason: compact rows on one column grid, exactly one selected row at
+// a time, and exactly one shared detail region underneath. There is no section
+// card, no per-pillar accordion, and no top-level Details dropdown — the
+// dropdown opened every pillar's secondary block at once, which rebuilt on one
+// screen the density problem it was meant to solve.
+//
+// Nothing here computes anything. Every score, tier, rank, weight, verdict
+// phrase, contribution and metric row is the same backend field the desktop
+// tiles render, read through the same props — the two trees are one data model
+// in two presentations, and only one of them is ever displayed (the other is
+// `display: none`, so assistive technology reaches exactly one).
+// ---------------------------------------------------------------------------
+
+// One column system for the whole compact breakdown: a flexible name track over
+// three fixed numeric tracks, so Overall, Profit, Safety, Stability and
+// Collector Appeal all put their score, tier and rank in the same place. The
+// fixed tracks are sized from their content — 3rem holds a `100.0`, 3.5rem
+// holds the `compact` "S Tier" pill with slack, 2.5rem holds `#100` — and at
+// 320px they still leave the row name ~108px inside the page gutter.
+const RIP_COMPACT_GRID = "grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]";
+
+const RIP_OVERALL_ROW_KEY = "overall";
+const RIP_APPEAL_ROW_KEY = "collector-appeal";
+
+// The one selected/idle treatment shared by every compact mobile analytical list
+// on this page — the RIP Score Breakdown, Simulation Drivers and Metrics — so
+// the three read as the same interaction instead of three lookalikes.
+//
+// `bg-[var(--surface-page)]` is the load-bearing part: these lists sit directly
+// above charts and the page wash, and a translucent highlight let that content
+// read through the selected row. The opaque base goes down first and the accent
+// tint plus the rail halo arrive from `.compact-row-selected` in globals.css,
+// which is scoped inside the below-1200px media query and honours
+// prefers-reduced-motion. See that rule for why the halo cannot bloom into a
+// perimeter outline.
+const COMPACT_ROW_SELECTED_CLASS =
+  "compact-row-selected border-l-[var(--accent)] bg-[var(--surface-page)]";
+const COMPACT_ROW_IDLE_CLASS = "border-l-transparent hover:bg-[var(--surface-hover)]";
+// The shared detail region continues the selected row's rail instead of drawing
+// a second unrelated boundary beside it.
+const COMPACT_DETAIL_CLASS =
+  "compact-row-detail border-l-2 border-l-[color:color-mix(in_srgb,var(--accent)_45%,transparent)]";
+
+// Both presentations quote the backend's own contribution field, so the string
+// that explains it lives in one place rather than being retyped per tree.
+const RIP_CONTRIBUTION_INFO_TEXT =
+  "The backend's own contribution field for this component: its score multiplied by its configured weight, in RIP Core model points.";
+const RIP_OUTLOOK_INFO_TEXT =
+  "This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance.";
+
+// The bare rank goes on the row; the cohort denominator stays in the tooltip,
+// where it is available without crowding a 40px column. Same rule as the
+// desktop tiles.
+function ripCompactRankTitle(rankValue, cohortSize) {
+  const parsedRank = toNumber(rankValue);
+  if (parsedRank === null) {
+    return "Rank unavailable";
+  }
+  const parsedCohort = toNumber(cohortSize);
+  return parsedCohort === null
+    ? `Rank #${Math.round(parsedRank)}`
+    : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohort)} ranked sets`;
+}
+
+// A metric inside the shared detail region. This is MetricRow's content at
+// MetricRow's semantics — same friendly label, same tooltip, same trend, same
+// negative-value treatment — at the type size the detail region can afford, so
+// a nine-row Profit detail stays readable instead of running two screens.
+function RipBreakdownDetailMetric({ label, value, trend = null, infoText = null, content = null }) {
+  const friendlyLabel = getFriendlyMetricLabel(label);
+  const isNegativeValue = typeof value === "string" && value.trim().startsWith("-");
+
+  if (content) {
+    return (
+      <div className="min-w-0 border-b border-[var(--border-subtle)] py-1.5 last:border-b-0">
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="text-[11px] font-medium text-[var(--text-primary)]">{friendlyLabel}</span>
+          {infoText ? <InfoPopover text={infoText} /> : null}
+        </div>
+        <div className="mt-1.5">{content}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2 border-b border-[var(--border-subtle)] py-1 last:border-b-0">
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate text-[11px] leading-snug text-[var(--text-secondary)]">{friendlyLabel}</span>
+        {infoText ? <InfoPopover text={infoText} /> : null}
+      </span>
+      <span
+        className="inline-flex flex-none items-center gap-1 text-[11px] font-semibold tabular-nums text-[var(--text-primary)]"
+        style={isNegativeValue ? getDangerValueStyle() : undefined}
+      >
+        <TrendIndicator trend={trend} />
+        <span>{value}</span>
+      </span>
+    </div>
+  );
+}
+
+// One compact selectable row.
+//
+// The four scan fields share one grid with every other row in the section, so
+// each score, tier and rank lines up in the same three columns. The optional
+// second line in the name track is the backend's own short verdict phrase (or,
+// for the 10% term, its weight label) — the part a reader acts on — truncated
+// rather than wrapped so the row keeps one predictable height.
+//
+// A real <button> is what makes this keyboard-operable: Enter and Space,
+// focus-visible ring, and a tab stop per row, all without a key handler. The
+// selection edge is a border every row reserves as transparent, so selecting a
+// row changes a colour and never a column position.
+function RipBreakdownCompactRow({ row, isSelected, onSelect, detailRegionId }) {
+  const roundedRank = row.rankValue === null ? null : Math.round(row.rankValue);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(row.key)}
+      aria-expanded={isSelected}
+      aria-controls={detailRegionId}
+      data-rip-breakdown-row
+      data-compact-row
+      data-rip-breakdown-row-key={row.key}
+      data-selected={isSelected ? "true" : undefined}
+      className={`grid min-h-11 w-full ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{row.label}</span>
+        {row.secondary ? (
+          <span
+            data-rip-breakdown-row-secondary
+            className="block truncate text-[10px] font-normal leading-tight text-[var(--text-secondary)]"
+          >
+            {row.secondary}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+        {row.scoreText}
+      </span>
+      {/* `compact` + the badge's own whitespace-nowrap keep this on one line
+          ("A Tier"), and the track is sized from the pill rather than the pill
+          squeezed into the track. */}
+      <span className="flex justify-center">
+        {row.rankTier ? (
+          <RankBadge rank={row.rankTier} format="tier" size="compact" subtle title={row.rankTitle} />
+        ) : (
+          <span className="text-[10px] leading-none text-[var(--text-secondary)]" aria-label="Tier unavailable">
+            —
+          </span>
+        )}
+      </span>
+      <span
+        className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]"
+        title={row.rankTitle}
+      >
+        {roundedRank === null ? (
+          <span aria-label="Rank unavailable">—</span>
+        ) : (
+          <>
+            <span aria-hidden="true">{`#${roundedRank}`}</span>
+            <span className="sr-only">{`Rank ${roundedRank}`}</span>
+          </>
+        )}
+      </span>
+    </button>
+  );
+}
+
+// The full below-desktop presentation: compact summary, compact rows, one
+// shared detail region.
+//
+// Selection lives here in component state, so an unrelated rerender of the page
+// (a poll settling, a sibling section finishing its fetch) cannot reset it. The
+// score mode CAN remove the Collector Appeal row — it is not a term of RIP Core
+// — so the resolved selection falls back to Overall for render without writing
+// state, which means switching back to RIP Score restores what was selected.
+function RipBreakdownCompactFeed({
+  score,
+  rankTier,
+  rankValue,
+  cohortSize,
+  verdict,
+  explanation,
+  openingOutlook,
+  outlookAccent,
+  pillars,
+  collectorAppeal,
+  showsCollectorAppeal,
+  coreWeightLabel,
+  coreWeightsCaption,
+}) {
+  const [selectedKey, setSelectedKey] = useState(RIP_OVERALL_ROW_KEY);
+  const detailRegionId = useId();
+
+  const overallRank = toNumber(rankValue);
+  const overallRankTitle = ripCompactRankTitle(rankValue, cohortSize);
+
+  const rows = [
+    {
+      key: RIP_OVERALL_ROW_KEY,
+      label: "Overall",
+      scoreText: formatRawScore(score),
+      rankTier: rankTier || null,
+      rankValue: overallRank,
+      rankTitle: overallRankTitle,
+      // The verdict has its own line in the summary directly above; repeating
+      // it here would print the same phrase twice, a few pixels apart.
+      secondary: null,
+    },
+    ...pillars.map((pillar) => ({
+      key: `pillar:${pillar.title}`,
+      label: pillar.title,
+      scoreText: formatScore(pillar.score),
+      rankTier: pillar.rankTier || null,
+      rankValue: toNumber(pillar.rankValue),
+      rankTitle: ripCompactRankTitle(pillar.rankValue, pillar.cohortSize),
+      secondary: pillar.highlight || null,
+      pillar,
+    })),
+    ...(showsCollectorAppeal && collectorAppeal
+      ? [
+          {
+            key: RIP_APPEAL_ROW_KEY,
+            label: "Collector Appeal",
+            scoreText: collectorAppeal.available ? collectorAppeal.scoreLabel : "—",
+            rankTier: collectorAppeal.available ? collectorAppeal.tier || null : null,
+            rankValue: collectorAppeal.available ? toNumber(collectorAppeal.rank) : null,
+            rankTitle: ripCompactRankTitle(collectorAppeal.rank, collectorAppeal.cohortSize),
+            // The 10% term states its contribution on the row itself, as the
+            // brief requires, rather than only inside the detail region.
+            secondary: collectorAppeal.weightLabel ? `${collectorAppeal.weightLabel} of RIP Score` : null,
+          },
+        ]
+      : []),
+  ];
+
+  const selectedRow = rows.find((row) => row.key === selectedKey) || rows[0];
+
+  return (
+    <div data-rip-breakdown-compact className="min-w-0 desk:hidden">
+      {/* One coherent summary line, not five badges. The score is the only
+          large element; tier and rank are quiet metadata beside it; the verdict
+          is plain text behind a thin tier-toned rule rather than a filled pill,
+          so it can wrap on a narrow phone without becoming a block of colour.
+          Every value is the same field the desktop row renders. */}
+      <div
+        data-rip-compact-summary
+        className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+      >
+        <p className="inline-flex flex-none items-end gap-1 text-3xl font-semibold leading-none text-[var(--text-primary)]">
+          <span className="tabular-nums">{formatRawScore(score)}</span>
+          <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
+        </p>
+        {rankTier ? (
+          <RankBadge rank={rankTier} format="tier" size="compact" subtle title={overallRankTitle} />
+        ) : null}
+        {overallRank === null ? null : (
+          <span
+            data-rip-compact-summary-rank
+            className="flex-none text-[11px] font-medium tabular-nums text-[var(--text-secondary)]"
+            title={overallRankTitle}
+          >
+            Rank #{Math.round(overallRank)}
+          </span>
+        )}
+        {verdict ? (
+          <span
+            data-rip-compact-summary-verdict
+            className="min-w-0 border-l pl-2 text-[11px] font-medium leading-snug"
+            style={{
+              borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
+              color: outlookAccent.verdictPill.color,
+            }}
+          >
+            {verdict}
+          </span>
+        ) : null}
+        {explanation ? <InfoPopover text={explanation} /> : null}
+      </div>
+
+      {/* One column header for the whole list instead of repeating the field
+          names on every row. It reserves the same transparent 2px selection
+          edge and the same left/right padding as a row, so the labels sit over
+          their own columns instead of drifting by the width of that edge. */}
+      <p className="mt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+        Core breakdown
+      </p>
+      <div
+        aria-hidden="true"
+        className={`grid ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]`}
+      >
+        <span />
+        <span className="text-right">Score</span>
+        <span className="text-center">Tier</span>
+        <span className="text-right">Rank</span>
+      </div>
+
+      <div className="min-w-0">
+        {rows.map((row) => (
+          <RipBreakdownCompactRow
+            key={`rip-breakdown-compact:${row.key}`}
+            row={row}
+            isSelected={row.key === selectedRow.key}
+            onSelect={setSelectedKey}
+            detailRegionId={detailRegionId}
+          />
+        ))}
+      </div>
+
+      {/* ONE shared detail region. Only the selected row's secondary material is
+          ever on screen, it updates in place, and the change is announced
+          politely. Re-activating the selected row keeps it selected, so this
+          region is never empty and the outlook is never one tap away.
+
+          `pr-1.5` matches the rows' own trailing padding, so a right-aligned
+          value in here lands on the same edge as the Rank column above rather
+          than 6px further out. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-rip-breakdown-detail
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
+      >
+        <RipBreakdownCompactDetail
+          row={selectedRow}
+          openingOutlook={openingOutlook}
+          outlookAccent={outlookAccent}
+          collectorAppeal={collectorAppeal}
+          showsCollectorAppeal={showsCollectorAppeal}
+          coreWeightLabel={coreWeightLabel}
+          coreWeightsCaption={coreWeightsCaption}
+        />
+      </div>
+    </div>
+  );
+}
+
+// The body of the shared detail region for whichever row is selected. Split out
+// so the feed above reads as structure and this reads as content; it renders
+// exactly one group, never all of them.
+function RipBreakdownCompactDetail({
+  row,
+  openingOutlook,
+  outlookAccent,
+  collectorAppeal,
+  showsCollectorAppeal,
+  coreWeightLabel,
+  coreWeightsCaption,
+}) {
+  if (row.key === RIP_OVERALL_ROW_KEY) {
+    // Opening Outlook in full. It is the default selection, so the complete
+    // canonical text is on screen without a tap — the treatment shrank, the
+    // copy did not. The tier rail is a 2px line on the region itself; no wash,
+    // no rounded box, no accented callout.
+    return (
+      <div data-rip-breakdown-outlook className="min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            Opening Outlook
+          </p>
+          <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
+        </div>
+        <p className="mt-0.5 text-xs font-medium leading-snug text-[var(--text-primary)]">
+          {openingOutlook || "No opening outlook is available for this set yet."}
+        </p>
+        {/* The two-level composition the score actually has. These are the same
+            backend weight labels the desktop group headers carry; the pillar
+            splits stay on each pillar's own detail. */}
+        {coreWeightsCaption || coreWeightLabel || (showsCollectorAppeal && collectorAppeal?.weightLabel) ? (
+          <p
+            data-rip-breakdown-composition
+            className="mt-1.5 text-[10px] leading-snug text-[var(--text-secondary)]"
+          >
+            {[
+              coreWeightLabel ? `RIP Core ${coreWeightLabel}` : null,
+              coreWeightsCaption,
+              showsCollectorAppeal && collectorAppeal?.weightLabel
+                ? `Collector Appeal ${collectorAppeal.weightLabel}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (row.key === RIP_APPEAL_ROW_KEY) {
+    if (!collectorAppeal?.available) {
+      // Never a fake 0 and never a fake tier: the backend says why the term is
+      // missing and that reason is what renders.
+      return (
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+          {collectorAppeal?.unavailableReason ||
+            "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
+        </p>
+      );
+    }
+    return (
+      <div data-rip-breakdown-appeal-detail className="min-w-0">
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
+          Roster desirability translated through this set&apos;s modeled opening paths.
+        </p>
+        {/* The weighted model term ("Opening Desirability × 10% = 9.6 pts") is
+            deliberately NOT shown below desktop. It is a term of the internal
+            model, and the two scores printed on this screen — RIP Core and RIP
+            Score — are cohort-relative presentations that do not visibly sum
+            with it, so the line read as arithmetic the user could check and
+            then could not. The weight itself carries the same meaning without
+            the false invitation. Nothing was recomputed and no backend field
+            changed: `contributionLabel` is still produced by the selector and
+            is still rendered at 1200px+. */}
+        <div className="mt-1">
+          {collectorAppeal.weightLabel ? (
+            <RipBreakdownDetailMetric label="Weight in RIP Score" value={collectorAppeal.weightLabel} />
+          ) : null}
+          {collectorAppeal.rankLabel ? (
+            <RipBreakdownDetailMetric label="Collector Appeal rank" value={collectorAppeal.rankLabel} />
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  const pillar = row.pillar;
+  if (!pillar) {
+    return null;
+  }
+  const parsedWeight = toNumber(pillar.weight);
+  const parsedContribution = toNumber(pillar.contribution);
+  const metrics = pillar.metrics || [];
+
+  return (
+    <div data-rip-breakdown-pillar-detail className="min-w-0">
+      {pillar.statusLabel ? (
+        <InterpretationBadge
+          label={pillar.statusLabel}
+          rankTier={pillar.rankTier}
+          className="px-2 py-0.5 text-[10px] tracking-[0.08em]"
+        />
+      ) : null}
+      {pillar.highlight ? (
+        <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{pillar.highlight}</p>
+      ) : null}
+      <div className="mt-1">
+        {parsedWeight === null ? null : (
+          // Label is bare "Weight" because the VALUE already names the whole it
+          // is a share of ("60% of RIP Core") — the desktop tile's exact
+          // string, which must not change. "Weight in RIP Core / 60% of RIP
+          // Core" said RIP Core twice on one line.
+          <RipBreakdownDetailMetric label="Weight" value={`${Math.round(parsedWeight * 100)}% of RIP Core`} />
+        )}
+        {parsedContribution === null ? null : (
+          <RipBreakdownDetailMetric
+            label="Contribution to RIP Core"
+            value={`${parsedContribution.toFixed(1)} pts`}
+            infoText={RIP_CONTRIBUTION_INFO_TEXT}
+          />
+        )}
+        {metrics.map((metric) => (
+          <RipBreakdownDetailMetric
+            key={`${pillar.title}-compact-detail-${metric.label}`}
+            label={metric.label}
+            value={metric.value}
+            trend={metric.trend}
+            infoText={metric.infoText || getMetricTooltip(metric.label)}
+            content={metric.content}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RipScoreBreakdownModule({
   score,
   rankTier,
@@ -6061,7 +7209,15 @@ function RipScoreBreakdownModule({
 
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
-      <article className="set-glass-surface rounded-2xl border p-4 sm:p-5">
+      {/* Below 1200px there is NO context card: the section joins the
+          continuous mobile feed and the page gutter is the only inset, so the
+          rows start at the same left edge as every other mobile section. The
+          `max-desk:` utilities are what actually strip it — `important: true`
+          in tailwind.config.js makes `p-4`/`border`/`rounded-2xl` !important,
+          so the non-important `[data-mobile-feed] .set-glass-surface` reset in
+          globals.css cannot beat them on its own. At 1200px+ the card is
+          untouched: same glass, same border, same radius, same p-5 inset. */}
+      <article className="set-glass-surface rounded-2xl border p-4 desk:p-5 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]">
         {/* Header row: the chapter marker and title on the left, the details
             disclosure on the right so it reads as controlling the whole
             section rather than the pillar it happens to sit above. */}
@@ -6073,13 +7229,20 @@ function RipScoreBreakdownModule({
               {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
             </div>
           </div>
+          {/* The desktop progressive-disclosure control. It is DESKTOP ONLY
+              now: below 1200px it opened every pillar's secondary block at
+              once, which is the density problem this section was supposed to
+              lose. There, the compact rows own disclosure instead — one
+              selected row, one shared detail region — so no dropdown of any
+              kind is mounted. */}
           <button
             type="button"
             onClick={() => setDetailsExpanded((current) => !current)}
-            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55"
+            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55 max-desk:hidden"
             aria-expanded={detailsExpanded}
+            aria-label={detailsExpanded ? "Hide RIP Score Breakdown details" : "Show RIP Score Breakdown details"}
           >
-            {detailsExpanded ? "Hide Details" : "Show Details"}
+            <span>{detailsExpanded ? "Hide Details" : "Show Details"}</span>
             <svg
               viewBox="0 0 20 20"
               aria-hidden="true"
@@ -6091,15 +7254,21 @@ function RipScoreBreakdownModule({
           </button>
         </div>
 
-        <div className="mt-3">
+        {/* ONE score-mode control, shared by both presentations — a second
+            mounted copy would give the page two radiogroups that can disagree.
+            It is already `compact`; below desktop it only loses vertical
+            breathing room. */}
+        <div className="mt-3 max-desk:mt-2">
           <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
         </div>
 
-        {/* Score, then metadata, then judgement — one descending hierarchy.
-            Tier and rank are plain text; only the interpretation keeps a
-            bordered treatment, so three pieces of metadata no longer compete
-            as three identical bubbles. */}
-        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        {/* 1200px+ only. Score, then metadata, then judgement — one descending
+            hierarchy. Tier and rank are plain text; only the interpretation
+            keeps a bordered treatment, so three pieces of metadata no longer
+            compete as three identical bubbles. Below desktop this is replaced
+            by the compact summary line inside RipBreakdownCompactFeed, which
+            renders the same four values without four competing chips. */}
+        <div className="mt-3 hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-2 desk:flex">
           <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
             <span>{formatRawScore(score)}</span>
             <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
@@ -6114,10 +7283,16 @@ function RipScoreBreakdownModule({
             the treatment changed - a narrow tier-coloured rail with a wash that
             fades to nothing well before the right edge, so the outlook reads as
             part of the breakdown rather than as a filled alert banner. The copy
-            keeps the full content width; only the colour stops early. */}
+            keeps the full content width; only the colour stops early.
+
+            1200px+ only. Below desktop this accented callout was the single
+            largest block in the default view, so the SAME canonical text moved
+            into the shared detail region as the Overall row's content, where it
+            is still on screen without a tap because Overall is selected by
+            default. */}
         <div
           data-insights-opening-outlook
-          className="rip-outlook-callout relative mt-4 min-w-0 border-l-2 px-3.5 py-2.5 sm:px-4"
+          className="rip-outlook-callout relative mt-4 hidden min-w-0 border-l-2 px-3.5 py-2.5 desk:block desk:px-4"
           style={{
             borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
             backgroundImage: outlookAccent.outlookWash,
@@ -6127,91 +7302,124 @@ function RipScoreBreakdownModule({
         >
           <div className="flex items-center gap-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening Outlook</p>
-            <InfoPopover text="This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance." />
+            <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
           </div>
           <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--text-primary)]">
             {openingOutlook || "No opening outlook is available for this set yet."}
           </p>
         </div>
 
+        {/* The whole below-desktop presentation, mounted ONCE for both score
+            modes so switching RIP Score <-> RIP Core cannot remount it and drop
+            the selected row. `showsCollectorAppeal` is what removes the 10%
+            term from the list in RIP Core mode. */}
+        <div className="mt-3 min-w-0 desk:hidden">
+          <RipBreakdownCompactFeed
+            score={score}
+            rankTier={rankTier}
+            rankValue={rankValue}
+            cohortSize={cohortSize}
+            verdict={verdict}
+            explanation={explanation}
+            openingOutlook={openingOutlook}
+            outlookAccent={outlookAccent}
+            pillars={pillars}
+            collectorAppeal={collectorAppeal}
+            showsCollectorAppeal={showsCollectorAppeal}
+            coreWeightLabel={coreWeightLabel}
+            coreWeightsCaption={coreWeightsCaption}
+          />
+        </div>
+
         {showsCollectorAppeal ? (
-          <div className="mt-4 min-w-0">
-            <RipCompositionGroup
-              eyebrow="RIP Core"
-              weightLabel={coreWeightLabel}
-              caption={coreWeightsCaption}
-            >
+          // 1200px+ only: the desktop composition is unchanged. Below desktop
+          // the compact feed above is the entire presentation, so exactly one
+          // tree renders at either width — and no empty wrapper is left behind
+          // here to pay margin for a subtree that draws nothing.
+          <div className="mt-4 hidden min-w-0 desk:block">
+            <div>
+              <RipCompositionGroup
+                eyebrow="RIP Core"
+                weightLabel={coreWeightLabel}
+                caption={coreWeightsCaption}
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {pillars.map((pillar) => (
+                    <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
+                  ))}
+                </div>
+              </RipCompositionGroup>
+
+              <RipCompositionJoin />
+
+              <RipCompositionGroup
+                tone="appeal"
+                eyebrow="Collector Appeal"
+                weightLabel={collectorAppeal?.weightLabel || null}
+                caption="Roster desirability translated through this set's modeled opening paths."
+              >
+                {collectorAppeal?.available ? (
+                  <div className="min-w-0">
+                    {/* Same hierarchy as the primary score row: score, tier
+                        bubble, plain rank. The contribution drops to its own
+                        line as secondary metadata so it stops competing with
+                        the three figures above it. */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                      <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+                        <span>{collectorAppeal.scoreLabel}</span>
+                        <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
+                      </p>
+                      {collectorAppeal.tier ? <RankBadge rank={collectorAppeal.tier} format="tier" /> : null}
+                      {collectorAppeal.rank !== null && collectorAppeal.rank !== undefined ? (
+                        <span
+                          data-rip-collector-appeal-rank
+                          className="text-xs font-medium tabular-nums text-[var(--text-secondary)]"
+                          title={
+                            collectorAppeal.cohortSize === null || collectorAppeal.cohortSize === undefined
+                              ? `Rank #${Math.round(collectorAppeal.rank)}`
+                              : `Rank #${Math.round(collectorAppeal.rank)} of ${Math.round(collectorAppeal.cohortSize)} ranked sets`
+                          }
+                        >
+                          Rank #{Math.round(collectorAppeal.rank)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {collectorAppeal.contributionLabel ? (
+                      <p
+                        data-rip-collector-appeal-contribution
+                        className="mt-1.5 text-[11px] tabular-nums text-[var(--text-secondary)]"
+                      >
+                        {collectorAppeal.contributionLabel}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  // Never a fake 0 and never RIP Core wearing the RIP Score
+                  // label: the backend says why the term is missing and that
+                  // reason is what renders.
+                  <p className="text-xs leading-snug text-[var(--text-secondary)]">
+                    {collectorAppeal?.unavailableReason ||
+                      "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
+                  </p>
+                )}
+              </RipCompositionGroup>
+            </div>
+          </div>
+        ) : (
+          // RIP Core mode: the three financial cards only, using the full width.
+          // 1200px+ only: unchanged. Below desktop the compact feed above is the
+          // whole presentation, and it drops the 10% term in this mode by never
+          // building a row for it — not greyed, not emptied, not left as a gap.
+          <div className="mt-4 hidden min-w-0 desk:block">
+            <div>
+              {coreWeightsCaption ? (
+                <p className="mb-2 text-xs text-[var(--text-secondary)]">{coreWeightsCaption}</p>
+              ) : null}
               <div className="grid gap-3 sm:grid-cols-3">
                 {pillars.map((pillar) => (
                   <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
                 ))}
               </div>
-            </RipCompositionGroup>
-
-            <RipCompositionJoin />
-
-            <RipCompositionGroup
-              tone="appeal"
-              eyebrow="Collector Appeal"
-              weightLabel={collectorAppeal?.weightLabel || null}
-              caption="Roster desirability translated through this set's modeled opening paths."
-            >
-              {collectorAppeal?.available ? (
-                <div className="min-w-0">
-                  {/* Same hierarchy as the primary score row: score, tier
-                      bubble, plain rank. The contribution drops to its own
-                      line as secondary metadata so it stops competing with
-                      the three figures above it. */}
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                    <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                      <span>{collectorAppeal.scoreLabel}</span>
-                      <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
-                    </p>
-                    {collectorAppeal.tier ? <RankBadge rank={collectorAppeal.tier} format="tier" /> : null}
-                    {collectorAppeal.rank !== null && collectorAppeal.rank !== undefined ? (
-                      <span
-                        data-rip-collector-appeal-rank
-                        className="text-xs font-medium tabular-nums text-[var(--text-secondary)]"
-                        title={
-                          collectorAppeal.cohortSize === null || collectorAppeal.cohortSize === undefined
-                            ? `Rank #${Math.round(collectorAppeal.rank)}`
-                            : `Rank #${Math.round(collectorAppeal.rank)} of ${Math.round(collectorAppeal.cohortSize)} ranked sets`
-                        }
-                      >
-                        Rank #{Math.round(collectorAppeal.rank)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {collectorAppeal.contributionLabel ? (
-                    <p
-                      data-rip-collector-appeal-contribution
-                      className="mt-1.5 text-[11px] tabular-nums text-[var(--text-secondary)]"
-                    >
-                      {collectorAppeal.contributionLabel}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                // Never a fake 0 and never RIP Core wearing the RIP Score
-                // label: the backend says why the term is missing and that
-                // reason is what renders.
-                <p className="text-xs leading-snug text-[var(--text-secondary)]">
-                  {collectorAppeal?.unavailableReason ||
-                    "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
-                </p>
-              )}
-            </RipCompositionGroup>
-          </div>
-        ) : (
-          // RIP Core mode: the three financial cards only, using the full width.
-          <div className="mt-4 min-w-0">
-            {coreWeightsCaption ? (
-              <p className="mb-2 text-xs text-[var(--text-secondary)]">{coreWeightsCaption}</p>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-3">
-              {pillars.map((pillar) => (
-                <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
-              ))}
             </div>
           </div>
         )}
@@ -6252,13 +7460,35 @@ function SectionEyebrow({ children }) {
 
 // tone="plain" flattens the card (lighter surface tint, no inset highlight or
 // drop shadow) so neighbouring sections stop reading as identical clones.
-function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "" }) {
+// `mobileFlush` is opt-in per caller, not a default: SectionCard renders on
+// Explore, the Cards tab and the expert layouts too, and those keep their cards
+// at every width. Only the sections that joined the continuous mobile feed pass
+// it. The utilities are what actually strip the card — `important: true` in
+// tailwind.config.js makes `p-4`/`border`/`rounded-2xl` !important, so the
+// non-important `[data-mobile-feed] .set-glass-surface` reset in globals.css
+// cannot beat them on its own.
+const SECTION_CARD_MOBILE_FLUSH_CLASS =
+  "max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]";
+
+function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "", mobileFlush = false }) {
+  // A flush card states its 1200px+ inset with `desk:p-5`, not `sm:p-5`.
+  // `max-desk:` utilities are emitted BEFORE `sm:` in the stylesheet and both
+  // are !important, so an sm-scoped inset wins back 640-1199px and the card
+  // would still look inset on a tablet — the only band where the reset appears
+  // to do nothing. The two produce the identical p-5 at 1200px+; they differ
+  // only in the band that is supposed to be flush. Callers that keep their card
+  // are untouched.
+  const insetClass = mobileFlush ? "p-4 desk:p-5" : "p-4 sm:p-5";
   const toneClass =
     tone === "plain"
-      ? "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5"
-      : "rounded-2xl border border-[var(--border-subtle)] p-4 sm:p-5";
+      ? `rounded-2xl border border-[var(--border-subtle)] ${insetClass}`
+      : `rounded-2xl border border-[var(--border-subtle)] ${insetClass}`;
   return (
-    <article className={["set-glass-surface w-full max-w-full min-w-0", toneClass, className].filter(Boolean).join(" ")}>
+    <article
+      className={["set-glass-surface w-full max-w-full min-w-0", toneClass, mobileFlush ? SECTION_CARD_MOBILE_FLUSH_CLASS : "", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div>
         <SectionEyebrow>{eyebrow}</SectionEyebrow>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -6380,9 +7610,13 @@ const OPENING_PATH_SUMMARY_INFO_BULLETS = [
 // border count per tab went from six to one.
 function CollectorPanel({ children }) {
   return (
+    // Below 1200px the panel keeps its DIVIDERS and loses its box: it already
+    // sits inside the (now card-less) Collector Profile section, so its border
+    // and fill were a second surface drawn around content that needed no
+    // second boundary. Desktop keeps the rounded panel exactly.
     <div
       data-collector-panel
-      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30"
+      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
     >
       {children}
     </div>
@@ -6394,7 +7628,10 @@ function CollectorPanel({ children }) {
 function CollectorBand({ title, infoBullets: bullets = null, children }) {
   return (
     <section data-collector-band className="min-w-0">
-      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 sm:px-4">
+      {/* The panel's own horizontal inset goes away below desktop along with
+          its border — the page gutter is the inset now — and the band label
+          keeps only the vertical room it needs to separate two groups. */}
+      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 max-desk:px-0 max-desk:pb-1 max-desk:pt-2.5 sm:px-4">
         <h4 className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{title}</h4>
         {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
       </header>
@@ -6407,8 +7644,14 @@ function CollectorBand({ title, infoBullets: bullets = null, children }) {
 // gaps, so the three read as one measurement of one thing.
 function CollectorMetricRow({ columns = 3, children }) {
   return (
+    // Three columns need roughly 100px each before labels like "Chase Subject
+    // Strength" start wrapping to three lines and stop being readable, so below
+    // the 600px tablet boundary a three-up band drops to two. From 600px it is
+    // the original three-column band at every width, desktop included.
     <div
-      className={`grid divide-x divide-[var(--border-subtle)] ${columns === 2 ? "grid-cols-2" : "grid-cols-3"}`}
+      className={`grid divide-x divide-[var(--border-subtle)] ${
+        columns === 2 ? "grid-cols-2" : "grid-cols-3 max-tab:grid-cols-2"
+      }`}
     >
       {children}
     </div>
@@ -6417,16 +7660,18 @@ function CollectorMetricRow({ columns = 3, children }) {
 
 function CollectorMetricCell({ label, value, detail }) {
   return (
-    <div className="min-w-0 px-3 pb-3.5 pt-0.5 sm:px-4">
+    <div className="min-w-0 px-3 pb-3.5 pt-0.5 max-desk:px-2.5 max-desk:pb-2.5 sm:px-4">
       {/* Two lines of room while the labels wrap on a phone, so the values in a
           band still sit on one line whether or not their label wrapped. */}
       <p className="min-h-[2.5em] min-w-0 text-[10px] font-medium uppercase leading-tight tracking-[0.06em] text-[var(--text-secondary)] sm:min-h-0">
         {label}
       </p>
-      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] sm:text-xl">
+      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] max-desk:mt-1 max-desk:text-base sm:text-xl">
         {value ?? "—"}
       </p>
-      {detail ? <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">{detail}</p> : null}
+      {detail ? (
+        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] max-desk:mt-1 max-desk:text-[10px]">{detail}</p>
+      ) : null}
     </div>
   );
 }
@@ -6502,18 +7747,18 @@ function OpeningPathStepArrow() {
 function OpeningExperienceSubjectRow({ subject }) {
   const hasBothPaths = Boolean(subject.accessiblePath) && Boolean(subject.elitePath);
   return (
-    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 sm:px-4">
+    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 max-desk:px-0 max-desk:py-2.5 sm:px-4">
       <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)]">
+        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)] max-desk:text-xs">
           {subject.subjectName}
         </p>
         {subject.demandShare !== null ? (
-          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)]">
+          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)] max-desk:text-[10px]">
             {`${(subject.demandShare * 100).toFixed(0)}% of roster demand`}
           </p>
         ) : null}
       </div>
-      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-2">
+      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 max-desk:mt-1.5 max-desk:gap-1.5 sm:flex-row sm:items-center sm:gap-2">
         <OpeningExperiencePathCard kind="Accessible Path" path={subject.accessiblePath} />
         {hasBothPaths ? <OpeningPathStepArrow /> : null}
         <OpeningExperiencePathCard kind="Elite Chase" path={subject.elitePath} />
@@ -6528,7 +7773,7 @@ function OpeningExperienceSubjectRow({ subject }) {
 // other — the list scans as a ladder, not as a stack of rows.
 function SetDesirabilitySubjectRow({ subject, position }) {
   return (
-    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 sm:px-4">
+    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 max-desk:gap-2 max-desk:px-0 max-desk:py-2 sm:px-4">
       <span className="w-3.5 flex-none text-right text-[11px] font-semibold tabular-nums text-[color:color-mix(in_srgb,var(--text-secondary)_70%,transparent)]">
         {position}
       </span>
@@ -6615,23 +7860,35 @@ function CollectorProfileLoading({ loadingTimedOut }) {
 // stage's note up and break that alignment.
 function CollectorProfileStage({ label, value, meta, note, infoBullets: bullets = null, muted = false }) {
   return (
-    // Sized to a fixed measure rather than a share of the row: three equal
-    // blocks joined by rules that absorb whatever width is left over.
-    <div data-collector-profile-stage className="min-w-0 lg:w-[17rem] lg:flex-none">
+    // At 1200px+ this is unchanged: a fixed-measure block, label over a 28px
+    // score over its meta and note, three of them joined by rules.
+    //
+    // Below desktop the same four fields become one compact grid row — label
+    // and score share the first line, the rank/cohort meta sits under the
+    // label, and the note runs across the foot — so a stage costs roughly a
+    // quarter of the height without dropping a single field. The score steps
+    // down from 1.75rem to text-xl: still the loudest thing in its row, no
+    // longer a headline that needs a line to itself.
+    <div
+      data-collector-profile-stage
+      className="min-w-0 max-desk:grid max-desk:grid-cols-[minmax(0,1fr)_auto] max-desk:items-baseline max-desk:gap-x-3 max-desk:py-1.5 lg:w-[17rem] lg:flex-none"
+    >
       <div className="flex min-w-0 items-center gap-1.5">
         <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{label}</p>
         {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
       </div>
       <p
-        className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums ${
+        className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums max-desk:mt-0 max-desk:text-xl ${
           muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"
         }`}
       >
         {value}
       </p>
-      <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-[var(--text-secondary)]">{meta || " "}</p>
+      <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-[var(--text-secondary)] max-desk:mt-0.5 max-desk:min-h-0 max-desk:text-[11px]">
+        {meta || " "}
+      </p>
       {note ? (
-        <p className="mt-1 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_78%,transparent)]">
+        <p className="mt-1 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_78%,transparent)] max-desk:col-span-2 max-desk:mt-0.5 max-desk:text-[10px]">
           {note}
         </p>
       ) : null}
@@ -6649,10 +7906,14 @@ function CollectorProfileArrow() {
   return (
     <span
       aria-hidden="true"
-      className="flex flex-none items-center justify-center gap-1.5 py-1 text-[var(--text-secondary)] lg:mt-[1.55rem] lg:min-w-[2.5rem] lg:flex-1 lg:py-0"
+      // Below desktop the connector shrinks to a 12px chevron with no padding
+      // and sits at the left edge, under the label column, so it reads as the
+      // step between two rows rather than as a centred ornament that costs
+      // 28px of height twice over. The direction it communicates is unchanged.
+      className="flex flex-none items-center justify-center gap-1.5 py-1 text-[var(--text-secondary)] max-desk:justify-start max-desk:py-0 lg:mt-[1.55rem] lg:min-w-[2.5rem] lg:flex-1 lg:py-0"
     >
       <span className="hidden h-px flex-1 bg-[var(--border-subtle)] lg:block" />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 lg:hidden">
+      <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 max-desk:h-3 max-desk:w-3 lg:hidden">
         <path d="M10 15.25a.85.85 0 0 1-.6-.25l-5-5a.85.85 0 1 1 1.2-1.2L10 13.2l4.4-4.4a.85.85 0 1 1 1.2 1.2l-5 5a.85.85 0 0 1-.6.25Z" />
       </svg>
       <svg viewBox="0 0 20 20" fill="currentColor" className="hidden h-5 w-5 flex-none lg:block">
@@ -6818,21 +8079,35 @@ function CollectorProfileSection({
       <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
       <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
+      {/* Shell cleanup only. Below 1200px the outer context card is gone and
+          the section joins the continuous mobile feed; the flow strip, the
+          Roster Appeal / Opening Paths tabs and every panel inside are
+          untouched at every width. Desktop keeps the card exactly as it was. */}
       <SectionCard
         eyebrow="02 · Collector Profile"
         tone="plain"
         title="Collector Profile"
         titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}
-        bodyClassName="space-y-4"
+        // The 16px rhythm between the flow, the view control and the active
+        // panel is desktop's; below 1200px those three sit on a page that has
+        // no card around them, so 10px is enough to separate them.
+        bodyClassName="space-y-4 max-desk:space-y-2.5"
+        mobileFlush
       >
         {/* The relationship, in order. Three stages, one direction: roster
             demand -> modeled opening paths -> the weighted term. Stacked on
             mobile, in a row once there is width for it. Each stage carries at
             most a six-word note; the rest of the explanation is in the tooltips
             on the stage labels, so the chain can be read at a glance. */}
+        {/* Below desktop the flow keeps its ORDER and its connectors and loses
+            its box: it sits inside a section that no longer draws a card, so
+            its own border and fill were a second surface around three rows.
+            The chevrons are the separator — a divider on both sides of each one
+            would frame the connector instead of the stages. Desktop keeps the
+            panel exactly. */}
         <div
           data-collector-profile-flow
-          className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
+          className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 max-desk:gap-0 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
         >
           <CollectorProfileStage
             label="Set Desirability"
@@ -7079,6 +8354,120 @@ function SimpleTopCardsContent({ topHits }) {
   );
 }
 
+// Simulation Drivers below 1200px.
+//
+// The condensed desktop presentation gives every driver a two-column block of
+// labelled values (Market Price, Value Contribution) beside a thumbnail. On a
+// phone those stack, so ten drivers became ten four-line cards and the panel ran
+// several screens.
+//
+// Below desktop it is the same interaction the RIP Score Breakdown and Metrics
+// use: a ranked list on one column grid, one selected row, one shared detail
+// region. The scan line is rank / name / value contribution — the field the list
+// is ordered by — and the thumbnail, market price and share move into the detail
+// for the selected driver only.
+//
+// Ordering, values and the row set are the backend's: this maps `hits` in place
+// and computes nothing the desktop tree did not already compute.
+function SimulationDriversCompactList({ hits, totalEV }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const detailRegionId = useId();
+
+  const rows = hits.map((hit, index) => {
+    const ev = toNumber(hit?.ev_contribution);
+    return {
+      key: `${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}:${index}`,
+      rank: index + 1,
+      name: hit?.card_name || "Unknown Card",
+      ev,
+      // Identical expression to the desktop tree's `evShare`, on the same two
+      // backend fields — not a second definition of "share".
+      evShare: ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null,
+      nearMintPrice: getTopHitNearMintPrice(hit),
+    };
+  });
+
+  const selected = rows[selectedIndex] || rows[0] || null;
+  if (!selected) {
+    return null;
+  }
+
+  return (
+    <div data-simulation-drivers-compact className="min-w-0 desk:hidden">
+      <div
+        aria-hidden="true"
+        className="grid grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+      >
+        <span className="text-right">#</span>
+        <span />
+        <span className="text-right">Value</span>
+      </div>
+
+      <div className="min-w-0">
+        {rows.map((row, index) => {
+          const isSelected = index === selectedIndex;
+          return (
+            <button
+              key={row.key}
+              type="button"
+              onClick={() => setSelectedIndex(index)}
+              aria-expanded={isSelected}
+              aria-controls={detailRegionId}
+              data-simulation-driver-row
+              data-compact-row
+              data-selected={isSelected ? "true" : undefined}
+              className={`grid min-h-11 w-full grid-cols-[1.5rem_minmax(0,1fr)_4.5rem] items-center gap-x-2 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
+              }`}
+            >
+              <span className="text-right text-[11px] font-semibold tabular-nums text-[var(--text-secondary)]">
+                {row.rank}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{row.name}</span>
+                {row.evShare ? (
+                  <span className="block truncate text-[10px] leading-tight text-[var(--text-secondary)]">
+                    {row.evShare} of pack value
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+                {formatCurrency(row.ev)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ONE shared detail region for whichever driver is selected, and it
+          carries only what the row above it does NOT already say.
+
+          The row is already rank / name / share of pack value / value
+          contribution. A panel that repeated the value, repeated the share,
+          added a thumbnail and closed with a generic price caveat was four
+          blocks of chrome for one new number. Market Price is that number, so
+          Market Price is what is left. The list is the experience; this is a
+          footnote to it.
+
+          Nothing is lost — the desktop tree (TopHitCard) is a separate
+          component and still renders the image, the value contribution, the
+          share and the caveat at 1200px+. */}
+      <div
+        id={detailRegionId}
+        aria-live="polite"
+        data-simulation-driver-detail
+        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
+      >
+        <p className="min-w-0 truncate text-xs font-semibold text-[var(--text-primary)]">{selected.name}</p>
+        <RipBreakdownDetailMetric
+          label="Market Price"
+          value={selected.nearMintPrice === null ? "—" : formatCurrency(selected.nearMintPrice)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostics = null, maxRows = null, compactImage = false, showSummary = true, showHiddenCountFooter = true }) {
   const allHits = Array.isArray(topHits) ? topHits : [];
   const hits = maxRows !== null && maxRows !== undefined ? allHits.slice(0, maxRows) : allHits;
@@ -7110,7 +8499,12 @@ function TopEVDriversContent({ topHits, meanValue, condensed = false, diagnostic
 
     return (
       <div className="w-full max-w-full min-w-0">
-        <div className="grid min-w-0 gap-x-5 lg:grid-cols-2">
+        {/* Below 1200px: the same drivers, in the same order, as a ranked
+            compact list with one shared detail region. */}
+        <SimulationDriversCompactList hits={hits} totalEV={totalEV} />
+
+        {/* 1200px+: unchanged two-column list of labelled blocks. */}
+        <div className="hidden min-w-0 gap-x-5 desk:grid lg:grid-cols-2">
           {driverColumns.map((columnHits, columnIndex) => (
             <div key={`driver-column:${columnIndex}`} className="min-w-0 divide-y divide-white/5 border-t border-white/10">
               {columnHits.map((hit, index) => {
@@ -7226,6 +8620,17 @@ function buildTopLevelPackPathRows(packPaths) {
 // of the backend's fixed 1-decimal format_percent strings that render a
 // nonzero rare path as "0.0%". Returns [] when no counts are available so the
 // caller can fall back to the interpretation-derived evidence rows.
+// The three Pack Paths summary chips that render at 1200px+ only. They are
+// still BUILT below desktop — same selector, same backend fields, same rows —
+// and only their visible chip is suppressed, so nothing downstream of this
+// list changes. Lower-cased because the fallback evidence path and the
+// counts path do not agree on capitalisation.
+const PACK_PATH_DESKTOP_ONLY_EVIDENCE = new Set([
+  "dominant path",
+  "dominant path share",
+  "special path share",
+]);
+
 function getPackPathEvidenceRowsFromCounts(packPaths) {
   const rows = buildTopLevelPackPathRows(packPaths);
   const total = rows.reduce((sum, row) => sum + row.count, 0);
@@ -7402,11 +8807,30 @@ function PackPathsVisualization({ packPaths, normalStateRows, evidenceRows = [],
   return (
     <>
       {evidenceRows.length > 0 ? (
-        <div className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2`}>
+        // Dominant path / Dominant path share / Special path share are hidden
+        // below 1200px — approved removals. Each restates something the donut
+        // and its legend already show: the legend names every path with its
+        // count AND its share, and the donut centre repeats the dominant one.
+        // On a phone they were a third printing of the same numbers.
+        //
+        // Hidden PER CHIP, by label, rather than by dropping rows from
+        // `evidenceRows`: the selector, the backend fields and the fallback
+        // `getPackBreakdownEvidence` path are untouched, any other evidence row
+        // still renders at every width, and desktop keeps all three in order.
+        <div
+          className={`${condensed ? "mb-3" : "mb-4"} flex max-w-full min-w-0 flex-wrap gap-x-2 gap-y-2${
+            evidenceRows.every(([label]) => PACK_PATH_DESKTOP_ONLY_EVIDENCE.has(String(label).toLowerCase()))
+              ? " max-desk:hidden"
+              : ""
+          }`}
+        >
           {evidenceRows.map(([label, value]) => (
             <span
               key={`${label}:${value}`}
-              className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+              data-pack-path-evidence-chip={String(label).toLowerCase()}
+              className={`inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-2.5 py-1 text-xs text-[var(--text-secondary)]${
+                PACK_PATH_DESKTOP_ONLY_EVIDENCE.has(String(label).toLowerCase()) ? " max-desk:hidden" : ""
+              }`}
             >
               <span className="shrink-0 text-[var(--text-secondary)]">{label}</span>
               <span className="min-w-0 truncate font-medium text-[var(--text-primary)]">{String(value)}</span>
@@ -8646,6 +10070,30 @@ export default function RipStatisticsPageClient({
   const lastOverviewRequestKeyRef = useRef(null);
   const lastTopChaseRequestKeyRef = useRef(null);
   const lastMarketMoversRequestKeyRef = useRef(null);
+  // Section-local retry for the three slim Overview modules. Each retry bumps
+  // only its own nonce, so it re-runs only its own effect — a failed Movers
+  // fetch never restarts Overview or Top Chase, and no retry shows the global
+  // page loader. Clearing the request-key ref is what lets the re-run get past
+  // that effect's duplicate guard; the shared in-flight key in
+  // pokemonSetMarketClient.js is already released once the previous attempt
+  // settled (including on timeout), so the retry issues a genuinely new
+  // request instead of joining the one that failed. Nothing here loops
+  // automatically — a retry only happens when the user asks for one.
+  const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
+  const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
+  const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
+  const retryOverviewModule = useCallback(() => {
+    lastOverviewRequestKeyRef.current = null;
+    setOverviewRetryNonce((nonce) => nonce + 1);
+  }, []);
+  const retryTopChaseModule = useCallback(() => {
+    lastTopChaseRequestKeyRef.current = null;
+    setTopChaseRetryNonce((nonce) => nonce + 1);
+  }, []);
+  const retryMarketMoversModule = useCallback(() => {
+    lastMarketMoversRequestKeyRef.current = null;
+    setMarketMoversRetryNonce((nonce) => nonce + 1);
+  }, []);
   // Every GRAPH_SECTION_KEYS value is now a valid Simulation Results sub-view
   // (Outcome Distribution, Opening P vs C = historical-trend, Simulation
   // Drivers, Value Structure, Pack Paths, Metrics), so the insights card
@@ -9137,10 +10585,18 @@ export default function RipStatisticsPageClient({
     const subNav = document.querySelector('nav[aria-label="Profile section navigation"]');
     const subNavHeight = subNav instanceof HTMLElement ? subNav.offsetHeight : 0;
 
-    const setContextShell = setDetailMode ? document.querySelector("[data-set-context-shell]") : null;
-    const setContextShellHeight = setContextShell instanceof HTMLElement ? setContextShell.offsetHeight : 0;
+    // Measure whatever is actually pinned. At 1200px+ that is the whole set
+    // context shell (hero + tabs travel together). Below 1200px the hero
+    // scrolls away and only the tab bar stays, so measuring the shell would
+    // over-scroll every anchor by the full hero height.
+    const isDesktopComposition =
+      typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1200px)").matches;
+    const pinnedElement = setDetailMode
+      ? document.querySelector(isDesktopComposition ? "[data-set-context-shell]" : "[data-set-detail-sticky-tabs]")
+      : null;
+    const pinnedHeight = pinnedElement instanceof HTMLElement ? pinnedElement.offsetHeight : 0;
 
-    return headerOffset + subNavHeight + setContextShellHeight + 8;
+    return headerOffset + subNavHeight + pinnedHeight + 8;
   };
 
   const resolveActiveSectionFromScroll = () => {
@@ -9576,6 +11032,33 @@ export default function RipStatisticsPageClient({
   const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
   const setContextRipRank = toNumber(heroScoreSelection.rank);
   const setContextRipCohort = toNumber(heroScoreSelection.cohortSize);
+
+  // --- Mobile / tablet hero ------------------------------------------------
+  // Identity only below 1200px. Set Value and RIP were duplicated readings —
+  // both already have their own Overview sections — so the mobile header no
+  // longer consumes setHeaderSummary at all. That also removes the temporal
+  // dead zone this memo used to hit by reading setHeaderSummary before it was
+  // declared.
+  const isDesktopHeroComposition = useMediaQuery("(min-width: 1200px)", true);
+  const mobileHeroModel = useMemo(
+    () =>
+      selectMobileHeroModel({
+        setName: selectedName,
+        era: selectedTarget?.era ?? null,
+        logoUrl: heroLogoUrl,
+      }),
+    [heroLogoUrl, selectedName, selectedTarget?.era]
+  );
+
+  // Correction 2: two lightweight hero compositions are mounted and one is
+  // hidden by CSS, so exactly one of them owns the set picker at a time. One
+  // width reading decides; the open state itself stays shared, and crossing the
+  // boundary closes an open menu rather than handing a half-open listbox to the
+  // other composition.
+  useEffect(() => {
+    setHeroSetPickerOpen(false);
+  }, [isDesktopHeroComposition]);
+
   const simpleAverageLossValue = getSimpleAverageLossValue(summary);
   const averageHitValue = getFirstNumericValue(summary, [
     "average_hit_value",
@@ -10404,6 +11887,21 @@ export default function RipStatisticsPageClient({
     cardSort: "7d-movers",
     movementFilter: "all",
   });
+  // Chase rows lead into the Cards tab for this set, sorted by price, so the
+  // destination keeps both the set and a sensible browsing context.
+  // "current-price" is one of the three keys in ALL_CARDS_SORT_OPTIONS
+  // (set-number | name | current-price) — an unrecognised value would silently
+  // land the Cards tab on its fallback sort. Sort direction is separate client
+  // state (cardSortDirection) and is not part of this URL builder, so the Cards
+  // tab applies its own default direction for that sort.
+  const topChaseRowHref = updateSetDetailQueryParams({
+    pathname,
+    searchParams,
+    tab: "cards",
+    section: "all-cards",
+    cardSort: "current-price",
+    movementFilter: "all",
+  });
   // Progressive rendering (replaces the old Phase 9B whole-tab cohesive
   // skeleton): each Overview section gates independently on its own fetch's
   // status instead of waiting for every critical asset to settle together.
@@ -10836,12 +12334,13 @@ export default function RipStatisticsPageClient({
     if (typeof IntersectionObserver === "undefined") {
       return undefined;
     }
-    // PublicProfileLocalScaffold mounts the page content twice (a desktop
-    // `hidden xl:block` copy and a mobile `xl:hidden` copy), so a single
-    // element ref would land on the last-mounted (mobile) sentinel — which is
-    // display:none on desktop and never intersects. Observe every rendered
-    // sentinel instead; only the visible copy can fire, and the gate ref +
-    // idempotent page advance make duplicate fires harmless.
+    // One sentinel now that PublicProfileLocalScaffold mounts the page content
+    // once (it used to render a desktop `hidden xl:block` copy alongside a
+    // mobile `xl:hidden` copy, so a single element ref landed on the
+    // last-mounted, display:none one). querySelectorAll still handles the list
+    // because the gate ref and the idempotent page advance make duplicate fires
+    // harmless either way, and this needs no change if a future layout
+    // re-splits.
     const sentinels = Array.from(document.querySelectorAll("[data-cards-load-more-sentinel]"));
     if (sentinels.length === 0) {
       return undefined;
@@ -11232,6 +12731,17 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    // The control that opened the menu, so Escape hands focus back to it
+    // instead of dropping the user at the top of the document. Captured at open
+    // time rather than looked up on dismiss, because arrow-key navigation moves
+    // focus into the listbox and more than one picker trigger exists in the DOM
+    // (desktop and mobile compositions are both mounted).
+    const opener =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement.matches?.('[aria-haspopup="listbox"]')
+        ? document.activeElement
+        : null;
+
     const handleOutsideClick = (event) => {
       if (!event.target.closest?.("[data-set-picker]")) {
         setHeroSetPickerOpen(false);
@@ -11241,6 +12751,10 @@ export default function RipStatisticsPageClient({
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         setHeroSetPickerOpen(false);
+        const fallback = document.querySelector(
+          '[aria-haspopup="listbox"][aria-expanded="true"]:not([aria-hidden="true"])'
+        );
+        (opener || fallback)?.focus?.();
       }
     };
 
@@ -12229,6 +13743,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
+    topChaseRetryNonce,
   ]);
 
   // Slim /market/movers fetch for the selected 1D/7D/30D window — Market
@@ -12317,6 +13833,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
+    marketMoversRetryNonce,
   ]);
 
   // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
@@ -12413,6 +13931,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSetDetailModules,
+    // Section-local Retry: re-runs this effect only (see retryOverviewModule).
+    overviewRetryNonce,
   ]);
 
   const desktopSidebarContent = (
@@ -12542,6 +14062,10 @@ export default function RipStatisticsPageClient({
 
   return (
     <main className="w-full max-w-full pb-8 pt-0 lg:py-8">
+      {/* The set page's desktop boundary is 1200px, not Tailwind's 1280px xl,
+          so it opts the shared scaffold into the `desk` recipe. Both strings are
+          written out statically. The non-set Explore page renders through this
+          same component and keeps `xl`, so nothing else is retuned. */}
       <PublicProfileLocalScaffold
         profileBaseHref={profileBaseHref}
         mode="public"
@@ -12558,8 +14082,13 @@ export default function RipStatisticsPageClient({
         forceCompactToolsBelow2xl={!setDetailMode}
         centerContentIgnoringSidebar
         desktopSidebarClassName=""
-        desktopContentOffsetClassName="xl:flex xl:justify-center"
-        contentShellClassName={setDetailMode ? "lg:w-full lg:max-w-[1440px] lg:px-4 2xl:px-5" : undefined}
+        desktopBreakpoint={setDetailMode ? "desk" : "xl"}
+        desktopContentOffsetClassName={setDetailMode ? "desk:flex desk:justify-center" : "xl:flex xl:justify-center"}
+        contentShellClassName={
+          setDetailMode
+            ? "mx-auto w-full max-w-[960px] desk:max-w-[1440px] desk:px-4 2xl:px-5"
+            : undefined
+        }
         wrapDesktopContentInFrame={false}
         mobileBottomNavVariant="flat"
         hideDesktopSidebar={setDetailMode}
@@ -12616,10 +14145,89 @@ export default function RipStatisticsPageClient({
           <>
             {setDetailMode ? (
               <>
-                <div data-set-context-shell className="set-detail-context-shell overflow-visible rounded-xl md:rounded-2xl">
+                {/* DOM order is tabs -> identity so that below 1200px, where the
+                    shell becomes `display: contents`, the tabs land first and
+                    their containing block becomes the full-height page
+                    container (so they stay pinned for the whole page rather
+                    than for the shell's own height). Desktop restores the
+                    hero-above-tabs reading order with `desk:order-*` inside the
+                    shell's flex column. */}
+                <div data-set-context-shell className="set-detail-context-shell overflow-visible rounded-xl desk:flex desk:flex-col md:rounded-2xl">
+                <div
+                  id="set-detail-content"
+                  data-set-detail-sticky-tabs
+                  // Below 1200px this block is pinned, and a pinned control has
+                  // to read as a solid surface: at 96% opacity plus a blur, the
+                  // bright chart strokes underneath stayed clearly legible
+                  // through it as the page scrolled. The opacity and the blur
+                  // are therefore desktop-only utilities rather than a CSS
+                  // override — `important: true` in tailwind.config.js makes
+                  // every utility !important, so a plain rule in globals.css
+                  // could never win against them. Desktop keeps the glass.
+                  className="set-detail-sticky-tabs !mt-0 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] desk:bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] desk:backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
+                  aria-busy={isTabNavPending}
+                >
+                  {/* Below 1200px the set picker is the top row of this same
+                      sticky block, so the current set can be switched at any
+                      scroll position without returning to the top. It renders
+                      flat here (no border/radius of its own) so the picker and
+                      the tabs read as one control, not two stacked cards.
+                      Desktop is unaffected: this subtree is desk:hidden and the
+                      desktop context header's own picker still owns selection
+                      there. */}
+                  {/* `data-set-picker` is what the document-level dismiss
+                      handler treats as "inside the picker". Without it, a
+                      mousedown/touchstart on an OPTION counted as an outside
+                      click, so the listbox unmounted before the option's click
+                      could fire and selection silently did nothing.
+
+                      `relative z-30` is what lifts the open menu over the tab
+                      strip. A z-index on the listbox itself cannot do it: the
+                      hero section carries `backdrop-filter` (from
+                      .set-context-premium), which creates a stacking context
+                      the listbox's own z-50 is sealed inside, and the tab
+                      strip's `backdrop-blur-md` creates a second one that
+                      paints later in DOM order. Raising this wrapper — an
+                      ancestor of the menu and an earlier sibling of the tabs —
+                      moves the whole trapped context above them. It stays
+                      inside the sticky block's own context (z-40, itself inside
+                      an `isolation: isolate` container), so the global header
+                      is unaffected. */}
+                  <div data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">
+                    <PokemonSetMobileHero
+                      model={mobileHeroModel}
+                      pickerOpen={heroSetPickerOpen}
+                      onTogglePicker={() => setHeroSetPickerOpen((open) => !open)}
+                      onSelectTarget={handleHeroSetSelect}
+                      onPickerKeyDown={handleSetPickerKeyDown}
+                      targets={switcherTargets}
+                      selectedTargetId={requestedTargetId}
+                      pickerDisabled={isPending || switcherTargets.length === 0}
+                      listboxId="set-mobile-picker-list"
+                      isPickerOwner={!isDesktopHeroComposition}
+                      surfaceClassName="rounded-none border-0 bg-transparent px-1 py-1 tab:px-1.5 tab:py-1.5"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="mb-1 mt-0.5 block h-px bg-[var(--border-subtle)]"
+                    />
+                  </div>
+                  <SectionViewTabs
+                    className={`transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
+                    value={setDetailTab}
+                    onChange={handleSetDetailTabChange}
+                    variant="primary"
+                    options={[
+                      { value: "overview", label: "Overview" },
+                      { value: "cards", label: "Cards" },
+                      { value: "pull-rates", label: "Pull Rates" },
+                      { value: "insights", label: "Insights" },
+                    ]}
+                  />
+                </div>
                 <section
                   data-set-context-header
-                  className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border md:rounded-t-2xl"
+                  className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
                   <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
                     <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
@@ -12640,9 +14248,15 @@ export default function RipStatisticsPageClient({
                           type="button"
                           onClick={() => setHeroSetPickerOpen((open) => !open)}
                           disabled={isPending || switcherTargets.length === 0}
-                          aria-expanded={heroSetPickerOpen}
+                          aria-expanded={isDesktopHeroComposition && heroSetPickerOpen}
                           aria-haspopup="listbox"
                           aria-controls="compact-set-picker-list"
+                          /* Correction 2: this hero is display:none below 1200px
+                             but still mounted, so it hands picker ownership to
+                             the mobile composition rather than staying a second
+                             focusable, operable trigger. */
+                          aria-hidden={isDesktopHeroComposition ? undefined : true}
+                          tabIndex={isDesktopHeroComposition ? 0 : -1}
                           className="set-context-identity flex min-h-12 max-w-full items-center gap-2.5 rounded-lg text-left text-lg font-semibold text-[var(--text-primary)] transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-90 md:text-xl"
                           title={switcherTargets.length > 0 ? "Switch set" : "No sets available"}
                         >
@@ -12655,14 +14269,14 @@ export default function RipStatisticsPageClient({
                           <span aria-hidden="true" className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/70">
                             <svg
                               viewBox="0 0 20 20"
-                              className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${heroSetPickerOpen ? "rotate-180" : ""}`}
+                              className={`h-4 w-4 text-[var(--text-secondary)] transition-transform ${isDesktopHeroComposition && heroSetPickerOpen ? "rotate-180" : ""}`}
                               fill="currentColor"
                             >
                               <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
                             </svg>
                           </span>
                         </button>
-                        {heroSetPickerOpen ? (
+                        {isDesktopHeroComposition && heroSetPickerOpen ? (
                           <div
                             id="compact-set-picker-list"
                             role="listbox"
@@ -12774,25 +14388,6 @@ export default function RipStatisticsPageClient({
                   </div>
                 </section>
 
-                <div
-                  id="set-detail-content"
-                  data-set-detail-sticky-tabs
-                  className="set-detail-sticky-tabs !mt-0 min-h-10 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
-                  aria-busy={isTabNavPending}
-                >
-                  <SectionViewTabs
-                    className={`transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
-                    value={setDetailTab}
-                    onChange={handleSetDetailTabChange}
-                    variant="primary"
-                    options={[
-                      { value: "overview", label: "Overview" },
-                      { value: "cards", label: "Cards" },
-                      { value: "pull-rates", label: "Pull Rates" },
-                      { value: "insights", label: "Insights" },
-                    ]}
-                  />
-                </div>
                 </div>
 
                 {setDetailTab === "overview" ? (
@@ -12802,7 +14397,7 @@ export default function RipStatisticsPageClient({
                   // overviewPerformanceVsCostStatus above). Set Value renders
                   // as soon as its history settles even if Market Movers/Top
                   // Chase are still loading, and vice versa.
-                  <section id="set-detail-overview" className="scroll-mt-24 space-y-5 md:scroll-mt-28">
+                  <section id="set-detail-overview" data-mobile-feed className="scroll-mt-24 space-y-5 max-desk:space-y-0 md:scroll-mt-28">
                     <div id="set-detail-movers-ticker" className="min-w-0">
                       {/* 7D Movers ticker — full-width strip directly under the tab
                           bar, replacing the retired Market Movers card on Overview.
@@ -12814,6 +14409,7 @@ export default function RipStatisticsPageClient({
                           status={moversTickerStatus}
                           error={activeMarketMoversState.error}
                           viewAllHref={moversTickerHref}
+                          onRetry={retryMarketMoversModule}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -12853,27 +14449,47 @@ export default function RipStatisticsPageClient({
                             <SectionBoundary
                               status={overviewPerformanceVsCostStatus}
                               error={activeOverviewState.error ? new Error(activeOverviewState.error) : null}
+                              onRetry={retryOverviewModule}
                               title="Loading opening profit vs cost…"
                               minHeightClassName="min-h-[14rem]"
                               className="h-full"
                             >
                               <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} marketAsOfDate={marketAsOfDate} flush />
                             </SectionBoundary>
-                            <div data-overview-opening-economics className="mt-4 border-t border-[var(--border-subtle)] pt-3">
-                              <dl className="grid grid-cols-2 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto]">
+                            {/* Below 1200px these become compact label/value
+                                rows separated by thin dividers instead of a
+                                bordered multi-column grid: same metrics, same
+                                values, same trend indicators, same info
+                                tooltips, a fraction of the height. Desktop
+                                keeps the three-column subgrid exactly. */}
+                            <div data-overview-opening-economics className="mt-4 border-t border-[var(--border-subtle)] pt-3 max-desk:mt-3 max-desk:pt-2">
+                              <dl className="grid grid-cols-1 desk:grid-cols-3 desk:grid-rows-[auto_auto_auto]">
                                 {headerDecisionMetrics.map((metric, metricIndex) => (
                                   <div
                                     key={`overview-opening-${metric.label}`}
-                                    className={`grid min-w-0 grid-rows-[minmax(3rem,auto)_minmax(1.5rem,auto)_minmax(0.875rem,auto)] px-3 py-2 first:pl-0 sm:row-span-3 sm:grid-rows-subgrid sm:last:pr-0 ${
-                                      metricIndex > 0 ? "border-l border-[var(--border-subtle)]" : ""
-                                    } ${metricIndex === 2 ? "col-span-2 mt-2 border-l-0 border-t border-[var(--border-subtle)] pt-3 sm:col-span-1 sm:mt-0 sm:border-l sm:border-t-0 sm:pt-2" : ""}`}
+                                    data-opening-metric-row
+                                    className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-1 items-baseline gap-x-3 px-0 py-1.5 desk:grid-cols-1 desk:grid-rows-[minmax(3rem,auto)_minmax(1.5rem,auto)_minmax(0.875rem,auto)] desk:items-stretch desk:px-3 desk:py-2 desk:first:pl-0 desk:row-span-3 desk:grid-rows-subgrid desk:last:pr-0 ${
+                                      metricIndex > 0
+                                        ? "border-t border-[var(--border-subtle)] desk:border-l desk:border-t-0 desk:border-[var(--border-subtle)]"
+                                        : ""
+                                    }`}
                                   >
-                                    <dt className="flex min-w-0 items-start gap-1.5 text-[11px] font-medium leading-tight text-[var(--text-secondary)] md:items-center md:whitespace-nowrap">
+                                    <dt className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium leading-tight text-[var(--text-secondary)] desk:items-start md:whitespace-nowrap">
                                       <span>{getFriendlyMetricLabel(metric.label)}</span>
                                       {getMetricTooltip(metric.label) ? <InfoPopover text={getMetricTooltip(metric.label)} /> : null}
                                     </dt>
-                                    <dd className="text-sm font-semibold tabular-nums text-[var(--text-primary)]">
-                                      <span className="inline-flex items-center gap-1.5">
+                                    {/* One right column for every value. The trend
+                                        arrow renders only for some metrics, so
+                                        with the arrow trailing the number each
+                                        row ended at a different x and the column
+                                        read as ragged. Reversing the pair below
+                                        desktop puts the arrow on the inside and
+                                        pins every value — arrow or not — to the
+                                        same right edge, which the helper line
+                                        below then shares. Desktop keeps the
+                                        original number-then-arrow order. */}
+                                    <dd className="justify-self-end whitespace-nowrap text-sm font-semibold tabular-nums text-[var(--text-primary)] desk:justify-self-auto desk:whitespace-normal">
+                                      <span className="inline-flex items-center gap-1.5 max-desk:flex-row-reverse">
                                         {metric.value}
                                         <OpeningMetricTrendIndicator
                                           trend={metric.trend}
@@ -12881,14 +14497,14 @@ export default function RipStatisticsPageClient({
                                         />
                                       </span>
                                     </dd>
-                                    <dd className="text-[11px] font-normal leading-tight text-[var(--text-secondary)]">
+                                    <dd className="col-span-2 text-[11px] font-normal leading-tight text-[var(--text-secondary)] max-desk:text-right desk:col-span-1">
                                       {metric.label === RIP_COPY.simpleMetrics.averagePackValue && headerExpectedLossText
                                         ? (
                                         <span>
                                           {headerExpectedLossText.replace("versus", "vs")}
                                         </span>
                                         )
-                                        : <span aria-hidden="true">&nbsp;</span>}
+                                        : <span aria-hidden="true" className="hidden desk:inline">&nbsp;</span>}
                                     </dd>
                                   </div>
                                 ))}
@@ -12915,6 +14531,8 @@ export default function RipStatisticsPageClient({
                               selectedWindowKey={topMarketCardsWindowKey}
                               onWindowChange={setTopMarketCardsWindowKey}
                               marketAsOfDate={marketAsOfDate}
+                              rowHref={topChaseRowHref}
+                              onRetry={retryTopChaseModule}
                             />
                           </SectionErrorBoundary>
                         </div>
@@ -13533,7 +15151,13 @@ export default function RipStatisticsPageClient({
             ) : null}
 
             {setDetailMode ? (
-              <section id="set-detail-insights" className="scroll-mt-24 space-y-4 pt-0 md:scroll-mt-28">
+              // Below 1200px Insights is the same continuous analytical feed
+              // Overview already is: the three sections drop their outer cards
+              // and are separated by a divider plus breathing room instead. The
+              // `max-desk:space-y-0` is required, not decorative — `space-y-4`
+              // is an !important utility, so without it the feed's own
+              // margin-top would lose and the two spacings would stack.
+              <section id="set-detail-insights" data-mobile-feed className="scroll-mt-24 space-y-4 pt-0 max-desk:space-y-0 md:scroll-mt-28">
                 {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
@@ -13584,9 +15208,21 @@ export default function RipStatisticsPageClient({
                       sub-tab explorer renders on load. Deep links and left-nav
                       clicks only pick the sub-tab and scroll — there is no
                       collapse state to reveal. */}
+                  {/* Shell cleanup only. Below 1200px the outer context card is
+                      gone and the section joins the continuous mobile feed. The
+                      title, the supporting description, the view tabs and every
+                      simulation view (Outcome Distribution, Opening Profit vs
+                      Cost, Simulation Drivers, Value Structure, Pack Paths,
+                      Metrics) are unchanged at every width — the sub-tab strip
+                      still needs its own pass. Desktop keeps the card. */}
                   <article
                     className={[
-                      "set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 sm:p-5",
+                      // `desk:p-5`, not `sm:p-5` — see SectionCard's insetClass:
+                      // an sm-scoped inset outranks max-desk: and would leave
+                      // the card inset across the whole 640-1199px tablet band.
+                      // Identical p-5 at 1200px+.
+                      "set-glass-surface w-full max-w-full min-w-0 rounded-2xl border p-4 desk:p-5",
+                      SECTION_CARD_MOBILE_FLUSH_CLASS,
                       openingOutcomesUsesExpandedLayout ? "min-h-[38rem]" : "",
                     ].filter(Boolean).join(" ")}
                   >
@@ -13597,7 +15233,12 @@ export default function RipStatisticsPageClient({
                           <h2 className="min-w-0 max-w-full text-lg font-semibold text-[var(--text-primary)]">Simulation Results</h2>
                           <InfoPopover text={SIMULATION_RESULTS_INFO_TEXT} />
                         </div>
-                        <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">The raw evidence — full simulation outputs behind the score.</p>
+                        {/* Below 1200px this line restates the eyebrow directly
+                            above it ("03 · Raw evidence") and costs a whole
+                            line of a phone screen before the sub-tabs. Hidden,
+                            not deleted: the copy is unchanged and 1200px+
+                            renders it exactly as before. */}
+                        <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)] max-desk:hidden">The raw evidence — full simulation outputs behind the score.</p>
                       </div>
                     </div>
 
@@ -13619,13 +15260,19 @@ export default function RipStatisticsPageClient({
                         }
                       }}
                       variant="secondary"
+                      mobileScroll
+                      // `shortLabel` is a VISIBLE abbreviation below 1200px
+                      // only. `label` stays the accessible name and the title,
+                      // and is what renders at 1200px+, so no view is renamed
+                      // and none is removed — the six values and their order
+                      // are byte-for-byte what they were.
                       options={[
-                        { value: "outcome-distribution", label: "Outcome Distribution" },
-                        { value: "historical-trend", label: "Opening Profit vs Cost" },
-                        { value: "simulation-drivers", label: "Simulation Drivers" },
-                        { value: "value-contribution", label: "Value Structure" },
-                        { value: "pack-breakdown", label: "Pack Paths" },
-                        { value: "simulation-metrics", label: "Metrics" },
+                        { value: "outcome-distribution", label: "Outcome Distribution", shortLabel: "Outcomes" },
+                        { value: "historical-trend", label: "Opening Profit vs Cost", shortLabel: "OPvC" },
+                        { value: "simulation-drivers", label: "Simulation Drivers", shortLabel: "Drivers" },
+                        { value: "value-contribution", label: "Value Structure", shortLabel: "Value" },
+                        { value: "pack-breakdown", label: "Pack Paths", shortLabel: "Paths" },
+                        { value: "simulation-metrics", label: "Metrics", shortLabel: "Metrics" },
                       ]}
                     />
 
@@ -13691,20 +15338,32 @@ export default function RipStatisticsPageClient({
                       )
                     ) : activeInsightsGraphMode === "simulation-drivers" ? (
                       <SimulationResultsPanel id="set-detail-simulation-drivers">
-                        <div className="mb-2 grid min-w-0 gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                        {/* Below desktop the intro loses vertical air and the
+                            interpretation drops a type step, so the panel opens
+                            on the ranked drivers rather than on a paragraph.
+                            The copy itself is unchanged and still complete —
+                            only its size and the gap around it move. */}
+                        <div className="mb-2 grid min-w-0 gap-2 max-desk:mb-1.5 max-desk:gap-1 max-desk:text-[11px] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                          {/* The callout's own padding and body size step down
+                              below 1200px so the panel opens on the drivers
+                              rather than on a paragraph. The badge, the accent
+                              rail and every word of the copy are untouched, and
+                              the shared component's defaults are not edited —
+                              so no other caller of InterpretationInsight
+                              moves. */}
                           <InterpretationInsight
                             sectionMeta={topEvDriversMeta}
                             fallbackSummary={collectorFriendlyText(interpretation?.topEvDrivers)}
                             compact
                             showEvidence={false}
-                            className="min-w-0"
+                            className="min-w-0 max-desk:py-0.5 max-desk:[&>div]:mb-1 max-desk:[&>p]:text-xs max-desk:[&>p]:leading-snug"
                           />
-                          <div className="flex min-w-0 flex-col gap-0.5 lg:min-w-[12rem] lg:text-right">
+                          <div className="flex min-w-0 flex-col gap-0.5 max-desk:flex-row max-desk:items-baseline max-desk:justify-between max-desk:gap-2 lg:min-w-[12rem] lg:text-right">
                             <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] lg:justify-end">
                               Simulated Expected Value
                               <InfoPopover text={`${SIMULATED_AVERAGE_PACK_VALUE_INFO_TEXT}${formatSectionFreshnessInfo(simulationDrivers.diagnostics?.freshness)}`} />
                             </span>
-                            <span className="text-base font-semibold tabular-nums text-[var(--text-primary)]">{formatCurrency(simulationDriversSummaryValue)}</span>
+                            <span className="text-base font-semibold tabular-nums text-[var(--text-primary)] max-desk:text-sm">{formatCurrency(simulationDriversSummaryValue)}</span>
                           </div>
                         </div>
                         <TopEVDriversContent
