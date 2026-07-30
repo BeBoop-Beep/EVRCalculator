@@ -40,7 +40,28 @@ export default function PokemonSetMobileHero({
       data-set-mobile-hero
       className={`set-context-premium relative rounded-xl border px-3 py-2.5 tab:px-4 tab:py-3 ${surfaceClassName}`.trim()}
     >
-      <div data-hero-region="identity" className="relative flex min-w-0 items-center gap-2.5">
+      <div
+        data-hero-region="identity"
+        data-testid="mobile-hero-identity-row"
+        role="button"
+        tabIndex={isPickerOwner ? 0 : -1}
+        aria-expanded={isPickerOwner ? isPickerExpanded : false}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        aria-label={availableTargets.length > 0 ? "Switch set" : "No sets available"}
+        aria-hidden={isPickerOwner ? undefined : true}
+        onClick={isPickerOwner && !pickerDisabled ? onTogglePicker : undefined}
+        onKeyDown={(event) => {
+          if (!isPickerOwner || pickerDisabled) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onTogglePicker();
+          }
+        }}
+        className={`relative flex min-w-0 items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isPickerOwner && !pickerDisabled ? "cursor-pointer" : "cursor-default"}`.trim()}
+      >
         {identity.hasLogo ? (
           <span className="flex h-9 w-14 flex-none items-center justify-center tab:h-11 tab:w-16">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -69,12 +90,17 @@ export default function PokemonSetMobileHero({
         <button
           type="button"
           data-set-mobile-picker
-          onClick={onTogglePicker}
+          onClick={(event) => {
+            event?.stopPropagation?.();
+            if (isPickerOwner && !pickerDisabled) {
+              onTogglePicker();
+            }
+          }}
           disabled={pickerDisabled}
-          aria-expanded={isPickerExpanded}
+          aria-expanded={isPickerOwner ? isPickerExpanded : false}
           aria-haspopup="listbox"
           aria-controls={listboxId}
-          aria-label="Switch set"
+          aria-label={availableTargets.length > 0 ? "Switch set" : "No sets available"}
           aria-hidden={isPickerOwner ? undefined : true}
           tabIndex={isPickerOwner ? 0 : -1}
           title={availableTargets.length > 0 ? "Switch set" : "No sets available"}

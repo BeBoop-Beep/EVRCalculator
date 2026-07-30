@@ -128,6 +128,13 @@ test("the set picker is reachable and announces its state", async () => {
   assert.equal(calls.toggle, 1);
 });
 
+test("clicking the full identity row opens the picker", async () => {
+  const { renderer, calls } = await renderHero();
+  const identityRow = renderer.root.findByProps({ "data-testid": "mobile-hero-identity-row" });
+  await act(async () => identityRow.props.onClick());
+  assert.equal(calls.toggle, 1);
+});
+
 // --- Correction 2: exactly one interactive picker owner --------------------
 
 test("the owning composition mounts the listbox and is keyboard reachable", async () => {

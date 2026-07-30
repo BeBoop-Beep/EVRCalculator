@@ -10082,6 +10082,7 @@ export default function RipStatisticsPageClient({
   const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
   const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
   const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
+  const [showReturnToTop, setShowReturnToTop] = useState(false);
   const retryOverviewModule = useCallback(() => {
     lastOverviewRequestKeyRef.current = null;
     setOverviewRetryNonce((nonce) => nonce + 1);
@@ -10842,6 +10843,26 @@ export default function RipStatisticsPageClient({
       setActiveSection(nextActiveSection);
     }
   }, [graphMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const updateReturnToTopVisibility = () => {
+      const threshold = window.innerHeight * 1.4;
+      setShowReturnToTop(window.scrollY > threshold);
+    };
+
+    updateReturnToTopVisibility();
+    window.addEventListener("scroll", updateReturnToTopVisibility, { passive: true });
+    window.addEventListener("resize", updateReturnToTopVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", updateReturnToTopVisibility);
+      window.removeEventListener("resize", updateReturnToTopVisibility);
+    };
+  }, [setDetailMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -14555,6 +14576,21 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
                   </section>
+                ) : null}
+
+                {setDetailMode && showReturnToTop ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="fixed bottom-4 right-4 z-[60] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:bottom-6 sm:right-6"
+                    aria-label="Return to top"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                      <path d="M10 4.25a.75.75 0 0 1 .53.22l4.5 4.5a.75.75 0 1 1-1.06 1.06L10.75 6.56v8.19a.75.75 0 0 1-1.5 0V6.56L6.03 9.98a.75.75 0 0 1-1.06-1.06l4.5-4.5A.75.75 0 0 1 10 4.25Z" />
+                    </svg>
+                  </button>
                 ) : null}
 
                 {setDetailTab === "cards" ? (

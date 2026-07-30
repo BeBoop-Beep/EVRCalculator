@@ -776,7 +776,7 @@ body::-webkit-scrollbar-thumb:hover {
 
 .set-detail-sticky-tabs {
   position: relative;
-  z-index: 1;
+  z-index: 40;
 }
 
 /* Shared set-page glass belongs only to major content surfaces. Keeping these
@@ -945,9 +945,9 @@ body::-webkit-scrollbar-thumb:hover {
   }
 
   .set-detail-sticky-tabs {
-    position: sticky;
-    top: var(--app-header-offset, 64px);
-    z-index: 40;
+    position: relative;
+    top: auto;
+    z-index: 1;
     /* First element on mobile now, so it carries a full border and radius
        instead of the bottom-only pairing it has under the desktop hero. */
     border-top-width: 1px;
