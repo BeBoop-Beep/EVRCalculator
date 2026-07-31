@@ -409,6 +409,8 @@ test("exactly one shared Metrics detail region, defaulting open on the first gro
   assert.ok(detail.includes("COMPACT_DETAIL_CLASS"));
   assert.ok(metricsList.includes("{selected.body}"), "the selected group's complete content");
   assert.ok(metricsList.includes("{selected.infoText ? <InfoPopover"), "info tooltips survive");
+  assert.ok(metricsList.includes('<div className="inline-flex min-w-0 items-center gap-1.5'), "the shared header wrapper is a div, not a paragraph");
+  assert.ok(!metricsList.includes('<p className="inline-flex min-w-0 items-center gap-1.5'), "the invalid paragraph wrapper is gone");
   assert.ok(!/groups\.map[\s\S]{0,400}\{group\.body\}/.test(metricsList), "the list never renders every body at once");
 });
 

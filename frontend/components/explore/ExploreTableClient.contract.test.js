@@ -271,6 +271,15 @@ test("mobile keeps identity, both score families, tier and the headline financia
   assert.ok(mobileSource.includes("formatLossCurrency(averageLoss)"), "mobile must keep the average-loss signal");
 });
 
+test("mobile preview shows ten rows before the compact More control expands the rest", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 10"), "the preview limit must be explicit");
+  assert.ok(source.includes("visibleMobileTargets"), "the rendered mobile slice must be derived separately");
+  assert.ok(source.includes("hiddenMobileCount"), "the remaining rows must be counted for the More control");
+  assert.ok(source.includes('showAllMobileRows ? "Show less" : "More"'), "the preview toggle must expand and collapse");
+  assert.ok(source.includes("sortedTargets.length <= MOBILE_PREVIEW_LIMIT"), "rows under the limit stay fully visible");
+});
+
 test("sort contract is rank -> relative -> absolute -> name", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const sortStart = source.indexOf("function sortTargetsByMode");

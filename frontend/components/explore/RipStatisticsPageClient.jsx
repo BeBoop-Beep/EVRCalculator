@@ -364,6 +364,12 @@ function setIdentityMatchesTarget(identity, targetId) {
   return Boolean(targetToken && getSetIdentityTokens(identity).includes(targetToken));
 }
 
+function isStateForResolvedSet(stateSetId, resolvedSetResourceId) {
+  const stateToken = normalizeSetIdentityToken(stateSetId);
+  const resolvedToken = normalizeSetIdentityToken(resolvedSetResourceId);
+  return Boolean(stateToken && resolvedToken && stateToken === resolvedToken);
+}
+
 function getSetSnapshotIdentity(explorePayload) {
   const meta = explorePayload?.meta || {};
   return (
@@ -3104,6 +3110,16 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
       : displayDeltaAmount > 0
       ? "positive"
       : "neutral";
+  const trendStatusMessage =
+    windowState.source === "stored-canonical"
+      ? null
+      : windowState.source === "insufficient_history"
+      ? "Trend unavailable for this window."
+      : windowState.source === "history_fallback_missing_stored_window"
+      ? "Trend source: reconstructed from history (window snapshot unavailable)."
+      : windowState.source === "history_fallback_malformed_stored_window"
+      ? "Trend source: reconstructed from history (stored window snapshot was invalid)."
+      : "Trend source: history fallback.";
 
   // Correction 3: the information region is the link; the sparkline is its
   // sibling. Nesting a focusable, arrow-key-driven chart inside an <a> is
@@ -3217,6 +3233,11 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
             <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
             <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
           </div>
+        ) : null}
+        {trendStatusMessage ? (
+          <p className="mt-1 truncate text-[10px] text-[var(--text-secondary)] opacity-80 desk:max-w-[13.75rem]" title={trendStatusMessage}>
+            {trendStatusMessage}
+          </p>
         ) : null}
       </div>
 
@@ -4504,10 +4525,10 @@ function SimulationMetricsCompactList({ groups }) {
         className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
       >
         <div className="flex items-center justify-between gap-2">
-          <p className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
+          <div className="inline-flex min-w-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--text-secondary)]">
             <span className="truncate">{selected.label}</span>
             {selected.infoText ? <InfoPopover text={selected.infoText} /> : null}
-          </p>
+          </div>
           {selected.key === "where-packs-land" ? (
             <span className="flex-none text-[10px] font-medium uppercase tracking-[0.08em] text-[color:color-mix(in_srgb,var(--text-secondary)_75%,transparent)]">
               log scale
@@ -8375,6 +8396,23 @@ function SimulationDriversCompactList({ hits, totalEV }) {
 
   const rows = hits.map((hit, index) => {
     const ev = toNumber(hit?.ev_contribution);
+    const rarityLabel =
+      String(
+        hit?.rarity ||
+          hit?.rarity_bucket ||
+          hit?.rarityBucket ||
+          hit?.card_rarity ||
+          hit?.cardRarity ||
+          ""
+      ).trim() || null;
+    const imageUrl =
+      hit?.image_small_url ||
+      hit?.imageSmallUrl ||
+      hit?.image_url ||
+      hit?.imageUrl ||
+      hit?.image_large_url ||
+      hit?.imageLargeUrl ||
+      null;
     return {
       key: `${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}:${index}`,
       rank: index + 1,
@@ -8384,6 +8422,8 @@ function SimulationDriversCompactList({ hits, totalEV }) {
       // backend fields — not a second definition of "share".
       evShare: ev !== null && totalEV !== null && totalEV > 0 ? `${((ev / totalEV) * 100).toFixed(1)}%` : null,
       nearMintPrice: getTopHitNearMintPrice(hit),
+      rarityLabel,
+      imageUrl,
     };
   });
 
@@ -8458,11 +8498,28 @@ function SimulationDriversCompactList({ hits, totalEV }) {
         data-simulation-driver-detail
         className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
       >
-        <p className="min-w-0 truncate text-xs font-semibold text-[var(--text-primary)]">{selected.name}</p>
-        <RipBreakdownDetailMetric
-          label="Market Price"
-          value={selected.nearMintPrice === null ? "—" : formatCurrency(selected.nearMintPrice)}
-        />
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-12 w-9 flex-none items-center justify-center overflow-hidden rounded-md border border-[rgba(255,255,255,0.10)] bg-[rgba(2,6,23,0.46)]">
+            {selected.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selected.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+            ) : (
+              <span className="px-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+                {getCardInitials(selected.name)}
+              </span>
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="min-w-0 truncate text-xs font-semibold text-[var(--text-primary)]">{selected.name}</p>
+            <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{selected.rarityLabel || "Rarity unavailable"}</p>
+          </div>
+        </div>
+        <div className="mt-1.5">
+          <RipBreakdownDetailMetric
+            label="Market Price"
+            value={selected.nearMintPrice === null ? "—" : formatCurrency(selected.nearMintPrice)}
+          />
+        </div>
       </div>
     </div>
   );
@@ -9684,6 +9741,7 @@ export default function RipStatisticsPageClient({
         )
       : true;
   const shouldPauseSetDetailDependentFetches = setDetailMode && !isPrimarySnapshotReady;
+  const canFetchSlimMarketModules = setDetailMode && Boolean(resolvedSetResourceId);
   const canFetchSetDetailModules = setDetailMode
     ? Boolean(resolvedSetResourceId) &&
       (!explorePayload || isSetPageTransportFallback(explorePayload) || hasActiveSetPageIdentity)
@@ -10082,6 +10140,7 @@ export default function RipStatisticsPageClient({
   const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
   const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
   const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
+  const [showReturnToTop, setShowReturnToTop] = useState(false);
   const retryOverviewModule = useCallback(() => {
     lastOverviewRequestKeyRef.current = null;
     setOverviewRetryNonce((nonce) => nonce + 1);
@@ -10112,7 +10171,7 @@ export default function RipStatisticsPageClient({
     setValueHistoryState.setId === resolvedSetResourceId &&
     hasAnySetValueHistory(setValueHistoryState.historiesByScope);
   const marketDashboardReady =
-    marketDashboardState.setId === resolvedSetResourceId &&
+    isStateForResolvedSet(marketDashboardState.setId, resolvedSetResourceId) &&
     (marketDashboardState.status === "success" || marketDashboardState.status === "success_stale") &&
     Boolean(marketDashboardState.payload);
   const marketOrSetValueSeededForActiveTab =
@@ -10848,6 +10907,26 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
+    const updateReturnToTopVisibility = () => {
+      const threshold = window.innerHeight * 1.4;
+      setShowReturnToTop(window.scrollY > threshold);
+    };
+
+    updateReturnToTopVisibility();
+    window.addEventListener("scroll", updateReturnToTopVisibility, { passive: true });
+    window.addEventListener("resize", updateReturnToTopVisibility);
+
+    return () => {
+      window.removeEventListener("scroll", updateReturnToTopVisibility);
+      window.removeEventListener("resize", updateReturnToTopVisibility);
+    };
+  }, [setDetailMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
     let frameId = null;
     const updateActiveFromScroll = () => {
       if (frameId !== null) {
@@ -11091,7 +11170,7 @@ export default function RipStatisticsPageClient({
     return null;
   }, [initialSetPageDataSeed]);
   const activeMarketDashboardState =
-    marketDashboardState.setId === resolvedSetResourceId &&
+    isStateForResolvedSet(marketDashboardState.setId, resolvedSetResourceId) &&
     (marketDashboardState.payload || !seededMarketDashboardPayload)
       ? marketDashboardState
       : seededMarketDashboardPayload
@@ -11112,7 +11191,7 @@ export default function RipStatisticsPageClient({
   // commit under the new set's title — guard the same way
   // activeMarketDashboardState/activeDirectSetValueState already do.
   const guardedOverviewState =
-    overviewState.setId === resolvedSetResourceId
+    isStateForResolvedSet(overviewState.setId, resolvedSetResourceId)
       ? overviewState
       : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: overviewState.sourceWindow });
   // Until the live fetch has produced a payload for this set, fall back to
@@ -11188,7 +11267,7 @@ export default function RipStatisticsPageClient({
   // continuity rows never count as an update.
   const latestRealPerformanceDate = getLatestRealPerformanceDate(historyTrend);
   const activeDirectSetValueState =
-    setValueHistoryState.setId === resolvedSetResourceId
+    isStateForResolvedSet(setValueHistoryState.setId, resolvedSetResourceId)
       ? setValueHistoryState
       : createSetValueHistoryState({ setId: resolvedSetResourceId });
   const activeDirectSetValueLoadedScopes = new Set(activeDirectSetValueState.loadedScopes || []);
@@ -11263,11 +11342,11 @@ export default function RipStatisticsPageClient({
   // cards/movers for one commit under the new set's title — guard the same
   // way activeMarketDashboardState/activeDirectSetValueState already do.
   const activeTopChaseState =
-    topChaseState.setId === resolvedSetResourceId
+    isStateForResolvedSet(topChaseState.setId, resolvedSetResourceId)
       ? topChaseState
       : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: topChaseState.sourceWindow });
   const activeMarketMoversState =
-    marketMoversState.setId === resolvedSetResourceId
+    isStateForResolvedSet(marketMoversState.setId, resolvedSetResourceId)
       ? marketMoversState
       : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: marketMoversState.sourceWindow });
   // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to
@@ -13674,7 +13753,7 @@ export default function RipStatisticsPageClient({
       dispatchTopChase({ type: "reset", status: "empty", sourceWindow: topChaseSourceWindow });
       return undefined;
     }
-    if (!canFetchSetDetailModules) {
+    if (!canFetchSlimMarketModules) {
       dispatchTopChase({
         type: "reset",
         status: "empty",
@@ -13690,9 +13769,16 @@ export default function RipStatisticsPageClient({
     }
 
     const topChaseRequestKey = `${setId}|${topChaseSourceWindow}`;
-    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+    const topChaseStateIsRenderable =
+      activeTopChaseState.status === "loading" ||
+      activeTopChaseState.status === "success" ||
+      activeTopChaseState.status === "success_stale";
+    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey && topChaseStateIsRenderable) {
       debugSetPagePerf("top_chase.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
       return undefined;
+    }
+    if (lastTopChaseRequestKeyRef.current === topChaseRequestKey && !topChaseStateIsRenderable) {
+      lastTopChaseRequestKeyRef.current = null;
     }
     lastTopChaseRequestKeyRef.current = topChaseRequestKey;
 
@@ -13704,10 +13790,18 @@ export default function RipStatisticsPageClient({
       .then((payload) => {
         requestSettled = true;
         if (isCancelled) {
+          if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+            lastTopChaseRequestKeyRef.current = null;
+          }
+          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
           return;
         }
         if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
           debugSetPagePerf("top_chase.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          if (lastTopChaseRequestKeyRef.current === topChaseRequestKey) {
+            lastTopChaseRequestKeyRef.current = null;
+          }
+          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
           return;
         }
         dispatchTopChase({ type: "success", setId, payload, sourceWindow: topChaseSourceWindow });
@@ -13718,6 +13812,7 @@ export default function RipStatisticsPageClient({
           lastTopChaseRequestKeyRef.current = null;
         }
         if (isCancelled) {
+          dispatchTopChase({ type: "reset", status: "empty", setId, sourceWindow: topChaseSourceWindow });
           return;
         }
         dispatchTopChase({
@@ -13742,7 +13837,7 @@ export default function RipStatisticsPageClient({
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
-    canFetchSetDetailModules,
+    canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
     topChaseRetryNonce,
   ]);
@@ -13765,7 +13860,7 @@ export default function RipStatisticsPageClient({
       dispatchMarketMovers({ type: "reset", status: "empty", sourceWindow: moversSourceWindow });
       return undefined;
     }
-    if (!canFetchSetDetailModules) {
+    if (!canFetchSlimMarketModules) {
       dispatchMarketMovers({
         type: "reset",
         status: "empty",
@@ -13780,9 +13875,16 @@ export default function RipStatisticsPageClient({
     }
 
     const marketMoversRequestKey = `${setId}|${moversSourceWindow}|${moversFetchLimit}`;
-    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+    const marketMoversStateIsRenderable =
+      activeMarketMoversState.status === "loading" ||
+      activeMarketMoversState.status === "success" ||
+      activeMarketMoversState.status === "success_stale";
+    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey && marketMoversStateIsRenderable) {
       debugSetPagePerf("market_movers.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
       return undefined;
+    }
+    if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey && !marketMoversStateIsRenderable) {
+      lastMarketMoversRequestKeyRef.current = null;
     }
     lastMarketMoversRequestKeyRef.current = marketMoversRequestKey;
 
@@ -13794,10 +13896,18 @@ export default function RipStatisticsPageClient({
       .then((payload) => {
         requestSettled = true;
         if (isCancelled) {
+          if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+            lastMarketMoversRequestKeyRef.current = null;
+          }
+          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
           return;
         }
         if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
           debugSetPagePerf("market_movers.tab_fetch_stale", { setId, activeSetResourceId: activeSetResourceIdRef.current });
+          if (lastMarketMoversRequestKeyRef.current === marketMoversRequestKey) {
+            lastMarketMoversRequestKeyRef.current = null;
+          }
+          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
           return;
         }
         dispatchMarketMovers({ type: "success", setId, payload, sourceWindow: moversSourceWindow });
@@ -13808,6 +13918,7 @@ export default function RipStatisticsPageClient({
           lastMarketMoversRequestKeyRef.current = null;
         }
         if (isCancelled) {
+          dispatchMarketMovers({ type: "reset", status: "empty", setId, sourceWindow: moversSourceWindow });
           return;
         }
         dispatchMarketMovers({
@@ -13832,7 +13943,7 @@ export default function RipStatisticsPageClient({
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
-    canFetchSetDetailModules,
+    canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
     marketMoversRetryNonce,
   ]);
@@ -13855,7 +13966,7 @@ export default function RipStatisticsPageClient({
       dispatchOverview({ type: "reset", status: "empty", sourceWindow: overviewSourceWindow });
       return undefined;
     }
-    if (!canFetchSetDetailModules) {
+    if (!canFetchSlimMarketModules) {
       dispatchOverview({
         type: "reset",
         status: "empty",
@@ -13879,9 +13990,16 @@ export default function RipStatisticsPageClient({
     }
 
     const overviewRequestKey = `${setId}|${overviewSourceWindow}`;
-    if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+    const overviewStateIsRenderable =
+      activeOverviewState.status === "loading" ||
+      activeOverviewState.status === "success" ||
+      activeOverviewState.status === "success_stale";
+    if (lastOverviewRequestKeyRef.current === overviewRequestKey && overviewStateIsRenderable) {
       debugSetPagePerf("overview.tab_fetch_skipped_duplicate", { resolvedSetId: setId });
       return undefined;
+    }
+    if (lastOverviewRequestKeyRef.current === overviewRequestKey && !overviewStateIsRenderable) {
+      lastOverviewRequestKeyRef.current = null;
     }
     lastOverviewRequestKeyRef.current = overviewRequestKey;
 
@@ -13893,9 +14011,17 @@ export default function RipStatisticsPageClient({
       .then((payload) => {
         requestSettled = true;
         if (isCancelled) {
+          if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+            lastOverviewRequestKeyRef.current = null;
+          }
+          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
           return;
         }
         if (!isSetStateForActiveSet(setId, { requestedTargetId, selectedTarget, resolvedSetResourceId: activeSetResourceIdRef.current })) {
+          if (lastOverviewRequestKeyRef.current === overviewRequestKey) {
+            lastOverviewRequestKeyRef.current = null;
+          }
+          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
           return;
         }
         dispatchOverview({ type: "success", setId, payload, sourceWindow: overviewSourceWindow });
@@ -13906,6 +14032,7 @@ export default function RipStatisticsPageClient({
           lastOverviewRequestKeyRef.current = null;
         }
         if (isCancelled) {
+          dispatchOverview({ type: "reset", status: "empty", setId, sourceWindow: overviewSourceWindow });
           return;
         }
         dispatchOverview({
@@ -13930,7 +14057,7 @@ export default function RipStatisticsPageClient({
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
-    canFetchSetDetailModules,
+    canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryOverviewModule).
     overviewRetryNonce,
   ]);
@@ -14555,6 +14682,21 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
                   </section>
+                ) : null}
+
+                {setDetailMode && showReturnToTop ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="fixed bottom-24 right-4 z-[60] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:bottom-6 sm:right-6"
+                    aria-label="Return to top"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+                      <path d="M10 4.25a.75.75 0 0 1 .53.22l4.5 4.5a.75.75 0 1 1-1.06 1.06L10.75 6.56v8.19a.75.75 0 0 1-1.5 0V6.56L6.03 9.98a.75.75 0 0 1-1.06-1.06l4.5-4.5A.75.75 0 0 1 10 4.25Z" />
+                    </svg>
+                  </button>
                 ) : null}
 
                 {setDetailTab === "cards" ? (
