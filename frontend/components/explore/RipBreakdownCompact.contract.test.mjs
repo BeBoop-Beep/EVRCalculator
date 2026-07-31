@@ -35,16 +35,19 @@ test("every score, tier, rank and interpretation survives", () => {
   }
 });
 
-test("Also tracked and Opening Experience are preserved", () => {
-  assert.ok(card.includes("Also tracked"));
-  assert.ok(card.includes("openingRows.map"));
+test("Overall/Core/Also-tracked grouping is preserved", () => {
+  assert.ok(card.includes("OVERALL RIP"));
+  assert.ok(card.includes("CORE"));
+  assert.ok(card.includes("ALSO TRACKED"));
+  assert.ok(card.includes("overallRows.map"));
+  assert.ok(card.includes("trackedRows.map"));
 });
 
 test("the compact stack removes the gap that made each row read as a card", () => {
   assert.equal(
     (card.match(/className="grid gap-2 max-desk:gap-0"/g) || []).length,
-    2,
-    "both the pillar stack and the Also-tracked stack sit flush below desktop"
+    3,
+    "overall, core, and also-tracked stacks all sit flush below desktop"
   );
   assert.ok(!card.includes('className="grid gap-2"'), "no row container may keep the desktop-only gap below desktop");
 });

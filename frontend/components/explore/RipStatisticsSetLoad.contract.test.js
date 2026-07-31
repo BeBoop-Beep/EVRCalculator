@@ -4006,6 +4006,50 @@ test("Decision Signals has one fixed compact presentation and only renders track
   assert.ok(cardSource.includes("const hasScore = toNumber(resolvedScore.score) !== null"));
 });
 
+test("Decision Signals Overall RIP interpretation reuses the same canonical verdict source as Insights", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  const trackedStart = source.indexOf("const overviewDecisionTrackedSignals = useMemo(() => {");
+  const trackedEnd = source.indexOf("return rows;", trackedStart);
+  assert.ok(trackedStart >= 0 && trackedEnd > trackedStart, "overviewDecisionTrackedSignals block must exist");
+  const trackedSource = source.slice(trackedStart, trackedEnd);
+
+  // Insights RIP Score Breakdown consumes `recommendationBadge` as the short
+  // verdict text; in RIP Score mode that resolves from packScoreMeta.label.
+  assert.ok(
+    source.includes("verdict={recommendationBadge}") &&
+      source.includes("openingOutlook={recommendationSummary}"),
+    "Insights breakdown must keep its canonical verdict/opening-outlook props"
+  );
+  assert.ok(
+    source.includes("const recommendationBadge =") &&
+      source.includes(": packScoreMeta?.label || null;"),
+    "RIP Score mode verdict must continue to resolve from packScoreMeta.label"
+  );
+
+  assert.ok(
+    trackedSource.includes(
+      "packScoreMeta?.label || overallRip?.interpretation?.label || overallRip?.interpretation?.summary"
+    ),
+    "Decision Signals Overall RIP must prefer the same canonical short verdict source used by Insights"
+  );
+  assert.ok(
+    trackedSource.includes("detailSummary:") &&
+      trackedSource.includes("canonicalOverallInterpretation ||"),
+    "row detail must reuse the same canonical overall interpretation when available"
+  );
+  assert.ok(
+    trackedSource.includes('"Overall opening profile combining financial performance and collector appeal."'),
+    "a safe generic fallback remains for genuinely missing interpretation cases"
+  );
+  assert.ok(
+    trackedSource.includes("score: toNumber(overallRip.score)") &&
+      trackedSource.includes("tier: overallRip.tier || null") &&
+      trackedSource.includes("rank: toNumber(overallRip.rank)"),
+    "Overall RIP score/tier/rank data fields remain unchanged"
+  );
+});
+
 test("Market Movers destination is URL-backed and reloads into the paginated Cards preset", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
@@ -4092,16 +4136,17 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
   assert.ok(
-    source.includes("const hasPerformanceVsCostHistory ="),
-    "a dedicated hasPerformanceVsCostHistory boolean must exist"
+    source.includes("const overviewPerformanceHistoryState = useMemo("),
+    "OPvC state must be selected by a section-level memoized selector"
   );
-  const hasHistoryStart = source.indexOf("const hasPerformanceVsCostHistory =");
-  const hasHistoryEnd = source.indexOf(";", hasHistoryStart);
-  const hasHistorySource = source.slice(hasHistoryStart, hasHistoryEnd);
   assert.ok(
-    hasHistorySource.includes("Array.isArray(overviewPerformanceVsCostHistory)") &&
-      hasHistorySource.includes("overviewPerformanceVsCostHistory.length > 0"),
-    "hasPerformanceVsCostHistory must check the overview payload's series for points"
+    source.includes("selectOverviewPerformanceHistoryState({") &&
+      source.includes("seedPayload: seededOverviewPayload") &&
+      source.includes("livePayload: guardedOverviewState.payload") &&
+      source.includes("liveStatus: guardedOverviewState.status") &&
+      source.includes("liveError: guardedOverviewState.error") &&
+      source.includes("insightsHistory: explorePayload?.history_trend"),
+    "selector inputs must include seed/live payloads, live request status/error, and optional insights history"
   );
 
   // Paradox Rift regression: explorePayload.history_trend is always written
@@ -4120,14 +4165,12 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
     "a nonempty stale explorePayload.history_trend must not shadow fresher overview history via nonempty-array precedence"
   );
   assert.ok(
-    source.includes("mergePerformanceHistories({") &&
-      source.includes("setPageHistory: explorePayloadHistoryTrend") &&
-      source.includes("marketHistory: overviewPerformanceVsCostHistory"),
-    "historyTrend must be the freshness-aware date-level merge of the set-page and market histories (performanceHistorySelector.mjs)"
+    source.includes("const historyTrend = overviewPerformanceHistoryState.history;"),
+    "the chart history must come from the section-level selector output"
   );
   assert.ok(
-    source.includes("const latestRealPerformanceDate = getLatestRealPerformanceDate(historyTrend);"),
-    "the latest real (non-carried-forward) performance date must be derived from the merged history"
+    source.includes("const latestRealPerformanceDate = overviewPerformanceHistoryState.latestRealDate;"),
+    "latest real date must come from the selector, not ad-hoc in JSX"
   );
 
   // Paradox-style state: seeded overview has performanceVsCostHistory points
@@ -4139,18 +4182,8 @@ test("Stabilization: Performance vs Cost never shows loading/empty when a perfor
   const statusSource = source.slice(statusStart, statusEnd);
   assert.ok(statusStart >= 0, "overviewPerformanceVsCostStatus must exist");
   assert.ok(
-    statusSource.includes("hasPerformanceVsCostHistory"),
-    "the status must key on hasPerformanceVsCostHistory"
-  );
-  assert.ok(
-    statusSource.includes('? "success"') && statusSource.includes('"success_stale"'),
-    "with points in hand the status must map to success/success_stale, never a loader"
-  );
-  assert.ok(
-    statusSource.includes("activeOverviewState.status") &&
-      !statusSource.includes('=== "loading"') &&
-      !statusSource.includes('=== "idle"'),
-    "the with-data branch must not depend on loading/idle checks — data presence alone decides"
+    statusSource.includes("overviewPerformanceHistoryState.status"),
+    "status must come from the section-level selector contract"
   );
   assert.ok(
     source.includes("status={overviewPerformanceVsCostStatus}"),

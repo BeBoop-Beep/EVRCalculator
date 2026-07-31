@@ -178,7 +178,7 @@ import {
   resolveTopCardWindowState,
   warnForTopCardWindowState,
 } from "./topChaseWindowState.mjs";
-import { mergePerformanceHistories, getLatestRealPerformanceDate } from "./performanceHistorySelector.mjs";
+import { getLatestRealPerformanceDate, selectOverviewPerformanceHistoryState } from "./performanceHistorySelector.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 import {
   adaptSetShell,
@@ -234,10 +234,6 @@ const VISIBLE_SET_VALUE_SCOPE_OPTIONS = SET_VALUE_SCOPE_OPTIONS.filter((entry) =
 // Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
 const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
-// Stable no-data fallback so the merged historyTrend memo doesn't recompute
-// (and re-key every downstream chart memo) on renders where the overview
-// payload hasn't arrived yet.
-const EMPTY_PERFORMANCE_HISTORY = [];
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 // Fixed request window for the slim /market/top-chase fetch — unrelated to
 // topMarketCardsWindowKey, which only picks which already-fetched delta to
@@ -6291,10 +6287,10 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
 //
 // Nothing here recomputes anything: every score, tier, rank and interpretation
 // string comes straight off the same view model the desktop rows render.
-function DecisionSignalsCompactList({ pillarRows, openingRows }) {
+function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
   const [selectedLabel, setSelectedLabel] = useState(null);
   const detailRegionId = useId();
-  const allRows = [...pillarRows, ...openingRows];
+  const allRows = [...overallRows, ...pillarRows, ...trackedRows];
   const selectedSignal = allRows.find((signal) => signal.label === selectedLabel) || null;
 
   const renderRow = (signal) => {
@@ -6383,17 +6379,24 @@ function DecisionSignalsCompactList({ pillarRows, openingRows }) {
         <span className="text-right">Rank</span>
       </div>
 
+      {overallRows.length > 0 ? (
+        <>
+          {groupLabel("OVERALL RIP")}
+          <div>{overallRows.map(renderRow)}</div>
+        </>
+      ) : null}
+
       {pillarRows.length > 0 ? (
         <>
-          {groupLabel("Core")}
+          {groupLabel("CORE")}
           <div>{pillarRows.map(renderRow)}</div>
         </>
       ) : null}
 
-      {openingRows.length > 0 ? (
+      {trackedRows.length > 0 ? (
         <>
-          {groupLabel("Also tracked")}
-          <div>{openingRows.map(renderRow)}</div>
+          {groupLabel("ALSO TRACKED")}
+          <div>{trackedRows.map(renderRow)}</div>
         </>
       ) : null}
 
@@ -6481,16 +6484,16 @@ function DecisionSignalsCard({
     [setIntelligenceMeta]
   );
 
-  // Core RIP pillars and the supplementary opening lenses render as two
-  // display groups (grouping only — scores, ordering within each group, and
-  // row behavior are unchanged).
-  const { pillarRows, openingRows } = useMemo(() => {
+  // Core RIP pillars, Overall RIP, and supplementary opening lenses render as
+  // explicit display groups (grouping only — scores and row behavior are
+  // unchanged).
+  const { overallRows, pillarRows, trackedRows } = useMemo(() => {
     if (requestTimeout) {
-      return { pillarRows: [], openingRows: [] };
+      return { overallRows: [], pillarRows: [], trackedRows: [] };
     }
     const pillarRows = selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
 
-    const trackedRows = trackedSignals
+    const rawTrackedRows = trackedSignals
       .map((signal) => {
         const score = toNumber(signal?.score);
         const rank = toNumber(signal?.rank);
@@ -6511,6 +6514,16 @@ function DecisionSignalsCard({
         };
       })
       .filter((row) => row?.label);
+
+    const overallRows = [];
+    const supplementaryTrackedRows = [];
+    rawTrackedRows.forEach((row) => {
+      if (String(row.label || "").trim().toLowerCase() === OVERALL_RIP_SIGNAL_LABEL.toLowerCase()) {
+        overallRows.push(row);
+      } else {
+        supplementaryTrackedRows.push(row);
+      }
+    });
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
       const backendLens = backendLensByKey.get(lens.key) || null;
@@ -6546,12 +6559,18 @@ function DecisionSignalsCard({
       };
     }).filter(Boolean);
 
-    const combinedOpeningRows = [...trackedRows, ...openingRows];
+    const collectorAppealRows = supplementaryTrackedRows.filter(
+      (row) => String(row.label || "").trim().toLowerCase() === "collector appeal"
+    );
+    const nonCollectorTrackedRows = supplementaryTrackedRows.filter(
+      (row) => String(row.label || "").trim().toLowerCase() !== "collector appeal"
+    );
+    const trackedRows = [...collectorAppealRows, ...nonCollectorTrackedRows, ...openingRows];
 
-    return { pillarRows, openingRows: combinedOpeningRows };
+    return { overallRows, pillarRows, trackedRows };
   }, [backendLensByKey, pillarSignals, requestTimeout, summary, trackedSignals]);
 
-  const signals = [...pillarRows, ...openingRows];
+  const signals = [...overallRows, ...pillarRows, ...trackedRows];
 
   if (signals.length === 0) {
     return requestTimeout ? (
@@ -6574,27 +6593,52 @@ function DecisionSignalsCard({
       {/* Below 1200px: one condensed structured list with a single shared
           interpretation region (see DecisionSignalsCompactList). */}
       <div className="desk:hidden">
-        <DecisionSignalsCompactList pillarRows={pillarRows} openingRows={openingRows} />
+        <DecisionSignalsCompactList overallRows={overallRows} pillarRows={pillarRows} trackedRows={trackedRows} />
       </div>
 
       {/* 1200px+: the desktop presentation is unchanged. It is display:none
           below desktop, so the compact list above is the only tree assistive
           technology reaches there. */}
       <div className="hidden desk:block">
-        <div className="grid gap-2 max-desk:gap-0">
-          {pillarRows.map((signal) => (
-            <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-          ))}
-        </div>
-        {openingRows.length > 0 ? (
+        {overallRows.length > 0 ? (
           <>
-            <div className="mt-4 mb-2 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Also tracked</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">OVERALL RIP</span>
               <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
             </div>
             <div className="grid gap-2 max-desk:gap-0">
-              {openingRows.map((signal) => (
+              {overallRows.map((signal) => (
+                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {pillarRows.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">CORE</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+            </div>
+            <div className="grid gap-2 max-desk:gap-0">
+              {pillarRows.map((signal) => (
+                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {trackedRows.length > 0 ? (
+          <>
+            <div className="mt-4 mb-2 flex items-center gap-2">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">ALSO TRACKED</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
+            </div>
+            <div className="grid gap-2 max-desk:gap-0">
+              {trackedRows.map((signal) => (
                 <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
               ))}
             </div>
@@ -11279,41 +11323,30 @@ export default function RipStatisticsPageClient({
   const overviewHasLoaded = activeOverviewState.status === "success" || activeOverviewState.status === "success_stale";
   const effectiveSetValueDashboardState = overviewHasLoaded ? activeOverviewState : activeMarketDashboardState;
   const effectiveSetValueDerivedState = overviewHasLoaded ? activeOverviewDerivedState : activeMarketDashboardDerivedState;
-  // Cards/Overview never load the full explore payload, so its history_trend
-  // (used for title-card / metric trend arrows) is unavailable there. The
-  // overview market dashboard snapshot carries an equivalent point-in-time
-  // series (performanceVsCostHistory, with packCost/meanValue per date) —
-  // fall back to it so trend arrows still reflect real movement instead of
-  // silently going neutral just because the full payload wasn't fetched.
-  const overviewPerformanceVsCostHistory =
-    effectiveSetValueDashboardState.payload?.performanceVsCostHistory ||
-    effectiveSetValueDashboardState.payload?.performance_vs_cost_history ||
-    EMPTY_PERFORMANCE_HISTORY;
-  const hasPerformanceVsCostHistory =
-    Array.isArray(overviewPerformanceVsCostHistory) &&
-    overviewPerformanceVsCostHistory.length > 0;
-  // Freshness-aware selection (stale set-page snapshot fix): the /insights
-  // history_trend rides pokemon_set_page_snapshot_latest, which can lag days
-  // behind the market-dashboard performanceVsCostHistory when the set-page
-  // snapshot has not been rebuilt after newer simulation runs (Prismatic
-  // Evolutions froze on June 30 while /overview carried July rows). Neither
-  // array may win just by being nonempty — mergePerformanceHistories combines
-  // both per real snapshot date (real beats carried-forward, later run
-  // timestamp wins, then completeness), so the chart always reaches the
-  // freshest real point either source knows about while keeping every
-  // legitimate historical date.
-  const explorePayloadHistoryTrend = explorePayload?.history_trend;
-  const historyTrend = useMemo(
+  // OPvC history selection is section-local and independent of whole payload
+  // freshness resolution: seed and live /overview histories are read
+  // separately and merged date-by-date, then optionally supplemented by
+  // insights history_trend. This prevents an empty "newer" seed payload from
+  // masking valid live history points.
+  const overviewPerformanceHistoryState = useMemo(
     () =>
-      mergePerformanceHistories({
-        setPageHistory: explorePayloadHistoryTrend,
-        marketHistory: overviewPerformanceVsCostHistory,
+      selectOverviewPerformanceHistoryState({
+        seedPayload: seededOverviewPayload,
+        livePayload: guardedOverviewState.payload,
+        liveStatus: guardedOverviewState.status,
+        liveError: guardedOverviewState.error,
+        insightsHistory: explorePayload?.history_trend,
       }),
-    [explorePayloadHistoryTrend, overviewPerformanceVsCostHistory]
+    [
+      seededOverviewPayload,
+      guardedOverviewState.payload,
+      guardedOverviewState.status,
+      guardedOverviewState.error,
+      explorePayload?.history_trend,
+    ]
   );
-  // Latest REAL update date for freshness copy — carried-forward chart
-  // continuity rows never count as an update.
-  const latestRealPerformanceDate = getLatestRealPerformanceDate(historyTrend);
+  const historyTrend = overviewPerformanceHistoryState.history;
+  const latestRealPerformanceDate = overviewPerformanceHistoryState.latestRealDate;
   const activeDirectSetValueState =
     isStateForResolvedSet(setValueHistoryState.setId, resolvedSetResourceId)
       ? setValueHistoryState
@@ -12040,17 +12073,11 @@ export default function RipStatisticsPageClient({
   // (DecisionSignalsCard) depends only on summary/interpretation, which are
   // already available from the SSR shell payload on this tab (Overview never
   // populates explorePayload), so it has no async gate at all.
-  // Core rule: renderable data beats loading status. When the chart's series
-  // already has points (server-seeded /overview snapshot, explorePayload's
-  // history_trend, or the market-dashboard fallback historyTrend reads from),
-  // never overlay a loading panel or error panel on it — render the points as
-  // success/success_stale and let any refresh land quietly.
-  const overviewPerformanceVsCostStatus =
-    hasPerformanceVsCostHistory || hasNonEmptyArray(historyTrend)
-      ? activeOverviewState.status === "success"
-        ? "success"
-        : "success_stale"
-      : activeOverviewState.status;
+  // Core rule: renderable OPvC history beats loading/error presentation.
+  // The section-level selector handles empty-seed vs live-loading distinctions
+  // so first-load can never show settled unavailability before /overview
+  // settles.
+  const overviewPerformanceVsCostStatus = overviewPerformanceHistoryState.status;
   // Section-level timing (see components/ui/SectionBoundary.jsx and
   // hooks/useSectionTiming.js): one metric per Overview priority section.
   // Market Signals has no async gate (see comment above), so it's reported
@@ -12721,6 +12748,9 @@ export default function RipStatisticsPageClient({
     });
     const openingPresentation = selectOpeningExperiencePresentation(canonicalOpeningExperience);
     const collectorAppeal = openingPresentation?.collectorAppeal || {};
+    const canonicalOverallInterpretation = String(
+      packScoreMeta?.label || overallRip?.interpretation?.label || overallRip?.interpretation?.summary || ""
+    ).trim();
 
     const rows = [];
     if (toNumber(overallRip.score) !== null) {
@@ -12730,7 +12760,10 @@ export default function RipStatisticsPageClient({
         rank: toNumber(overallRip.rank),
         tier: overallRip.tier || null,
         summary:
-          String(overallRip?.interpretation?.summary || "").trim() ||
+          canonicalOverallInterpretation ||
+          "Overall opening profile combining financial performance and collector appeal.",
+        detailSummary:
+          canonicalOverallInterpretation ||
           "Overall opening profile combining financial performance and collector appeal.",
       });
     }
@@ -12748,7 +12781,7 @@ export default function RipStatisticsPageClient({
     }
 
     return rows;
-  }, [canonicalOpeningExperience, explorePayload, selectedTarget, summary]);
+  }, [canonicalOpeningExperience, explorePayload, packScoreMeta?.label, selectedTarget, summary]);
   const initialModuleSetValueHistories =
     initialMarketDashboardPayload?.setValueHistoriesByScope ||
     initialMarketDashboardPayload?.set_value_histories_by_scope ||
