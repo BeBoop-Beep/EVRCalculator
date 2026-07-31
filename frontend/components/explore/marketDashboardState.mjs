@@ -1,7 +1,7 @@
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
 const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 const SET_VALUE_SCOPE_OPTIONS = [
-  { key: "standard", label: "Checklist" },
+  { key: "standard", label: "Set" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];

@@ -43,11 +43,12 @@ test("selectedScope=checklist returns checklist label, value, series, and deltas
   const selected = select("standard");
 
   assert.equal(selected.scope, "standard");
-  assert.equal(selected.label, "Checklist");
+  assert.equal(selected.label, "Set");
   assert.equal(selected.metricLabel, "Set Value");
   assert.equal(selected.currentValue, 110);
   assert.equal(selected.delta30d, 10);
   assert.equal(selected.delta30dPct, 10);
+  assert.equal(selected.shareOfStandardPercent, 100);
   assert.deepEqual(observedValues(selected.series), [100, 105, 110]);
   assert.equal(selected.series.at(-1)?.date, "2099-01-31");
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.standard");
@@ -62,6 +63,7 @@ test("selectedScope=hits returns hits label, value, series, and deltas", () => {
   assert.equal(selected.currentValue, 80);
   assert.equal(selected.delta30d, 30);
   assert.equal(selected.delta30dPct, 60);
+  assert.equal(selected.shareOfStandardPercent, 72.7);
   assert.deepEqual(observedValues(selected.series), [50, 65, 80]);
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.hits");
 });
@@ -75,8 +77,27 @@ test("selectedScope=top10 returns top10 label, value, series, and deltas", () =>
   assert.equal(selected.currentValue, 40);
   assert.equal(selected.delta30d, 15);
   assert.equal(selected.delta30dPct, 60);
+  assert.equal(selected.shareOfStandardPercent, 36.4);
   assert.deepEqual(observedValues(selected.series), [25, 30, 40]);
   assert.equal(selected.diagnostics.source, "setValueHistoriesByScope.top10");
+});
+
+test("allowedScopes fallback resolves hidden hits scope to standard", () => {
+  const selected = selectOverviewSetValueTrendByScope({
+    history: scopedHistories.standard,
+    historiesByScope: scopedHistories,
+    selectedScope: "hits",
+    allowedScopes: ["standard", "top10"],
+    fallbackScope: "standard",
+    selectedWindowKey: "30D",
+  });
+
+  assert.equal(selected.requestedScope, "hits");
+  assert.equal(selected.scope, "standard");
+  assert.equal(selected.label, "Set");
+  assert.equal(selected.currentValue, 110);
+  assert.equal(selected.diagnostics.scopeFallbackApplied, true);
+  assert.equal(selected.diagnostics.requestedScope, "hits");
 });
 
 test("marketAsOfDate clamps the series and never lets a point exceed the canonical date", () => {

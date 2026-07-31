@@ -422,7 +422,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     <RankColumnModeContext.Provider value={selectedMode}>
     <section className={`${styles.surface} flex min-w-0 flex-col`} aria-labelledby="explore-best-sets-heading">
       {/* One compact control row: title menu, definition, hint, cohort size. */}
-      <div className={`${styles.divider} flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4`}>
+      <div className={`${styles.divider} flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 desk:py-2.5 sm:px-4`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative min-w-0" ref={dropdownContainerRef}>
             <h2
@@ -430,7 +430,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               className={
                 RANKING_MODE_PICKER_ENABLED
                   ? "min-w-0"
-                  : "min-w-0 truncate text-[15px] font-semibold text-[var(--text-primary)] sm:text-base"
+                  : "min-w-0 truncate text-[18px] font-semibold leading-[1.25] text-[var(--text-primary)] desk:text-[15px] desk:leading-normal"
               }
             >
               {RANKING_MODE_PICKER_ENABLED ? (
@@ -439,7 +439,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   onClick={() => setDropdownOpen((open) => !open)}
                   aria-expanded={dropdownOpen}
                   aria-haspopup="listbox"
-                  className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[15px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:text-base"
+                  className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-[18px] font-semibold leading-[1.25] text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:text-[15px] desk:leading-normal"
                 >
                   <span className="truncate">{modeTitle}</span>
                   <svg

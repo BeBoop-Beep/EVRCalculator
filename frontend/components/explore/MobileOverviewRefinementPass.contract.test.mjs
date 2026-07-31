@@ -190,11 +190,13 @@ test("scores, tiers and ranks are read straight off the shared view model", () =
   assert.ok(!compactList.includes("|| 0"), "no fake zero is substituted for a missing value");
 });
 
-test("every signal group and all seven signals survive", () => {
-  assert.ok(compactList.includes('groupLabel("Core")'));
-  assert.ok(compactList.includes('groupLabel("Also tracked")'));
+test("Decision Signals renders three explicit groups with stable row feeds", () => {
+  assert.ok(compactList.includes('groupLabel("OVERALL RIP")'));
+  assert.ok(compactList.includes('groupLabel("CORE")'));
+  assert.ok(compactList.includes('groupLabel("ALSO TRACKED")'));
+  assert.ok(compactList.includes("overallRows.map(renderRow)"));
   assert.ok(compactList.includes("pillarRows.map(renderRow)"));
-  assert.ok(compactList.includes("openingRows.map(renderRow)"));
+  assert.ok(compactList.includes("trackedRows.map(renderRow)"));
   // The card still assembles both groups from the same selectors as before.
   assert.ok(signalsCard.includes("selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows"));
   assert.ok(signalsCard.includes("SET_INTELLIGENCE_LENSES.map"));

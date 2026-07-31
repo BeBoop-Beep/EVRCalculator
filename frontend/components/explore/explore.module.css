@@ -215,10 +215,10 @@
  * Leaderboard (Top Rankings)
  * ------------------------------------------------------------------ */
 
-/* Sized off the shared module scroll ceiling, minus this module's footer, so
-   the leaderboard and the main table finish on roughly the same line. */
+/* Sized off the shared module scroll ceiling; this module no longer has a
+   preview footer, so the ladder itself owns the full interior scroll height. */
 .ladderScroll {
-  max-height: calc(var(--ex-module-scroll, 33rem) - 2.6rem);
+  max-height: var(--ex-module-scroll, 33rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
