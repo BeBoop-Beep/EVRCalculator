@@ -138,13 +138,48 @@ test("rows stay navigable and quiet: one link per row, no per-row card border", 
   assert.ok(ladderBlock.includes("border-bottom"), "ladder rows must be separated by a subtle divider");
 });
 
-test("mobile Top Rankings shows ten rows before the compact More control expands the remainder", () => {
+test("desktop keeps an internal ladder scroll while mobile/tablet use natural document flow", () => {
+  const css = fs.readFileSync(path.resolve(__dirname, "explore.module.css"), "utf8");
+  const ladderStart = css.indexOf(".ladderScroll {");
+  const ladderBlock = css.slice(ladderStart, css.indexOf("}", ladderStart));
+  assert.ok(ladderBlock.includes("max-height: var(--ex-module-scroll, 33rem);"), "desktop ladder height should use the shared scroll ceiling");
+  assert.ok(ladderBlock.includes("overflow-y: auto;"), "desktop ladder must remain internally scrollable");
+
+  const mobileMediaStart = css.indexOf("@media (max-width: 1199.98px) {");
+  const mobileMedia = css.slice(mobileMediaStart, css.indexOf("}\n\n.ladderRow:focus-visible", mobileMediaStart));
+  assert.ok(mobileMedia.includes(".ladderScroll"), "mobile override must include ladderScroll");
+  assert.ok(mobileMedia.includes("max-height: none;"), "mobile must remove max-height ceilings");
+  assert.ok(mobileMedia.includes("overflow-y: visible;"), "mobile must disable internal vertical scrolling");
+});
+
+test("Top Rankings renders directly from the full ladder without a mobile preview cap", () => {
   const source = readComponent();
-  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 10"), "the preview limit must be explicit");
-  assert.ok(source.includes("visibleMobileRows"), "the visible slice must be separate from the full ladder");
-  assert.ok(source.includes("hiddenMobileCount"), "the remaining rows must be counted");
-  assert.ok(source.includes('showAllMobileRows ? "Show less" : "More"'), "the toggle must expand and collapse");
-  assert.ok(source.includes('className="mt-auto hidden items-center justify-between'), "the footer action must stay desktop-only");
+  assert.ok(source.includes("{ladder.map(({ target, value, asOf, coverage, position }) => {"), "rendered rows must map the full ladder");
+  for (const removedToken of [
+    "MOBILE_PREVIEW_LIMIT",
+    "showAllMobileRows",
+    "mobilePreviewResetKey",
+    "visibleMobileRows",
+    "hiddenMobileCount",
+    'Show less',
+    'More',
+    'Preview more rankings',
+  ]) {
+    assert.ok(!source.includes(removedToken), `${removedToken} must not exist in Top Rankings`);
+  }
+});
+
+test("Top Rankings no longer links to the obsolete /Explore/top-10 route", () => {
+  const source = readComponent();
+  assert.ok(!source.includes('href="/Explore/top-10"'), "Top Rankings must not route users to /Explore/top-10");
+});
+
+test("Top Rankings heading is stronger below desktop and preserves desktop sizing", () => {
+  const source = readComponent();
+  assert.ok(
+    source.includes("text-[18px] font-semibold leading-[1.25] text-[var(--text-primary)] desk:text-[15px] desk:leading-normal"),
+    "heading typography must be stronger on mobile/tablet and reset at desktop"
+  );
 });
 
 test("Top Rankings has its own empty and error states so it cannot collapse the row", () => {

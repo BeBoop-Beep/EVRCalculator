@@ -185,10 +185,12 @@ test("numeric columns keep explicit alignment", () => {
 // ---------------------------------------------------------------------------
 
 test("the approved structured-list layout is preserved", () => {
-  assert.ok(compactList.includes('groupLabel("Core")'));
-  assert.ok(compactList.includes('groupLabel("Also tracked")'));
+  assert.ok(compactList.includes('groupLabel("OVERALL RIP")'));
+  assert.ok(compactList.includes('groupLabel("CORE")'));
+  assert.ok(compactList.includes('groupLabel("ALSO TRACKED")'));
+  assert.ok(compactList.includes("overallRows.map(renderRow)"));
   assert.ok(compactList.includes("pillarRows.map(renderRow)"));
-  assert.ok(compactList.includes("openingRows.map(renderRow)"));
+  assert.ok(compactList.includes("trackedRows.map(renderRow)"));
   assert.ok(compactList.includes("min-h-11"), "the 44px touch target survives");
   assert.equal((compactList.match(/data-decision-signal-detail/g) || []).length, 1, "one shared interpretation region");
 });

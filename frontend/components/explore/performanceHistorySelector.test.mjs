@@ -7,6 +7,7 @@ import {
   getPerformanceHistoryRunTimestamp,
   isCarriedForwardPerformancePoint,
   mergePerformanceHistories,
+  selectOverviewPerformanceHistoryState,
 } from "./performanceHistorySelector.mjs";
 
 function marketRow(date, overrides = {}) {
@@ -37,6 +38,18 @@ function setPageRow(date, overrides = {}) {
     p95_value_to_cost_ratio: 2.3,
     run_created_at: `${date}T06:00:00+00:00`,
     ...overrides,
+  };
+}
+
+function payloadWithHistory(history, { marketAsOfDate = null, generationId = null } = {}) {
+  return {
+    performanceVsCostHistory: history,
+    meta: {
+      snapshot: {
+        marketAsOfDate,
+        generationId,
+      },
+    },
   };
 }
 
@@ -216,4 +229,172 @@ test("merge does not mutate either source array or their rows", () => {
 
   assert.equal(JSON.stringify(setPageHistory), setPageSnapshot, "setPageHistory must be unchanged");
   assert.equal(JSON.stringify(marketHistory), marketSnapshot, "marketHistory must be unchanged");
+});
+
+test("overview history state: empty seed + live loading stays loading (empty copy not eligible)", () => {
+  const seedPayload = payloadWithHistory([], { marketAsOfDate: "2026-07-09", generationId: "seed-a" });
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload,
+    livePayload: null,
+    liveStatus: "loading",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "loading");
+  assert.equal(selected.emptyStateEligible, false);
+  assert.equal(selected.history.length, 0);
+});
+
+test("overview history state: valid seed + live loading stays renderable as success_stale", () => {
+  const seedPayload = payloadWithHistory([marketRow("2026-07-08"), marketRow("2026-07-09")]);
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload,
+    livePayload: null,
+    liveStatus: "loading",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "success_stale");
+  assert.equal(selected.history.length, 2);
+});
+
+test("overview history state: empty newer seed does not beat valid older live history", () => {
+  const seedPayload = payloadWithHistory([], { marketAsOfDate: "2026-07-12", generationId: "seed-new" });
+  const livePayload = payloadWithHistory([marketRow("2026-07-08"), marketRow("2026-07-09")], {
+    marketAsOfDate: "2026-07-09",
+    generationId: "live-older",
+  });
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload,
+    livePayload,
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "success");
+  assert.deepEqual(
+    selected.history.map((row) => row.snapshotDate),
+    ["2026-07-08", "2026-07-09"]
+  );
+});
+
+test("overview history state: valid seed + valid live merge by existing duplicate-date rules", () => {
+  const seedPayload = payloadWithHistory([
+    setPageRow("2026-07-08", { run_created_at: "2026-07-08T08:00:00+00:00", mean_value_to_cost_ratio: 0.7 }),
+    setPageRow("2026-07-09", { run_created_at: "2026-07-09T08:00:00+00:00", mean_value_to_cost_ratio: 0.8 }),
+  ]);
+  const livePayload = payloadWithHistory([
+    marketRow("2026-07-09", {
+      run_created_at: "2026-07-09T12:00:00+00:00",
+      runCreatedAt: "2026-07-09T12:00:00+00:00",
+      mean_value_to_cost_ratio: 0.95,
+      meanValueToCostRatio: 0.95,
+    }),
+    marketRow("2026-07-10"),
+  ]);
+
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload,
+    livePayload,
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "success");
+  assert.deepEqual(
+    selected.history.map((row) => row.snapshotDate),
+    ["2026-07-08", "2026-07-09", "2026-07-10"]
+  );
+  const july9 = selected.history.find((row) => row.snapshotDate === "2026-07-09");
+  assert.equal(july9.mean_value_to_cost_ratio, 0.95);
+});
+
+test("overview history state: no seed + live success with no history settles empty", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: null,
+    livePayload: payloadWithHistory([]),
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "empty");
+  assert.equal(selected.emptyStateEligible, true);
+});
+
+test("overview history state: no seed + live error with no fallback returns error", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: null,
+    livePayload: null,
+    liveStatus: "error",
+    liveError: "request failed",
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "error");
+});
+
+test("overview history state: valid seed + live error keeps seed visible as success_stale", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: payloadWithHistory([marketRow("2026-07-08"), marketRow("2026-07-09")]),
+    livePayload: null,
+    liveStatus: "error",
+    liveError: "request failed",
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "success_stale");
+  assert.equal(selected.history.length, 2);
+});
+
+test("overview history state: insights absent still renders from overview history", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: null,
+    livePayload: payloadWithHistory([marketRow("2026-07-08"), marketRow("2026-07-09")]),
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.equal(selected.status, "success");
+  assert.equal(selected.history.length, 2);
+});
+
+test("overview history state: insights history supplements overview instead of controlling it", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: null,
+    livePayload: payloadWithHistory([marketRow("2026-07-09"), marketRow("2026-07-10")]),
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [setPageRow("2026-07-08")],
+  });
+
+  assert.equal(selected.status, "success");
+  assert.deepEqual(
+    selected.history.map((row) => row.snapshotDate),
+    ["2026-07-08", "2026-07-09", "2026-07-10"]
+  );
+});
+
+test("overview history state: points beyond marketAsOfDate are excluded", () => {
+  const selected = selectOverviewPerformanceHistoryState({
+    seedPayload: null,
+    livePayload: payloadWithHistory([marketRow("2026-07-08"), marketRow("2026-07-09"), marketRow("2026-07-10")], {
+      marketAsOfDate: "2026-07-09",
+      generationId: "live-cutoff",
+    }),
+    liveStatus: "success",
+    liveError: null,
+    insightsHistory: [],
+  });
+
+  assert.deepEqual(
+    selected.history.map((row) => row.snapshotDate),
+    ["2026-07-08", "2026-07-09"]
+  );
+  assert.equal(selected.diagnostics.marketAsOfDate, "2026-07-09");
 });

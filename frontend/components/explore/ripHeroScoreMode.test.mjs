@@ -177,6 +177,27 @@ test("rank stays numerical rather than displaying the tier letter", () => {
   assert.notEqual(String(selected.rank), selected.tier);
 });
 
+test("Overall RIP canonical short interpretation is preserved verbatim (Ascended Heroes phrase example)", () => {
+  const selected = selectRipHeroScoreMode({
+    mode: RIP_SCORE_MODE,
+    payload: {
+      rip: {
+        score: 71.2,
+        relativeScore: 84.6,
+        rank: 7,
+        tier: "A",
+        cohortSize: 140,
+        interpretation: {
+          label: "Elite but swingy",
+          summary: "Strong upside with volatile misses.",
+        },
+      },
+    },
+  });
+
+  assert.equal(selected.interpretation.label, "Elite but swingy");
+});
+
 test("source-level guard: the selector never mentions the legacy score fields", () => {
   const source = readFileSync(fileURLToPath(new URL("./ripHeroScoreMode.mjs", import.meta.url)), "utf8");
   const code = source

@@ -77,6 +77,14 @@ test("desktop renders the two modules side by side, wider table first", () => {
   assert.ok(source.includes("items-start"), "sibling modules must share a top alignment");
 });
 
+test("mobile introduces a subtle divider before Top Rankings and removes it at desk+", () => {
+  const source = readPage();
+  assert.ok(
+    source.includes("mt-6 border-t border-[var(--border-subtle)] pt-6 desk:mt-0 desk:border-t-0 desk:pt-0"),
+    "Top Rankings wrapper must create mobile/tablet separation and reset at desktop"
+  );
+});
+
 test("either module can render when the other has no data", () => {
   const source = readPage();
   // Both modules receive the SAME already-resolved list and the same error

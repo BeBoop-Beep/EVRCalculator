@@ -7,11 +7,22 @@ import { forwardFillDailyHistoryThroughDate } from "./packValueHistoryNormalizat
 
 export const CANONICAL_SET_VALUE_SCOPE_KEY = "standard";
 
-export const SET_VALUE_TREND_SCOPE_OPTIONS = [
-  { key: "standard", label: "Checklist" },
+export const SET_VALUE_TREND_ALL_SCOPE_OPTIONS = [
+  { key: "standard", label: "Set" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
+
+// Hits remains a first-class backend scope and stays in contract/state data,
+// but it is temporarily hidden from the Overview scope picker pending the
+// hit-eligibility audit and UX contract decision.
+export const SET_VALUE_TREND_VISIBLE_SCOPE_OPTIONS = [
+  { key: "standard", label: "Set" },
+  { key: "top10", label: "Top 10" },
+];
+
+// Backward-compatible export used by re-export modules/tests.
+export const SET_VALUE_TREND_SCOPE_OPTIONS = SET_VALUE_TREND_ALL_SCOPE_OPTIONS;
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") {
@@ -28,7 +39,7 @@ function normalizeScopeKey(scope) {
 
 export function getSetValueTrendScopeLabel(scope) {
   const scopeKey = normalizeScopeKey(scope);
-  return SET_VALUE_TREND_SCOPE_OPTIONS.find((entry) => entry.key === scopeKey)?.label || scopeKey;
+  return SET_VALUE_TREND_ALL_SCOPE_OPTIONS.find((entry) => entry.key === scopeKey)?.label || scopeKey;
 }
 
 export function getSetValueTrendMetricLabel(scope) {
@@ -103,14 +114,37 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
     history,
     historiesByScope,
     selectedScope = CANONICAL_SET_VALUE_SCOPE_KEY,
+    allowedScopes = null,
+    fallbackScope = CANONICAL_SET_VALUE_SCOPE_KEY,
     selectedWindowKey = null,
     preferredWindowKey = "30D",
     marketAsOfDate = null,
   } = safeInput;
-  const scope = normalizeScopeKey(selectedScope);
+  const requestedScope = normalizeScopeKey(selectedScope);
+  const normalizedAllowedScopes = Array.isArray(allowedScopes)
+    ? allowedScopes.map((scopeKey) => normalizeScopeKey(scopeKey)).filter(Boolean)
+    : null;
+  const resolvedFallbackScope = normalizeScopeKey(fallbackScope);
+  const scopeIsAllowed =
+    !normalizedAllowedScopes ||
+    normalizedAllowedScopes.length === 0 ||
+    normalizedAllowedScopes.includes(requestedScope);
+  const scope = scopeIsAllowed ? requestedScope : resolvedFallbackScope;
+  const requestedHistory = getSetValueTrendHistoryForScope({ history, historiesByScope, scope: requestedScope });
   const selectedHistory = getSetValueTrendHistoryForScope({ history, historiesByScope, scope });
   const points = normalizeSetValueTrendPoints(selectedHistory.history, { marketAsOfDate });
   const valuedPoints = points.filter((point) => toNumber(point?.setValue) !== null);
+  const standardHistory = getSetValueTrendHistoryForScope({
+    history,
+    historiesByScope,
+    scope: CANONICAL_SET_VALUE_SCOPE_KEY,
+  });
+  const normalizedStandardPoints = normalizeSetValueTrendPoints(standardHistory.history, { marketAsOfDate });
+  const standardPointByDate = new Map(
+    normalizedStandardPoints
+      .filter((point) => toNumber(point?.setValue) !== null)
+      .map((point) => [point.date, toNumber(point.setValue)])
+  );
   const {
     windows: availableDeltaWindows,
     effectiveKey: effectiveWindowKey,
@@ -145,12 +179,24 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
       Array.isArray(scopeHistory) ? scopeHistory.length : 0,
     ])
   );
+  const latestDateForShare = visibleWindowMetrics.latestPoint?.date || null;
+  const currentValue = visibleWindowMetrics.currentValue;
+  const standardValueAtLatestDate = latestDateForShare ? standardPointByDate.get(latestDateForShare) ?? null : null;
+  const shareOfStandardPercent =
+    scope === CANONICAL_SET_VALUE_SCOPE_KEY
+      ? currentValue === null
+        ? null
+        : 100
+      : currentValue === null || standardValueAtLatestDate === null || standardValueAtLatestDate <= 0
+      ? null
+      : Math.round((currentValue / standardValueAtLatestDate) * 1000) / 10;
 
   return {
     scope,
+    requestedScope,
     label: getSetValueTrendScopeLabel(scope),
     metricLabel: getSetValueTrendMetricLabel(scope),
-    currentValue: visibleWindowMetrics.currentValue,
+    currentValue,
     deltaAmount: visibleWindowMetrics.deltaAmount,
     deltaPercent: visibleWindowMetrics.deltaPercent,
     delta30d: thirtyDayWindowMetrics.deltaAmount,
@@ -164,12 +210,15 @@ export function selectOverviewSetValueTrendByScope(input = {}) {
     availableDeltaWindows,
     effectiveWindowKey,
     hasTrend: visibleWindowMetrics.deltaAmount !== null,
+    shareOfStandardPercent,
+    standardValueAtLatestDate,
     diagnostics: {
-      requestedScope: scope,
+      requestedScope,
       selectedScope: scope,
+      scopeFallbackApplied: scope !== requestedScope,
       source: selectedHistory.source,
-      hasRequestedScopeHistory: selectedHistory.hasRequestedScopeHistory,
-      missingRequestedScope: !selectedHistory.hasRequestedScopeHistory,
+      hasRequestedScopeHistory: requestedHistory.hasRequestedScopeHistory,
+      missingRequestedScope: !requestedHistory.hasRequestedScopeHistory,
       pointCountsByScope: scopePointCounts,
       selectedWindowKey,
       effectiveWindowKey,

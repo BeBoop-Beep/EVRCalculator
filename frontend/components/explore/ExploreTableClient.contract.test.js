@@ -271,6 +271,18 @@ test("mobile keeps identity, both score families, tier and the headline financia
   assert.ok(mobileSource.includes("formatLossCurrency(averageLoss)"), "mobile must keep the average-loss signal");
 });
 
+test("Best Sets heading is stronger below desktop and resets at desk width", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(
+    source.includes("text-[18px] font-semibold leading-[1.25] text-[var(--text-primary)] desk:text-[15px] desk:leading-normal"),
+    "mobile/tablet heading typography must be stronger and revert at desktop"
+  );
+  assert.ok(
+    source.includes("px-3 py-3 desk:py-2.5 sm:px-4"),
+    "the module header row should have extra vertical breathing room below desktop"
+  );
+});
+
 test("mobile preview shows ten rows before the compact More control expands the rest", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 10"), "the preview limit must be explicit");

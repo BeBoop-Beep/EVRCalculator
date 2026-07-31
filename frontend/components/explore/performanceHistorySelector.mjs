@@ -1,4 +1,5 @@
 import { getHistoryDateKey } from "./historyDateFormatting.mjs";
+import { getMarketDateSourceFromPayload } from "./marketAsOfDate.mjs";
 
 // Freshness-aware selection of Performance vs Cost history.
 //
@@ -199,4 +200,142 @@ export function getLatestRealPerformanceDate(history) {
     }
   });
   return latest;
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function extractOverviewHistory(payload) {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+  return asArray(payload.performanceVsCostHistory || payload.performance_vs_cost_history);
+}
+
+function extractInsightsHistory(input) {
+  if (Array.isArray(input)) {
+    return input;
+  }
+  if (!input || typeof input !== "object") {
+    return [];
+  }
+  return asArray(input.history_trend || input.historyTrend);
+}
+
+function clampPerformanceHistoryToDate(history, endDateKey) {
+  const rows = asArray(history);
+  const endDate = getHistoryDateKey(endDateKey);
+  if (!endDate) {
+    return rows;
+  }
+  return rows.filter((row) => {
+    const date = getPerformanceHistoryDate(row);
+    return !date || date <= endDate;
+  });
+}
+
+function hasRenderablePerformanceHistory(history, minPoints = 2) {
+  return asArray(history).length >= minPoints;
+}
+
+function resolveOverviewHistoryStatus({ hasRenderable, liveStatus, liveError }) {
+  const normalizedStatus = typeof liveStatus === "string" ? liveStatus : "idle";
+  const hasLiveError = Boolean(liveError);
+  const liveSettledSuccess = normalizedStatus === "success";
+  const liveSettledError = normalizedStatus === "error" || (normalizedStatus === "success_stale" && hasLiveError);
+  const livePending =
+    normalizedStatus === "idle" ||
+    normalizedStatus === "loading" ||
+    normalizedStatus === "success_stale" ||
+    normalizedStatus === "empty";
+
+  if (hasRenderable) {
+    return liveSettledSuccess ? "success" : "success_stale";
+  }
+
+  if (livePending && !liveSettledSuccess && !liveSettledError) {
+    return "loading";
+  }
+
+  if (liveSettledError) {
+    return "error";
+  }
+
+  if (liveSettledSuccess || normalizedStatus === "empty") {
+    return "empty";
+  }
+
+  return "loading";
+}
+
+/**
+ * Section-level selector for Opening Profit vs Cost.
+ *
+ * This keeps history selection independent from whole-payload freshness
+ * selection: seed and live histories are read separately, then merged
+ * date-by-date so a non-empty valid history always beats an empty one.
+ */
+export function selectOverviewPerformanceHistoryState({
+  seedPayload,
+  livePayload,
+  liveStatus,
+  liveError,
+  insightsHistory,
+  marketAsOfDate = null,
+} = {}) {
+  const seedHistory = extractOverviewHistory(seedPayload);
+  const liveHistory = extractOverviewHistory(livePayload);
+  const setPageHistory = extractInsightsHistory(insightsHistory);
+
+  const mergedOverviewHistory = mergePerformanceHistories({
+    setPageHistory: seedHistory,
+    marketHistory: liveHistory,
+  });
+
+  const mergedHistory = mergePerformanceHistories({
+    setPageHistory,
+    marketHistory: mergedOverviewHistory,
+  });
+
+  const seedMarketDate = getMarketDateSourceFromPayload("seed", seedPayload)?.marketAsOfDate || null;
+  const liveMarketDate = getMarketDateSourceFromPayload("live", livePayload)?.marketAsOfDate || null;
+  const effectiveMarketAsOfDate = getHistoryDateKey(marketAsOfDate) || liveMarketDate || seedMarketDate || null;
+  const clampedHistory = clampPerformanceHistoryToDate(mergedHistory, effectiveMarketAsOfDate);
+  const hasRenderable = hasRenderablePerformanceHistory(clampedHistory);
+
+  const status = resolveOverviewHistoryStatus({
+    hasRenderable,
+    liveStatus,
+    liveError,
+  });
+
+  return {
+    status,
+    history: clampedHistory,
+    latestRealDate: getLatestRealPerformanceDate(clampedHistory),
+    emptyStateEligible: status === "empty",
+    diagnostics: {
+      seedHistoryPointCount: seedHistory.length,
+      liveHistoryPointCount: liveHistory.length,
+      insightsHistoryPointCount: setPageHistory.length,
+      mergedHistoryPointCount: mergedHistory.length,
+      finalHistoryPointCount: clampedHistory.length,
+      seedMarketDate,
+      liveMarketDate,
+      marketAsOfDate: effectiveMarketAsOfDate,
+      seedGenerationId: seedPayload?.meta?.snapshot?.generationId || null,
+      liveGenerationId: livePayload?.meta?.snapshot?.generationId || null,
+      selectedHistorySource:
+        clampedHistory.length === 0
+          ? "none"
+          : [
+              seedHistory.length > 0 ? "seed" : null,
+              liveHistory.length > 0 ? "live" : null,
+              setPageHistory.length > 0 ? "insights" : null,
+            ]
+              .filter(Boolean)
+              .join("+"),
+    },
+  };
 }

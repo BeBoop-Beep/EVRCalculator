@@ -79,7 +79,9 @@ export default async function ExplorePage({ searchParams }) {
       */}
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
         <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
-        <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
+        <div className="mt-6 border-t border-[var(--border-subtle)] pt-6 desk:mt-0 desk:border-t-0 desk:pt-0">
+          <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
+        </div>
       </div>
     </div>
   );
