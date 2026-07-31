@@ -102,7 +102,7 @@ test("the mobile picker row is the element raised above the tabs", () => {
 test("the raise is on the row because the listbox's own z-index cannot escape", () => {
   // Documented so a future edit does not "simplify" this back to a bigger
   // z-index on the listbox.
-  const heroSection = between(hero, "<section", "<div data-hero-region");
+  const heroSection = between(hero, "<section", "<button");
   assert.ok(heroSection.includes("set-context-premium"), "the hero opts into the premium surface");
   assert.match(
     css,
@@ -130,13 +130,13 @@ test("no ancestor between the menu and the sticky block clips it", () => {
 });
 
 test("the menu overlays rather than displacing the tabs", () => {
-  const menu = between(hero, "{isPickerExpanded ? (", "</div>\n        ) : null}");
+  const menu = between(hero, "{isPickerExpanded ? (", "\n      ) : null}");
   assert.ok(menu.includes("absolute right-0 top-[calc(100%+0.5rem)]"), "the menu is out of flow, so the tabs cannot move");
   assert.ok(menu.includes("max-h-56"), "and it is height-capped rather than pushing the page");
 });
 
 test("the menu stays inside a 320px viewport and scrolls internally", () => {
-  const menu = between(hero, "{isPickerExpanded ? (", "</div>\n        ) : null}");
+  const menu = between(hero, "{isPickerExpanded ? (", "\n      ) : null}");
   assert.ok(menu.includes("overflow-y-auto"), "the option list scrolls inside its own box");
   assert.ok(menu.includes("max-h-56"), "so a long list cannot run off the bottom of the page");
   assert.ok(menu.includes("right-0"), "anchored to the trigger's edge, so it grows inward");
@@ -262,7 +262,7 @@ test("there is exactly one picker owner and one listbox below desktop", () => {
 });
 
 test("aria wiring, keyboard navigation and active-option state are preserved", () => {
-  assert.ok(hero.includes("aria-expanded={isPickerExpanded}"));
+  assert.ok(hero.includes("aria-expanded={isPickerOwner ? isPickerExpanded : false}"));
   assert.ok(hero.includes('aria-haspopup="listbox"'));
   assert.ok(hero.includes("aria-controls={listboxId}"));
   assert.ok(source.includes('listboxId="set-mobile-picker-list"'));

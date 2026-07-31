@@ -110,5 +110,5 @@ test("no responsive branch can drop a mover or a chase card", () => {
 
   // The one row cap that exists is driven by the user's expand control, never
   // by a breakpoint.
-  assert.ok(source.includes("maxRows={showAllChaseCards ? 10 : 5}"), "the cap follows the user's choice");
+  assert.ok(source.includes("maxRows={showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT}"), "the cap follows the user's choice");
 });

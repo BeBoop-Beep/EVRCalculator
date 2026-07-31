@@ -80,7 +80,7 @@ test("desktop renders the two modules side by side, wider table first", () => {
 test("mobile introduces a subtle divider before Top Rankings and removes it at desk+", () => {
   const source = readPage();
   assert.ok(
-    source.includes("mt-6 border-t border-[var(--border-subtle)] pt-6 desk:mt-0 desk:border-t-0 desk:pt-0"),
+    source.includes("mt-3 border-t border-[var(--border-subtle)] pt-3 desk:mt-0 desk:border-t-0 desk:pt-0"),
     "Top Rankings wrapper must create mobile/tablet separation and reset at desktop"
   );
 });

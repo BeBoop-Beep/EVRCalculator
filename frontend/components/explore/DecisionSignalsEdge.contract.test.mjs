@@ -65,7 +65,7 @@ const card = between(source, "function DecisionSignalsCard(", "// A Profit / Saf
 const rowTag = between(compactList, "data-decision-signal-row", "\n      >");
 const headerTag = between(compactList, 'aria-hidden="true"', "\n      >");
 
-const GRID = "grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]";
+const GRID = "grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem]";
 
 // ---------------------------------------------------------------------------
 // The clipping itself
@@ -141,10 +141,10 @@ test("the header and the rows share one column system, including the accent edge
 test("the tier and rank tracks are wider than the content they must hold", () => {
   // `compact` RankBadge = px-2 + 1px border either side + "S Tier" at 10px
   // semibold ≈ 47px, so a 3.25rem (52px) track left ~5px of slack and any font
-  // fallback pushed the pill into its neighbours. 3.5rem (56px) is the fix.
+  // fallback pushed the pill into its neighbours. 3.75rem (60px) is the fix.
   // The rank prints "#18"/"#100" at 11px tabular-nums, comfortably inside
   // 2.5rem (40px), which also clears the uppercase "Rank" header label.
-  assert.ok(compactList.includes("_3.5rem_2.5rem]"), "tier 56px, rank 40px");
+  assert.ok(compactList.includes("_3.75rem_2.5rem]"), "tier 60px, rank 40px");
   assert.ok(!compactList.includes("_3.25rem_2.25rem]"), "the tight tracks are gone");
   assert.ok(compactList.includes('size="compact"'), "the pill is still the dense size, not a shrunken supporting pill");
   assert.ok(!compactList.includes('size="supporting"'));
@@ -191,7 +191,7 @@ test("the approved structured-list layout is preserved", () => {
   assert.ok(compactList.includes("overallRows.map(renderRow)"));
   assert.ok(compactList.includes("pillarRows.map(renderRow)"));
   assert.ok(compactList.includes("trackedRows.map(renderRow)"));
-  assert.ok(compactList.includes("min-h-11"), "the 44px touch target survives");
+  assert.ok(compactList.includes("min-h-14"), "rows stay comfortably touch-safe");
   assert.equal((compactList.match(/data-decision-signal-detail/g) || []).length, 1, "one shared interpretation region");
 });
 

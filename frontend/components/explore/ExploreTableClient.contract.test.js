@@ -283,12 +283,12 @@ test("Best Sets heading is stronger below desktop and resets at desk width", () 
   );
 });
 
-test("mobile preview shows ten rows before the compact More control expands the rest", () => {
+test("mobile preview shows five rows before the disclosure control expands the rest", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 10"), "the preview limit must be explicit");
+  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 5"), "the preview limit must be explicit");
   assert.ok(source.includes("visibleMobileTargets"), "the rendered mobile slice must be derived separately");
   assert.ok(source.includes("hiddenMobileCount"), "the remaining rows must be counted for the More control");
-  assert.ok(source.includes('showAllMobileRows ? "Show less" : "More"'), "the preview toggle must expand and collapse");
+  assert.ok(source.includes('showAllMobileRows ? "Show less" : `Show ${hiddenMobileCount} more`'), "the preview toggle must be remainder-aware");
   assert.ok(source.includes("sortedTargets.length <= MOBILE_PREVIEW_LIMIT"), "rows under the limit stay fully visible");
 });
 

@@ -112,10 +112,10 @@ test("mobile row composition is unchanged by the restoration", () => {
 });
 
 test("all ten cards remain available and the reveal control is untouched", () => {
-  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"), "5 preview, 10 on reveal");
-  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : "Show more"'), "the mobile reveal control is unchanged");
+  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "5 preview, 10 on reveal");
+  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`'), "the mobile reveal control is unchanged");
   assert.ok(chaseModule.includes("data-chase-reveal-chevron"), "its downward chevron is unchanged");
-  assert.ok(chaseModule.includes('`View all chase cards (${Math.min(totalRows, 10)})`'), "desktop wording unchanged");
+  assert.ok(chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}'), "accessible wording unchanged");
 });
 
 test("the chart stays outside the navigation anchor", () => {
@@ -227,7 +227,7 @@ test("Decision Signals are untouched by this pass", () => {
   // DecisionSignalsEdge.contract.test.mjs); the column SYSTEM — one flexible
   // name track over three fixed numeric tracks — is what this pass must not
   // disturb.
-  assert.ok(compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]"), "the compact grid is as it was");
+  assert.ok(compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem]"), "the compact grid is as it was");
   assert.ok(compactList.includes('size="compact"'), "the tier pill is as it was");
   assert.ok(compactList.includes("setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))"));
   assert.ok(compactList.includes("selectedSignal.detailSummary || selectedSignal.summary"));
