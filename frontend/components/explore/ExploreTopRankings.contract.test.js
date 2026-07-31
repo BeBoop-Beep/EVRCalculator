@@ -138,6 +138,32 @@ test("rows stay navigable and quiet: one link per row, no per-row card border", 
   assert.ok(ladderBlock.includes("border-bottom"), "ladder rows must be separated by a subtle divider");
 });
 
+test("mobile/tablet rows increase true tap-target height without duplicate row markup", () => {
+  const source = readComponent();
+  const css = fs.readFileSync(path.resolve(__dirname, "explore.module.css"), "utf8");
+  const mobileMediaStart = css.indexOf("@media (max-width: 1199.98px) {");
+  const mobileMedia = css.slice(mobileMediaStart, css.indexOf("\n}\n\n.ladderRow:focus-visible", mobileMediaStart));
+
+  assert.equal((source.match(/className=\{styles\.ladderRow\}/g) || []).length > 0, true, "the shared row link stays the only row markup");
+  assert.ok(mobileMedia.includes(".ladderRow {"), "mobile/tablet overrides apply on the shared row");
+  assert.ok(mobileMedia.includes("min-height: 3.25rem;"), "mobile/tablet row hit target is at least 52px");
+  assert.ok(mobileMedia.includes("padding-top: 10px;"));
+  assert.ok(mobileMedia.includes("padding-bottom: 10px;"));
+  assert.ok(!source.includes("styles.mobileRow"), "no alternate mobile row component is introduced");
+});
+
+test("desktop row readability increases one typography step with subtle spacing", () => {
+  const source = readComponent();
+  const css = fs.readFileSync(path.resolve(__dirname, "explore.module.css"), "utf8");
+  const ladderStart = css.indexOf(".ladderRow {");
+  const ladderBlock = css.slice(ladderStart, css.indexOf("}", ladderStart));
+
+  assert.ok(source.includes("tabular-nums desk:text-[13px]"), "rank text grows one restrained step on desktop");
+  assert.ok(source.includes("text-[13px] font-medium text-[var(--text-primary)] desk:text-sm"), "set name grows one step on desktop");
+  assert.ok(source.includes("text-[13px] font-semibold tabular-nums text-[var(--text-primary)] desk:text-sm"), "set value grows one step on desktop");
+  assert.ok(ladderBlock.includes("padding: 9px 12px 9px 10px;"), "row padding increases subtly for readability");
+});
+
 test("desktop keeps an internal ladder scroll while mobile/tablet use natural document flow", () => {
   const css = fs.readFileSync(path.resolve(__dirname, "explore.module.css"), "utf8");
   const ladderStart = css.indexOf(".ladderScroll {");
@@ -152,21 +178,16 @@ test("desktop keeps an internal ladder scroll while mobile/tablet use natural do
   assert.ok(mobileMedia.includes("overflow-y: visible;"), "mobile must disable internal vertical scrolling");
 });
 
-test("Top Rankings renders directly from the full ladder without a mobile preview cap", () => {
+test("Top Rankings uses a five-row mobile preview with in-place progressive disclosure", () => {
   const source = readComponent();
-  assert.ok(source.includes("{ladder.map(({ target, value, asOf, coverage, position }) => {"), "rendered rows must map the full ladder");
-  for (const removedToken of [
-    "MOBILE_PREVIEW_LIMIT",
-    "showAllMobileRows",
-    "mobilePreviewResetKey",
-    "visibleMobileRows",
-    "hiddenMobileCount",
-    'Show less',
-    'More',
-    'Preview more rankings',
-  ]) {
-    assert.ok(!source.includes(removedToken), `${removedToken} must not exist in Top Rankings`);
-  }
+  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 5"), "the mobile preview limit must be explicit");
+  assert.ok(source.includes("showAllMobileRows"), "mobile disclosure state must exist");
+  assert.ok(source.includes("mobilePreviewResetKey"), "mobile disclosure state must reset when ladder identity changes");
+  assert.ok(source.includes("hiddenMobileCount"), "the remaining ladder rows must be counted");
+  assert.ok(source.includes("index >= MOBILE_PREVIEW_LIMIT"), "rows after the preview limit must be collapsible below desktop");
+  assert.ok(source.includes("hidden desk:list-item"), "desktop must always render full ladder rows");
+  assert.ok(source.includes('showAllMobileRows ? "Show less" : `Show ${hiddenMobileCount} more`'));
+  assert.ok(source.includes('aria-label={showAllMobileRows ? "Show fewer top rankings" : `Show ${hiddenMobileCount} more top rankings`}'));
 });
 
 test("Top Rankings no longer links to the obsolete /Explore/top-10 route", () => {

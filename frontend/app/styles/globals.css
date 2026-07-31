@@ -945,9 +945,14 @@ body::-webkit-scrollbar-thumb:hover {
   }
 
   .set-detail-sticky-tabs {
-    position: relative;
-    top: auto;
-    z-index: 1;
+    position: sticky;
+    top: var(--app-header-offset, 64px);
+    z-index: 40;
+    transform: translateY(0);
+    transition:
+      transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 180ms ease-out;
+    will-change: transform, opacity;
     /* First element on mobile now, so it carries a full border and radius
        instead of the bottom-only pairing it has under the desktop hero. */
     border-top-width: 1px;
@@ -959,6 +964,18 @@ body::-webkit-scrollbar-thumb:hover {
        specificity or source order. Those two are therefore gated with `desk:`
        variants on the element itself — see the set-detail-sticky-tabs
        className in RipStatisticsPageClient.jsx. */
+  }
+
+  .set-detail-sticky-tabs[data-mobile-set-context-hidden="true"] {
+    transform: translateY(calc(-100% - 1px));
+    opacity: 0.92;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .set-detail-sticky-tabs {
+      transition: none;
+    }
   }
 
   /* backdrop-filter creates a stacking context. A chart tooltip inside a glass

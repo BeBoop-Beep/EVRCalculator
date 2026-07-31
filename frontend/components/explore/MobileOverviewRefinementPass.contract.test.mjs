@@ -59,7 +59,7 @@ test("the picker row still carries logo, name, era and a dropdown affordance", (
   assert.ok(mobileHero.includes("identity.name"), "set name");
   assert.ok(mobileHero.includes("identity.era"), "set era");
   assert.ok(mobileHero.includes('aria-haspopup="listbox"'), "dropdown affordance");
-  assert.ok(mobileHero.includes('aria-label="Switch set"'));
+  assert.ok(mobileHero.includes('"Switch set"'), "switch-set label text is preserved");
 });
 
 test("there is exactly one picker owner and one local tabs tree", () => {
@@ -142,7 +142,7 @@ test("the Top Chase row keeps every field and its interactions", () => {
 
 test("Top Chase still defaults to five rows with all ten reachable", () => {
   const chaseModule = between(client, "function TopChaseCardsModule(", "function MoversTickerItemChip");
-  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"));
+  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"));
 });
 
 // ===========================================================================
@@ -169,7 +169,7 @@ test("below 1200px Decision Signals renders the compact list, not the stacked ro
 
 test("the compact row exposes exactly the four scan fields in order", () => {
   assert.ok(
-    compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]"),
+    compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem]"),
     "a stable signal / score / tier / rank grid"
   );
   assert.ok(compactList.includes("{signal.label}"), "signal name");
@@ -238,7 +238,7 @@ test("row selection is accessible by keyboard and not by colour alone", () => {
   assert.ok(compactList.includes('aria-live="polite"'), "detail changes are announced");
   assert.ok(compactList.includes("focus-visible:ring-2"), "focus stays visible");
   assert.ok(compactList.includes("border-l-[var(--accent)]"), "selection also carries a non-colour edge marker");
-  assert.ok(compactList.includes("min-h-11"), "44px touch target");
+  assert.ok(compactList.includes("min-h-14"), "rows remain comfortably touch-safe");
   assert.ok(compactList.includes('<span className="sr-only">{`Rank ${rankLabel}`}</span>'), "rank has a full label");
 });
 

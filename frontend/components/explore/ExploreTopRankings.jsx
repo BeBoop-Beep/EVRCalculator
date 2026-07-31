@@ -20,7 +20,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -28,6 +28,7 @@ import styles from "./explore.module.css";
 
 const LEAD_RANK_LIMIT = 3;
 const UNAVAILABLE_LABEL = "Unavailable";
+const MOBILE_PREVIEW_LIMIT = 5;
 
 const setValueFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -121,6 +122,7 @@ function buildLadder(targets) {
 
 export default function ExploreTopRankings({ targets = [], loadError = false }) {
   const ladder = useMemo(() => buildLadder(targets), [targets]);
+  const [showAllMobileRows, setShowAllMobileRows] = useState(false);
 
   // Rows are priced per set, so the snapshot dates can differ. The newest date
   // is the module's headline; anything older is called out on its own row
@@ -129,6 +131,15 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
     () => ladder.reduce((latest, row) => (row.asOf && row.asOf > latest ? row.asOf : latest), ""),
     [ladder]
   );
+  const mobilePreviewResetKey = useMemo(
+    () => ladder.map(({ target }) => `${target?.target_type}:${target?.target_id}`).join("|"),
+    [ladder]
+  );
+  const hiddenMobileCount = Math.max(0, ladder.length - MOBILE_PREVIEW_LIMIT);
+
+  useEffect(() => {
+    setShowAllMobileRows(false);
+  }, [mobilePreviewResetKey]);
 
   return (
     <section className={`${styles.surfaceQuiet} flex min-w-0 flex-col`} aria-labelledby="explore-top-rankings-heading">
@@ -150,7 +161,8 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
             className={`${styles.ladderScroll} index-scrollbar`}
             aria-label="Sets ordered by checklist set value, highest first"
           >
-            {ladder.map(({ target, value, asOf, coverage, position }) => {
+            {ladder.map(({ target, value, asOf, coverage, position }, index) => {
+              const isMobileCollapsedRow = !showAllMobileRows && hiddenMobileCount > 0 && index >= MOBILE_PREVIEW_LIMIT;
               const name = String(target?.name || target?.target_id || "Unknown Set");
               const isLead = position <= LEAD_RANK_LIMIT;
               const isStale = Boolean(asOf && latestAsOf && asOf < latestAsOf);
@@ -170,7 +182,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                 .join(" · ");
 
               return (
-                <li key={`${target.target_type}:${target.target_id}`}>
+                <li key={`${target.target_type}:${target.target_id}`} className={isMobileCollapsedRow ? "hidden desk:list-item" : undefined}>
                   <Link
                     // A set-value row belongs on Overview, where the set value
                     // and its trend live — not on the Insights RIP breakdown.
@@ -180,20 +192,20 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                     style={{ "--ex-rank-strength": isLead ? 0.7 : 0.22 }}
                   >
                     <span
-                      className={`text-right text-[12px] font-semibold tabular-nums ${
+                      className={`text-right text-[12px] font-semibold tabular-nums desk:text-[13px] ${
                         isLead ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
                       }`}
                     >
                       {position}
                     </span>
                     <LadderLogo target={target} name={name} />
-                    <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)]">{name}</span>
+                    <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)] desk:text-sm">{name}</span>
                     <span className="flex items-baseline gap-1.5">
-                      <span className="text-[13px] font-semibold tabular-nums text-[var(--text-primary)]">
+                      <span className="text-[13px] font-semibold tabular-nums text-[var(--text-primary)] desk:text-sm">
                         {value === null ? UNAVAILABLE_LABEL : setValueFormatter.format(value)}
                       </span>
                       {staleLabel ? (
-                        <span className="text-[10px] tabular-nums text-[var(--text-secondary)]">
+                        <span className="text-[10px] tabular-nums text-[var(--text-secondary)] desk:text-[11px]">
                           <span className="sr-only">priced </span>
                           {staleLabel}
                         </span>
@@ -203,6 +215,27 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                 </li>
               );
             })}
+            {hiddenMobileCount > 0 ? (
+              <li className="pt-1 desk:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowAllMobileRows((open) => !open)}
+                  aria-expanded={showAllMobileRows}
+                  aria-label={showAllMobileRows ? "Show fewer top rankings" : `Show ${hiddenMobileCount} more top rankings`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <span>{showAllMobileRows ? "Show less" : `Show ${hiddenMobileCount} more`}</span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 flex-none transition-transform duration-200 ${showAllMobileRows ? "rotate-180" : ""}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </li>
+            ) : null}
           </ol>
         </div>
       ) : loadError ? (

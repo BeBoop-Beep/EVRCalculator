@@ -54,7 +54,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const DEFAULT_MODE = "overall";
 const UNAVAILABLE_LABEL = "Unavailable";
-const MOBILE_PREVIEW_LIMIT = 10;
+const MOBILE_PREVIEW_LIMIT = 5;
 /**
  * The ranking-mode picker is HIDDEN, not removed: every alternate lens
  * (Financial, Profit, Safety, Desirability, Chase, EV, Upside …) is planned to
@@ -670,9 +670,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 onClick={() => setShowAllMobileRows((open) => !open)}
                 aria-expanded={showAllMobileRows}
                 aria-label={showAllMobileRows ? "Show fewer ranked sets" : `Show ${hiddenMobileCount} more ranked sets`}
-                className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
-                <span>{showAllMobileRows ? "Show less" : "More"}</span>
+                <span>{showAllMobileRows ? "Show less" : `Show ${hiddenMobileCount} more`}</span>
                 <svg
                   viewBox="0 0 20 20"
                   fill="none"
