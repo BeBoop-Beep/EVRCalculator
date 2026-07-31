@@ -223,10 +223,14 @@ const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"])
 const SET_DETAIL_TABS_REQUIRING_FULL_PAGE_PAYLOAD = new Set([]);
 const CANONICAL_SET_VALUE_SCOPE = "standard";
 const SET_VALUE_SCOPE_OPTIONS = [
-  { key: "standard", label: "Checklist" },
+  { key: "standard", label: "Set" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
+const OVERALL_RIP_SIGNAL_LABEL = "Overall RIP";
+// Hits stays in the backend/data contract but is temporarily hidden from the
+// user-facing selector while hit-eligibility membership is under audit.
+const VISIBLE_SET_VALUE_SCOPE_OPTIONS = SET_VALUE_SCOPE_OPTIONS.filter((entry) => entry.key !== "hits");
 // Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
 const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
@@ -2218,7 +2222,7 @@ function MarketWindowSelector({ windows, value, onChange, className = "" }) {
 }
 
 function SetValueScopeSelector({ scopes, value, onChange }) {
-  const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : SET_VALUE_SCOPE_OPTIONS;
+  const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : VISIBLE_SET_VALUE_SCOPE_OPTIONS;
 
   return (
     <SegmentedControl
@@ -2226,7 +2230,7 @@ function SetValueScopeSelector({ scopes, value, onChange }) {
       options={scopeOptions.map((entry) => ({ value: entry.key, label: entry.label }))}
       value={value}
       onChange={onChange}
-      ariaLabel="Set value scope"
+      ariaLabel="Set scope"
     />
   );
 }
@@ -2712,7 +2716,7 @@ function getCanonicalChecklistSetValueMetrics({
   };
 }
 
-function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Checklist" }) {
+function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "Set" }) {
   const isCoarsePointer = usePointerMode() === POINTER_MODE_COARSE;
   // No width branch left to make: the axis treatment is now identical at every
   // size, so this chart no longer reads the desktop composition at all. Pointer
@@ -2884,18 +2888,21 @@ function SetValueTrendCard({
 }) {
   const [selectedWindowKey, setSelectedWindowKey] = useState(null);
   const scopeOptions = useMemo(() => {
-    const optionMap = new Map(SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
+    const optionMap = new Map(VISIBLE_SET_VALUE_SCOPE_OPTIONS.map((entry) => [entry.key, entry]));
     (Array.isArray(availableScopes) ? availableScopes : []).forEach((entry) => {
-      if (entry?.key) {
-        const defaultOption = SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key);
+      if (entry?.key && entry.key !== "hits") {
+        const defaultOption = VISIBLE_SET_VALUE_SCOPE_OPTIONS.find((option) => option.key === entry.key);
         optionMap.set(entry.key, {
           key: entry.key,
           label: defaultOption?.label || entry.label || entry.key,
         });
       }
     });
-    return SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
+    return VISIBLE_SET_VALUE_SCOPE_OPTIONS.filter((entry) => optionMap.has(entry.key)).map((entry) => optionMap.get(entry.key));
   }, [availableScopes]);
+  const resolvedSelectedScope = scopeOptions.some((entry) => entry.key === selectedScope)
+    ? selectedScope
+    : CANONICAL_SET_VALUE_SCOPE;
   const handleSelectedScopeChange = useCallback(
     (nextScope) => {
       onSelectedScopeChange?.(nextScope);
@@ -2907,18 +2914,19 @@ function SetValueTrendCard({
       setValueContract
         ? selectSetValueTrendFromContract({
             contract: setValueContract,
-            selectedScope,
+            selectedScope: resolvedSelectedScope,
             selectedWindowKey,
           })
         : selectOverviewSetValueTrendByScope({
             history,
             historiesByScope,
-            selectedScope,
+            selectedScope: resolvedSelectedScope,
+            allowedScopes: scopeOptions.map((entry) => entry.key),
             selectedWindowKey,
             preferredWindowKey: "30D",
             marketAsOfDate,
           }),
-    [historiesByScope, history, marketAsOfDate, selectedScope, selectedWindowKey, setValueContract]
+    [historiesByScope, history, marketAsOfDate, resolvedSelectedScope, scopeOptions, selectedWindowKey, setValueContract]
   );
   const selectedScopeLabel = selectedTrend.label;
   const selectedMetricLabel = selectedTrend.metricLabel;
@@ -2950,7 +2958,7 @@ function SetValueTrendCard({
   }, [effectiveWindowKey, selectedWindowKey, setSelectedWindowKey]);
 
   useEffect(() => {
-    if (scopeOptions.some((entry) => entry.key === selectedScope)) {
+    if (scopeOptions.some((entry) => entry.key === selectedScope) && selectedScope !== "hits") {
       return;
     }
     handleSelectedScopeChange(scopeOptions[0]?.key || CANONICAL_SET_VALUE_SCOPE);
@@ -2959,7 +2967,7 @@ function SetValueTrendCard({
   return (
     <SectionCard
       title="Set Value Trend"
-      titleInfoText="Daily set value history from Near Mint card market observations. Checklist sums tracked checklist cards, Hits excludes common low-rarity buckets, and Top 10 sums the highest-value tracked cards for each date."
+      titleInfoText="Tracks the selected set-value scope using daily Near Mint card market observations. Set sums tracked checklist cards, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
     >
       {(status === "loading" || status === "idle") && points.length === 0 && currentValue === null ? (
@@ -2978,6 +2986,11 @@ function SetValueTrendCard({
               variant="chart-summary"
               accessibleLabel={`Current ${selectedMetricLabel}`}
             />
+            {selectedTrend.shareOfStandardPercent !== null ? (
+              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                Share of Set Value: {selectedTrend.shareOfStandardPercent.toFixed(1)}%
+              </p>
+            ) : null}
           </div>
           <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-3 py-3 text-sm text-[var(--text-secondary)]">
             {currentValue !== null
@@ -3002,6 +3015,11 @@ function SetValueTrendCard({
                 variant="chart-summary"
                 accessibleLabel={`Current ${selectedMetricLabel}`}
               />
+              {selectedTrend.shareOfStandardPercent !== null ? (
+                <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                  Share of Set Value: {selectedTrend.shareOfStandardPercent.toFixed(1)}%
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -6451,7 +6469,13 @@ function DecisionSignalRow({ signal }) {
   );
 }
 
-function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [], requestTimeout = false }) {
+function DecisionSignalsCard({
+  pillarSignals,
+  summary,
+  setIntelligenceMeta = [],
+  trackedSignals = [],
+  requestTimeout = false,
+}) {
   const backendLensByKey = useMemo(
     () => normalizeBackendSetIntelligence(setIntelligenceMeta),
     [setIntelligenceMeta]
@@ -6465,6 +6489,28 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       return { pillarRows: [], openingRows: [] };
     }
     const pillarRows = selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
+
+    const trackedRows = trackedSignals
+      .map((signal) => {
+        const score = toNumber(signal?.score);
+        const rank = toNumber(signal?.rank);
+        const rankTier = toOptionalUpper(signal?.tier);
+        const summaryText = String(signal?.summary || "").trim() || null;
+        const detailSummary = String(signal?.detailSummary || summaryText || "").trim() || null;
+        if (score === null && rank === null && !rankTier && !summaryText) {
+          return null;
+        }
+        return {
+          label: signal?.label || null,
+          scoreText: score === null ? null : formatRawScore(score),
+          scoreTrend: null,
+          rankTier,
+          rankValue: rank,
+          summary: summaryText,
+          detailSummary,
+        };
+      })
+      .filter((row) => row?.label);
 
     const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
       const backendLens = backendLensByKey.get(lens.key) || null;
@@ -6500,8 +6546,10 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
       };
     }).filter(Boolean);
 
-    return { pillarRows, openingRows };
-  }, [backendLensByKey, pillarSignals, requestTimeout, summary]);
+    const combinedOpeningRows = [...trackedRows, ...openingRows];
+
+    return { pillarRows, openingRows: combinedOpeningRows };
+  }, [backendLensByKey, pillarSignals, requestTimeout, summary, trackedSignals]);
 
   const signals = [...pillarRows, ...openingRows];
 
@@ -6509,7 +6557,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
     return requestTimeout ? (
       <SectionCard
         title="Decision Signals"
-        titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
+        titleInfoText="Decision signals combining core RIP factors with overall and collector context."
       >
         <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-4 text-sm text-[var(--text-secondary)]">
           Decision Signals are taking longer than expected to load. Retrying now…
@@ -6521,7 +6569,7 @@ function DecisionSignalsCard({ pillarSignals, summary, setIntelligenceMeta = [],
   return (
     <SectionCard
       title="Decision Signals"
-      titleInfoText="Decision signals combining the four RIP pillars with opening profile lenses."
+      titleInfoText="Decision signals combining core RIP factors with overall and collector context."
     >
       {/* Below 1200px: one condensed structured list with a single shared
           interpretation region (see DecisionSignalsCompactList). */}
@@ -12664,6 +12712,43 @@ export default function RipStatisticsPageClient({
     ? COLLECTOR_PROFILE_PATHS_VIEW
     : null;
   const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
+  const overviewDecisionTrackedSignals = useMemo(() => {
+    const overallRip = selectRipHeroScoreMode({
+      mode: RIP_SCORE_MODE,
+      summary,
+      target: selectedTarget,
+      payload: explorePayload,
+    });
+    const openingPresentation = selectOpeningExperiencePresentation(canonicalOpeningExperience);
+    const collectorAppeal = openingPresentation?.collectorAppeal || {};
+
+    const rows = [];
+    if (toNumber(overallRip.score) !== null) {
+      rows.push({
+        label: OVERALL_RIP_SIGNAL_LABEL,
+        score: toNumber(overallRip.score),
+        rank: toNumber(overallRip.rank),
+        tier: overallRip.tier || null,
+        summary:
+          String(overallRip?.interpretation?.summary || "").trim() ||
+          "Overall opening profile combining financial performance and collector appeal.",
+      });
+    }
+
+    if (toNumber(collectorAppeal.score) !== null) {
+      rows.push({
+        label: "Collector Appeal",
+        score: toNumber(collectorAppeal.score),
+        rank: toNumber(collectorAppeal.rank),
+        tier: collectorAppeal.tier || null,
+        summary:
+          String(collectorAppeal.interpretation || "").trim() ||
+          "Collector demand signal from modeled opening paths, independent of market price.",
+      });
+    }
+
+    return rows;
+  }, [canonicalOpeningExperience, explorePayload, selectedTarget, summary]);
   const initialModuleSetValueHistories =
     initialMarketDashboardPayload?.setValueHistoriesByScope ||
     initialMarketDashboardPayload?.set_value_histories_by_scope ||
@@ -14676,6 +14761,7 @@ export default function RipStatisticsPageClient({
                             pillarSignals={overviewPillarSignals}
                             summary={summary}
                             setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                            trackedSignals={overviewDecisionTrackedSignals}
                             requestTimeout={isTimeoutFallbackPayload}
                           />
                         </SectionErrorBoundary>

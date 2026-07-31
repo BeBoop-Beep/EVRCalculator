@@ -1,7 +1,7 @@
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 
 export const SET_VALUE_CONTRACT_SCOPES = [
-  { key: "standard", label: "Checklist" },
+  { key: "standard", label: "Set" },
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
@@ -126,7 +126,7 @@ export function buildSetValueContract(input = {}) {
     marketAsOfDate: canonicalMarketAsOfDate,
     current: {
       scope: "standard",
-      label: "Checklist",
+      label: "Set",
       value: standardScope?.currentValue ?? null,
       asOf: standardScope?.asOf ?? null,
       source: standardScope?.diagnostics?.source || null,
