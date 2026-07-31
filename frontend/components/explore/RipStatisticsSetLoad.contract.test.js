@@ -678,7 +678,7 @@ test("set value trend uses the active market dashboard id through dropdown set s
 
   assert.ok(activeHistoryStart >= 0);
   assert.ok(activeHistoryEnd > activeHistoryStart);
-  assert.ok(activeHistorySource.includes("marketDashboardState.setId === resolvedSetResourceId"));
+  assert.ok(activeHistorySource.includes("isStateForResolvedSet(marketDashboardState.setId, resolvedSetResourceId)"));
   assert.ok(activeHistorySource.includes("resolvedSetResourceId"));
   // Set Value Trend/Performance vs Cost source from effectiveSetValueDerivedState,
   // which prefers the /overview snapshot once loaded and falls back to
@@ -2334,14 +2334,15 @@ test("title/header card keeps stable Set Value data while its score follows the 
   // read from setHeaderSummary — never directly off setDetailTab, and never
   // bare `summary.pack_tier`/`recommendationBadge` inside that block, since
   // those are only as fresh as whatever tab happened to load.
-  const heroStart = source.indexOf("<div data-set-context-shell");
-  const heroEnd = source.indexOf("set-detail-content", heroStart);
+  const heroStart = source.indexOf("data-set-context-header");
+  const heroEnd = source.indexOf("</section>", heroStart);
+  assert.ok(heroStart >= 0 && heroEnd > heroStart, "must locate the persistent header section");
   const heroSource = source.slice(heroStart, heroEnd);
 
   assert.ok(!heroSource.includes("setDetailTab"), "header hero must not depend on the active setDetailTab");
   assert.ok(heroSource.includes("displayedTopScore"), "header score must come from the selected hero score contract");
-  assert.ok(heroSource.includes("heroScoreSelection.tier"), "header tier must come from the selected hero score contract");
-  assert.ok(heroSource.includes("heroScoreSelection.rank"), "header rank must come from the selected hero score contract");
+  assert.ok(heroSource.includes("setContextRipTier"), "header tier must come from the selected hero score contract");
+  assert.ok(heroSource.includes("setContextRipRank"), "header rank must come from the selected hero score contract");
   assert.ok(heroSource.includes("recommendationBadge"), "header badge must follow the selected hero score mode");
   assert.ok(!heroSource.includes("recommendationSummary"), "full recommendation text must stay out of the persistent header");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
@@ -3073,18 +3074,18 @@ test("Phase 6A: topChaseState/marketMoversState/overviewState/cardsPageState are
 
   assert.ok(source.includes("const activeOverviewState ="), "overviewState must have a guarded derived value");
   assert.ok(
-    source.includes("overviewState.setId === resolvedSetResourceId"),
-    "overviewState must be guarded by a resolvedSetResourceId check before being read at render time"
+    source.includes("isStateForResolvedSet(overviewState.setId, resolvedSetResourceId)"),
+    "overviewState must be guarded by the normalized resolved-set contract before being read at render time"
   );
   assert.ok(source.includes("const activeTopChaseState ="), "topChaseState must have a guarded derived value");
   assert.ok(
-    source.includes("topChaseState.setId === resolvedSetResourceId"),
-    "topChaseState must be guarded by a resolvedSetResourceId check before being read at render time"
+    source.includes("isStateForResolvedSet(topChaseState.setId, resolvedSetResourceId)"),
+    "topChaseState must be guarded by the normalized resolved-set contract before being read at render time"
   );
   assert.ok(source.includes("const activeMarketMoversState ="), "marketMoversState must have a guarded derived value");
   assert.ok(
-    source.includes("marketMoversState.setId === resolvedSetResourceId"),
-    "marketMoversState must be guarded by a resolvedSetResourceId check before being read at render time"
+    source.includes("isStateForResolvedSet(marketMoversState.setId, resolvedSetResourceId)"),
+    "marketMoversState must be guarded by the normalized resolved-set contract before being read at render time"
   );
   assert.ok(source.includes("const activeCardsPageState ="), "cardsPageState must have a guarded derived value");
   assert.ok(

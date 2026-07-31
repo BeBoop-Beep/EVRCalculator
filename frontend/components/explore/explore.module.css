@@ -258,6 +258,34 @@
   outline: none;
 }
 
+@media (max-width: 1199.98px) {
+  .surface,
+  .surfaceQuiet {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .scrollBox,
+  .ladderScroll {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    border-radius: 0;
+  }
+
+  .scrollShell {
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .scrollShell::after {
+    display: none;
+  }
+}
+
 .ladderRow:focus-visible {
   box-shadow: inset 0 0 0 2px var(--accent);
 }

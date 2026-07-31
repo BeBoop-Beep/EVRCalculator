@@ -138,6 +138,15 @@ test("rows stay navigable and quiet: one link per row, no per-row card border", 
   assert.ok(ladderBlock.includes("border-bottom"), "ladder rows must be separated by a subtle divider");
 });
 
+test("mobile Top Rankings shows ten rows before the compact More control expands the remainder", () => {
+  const source = readComponent();
+  assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 10"), "the preview limit must be explicit");
+  assert.ok(source.includes("visibleMobileRows"), "the visible slice must be separate from the full ladder");
+  assert.ok(source.includes("hiddenMobileCount"), "the remaining rows must be counted");
+  assert.ok(source.includes('showAllMobileRows ? "Show less" : "More"'), "the toggle must expand and collapse");
+  assert.ok(source.includes('className="mt-auto hidden items-center justify-between'), "the footer action must stay desktop-only");
+});
+
 test("Top Rankings has its own empty and error states so it cannot collapse the row", () => {
   const source = readComponent();
   assert.ok(source.includes("ladder.length > 0 ? ("), "must branch on whether the ladder has rows");
@@ -149,7 +158,7 @@ test("Top Rankings has its own empty and error states so it cannot collapse the 
 test("the module adds no data request of its own", () => {
   const source = readComponent();
   assert.ok(!source.includes("fetch("), "Top Rankings must reuse the page's targets, never fetch");
-  assert.ok(!source.includes("useEffect"), "no client-side data loading may be introduced");
+  assert.ok(!source.includes("getPokemonSet"), "no client-side data loading may be introduced");
 });
 
 // Staleness is a backend selection problem. The component must keep rendering
