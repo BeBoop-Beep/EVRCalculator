@@ -54,6 +54,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 
 const DEFAULT_MODE = "overall";
 const UNAVAILABLE_LABEL = "Unavailable";
+const MOBILE_PREVIEW_LIMIT = 10;
 /**
  * The ranking-mode picker is HIDDEN, not removed: every alternate lens
  * (Financial, Profit, Safety, Desirability, Chase, EV, Upside …) is planned to
@@ -350,10 +351,18 @@ function RankMarker({ rank, tier, isLead }) {
 export default function ExploreTableClient({ targets = [], loadError = false }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [showAllMobileRows, setShowAllMobileRows] = useState(false);
   const dropdownContainerRef = useRef(null);
 
   const currentModeConfig = EXPLORE_RANKING_MODES[selectedMode];
   const sortedTargets = useMemo(() => sortTargetsByMode(targets, selectedMode), [targets, selectedMode]);
+  const mobilePreviewResetKey = useMemo(
+    () => `${selectedMode}:${sortedTargets.map((target) => `${target?.target_type}:${target?.target_id}`).join("|")}`,
+    [selectedMode, sortedTargets]
+  );
+  useEffect(() => {
+    setShowAllMobileRows(false);
+  }, [mobilePreviewResetKey]);
   // Only the row lists that actually overflow get the bottom fade, so a short
   // list never looks like it has been cut off.
   const isScrollable = sortedTargets.length > 6;
@@ -403,6 +412,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const sortNote = RANKING_MODE_PICKER_ENABLED
     ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
     : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
+  const visibleMobileTargets =
+    showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
+      ? sortedTargets
+      : sortedTargets.slice(0, MOBILE_PREVIEW_LIMIT);
+  const hiddenMobileCount = Math.max(0, sortedTargets.length - visibleMobileTargets.length);
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
@@ -604,9 +618,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           </div>
 
           {/* Mobile rows — a compact purpose-built layout, not a shrunken table. */}
-          <div className={`md:hidden ${isScrollable ? styles.scrollShell : ""}`}>
-          <div className={`${styles.scrollBox} ${leaderboardScrollClass}`}>
-            {sortedTargets.map((target, index) => {
+          <div className="md:hidden">
+            <div className="space-y-2 px-3 py-2 sm:px-4">
+            {visibleMobileTargets.map((target, index) => {
               const recommendationLabel = getLeaderboardRecommendationLabel(target);
               const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
               const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
@@ -650,7 +664,26 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 </Link>
               );
             })}
-          </div>
+            {hiddenMobileCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllMobileRows((open) => !open)}
+                aria-expanded={showAllMobileRows}
+                aria-label={showAllMobileRows ? "Show fewer ranked sets" : `Show ${hiddenMobileCount} more ranked sets`}
+                className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                <span>{showAllMobileRows ? "Show less" : "More"}</span>
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                  className={`h-3.5 w-3.5 flex-none transition-transform duration-200 ${showAllMobileRows ? "rotate-180" : ""}`}
+                >
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            ) : null}
+            </div>
           </div>
         </>
       ) : loadError ? (

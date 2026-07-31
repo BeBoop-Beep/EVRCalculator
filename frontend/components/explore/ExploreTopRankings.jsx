@@ -20,7 +20,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -28,6 +28,7 @@ import styles from "./explore.module.css";
 
 const LEAD_RANK_LIMIT = 3;
 const UNAVAILABLE_LABEL = "Unavailable";
+const MOBILE_PREVIEW_LIMIT = 10;
 
 const setValueFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -121,6 +122,17 @@ function buildLadder(targets) {
 
 export default function ExploreTopRankings({ targets = [], loadError = false }) {
   const ladder = useMemo(() => buildLadder(targets), [targets]);
+  const [showAllMobileRows, setShowAllMobileRows] = useState(false);
+  const mobilePreviewResetKey = useMemo(
+    () => ladder.map((row) => `${row.target?.target_type}:${row.target?.target_id}`).join("|"),
+    [ladder]
+  );
+  useEffect(() => {
+    setShowAllMobileRows(false);
+  }, [mobilePreviewResetKey]);
+  const visibleMobileRows =
+    showAllMobileRows || ladder.length <= MOBILE_PREVIEW_LIMIT ? ladder : ladder.slice(0, MOBILE_PREVIEW_LIMIT);
+  const hiddenMobileCount = Math.max(0, ladder.length - visibleMobileRows.length);
 
   // Rows are priced per set, so the snapshot dates can differ. The newest date
   // is the module's headline; anything older is called out on its own row
@@ -148,7 +160,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
             className={`${styles.ladderScroll} index-scrollbar`}
             aria-label="Sets ordered by checklist set value, highest first"
           >
-            {ladder.map(({ target, value, asOf, coverage, position }) => {
+            {visibleMobileRows.map(({ target, value, asOf, coverage, position }) => {
               const name = String(target?.name || target?.target_id || "Unknown Set");
               const isLead = position <= LEAD_RANK_LIMIT;
               const isStale = Boolean(asOf && latestAsOf && asOf < latestAsOf);
@@ -201,6 +213,27 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                 </li>
               );
             })}
+            {hiddenMobileCount > 0 ? (
+              <li className="md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowAllMobileRows((open) => !open)}
+                  aria-expanded={showAllMobileRows}
+                  aria-label={showAllMobileRows ? "Show fewer ranked sets" : `Show ${hiddenMobileCount} more ranked sets`}
+                  className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] font-medium text-[var(--text-primary)] transition-colors hover:text-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <span>{showAllMobileRows ? "Show less" : "More"}</span>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`h-3.5 w-3.5 flex-none transition-transform duration-200 ${showAllMobileRows ? "rotate-180" : ""}`}
+                  >
+                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </li>
+            ) : null}
           </ol>
         </div>
       ) : loadError ? (
@@ -213,7 +246,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
         </p>
       )}
 
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-[rgba(255,255,255,0.05)] px-3 py-2.5 sm:px-4">
+      <div className="mt-auto hidden items-center justify-between gap-3 border-t border-[rgba(255,255,255,0.05)] px-3 py-2.5 md:flex sm:px-4">
         <span className="text-[10px] uppercase tracking-[0.09em] text-[var(--text-secondary)]">
           {latestAsOfLabel ? <>Priced {latestAsOfLabel}</> : <><span className="tabular-nums">{ladder.length}</span> ranked</>}
         </span>

@@ -135,6 +135,14 @@ test("clicking the full identity row opens the picker", async () => {
   assert.equal(calls.toggle, 1);
 });
 
+test("the identity row is rendered as a single semantic button", async () => {
+  const { renderer } = await renderHero();
+  const identityRow = renderer.root.findByProps({ "data-testid": "mobile-hero-identity-row" });
+  assert.equal(identityRow.type, "button", "the hero row should be a real button element");
+  assert.equal(identityRow.props.role, undefined, "the row should not fake a button with role=button");
+  assert.equal(identityRow.findAllByType("button").length, 1, "the identity row should not contain a nested chevron button");
+});
+
 // --- Correction 2: exactly one interactive picker owner --------------------
 
 test("the owning composition mounts the listbox and is keyboard reachable", async () => {
@@ -144,6 +152,7 @@ test("the owning composition mounts the listbox and is keyboard reachable", asyn
   assert.equal(picker.props["aria-hidden"], undefined, "the owner is exposed to assistive tech");
   assert.equal(picker.props["aria-expanded"], true);
   assert.equal(renderer.root.findAllByProps({ role: "listbox" }).length, 1, "the owner mounts exactly one listbox");
+  assert.equal(picker.findAllByType("button").length, 1, "the picker trigger must not contain nested buttons when the listbox is open");
 });
 
 test("the non-owning composition mounts no listbox and is not focusable", async () => {
