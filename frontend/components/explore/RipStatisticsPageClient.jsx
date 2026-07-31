@@ -20,6 +20,8 @@ import {
 
 import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
+import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
+import SimulationSectionSelector from "@/components/explore/SimulationSectionSelector";
 import {
   MINIMAL_Y_AXIS_PROPS,
   buildEdgeDateTicks,
@@ -50,7 +52,6 @@ import {
   findNearestPointIndex,
 } from "./compactSparklineInteraction.mjs";
 import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming";
-import { getCompactWindowLabel, needsAccessibleWindowLabel } from "@/lib/explore/compactWindowLabel.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "@/components/explore/MoversTickerViewport";
@@ -239,8 +240,13 @@ const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 // topMarketCardsWindowKey, which only picks which already-fetched delta to
 // display client-side.
 const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d";
-// 3M/6M/1Y/Lifetime are intentionally not offered yet — the movement guardrails
-// and stored snapshot windows only cover 1D/7D/30D so far.
+const TOP_CHASE_MOBILE_PREVIEW_LIMIT = 5;
+const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 64;
+const MOBILE_SET_MENU_SCROLL_NOISE_PX = 3;
+const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
+const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
+const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
+const MOBILE_RETURN_TO_TOP_THRESHOLD_PX = 12;
 // The Overview 7D Movers ticker always requests the 7D window — deliberately
 // independent of every other time-range selector on the page — and shows the
 // complete eligible movement list ranked by |7D %|, capped at 10 items.
@@ -2161,62 +2167,6 @@ function getPriceDeltaAmount(currentValue, previousValue) {
   return current - previous;
 }
 
-function MarketWindowSelector({ windows, value, onChange, className = "" }) {
-  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
-  if (windowOptions.length <= 1) {
-    return null;
-  }
-
-  return (
-    <div className={["flex min-w-0 flex-wrap gap-1.5", className].filter(Boolean).join(" ")}>
-      {windowOptions.map((entry) => {
-        const isActive = entry.key === value;
-        return (
-          <button
-            key={`market-window:${entry.key}`}
-            type="button"
-            onClick={() => onChange(entry.key)}
-            aria-pressed={isActive}
-            className={[
-              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
-              // The compact glyph must not shrink the tap target. Below desktop
-              // the chip keeps a 36px box (up from ~22px) and centres its label.
-              "max-desk:inline-flex max-desk:min-h-9 max-desk:items-center max-desk:justify-center max-desk:px-2.5",
-              isActive
-                ? ""
-                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-            ].join(" ")}
-            style={
-              isActive
-                ? {
-                    borderColor: withAlpha(POSITIVE_VALUE_COLOR, 0.34),
-                    backgroundColor: withAlpha(POSITIVE_VALUE_COLOR, 0.1),
-                    color: POSITIVE_VALUE_COLOR,
-                  }
-                : undefined
-            }
-            aria-label={needsAccessibleWindowLabel(entry.key, entry.label) ? entry.label : undefined}
-          >
-            {/* Compact glyph below 1200px (Lifetime -> LT), full wording at
-                desktop. The chip shrinks, the touch target does not, and the
-                accessible name stays the full label. */}
-            {needsAccessibleWindowLabel(entry.key, entry.label) ? (
-              <>
-                <span aria-hidden="true" className="max-desk:hidden">{entry.label}</span>
-                <span aria-hidden="true" className="hidden max-desk:inline">
-                  {getCompactWindowLabel(entry.key, entry.label)}
-                </span>
-              </>
-            ) : (
-              entry.label
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function SetValueScopeSelector({ scopes, value, onChange }) {
   const scopeOptions = Array.isArray(scopes) && scopes.length > 0 ? scopes : VISIBLE_SET_VALUE_SCOPE_OPTIONS;
 
@@ -2227,6 +2177,7 @@ function SetValueScopeSelector({ scopes, value, onChange }) {
       value={value}
       onChange={onChange}
       ariaLabel="Set scope"
+      equalWidth
     />
   );
 }
@@ -2776,8 +2727,8 @@ function SetValueLineChart({ points, trendDirection = "neutral", scopeLabel = "S
   const glowFilterId = `set-value-glow-${chartId}`;
 
   return (
-    <div className="min-h-[16rem] w-full tab:min-h-[20rem] desk:min-h-[21rem]">
-      <ChartFrame className="h-[16rem] w-full tab:h-[20rem] desk:h-[21rem]">
+    <div className="min-h-[clamp(220px,31dvh,280px)] w-full desk:min-h-[21rem]">
+      <ChartFrame className="h-[clamp(220px,31dvh,280px)] w-full desk:h-[21rem]">
         <ResponsiveContainer width="100%" height="100%">
           {/* Shared insets: with the y-axis reserving no width at any size, a
               zero left margin would put the first data point exactly on x=0,
@@ -3019,9 +2970,7 @@ function SetValueTrendCard({
             </div>
           </div>
 
-          {/* Below desktop the row scrolls rather than shrinking its labels, so
-              `Lifetime` stays reachable and legible on a 320px phone. */}
-          <div className="flex flex-wrap items-center gap-2 max-desk:overflow-x-auto max-desk:flex-nowrap max-desk:[-ms-overflow-style:none] max-desk:[scrollbar-width:none] max-desk:[&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-0 items-center gap-2">
             <MarketWindowSelector
               windows={availableDeltaWindows}
               value={effectiveWindowKey}
@@ -3449,6 +3398,15 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
   // what keeps rows 6-10 reachable rather than discarded (parity spec §6).
   const [showAllChaseCards, setShowAllChaseCards] = useState(false);
   const totalRows = Array.isArray(cards) ? cards.length : 0;
+  const chaseCardsResetKey = useMemo(
+    () => (Array.isArray(cards) ? cards.map((card) => String(card?.id || card?.cardId || card?.cardNumber || card?.name || "")).join("|") : ""),
+    [cards]
+  );
+  const hiddenRowCount = Math.max(0, Math.min(totalRows, 10) - TOP_CHASE_MOBILE_PREVIEW_LIMIT);
+
+  useEffect(() => {
+    setShowAllChaseCards(false);
+  }, [setShowAllChaseCards, chaseCardsResetKey]);
 
   return (
     <SectionCard title="Top Chase Cards" titleInfoText={infoText}>
@@ -3456,14 +3414,14 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         cards={cards}
         status={status}
         error={error}
-        maxRows={showAllChaseCards ? 10 : 5}
+        maxRows={showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
         rowHref={rowHref}
         onRetry={onRetry}
       />
-      {totalRows > 5 ? (
+      {totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT ? (
         <div className="mt-4 flex justify-end max-desk:mt-1 max-desk:justify-center">
           {/* Compact visible label below 1200px; the accessible name stays the
               full, descriptive wording at every width.
@@ -3476,14 +3434,14 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
             type="button"
             onClick={() => setShowAllChaseCards((value) => !value)}
             aria-expanded={showAllChaseCards}
-            aria-label={showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+            aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}
             className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:gap-1.5 max-desk:border-0 max-desk:bg-transparent max-desk:px-2 max-desk:text-[var(--accent)]"
           >
             <span aria-hidden="true" className="max-desk:hidden">
-              {showAllChaseCards ? "Show fewer chase cards" : `View all chase cards (${Math.min(totalRows, 10)})`}
+              {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
             </span>
             <span aria-hidden="true" className="hidden max-desk:inline">
-              {showAllChaseCards ? "Show less" : "Show more"}
+              {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
             </span>
             <svg
               viewBox="0 0 20 20"
@@ -3668,7 +3626,7 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false }) {
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, ariaLabel = "Section view" }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3690,7 +3648,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                 type="button"
                 onClick={() => onChange(option.value)}
                 aria-pressed={isActive}
-                className={`min-w-0 rounded-md px-2 py-1 text-xs font-semibold leading-none transition-all duration-200 sm:px-3 sm:py-1.5 ${
+                className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${
                   isActive
                     ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]"
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
@@ -3712,8 +3670,10 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
         options={tabOptions}
         value={value}
         onChange={onChange}
-        ariaLabel="Section view"
+        ariaLabel={ariaLabel}
         mobileScroll={mobileScroll}
+        equalWidth={equalWidth}
+        mobileFullWidth={mobileFullWidth}
       />
     );
   }
@@ -5517,8 +5477,7 @@ function resolveLensScore(lens, summary) {
 function RipScoreModeToggle({ value, onChange, coreAvailable }) {
   return (
     <SegmentedControl
-      compact
-      className="inline-flex w-max min-w-[132px] flex-none shrink-0 whitespace-nowrap [&>div]:w-max [&>div]:min-w-[132px] [&>div]:max-w-none [&>div]:flex-none [&>div]:shrink-0 [&>div]:overflow-visible [&_button]:min-w-max [&_button]:flex-none [&_button]:shrink-0 [&_span]:overflow-visible [&_span]:whitespace-nowrap"
+      className="inline-flex w-max flex-none shrink-0 whitespace-nowrap"
       ariaLabel="RIP score mode"
       options={[
         { value: RIP_SCORE_MODE, label: "RIP Score", disabled: false },
@@ -5526,6 +5485,7 @@ function RipScoreModeToggle({ value, onChange, coreAvailable }) {
       ]}
       value={value}
       onChange={onChange}
+      equalWidth
     />
   );
 }
@@ -6326,7 +6286,7 @@ function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
         aria-controls={detailRegionId}
         data-decision-signal-row
         data-selected={isSelected ? "true" : undefined}
-        className={`grid min-h-11 w-full grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1.5 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
           isSelected
             ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
             : "border-l-transparent hover:bg-[var(--surface-hover)]"
@@ -6357,7 +6317,7 @@ function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
   };
 
   const groupLabel = (text) => (
-    <p className="px-0 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:pt-0">
+    <p className="mt-2.5 border-t border-[var(--border-subtle)] px-0 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:mt-0 first:border-t-0 first:pt-0">
       {text}
     </p>
   );
@@ -6371,7 +6331,7 @@ function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
           selection edge. */}
       <div
         aria-hidden="true"
-        className="grid grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
+        className="grid grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
       >
         <span />
         <span className="text-right">Score</span>
@@ -6406,7 +6366,7 @@ function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
         id={detailRegionId}
         aria-live="polite"
         data-decision-signal-detail
-        className="mt-2 min-h-[2.5rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"
+        className="mt-2 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-2"
       >
         {selectedSignal ? (
           <p className="text-xs leading-snug text-[var(--text-primary)]">
@@ -7757,13 +7717,9 @@ function CollectorBand({ title, infoBullets: bullets = null, children }) {
 // gaps, so the three read as one measurement of one thing.
 function CollectorMetricRow({ columns = 3, children }) {
   return (
-    // Three columns need roughly 100px each before labels like "Chase Subject
-    // Strength" start wrapping to three lines and stop being readable, so below
-    // the 600px tablet boundary a three-up band drops to two. From 600px it is
-    // the original three-column band at every width, desktop included.
     <div
       className={`grid divide-x divide-[var(--border-subtle)] ${
-        columns === 2 ? "grid-cols-2" : "grid-cols-3 max-tab:grid-cols-2"
+        columns === 2 ? "grid-cols-2" : "grid-cols-3"
       }`}
     >
       {children}
@@ -7785,6 +7741,235 @@ function CollectorMetricCell({ label, value, detail }) {
       {detail ? (
         <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] max-desk:mt-1 max-desk:text-[10px]">{detail}</p>
       ) : null}
+    </div>
+  );
+}
+
+function CollectorProfileMobileSummaryCell({ label, value, meta }) {
+  return (
+    <div className="min-w-0 px-3 py-3.5 sm:px-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <p className="mt-2 text-[1.75rem] font-semibold leading-none tabular-nums text-[var(--text-primary)] sm:text-[1.9rem]">
+        {value || "—"}
+      </p>
+      <p className="mt-2 min-h-[1rem] text-[11px] leading-snug text-[var(--text-secondary)]">{meta || " "}</p>
+    </div>
+  );
+}
+
+function CollectorProfileMobileSummary({ desirability, collectorAppeal }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30">
+      <div className="grid grid-cols-2 divide-x divide-[var(--border-subtle)]">
+        <CollectorProfileMobileSummaryCell
+          label="Set Desirability"
+          value={desirability.available ? desirability.scoreLabel : "—"}
+          meta={desirability.available ? desirability.rankLabel : null}
+        />
+        <CollectorProfileMobileSummaryCell
+          label="Collector Appeal"
+          value={collectorAppeal.available ? collectorAppeal.collectorAppeal.scoreLabel : "—"}
+          meta={
+            collectorAppeal.available
+              ? [
+                  collectorAppeal.collectorAppeal.tier ? `${collectorAppeal.collectorAppeal.tier} Tier` : null,
+                  collectorAppeal.collectorAppeal.rankLabel,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : null
+          }
+        />
+      </div>
+      <div className="space-y-1.5 border-t border-[var(--border-subtle)] px-3 py-3 sm:px-4">
+        <p className="text-sm font-medium text-[var(--text-primary)]">Set desirability informs Collector Appeal</p>
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">Overall RIP = 90% RIP Core + 10% Collector Appeal</p>
+      </div>
+    </div>
+  );
+}
+
+function CollectorProfileMobilePathRow({ title, subjectName, path }) {
+  if (!path) {
+    return null;
+  }
+
+  const headerLabel = path.cardName || subjectName || "—";
+  const subLabel = [subjectName, path.rarity].filter(Boolean).join(" · ") || "—";
+  const contextLine = [path.cardNumber ? `#${path.cardNumber}` : null, path.impliedOddsLabel]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22 px-3 py-3.5">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
+          <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{headerLabel}</p>
+          <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{subLabel}</p>
+        </div>
+        <p className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]">{path.impliedOddsLabel || "—"}</p>
+      </div>
+      {contextLine ? <p className="mt-2 text-[11px] leading-snug text-[var(--text-secondary)]">{contextLine}</p> : null}
+    </div>
+  );
+}
+
+function CollectorProfileMobileRosterPanel({ presentation, loading, loadingTimedOut }) {
+  if (!presentation.available) {
+    return loading ? (
+      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
+    ) : (
+      <CollectorProfileUnavailable>
+        Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
+        Pokémon subjects that appear as hits; this product has none.
+      </CollectorProfileUnavailable>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <section className="space-y-2.5">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Roster Quality</h3>
+        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
+          <CollectorMetricRow>
+            <CollectorMetricCell label="Chase Strength" value={presentation.components[0]?.scoreLabel} />
+            <CollectorMetricCell label="Chase Depth" value={presentation.components[1]?.scoreLabel} />
+            <CollectorMetricCell label="Hit Coverage" value={presentation.components[2]?.scoreLabel} />
+          </CollectorMetricRow>
+        </div>
+      </section>
+
+      <section className="space-y-2.5">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Demand Distribution</h3>
+        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
+          <CollectorMetricRow>
+            <CollectorMetricCell
+              label="Effective Subjects"
+              value={presentation.effectiveSubjectCountLabel}
+              detail={
+                presentation.distinctEligibleSubjectCount !== null
+                  ? `of ${presentation.distinctEligibleSubjectCount} eligible`
+                  : null
+              }
+            />
+            <CollectorMetricCell label="Top Subject" value={presentation.top1ShareLabel} />
+            <CollectorMetricCell label="Top 3" value={presentation.top3ShareLabel} />
+          </CollectorMetricRow>
+        </div>
+      </section>
+
+      {presentation.topSubjects.length > 0 ? (
+        <section className="space-y-2.5">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Top Desirability Drivers</h3>
+          <ol className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18">
+            {presentation.topSubjects.slice(0, 3).map((subject, index) => (
+              <SetDesirabilitySubjectRow
+                key={`set-desirability-mobile-subject:${subject.subjectName}`}
+                subject={subject}
+                position={index + 1}
+              />
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      <DisclosureSection
+        title="Profile details"
+        description="Definitions and methodology"
+        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
+      >
+        <div className="space-y-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+          <div>
+            <p className="font-semibold text-[var(--text-primary)]">Roster Quality</p>
+            <ul className="mt-1 space-y-1">
+              {ROSTER_QUALITY_INFO_BULLETS.map((bullet) => (
+                <li key={`collector-roster-quality:${bullet}`}>{bullet}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-[var(--text-primary)]">Demand Distribution</p>
+            <ul className="mt-1 space-y-1">
+              {DEMAND_DISTRIBUTION_INFO_BULLETS.map((bullet) => (
+                <li key={`collector-demand-distribution:${bullet}`}>{bullet}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </DisclosureSection>
+    </div>
+  );
+}
+
+function CollectorProfileMobileOpeningPathsPanel({ presentation, loading, loadingTimedOut }) {
+  if (!presentation.available) {
+    return loading ? (
+      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
+    ) : (
+      <CollectorProfileUnavailable>
+        Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
+        yet. Set Desirability is unaffected — it doesn&apos;t use pull data.
+      </CollectorProfileUnavailable>
+    );
+  }
+
+  const accessibleSubject = presentation.topSubjects.find((subject) => subject.accessiblePath) || null;
+  const eliteSubject = presentation.topSubjects.find((subject) => subject.elitePath) || null;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2.5">
+        <CollectorProfileMobilePathRow
+          title="Access Path"
+          subjectName={accessibleSubject?.subjectName || null}
+          path={accessibleSubject?.accessiblePath || null}
+        />
+        <CollectorProfileMobilePathRow
+          title="Elite Path"
+          subjectName={eliteSubject?.subjectName || null}
+          path={eliteSubject?.elitePath || null}
+        />
+      </div>
+
+      <DisclosureSection
+        title="Path details"
+        description="Supporting diagnostics and additional routes"
+        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
+      >
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
+            <CollectorMetricRow columns={2}>
+              <CollectorMetricCell
+                label="Dual-Path Depth"
+                value={presentation.dualPathDepth.displayLabel}
+                detail={
+                  [
+                    presentation.dualPathDepth.rankLabel,
+                    presentation.dualPathDepth.subjectsWithMultiplePaths !== null
+                      ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || null
+                }
+              />
+              <CollectorMetricCell
+                label="Chase Appeal"
+                value={presentation.chaseAppeal.scoreLabel}
+                detail={presentation.chaseAppeal.rankLabel}
+              />
+            </CollectorMetricRow>
+          </div>
+          {presentation.topSubjects.length > 0 ? (
+            <div className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/12">
+              {presentation.topSubjects.map((subject) => (
+                <OpeningExperienceSubjectRow key={`opening-mobile-subject:${subject.subjectName}`} subject={subject} />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </DisclosureSection>
     </div>
   );
 }
@@ -8167,6 +8352,7 @@ function CollectorProfileSection({
   requestedView = null,
 }) {
   const [activeView, setActiveView] = useState(COLLECTOR_PROFILE_ROSTER_VIEW);
+  const isDesktopCollectorProfile = useMediaQuery("(min-width: 1200px)", true);
   // A deep link that used to target the standalone Opening Experience section
   // (?section=opening-experience and its aliases) must still land on that
   // material, so the requested view wins over the local default until the user
@@ -8218,47 +8404,54 @@ function CollectorProfileSection({
             The chevrons are the separator — a divider on both sides of each one
             would frame the connector instead of the stages. Desktop keeps the
             panel exactly. */}
-        <div
-          data-collector-profile-flow
-          className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 max-desk:gap-0 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
-        >
-          <CollectorProfileStage
-            label="Set Desirability"
-            value={desirability.available ? desirability.scoreLabel : "—"}
-            meta={desirability.available ? desirability.rankLabel : null}
-            note="Supporting input — no RIP Score weight of its own."
-            infoBullets={SET_DESIRABILITY_INFO_BULLETS}
-            muted={!desirability.available}
-          />
-          <CollectorProfileArrow />
-          <CollectorProfileStage
-            label="Collector Appeal"
-            value={opening.available ? collectorAppeal.scoreLabel : "—"}
-            meta={
-              opening.available
-                ? [collectorAppeal.tier ? `${collectorAppeal.tier} Tier` : null, collectorAppeal.rankLabel]
-                    .filter(Boolean)
-                    .join(" · ")
-                : null
-            }
-            note="Roster demand through the modeled opening paths."
-            infoBullets={COLLECTOR_APPEAL_INFO_BULLETS}
-            muted={!opening.available}
-          />
-          <CollectorProfileArrow />
-          <CollectorProfileStage
-            label="RIP Score Contribution"
-            value={ripContribution?.weightLabel || "10%"}
-            meta={ripContribution?.contributionPointsLabel || null}
-            note="RIP Core supplies the other 90%."
-            muted={!ripContribution?.contributionPointsLabel}
-          />
-        </div>
+        {isDesktopCollectorProfile ? (
+          <div
+            data-collector-profile-flow
+            className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 max-desk:gap-0 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
+          >
+            <CollectorProfileStage
+              label="Set Desirability"
+              value={desirability.available ? desirability.scoreLabel : "—"}
+              meta={desirability.available ? desirability.rankLabel : null}
+              note="Supporting input — no RIP Score weight of its own."
+              infoBullets={SET_DESIRABILITY_INFO_BULLETS}
+              muted={!desirability.available}
+            />
+            <CollectorProfileArrow />
+            <CollectorProfileStage
+              label="Collector Appeal"
+              value={opening.available ? collectorAppeal.scoreLabel : "—"}
+              meta={
+                opening.available
+                  ? [collectorAppeal.tier ? `${collectorAppeal.tier} Tier` : null, collectorAppeal.rankLabel]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : null
+              }
+              note="Roster demand through the modeled opening paths."
+              infoBullets={COLLECTOR_APPEAL_INFO_BULLETS}
+              muted={!opening.available}
+            />
+            <CollectorProfileArrow />
+            <CollectorProfileStage
+              label="RIP Score Contribution"
+              value={ripContribution?.weightLabel || "10%"}
+              meta={ripContribution?.contributionPointsLabel || null}
+              note="RIP Core supplies the other 90%."
+              muted={!ripContribution?.contributionPointsLabel}
+            />
+          </div>
+        ) : (
+          <CollectorProfileMobileSummary desirability={desirability} collectorAppeal={opening} />
+        )}
 
         <SectionViewTabs
           value={activeView}
           onChange={setActiveView}
           variant="secondary"
+          ariaLabel="Collector Profile view"
+          equalWidth
+          mobileFullWidth
           options={[
             { value: COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal" },
             { value: COLLECTOR_PROFILE_PATHS_VIEW, label: "Opening Paths" },
@@ -8271,9 +8464,15 @@ function CollectorProfileSection({
         <span id="set-detail-opening-experience" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
 
         {activeView === COLLECTOR_PROFILE_ROSTER_VIEW ? (
-          <CollectorRosterAppealPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
-        ) : (
+          isDesktopCollectorProfile ? (
+            <CollectorRosterAppealPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
+          ) : (
+            <CollectorProfileMobileRosterPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
+          )
+        ) : isDesktopCollectorProfile ? (
           <CollectorOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
+        ) : (
+          <CollectorProfileMobileOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
         )}
       </SectionCard>
     </section>
@@ -10232,7 +10431,24 @@ export default function RipStatisticsPageClient({
   const [overviewRetryNonce, setOverviewRetryNonce] = useState(0);
   const [topChaseRetryNonce, setTopChaseRetryNonce] = useState(0);
   const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
+  const [isMobileSetContextHidden, setIsMobileSetContextHidden] = useState(false);
   const [showReturnToTop, setShowReturnToTop] = useState(false);
+  const [isSetContextFocusWithin, setIsSetContextFocusWithin] = useState(false);
+  const mobileSetContextRef = useRef(null);
+  const isMobileSetContextHiddenRef = useRef(false);
+  const mobileSetContextScrollRef = useRef({
+    currentNormalizedY: 0,
+    maxNormalizedY: 0,
+    previousNormalizedY: 0,
+    cumulativeUpwardPx: 0,
+    direction: "none",
+    nearTop: true,
+    pickerOpen: false,
+    focusWithin: false,
+  });
+  const revealMobileSetContext = useCallback(() => {
+    setIsMobileSetContextHidden(false);
+  }, []);
   const retryOverviewModule = useCallback(() => {
     lastOverviewRequestKeyRef.current = null;
     setOverviewRetryNonce((nonce) => nonce + 1);
@@ -10873,6 +11089,7 @@ export default function RipStatisticsPageClient({
   };
 
   const handleSetDetailTabChange = (nextTab) => {
+    revealMobileSetContext();
     const normalizedTab = normalizeSetDetailTab(nextTab);
     if (normalizedTab === "cards") {
       markSetPagePerformance("cards_tab_first_interactive", { setId: resolvedSetResourceId });
@@ -10886,6 +11103,7 @@ export default function RipStatisticsPageClient({
   };
 
   const handleSetDetailNavSelect = ({ tab, section, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
+    revealMobileSetContext();
     const nextTab = normalizeSetDetailTab(tab || setDetailTab);
 
     if (nextTab) {
@@ -10995,24 +11213,268 @@ export default function RipStatisticsPageClient({
   }, [graphMode]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    isMobileSetContextHiddenRef.current = isMobileSetContextHidden;
+  }, [isMobileSetContextHidden]);
+
+  useEffect(() => {
+    if (!setDetailMode || typeof document === "undefined") {
       return undefined;
     }
 
-    const updateReturnToTopVisibility = () => {
-      const threshold = window.innerHeight * 1.4;
-      setShowReturnToTop(window.scrollY > threshold);
+    const updateFocusWithin = () => {
+      const isWithin = Boolean(
+        mobileSetContextRef.current &&
+        document.activeElement instanceof Node &&
+        mobileSetContextRef.current.contains(document.activeElement)
+      );
+
+      mobileSetContextScrollRef.current.focusWithin = isWithin;
+      setIsSetContextFocusWithin((previous) => (previous === isWithin ? previous : isWithin));
+      if (isWithin) {
+        setIsMobileSetContextHidden(false);
+      }
     };
 
-    updateReturnToTopVisibility();
-    window.addEventListener("scroll", updateReturnToTopVisibility, { passive: true });
-    window.addEventListener("resize", updateReturnToTopVisibility);
+    updateFocusWithin();
+    document.addEventListener("focusin", updateFocusWithin);
+    document.addEventListener("focusout", updateFocusWithin);
 
     return () => {
-      window.removeEventListener("scroll", updateReturnToTopVisibility);
-      window.removeEventListener("resize", updateReturnToTopVisibility);
+      document.removeEventListener("focusin", updateFocusWithin);
+      document.removeEventListener("focusout", updateFocusWithin);
     };
   }, [setDetailMode]);
+
+  useEffect(() => {
+    mobileSetContextScrollRef.current.pickerOpen = heroSetPickerOpen;
+    if (heroSetPickerOpen) {
+      setIsMobileSetContextHidden(false);
+    }
+  }, [heroSetPickerOpen]);
+
+  useEffect(() => {
+    mobileSetContextScrollRef.current.focusWithin = isSetContextFocusWithin;
+    if (isSetContextFocusWithin) {
+      setIsMobileSetContextHidden(false);
+    }
+  }, [isSetContextFocusWithin]);
+
+  useEffect(() => {
+    if (!setDetailMode || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 1199.98px)");
+    const scrollState = mobileSetContextScrollRef.current;
+    const clampNormalizedScrollY = (rawY) => {
+      const doc = document.documentElement;
+      const maxY = Math.max(0, (doc?.scrollHeight || 0) - window.innerHeight);
+      const normalizedY = Math.min(maxY, Math.max(0, Number.isFinite(rawY) ? rawY : 0));
+      return { normalizedY, maxY };
+    };
+
+    const resetTransientScrollState = () => {
+      const { normalizedY, maxY } = clampNormalizedScrollY(window.scrollY || 0);
+      scrollState.currentNormalizedY = normalizedY;
+      scrollState.maxNormalizedY = maxY;
+      scrollState.previousNormalizedY = normalizedY;
+      scrollState.cumulativeUpwardPx = 0;
+      scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
+      scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
+      scrollState.pickerOpen = heroSetPickerOpen;
+      scrollState.focusWithin = isSetContextFocusWithin;
+      setShowReturnToTop((previous) => {
+        const shouldShow = normalizedY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
+        return previous === shouldShow ? previous : shouldShow;
+      });
+    };
+
+    resetTransientScrollState();
+
+    let frameId = null;
+    let lastTouchY = null;
+
+    const revealIfNeeded = () => {
+      if (!mediaQuery.matches) {
+        resetTransientScrollState();
+        setIsMobileSetContextHidden(false);
+      }
+    };
+
+    const hideMenuImmediately = () => {
+      scrollState.cumulativeUpwardPx = 0;
+      scrollState.direction = "down";
+      setIsMobileSetContextHidden((previous) => (previous ? previous : true));
+    };
+
+    const updateFromScroll = () => {
+      if (frameId !== null) {
+        return;
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+
+        if (!mediaQuery.matches) {
+          resetTransientScrollState();
+          setIsMobileSetContextHidden(false);
+          return;
+        }
+
+        const { normalizedY: nextY, maxY } = clampNormalizedScrollY(window.scrollY || 0);
+        const previousY = scrollState.previousNormalizedY;
+        const delta = nextY - previousY;
+        const nearTop = nextY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
+
+        scrollState.currentNormalizedY = nextY;
+        scrollState.maxNormalizedY = maxY;
+        scrollState.previousNormalizedY = nextY;
+        scrollState.nearTop = nearTop;
+        scrollState.pickerOpen = heroSetPickerOpen;
+        scrollState.focusWithin = isSetContextFocusWithin;
+        setShowReturnToTop((previous) => {
+          const shouldShow = nextY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
+          return previous === shouldShow ? previous : shouldShow;
+        });
+
+        if (nearTop || heroSetPickerOpen || isSetContextFocusWithin) {
+          scrollState.direction = nearTop ? "none" : "up";
+          scrollState.cumulativeUpwardPx = 0;
+          setIsMobileSetContextHidden(false);
+          return;
+        }
+
+        if (Math.abs(delta) <= MOBILE_SET_MENU_SCROLL_NOISE_PX) {
+          return;
+        }
+
+        if (delta > 0) {
+          hideMenuImmediately();
+          return;
+        }
+
+        scrollState.direction = "up";
+        if (!isMobileSetContextHiddenRef.current) {
+          scrollState.cumulativeUpwardPx = 0;
+          return;
+        }
+
+        scrollState.cumulativeUpwardPx += Math.abs(delta);
+        if (scrollState.cumulativeUpwardPx >= MOBILE_SET_MENU_REVEAL_DISTANCE_PX) {
+          scrollState.cumulativeUpwardPx = 0;
+          setIsMobileSetContextHidden((previous) => (previous ? false : previous));
+        }
+      });
+    };
+
+    const shouldUseBottomEdgeIntent = () => {
+      if (!mediaQuery.matches || heroSetPickerOpen) {
+        return false;
+      }
+      if (isMobileSetContextHiddenRef.current) {
+        return false;
+      }
+      const maxY = scrollState.maxNormalizedY;
+      const currentY = scrollState.currentNormalizedY;
+      return maxY - currentY <= MOBILE_SET_MENU_BOTTOM_EDGE_PX;
+    };
+
+    const handleWheel = (event) => {
+      if (event.deltaY <= MOBILE_SET_MENU_GESTURE_NOISE_PX || !shouldUseBottomEdgeIntent()) {
+        return;
+      }
+      hideMenuImmediately();
+    };
+
+    const handleTouchStart = (event) => {
+      const touch = event.touches?.[0];
+      lastTouchY = touch ? touch.clientY : null;
+    };
+
+    const handleTouchMove = (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) {
+        return;
+      }
+      if (lastTouchY === null) {
+        lastTouchY = touch.clientY;
+        return;
+      }
+
+      const fingerDeltaUp = lastTouchY - touch.clientY;
+      lastTouchY = touch.clientY;
+      if (fingerDeltaUp <= MOBILE_SET_MENU_GESTURE_NOISE_PX || !shouldUseBottomEdgeIntent()) {
+        return;
+      }
+      hideMenuImmediately();
+    };
+
+    const handleTouchEnd = () => {
+      lastTouchY = null;
+    };
+
+    revealIfNeeded();
+    window.addEventListener("scroll", updateFromScroll, { passive: true });
+    window.addEventListener("resize", revealIfNeeded);
+    window.addEventListener("wheel", handleWheel, { passive: true });
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", handleTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    const handleMediaChange = () => {
+      revealIfNeeded();
+      updateFromScroll();
+    };
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleMediaChange);
+    } else if (typeof mediaQuery.addListener === "function") {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    return () => {
+      window.removeEventListener("scroll", updateFromScroll);
+      window.removeEventListener("resize", revealIfNeeded);
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", handleMediaChange);
+      } else if (typeof mediaQuery.removeListener === "function") {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [setDetailMode, heroSetPickerOpen, isSetContextFocusWithin, requestedTargetId]);
+
+  useEffect(() => {
+    if (!setDetailMode || typeof window === "undefined") {
+      return;
+    }
+    const scrollState = mobileSetContextScrollRef.current;
+    const doc = document.documentElement;
+    const maxY = Math.max(0, (doc?.scrollHeight || 0) - window.innerHeight);
+    const normalizedY = Math.min(maxY, Math.max(0, window.scrollY || 0));
+    scrollState.currentNormalizedY = normalizedY;
+    scrollState.maxNormalizedY = maxY;
+    scrollState.previousNormalizedY = normalizedY;
+    scrollState.cumulativeUpwardPx = 0;
+    scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
+    scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
+  }, [setDetailMode, requestedTargetId]);
+
+  useEffect(() => {
+    if (!setDetailMode) {
+      return;
+    }
+    setShowReturnToTop(false);
+    setIsMobileSetContextHidden(false);
+  }, [setDetailMode, pathname, searchParams, requestedTargetId, setDetailTab]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -12877,6 +13339,7 @@ export default function RipStatisticsPageClient({
   };
 
   const handleHeroSetSelect = (target) => {
+    revealMobileSetContext();
     handleTargetIdChange(String(target?.target_id || ""));
     setHeroSetPickerOpen(false);
   };
@@ -14306,7 +14769,7 @@ export default function RipStatisticsPageClient({
   );
 
   return (
-    <main className="w-full max-w-full pb-8 pt-0 lg:py-8">
+    <main className={setDetailMode ? "w-full max-w-full pb-[calc(5.25rem+env(safe-area-inset-bottom)+0.875rem)] pt-0 desk:pb-8 desk:pt-8" : "w-full max-w-full pb-8 pt-0 lg:py-8"}>
       {/* The set page's desktop boundary is 1200px, not Tailwind's 1280px xl,
           so it opts the shared scaffold into the `desk` recipe. Both strings are
           written out statically. The non-set Explore page renders through this
@@ -14401,6 +14864,8 @@ export default function RipStatisticsPageClient({
                 <div
                   id="set-detail-content"
                   data-set-detail-sticky-tabs
+                  data-mobile-set-context-hidden={isMobileSetContextHidden ? "true" : "false"}
+                  ref={mobileSetContextRef}
                   // Below 1200px this block is pinned, and a pinned control has
                   // to read as a solid surface: at 96% opacity plus a blur, the
                   // bright chart strokes underneath stayed clearly legible
@@ -14409,7 +14874,7 @@ export default function RipStatisticsPageClient({
                   // override — `important: true` in tailwind.config.js makes
                   // every utility !important, so a plain rule in globals.css
                   // could never win against them. Desktop keeps the glass.
-                  className="set-detail-sticky-tabs !mt-0 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] desk:bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] desk:backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
+                  className="set-detail-sticky-tabs max-desk:mt-2 min-h-10 desk:order-2 scroll-mt-24 rounded-b-xl border border-t-0 border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1 shadow-[0_8px_24px_rgba(2,6,23,0.24)] desk:bg-[color:color-mix(in_srgb,var(--surface-panel)_96%,transparent)] desk:backdrop-blur-md md:min-h-11 md:scroll-mt-28 md:rounded-b-2xl"
                   aria-busy={isTabNavPending}
                 >
                   {/* Below 1200px the set picker is the top row of this same
@@ -14450,11 +14915,11 @@ export default function RipStatisticsPageClient({
                       pickerDisabled={isPending || switcherTargets.length === 0}
                       listboxId="set-mobile-picker-list"
                       isPickerOwner={!isDesktopHeroComposition}
-                      surfaceClassName="rounded-none border-0 bg-transparent px-1 py-1 tab:px-1.5 tab:py-1.5"
+                      surfaceClassName="rounded-none border-0 bg-transparent px-0 py-0"
                     />
                     <span
                       aria-hidden="true"
-                      className="mb-1 mt-0.5 block h-px bg-[var(--border-subtle)]"
+                      className="mb-0.5 mt-0.5 block h-px bg-[var(--border-subtle)]"
                     />
                   </div>
                   <SectionViewTabs
@@ -14707,13 +15172,13 @@ export default function RipStatisticsPageClient({
                                 values, same trend indicators, same info
                                 tooltips, a fraction of the height. Desktop
                                 keeps the three-column subgrid exactly. */}
-                            <div data-overview-opening-economics className="mt-4 border-t border-[var(--border-subtle)] pt-3 max-desk:mt-3 max-desk:pt-2">
+                            <div data-overview-opening-economics className="mt-3 border-t border-[var(--border-subtle)] pt-2.5 max-desk:mt-2.5 max-desk:pt-2">
                               <dl className="grid grid-cols-1 desk:grid-cols-3 desk:grid-rows-[auto_auto_auto]">
                                 {headerDecisionMetrics.map((metric, metricIndex) => (
                                   <div
                                     key={`overview-opening-${metric.label}`}
                                     data-opening-metric-row
-                                    className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-1 items-baseline gap-x-3 px-0 py-1.5 desk:grid-cols-1 desk:grid-rows-[minmax(3rem,auto)_minmax(1.5rem,auto)_minmax(0.875rem,auto)] desk:items-stretch desk:px-3 desk:py-2 desk:first:pl-0 desk:row-span-3 desk:grid-rows-subgrid desk:last:pr-0 ${
+                                    className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-1 items-center gap-x-3 px-0 py-2 max-desk:min-h-14 desk:grid-cols-1 desk:grid-rows-[minmax(3rem,auto)_minmax(1.5rem,auto)_minmax(0.875rem,auto)] desk:items-stretch desk:px-3 desk:py-2 desk:first:pl-0 desk:row-span-3 desk:grid-rows-subgrid desk:last:pr-0 ${
                                       metricIndex > 0
                                         ? "border-t border-[var(--border-subtle)] desk:border-l desk:border-t-0 desk:border-[var(--border-subtle)]"
                                         : ""
@@ -14803,13 +15268,14 @@ export default function RipStatisticsPageClient({
                   </section>
                 ) : null}
 
-                {setDetailMode && showReturnToTop ? (
+                {setDetailMode && !isDesktopHeroComposition && showReturnToTop ? (
                   <button
                     type="button"
                     onClick={() => {
+                      revealMobileSetContext();
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="fixed bottom-24 right-4 z-[60] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:bottom-6 sm:right-6"
+                    className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom)+0.75rem)] right-4 z-[60] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:bottom-6 desk:right-6"
                     aria-label="Return to top"
                   >
                     <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
@@ -15091,6 +15557,7 @@ export default function RipStatisticsPageClient({
               <SetTabLoadingPanel
                 title="Loading RIP score…"
                 helper="Pulling your set's RIP score and pillar breakdown."
+                compactMobile
               />
             ) : null}
 
@@ -15506,10 +15973,10 @@ export default function RipStatisticsPageClient({
                     <div
                       className={["mt-4 min-w-0 max-w-full", openingOutcomesUsesExpandedLayout ? "min-h-[32rem]" : ""].filter(Boolean).join(" ")}
                     >
-                    <SectionViewTabs
+                    <SimulationSectionSelector
                       className="mb-4"
-                      value={activeInsightsGraphMode}
-                      onChange={(nextView) => {
+                      selectedValue={activeInsightsGraphMode}
+                      onValueChange={(nextView) => {
                         setGraphMode(nextView);
                         setActiveSection(nextView);
                         if (nextView === "pack-breakdown") {
@@ -15520,13 +15987,6 @@ export default function RipStatisticsPageClient({
                           setInsightsValueView("simulation-drivers");
                         }
                       }}
-                      variant="secondary"
-                      mobileScroll
-                      // `shortLabel` is a VISIBLE abbreviation below 1200px
-                      // only. `label` stays the accessible name and the title,
-                      // and is what renders at 1200px+, so no view is renamed
-                      // and none is removed — the six values and their order
-                      // are byte-for-byte what they were.
                       options={[
                         { value: "outcome-distribution", label: "Outcome Distribution", shortLabel: "Outcomes" },
                         { value: "historical-trend", label: "Opening Profit vs Cost", shortLabel: "OPvC" },

@@ -229,7 +229,7 @@
   grid-template-columns: 1.55rem 1.65rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.55rem;
-  padding: 7px 12px 7px 10px;
+  padding: 9px 12px 9px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
   transition: background-color 140ms ease, box-shadow 140ms ease;
 }
@@ -283,6 +283,12 @@
 
   .scrollShell::after {
     display: none;
+  }
+
+  .ladderRow {
+    min-height: 3.25rem;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 }
 

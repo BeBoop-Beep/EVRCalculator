@@ -61,7 +61,7 @@ export default function PokemonSetMobileHero({
             onTogglePicker();
           }
         }}
-        className={`relative flex min-w-0 w-full items-center gap-2.5 rounded-lg border-0 bg-transparent p-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isPickerOwner && !pickerDisabled ? "cursor-pointer" : "cursor-default"}`.trim()}
+        className={`relative flex min-h-16 min-w-0 w-full items-center gap-2.5 rounded-lg border-0 bg-transparent p-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${isPickerOwner && !pickerDisabled ? "cursor-pointer" : "cursor-default"}`.trim()}
       >
         {identity.hasLogo ? (
           <span className="flex h-9 w-14 flex-none items-center justify-center tab:h-11 tab:w-16">

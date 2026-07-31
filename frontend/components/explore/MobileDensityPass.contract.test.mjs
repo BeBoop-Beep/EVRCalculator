@@ -143,10 +143,10 @@ test("the compact sparkline is tall enough to read as a trend", () => {
 test("the reveal control is compact but keeps a descriptive accessible name", () => {
   // Superseding the earlier "All 10 →" label: the affordance must match the
   // direction the list actually grows. See the dedicated expansion test below.
-  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : "Show more"'));
+  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`'));
   assert.ok(chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards"'), "the accessible name stays descriptive");
   assert.ok(chaseModule.includes("aria-expanded={showAllChaseCards}"));
-  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"), "five preview, ten on reveal");
+  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "five preview, ten on reveal");
 });
 
 test("the reveal control reads as a downward expansion, not as navigation", () => {
@@ -163,7 +163,7 @@ test("the reveal control reads as a downward expansion, not as navigation", () =
     "the chevron is part of the mobile/tablet treatment"
   );
   // Desktop wording is untouched.
-  assert.ok(chaseModule.includes('`View all chase cards (${Math.min(totalRows, 10)})`'));
+  assert.ok(chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}'));
 });
 
 test("chart interaction still cannot navigate", () => {

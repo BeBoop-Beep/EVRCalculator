@@ -9,6 +9,8 @@ export default function SegmentedControl({
   ariaLabel,
   className = "",
   compact = false,
+  equalWidth = false,
+  mobileFullWidth = false,
   // Opt-in, below 1200px only. Six options do not fit a phone at a readable
   // size, and letting them shrink truncates every label into an ellipsis — the
   // control stops naming its own views. Instead the options keep their full
@@ -32,6 +34,15 @@ export default function SegmentedControl({
 }) {
   const rowRef = useRef(null);
   const controlOptions = Array.isArray(options) ? options : [];
+  const equalWidthLabelLength = equalWidth
+    ? controlOptions.reduce((maxLength, option) => {
+        const label = String(option?.label ?? option?.value ?? option?.key ?? "");
+        return Math.max(maxLength, label.length);
+      }, 0)
+    : 0;
+  const equalWidthStyle = equalWidth && equalWidthLabelLength > 0
+    ? { minWidth: `${equalWidthLabelLength + 3}ch` }
+    : undefined;
 
   // A scrolled-away active option is the same defect as a truncated one: the
   // control no longer shows what is selected. scrollLeft is adjusted directly
@@ -63,6 +74,8 @@ export default function SegmentedControl({
       <div
         ref={rowRef}
         className={`inline-flex max-w-full items-center gap-1 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(15,23,42,0.58)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+          mobileFullWidth ? "max-desk:flex max-desk:w-full" : ""
+        } ${
           mobileScroll
             ? "max-tab:flex max-tab:w-full max-desk:snap-x max-desk:overflow-x-auto max-desk:[-ms-overflow-style:none] max-desk:[scrollbar-width:none] max-desk:[&::-webkit-scrollbar]:hidden"
             : ""
@@ -109,8 +122,9 @@ export default function SegmentedControl({
               disabled={option?.disabled}
               tabIndex={isActive ? 0 : -1}
               data-segment-value={optionValue}
+              style={equalWidthStyle}
               className={`min-w-0 rounded-full font-semibold leading-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40 ${
-                compact ? "px-2.5 py-1 text-[10px]" : "px-3 py-1.5 text-[11px] sm:px-4 sm:text-xs"
+                compact ? "px-2.5 py-1 text-[10px] max-desk:min-h-11" : "px-3 py-1.5 text-[11px] max-desk:min-h-11 sm:px-4 sm:text-xs"
               } ${
                 // `grow` + `shrink-0`, never `flex-none`: an option takes a
                 // share of the slack when there is any, and keeps its natural
@@ -118,6 +132,8 @@ export default function SegmentedControl({
                 // ever being squeezed into an ellipsis.
                 mobileScroll
                   ? "max-desk:min-h-9 max-desk:shrink-0 max-tab:grow max-desk:snap-start max-desk:px-3"
+                  : mobileFullWidth
+                    ? "max-desk:flex-1 max-desk:basis-0 max-desk:justify-center"
                   : ""
               } ${
                 isActive

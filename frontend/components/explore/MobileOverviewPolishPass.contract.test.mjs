@@ -59,7 +59,7 @@ test("no section re-adds a horizontal inset inside the already-flush feed", () =
     chaseRow.includes("px-3 py-2.5 max-desk:px-0 desk:"),
     "the Top Chase row is flush below desktop and padded on desktop"
   );
-  assert.ok(openingEconomics.includes("px-0 py-1.5"), "the OPvC metric rows are flush below desktop");
+  assert.ok(openingEconomics.includes("px-0 py-2"), "the OPvC metric rows are flush below desktop");
   assert.ok(openingEconomics.includes("desk:px-3 desk:py-2"), "desktop keeps its column padding");
   // `pr-0` did not make the row reach the edge. Paired with the `-ml-1.5` the
   // row also carried, it made the row STOP 6px short of the right edge its own
@@ -172,19 +172,19 @@ test("all three supporting metrics and their tooltips survive", () => {
 
 test("the reveal control expands downward rather than pointing away", () => {
   assert.ok(!chaseModule.includes("→"), "no right-arrow affordance for a vertical expansion");
-  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : "Show more"'));
+  assert.ok(chaseModule.includes('showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`'));
   assert.ok(chaseModule.includes("data-chase-reveal-chevron"));
   assert.ok(chaseModule.includes('${showAllChaseCards ? "rotate-180" : ""}'), "the chevron flips when expanded");
 });
 
 test("the reveal behaviour and the data behind it are unchanged", () => {
-  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : 5"), "5 by default, all 10 on reveal");
+  assert.ok(chaseModule.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "5 by default, all 10 on reveal");
   assert.ok(chaseModule.includes("aria-expanded={showAllChaseCards}"));
   assert.ok(chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards"'));
   assert.ok(chaseModule.includes("max-desk:min-h-11"), "the touch target survives");
   assert.ok(
-    chaseModule.includes('`View all chase cards (${Math.min(totalRows, 10)})`'),
-    "desktop wording is untouched"
+    chaseModule.includes('aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}'),
+    "accessible wording is remainder-aware"
   );
 });
 
@@ -220,13 +220,13 @@ test("the tier column is sized from the pill, not the pill squeezed into the col
   assert.ok(rankBadge.includes('className: "gap-1 px-2 py-0.5 text-[10px]"'));
   assert.ok(compactList.includes('size="compact"'), "the compact list uses it");
   assert.ok(!compactList.includes('size="supporting"'), "the oversized pill is gone from the compact list");
-  const tierTrack = /grid-cols-\[minmax\(0,1fr\)_3rem_(3\.5rem)_2\.5rem\]/.exec(compactList);
+  const tierTrack = /grid-cols-\[minmax\(0,1fr\)_3rem_(3\.75rem)_2\.5rem\]/.exec(compactList);
   assert.ok(tierTrack, "the tier track is wider than the pill it holds");
 });
 
 test("the header and the rows share one column system", () => {
   assert.equal(
-    (compactList.match(/grid-cols-\[minmax\(0,1fr\)_3rem_3\.5rem_2\.5rem\]/g) || []).length,
+    (compactList.match(/grid-cols-\[minmax\(0,1fr\)_3rem_3\.75rem_2\.5rem\]/g) || []).length,
     2,
     "the column header and the row grid must not drift apart"
   );
@@ -234,14 +234,14 @@ test("the header and the rows share one column system", () => {
 });
 
 test("vertical bulk is reduced without losing the touch target", () => {
-  assert.ok(compactList.includes("min-h-11"), "44px rows survive the compaction");
-  assert.ok(compactList.includes("py-1 pl-1.5 pr-1.5"), "row padding is tightened");
-  assert.ok(compactList.includes("pb-0.5 pt-2"), "group labels are tightened");
+  assert.ok(compactList.includes("min-h-14"), "rows remain touch-safe while improving scan legibility");
+  assert.ok(compactList.includes("py-1.5 pl-1.5 pr-1.5"), "row padding remains compact");
+  assert.ok(compactList.includes("mt-2.5 border-t"), "group labels gain stronger separation");
   assert.ok(
-    compactList.includes('className="mt-2 min-h-[2.5rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5"'),
+    compactList.includes('className="mt-2 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-2"'),
     "the shared detail region is compact"
   );
-  for (const gone of ["py-1.5 pl-2 pr-1", "pb-1 pt-3", "min-h-[2.75rem]"]) {
+  for (const gone of ["py-1.5 pl-2 pr-1", "pb-1 pt-3", "min-h-[2.5rem]"]) {
     assert.ok(!compactList.includes(gone), `${gone} is superseded`);
   }
 });
@@ -363,7 +363,7 @@ test("every change below 1200px is gated so desktop composition is unchanged", (
   // OPvC still does, only for its desktop inline end-of-series labels.
   assert.ok(!setValueChart.includes("useMediaQuery"), "Set Value has no width branch left");
   assert.ok(packValue.includes('useMediaQuery("(min-width: 1200px)", true)'), "desktop is the SSR default");
-  assert.ok(client.includes("h-[16rem] w-full tab:h-[20rem] desk:h-[21rem]"), "chart sizing is unchanged");
+  assert.ok(client.includes("h-[clamp(220px,31dvh,280px)] w-full desk:h-[21rem]"), "desktop chart height remains unchanged while mobile uses clamp");
   assert.ok(
     client.includes("relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1"),
     "the desktop context header keeps its composition"

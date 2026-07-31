@@ -15,6 +15,7 @@ import {
 
 import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
+import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
 import {
   MINIMAL_Y_AXIS_PROPS,
   buildEdgeDateTicks,
@@ -40,7 +41,6 @@ import {
   getPerformanceSeriesLabels,
 } from "./performanceVsCostFormatting.mjs";
 import { formatHistoryDate } from "./historyDateFormatting.mjs";
-import { getCompactWindowLabel, needsAccessibleWindowLabel } from "@/lib/explore/compactWindowLabel.mjs";
 
 // ─── Color tokens for this chart only ────────────────────────────────────────
 const HISTORICAL_TREND_COLORS = {
@@ -307,51 +307,6 @@ function LegendToggle({ active, onToggle, activeColor, inactiveColor, label }) {
   );
 }
 
-// ─── Main chart ───────────────────────────────────────────────────────────────
-function MarketWindowSelector({ windows, value, onChange }) {
-  const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
-  if (windowOptions.length <= 1) {
-    return null;
-  }
-
-  return (
-    <div className="flex min-w-0 flex-wrap gap-1.5">
-      {windowOptions.map((entry) => {
-        const isActive = entry.key === value;
-        return (
-          <button
-            key={`performance-window:${entry.key}`}
-            type="button"
-            onClick={() => onChange(entry.key)}
-            aria-pressed={isActive}
-            aria-label={needsAccessibleWindowLabel(entry.key, entry.label) ? entry.label : undefined}
-            className={[
-              "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
-              "max-desk:inline-flex max-desk:min-h-9 max-desk:items-center max-desk:justify-center max-desk:px-2.5",
-              isActive
-                ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"
-                : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-            ].join(" ")}
-          >
-            {/* Compact glyph below 1200px (Lifetime -> LT); desktop wording and
-                the accessible name are unchanged. */}
-            {needsAccessibleWindowLabel(entry.key, entry.label) ? (
-              <>
-                <span aria-hidden="true" className="max-desk:hidden">{entry.label}</span>
-                <span aria-hidden="true" className="hidden max-desk:inline">
-                  {getCompactWindowLabel(entry.key, entry.label)}
-                </span>
-              </>
-            ) : (
-              entry.label
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function PackValueHistoryChart({
   historyTrend = [],
   packCost = null,
@@ -475,9 +430,9 @@ export default function PackValueHistoryChart({
   }
 
   return (
-    <div className={flush ? "flex h-full min-h-[19rem] flex-col tab:min-h-[23rem] desk:min-h-[26rem]" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
+    <div className={flush ? "flex h-full min-h-[17.5rem] flex-col desk:min-h-[26rem]" : "rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4 sm:p-5"}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <MarketWindowSelector
             windows={availableDeltaWindows}
             value={effectiveWindowKey}
@@ -531,7 +486,7 @@ export default function PackValueHistoryChart({
           data-latest-values
           role="group"
           aria-label="Series visibility and latest values"
-          className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-[11px]"
+          className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px]"
         >
           {[
             { key: "mean", short: "EV", show: showMeanLine, onToggle: () => setShowMeanLine((c) => !c), available: true, label: seriesLabels.mean, color: HISTORICAL_TREND_COLORS.meanToCost, ratio: chartData[latestDataIndex]?.meanCostRatio, dollars: chartData[latestDataIndex]?.meanValue },
@@ -564,7 +519,7 @@ export default function PackValueHistoryChart({
         </div>
       ) : null}
 
-      <ChartFrame className={flush ? "mt-3 min-h-[17rem] w-full flex-1 tab:min-h-[21rem] desk:min-h-[24rem]" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
+      <ChartFrame className={flush ? "mt-2.5 h-[clamp(230px,32dvh,290px)] w-full flex-1 desk:mt-3 desk:min-h-[24rem] desk:h-auto" : "mt-4 h-[20rem] w-full sm:h-[23rem]"}>
         <ResponsiveContainer width="100%" height="100%">
           {/* Shared insets from minimalChartAxis, so Overview and Insights (and
               the Analysis rendering) cannot drift apart. The extra right margin

@@ -159,7 +159,7 @@ test("set switching remains keyboard and pointer accessible in the persistent id
 test("context row and tabs stick together below global navigation", () => {
   assert.match(globals, /\.set-detail-context-shell[\s\S]+position: sticky;[\s\S]+top: var\(--app-header-offset, 64px\);[\s\S]+z-index: 40;/);
   assert.match(globals, /\[data-set-context-header\][\s\S]+position: relative;[\s\S]+z-index: 2;[\s\S]+overflow: visible;/);
-  assert.match(globals, /\.set-detail-sticky-tabs[\s\S]+position: relative;[\s\S]+z-index: 1;/);
+  assert.match(globals, /\.set-detail-sticky-tabs[\s\S]+position: sticky;[\s\S]+z-index: 40;/);
   assert.ok(shellSource().includes("set-context-premium"));
   assert.ok(globals.includes("--set-context-bg:"));
   assert.ok(globals.includes("--set-context-wash:"));
@@ -213,7 +213,7 @@ test("set-page content uses shared standard and dense glass surfaces without cha
   assert.ok(globals.includes("--set-glass-inner-bg: rgba(8, 17, 31, 0.14);"));
   assert.ok(globals.includes("--set-glass-inner-bg-dense: rgba(8, 17, 31, 0.20);"));
   assert.ok(source.includes("set-glass-inner overflow-visible rounded-xl"));
-  assert.ok(source.includes("set-glass-inner mb-4 flex flex-col"));
+  assert.ok(source.includes("set-glass-inner flex h-full flex-col"));
   assert.match(
     globals,
     /\.set-detail-glass-scope \.set-glass-surface,[\s\S]+-webkit-backdrop-filter: blur\(var\(--set-glass-blur\)\);[\s\S]+backdrop-filter: blur\(var\(--set-glass-blur\)\);/

@@ -132,10 +132,10 @@ test("the row destination keeps the set and the timeframe context", () => {
 test("rows 6-10 are never discarded", () => {
   // Five rows is a preview only because the existing expand control still
   // reveals the full fetched list in place. Parity spec section 6.
-  assert.ok(module_.includes("showAllChaseCards ? 10 : 5"), "the preview is five rows and the expansion is ten");
-  assert.ok(module_.includes("View all chase cards"), "the reveal control survives");
+  assert.ok(module_.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "the preview is five rows and the expansion is ten");
+  assert.ok(module_.includes("Show ${hiddenRowCount} more"), "the reveal control survives");
   assert.ok(module_.includes("Show fewer chase cards"), "the collapse control survives");
-  assert.ok(module_.includes("totalRows > 5"), "the control appears whenever there is more than the preview");
+  assert.ok(module_.includes("totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "the control appears whenever there is more than the preview");
   assert.ok(!module_.includes("showAllChaseCards ? 10 : 6"), "the old six-row preview is gone");
 });
 

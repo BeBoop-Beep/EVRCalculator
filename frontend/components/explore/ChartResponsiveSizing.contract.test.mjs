@@ -17,17 +17,14 @@ const setValueChart = client.slice(
   client.indexOf("function SetValueTrendCard(")
 );
 
-test("Set Value Trend sizes to phone, tablet and desktop", () => {
-  // Phone 16rem = 256px (brief: 240-280). Tablet 20rem = 320px (brief: 300-340).
-  // Desktop keeps its existing 21rem.
-  assert.ok(setValueChart.includes("h-[16rem] w-full tab:h-[20rem] desk:h-[21rem]"));
-  assert.ok(setValueChart.includes("min-h-[16rem] w-full tab:min-h-[20rem] desk:min-h-[21rem]"));
-  assert.ok(!/ChartFrame className="h-\[21rem\] w-full"/.test(setValueChart), "the flat desktop height is gone");
+test("Set Value Trend uses bounded mobile clamp height and keeps desktop height", () => {
+  assert.ok(setValueChart.includes("h-[clamp(220px,31dvh,280px)] w-full desk:h-[21rem]"));
+  assert.ok(setValueChart.includes("min-h-[clamp(220px,31dvh,280px)] w-full desk:min-h-[21rem]"));
 });
 
-test("Opening Profit vs Cost matches that sizing grammar", () => {
-  assert.ok(packValue.includes("min-h-[17rem] w-full flex-1 tab:min-h-[21rem] desk:min-h-[24rem]"));
-  assert.ok(packValue.includes("min-h-[19rem] flex-col tab:min-h-[23rem] desk:min-h-[26rem]"));
+test("Opening Profit vs Cost uses bounded mobile clamp height and keeps desktop height", () => {
+  assert.ok(packValue.includes("h-[clamp(230px,32dvh,290px)] w-full flex-1 desk:mt-3 desk:min-h-[24rem] desk:h-auto"));
+  assert.ok(packValue.includes("min-h-[17.5rem] flex-col desk:min-h-[26rem]"));
 });
 
 // ---------------------------------------------------------------------------
@@ -123,8 +120,9 @@ test("the three series values survive when the inline end labels do not", () => 
   }
 });
 
-test("timeframe controls scroll rather than shrink to unreadable text", () => {
-  assert.ok(client.includes("max-desk:overflow-x-auto max-desk:flex-nowrap"));
+test("timeframe controls use equal-width columns with comfortable touch targets", () => {
+  assert.ok(client.includes("grid-flow-col auto-cols-fr"));
+  assert.ok(client.includes("max-desk:min-h-11"));
   assert.ok(!setValueChart.includes("text-[9px]"), "controls must not be shrunk into illegibility");
 });
 
