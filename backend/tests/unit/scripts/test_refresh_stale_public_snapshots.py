@@ -6,6 +6,71 @@ from backend.scripts import refresh_stale_public_snapshots as refresh
 from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 
 
+def test_rankings_rebuild_uses_canonical_publisher(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda client, **kwargs: calls.append((client, kwargs)),
+    )
+    summary = refresh.RefreshSummary()
+    client = object()
+    refresh._maybe_rebuild_rankings(
+        client, refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    assert calls == [(client, {"commit": True})]
+    assert summary.global_rebuilt == ["explore_rankings"]
+
+
+def test_rankings_publication_failure_is_recorded_without_fallback(monkeypatch):
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("incomplete cohort")),
+    )
+    summary = refresh.RefreshSummary()
+    refresh._maybe_rebuild_rankings(
+        object(), refresh.FreshnessResult("explore_rankings", True, "invalid"),
+        commit=True, summary=summary,
+    )
+    assert summary.global_rebuilt == []
+    assert summary.global_failed == ["explore_rankings: incomplete cohort"]
+
+
+def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: {
+            "updated_at": "2026-08-01T08:00:00Z",
+            "ranking_payload_json": {"meta": {"snapshot": {"builtAt": "2026-08-01T08:00:00Z"}}},
+        },
+    )
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+    assert result.stale is True
+    assert result.reason == "canonical publication metadata missing"
+
+
+def test_canonical_rankings_shape_is_fresh(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
+    payload = {
+        "targets": [{"overallRipRankComparisonStatus1d": "unavailable"}],
+        "meta": {
+            "snapshot": {
+                "publicationId": "publication-1", "marketDate": "2026-08-01",
+                "builtAt": "2026-08-01T08:00:00Z",
+            },
+            "publicAnalyticsCohort": {"overallRanked": {"rankedSetCount": 1}},
+        },
+    }
+    def read(_client, table, *_args, **_kwargs):
+        if table == "pokemon_explore_rankings_snapshot_latest":
+            return {"updated_at": "2026-08-01T08:00:00Z", "ranking_payload_json": payload}
+        return {"id": "publication-1", "publication_status": "complete"}
+    monkeypatch.setattr(refresh, "_read_snapshot_row", read)
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+    assert result.stale is False
+
+
 def _iso(dt):
     return dt.astimezone(timezone.utc).isoformat()
 
