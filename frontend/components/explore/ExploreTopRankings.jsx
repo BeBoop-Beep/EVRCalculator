@@ -25,6 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
+import { buildPreviousSetValueRanks, formatRankMovement, getSetValueMovement, getStableSetId } from "./rankingMovement.mjs";
 
 const LEAD_RANK_LIMIT = 3;
 const UNAVAILABLE_LABEL = "Unavailable";
@@ -36,6 +37,7 @@ const setValueFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
+const signedSetValueFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", signDisplay: "always", maximumFractionDigits: 0 });
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") {
@@ -122,6 +124,7 @@ function buildLadder(targets) {
 
 export default function ExploreTopRankings({ targets = [], loadError = false }) {
   const ladder = useMemo(() => buildLadder(targets), [targets]);
+  const previousRanks = useMemo(() => buildPreviousSetValueRanks(targets), [targets]);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
 
   // Rows are priced per set, so the snapshot dates can differ. The newest date
@@ -167,6 +170,16 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
               const isLead = position <= LEAD_RANK_LIMIT;
               const isStale = Boolean(asOf && latestAsOf && asOf < latestAsOf);
               const staleLabel = isStale ? formatHistoryDate(asOf, { month: "short", day: "numeric" }) : null;
+              const stableId = getStableSetId(target);
+              const comparisonStatus = target?.setValueComparisonStatus7d ?? target?.set_value_comparison_status_7d;
+              const rankMovement = formatRankMovement(previousRanks.get(stableId), position, comparisonStatus);
+              const valueMovement = getSetValueMovement(target);
+              const valueMovementText = valueMovement
+                ? `${signedSetValueFormatter.format(valueMovement.amount)} · ${valueMovement.percent >= 0 ? "+" : ""}${valueMovement.percent.toFixed(1)}% 7D`
+                : comparisonStatus === "new" ? "NEW · 7D" : "N/A · 7D";
+              const valueMovementLabel = valueMovement
+                ? `Set value ${valueMovement.amount >= 0 ? "increased" : "decreased"} by ${Math.abs(valueMovement.amount).toFixed(0)} dollars, or ${Math.abs(valueMovement.percent).toFixed(1)} percent, over 7 days`
+                : comparisonStatus === "new" ? "No comparable set value 7 days ago" : "Seven-day set value history unavailable";
               // Partial checklist pricing is common enough that showing the
               // ratio on every affected row reads as clutter rather than as a
               // caveat, so it lives in the row's detail text. A stale snapshot
@@ -191,6 +204,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                     title={detail}
                     style={{ "--ex-rank-strength": isLead ? 0.7 : 0.22 }}
                   >
+                    <span className="flex flex-col items-end leading-tight">
                     <span
                       className={`text-right text-[12px] font-semibold tabular-nums desk:text-[13px] ${
                         isLead ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
@@ -198,9 +212,12 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                     >
                       {position}
                     </span>
+                    <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={rankMovement.label}>{rankMovement.text}</span>
+                    </span>
                     <LadderLogo target={target} name={name} />
                     <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)] desk:text-sm">{name}</span>
-                    <span className="flex items-baseline gap-1.5">
+                    <span className="flex min-w-0 flex-col items-end leading-tight">
+                      <span className="flex items-baseline gap-1.5">
                       <span className="text-[13px] font-semibold tabular-nums text-[var(--text-primary)] desk:text-sm">
                         {value === null ? UNAVAILABLE_LABEL : setValueFormatter.format(value)}
                       </span>
@@ -210,6 +227,10 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                           {staleLabel}
                         </span>
                       ) : null}
+                      </span>
+                      <span className="max-w-full truncate text-[9px] tabular-nums text-[var(--text-secondary)] desk:text-[10px]" aria-label={valueMovementLabel}>
+                        {valueMovementText}
+                      </span>
                     </span>
                   </Link>
                 </li>

@@ -196,6 +196,14 @@ def _build_handlers():
                 "total_card_count": 102,
                 "source": "snapshot",
             },
+            {
+                "set_id": "set-1",
+                "snapshot_date": "2025-12-28",
+                "set_value": 90.0,
+                "priced_card_count": 89,
+                "total_card_count": 102,
+                "source": "snapshot",
+            },
         ],
         "pokemon_set_opening_desirability_latest": lambda _q: [
             {
@@ -283,6 +291,11 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-2"]["checklistSetValue"] == 222.22
     assert targets_by_id["set-2"]["current_checklist_set_value_date"] == "2026-01-04"
     assert targets_by_id["set-2"]["checklist_set_value_priced_card_count"] == 58
+    assert targets_by_id["set-1"]["previousChecklistSetValue7d"] == 90.0
+    assert targets_by_id["set-1"]["previousChecklistSetValueDate7d"] == "2025-12-28"
+    assert targets_by_id["set-1"]["setValueComparisonStatus7d"] == "available"
+    assert targets_by_id["set-2"]["setValueComparisonStatus7d"] == "new"
+    assert targets_by_id["set-1"]["ripRankComparisonStatus7d"] == "unavailable"
     assert payload["meta"]["ripDesirabilityComparison"]["valid_comparison_count"] == 2
     assert payload["meta"]["sources"]["explore_rip_statistics_latest"] == "OK"
     assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"

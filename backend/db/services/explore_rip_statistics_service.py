@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import time
+from datetime import date, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from backend.db.clients.supabase_client import public_read_client
@@ -275,6 +276,7 @@ def _load_current_checklist_set_value_lookup(
 
     started = time.perf_counter()
     latest_by_set_id: Dict[str, Dict[str, Any]] = {}
+    rows_by_set_id: Dict[str, List[Dict[str, Any]]] = {}
     try:
         for chunk in _chunks(unique_set_ids, _SET_VALUE_HISTORY_CHUNK_SIZE):
             result = (
@@ -288,12 +290,40 @@ def _load_current_checklist_set_value_lookup(
             )
             for row in result.data or []:
                 set_id = _to_optional_str(row.get("set_id"))
-                if not set_id or set_id in latest_by_set_id:
+                if not set_id:
                     continue
                 value = _to_optional_float(row.get("set_value"))
                 if value is None or value <= 0:
                     continue
-                latest_by_set_id[set_id] = row
+                rows_by_set_id.setdefault(set_id, []).append(row)
+                if set_id not in latest_by_set_id:
+                    latest_by_set_id[set_id] = dict(row)
+
+        for set_id, latest in latest_by_set_id.items():
+            try:
+                latest_date = date.fromisoformat(str(latest.get("snapshot_date"))[:10])
+            except (TypeError, ValueError):
+                latest["comparison_status_7d"] = "unavailable"
+                continue
+            target_date = latest_date - timedelta(days=7)
+            candidates = []
+            for row in rows_by_set_id.get(set_id, []):
+                try:
+                    row_date = date.fromisoformat(str(row.get("snapshot_date"))[:10])
+                except (TypeError, ValueError):
+                    continue
+                # Never use a point newer than the seven-day boundary. Among
+                # eligible observations, the closest one is the complete
+                # daily set-value snapshot used for comparison.
+                if row_date <= target_date:
+                    candidates.append((row_date, row))
+            if not candidates:
+                latest["comparison_status_7d"] = "new"
+                continue
+            previous_date, previous = max(candidates, key=lambda item: item[0])
+            latest["previous_set_value_7d"] = _to_optional_float(previous.get("set_value"))
+            latest["previous_set_value_date_7d"] = previous_date.isoformat()
+            latest["comparison_status_7d"] = "available"
 
         sources["pokemon_set_value_daily_history"] = "OK"
         logger.info(
@@ -1196,6 +1226,17 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "checklistSetValuePricedCardCount": checklist_set_value_row.get("priced_card_count"),
                 "checklist_set_value_total_card_count": checklist_set_value_row.get("total_card_count"),
                 "checklistSetValueTotalCardCount": checklist_set_value_row.get("total_card_count"),
+                "previous_checklist_set_value_7d": checklist_set_value_row.get("previous_set_value_7d"),
+                "previousChecklistSetValue7d": checklist_set_value_row.get("previous_set_value_7d"),
+                "previous_checklist_set_value_date_7d": checklist_set_value_row.get("previous_set_value_date_7d"),
+                "previousChecklistSetValueDate7d": checklist_set_value_row.get("previous_set_value_date_7d"),
+                "set_value_comparison_status_7d": checklist_set_value_row.get("comparison_status_7d") or "unavailable",
+                "setValueComparisonStatus7d": checklist_set_value_row.get("comparison_status_7d") or "unavailable",
+                # The current rankings view is latest-only. Until a durable,
+                # completion-qualified cohort snapshot exists, publishing a
+                # numeric RIP rank movement would be misleading.
+                "rip_rank_comparison_status_7d": "unavailable",
+                "ripRankComparisonStatus7d": "unavailable",
                 **top_10_card_value_row,
                 "roi_percent": row.get("roi_percent"),
                 "prob_profit": row.get("prob_profit"),

@@ -44,6 +44,7 @@ import {
 import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
+import { formatRankMovement } from "./rankingMovement.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -336,14 +337,14 @@ function sortTargetsByMode(targets, modeId) {
  * the rows in canonical order, so the fallback index and the canonical rank
  * agree whenever the backend supplies a rank.
  */
-function RankMarker({ rank, tier, isLead }) {
+function RankMarker({ rank, tier, isLead, movement }) {
   const tone = isLead && tier ? getTierTone(tier) : null;
   return (
-    <span
-      className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`}
-      style={tone ? { color: tone.textColor } : undefined}
-    >
-      {rank}
+    <span className="inline-flex flex-col items-end leading-tight">
+      <span className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`} style={tone ? { color: tone.textColor } : undefined}>
+        {rank}
+      </span>
+      <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={movement.label}>{movement.text}</span>
     </span>
   );
 }
@@ -490,6 +491,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           </div>
           <InfoPopover text={modeInfoText} />
         </div>
+        <p className="basis-full text-[11px] text-[var(--text-secondary)]">
+          Ranked using current market pack prices. Movement compares complete 7-day snapshots.
+        </p>
 
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden text-[11px] text-[var(--text-secondary)] lg:inline">
@@ -525,6 +529,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 {isOverallMode ? <col style={{ width: "12%" }} /> : null}
                 <col style={{ width: "11%" }} />
                 <col style={{ width: "13%" }} />
+                <col style={{ width: "12%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -552,6 +557,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     Average Loss
                   </th>
                   <th scope="col" className={styles.numeric}>
+                    Market Pack Price
+                  </th>
+                  <th scope="col" className={styles.numeric}>
                     Chance to Beat Cost
                   </th>
                 </tr>
@@ -565,6 +573,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
+                  const rankMovement = formatRankMovement(null, modeRank, target?.ripRankComparisonStatus7d ?? target?.rip_rank_comparison_status_7d);
 
                   return (
                     <tr
@@ -573,7 +582,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}
                     >
                       <td className={styles.numeric}>
-                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
@@ -607,6 +616,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         {formatLossCurrency(averageLoss)}
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
+                        {formatCurrency(target?.pack_cost)}
+                      </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
                         {formatPercent(target?.prob_profit, true)}
                       </td>
                     </tr>
@@ -627,6 +639,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
               const averageLoss = estimateAverageLoss(target);
+              const rankMovement = formatRankMovement(null, modeRank, target?.ripRankComparisonStatus7d ?? target?.rip_rank_comparison_status_7d);
 
               return (
                 <Link
@@ -636,7 +649,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="w-5 flex-none text-right">
-                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <SetIdentity
@@ -659,6 +672,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <div className="mt-0.5 text-[13px] font-semibold" style={getDangerValueStyle()}>
                         {formatLossCurrency(averageLoss)}
                       </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Market price</div>
+                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.pack_cost)}</div>
                     </div>
                   </div>
                 </Link>
