@@ -33,7 +33,6 @@ from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_DASHBOARD_DAYS,
     DEFAULT_DASHBOARD_WINDOW,
     build_coordinated_set_market_snapshot_rows,
-    build_explore_rankings_snapshot_row,
     build_set_page_snapshot_row,
     get_client,
     list_pokemon_sets,
@@ -42,6 +41,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     upsert_row,
     upsert_rows,
 )
+from backend.scripts.pokemon_explore_rankings_publisher import publish_explore_rip_rankings_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -948,6 +948,31 @@ def _global_snapshot_staleness(client: Any, *, family: str) -> FreshnessResult:
     marker_missing = not isinstance((payload.get("meta") or {}).get("snapshot"), dict)
     if marker_missing:
         return FreshnessResult(family, True, "required completeness marker missing", snapshot_updated_at, dependency_updated_at, checks)
+    if family == "explore_rankings":
+        meta = payload.get("meta") or {}
+        snapshot_meta = meta.get("snapshot") or {}
+        cohort = meta.get("publicAnalyticsCohort") or {}
+        ranked_count = int((cohort.get("overallRanked") or {}).get("rankedSetCount") or 0)
+        targets = list(payload.get("targets") or [])
+        if any(not snapshot_meta.get(key) for key in ("publicationId", "marketDate", "builtAt")):
+            return FreshnessResult(family, True, "canonical publication metadata missing", snapshot_updated_at, dependency_updated_at, checks)
+        if ranked_count <= 0 or len(targets) != ranked_count:
+            return FreshnessResult(family, True, "complete public cohort marker/count invalid", snapshot_updated_at, dependency_updated_at, checks)
+        if any(
+            (target.get("overallRipRankComparisonStatus1d")
+             or target.get("overall_rip_rank_comparison_status_1d"))
+            not in {"available", "new", "unavailable"}
+            for target in targets
+        ):
+            return FreshnessResult(family, True, "1D RIP comparison status missing", snapshot_updated_at, dependency_updated_at, checks)
+        publication = _read_snapshot_row(
+            client,
+            "pokemon_public_rip_leaderboard_snapshots",
+            "id,publication_status",
+            (("id", snapshot_meta["publicationId"]),),
+        )
+        if not publication or publication.get("publication_status") != "complete":
+            return FreshnessResult(family, True, "canonical publication row missing or incomplete", snapshot_updated_at, dependency_updated_at, checks)
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult(family, True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     return FreshnessResult(family, False, "fresh", snapshot_updated_at, dependency_updated_at, checks)
@@ -1058,24 +1083,7 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
         summary.global_skipped.append(f"explore_rankings: dry-run {rankings.reason}")
         return
     try:
-        previous_result = (
-            client.table("pokemon_explore_rankings_snapshot_latest")
-            .select("ranking_payload_json")
-            .eq("tcg", "pokemon")
-            .eq("scope", "rip-statistics")
-            .limit(1)
-            .execute()
-        )
-        previous_rows = list(previous_result.data or [])
-        previous_payload = previous_rows[0].get("ranking_payload_json") if previous_rows else None
-        row = build_explore_rankings_snapshot_row(previous_payload=previous_payload)
-        upsert_row(
-            client,
-            "pokemon_explore_rankings_snapshot_latest",
-            row,
-            on_conflict="tcg,scope",
-            commit=True,
-        )
+        publish_explore_rip_rankings_snapshot(client, commit=True)
         summary.global_rebuilt.append("explore_rankings")
     except Exception as exc:
         logger.exception("failed explore rankings snapshot refresh")
