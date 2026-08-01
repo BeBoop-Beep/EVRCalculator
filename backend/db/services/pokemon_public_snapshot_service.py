@@ -1251,7 +1251,18 @@ def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) 
         target_payload = dict(target or {})
         set_id = _to_optional_str(target_payload.get("set_id") or target_payload.get("id") or target_payload.get("target_id"))
         latest_value = value_lookup.get(set_id or "")
-        if latest_value:
+        # A published Explore snapshot already carries the canonical
+        # pokemon_set_value_daily_history value and its exact 7D comparison.
+        # Do not overwrite it with the independently refreshed market-dashboard
+        # snapshot: that table can lag and previously made a newer Explore
+        # publication render an older value. Keep this only as a compatibility
+        # fill for legacy snapshots that have no canonical value at all.
+        existing_value = _to_optional_float(
+            target_payload.get("checklistSetValue")
+            if target_payload.get("checklistSetValue") is not None
+            else target_payload.get("checklist_set_value")
+        )
+        if latest_value and existing_value is None:
             target_payload.update(
                 {
                     "checklistSetValue": latest_value.get("value"),
@@ -1277,7 +1288,7 @@ def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) 
 
     meta = dict(payload.get("meta") or {})
     sources = dict(meta.get("sources") or {})
-    sources["checklist_set_value_enrichment"] = "pokemon_set_market_dashboard_snapshot_latest"
+    sources["checklist_set_value_enrichment"] = "legacy_missing_value_fill_only"
     meta["sources"] = sources
     return {**payload, "targets": enriched_targets, "meta": meta}
 

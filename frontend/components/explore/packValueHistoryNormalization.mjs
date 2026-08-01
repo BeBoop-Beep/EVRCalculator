@@ -196,6 +196,16 @@ export function forwardFillDailyHistoryThroughDate(
     dateField = "date",
     valueKeys = ["value"],
     endDateKey = null,
+    // Separates the two boundaries the fill actually has:
+    //   * endDateKey always CLAMPS — no point may survive past it.
+    //   * this flag caps how far the line is CARRIED.
+    // A market price series legitimately carries to the market date (the price
+    // is still the last observed price today). A simulation series does not:
+    // carrying Opening Profit vs Cost from the last real run up to the market
+    // date draws days on which no simulation was executed, which is exactly how
+    // a frozen OPvC series looked current while the market advanced. Interior
+    // gaps between real runs are still filled either way.
+    stopFillAtLatestObservation = false,
   } = {}
 ) {
   const dailyPointMap = new Map();
@@ -251,10 +261,17 @@ export function forwardFillDailyHistoryThroughDate(
     return rows;
   }
 
+  // The clamp already dropped anything past endDate; this only decides how far
+  // the last real observation is allowed to be carried.
+  const fillEndDate =
+    stopFillAtLatestObservation && latestRealObservationDate && latestRealObservationDate < endDate
+      ? latestRealObservationDate
+      : endDate;
+
   let carryPoint = null;
   let carryDate = null;
   let cursor = firstDate;
-  while (cursor && cursor <= endDate) {
+  while (cursor && cursor <= fillEndDate) {
     const existing = dailyPointMap.get(cursor);
     if (existing && !existing.isCarriedForward && hasForwardFillValue(existing, valueKeys)) {
       carryPoint = existing;

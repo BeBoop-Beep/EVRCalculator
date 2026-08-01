@@ -176,10 +176,12 @@ import {
 } from "./setPageMarketDiagnostics.mjs";
 import {
   getTopCardPreferredHistoryEndDate,
+  getTopCardTrendStatusMessage,
   resolveTopCardWindowState,
   warnForTopCardWindowState,
 } from "./topChaseWindowState.mjs";
 import { getLatestRealPerformanceDate, selectOverviewPerformanceHistoryState } from "./performanceHistorySelector.mjs";
+import { buildOpeningSimulationFreshness } from "./openingSimulationFreshness.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 import {
   adaptSetShell,
@@ -3073,16 +3075,11 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
       : displayDeltaAmount > 0
       ? "positive"
       : "neutral";
-  const trendStatusMessage =
-    windowState.source === "stored-canonical"
-      ? null
-      : windowState.source === "insufficient_history"
-      ? "Trend unavailable for this window."
-      : windowState.source === "history_fallback_missing_stored_window"
-      ? "Trend source: reconstructed from history (window snapshot unavailable)."
-      : windowState.source === "history_fallback_malformed_stored_window"
-      ? "Trend source: reconstructed from history (stored window snapshot was invalid)."
-      : "Trend source: history fallback.";
+  // How the movement was sourced is a diagnostic, not product copy — it stays
+  // in windowState.warnings, warnForTopCardWindowState's dev console output and
+  // the data-trend-source attribute below. The user is told only whether a
+  // trend exists. See getTopCardTrendStatusMessage.
+  const trendStatusMessage = getTopCardTrendStatusMessage(windowState);
 
   // Correction 3: the information region is the link; the sparkline is its
   // sibling. Nesting a focusable, arrow-key-driven chart inside an <a> is
@@ -3128,8 +3125,12 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
   );
 
   return (
+    // data-trend-source is machine-readable only: it keeps the stored-canonical
+    // vs history-fallback distinction available to tests, telemetry and the
+    // publication audit without rendering it as copy.
     <div
       data-top-chase-row
+      data-trend-source={windowState.source}
       className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 max-desk:px-0 desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] desk:items-center desk:gap-3 desk:px-3 desk:py-3"
     >
       <NavigationRegion
@@ -11809,6 +11810,10 @@ export default function RipStatisticsPageClient({
   );
   const historyTrend = overviewPerformanceHistoryState.history;
   const latestRealPerformanceDate = overviewPerformanceHistoryState.latestRealDate;
+  // Truthful freshness for Opening Profit vs Cost. The date reported is the last
+  // point backed by a real simulation run — carried-forward chart continuity
+  // rows are excluded by getLatestRealPerformanceDate — so a simulation batch
+  // that stopped can never read as current just because the market advanced.
   const activeDirectSetValueState =
     isStateForResolvedSet(setValueHistoryState.setId, resolvedSetResourceId)
       ? setValueHistoryState
@@ -11956,6 +11961,17 @@ export default function RipStatisticsPageClient({
     [overviewPayloadForMarketDate, topChasePayloadForMarketDate, marketMoversLive, cardsPageMetaForMarketDate]
   );
   const marketAsOfDate = marketDateResolution.marketAsOfDate;
+  // Opening Profit vs Cost advances on the simulation batch, every other market
+  // surface on the daily scrape. When those two clocks diverge the section says
+  // so in plain dates instead of letting the chart imply they stayed in step.
+  const openingSimulationFreshness = useMemo(
+    () =>
+      buildOpeningSimulationFreshness({
+        latestRealSimulationDate: latestRealPerformanceDate,
+        marketAsOfDate,
+      }),
+    [latestRealPerformanceDate, marketAsOfDate]
+  );
   useEffect(() => {
     if (!setDetailMode) {
       return;
@@ -15166,6 +15182,20 @@ export default function RipStatisticsPageClient({
                             >
                               <PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} marketAsOfDate={marketAsOfDate} flush />
                             </SectionBoundary>
+                            {openingSimulationFreshness.label ? (
+                              <p
+                                data-opening-simulation-freshness
+                                data-stale={openingSimulationFreshness.isStale ? "true" : "false"}
+                                className={`mt-2 text-[11px] leading-snug ${
+                                  openingSimulationFreshness.isStale
+                                    ? "text-[var(--text-secondary)]"
+                                    : "text-[var(--text-secondary)] opacity-80"
+                                }`}
+                              >
+                                <span className="sr-only">{openingSimulationFreshness.accessibleLabel}</span>
+                                <span aria-hidden="true">{openingSimulationFreshness.label}</span>
+                              </p>
+                            ) : null}
                             {/* Below 1200px these become compact label/value
                                 rows separated by thin dividers instead of a
                                 bordered multi-column grid: same metrics, same

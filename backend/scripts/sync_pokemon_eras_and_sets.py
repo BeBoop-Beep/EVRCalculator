@@ -20,6 +20,12 @@ def load_backend_env() -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Sync Pokemon era/set metadata from constants into the database")
     parser.add_argument(
+        "--set",
+        dest="set_key",
+        default=None,
+        help="Process only one canonical set key and its owning era.",
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help="Write inserts and updates to the database. Omit to run in dry-run mode.",
@@ -41,6 +47,7 @@ def main() -> int:
     report = sync_pokemon_era_and_set_metadata(
         apply_changes=bool(args.apply),
         report_path=Path(args.report_path),
+        target_set_key=args.set_key,
     )
     print(json.dumps(report["summary"], indent=2))
     return 0

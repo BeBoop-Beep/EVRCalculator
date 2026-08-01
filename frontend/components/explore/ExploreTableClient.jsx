@@ -44,6 +44,7 @@ import {
 import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
+import { formatRankMovement } from "./rankingMovement.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -67,6 +68,24 @@ const RANKING_MODE_PICKER_ENABLED = false;
 // rank numeral and the tier letter say the same thing in text, so the tint is
 // reinforcement and never the only signal.
 const LEAD_RANK_LIMIT = 3;
+
+function getRipMovementForMode(target, modeId, currentRank) {
+  if (modeId === "overall") {
+    return formatRankMovement(
+      target?.previousOverallRipRank1d ?? target?.previous_overall_rip_rank_1d,
+      currentRank,
+      target?.overallRipRankComparisonStatus1d ?? target?.overall_rip_rank_comparison_status_1d
+    );
+  }
+  if (modeId === "financial") {
+    return formatRankMovement(
+      target?.previousFinancialRipRank1d ?? target?.previous_financial_rip_rank_1d,
+      currentRank,
+      target?.financialRipRankComparisonStatus1d ?? target?.financial_rip_rank_comparison_status_1d
+    );
+  }
+  return formatRankMovement(null, currentRank, "unavailable");
+}
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -336,14 +355,14 @@ function sortTargetsByMode(targets, modeId) {
  * the rows in canonical order, so the fallback index and the canonical rank
  * agree whenever the backend supplies a rank.
  */
-function RankMarker({ rank, tier, isLead }) {
+function RankMarker({ rank, tier, isLead, movement }) {
   const tone = isLead && tier ? getTierTone(tier) : null;
   return (
-    <span
-      className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`}
-      style={tone ? { color: tone.textColor } : undefined}
-    >
-      {rank}
+    <span className="inline-flex flex-col items-end leading-tight">
+      <span className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`} style={tone ? { color: tone.textColor } : undefined}>
+        {rank}
+      </span>
+      <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={movement.label}>{movement.text}</span>
     </span>
   );
 }
@@ -525,6 +544,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 {isOverallMode ? <col style={{ width: "12%" }} /> : null}
                 <col style={{ width: "11%" }} />
                 <col style={{ width: "13%" }} />
+                <col style={{ width: "12%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -552,6 +572,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     Average Loss
                   </th>
                   <th scope="col" className={styles.numeric}>
+                    Market Pack Price
+                  </th>
+                  <th scope="col" className={styles.numeric}>
                     Chance to Beat Cost
                   </th>
                 </tr>
@@ -565,6 +588,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
+                  const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
                   return (
                     <tr
@@ -573,7 +597,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}
                     >
                       <td className={styles.numeric}>
-                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
@@ -607,6 +631,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         {formatLossCurrency(averageLoss)}
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
+                        {formatCurrency(target?.pack_cost)}
+                      </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
                         {formatPercent(target?.prob_profit, true)}
                       </td>
                     </tr>
@@ -627,6 +654,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
               const averageLoss = estimateAverageLoss(target);
+              const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
               return (
                 <Link
@@ -636,7 +664,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="w-5 flex-none text-right">
-                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} />
+                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <SetIdentity
@@ -659,6 +687,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <div className="mt-0.5 text-[13px] font-semibold" style={getDangerValueStyle()}>
                         {formatLossCurrency(averageLoss)}
                       </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Market price</div>
+                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.pack_cost)}</div>
                     </div>
                   </div>
                 </Link>

@@ -159,6 +159,34 @@ export function resolveTopCardWindowState({ card, historyPoints, selectedWindowK
   };
 }
 
+/**
+ * True when the resolved window state carries a movement the row can actually
+ * render. How that movement was sourced (stored canonical vs reconstructed
+ * from history) is deliberately not part of this answer.
+ */
+export function hasRenderableTopCardTrend(windowState) {
+  const movement = windowState?.displayMovement;
+  if (!movement) return false;
+  return toFiniteNumber(movement.amount) !== null || toFiniteNumber(movement.percent) !== null;
+}
+
+/**
+ * The only Top Chase trend copy a user may ever see.
+ *
+ * `windowState.source` distinguishes a stored canonical window from a window
+ * reconstructed out of price history, and that distinction matters to us — it
+ * drives the dev warnings, the structured `warnings` array and the publication
+ * audit. It does not matter to a customer: a 30D move computed from history is
+ * the same number as the stored one, and the four longest windows the selector
+ * offers (3M/6M/1Y/lifetime) are *never* persisted as canonical windows, so
+ * announcing "history fallback" for them described normal operation as a fault
+ * on every card and every row. Copy therefore reports only whether a trend
+ * exists, never how it was obtained.
+ */
+export function getTopCardTrendStatusMessage(windowState) {
+  return hasRenderableTopCardTrend(windowState) ? null : "Trend unavailable for this window.";
+}
+
 export function getTopCardPreferredHistoryEndDate(card, selectedWindowKey, historyPoints) {
   const rawStored = storedWindows(card)?.[selectedWindowKey];
   const storedEndDate = dateKey(rawStored?.endDate ?? rawStored?.end_date);

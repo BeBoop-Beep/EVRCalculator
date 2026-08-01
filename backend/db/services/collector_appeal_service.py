@@ -68,6 +68,7 @@ from backend.desirability.collector_appeal_fingerprint import current_fingerprin
 from backend.desirability.collector_appeal_inputs import (
     build_subject_index,
     load_pull_rate_model,
+    load_pull_rate_model_for_sets,
     select_subject_paths,
 )
 from backend.desirability.factorized_opening_appeal import (
@@ -259,6 +260,39 @@ def _build_bundle() -> Dict[str, Any]:
 
     set_ids = sorted(payloads)
     pull_model = load_pull_rate_model(public_read_client)
+
+    # load_pull_rate_model reads pokemon_set_page_snapshot_latest, which is the
+    # table the set-page snapshot build writes. A set whose row has not been
+    # written yet is therefore INVISIBLE to that read even when its simulation
+    # has already produced a complete pack model - which is why a newly
+    # onboarded set reported "no pull model exists" on its first build and only
+    # corrected itself on a later rebuild. Resolve exactly those sets from the
+    # live assembly. In steady state this list is empty and costs nothing; it
+    # never overrides a model the snapshot already carries.
+    #
+    # Bounded to sets where the missing pull model is the ONLY thing standing
+    # between the set and a CA7 score - i.e. desirability coverage is already
+    # full. The bundle spans every set in the catalog (~172), but the large
+    # majority are vintage sets with no simulation and no full coverage; they
+    # report the coverage reason and would never reach the pull-model branch, so
+    # probing the live source for them would be ~150 pointless assemblies per
+    # TTL - precisely the N+1 this service exists to avoid. In practice this
+    # selects only a newly onboarded set on its first build.
+    unmodeled = [
+        set_id
+        for set_id in set_ids
+        if set_id not in pull_model
+        and ((payloads[set_id].get("coverage") or {}).get("status") == COVERAGE_FULL)
+    ]
+    if unmodeled:
+        recovered = load_pull_rate_model_for_sets(unmodeled)
+        if recovered:
+            logger.info(
+                "[collector-appeal] resolved %s/%s unmodeled sets from the live pull-rate source",
+                len(recovered), len(unmodeled),
+            )
+            pull_model.update(recovered)
+
     subjects_by_set = build_subject_index(public_read_client, set_ids, pull_model)
 
     built: Dict[str, Any] = {}

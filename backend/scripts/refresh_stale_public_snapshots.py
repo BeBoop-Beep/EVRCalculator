@@ -1058,7 +1058,17 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
         summary.global_skipped.append(f"explore_rankings: dry-run {rankings.reason}")
         return
     try:
-        row = build_explore_rankings_snapshot_row()
+        previous_result = (
+            client.table("pokemon_explore_rankings_snapshot_latest")
+            .select("ranking_payload_json")
+            .eq("tcg", "pokemon")
+            .eq("scope", "rip-statistics")
+            .limit(1)
+            .execute()
+        )
+        previous_rows = list(previous_result.data or [])
+        previous_payload = previous_rows[0].get("ranking_payload_json") if previous_rows else None
+        row = build_explore_rankings_snapshot_row(previous_payload=previous_payload)
         upsert_row(
             client,
             "pokemon_explore_rankings_snapshot_latest",

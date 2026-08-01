@@ -1,9 +1,11 @@
 from backend.scripts.build_pokemon_card_desirability_links import (
     DEFAULT_HIT_POLICY_VERSION,
+    build_parser,
     build_link_rows,
     find_fallback_reference_match,
     is_hit_eligible_card,
 )
+from backend.desirability.rarity_buckets import HIT_POLICY_VERSION
 
 
 class FakeConfig:
@@ -24,6 +26,18 @@ REFERENCES = [
     {"id": 4, "pokedex_number": 4, "canonical_name": "charmander", "display_name": "Charmander"},
     {"id": 1017, "pokedex_number": 1017, "canonical_name": "ogerpon", "display_name": "Ogerpon"},
 ]
+
+
+def test_default_hit_policy_version_tracks_authoritative_domain_constant():
+    assert DEFAULT_HIT_POLICY_VERSION == HIT_POLICY_VERSION
+    assert build_parser().parse_args(["--set-key", "testSet"]).hit_policy_version == HIT_POLICY_VERSION
+
+
+def test_explicit_hit_policy_version_override_is_preserved():
+    args = build_parser().parse_args(
+        ["--set-key", "testSet", "--hit-policy-version", "custom-policy"]
+    )
+    assert args.hit_policy_version == "custom-policy"
 
 
 def test_primary_pokedex_number_linking():

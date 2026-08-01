@@ -15,9 +15,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
-from backend.scripts.build_pokemon_card_desirability_links import (  # noqa: E402
-    DEFAULT_HIT_POLICY_VERSION,
-)
+from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
 from backend.scripts.run_pokemon_set_scrape import (  # noqa: E402
     build_valid_set_key_registry,
     normalize_set_key_filter,
@@ -170,7 +168,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode_group.add_argument("--commit", action="store_true", help="Write summaries to Supabase")
 
     parser.add_argument("--aggregation-version", default=DEFAULT_AGGREGATION_VERSION)
-    parser.add_argument("--hit-policy-version", default=DEFAULT_HIT_POLICY_VERSION)
+    parser.add_argument("--hit-policy-version", default=HIT_POLICY_VERSION)
     parser.add_argument("--composite-scoring-version", default=COMPOSITE_SCORING_VERSION)
     parser.add_argument("--min-composite-coverage", type=float, default=0.95)
     parser.add_argument("--log-level", default="INFO")
