@@ -16,6 +16,11 @@ from backend.services.pokemon_set_config_generation_service import (
     apply_approved_pull_model, generate_one_set_config,
 )
 from backend.services.pokemon_tcg_api_set_service import fetch_targeted_sets, resolve_set_metadata
+from backend.services.pokemon_onboarding_publication_service import evaluate_onboarding_publication_readiness
+from backend.services.pokemon_onboarding_simulation_service import (
+    latest_simulation_evidence, parse_simulation_json,
+)
+from backend.services.pokemon_onboarding_verification_service import collect_final_verification
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -66,14 +71,14 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
     set_row = set_result.data[0]
     set_id = str(set_row["id"])
     cards = (
-        supabase.table("cards").select("id,rarity").eq("set_id", set_id).limit(1000).execute().data or []
+        supabase.table("cards").select("id,rarity,image_small_url,image_large_url").eq("set_id", set_id).limit(1000).execute().data or []
     )
     card_ids = [row["id"] for row in cards if row.get("id")]
     variants: list[Dict[str, Any]] = []
     for start in range(0, len(card_ids), 250):
         variants.extend(
             supabase.table("card_variants")
-            .select("id,image_url,image_url_small,image_url_large")
+            .select("id,card_id,image_small_url,image_large_url")
             .in_("card_id", card_ids[start:start + 250]).execute().data or []
         )
     variant_ids = [row["id"] for row in variants if row.get("id")]
@@ -100,8 +105,13 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
         .eq("set_id", set_id).eq("value_scope", "standard")
         .gt("set_value", 0).order("snapshot_date", desc=True).limit(1).execute().data or []
     )
+    card_by_id = {row.get("id"): row for row in cards}
+    cards_with_images = sum(1 for row in cards if row.get("image_small_url") or row.get("image_large_url"))
     images_present = sum(
-        1 for row in variants if row.get("image_url") or row.get("image_url_small") or row.get("image_url_large")
+        1 for row in variants
+        if row.get("image_small_url") or row.get("image_large_url")
+        or (card_by_id.get(row.get("card_id")) or {}).get("image_small_url")
+        or (card_by_id.get(row.get("card_id")) or {}).get("image_large_url")
     )
     return {
         "set_id": set_id, "set_row": set_row, "public_set_correct": True,
@@ -112,6 +122,10 @@ def collect_set_evidence(canonical_key: str) -> Dict[str, Any]:
         "resolved_market_date": latest[:10] if latest else None,
         "rarity_census": rarity_counts,
         "image_coverage": (images_present / len(variants)) if variants else 0.0,
+        "cards_with_images": cards_with_images, "variants_with_images": images_present,
+        "eligible_card_count": len(cards), "eligible_variant_count": len(variants),
+        "image_unmatched_count": max(len(variants) - images_present, 0),
+        "image_ambiguous_count": None,
         "positive_standard_set_value": bool(set_values),
         "set_value_row": set_values[0] if set_values else None,
     }
@@ -139,12 +153,14 @@ def validate_pull_rates_manifest(path: Path) -> Dict[str, Any]:
         number = float(value)
         if not rarity or not math.isfinite(number) or number <= 0:
             raise ValueError(f"invalid rarity denominator: {rarity!r}={value!r}")
-    for group in ("reverse_slot_probabilities", "rare_slot_probabilities"):
+    for group in ("reverse_slot_probabilities", "rare_slot_probability", "rare_slot_probabilities"):
         values = payload.get("slot_assumptions", {}).get(group)
         if values is not None:
-            total = sum(float(value) for value in values.values())
-            if any(float(value) < 0 for value in values.values()) or not math.isclose(total, 1.0, abs_tol=0.02):
-                raise ValueError(f"{group} must be nonnegative and sum approximately to 1")
+            groups = values.values() if values and all(isinstance(value, dict) for value in values.values()) else [values]
+            for probabilities in groups:
+                total = sum(float(value) for value in probabilities.values())
+                if any(float(value) < 0 for value in probabilities.values()) or not math.isclose(total, 1.0, abs_tol=0.02):
+                    raise ValueError(f"{group} must be nonnegative and sum approximately to 1")
     if payload.get("slot_assumptions", {}).get("negative_residual"):
         raise ValueError("pull-rate manifest contains a negative residual")
     checks = payload.get("validation") or {}
@@ -154,6 +170,10 @@ def validate_pull_rates_manifest(path: Path) -> Dict[str, Any]:
     )
     if not all(checks.get(name) is True for name in required_checks):
         raise ValueError(f"pull-rate manifest validation checks must all pass: {required_checks}")
+    if payload.get("collation_compatibility_approved") is not True:
+        raise ValueError("product/collation compatibility must be explicitly approved")
+    if not isinstance(payload.get("pack_state_overrides"), dict):
+        raise ValueError("pack_state_overrides must be an approved object")
     return payload
 
 
@@ -165,6 +185,7 @@ def validate_deployed_pull_model(config_path: Path, raw_rarities: list[str]) -> 
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id in {
                     "PULL_RATE_MAPPING", "PULL_MODEL_STATUS", "USE_MONTE_CARLO_V2",
+                    "REVERSE_SLOT_PROBABILITIES", "RARE_SLOT_PROBABILITY",
                 }:
                     values[target.id] = ast.literal_eval(node.value)
     mapping = values.get("PULL_RATE_MAPPING") or {}
@@ -179,6 +200,13 @@ def validate_deployed_pull_model(config_path: Path, raw_rarities: list[str]) -> 
     unclassified = sorted(set(raw_rarities) - normalized)
     if unclassified:
         raise ValueError(f"raw rarities are unclassified: {unclassified}")
+    if not isinstance(values.get("REVERSE_SLOT_PROBABILITIES"), dict):
+        raise ValueError("approved reverse slot probabilities are missing")
+    if not isinstance(values.get("RARE_SLOT_PROBABILITY"), dict):
+        raise ValueError("approved rare slot probability is missing")
+    if not any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "get_pack_state_overrides"
+               for node in ast.walk(tree)):
+        raise ValueError("approved pack-state override is missing")
     return {"pull_model_status": "approved", "use_monte_carlo_v2": True,
             "modeled_rarities": sorted(normalized)}
 
@@ -188,12 +216,28 @@ class OnboardingEngine:
         self, *, execute: bool, no_git: bool = False, pull_rates_file: Optional[Path] = None,
         command_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         git_settings: Optional[GitSettings] = None,
+        publication_evaluator: Callable[..., Dict[str, Any]] = evaluate_onboarding_publication_readiness,
+        verification_collector: Callable[..., Dict[str, Any]] = collect_final_verification,
+        simulation_evidence_collector: Callable[[Any, str], Dict[str, Any]] = latest_simulation_evidence,
+        set_evidence_collector: Callable[[str], Dict[str, Any]] = collect_set_evidence,
+        db_client: Any = None,
     ):
         self.execute = execute
         self.no_git = no_git
         self.pull_rates_file = pull_rates_file
         self.command_runner = command_runner
         self.git_settings = git_settings or GitSettings.from_env()
+        self.publication_evaluator = publication_evaluator
+        self.verification_collector = verification_collector
+        self.simulation_evidence_collector = simulation_evidence_collector
+        self.set_evidence_collector = set_evidence_collector
+        self.db_client = db_client
+
+    def _client(self) -> Any:
+        if self.db_client is not None:
+            return self.db_client
+        from backend.db.clients.supabase_client import supabase
+        return supabase
 
     def _command(self, step: str, args: list[str], evidence: Optional[Dict[str, Any]] = None) -> StepOutcome:
         command = [sys.executable, *args]
@@ -282,7 +326,7 @@ class OnboardingEngine:
         if step == "db_registration":
             outcome = self._command(step, ["backend/scripts/sync_pokemon_eras_and_sets.py", "--set", key, "--apply"])
             if self.execute and outcome.kind == "advance":
-                evidence = collect_set_evidence(key)
+                evidence = self.set_evidence_collector(key)
                 if not evidence["public_set_correct"] or not evidence["ready_for_daily_scrape"]:
                     return StepOutcome("retry", step, evidence, "db_registration_verification_failed")
                 return _next(step, evidence)
@@ -290,7 +334,7 @@ class OnboardingEngine:
         if step == "initial_scrape":
             outcome = self._command(step, ["backend/scripts/run_pokemon_set_scrape.py", "--run", "--set", key])
             if self.execute and outcome.kind == "advance":
-                evidence = collect_set_evidence(key)
+                evidence = self.set_evidence_collector(key)
                 required = ("cards_populated", "variants_populated", "market_prices_populated", "resolved_market_date")
                 if not all(evidence.get(field) for field in required):
                     return StepOutcome("retry", step, evidence, "initial_scrape_verification_failed")
@@ -307,7 +351,7 @@ class OnboardingEngine:
                 "--start-date", market_date, "--end-date", market_date, "--commit",
             ])
             if self.execute and outcome.kind == "advance":
-                evidence = collect_set_evidence(key)
+                evidence = self.set_evidence_collector(key)
                 if not evidence["positive_standard_set_value"]:
                     return StepOutcome("retry", step, evidence, "positive_standard_set_value_missing")
                 return _next(step, evidence)
@@ -315,13 +359,15 @@ class OnboardingEngine:
         if step == "images":
             outcome = self._command(step, ["backend/scripts/sync_pokemon_images.py", "--sets", name, "--apply"])
             if self.execute and outcome.kind == "advance":
-                evidence = collect_set_evidence(key)
-                if evidence["image_coverage"] <= 0:
+                evidence = self.set_evidence_collector(key)
+                threshold = float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90"))
+                evidence["image_coverage_threshold"] = threshold
+                if evidence["image_coverage"] < threshold:
                     return StepOutcome("retry", step, evidence, "image_fetch_incomplete")
                 return _next(step, evidence)
             return outcome
         if step == "rarity_census":
-            census = metadata.get("rarity_census") or collect_set_evidence(key).get("rarity_census")
+            census = metadata.get("rarity_census") or self.set_evidence_collector(key).get("rarity_census")
             if not census:
                 return StepOutcome("retry", step, {}, "rarity_census_unavailable")
             return _next(step, {"rarity_census": census})
@@ -341,7 +387,13 @@ class OnboardingEngine:
                 )
             adapter = GitAdapter(REPO_ROOT, self.git_settings, runner=self.command_runner)
             worktree, branch = adapter.prepare_worktree(key, phase="pull-model")
-            path = apply_approved_pull_model(worktree, str(job["era_folder"]), key, manifest)
+            census = metadata.get("steps", {}).get("rarity_census", {}).get("rarity_census", {})
+            try:
+                path = apply_approved_pull_model(
+                    worktree, str(job["era_folder"]), key, manifest, census,
+                )
+            except Exception as exc:
+                return StepOutcome("manual_review", step, {"error": str(exc)}, "rarity_census_mapping_ambiguous")
             validation = self.command_runner(
                 [sys.executable, "-m", "py_compile", str(path)],
                 cwd=str(worktree), capture_output=True, text=True, check=False,
@@ -381,19 +433,60 @@ class OnboardingEngine:
                 "--commit", "--log-level", "INFO",
             ])
         if step == "simulation_preflight":
-            return self._command(step, ["backend/scripts/run_all_v2_sets.py", "--set", key, "--dry-run"])
+            if not self.execute:
+                return StepOutcome("advance", step, {"dry_run": True})
+            command = [sys.executable, "backend/scripts/run_all_v2_sets.py", "--set", key, "--dry-run", "--json"]
+            result = self.command_runner(command, cwd=str(REPO_ROOT), capture_output=True, text=True, check=False)
+            try:
+                structured = parse_simulation_json(result.stdout)
+            except Exception as exc:
+                return StepOutcome("retry", step, {"error": str(exc), "stdout_tail": result.stdout[-2000:]}, "simulation_preflight_invalid")
+            matches = structured.get("matched_sets") or []
+            valid = (
+                result.returncode == 0 and structured.get("matched_set_count") == 1
+                and len(matches) == 1 and matches[0].get("canonical_key") == key
+                and matches[0].get("use_monte_carlo_v2") is True
+                and matches[0].get("pull_model_status") == "approved"
+            )
+            if not valid:
+                return StepOutcome("retry", step, structured, "simulation_preflight_invalid")
+            return _next(step, structured)
         if step == "simulation":
-            return self._command(step, ["backend/scripts/run_all_v2_sets.py", "--set", key])
+            set_id = str(
+                metadata.get("steps", {}).get("db_registration", {}).get("set_id")
+                or self.set_evidence_collector(key).get("set_id") or ""
+            )
+            before = self.simulation_evidence_collector(self._client(), set_id)
+            outcome = self._command(step, ["backend/scripts/run_all_v2_sets.py", "--set", key, "--json"])
+            if not self.execute or outcome.kind != "advance":
+                return outcome
+            after = self.simulation_evidence_collector(self._client(), set_id)
+            evidence = {"before": before, "after": after}
+            if (
+                not after.get("run_id") or after.get("run_id") == before.get("run_id")
+                or str(after.get("target_id")) != set_id or not after.get("details_complete")
+            ):
+                return StepOutcome("retry", step, evidence, "simulation_new_run_verification_failed")
+            return _next(step, evidence)
         if step == "desirability_post_sim":
             return self._command(step, [
                 "backend/scripts/build_pokemon_set_desirability_inputs.py", "--set", key,
                 "--commit", "--log-level", "INFO",
             ])
         if step == "publication_gate":
-            gate = metadata.get("publication_gate")
-            if not gate or not gate.get("complete") or not gate.get("dates_aligned"):
-                return StepOutcome("wait", step, {"publication_gate": gate}, "publication_gate_not_ready")
-            return _next(step, {"publication_gate": gate})
+            evidence = self.set_evidence_collector(key)
+            market_date = (
+                metadata.get("steps", {}).get("initial_scrape", {}).get("resolved_market_date")
+                or evidence.get("resolved_market_date")
+            )
+            if not market_date or not evidence.get("set_id"):
+                return StepOutcome("wait", step, evidence, "set_observation_missing")
+            gate = self.publication_evaluator(
+                self._client(), set_id=str(evidence["set_id"]), market_date=str(market_date),
+            )
+            if not gate.get("complete") or not gate.get("dates_aligned"):
+                return StepOutcome("wait", step, gate, str(gate.get("reason_code") or "publication_gate_not_ready"))
+            return _next(step, gate)
         if step == "market_snapshots":
             return self._command(step, [
                 "backend/scripts/build_pokemon_set_market_snapshots.py", "--set-id", key,
@@ -416,7 +509,11 @@ class OnboardingEngine:
             "explore_contains_set", "set_page_snapshot", "source_dates_align",
             "no_mixed_generation_warning", "no_satisfiable_missing_input_warning",
         )
-        verification = metadata.get("final_verification") or {}
+        config_path = REPO_ROOT / "backend/constants/tcg/pokemon" / str(job.get("era_folder")) / f"{key}.py"
+        verification = self.verification_collector(
+            self._client(), canonical_key=key, config_path=config_path,
+            min_image_coverage=float(os.getenv("POKEMON_ONBOARDING_MIN_IMAGE_COVERAGE", "0.90")),
+        )
         missing = [field for field in required if not verification.get(field)]
         if missing:
             return StepOutcome("wait", step, {"missing": missing}, "final_verification_incomplete")

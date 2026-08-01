@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -96,10 +97,9 @@ def discover_new_sets(
         return {**asdict(summary), "status": "retryable_provider_error", "error": "empty setName aggregation"}
 
     summary.provider_candidates = len(aggregations)
-    candidates = [
-        item for item in aggregations
-        if item.get("value") and normalize_name(str(item["value"])) not in local_names
-    ][:max_candidates]
+    # Names are diagnostic only. Stable provider identity is resolved before
+    # deduplication so a same-name/new-setId listing cannot be hidden.
+    candidates = [item for item in aggregations if item.get("value")][:max_candidates]
     evidence: list[Dict[str, Any]] = []
     for aggregation in candidates:
         if summary.detected + summary.manual_review >= max_new:
@@ -116,6 +116,28 @@ def discover_new_sets(
         }
         evidence.append(item_evidence)
         if set_id is None:
+            provisional = "unresolved:" + hashlib.sha256(
+                json.dumps(item_evidence, sort_keys=True, default=str).encode("utf-8")
+            ).hexdigest()
+            if provisional in job_ids:
+                summary.unchanged += 1
+                continue
+            row = {
+                "tcg": "pokemon", "source_system": SOURCE_SYSTEM,
+                "source_set_id": provisional, "source_set_name": provider_name,
+                "status": "manual_review", "current_step": "metadata_resolution",
+                "metadata_json": {"discovery_evidence": item_evidence, "provisional_identity": True},
+            }
+            if commit:
+                jobs.upsert_discovery(row)
+                queue_alert(
+                    "pokemon_set_onboarding_manual_review",
+                    f"Pokemon provider candidate {provider_name} needs stable-ID review",
+                    "TCGplayer validation did not resolve a stable setId; evidence was persisted.",
+                    severity="warning", dedupe_key=f"pokemon-set-onboarding:{provisional}",
+                    payload=row,
+                )
+            job_ids.add(provisional)
             summary.manual_review += 1
             continue
         source_id = str(set_id)

@@ -19,6 +19,7 @@ from backend.alerts.scrape_alerts import queue_alert
 from backend.db.repositories import pokemon_set_onboarding_repository as repository
 from backend.scripts.run_pokemon_set_scrape import _load_backend_env
 from backend.services.pokemon_set_onboarding_service import OnboardingEngine, STEP_ORDER
+from backend.services.pokemon_onboarding_heartbeat import LeaseHeartbeat
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -95,7 +96,31 @@ def main() -> int:
             continue
         original_step = str(job["current_step"])
         try:
-            outcome = engine.run_step(job)
+            with LeaseHeartbeat(
+                lambda: repository.heartbeat(
+                    str(job["id"]), args.worker_id, max(60, args.lease_seconds),
+                ),
+                lease_seconds=max(60, args.lease_seconds),
+            ) as supervisor:
+                outcome = engine.run_step(job)
+            if supervisor.lost_ownership:
+                results.append({
+                    "job_id": job["id"], "step": original_step,
+                    "error": "lease_ownership_lost", "heartbeat_count": supervisor.count,
+                })
+                exit_code = 2
+                continue
+            if supervisor.failure:
+                repository.release_for_retry(
+                    str(job["id"]), args.worker_id, code="heartbeat_failed",
+                    message=str(supervisor.failure),
+                )
+                results.append({
+                    "job_id": job["id"], "step": original_step,
+                    "error": "heartbeat_failed", "detail": str(supervisor.failure),
+                })
+                exit_code = 2
+                continue
             metadata = _merge_metadata(job, original_step, outcome.evidence)
             common = {
                 "metadata_json": metadata, "last_error_code": outcome.error_code,

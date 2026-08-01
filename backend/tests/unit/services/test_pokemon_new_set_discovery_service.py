@@ -97,3 +97,29 @@ def test_low_confidence_stable_id_becomes_manual_review(monkeypatch, tmp_path):
     result = service.discover_new_sets(commit=True, pokemon_root=root)
     assert result["manual_review"] == 1
     assert rows[0]["status"] == "manual_review"
+
+
+def test_same_name_new_provider_id_is_not_prefiltered(monkeypatch, tmp_path):
+    root = tmp_path / "pokemon"
+    root.mkdir()
+    (root / "known.py").write_text("SET_NAME = 'Same Name'\nCARD_DETAILS_URL = 'https://x/set/1/cards/'")
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: [{"value": "Same Name"}])
+    monkeypatch.setattr(service, "validate_candidate_set_id", lambda *a, **k: (2, 0.99, "stable"))
+    result = service.discover_new_sets(commit=False, pokemon_root=root)
+    assert result["detected"] == 1
+
+
+def test_unresolved_evidence_is_persisted_and_deduplicated(monkeypatch, tmp_path):
+    root = tmp_path / "pokemon"
+    root.mkdir()
+    stored = {}
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(stored)))
+    monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: [{"value": "Mystery"}])
+    monkeypatch.setattr(service, "validate_candidate_set_id", lambda *a, **k: (None, 0, "none"))
+    monkeypatch.setattr(service.jobs, "upsert_discovery", lambda row: stored.setdefault(row["source_set_id"], row))
+    monkeypatch.setattr(service, "queue_alert", lambda *a, **k: None)
+    assert service.discover_new_sets(commit=True, pokemon_root=root)["manual_review"] == 1
+    assert service.discover_new_sets(commit=True, pokemon_root=root)["unchanged"] == 1
+    assert len(stored) == 1
+    assert next(iter(stored)).startswith("unresolved:")

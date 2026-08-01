@@ -21,7 +21,7 @@ def _checkout(tmp_path: Path, alias: str = '"existing": "existing",') -> Path:
     (era / "baseConfig.py").write_text(
         "from types import MappingProxyType\n"
         "class BaseSetConfig:\n"
-        "    RARITY_MAPPING = MappingProxyType({'common': 'common', 'rare': 'rare', 'hit': 'hits'})\n",
+        "    RARITY_MAPPING = MappingProxyType({'common': 'common', 'uncommon': 'uncommon', 'rare': 'rare', 'hit': 'hits'})\n",
         encoding="utf-8",
     )
     (era / "setMap.py").write_text(
@@ -83,10 +83,59 @@ def test_approved_pull_model_changes_only_target_config(tmp_path):
     map_before = generated.set_map_path.read_text(encoding="utf-8")
     path = apply_approved_pull_model(
         root, "megaEvolutionEra", "futureSet",
-        {"rarity_denominators": {"common": 25, "rare": 12, "hit": 100}},
+        {
+            "rarity_denominators": {"hit": 100},
+            "slot_assumptions": {
+                "reverse_slot_probabilities": {"slot_1": {"regular reverse": 1.0}},
+                "rare_slot_probability": {"rare": 1.0},
+            },
+            "pack_state_overrides": {"product_type": "standard_booster"},
+        },
+        {"common": 25, "uncommon": 20, "rare": 12, "hit": 5},
     )
     text = path.read_text(encoding="utf-8")
     assert 'PULL_MODEL_STATUS = "approved"' in text
     assert "USE_MONTE_CARLO_V2 = True" in text
     assert "'hit': 100" in text
+    assert "'common': 25" in text
+    assert "REVERSE_SLOT_PROBABILITIES" in text
+    assert "get_pack_state_overrides" in text
     assert generated.set_map_path.read_text(encoding="utf-8") == map_before
+
+
+def test_hit_denominators_cannot_overwrite_base_pools(tmp_path):
+    root = _checkout(tmp_path)
+    generate_one_set_config(
+        root, METADATA, card_details_url="cards", sealed_details_url="sealed",
+    )
+    manifest = {
+        "rarity_denominators": {"common": 999, "hit": 100},
+        "slot_assumptions": {
+            "reverse_slot_probabilities": {"slot_1": {"regular reverse": 1.0}},
+            "rare_slot_probability": {"rare": 1.0},
+        },
+        "pack_state_overrides": {},
+    }
+    with pytest.raises(ConfigGenerationError, match="must not supply base"):
+        apply_approved_pull_model(
+            root, "megaEvolutionEra", "futureSet", manifest,
+            {"common": 25, "uncommon": 20, "rare": 12},
+        )
+
+
+def test_unknown_base_rarity_mapping_requires_review(tmp_path):
+    root = _checkout(tmp_path)
+    generate_one_set_config(root, METADATA, card_details_url="cards", sealed_details_url="sealed")
+    manifest = {
+        "rarity_denominators": {"hit": 100},
+        "slot_assumptions": {
+            "reverse_slot_probabilities": {"slot_1": {"regular reverse": 1.0}},
+            "rare_slot_probability": {"rare": 1.0},
+        },
+        "pack_state_overrides": {},
+    }
+    with pytest.raises(ConfigGenerationError, match="uncommon"):
+        apply_approved_pull_model(
+            root, "megaEvolutionEra", "futureSet", manifest,
+            {"common": 25, "mystery": 20, "rare": 12},
+        )

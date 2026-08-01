@@ -154,8 +154,9 @@ def generate_one_set_config(
 
 def apply_approved_pull_model(
     checkout_root: Path, era_folder: str, canonical_key: str, manifest: Dict[str, Any],
+    rarity_census: Dict[str, int],
 ) -> Path:
-    """Patch only the three pull-model assignments in one targeted config."""
+    """Persist the complete approved model, keeping base pools distinct from hit odds."""
     path = checkout_root / "backend/constants/tcg/pokemon" / era_folder / f"{canonical_key}.py"
     text = path.read_text(encoding="utf-8")
     tree = ast.parse(text)
@@ -168,8 +169,40 @@ def apply_approved_pull_model(
     required = ("PULL_RATE_MAPPING", "PULL_MODEL_STATUS", "USE_MONTE_CARLO_V2")
     if any(name not in assignments for name in required):
         raise ConfigGenerationError("target config lacks pending pull-model assignments")
+    base_aliases = {
+        "common": {"common"}, "uncommon": {"uncommon"}, "rare": {"rare", "regular rare"},
+    }
+    normalized_census = {
+        " ".join(str(key).strip().lower().replace("_", " ").split()): int(value)
+        for key, value in rarity_census.items()
+    }
+    base_counts: Dict[str, int] = {}
+    for target, aliases in base_aliases.items():
+        matches = [(key, count) for key, count in normalized_census.items() if key in aliases]
+        if len(matches) != 1 or matches[0][1] <= 0:
+            raise ConfigGenerationError(f"ambiguous or missing base rarity census for {target}: {matches}")
+        base_counts[target] = matches[0][1]
+    hit_denominators = {
+        " ".join(str(key).strip().lower().replace("_", " ").split()): float(value)
+        for key, value in manifest["rarity_denominators"].items()
+    }
+    forbidden = set(base_aliases) | {"regular rare"}
+    collision = sorted(forbidden & set(hit_denominators))
+    if collision:
+        raise ConfigGenerationError(
+            f"manifest must not supply base card-pool denominators: {collision}"
+        )
+    pull_mapping = {**base_counts, **hit_denominators}
+    slots = manifest["slot_assumptions"]
+    reverse_slots = slots.get("reverse_slot_probabilities")
+    rare_slot = slots.get("rare_slot_probability") or slots.get("rare_slot_probabilities")
+    overrides = manifest.get("pack_state_overrides")
+    if not isinstance(reverse_slots, dict) or not isinstance(rare_slot, dict):
+        raise ConfigGenerationError("approved reverse and rare slot mappings are required")
+    if not isinstance(overrides, dict):
+        raise ConfigGenerationError("approved pack_state_overrides object is required")
     replacements = {
-        "PULL_RATE_MAPPING": "    PULL_RATE_MAPPING = " + repr(manifest["rarity_denominators"]),
+        "PULL_RATE_MAPPING": "    PULL_RATE_MAPPING = " + repr(pull_mapping),
         "PULL_MODEL_STATUS": '    PULL_MODEL_STATUS = "approved"',
         "USE_MONTE_CARLO_V2": "    USE_MONTE_CARLO_V2 = True",
     }
@@ -180,6 +213,16 @@ def apply_approved_pull_model(
             target.id for target in node.targets if isinstance(target, ast.Name) and target.id in replacements
         )
         lines[node.lineno - 1:node.end_lineno] = [replacements[name]]
+    insertion = [
+        "    REVERSE_SLOT_PROBABILITIES = " + repr(reverse_slots),
+        "    RARE_SLOT_PROBABILITY = " + repr(rare_slot),
+        "",
+        "    @classmethod",
+        "    def get_pack_state_overrides(cls):",
+        "        return " + repr(overrides),
+    ]
+    # Generated pending configs have no model-defining slot fields or override method.
+    lines.extend(insertion)
     updated = "\n".join(lines) + ("\n" if text.endswith("\n") else "")
     ast.parse(updated)
     path.write_text(updated, encoding="utf-8")
