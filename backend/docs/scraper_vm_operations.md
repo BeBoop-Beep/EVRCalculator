@@ -605,3 +605,33 @@ After run:
 - Supabase run diagnostics were written.
 - Alerts dispatched (or pending rows queued for retry).
 - Cron and heartbeat remain healthy.
+# Pokemon new-set discovery and onboarding
+
+The 03:00 America/Phoenix daily batch creator remains the critical scheduled
+operation. It creates the known-set cohort first and then invokes bounded,
+best-effort TCGplayer discovery. Discovery failure or timeout is reported in the
+batch JSON but does not change the successful batch exit code. The per-minute
+scrape worker remains claim-only and has no onboarding responsibilities.
+
+New-set onboarding is a separate lease-based process. A suggested later
+schedule (the exact production time is an operator decision) is:
+
+```cron
+0 12 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_pending_pokemon_set_onboarding.py --resume-all --commit --json >> pokemon_set_onboarding.log 2>&1
+```
+
+Source registration requires an isolated Git worktree and defaults to no merge
+or deploy:
+
+```bash
+export POKEMON_ONBOARDING_GIT_MODE=pr
+export POKEMON_ONBOARDING_WORKTREE_DIR=/home/ubuntu/repos/pokemon-onboarding-worktrees
+export POKEMON_ONBOARDING_BASE_BRANCH=main
+export POKEMON_ONBOARDING_AUTO_MERGE=false
+export POKEMON_ONBOARDING_AUTO_DEPLOY=false
+```
+
+Waiting API metadata, pull-rate research, PR merge, or deployment states do not
+affect normal scraping. Pull rates must arrive as an approved JSON manifest
+with provenance, citations/source URLs, capture date, positive rarity
+denominators, slot assumptions, and product type.

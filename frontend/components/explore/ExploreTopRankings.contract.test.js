@@ -45,9 +45,27 @@ test("the ladder reads the canonical checklist set value fields", () => {
 test("Top Rankings remains a seven-day comparison", () => {
   const source = readComponent();
   assert.ok(source.includes("setValueComparisonStatus7d"));
-  assert.ok(source.includes("% 7D"));
   assert.ok(source.includes("formatRankMovement(previousRanks.get(stableId), position, comparisonStatus, \"7d\")"));
   assert.ok(!source.includes("setValueComparisonStatus1d"));
+});
+
+test("seven-day value delta matches the Set Value Trend directional grammar", () => {
+  const source = readComponent();
+  assert.ok(source.includes("NEGATIVE_VALUE_COLOR") && source.includes("POSITIVE_VALUE_COLOR"));
+  assert.ok(source.includes('? "▲"') && source.includes('? "▼" : "—"'));
+  assert.ok(source.includes("{valueMovementArrow} {valueMovementAmount} ({valueMovementPercent})"));
+  assert.ok(source.includes('className="font-medium opacity-[0.82]"'));
+  assert.ok(source.includes('<span className="text-[var(--text-secondary)]"> · 7D</span>'));
+  assert.ok(source.includes('mt-0.5 max-w-full truncate text-[9px]'));
+  assert.ok(source.includes('desk:text-[9px]'));
+  assert.ok(source.includes('valueMovementDirection === "neutral"') && source.includes('setValueFormatter.format(0)'));
+  assert.ok(source.includes('aria-label={valueMovementLabel}'), "the existing accessible description must remain");
+});
+
+test("the primary set value hierarchy remains unchanged", () => {
+  const source = readComponent();
+  assert.ok(source.includes('text-[13px] font-semibold tabular-nums text-[var(--text-primary)] desk:text-sm'));
+  assert.ok(source.includes('value === null ? UNAVAILABLE_LABEL : setValueFormatter.format(value)'));
 });
 
 test("no score, rank, or tier is invented for the set value ladder", () => {

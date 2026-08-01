@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
 import { buildPreviousSetValueRanks, formatRankMovement, getSetValueMovement, getStableSetId } from "./rankingMovement.mjs";
 
@@ -174,9 +175,27 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
               const comparisonStatus = target?.setValueComparisonStatus7d ?? target?.set_value_comparison_status_7d;
               const rankMovement = formatRankMovement(previousRanks.get(stableId), position, comparisonStatus, "7d");
               const valueMovement = getSetValueMovement(target);
-              const valueMovementText = valueMovement
-                ? `${signedSetValueFormatter.format(valueMovement.amount)} · ${valueMovement.percent >= 0 ? "+" : ""}${valueMovement.percent.toFixed(1)}% 7D`
-                : comparisonStatus === "new" ? "NEW · 7D" : "N/A · 7D";
+              const valueMovementDirection = valueMovement
+                ? valueMovement.amount > 0 ? "positive" : valueMovement.amount < 0 ? "negative" : "neutral"
+                : null;
+              const valueMovementTone = valueMovementDirection === "positive"
+                ? { color: POSITIVE_VALUE_COLOR }
+                : valueMovementDirection === "negative"
+                  ? { color: NEGATIVE_VALUE_COLOR }
+                  : { color: "var(--text-secondary)" };
+              const valueMovementArrow = valueMovementDirection === "positive"
+                ? "▲"
+                : valueMovementDirection === "negative" ? "▼" : "—";
+              const valueMovementAmount = valueMovement
+                ? valueMovementDirection === "neutral"
+                  ? setValueFormatter.format(0)
+                  : signedSetValueFormatter.format(valueMovement.amount)
+                : null;
+              const valueMovementPercent = valueMovement
+                ? valueMovementDirection === "neutral"
+                  ? "0.0%"
+                  : `${valueMovement.percent >= 0 ? "+" : ""}${valueMovement.percent.toFixed(1)}%`
+                : null;
               const valueMovementLabel = valueMovement
                 ? `Set value ${valueMovement.amount >= 0 ? "increased" : "decreased"} by ${Math.abs(valueMovement.amount).toFixed(0)} dollars, or ${Math.abs(valueMovement.percent).toFixed(1)} percent, over 7 days`
                 : comparisonStatus === "new" ? "No comparable set value 7 days ago" : "Seven-day set value history unavailable";
@@ -228,8 +247,15 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
                         </span>
                       ) : null}
                       </span>
-                      <span className="max-w-full truncate text-[9px] tabular-nums text-[var(--text-secondary)] desk:text-[10px]" aria-label={valueMovementLabel}>
-                        {valueMovementText}
+                      <span className="mt-0.5 max-w-full truncate text-[9px] tabular-nums text-[var(--text-secondary)] desk:text-[9px]" aria-label={valueMovementLabel}>
+                        {valueMovement ? (
+                          <>
+                            <span className="font-medium opacity-[0.82]" style={valueMovementTone}>
+                              {valueMovementArrow} {valueMovementAmount} ({valueMovementPercent})
+                            </span>
+                            <span className="text-[var(--text-secondary)]"> · 7D</span>
+                          </>
+                        ) : comparisonStatus === "new" ? "NEW · 7D" : "N/A · 7D"}
                       </span>
                     </span>
                   </Link>
