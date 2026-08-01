@@ -37,7 +37,22 @@ from typing import Any, Dict, Mapping, Optional
 # Bump this when the READ changes shape - a different source table, a different
 # payload key, a different column - because the same rules against a different
 # source are different inputs.
-PULL_MODEL_LOADER_VERSION = "pull_model_loader_v1_set_page_snapshot_latest"
+# v2 adds a SECOND source, used only for sets the first source does not carry.
+#
+# v1 read the pack model exclusively from ``pokemon_set_page_snapshot_latest``,
+# which is the table the set-page snapshot build WRITES. That made the read
+# self-referential: a set's pull model could only be seen one full rebuild after
+# its own snapshot row was first written. For an established set the lag is
+# invisible; for a NEWLY ONBOARDED set there is no prior row at all, so CA7 was
+# deterministically unavailable with ``dual_path_depth_unavailable_no_pull_model``
+# on its first build - reporting "no pack model exists" for a set whose
+# simulation had already produced a complete one. Pitch Black is the observed
+# case; every future new set would have hit it identically.
+#
+# The fallback resolves a missing set from the live Explore assembly, which
+# derives the same assumptions from the simulation and the set config. This is a
+# source change, so the loader version moves with it.
+PULL_MODEL_LOADER_VERSION = "pull_model_loader_v2_set_page_snapshot_latest_with_live_fallback"
 
 # The mapping contract: how a snapshot row becomes (probability, slot_group).
 #
@@ -49,6 +64,12 @@ PULL_PROBABILITY_MAPPING_VERSION = "pull_probability_mapping_v1_reciprocal_denom
 
 PULL_MODEL_SOURCE_TABLE = "pokemon_set_page_snapshot_latest"
 PULL_MODEL_SOURCE_COLUMNS = "set_id,payload_json"
+
+# The fallback source, consulted ONLY for sets the primary source omits. Named
+# here rather than left as a literal in the loader for the same reason every
+# other rule in this module is: it is an input to the computed P, so the
+# fingerprint has to be able to see it.
+PULL_MODEL_FALLBACK_SOURCE = "explore_page_service.get_explore_page_payload"
 
 # The payload keys the loader accepts, in precedence order. Both spellings exist
 # in production snapshots; accepting either is part of the contract, not a
@@ -104,6 +125,7 @@ def pull_model_policy() -> Dict[str, Any]:
         "loader_version": PULL_MODEL_LOADER_VERSION,
         "mapping_version": PULL_PROBABILITY_MAPPING_VERSION,
         "source_table": PULL_MODEL_SOURCE_TABLE,
+        "fallback_source": PULL_MODEL_FALLBACK_SOURCE,
         "payload_keys": list(PULL_MODEL_PAYLOAD_KEYS),
         "group_priority": dict(PULL_MODEL_GROUP_PRIORITY),
         "unknown_group_priority": PULL_MODEL_UNKNOWN_GROUP_PRIORITY,

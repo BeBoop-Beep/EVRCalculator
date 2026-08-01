@@ -4,6 +4,7 @@ from .ascendedHeroes import SetAscendedHeroesConfig
 from .megaEvolution import SetMegaEvolutionConfig
 from .perfectOrder import SetPerfectOrderConfig
 from .phantasmalFlames import SetPhantasmalFlamesConfig
+from .pitchBlack import SetPitchBlackConfig
 
 
 SET_CONFIG_MAP = {
@@ -12,6 +13,7 @@ SET_CONFIG_MAP = {
     'perfectOrder' : SetPerfectOrderConfig,
     'phantasmalFlames' : SetPhantasmalFlamesConfig,
     'chaosRising' : SetChaosRisingConfig,
+    'pitchBlack' : SetPitchBlackConfig,
 }
 
 SET_ALIAS_MAP = {
@@ -29,6 +31,9 @@ SET_ALIAS_MAP = {
     "meg": "megaEvolution",
     "mega evolution": "megaEvolution",
     "megaevolution": "megaEvolution",
+    "pbl": "pitchBlack",
+    "pitch black": "pitchBlack",
+    "pitchblack": "pitchBlack",
     "perfect order": "perfectOrder",
     "perfectorder": "perfectOrder",
     "pfl": "phantasmalFlames",

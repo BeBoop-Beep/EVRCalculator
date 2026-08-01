@@ -192,36 +192,102 @@ def load_pull_rate_model(client: Any) -> Dict[str, Dict[str, Dict[str, Any]]]:
         payload = row.get("payload_json")
         if not isinstance(payload, dict):
             continue
-        assumptions = next(
-            (payload[key] for key in PULL_MODEL_PAYLOAD_KEYS
-             if isinstance(payload.get(key), dict)),
-            None,
-        )
-        if assumptions is None:
-            continue
-        best: Dict[str, Any] = {}
-        for entry in assumptions.get("rows") or []:
-            if not isinstance(entry, dict):
-                continue
-            probability = probability_from_denominator(entry.get("specific_card_odds_denominator"))
-            rarity_key = normalize_rarity_key(str(entry.get("rarity") or ""))
-            if not rarity_key or probability is None:
-                continue
-            priority = group_priority(entry.get("group"))
-            current = best.get(rarity_key)
-            if current is None or priority < current[0]:
-                best[rarity_key] = (
-                    priority,
-                    {
-                        "probability": probability,
-                        "slot_group": slot_group_of(entry),
-                        "card_count": entry.get("card_count"),
-                        "expected_cards_per_pack": entry.get("expected_cards_per_pack"),
-                    },
-                )
-        if best:
-            by_set[str(row.get("set_id"))] = {key: value for key, (_p, value) in best.items()}
+        rarities = pull_model_rarities_from_payload(payload)
+        if rarities:
+            by_set[str(row.get("set_id"))] = rarities
     return by_set
+
+
+def pull_model_rarities_from_payload(payload: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """``{rarity_key: {probability, slot_group, ...}}`` from one set's payload.
+
+    Extracted so the snapshot source and the live fallback below map rows by the
+    SAME rule. Two copies of this arithmetic would let the fallback drift from
+    the fingerprinted policy, and a drifting fingerprint dependency is worse than
+    none - it is a false certificate.
+    """
+    assumptions = next(
+        (payload[key] for key in PULL_MODEL_PAYLOAD_KEYS
+         if isinstance(payload.get(key), dict)),
+        None,
+    )
+    if assumptions is None:
+        return {}
+    best: Dict[str, Any] = {}
+    for entry in assumptions.get("rows") or []:
+        if not isinstance(entry, dict):
+            continue
+        probability = probability_from_denominator(entry.get("specific_card_odds_denominator"))
+        rarity_key = normalize_rarity_key(str(entry.get("rarity") or ""))
+        if not rarity_key or probability is None:
+            continue
+        priority = group_priority(entry.get("group"))
+        current = best.get(rarity_key)
+        if current is None or priority < current[0]:
+            best[rarity_key] = (
+                priority,
+                {
+                    "probability": probability,
+                    "slot_group": slot_group_of(entry),
+                    "card_count": entry.get("card_count"),
+                    "expected_cards_per_pack": entry.get("expected_cards_per_pack"),
+                },
+            )
+    return {key: value for key, (_p, value) in best.items()}
+
+
+def load_pull_rate_model_for_sets(
+    set_ids: Sequence[str],
+) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Pull models for sets the snapshot table does not carry yet.
+
+    ``load_pull_rate_model`` reads ``pokemon_set_page_snapshot_latest``, which is
+    the table the set-page snapshot build WRITES. That makes the primary read
+    self-referential: a set's pull model is only visible one full rebuild after
+    its own row was first written. A newly onboarded set has no prior row at all,
+    so CA7 reported ``dual_path_depth_unavailable_no_pull_model`` on its first
+    build for a set whose simulation had already produced a complete pack model.
+
+    This resolves those sets from the live Explore assembly instead - the same
+    function the snapshot builder itself calls, so the assumptions are identical,
+    just not yet materialized. It is deliberately NOT used for sets the snapshot
+    already covers: in steady state ``set_ids`` is empty and this costs nothing,
+    and it can never override a materialized model with a recomputed one.
+
+    A set that genuinely has no pack model (no simulation, no PULL_RATE_MAPPING)
+    is simply absent from the result, which is the honest answer and leaves the
+    existing no-pull-model reason intact.
+    """
+    resolved: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    if not set_ids:
+        return resolved
+
+    # Imported here rather than at module scope: explore_page_service pulls in
+    # the simulation aggregation stack, and this module is imported by the
+    # fingerprint, which must stay cheap to load.
+    from backend.db.services.explore_page_service import get_explore_page_payload
+
+    for set_id in set_ids:
+        try:
+            payload = get_explore_page_payload("set", str(set_id))
+        except Exception as exc:
+            # A set with no simulation run raises here; that is a real absence,
+            # not a failure of this loader, and must not take the bundle down.
+            logger.info(
+                "[collector-appeal-inputs] live pull-model fallback unavailable set_id=%s error=%s",
+                set_id, exc,
+            )
+            continue
+        if not isinstance(payload, dict):
+            continue
+        rarities = pull_model_rarities_from_payload(payload)
+        if rarities:
+            resolved[str(set_id)] = rarities
+            logger.info(
+                "[collector-appeal-inputs] live pull-model fallback resolved set_id=%s rarities=%s",
+                set_id, len(rarities),
+            )
+    return resolved
 
 
 def load_cards(client: Any, set_ids: Sequence[str]) -> List[Dict[str, Any]]:

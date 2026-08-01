@@ -384,10 +384,17 @@ def _detect_duplicate_keys(rows: Iterable[Dict[str, Any]], field_name: str) -> L
 def sync_pokemon_era_and_set_metadata(
     apply_changes: bool = False,
     report_path: Optional[Path] = None,
+    target_set_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     discovered = discover_pokemon_era_and_set_metadata()
     source_eras = discovered["eras"]
     source_sets = discovered["sets"]
+    if target_set_key:
+        source_sets = [row for row in source_sets if row["canonical_key"] == target_set_key]
+        if not source_sets:
+            raise ValueError(f"Pokemon set canonical key not found in constants: {target_set_key}")
+        owning_eras = {row["era_canonical_key"] for row in source_sets}
+        source_eras = [row for row in source_eras if row["canonical_key"] in owning_eras]
     now_iso = datetime.now(timezone.utc).isoformat()
     tcg_row = _resolve_tcg_row()
     tcg_id = tcg_row["id"]
@@ -532,6 +539,10 @@ def sync_pokemon_era_and_set_metadata(
 
     final_eras = get_eras_by_tcg_id(tcg_id) if apply_changes else existing_eras
     final_sets = get_sets_by_tcg_id(tcg_id) if apply_changes else existing_sets
+    metric_final_sets = (
+        [row for row in final_sets if row.get("canonical_key") == target_set_key]
+        if target_set_key else final_sets
+    )
     final_era_by_canonical = _map_rows_by(final_eras, "canonical_key")
     final_set_by_canonical = _map_rows_by(final_sets, "canonical_key")
 
@@ -557,15 +568,16 @@ def sync_pokemon_era_and_set_metadata(
             )
 
     source_scrape_ready_count = sum(1 for row in source_sets if row.get("ready_for_daily_scrape"))
-    final_scrape_ready_count = sum(1 for row in final_sets if row.get("ready_for_daily_scrape"))
-    final_card_details_count = sum(1 for row in final_sets if row.get("has_card_details_url"))
-    final_sealed_details_count = sum(1 for row in final_sets if row.get("has_sealed_details_url"))
+    final_scrape_ready_count = sum(1 for row in metric_final_sets if row.get("ready_for_daily_scrape"))
+    final_card_details_count = sum(1 for row in metric_final_sets if row.get("has_card_details_url"))
+    final_sealed_details_count = sum(1 for row in metric_final_sets if row.get("has_sealed_details_url"))
     synced_tcg_ids = sorted({str(row.get("tcg_id")) for row in final_eras + final_sets if row.get("tcg_id")})
 
     report = {
         "summary": {
             "generated_at_utc": now_iso,
             "apply_changes": apply_changes,
+            "target_set_key": target_set_key,
             "tcg_id": tcg_id,
             "eras_discovered": len(source_eras),
             "eras_inserted": sum(1 for row in era_actions if row["action"] == "inserted"),
@@ -591,6 +603,20 @@ def sync_pokemon_era_and_set_metadata(
             "pokemon_tcg_id_consistent": synced_tcg_ids == [str(tcg_id)],
             "synced_tcg_ids": synced_tcg_ids,
             "scrape_ready_count_matches_constants": final_scrape_ready_count == source_scrape_ready_count,
+            "target_set": (
+                {
+                    "canonical_key": metric_final_sets[0].get("canonical_key"),
+                    "name": metric_final_sets[0].get("name"),
+                    "pokemon_api_set_id": metric_final_sets[0].get("pokemon_api_set_id"),
+                    "release_date": metric_final_sets[0].get("release_date"),
+                    "card_details_url": metric_final_sets[0].get("card_details_url"),
+                    "sealed_details_url": metric_final_sets[0].get("sealed_details_url"),
+                    "symbol_image_url": metric_final_sets[0].get("symbol_image_url"),
+                    "logo_image_url": metric_final_sets[0].get("logo_image_url"),
+                    "ready_for_daily_scrape": metric_final_sets[0].get("ready_for_daily_scrape"),
+                }
+                if target_set_key and metric_final_sets else None
+            ),
         },
         "conflicts": conflicts,
         "eras": era_actions,
@@ -599,6 +625,6 @@ def sync_pokemon_era_and_set_metadata(
 
     output_path = report_path or DEFAULT_SYNC_REPORT_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8", newline="\n")
+    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     logger.info("pokemon_era_set_sync: wrote report to %s", output_path)
     return report

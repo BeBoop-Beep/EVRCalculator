@@ -8,8 +8,8 @@ class SetChaosRisingConfig(BaseSetConfig):
     RELEASE_DATE = '2026/05/22'
     PRINTED_TOTAL = 86
     TOTAL = 122
-    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me3-symbol/symbol'
-    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me3-logo/logo'
+    SYMBOL_IMAGE_URL = 'https://images.scrydex.com/pokemon/me4-symbol/symbol'
+    LOGO_IMAGE_URL = 'https://images.scrydex.com/pokemon/me4-logo/logo'
 
     # TODO: Populate scrape targets once TCGplayer set links are resolved.
     CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/24655/cards/?rows=5000&productTypeID=1'

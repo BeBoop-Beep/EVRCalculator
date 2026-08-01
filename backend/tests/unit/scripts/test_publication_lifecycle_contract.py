@@ -449,5 +449,9 @@ def test_scheduler_wires_the_bounded_retry_into_the_daily_run():
     script = (repo_root / "infra" / "local" / "run_simulations.sh").read_text(encoding="utf-8")
     assert "--gate-wait-attempts 6" in script
     assert "--gate-wait-seconds 600" in script
+    # The bounded retry is now passed through the daily orchestrator, which owns
+    # the simulate -> verify -> publish order; the knob stays operator-visible
+    # in the wrapper rather than being buried in a default.
+    assert "run_daily_opening_publication.py" in script
     # Deferral and hard failure remain distinct events.
-    assert "REFRESH_EXIT\" -eq 3" in script
+    assert "PUBLICATION_EXIT\" -eq 3" in script

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sys
-import io
-
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(_reconfigure):
+        _reconfigure(encoding="utf-8")
 
 import argparse
 import json
@@ -26,9 +26,6 @@ from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
 from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
     SET_CONFIG_MAP as SCARLET_VIOLET_SET_CONFIG_MAP,
 )
-from backend.jobs.evr_runner import EVRRunOrchestrator
-
-
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "").strip()
 
 
@@ -141,6 +138,7 @@ def run_single_set(orchestrator, set_key: str, config) -> dict:
 
 
 def run_batch(set_map: dict) -> list:
+    from backend.jobs.evr_runner import EVRRunOrchestrator
     orchestrator = EVRRunOrchestrator()
     results: list[dict[str, Any]] = []
     completed_durations: list[float] = []
@@ -258,6 +256,10 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="List matching V2-enabled sets without executing them.",
     )
+    parser.add_argument(
+        "--json", action="store_true",
+        help="Emit a final SIMULATION_JSON machine-readable summary.",
+    )
     return parser
 
 
@@ -270,10 +272,28 @@ def main():
         era=args.era,
         set_name=args.set_name,
     )
+    matched_sets = [
+        {
+            "canonical_key": set_key,
+            "set_name": str(getattr(config_cls(), "SET_NAME", set_key)),
+            "use_monte_carlo_v2": bool(getattr(config_cls(), "USE_MONTE_CARLO_V2", False)),
+            "pull_model_status": str(getattr(config_cls(), "PULL_MODEL_STATUS", "unknown")),
+        }
+        for set_key, config_cls in filtered_sets.items()
+    ]
+
+    def emit_json(results=None):
+        if args.json:
+            print("SIMULATION_JSON=" + json.dumps({
+                "matched_set_count": len(matched_sets),
+                "matched_sets": matched_sets,
+                "results": results or [],
+            }, sort_keys=True))
 
     if not filtered_sets:
         print("No V2-enabled sets matched the provided filters.")
         print_summary([], 0.0)
+        emit_json([])
         return 0
 
     if args.dry_run:
@@ -287,12 +307,14 @@ def main():
             )
             dry_run_results.append({"set": set_key, "dry_run": True})
         print_summary(dry_run_results, 0.0)
+        emit_json(dry_run_results)
         return 0
 
     batch_started_at = time.perf_counter()
     results = run_batch(filtered_sets)
     total_runtime = time.perf_counter() - batch_started_at
     print_summary(results, total_runtime)
+    emit_json(results)
     return 0 if all(result.get("success") for result in results) else 1
 
 

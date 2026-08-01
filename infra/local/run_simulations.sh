@@ -114,101 +114,114 @@ Host: $HOSTNAME_VALUE
 Repo: $REPO_DIR
 Branch: $EXPECTED_PUBLICATION_BRANCH
 Commit: $(git rev-parse HEAD)
-Script: backend/scripts/run_all_v2_sets.py
+Script: backend/scripts/run_daily_opening_publication.py
 Started: $START_TIME
 Log: logs/run_simulations.log"
 
-SIMULATIONS_FAILED=0
-if python backend/scripts/run_all_v2_sets.py >> logs/run_simulations.log 2>&1; then
-  END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-
-  notify_slack "✅ Simulation job completed
-Host: $HOSTNAME_VALUE
-Commit: $(git rev-parse HEAD)
-Script: backend/scripts/run_all_v2_sets.py
-Started: $START_TIME
-Completed: $END_TIME
-Log: logs/run_simulations.log"
-else
-  SIMULATIONS_FAILED=1
-  END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-
-  notify_slack "❌ Simulation job FAILED
-Host: $HOSTNAME_VALUE
-Commit: $(git rev-parse HEAD)
-Script: backend/scripts/run_all_v2_sets.py
-Started: $START_TIME
-Failed: $END_TIME
-Log: logs/run_simulations.log"
-fi
-
-# Public snapshots (market dashboards, explore rankings, set pages) are
-# materialized read models — they only reflect today's simulations after this
-# refresh runs. It must run AFTER the simulation batch, and it runs even when
-# the batch partially failed so the sets that did complete still surface fresh
-# Performance vs Cost history instead of a stale flatline. --strict makes the
-# job exit nonzero (and Slack-alert) if any set page snapshot is still older
-# than its simulation/market dependencies afterward.
-REFRESH_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-REFRESH_FAILED=0
-REFRESH_DEFERRED=0
-REFRESH_EXIT=0
+# ── Required daily order ────────────────────────────────────────────────────
+# The scrape batch is created, worked and PROMOTED by the scrape job before this
+# task runs. Everything after promotion is sequenced by one command:
+#
+#   1. resolve the promoted market date (never wall-clock)
+#   2. run opening simulations for eligible sets not already current
+#   3. VERIFY every supported set has a valid simulation for that date
+#   4. rebuild coordinated market + set-page snapshots
+#   5. refuse to report success when Opening Profit vs Cost is still behind
+#
+# The orchestrator exists because these used to be two independent commands with
+# nothing reconciling them: the snapshot builders only republish whatever
+# simulation rows already exist, so when the simulation batch stopped, market
+# dashboards kept advancing while Opening Profit vs Cost silently froze (market
+# 2026-07-31 vs OPvC 2026-07-27, undetected for five days). Simulation
+# generation and snapshot publication remain separate responsibilities — the
+# builders still never run a simulation — but the ORDER and the verification
+# between them are now enforced in one place.
+#
+# --gate-wait-attempts/--gate-wait-seconds (passed through to the snapshot
+# refresh) give the day ONE deterministic, bounded automatic retry path: if the
+# day's scrape cohort is still finishing, the gate is re-evaluated up to 6 times
+# 10 minutes apart (<= 1 extra hour, inside the same daily window) instead of
+# deferring the whole day until an operator reruns it by hand.
+PUBLICATION_START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+PUBLICATION_FAILED=0
+PUBLICATION_DEFERRED=0
+PUBLICATION_EXIT=0
 # Capture the exit code without tripping `set -e`. Exit codes:
-#   0 = published / no work needed after an open gate
+#   0 = simulations current AND snapshots published
+#   1 = a simulation failed, or publication cannot claim full freshness
+#   2 = could not start (no promoted market date, unreadable authority)
 #   3 = publication DEFERRED by the batch-cohort gate (cohort not ready)
-#   other nonzero = genuine refresh/build failure
-# --gate-wait-attempts/--gate-wait-seconds give the day ONE deterministic,
-# bounded automatic retry path: publication starts after the simulations, and if
-# the day's scrape cohort is still finishing, the gate is re-evaluated up to 6
-# times 10 minutes apart (<= 1 extra hour, inside the same daily window, a
-# handful of indexed reads) instead of deferring the whole day until an operator
-# reruns the command by hand. Exhausting the attempts still defers with exit 3.
-python backend/scripts/refresh_stale_public_snapshots.py --commit --strict \
+python backend/scripts/run_daily_opening_publication.py \
   --gate-wait-attempts 6 --gate-wait-seconds 600 \
-  >> logs/refresh_public_snapshots.log 2>&1 || REFRESH_EXIT=$?
-REFRESH_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+  >> logs/run_simulations.log 2>&1 || PUBLICATION_EXIT=$?
+PUBLICATION_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
-if [ "$REFRESH_EXIT" -eq 0 ]; then
-  notify_slack "✅ Public snapshot refresh completed
+if [ "$PUBLICATION_EXIT" -eq 0 ]; then
+  notify_slack "✅ Simulation + publication completed
 Host: $HOSTNAME_VALUE
 Commit: $(git rev-parse HEAD)
-Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
-Started: $REFRESH_START_TIME
-Completed: $REFRESH_END_TIME
-Log: logs/refresh_public_snapshots.log"
-elif [ "$REFRESH_EXIT" -eq 3 ]; then
+Script: backend/scripts/run_daily_opening_publication.py
+Started: $PUBLICATION_START_TIME
+Completed: $PUBLICATION_END_TIME
+Log: logs/run_simulations.log"
+elif [ "$PUBLICATION_EXIT" -eq 3 ]; then
   # Publication DEFERRED, not a build exception: the day's scrape cohort is not
   # observation-complete, so nothing was published and the previous good public
   # snapshots are preserved. This must NOT send the success message.
-  REFRESH_DEFERRED=1
+  PUBLICATION_DEFERRED=1
   DEFERRED_LINE=$(grep -a 'PUBLICATION_DEFERRED' logs/refresh_public_snapshots.log | tail -n 1 || true)
 
   notify_slack "⏸️ Public snapshot publication DEFERRED (cohort not ready; previous good snapshots preserved)
 Host: $HOSTNAME_VALUE
 Commit: $(git rev-parse HEAD)
-Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
-Started: $REFRESH_START_TIME
-Deferred: $REFRESH_END_TIME
+Script: backend/scripts/run_daily_opening_publication.py
+Started: $PUBLICATION_START_TIME
+Deferred: $PUBLICATION_END_TIME
 Details: ${DEFERRED_LINE:-see log}
-Action: resolve/requeue the incomplete scrape batch, then rerun the refresh
+Action: resolve/requeue the incomplete scrape batch, then rerun the publication
 Log: logs/refresh_public_snapshots.log"
 else
-  REFRESH_FAILED=1
+  PUBLICATION_FAILED=1
+  SUMMARY_LINE=$(grep -a 'daily-opening-publication] error=' logs/run_simulations.log | tail -n 1 || true)
 
-  notify_slack "❌ Public snapshot refresh FAILED (stale snapshots may remain)
+  notify_slack "❌ Simulation/publication FAILED (Opening Profit vs Cost may be stale)
 Host: $HOSTNAME_VALUE
 Commit: $(git rev-parse HEAD)
-Script: backend/scripts/refresh_stale_public_snapshots.py --commit --strict
-Started: $REFRESH_START_TIME
-Failed: $REFRESH_END_TIME
-Exit: $REFRESH_EXIT
-Log: logs/refresh_public_snapshots.log"
+Script: backend/scripts/run_daily_opening_publication.py
+Started: $PUBLICATION_START_TIME
+Failed: $PUBLICATION_END_TIME
+Exit: $PUBLICATION_EXIT
+Details: ${SUMMARY_LINE:-see log}
+Log: logs/run_simulations.log"
 fi
 
-# A deferred publication and a hard failure are distinct events (distinct Slack
-# messages), but neither is a successful publication: the scheduled task must
-# stay visibly non-successful so an operator acts before the next run. The
-# simulation batch result is preserved independently above.
-if [ "$SIMULATIONS_FAILED" -ne 0 ] || [ "$REFRESH_FAILED" -ne 0 ] || [ "$REFRESH_DEFERRED" -ne 0 ]; then
+# ── Final read-only parity audit ────────────────────────────────────────────
+# Independent of the orchestrator's own verdict, and read-only: it re-reads what
+# was actually published and reports, per supported opening set, whether the
+# simulation date reached the market date and whether the Top Chase cards kept
+# their canonical 1D/7D/30D movement windows. This is the tripwire that would
+# have caught the 2026-07-27 freeze on day one.
+AUDIT_EXIT=0
+python backend/scripts/audit_opening_analytics_publication.py \
+  >> logs/opening_analytics_audit.log 2>&1 || AUDIT_EXIT=$?
+
+if [ "$AUDIT_EXIT" -ne 0 ]; then
+  AUDIT_LINE=$(grep -a 'opening-analytics-audit] result=' logs/opening_analytics_audit.log | tail -n 1 || true)
+
+  notify_slack "❌ Opening analytics publication audit FAILED
+Host: $HOSTNAME_VALUE
+Commit: $(git rev-parse HEAD)
+Script: backend/scripts/audit_opening_analytics_publication.py
+Exit: $AUDIT_EXIT
+Details: ${AUDIT_LINE:-see log}
+Action: Opening Profit vs Cost and/or Top Chase windows are behind for at least one supported set
+Log: logs/opening_analytics_audit.log"
+fi
+
+# A deferred publication, a hard failure and a failed audit are distinct events
+# (distinct Slack messages), but none of them is a successful publication: the
+# scheduled task must stay visibly non-successful so an operator acts before the
+# next run.
+if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] || [ "$AUDIT_EXIT" -ne 0 ]; then
   exit 1
 fi

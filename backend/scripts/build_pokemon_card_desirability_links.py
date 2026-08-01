@@ -20,6 +20,7 @@ from backend.calculations.utils.rarity_classification import (  # noqa: E402
     normalize_rarity_key,
 )
 from backend.desirability.normalization import normalize_pokemon_name_key  # noqa: E402
+from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
 from backend.scripts.run_pokemon_set_scrape import build_valid_set_key_registry  # noqa: E402
 
 
@@ -27,7 +28,9 @@ logger = logging.getLogger(__name__)
 
 
 LINK_TABLE = "pokemon_card_desirability_links"
-DEFAULT_HIT_POLICY_VERSION = "pokemon_card_desirability_hit_policy_v1"
+# Backward-compatible import for callers that historically sourced this name
+# from the CLI module. The domain module remains the sole authority.
+DEFAULT_HIT_POLICY_VERSION = HIT_POLICY_VERSION
 POKEDEX_MATCH_METHOD = "national_pokedex_numbers"
 FALLBACK_MATCH_METHOD = "normalized_name_fallback"
 POKEDEX_MATCH_CONFIDENCE = Decimal("1.0")

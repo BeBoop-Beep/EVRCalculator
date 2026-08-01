@@ -33,6 +33,7 @@ import argparse
 import json
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 BATCH_TAG = "[scrape-batch-create]"
 MARKET_TIMEZONE = "America/Phoenix"
+DISCOVERY_TIMEOUT_SECONDS = 180
 
 
 def create_batch(market_date: str, trigger_source: str) -> dict:
@@ -91,6 +93,33 @@ def check_only(market_date: str, deadline: str) -> int:
     return 1
 
 
+def run_new_set_discovery(timeout_seconds: int = DISCOVERY_TIMEOUT_SECONDS) -> dict:
+    """Run bounded post-batch discovery; never raise into the batch critical path."""
+    command = [
+        sys.executable, str(Path(__file__).with_name("discover_new_pokemon_sets.py")),
+        "--commit", "--json",
+    ]
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True, timeout=timeout_seconds, check=False,
+        )
+        try:
+            payload = json.loads(completed.stdout)
+        except (TypeError, json.JSONDecodeError):
+            payload = {"stdout": completed.stdout[-2000:]}
+        return {
+            "status": "completed" if completed.returncode == 0 else "failed",
+            "exit_code": completed.returncode, "result": payload,
+            "stderr": completed.stderr[-2000:] or None,
+        }
+    except subprocess.TimeoutExpired:
+        logger.warning("%s new-set discovery timed out after %ss", BATCH_TAG, timeout_seconds)
+        return {"status": "timed_out", "timeout_seconds": timeout_seconds}
+    except Exception as exc:  # best-effort by design
+        logger.exception("%s new-set discovery failed", BATCH_TAG)
+        return {"status": "failed", "error": str(exc)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create the daily Pokémon scrape batch (America/Phoenix).")
     parser.add_argument(
@@ -109,6 +138,14 @@ def main() -> int:
         action="store_true",
         help="Do not create; alert if the batch is missing (deadline monitor).",
     )
+    parser.add_argument(
+        "--skip-new-set-detection", action="store_true",
+        help="Skip the bounded best-effort post-batch new-set detector.",
+    )
+    parser.add_argument(
+        "--new-set-detection-timeout", type=int, default=DISCOVERY_TIMEOUT_SECONDS,
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
     _load_backend_env()
@@ -119,6 +156,11 @@ def main() -> int:
             return check_only(market_date, deadline=datetime.now(timezone.utc).isoformat())
 
         batch = create_batch(market_date, args.trigger_source)
+        discovery = (
+            {"status": "skipped"}
+            if args.skip_new_set_detection
+            else run_new_set_discovery(max(1, args.new_set_detection_timeout))
+        )
         print(json.dumps({
             "batch_id": batch.get("id"),
             "market_date": str(batch.get("market_date")),
@@ -126,6 +168,7 @@ def main() -> int:
             "expected_set_count": batch.get("expected_set_count"),
             "queued_set_count": batch.get("queued_set_count"),
             "trigger_source": args.trigger_source,
+            "new_set_discovery": discovery,
         }, indent=2))
         return 0
     except Exception as exc:

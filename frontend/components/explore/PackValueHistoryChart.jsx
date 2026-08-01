@@ -364,12 +364,16 @@ export default function PackValueHistoryChart({
         (row) => row.snapshotDate && (row.meanCostRatio !== null || row.medianCostRatio !== null)
       );
 
-      // Clamped/filled through the canonical marketAsOfDate; when absent the
-      // helper stops at the latest real observation — never runtime today.
+      // Clamped to the canonical marketAsOfDate, but the observed line stops at
+      // the last real simulation run. Carrying it on to the market date would
+      // draw days no simulation was executed on and make a frozen series look
+      // like it advanced with the market. Interior gaps between runs are still
+      // filled so the line stays continuous.
       return forwardFillDailyHistoryThroughDate(rows, {
         dateField: "snapshotDate",
         valueKeys: ["meanCostRatio", "medianCostRatio", "p95CostRatio"],
         endDateKey: marketAsOfDate,
+        stopFillAtLatestObservation: true,
       });
     },
     [historyTrend, packCost, summary, marketAsOfDate]
