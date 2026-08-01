@@ -148,17 +148,24 @@ Exit status:
 
 ### Scheduler wrapper (`infra/local/run_simulations.sh`)
 
-The wrapper captures the refresh exit code and branches:
+The wrapper captures the orchestrator's exit code and branches:
 
-- `0` → ✅ success message.
+- `0` → ✅ "Simulation + publication completed".
 - `3` → ⏸️ "Public snapshot publication DEFERRED" warning (market date, batch
   status, missing-set count from the `PUBLICATION_DEFERRED` log line, and the
   operator action). It is **not** the success message and **not** the build-
   failure message, and the task stays non-successful (final `exit 1`).
-- other nonzero → ❌ build-failure message.
+- other nonzero → ❌ "Simulation/publication FAILED (Opening Profit vs Cost may
+  be stale)".
 
-The simulation-batch result is reported independently, so a simulation failure
-and a publication deferral remain separately visible.
+It then runs the read-only audit
+(`audit_opening_analytics_publication.py` → `logs/opening_analytics_audit.log`).
+A failing audit sends its own ❌ message and also forces the final `exit 1`, so a
+frozen Opening Profit vs Cost series behind a fresh market date cannot leave the
+task looking successful.
+
+Publication deferral, publication failure and audit failure are tracked
+independently, so each stays separately visible.
 
 ### Set-page strict verification is simulation-aware
 
@@ -289,18 +296,85 @@ shadowed by an older cached/seeded response:
 
 ### Canonical command and scheduler entry
 
-The daily simulation is `backend/scripts/run_all_v2_sets.py`. It is not a cron
-job — it runs on the **Windows** host via **Task Scheduler task "Run Simulation
-Jobs Daily"**, which launches `infra/local/run_simulations_task.bat` →
-Git Bash → `infra/local/run_simulations.sh`. That shell script chains, in order:
-
-1. `python backend/scripts/run_all_v2_sets.py` (the simulation batch)
-2. `python backend/scripts/refresh_stale_public_snapshots.py --commit --strict`
-   (public snapshot promotion — runs even if the batch partially failed)
+The daily publication is `backend/scripts/run_daily_opening_publication.py`. It
+is not a cron job — it runs on the **Windows** host via **Task Scheduler task
+"Run Simulation Jobs Daily"**, which launches
+`infra/local/run_simulations_task.bat` → Git Bash →
+`infra/local/run_simulations.sh`.
 
 The scrape pipeline that feeds simulation inputs is a **separate** host: the
 Oracle Ubuntu VM crontab (see `scraper_vm_operations.md` §8 — batch creation
 03:00 America/Phoenix, per-minute worker dispatch, batch-missing monitor).
+
+### Required daily order
+
+Steps 1–3 run on the scraper VM; steps 4–8 run on the Windows host inside the
+existing scheduled task. **The existing schedule is unchanged** — promotion
+(~08:53 UTC) still precedes the Windows task (10:00 local); only the ordering
+and verification *within* the task changed.
+
+```
+1. create/reset the daily scrape batch      create_daily_scrape_batch.py      (scraper VM)
+2. run the scrape workers                   run_next_scrape_job.py            (scraper VM)
+3. complete and promote the scrape batch    complete_scrape_batch.py          (scraper VM)
+4. generate opening simulations             ┐
+5. verify simulation completeness           ├ run_daily_opening_publication.py (Windows host)
+6. rebuild coordinated market snapshots     │
+7. rebuild set-page snapshots               ┘
+8. final read-only parity/freshness audit   audit_opening_analytics_publication.py
+```
+
+Steps 4–7 are one command on purpose. They used to be two loose commands
+(`run_all_v2_sets.py`, then `refresh_stale_public_snapshots.py`) with nothing
+reconciling them, which is what allowed the 2026-07-27 freeze below. Simulation
+generation and snapshot publication are still separate responsibilities — the
+snapshot builders never run a simulation — but the order between them, and the
+verification that the simulations actually landed for the promoted market date,
+are now enforced in one place.
+
+`run_daily_opening_publication.py` exit codes:
+
+| exit | meaning |
+| --- | --- |
+| `0` | simulations current for the promoted market date **and** snapshots published |
+| `1` | a simulation failed, or publication cannot claim full freshness |
+| `2` | could not start (no promoted market date, unreadable authority) |
+| `3` | publication DEFERRED by the batch-cohort gate (propagated unchanged) |
+
+It is safe to rerun for the same market date: sets already verified current are
+skipped, and `calculation_history_trend` keeps only the latest run per set per
+day, so a rerun replaces a point rather than duplicating it.
+
+### Why Opening Profit vs Cost froze at 2026-07-27 (diagnosis)
+
+Market snapshots are materialized read models: `build_market_dashboard_snapshot_rows`
+calls `_load_simulation_performance_history`, which only re-serializes rows that
+already exist in `calculation_history_trend` / `simulation_run_summary`. It never
+runs a simulation. So when the simulation batch stopped producing runs, the daily
+snapshot rebuild kept publishing an advancing `latest_market_date` wrapped around
+a frozen `performance_vs_cost_history_json`.
+
+Nothing in the pipeline compared those two dates. `refresh_stale_public_snapshots.py --strict`
+verified snapshot-vs-dependency staleness and the scrape-cohort gate verified
+observation completeness, but no step ever asked *"does every supported opening
+set have a valid simulation for the promoted market date?"* — so five days of
+divergence (market 2026-07-31 vs OPvC 2026-07-27, all 21 supported sets) produced
+no failure, no alert, and a page that looked current.
+
+That question is now `backend/db/services/opening_simulation_gate.py`, enforced in
+step 5 and re-checked read-only in step 8.
+
+The proximate trigger for the batch stopping was the checkout guard: the
+production checkout was left on a feature branch, and `verify_publication_checkout`
+runs before the simulation batch with `set -e`, so the whole task aborted. That
+guard is correct and stays — simulations write canonical history and must not run
+from an unreviewed branch — but its refusal must be acted on, which is why the
+audit in step 8 exists as an independent tripwire.
+
+**Operational requirement:** the production checkout must be a clean
+`origin/main`. Verify with `git -C /d/EVRCalculator status --porcelain` and
+`git -C /d/EVRCalculator rev-parse HEAD origin/main` before relying on the daily
+task.
 
 ### Per-set isolation and exit status (already correct — verified)
 

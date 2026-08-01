@@ -54,3 +54,59 @@ def test_ok_desirability_bundle_publishes(monkeypatch):
     assert row["tcg"] == "pokemon"
     assert row["scope"] == "rip-statistics"
     assert row["ranking_payload_json"]["meta"]["desirabilityBundleStatus"] == "ok"
+
+
+def test_daily_rank_movement_uses_distinct_compatible_published_payloads():
+    meta = {
+        "comparisonSnapshots": {"currentMarketDate": "2026-08-01", "previousMarketDate": "2026-07-31"},
+        "ripWeightsConfig": {"overallRip": {"version": "rip-v4"}, "financialRip": {"version": "financial-v2"}},
+        "publicAnalyticsCohort": {"version": "cohort-v1"},
+    }
+    previous_meta = {
+        **meta,
+        "comparisonSnapshots": {"currentMarketDate": "2026-07-31", "previousMarketDate": "2026-07-30"},
+    }
+    current = {"meta": meta, "targets": [{"set_id": "stable-1", "rip": {"rank": 2}, "ripCore": {"rank": 4}}]}
+    previous = {"meta": previous_meta, "targets": [{"set_id": "stable-1", "rip": {"rank": 5}, "ripCore": {"rank": 3}}]}
+
+    result = builders.attach_daily_rip_rank_movements(current, previous)
+
+    assert result["targets"][0]["previousRipRank1d"] == 5
+    assert result["targets"][0]["ripRankComparisonStatus1d"] == "available"
+    assert result["targets"][0]["overallRipRankMovement1d"] == 3
+    assert result["targets"][0]["financialRipRankMovement1d"] == -1
+
+
+def test_rank_history_failure_is_unavailable_not_new():
+    current = {
+        "meta": {
+            "comparisonSnapshots": {"currentMarketDate": "2026-08-01", "previousMarketDate": "2026-07-31"},
+            "ripWeightsConfig": {"overallRip": {"version": "rip-v4"}, "financialRip": {"version": "financial-v2"}},
+            "publicAnalyticsCohort": {"version": "cohort-v1"},
+        },
+        "targets": [{"set_id": "stable-1", "rip": {"rank": 2}}],
+    }
+
+    result = builders.attach_daily_rip_rank_movements(current, None)
+
+    assert result["targets"][0]["ripRankComparisonStatus1d"] == "unavailable"
+
+
+def test_older_snapshot_is_not_substituted_for_previous_day():
+    current = {
+        "meta": {
+            "comparisonSnapshots": {"currentMarketDate": "2026-08-01"},
+            "ripWeightsConfig": {"overallRip": {"version": "rip-v4"}, "financialRip": {"version": "financial-v2"}},
+            "publicAnalyticsCohort": {"version": "cohort-v1"},
+        },
+        "targets": [{"set_id": "stable-1", "rip": {"rank": 2}}],
+    }
+    older = {
+        "meta": {
+            **current["meta"],
+            "comparisonSnapshots": {"currentMarketDate": "2026-07-27"},
+        },
+        "targets": [{"set_id": "stable-1", "rip": {"rank": 8}}],
+    }
+    result = builders.attach_daily_rip_rank_movements(current, older)
+    assert result["targets"][0]["overallRipRankComparisonStatus1d"] == "unavailable"

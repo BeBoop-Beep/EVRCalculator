@@ -19,16 +19,17 @@ export function buildPreviousSetValueRanks(targets) {
     .reduce((lookup, row, index) => lookup.set(row.id, index + 1), new Map());
 }
 
-export function formatRankMovement(previousRank, currentRank, status = "available") {
-  if (status === "new") return { text: "NEW", label: "New to the ranking; no comparable 7-day rank" };
-  if (status !== "available") return { text: "N/A", label: "Seven-day ranking history unavailable" };
+export function formatRankMovement(previousRank, currentRank, status = "available", interval = "1d") {
+  const daily = interval === "1d";
+  if (status === "new") return { text: "NEW", label: daily ? "New to the current ranking" : "No comparable set value seven days ago" };
+  if (status !== "available") return { text: "N/A", label: daily ? "Previous-day ranking unavailable" : "Seven-day ranking history unavailable" };
   const previous = toFiniteNumber(previousRank);
   const current = toFiniteNumber(currentRank);
-  if (previous === null || current === null) return { text: "NEW", label: "New to the ranking; no comparable 7-day rank" };
+  if (previous === null || current === null) return { text: "N/A", label: daily ? "Previous-day ranking unavailable" : "Seven-day ranking history unavailable" };
   const movement = previous - current;
-  if (movement > 0) return { text: `↑${movement}`, label: `Up ${movement} ranking positions over 7 days` };
-  if (movement < 0) return { text: `↓${Math.abs(movement)}`, label: `Down ${Math.abs(movement)} ranking positions over 7 days` };
-  return { text: "—", label: "No ranking change over 7 days" };
+  if (movement > 0) return { text: `↑${movement}`, label: daily ? `Up ${movement} positions since yesterday` : `Up ${movement} positions over seven days` };
+  if (movement < 0) return { text: `↓${Math.abs(movement)}`, label: daily ? `Down ${Math.abs(movement)} positions since yesterday` : `Down ${Math.abs(movement)} positions over seven days` };
+  return { text: "—", label: daily ? "No rank change since yesterday" : "No rank change over seven days" };
 }
 
 export function getSetValueMovement(target) {

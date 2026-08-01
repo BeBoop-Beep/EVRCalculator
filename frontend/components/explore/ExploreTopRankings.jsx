@@ -172,7 +172,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
               const staleLabel = isStale ? formatHistoryDate(asOf, { month: "short", day: "numeric" }) : null;
               const stableId = getStableSetId(target);
               const comparisonStatus = target?.setValueComparisonStatus7d ?? target?.set_value_comparison_status_7d;
-              const rankMovement = formatRankMovement(previousRanks.get(stableId), position, comparisonStatus);
+              const rankMovement = formatRankMovement(previousRanks.get(stableId), position, comparisonStatus, "7d");
               const valueMovement = getSetValueMovement(target);
               const valueMovementText = valueMovement
                 ? `${signedSetValueFormatter.format(valueMovement.amount)} · ${valueMovement.percent >= 0 ? "+" : ""}${valueMovement.percent.toFixed(1)}% 7D`

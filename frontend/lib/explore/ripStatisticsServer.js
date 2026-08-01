@@ -35,10 +35,18 @@ function toCacheKey(limit) {
 }
 
 function normalisePayload(payload) {
+  const sourceMeta = payload?.meta && typeof payload.meta === "object"
+    ? payload.meta
+    : { warnings: [], timings: {}, sources: {} };
+  const snapshotFallback = Boolean(sourceMeta?.snapshot?.isStaleFallback);
   return {
     targets: Array.isArray(payload?.targets) ? payload.targets : [],
     default_target: payload?.default_target || null,
-    meta: payload?.meta || { warnings: [], timings: {}, sources: {} },
+    meta: {
+      ...sourceMeta,
+      stale: Boolean(sourceMeta.stale || snapshotFallback),
+      fallback: Boolean(sourceMeta.fallback || snapshotFallback),
+    },
   };
 }
 
@@ -95,6 +103,7 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
 
   const cached = targetsCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
+    console.info("[rip-statistics-server] process_cached_response", { limit });
     return cached.data;
   }
 
@@ -108,13 +117,17 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
 
     let res;
     try {
-      res = await fetch(url.toString(), { next: { revalidate: 300 } });
+      // The bounded process cache below is the single cross-request freshness
+      // boundary. A second Next data-cache TTL used to stack with it and could
+      // keep a superseded persisted snapshot visible unpredictably longer.
+      res = await fetch(url.toString(), { cache: "no-store" });
     } catch (error) {
       const warning = toBackendFailureWarning({ detail: error?.message || String(error) });
       console.warn("[rip-statistics-server] targets_request_failed", {
         limit,
         error: error?.message || String(error),
       });
+      console.warn("[rip-statistics-server] stale_fallback", { limit });
       return getRecoverableTargetsPayload(cacheKey, warning);
     }
 
@@ -140,6 +153,11 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
     }
 
     const payload = normalisePayload(await res.json());
+    console.info("[rip-statistics-server] fresh_response", {
+      limit,
+      builtAt: payload?.meta?.snapshot?.builtAt ?? null,
+      marketDate: payload?.meta?.comparisonSnapshots?.currentMarketDate ?? null,
+    });
     targetsCache.set(cacheKey, {
       data: payload,
       expiresAt: now + SUCCESS_TTL_MS,

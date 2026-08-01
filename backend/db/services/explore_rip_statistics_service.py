@@ -53,6 +53,7 @@ _SET_VALUE_HISTORY_SCOPE = "standard"
 _SET_VALUE_HISTORY_CHUNK_SIZE = 50
 _SET_VALUE_HISTORY_DAYS_PER_SET_LIMIT = 45
 _CANONICAL_PRICE_PAGE_SIZE = 1000
+_PUBLISHED_DATE_LOOKBACK = 30
 
 
 class ExploreRipStatisticsTargetsError(Exception):
@@ -261,9 +262,52 @@ def _build_rip_core_interpretation(target: Dict[str, Any]) -> Dict[str, Any]:
         return {"label": None, "summary": None, "severity": None, "reason_code": None}
 
 
+def _load_complete_published_snapshot_dates(
+    *, sources: Dict[str, str], warnings: List[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Select the newest two distinct complete, promoted market dates."""
+    try:
+        result = (
+            public_read_client.table("pokemon_scrape_batches")
+            .select("market_date,status,promoted_at,missing_set_count,expected_set_count")
+            .order("market_date", desc=True)
+            .limit(_PUBLISHED_DATE_LOOKBACK)
+            .execute()
+        )
+        dates: List[str] = []
+        for row in result.data or []:
+            try:
+                missing = int(row.get("missing_set_count"))
+                expected = int(row.get("expected_set_count"))
+            except (TypeError, ValueError):
+                continue
+            market_date = _to_optional_str(row.get("market_date"))
+            if (
+                market_date
+                and str(row.get("status") or "").lower() == "complete"
+                and row.get("promoted_at")
+                and missing == 0
+                and expected > 0
+                and market_date[:10] not in dates
+            ):
+                dates.append(market_date[:10])
+            if len(dates) == 2:
+                break
+        sources["pokemon_scrape_batches"] = "OK"
+        if len(dates) < 2:
+            warnings.append("No distinct previous complete published market snapshot is available")
+        return (dates[0] if dates else None, dates[1] if len(dates) > 1 else None)
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] published market date lookup failed: %s", exc)
+        warnings.append("Failed to resolve complete published market snapshot dates")
+        sources["pokemon_scrape_batches"] = "FAILED"
+        return None, None
+
+
 def _load_current_checklist_set_value_lookup(
     set_ids: List[str],
     *,
+    current_snapshot_date: Optional[str] = None,
     sources: Dict[str, str],
     warnings: List[str],
 ) -> Dict[str, Dict[str, Any]]:
@@ -296,34 +340,25 @@ def _load_current_checklist_set_value_lookup(
                 if value is None or value <= 0:
                     continue
                 rows_by_set_id.setdefault(set_id, []).append(row)
-                if set_id not in latest_by_set_id:
-                    latest_by_set_id[set_id] = dict(row)
-
-        for set_id, latest in latest_by_set_id.items():
+        for set_id, rows in rows_by_set_id.items():
+            by_date = {str(row.get("snapshot_date") or "")[:10]: row for row in rows}
+            current = by_date.get(current_snapshot_date or "")
+            if current is None:
+                continue
+            latest = dict(current)
+            latest_by_set_id[set_id] = latest
             try:
-                latest_date = date.fromisoformat(str(latest.get("snapshot_date"))[:10])
+                comparison_date = (date.fromisoformat(str(current_snapshot_date)[:10]) - timedelta(days=7)).isoformat()
             except (TypeError, ValueError):
                 latest["comparison_status_7d"] = "unavailable"
                 continue
-            target_date = latest_date - timedelta(days=7)
-            candidates = []
-            for row in rows_by_set_id.get(set_id, []):
-                try:
-                    row_date = date.fromisoformat(str(row.get("snapshot_date"))[:10])
-                except (TypeError, ValueError):
-                    continue
-                # Never use a point newer than the seven-day boundary. Among
-                # eligible observations, the closest one is the complete
-                # daily set-value snapshot used for comparison.
-                if row_date <= target_date:
-                    candidates.append((row_date, row))
-            if not candidates:
+            previous = by_date.get(comparison_date)
+            if previous is None:
                 latest["comparison_status_7d"] = "new"
-                continue
-            previous_date, previous = max(candidates, key=lambda item: item[0])
-            latest["previous_set_value_7d"] = _to_optional_float(previous.get("set_value"))
-            latest["previous_set_value_date_7d"] = previous_date.isoformat()
-            latest["comparison_status_7d"] = "available"
+            else:
+                latest["previous_set_value_7d"] = _to_optional_float(previous.get("set_value"))
+                latest["previous_set_value_date_7d"] = comparison_date
+                latest["comparison_status_7d"] = "available"
 
         sources["pokemon_set_value_daily_history"] = "OK"
         logger.info(
@@ -1005,8 +1040,12 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             if resolved_id
         }
     )
+    current_snapshot_date, previous_snapshot_date = _load_complete_published_snapshot_dates(
+        sources=sources, warnings=warnings
+    )
     current_checklist_set_value_lookup = _load_current_checklist_set_value_lookup(
         set_value_lookup_ids,
+        current_snapshot_date=current_snapshot_date,
         sources=sources,
         warnings=warnings,
     )
@@ -1226,6 +1265,8 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "checklistSetValuePricedCardCount": checklist_set_value_row.get("priced_card_count"),
                 "checklist_set_value_total_card_count": checklist_set_value_row.get("total_card_count"),
                 "checklistSetValueTotalCardCount": checklist_set_value_row.get("total_card_count"),
+                "checklist_set_value_as_of": checklist_set_value_row.get("snapshot_date"),
+                "checklistSetValueAsOf": checklist_set_value_row.get("snapshot_date"),
                 "previous_checklist_set_value_7d": checklist_set_value_row.get("previous_set_value_7d"),
                 "previousChecklistSetValue7d": checklist_set_value_row.get("previous_set_value_7d"),
                 "previous_checklist_set_value_date_7d": checklist_set_value_row.get("previous_set_value_date_7d"),
@@ -1235,8 +1276,8 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 # The current rankings view is latest-only. Until a durable,
                 # completion-qualified cohort snapshot exists, publishing a
                 # numeric RIP rank movement would be misleading.
-                "rip_rank_comparison_status_7d": "unavailable",
-                "ripRankComparisonStatus7d": "unavailable",
+                "rip_rank_comparison_status_1d": "unavailable",
+                "ripRankComparisonStatus1d": "unavailable",
                 **top_10_card_value_row,
                 "roi_percent": row.get("roi_percent"),
                 "prob_profit": row.get("prob_profit"),
@@ -1476,6 +1517,10 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "opening_desirability_score": "Legacy prototype metric; superseded by `openingExperience`.",
                 "rip_score_with_desirability": "Legacy comparison field; see `rip` and universalSetDesirability.gate.",
                 "rip_score_without_desirability": "Legacy comparison field; see `ripCore.score`.",
+            },
+            "comparisonSnapshots": {
+                "currentMarketDate": current_snapshot_date,
+                "previousMarketDate": previous_snapshot_date,
             },
             "timings": {
                 "targets_query_ms": round(query_ms, 2),

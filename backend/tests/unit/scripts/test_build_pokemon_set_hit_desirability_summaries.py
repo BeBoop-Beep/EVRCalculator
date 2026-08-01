@@ -1,9 +1,12 @@
-from backend.scripts.build_pokemon_card_desirability_links import DEFAULT_HIT_POLICY_VERSION
+from backend.desirability.rarity_buckets import HIT_POLICY_VERSION
 from backend.scripts.build_pokemon_set_hit_desirability_summaries import (
     DEFAULT_AGGREGATION_VERSION,
+    build_parser,
     build_set_summary_row,
     select_latest_complete_composite_score_group,
 )
+
+DEFAULT_HIT_POLICY_VERSION = HIT_POLICY_VERSION
 
 
 SET_ROW = {
@@ -18,6 +21,17 @@ COMPOSITE_METADATA = {
     "score_row_count": 3,
     "coverage_ratio": 1.0,
 }
+
+
+def test_default_hit_policy_version_tracks_authoritative_domain_constant():
+    assert build_parser().parse_args([]).hit_policy_version == HIT_POLICY_VERSION
+
+
+def test_explicit_hit_policy_version_override_is_preserved():
+    assert (
+        build_parser().parse_args(["--hit-policy-version", "custom-policy"]).hit_policy_version
+        == "custom-policy"
+    )
 
 
 def test_weighted_average_and_missing_scores_are_handled():

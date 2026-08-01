@@ -3417,7 +3417,82 @@ def build_coordinated_set_market_snapshot_rows(
     return cards_row, dashboard_row, top_chase_history_rows
 
 
-def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
+def attach_daily_rip_rank_movements(
+    payload: Dict[str, Any], previous_payload: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Attach prior canonical Overall RIP ranks from the last published payload."""
+    meta = dict(payload.get("meta") or {})
+    dates = dict(meta.get("comparisonSnapshots") or {})
+    current_date = str(dates.get("currentMarketDate") or "")[:10]
+    try:
+        previous_date = (date.fromisoformat(current_date) - timedelta(days=1)).isoformat()
+    except (TypeError, ValueError):
+        previous_date = ""
+    previous_meta = dict((previous_payload or {}).get("meta") or {})
+    previous_dates = dict(previous_meta.get("comparisonSnapshots") or {})
+    stored_previous_date = str(previous_dates.get("currentMarketDate") or "")[:10]
+
+    current_version = (((meta.get("ripWeightsConfig") or {}).get("overallRip") or {}).get("version"))
+    previous_version = (((previous_meta.get("ripWeightsConfig") or {}).get("overallRip") or {}).get("version"))
+    current_cohort = ((meta.get("publicAnalyticsCohort") or {}).get("version"))
+    previous_cohort = ((previous_meta.get("publicAnalyticsCohort") or {}).get("version"))
+    current_financial_version = (((meta.get("ripWeightsConfig") or {}).get("financialRip") or {}).get("version"))
+    previous_financial_version = (((previous_meta.get("ripWeightsConfig") or {}).get("financialRip") or {}).get("version"))
+    compatible = bool(
+        current_date
+        and previous_date
+        and previous_date < current_date
+        and stored_previous_date == previous_date
+        and current_version
+        and current_version == previous_version
+        and current_financial_version == previous_financial_version
+        and current_cohort
+        and current_cohort == previous_cohort
+    )
+    previous_by_id = {
+        str(target.get("set_id") or target.get("id") or target.get("target_id")): target
+        for target in ((previous_payload or {}).get("targets") or [])
+    }
+    for target in payload.get("targets") or []:
+        stable_id = str(target.get("set_id") or target.get("id") or target.get("target_id"))
+        previous = previous_by_id.get(stable_id)
+        if not compatible:
+            status, rank = "unavailable", None
+        elif previous is None:
+            status, rank = "new", None
+        else:
+            rank = ((previous.get("rip") or {}).get("rank"))
+            status = "available" if rank is not None else "unavailable"
+        financial_rank = ((previous or {}).get("ripCore") or {}).get("rank") if compatible and previous else None
+        financial_status = ("new" if compatible and previous is None else
+                            "available" if compatible and financial_rank is not None else "unavailable")
+        current_rank = ((target.get("rip") or {}).get("rank"))
+        current_financial_rank = ((target.get("ripCore") or {}).get("rank"))
+        movement = rank - current_rank if status == "available" and current_rank is not None else None
+        financial_movement = (
+            financial_rank - current_financial_rank
+            if financial_status == "available" and current_financial_rank is not None else None
+        )
+        for snake, camel, value in (
+            ("previous_overall_rip_rank_1d", "previousOverallRipRank1d", rank),
+            ("overall_rip_rank_movement_1d", "overallRipRankMovement1d", movement),
+            ("overall_rip_rank_comparison_status_1d", "overallRipRankComparisonStatus1d", status),
+            ("previous_overall_rip_snapshot_date_1d", "previousOverallRipSnapshotDate1d", previous_date or None),
+            ("previous_financial_rip_rank_1d", "previousFinancialRipRank1d", financial_rank),
+            ("financial_rip_rank_movement_1d", "financialRipRankMovement1d", financial_movement),
+            ("financial_rip_rank_comparison_status_1d", "financialRipRankComparisonStatus1d", financial_status),
+            ("previous_financial_rip_snapshot_date_1d", "previousFinancialRipSnapshotDate1d", previous_date or None),
+            ("previous_rip_rank_1d", "previousRipRank1d", rank),
+            ("rip_rank_comparison_status_1d", "ripRankComparisonStatus1d", status),
+        ):
+            target[snake] = value
+            target[camel] = value
+    return payload
+
+
+def build_explore_rankings_snapshot_row(
+    *, limit: int = DEFAULT_RANKINGS_LIMIT, previous_payload: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     built_at = utc_now_iso()
     payload = get_rip_statistics_targets_payload(limit=limit)
     targets = list(payload.get("targets") or [])
@@ -3431,7 +3506,10 @@ def build_explore_rankings_snapshot_row(*, limit: int = DEFAULT_RANKINGS_LIMIT) 
     }
     meta["openingSetAudit"] = opening_set_audit
     meta["opening_set_audit"] = opening_set_audit
-    payload = {**payload, "targets": opening_targets, "meta": meta}
+    payload = attach_daily_rip_rank_movements(
+        {**payload, "targets": opening_targets, "meta": meta},
+        previous_payload,
+    )
 
     # A desirability read that FAILED renders every set "unavailable". Publishing
     # that overwrites good stored rows with a statement about the sets that the

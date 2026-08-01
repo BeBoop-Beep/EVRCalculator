@@ -16,10 +16,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 from backend.desirability.normalization import normalize_pokemon_name_key  # noqa: E402
 from backend.desirability.composite import COMPOSITE_SCORING_VERSION  # noqa: E402
+from backend.desirability.rarity_buckets import HIT_POLICY_VERSION  # noqa: E402
 from backend.desirability.set_components import SCORING_VERSION as COMPONENT_SCORING_VERSION  # noqa: E402
 from backend.desirability.rip_desirability import SCORING_VERSION as OPENING_SCORING_VERSION  # noqa: E402
 from backend.scripts.build_pokemon_card_desirability_links import (  # noqa: E402
-    DEFAULT_HIT_POLICY_VERSION,
     PokemonCardDesirabilityLinksRepository,
     build_links_report,
 )
@@ -92,6 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--dry-run", action="store_true", help="Preview changes only (default)")
     mode.add_argument("--commit", action="store_true", help="Write changes to Supabase")
 
+    parser.add_argument("--hit-policy-version", default=HIT_POLICY_VERSION)
     parser.add_argument("--log-level", default="INFO")
     return parser
 
@@ -111,13 +112,20 @@ def main() -> int:
         set_key=args.set_key,
         process_all=bool(args.all),
         dry_run=dry_run,
+        hit_policy_version=args.hit_policy_version,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
     status = str(report.get("status") or "")
     return 0 if status in {"dry_run", "committed"} else 1
 
 
-def build_set_desirability_inputs_report(*, set_key: Optional[str], process_all: bool, dry_run: bool) -> Dict[str, Any]:
+def build_set_desirability_inputs_report(
+    *,
+    set_key: Optional[str],
+    process_all: bool,
+    dry_run: bool,
+    hit_policy_version: str = HIT_POLICY_VERSION,
+) -> Dict[str, Any]:
     client = get_supabase_client()
     registry = build_valid_set_key_registry()
     resolved_set_key = None
@@ -134,6 +142,7 @@ def build_set_desirability_inputs_report(*, set_key: Optional[str], process_all:
             "dry_run": dry_run,
             "requested_set_key": set_key,
             "resolved_set_key": resolved_set_key,
+            "hit_policy_version": hit_policy_version,
         }
 
     set_reports: List[Dict[str, Any]] = []
@@ -143,16 +152,36 @@ def build_set_desirability_inputs_report(*, set_key: Optional[str], process_all:
     selected_set_ids = [str(row.get("id")) for row in sets if row.get("id") is not None]
     selected_set_key = resolved_set_key if resolved_set_key else None
 
-    links_report = _build_links(selected_set_key=selected_set_key, process_all=process_all, dry_run=dry_run)
-    summaries_report = _build_summaries(selected_set_key=selected_set_key, process_all=process_all, dry_run=dry_run)
-    components_report = _build_components(selected_set_key=selected_set_key, process_all=process_all, dry_run=dry_run)
-    opening_report = _build_opening(selected_set_ids=selected_set_ids, dry_run=dry_run)
+    links_report = _build_links(
+        selected_set_key=selected_set_key,
+        process_all=process_all,
+        hit_policy_version=hit_policy_version,
+        dry_run=dry_run,
+    )
+    summaries_report = _build_summaries(
+        selected_set_key=selected_set_key,
+        process_all=process_all,
+        hit_policy_version=hit_policy_version,
+        dry_run=dry_run,
+    )
+    components_report = _build_components(
+        selected_set_key=selected_set_key,
+        process_all=process_all,
+        hit_policy_version=hit_policy_version,
+        dry_run=dry_run,
+    )
+    opening_report = _build_opening(
+        selected_set_ids=selected_set_ids,
+        hit_policy_version=hit_policy_version,
+        dry_run=dry_run,
+    )
 
     return {
         "status": "dry_run" if dry_run else "committed",
         "dry_run": dry_run,
         "requested_set_key": set_key,
         "resolved_set_key": resolved_set_key,
+        "hit_policy_version": hit_policy_version,
         "sets_processed": len(set_reports),
         "canonical_fallback": {
             "rows_seen_in_cards": sum(int(r.get("cards_rows") or 0) for r in set_reports),
@@ -289,30 +318,48 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
     }
 
 
-def _build_links(*, selected_set_key: Optional[str], process_all: bool, dry_run: bool) -> Dict[str, Any]:
+def _build_links(
+    *,
+    selected_set_key: Optional[str],
+    process_all: bool,
+    hit_policy_version: str,
+    dry_run: bool,
+) -> Dict[str, Any]:
     return build_links_report(
         repository=PokemonCardDesirabilityLinksRepository(),
         set_key=selected_set_key,
         process_all=bool(process_all and not selected_set_key),
-        hit_policy_version=DEFAULT_HIT_POLICY_VERSION,
+        hit_policy_version=hit_policy_version,
         dry_run=dry_run,
     )
 
 
-def _build_summaries(*, selected_set_key: Optional[str], process_all: bool, dry_run: bool) -> Dict[str, Any]:
+def _build_summaries(
+    *,
+    selected_set_key: Optional[str],
+    process_all: bool,
+    hit_policy_version: str,
+    dry_run: bool,
+) -> Dict[str, Any]:
     return build_set_hit_desirability_summaries_report(
         repository=PokemonSetHitDesirabilitySummariesRepository(),
         set_key=selected_set_key,
         process_all=bool(process_all and not selected_set_key),
         aggregation_version=DEFAULT_AGGREGATION_VERSION,
-        hit_policy_version=DEFAULT_HIT_POLICY_VERSION,
+        hit_policy_version=hit_policy_version,
         composite_scoring_version=COMPOSITE_SCORING_VERSION,
         min_composite_coverage=0.95,
         dry_run=dry_run,
     )
 
 
-def _build_components(*, selected_set_key: Optional[str], process_all: bool, dry_run: bool) -> Dict[str, Any]:
+def _build_components(
+    *,
+    selected_set_key: Optional[str],
+    process_all: bool,
+    hit_policy_version: str,
+    dry_run: bool,
+) -> Dict[str, Any]:
     _ = process_all
     return build_component_scores_report(
         repository=PokemonSetDesirabilityComponentsRepository(),
@@ -321,19 +368,24 @@ def _build_components(*, selected_set_key: Optional[str], process_all: bool, dry
         limit=None,
         force=False,
         scoring_version=COMPONENT_SCORING_VERSION,
-        hit_policy_version=DEFAULT_HIT_POLICY_VERSION,
+        hit_policy_version=hit_policy_version,
         composite_scoring_version=COMPOSITE_SCORING_VERSION,
         min_composite_coverage=0.95,
         dry_run=dry_run,
     )
 
 
-def _build_opening(*, selected_set_ids: Sequence[str], dry_run: bool) -> Dict[str, Any]:
+def _build_opening(
+    *,
+    selected_set_ids: Sequence[str],
+    hit_policy_version: str,
+    dry_run: bool,
+) -> Dict[str, Any]:
     repository = RipDesirabilityPrototypeRepository()
     report = build_report(
         repository=repository,
         scoring_version=COMPONENT_SCORING_VERSION,
-        hit_policy_version=DEFAULT_HIT_POLICY_VERSION,
+        hit_policy_version=hit_policy_version,
         composite_scoring_version=COMPOSITE_SCORING_VERSION,
         limit=None,
     )
@@ -353,6 +405,7 @@ def _build_opening(*, selected_set_ids: Sequence[str], dry_run: bool) -> Dict[st
             "rows_that_would_be_persisted": len(rows),
             "written_rows_returned": 0,
             "scoring_version": OPENING_SCORING_VERSION,
+            "hit_policy_version": hit_policy_version,
         }
 
     payload = build_opening_desirability_persistence_rows(rows, scoring_version=OPENING_SCORING_VERSION)
@@ -367,6 +420,7 @@ def _build_opening(*, selected_set_ids: Sequence[str], dry_run: bool) -> Dict[st
         "rows_that_would_be_persisted": len(rows),
         "written_rows_returned": written,
         "scoring_version": OPENING_SCORING_VERSION,
+        "hit_policy_version": hit_policy_version,
     }
 
 

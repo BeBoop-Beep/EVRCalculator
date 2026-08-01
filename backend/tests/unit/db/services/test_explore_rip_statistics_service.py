@@ -171,6 +171,22 @@ def _build_handlers():
             },
         ],
         "eras": lambda q: [{"id": "era-1", "name": "Wizards of the Coast"}],
+        "pokemon_scrape_batches": lambda _q: [
+            {
+                "market_date": "2026-01-04",
+                "status": "complete",
+                "promoted_at": "2026-01-04T08:00:00Z",
+                "missing_set_count": 0,
+                "expected_set_count": 2,
+            },
+            {
+                "market_date": "2026-01-03",
+                "status": "complete",
+                "promoted_at": "2026-01-03T08:00:00Z",
+                "missing_set_count": 0,
+                "expected_set_count": 2,
+            },
+        ],
         "pokemon_set_value_daily_history": lambda q: [
             {
                 "set_id": "set-2",
@@ -295,7 +311,11 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     assert targets_by_id["set-1"]["previousChecklistSetValueDate7d"] == "2025-12-28"
     assert targets_by_id["set-1"]["setValueComparisonStatus7d"] == "available"
     assert targets_by_id["set-2"]["setValueComparisonStatus7d"] == "new"
-    assert targets_by_id["set-1"]["ripRankComparisonStatus7d"] == "unavailable"
+    assert targets_by_id["set-1"]["ripRankComparisonStatus1d"] == "unavailable"
+    assert payload["meta"]["comparisonSnapshots"] == {
+        "currentMarketDate": "2026-01-04",
+        "previousMarketDate": "2026-01-03",
+    }
     assert payload["meta"]["ripDesirabilityComparison"]["valid_comparison_count"] == 2
     assert payload["meta"]["sources"]["explore_rip_statistics_latest"] == "OK"
     assert payload["meta"]["sources"]["simulation_latest_by_target"] == "SKIPPED_RIP_SUMMARY"
@@ -377,6 +397,10 @@ def test_limit_is_safely_clamped(monkeypatch):
 def test_all_scored_opening_desirability_rows_join_into_canonical_comparison(monkeypatch):
     set_ids = [f"set-{index:02d}" for index in range(33)]
     handlers = {
+        "pokemon_scrape_batches": lambda _q: [
+            {"market_date": "2026-07-01", "status": "complete", "promoted_at": "2026-07-01T08:00:00Z", "missing_set_count": 0, "expected_set_count": 33},
+            {"market_date": "2026-06-30", "status": "complete", "promoted_at": "2026-06-30T08:00:00Z", "missing_set_count": 0, "expected_set_count": 33},
+        ],
         "explore_rip_statistics_latest": lambda _q: [
             {
                 "set_id": set_id,

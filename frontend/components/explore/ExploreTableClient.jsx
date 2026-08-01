@@ -69,6 +69,24 @@ const RANKING_MODE_PICKER_ENABLED = false;
 // reinforcement and never the only signal.
 const LEAD_RANK_LIMIT = 3;
 
+function getRipMovementForMode(target, modeId, currentRank) {
+  if (modeId === "overall") {
+    return formatRankMovement(
+      target?.previousOverallRipRank1d ?? target?.previous_overall_rip_rank_1d,
+      currentRank,
+      target?.overallRipRankComparisonStatus1d ?? target?.overall_rip_rank_comparison_status_1d
+    );
+  }
+  if (modeId === "financial") {
+    return formatRankMovement(
+      target?.previousFinancialRipRank1d ?? target?.previous_financial_rip_rank_1d,
+      currentRank,
+      target?.financialRipRankComparisonStatus1d ?? target?.financial_rip_rank_comparison_status_1d
+    );
+  }
+  return formatRankMovement(null, currentRank, "unavailable");
+}
+
 function toNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -491,9 +509,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           </div>
           <InfoPopover text={modeInfoText} />
         </div>
-        <p className="basis-full text-[11px] text-[var(--text-secondary)]">
-          Ranked using current market pack prices. Movement compares complete 7-day snapshots.
-        </p>
 
         <div className="ml-auto flex items-center gap-3">
           <span className="hidden text-[11px] text-[var(--text-secondary)] lg:inline">
@@ -573,7 +588,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
-                  const rankMovement = formatRankMovement(null, modeRank, target?.ripRankComparisonStatus7d ?? target?.rip_rank_comparison_status_7d);
+                  const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
                   return (
                     <tr
@@ -639,7 +654,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
               const averageLoss = estimateAverageLoss(target);
-              const rankMovement = formatRankMovement(null, modeRank, target?.ripRankComparisonStatus7d ?? target?.rip_rank_comparison_status_7d);
+              const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
               return (
                 <Link

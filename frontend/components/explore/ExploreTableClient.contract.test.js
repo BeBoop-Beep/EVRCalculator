@@ -210,6 +210,15 @@ test("rank is a scannable column driven by the canonical mode rank", () => {
   assert.ok(source.includes("LEAD_RANK_LIMIT"), "top-of-ladder emphasis must be bounded by an explicit limit");
 });
 
+test("Best Sets reads the authoritative one-day RIP history contract", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes("previousOverallRipRank1d"));
+  assert.ok(source.includes("overallRipRankComparisonStatus1d"));
+  assert.ok(source.includes("previousFinancialRipRank1d"));
+  assert.ok(!source.includes("ripRankComparisonStatus7d"));
+  assert.ok(!source.includes("formatRankMovement(null, modeRank"));
+});
+
 test("compact rank displays drop the repeated cohort size", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(

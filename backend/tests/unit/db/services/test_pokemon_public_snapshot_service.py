@@ -5503,10 +5503,34 @@ def test_checklist_enrichment_publishes_every_alias_from_the_selected_candidate(
     assert target["market"]["source"] == "pokemon_set_market_dashboard_snapshot_latest"
     assert target["market"]["existing"] == "kept"
 
-    assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "pokemon_set_market_dashboard_snapshot_latest"
+    assert payload["meta"]["sources"]["checklist_set_value_enrichment"] == "legacy_missing_value_fill_only"
     # Internal selection inputs must not leak into the public payload.
     assert "window_key" not in target
     assert "latest_market_date" not in target
+
+
+def test_checklist_enrichment_does_not_overwrite_published_canonical_history(monkeypatch):
+    rows = [_dashboard_row(
+        _SET_A,
+        "365d",
+        history=[{"date": "2026-07-28", "setValue": 6725.75}],
+        latest_market_date="2026-07-28",
+        updated_at="2026-07-28T20:00:54+00:00",
+    )]
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
+    payload = pokemon_public_snapshot_service._enrich_rankings_payload_with_checklist_set_values({
+        "targets": [{
+            "set_id": _SET_A,
+            "checklistSetValue": 7000.0,
+            "checklistSetValueAsOf": "2026-08-01",
+            "previousChecklistSetValue7d": 6900.0,
+        }],
+        "meta": {},
+    })
+    target = payload["targets"][0]
+    assert target["checklistSetValue"] == 7000.0
+    assert target["checklistSetValueAsOf"] == "2026-08-01"
+    assert target["previousChecklistSetValue7d"] == 6900.0
 
 
 def test_shell_checklist_history_also_follows_freshness(monkeypatch):

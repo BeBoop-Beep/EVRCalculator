@@ -42,6 +42,14 @@ test("the ladder reads the canonical checklist set value fields", () => {
   );
 });
 
+test("Top Rankings remains a seven-day comparison", () => {
+  const source = readComponent();
+  assert.ok(source.includes("setValueComparisonStatus7d"));
+  assert.ok(source.includes("% 7D"));
+  assert.ok(source.includes("formatRankMovement(previousRanks.get(stableId), position, comparisonStatus, \"7d\")"));
+  assert.ok(!source.includes("setValueComparisonStatus1d"));
+});
+
 test("no score, rank, or tier is invented for the set value ladder", () => {
   const source = readComponent();
   // Set value has no backend rank or tier; the position shown is this list's
