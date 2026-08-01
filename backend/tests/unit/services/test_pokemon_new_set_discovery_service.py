@@ -18,7 +18,7 @@ def test_discovery_is_idempotent_for_known_provider_id(monkeypatch, tmp_path: Pa
         "'https://infinite-api.tcgplayer.com/priceguide/set/42/cards/?productTypeID=1'\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(), set()))
     monkeypatch.setattr(
         service, "fetch_global_set_aggregations",
         lambda requester, cache: [{"value": "Brand New Set", "count": 100}],
@@ -35,7 +35,7 @@ def test_discovery_is_idempotent_for_known_provider_id(monkeypatch, tmp_path: Pa
 def test_dry_run_detects_without_writing(monkeypatch, tmp_path: Path):
     root = tmp_path / "pokemon"
     root.mkdir()
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(), set()))
     monkeypatch.setattr(
         service, "fetch_global_set_aggregations",
         lambda requester, cache: [{"value": "Brand New Set", "count": 100}],
@@ -56,7 +56,7 @@ def test_commit_creates_one_stable_id_job_and_repeat_reuses_it(monkeypatch, tmp_
     stored = {}
     monkeypatch.setattr(
         service, "_database_catalog",
-        lambda: (set(), set(stored)),
+        lambda: (set(), set(stored), set()),
     )
     monkeypatch.setattr(
         service, "fetch_global_set_aggregations",
@@ -83,7 +83,7 @@ def test_low_confidence_stable_id_becomes_manual_review(monkeypatch, tmp_path):
     root = tmp_path / "pokemon"
     root.mkdir()
     rows = []
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(), set()))
     monkeypatch.setattr(
         service, "fetch_global_set_aggregations",
         lambda requester, cache: [{"value": "Ambiguous Set", "count": 10}],
@@ -103,7 +103,7 @@ def test_same_name_new_provider_id_is_not_prefiltered(monkeypatch, tmp_path):
     root = tmp_path / "pokemon"
     root.mkdir()
     (root / "known.py").write_text("SET_NAME = 'Same Name'\nCARD_DETAILS_URL = 'https://x/set/1/cards/'")
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(), set()))
     monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: [{"value": "Same Name"}])
     monkeypatch.setattr(service, "validate_candidate_set_id", lambda *a, **k: (2, 0.99, "stable"))
     result = service.discover_new_sets(commit=False, pokemon_root=root)
@@ -114,7 +114,7 @@ def test_unresolved_evidence_is_persisted_and_deduplicated(monkeypatch, tmp_path
     root = tmp_path / "pokemon"
     root.mkdir()
     stored = {}
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(stored)))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(stored), set()))
     monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: [{"value": "Mystery"}])
     monkeypatch.setattr(service, "validate_candidate_set_id", lambda *a, **k: (None, 0, "none"))
     monkeypatch.setattr(service.jobs, "upsert_discovery", lambda row: stored.setdefault(row["source_set_id"], row))
@@ -135,7 +135,7 @@ def test_unknown_names_have_priority_over_bounded_same_name_audit(monkeypatch, t
     aggregations = [{"value": f"Known {index}"} for index in range(120)]
     aggregations.extend([{"value": "Unknown A"}, {"value": "Unknown B"}])
     seen = []
-    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set(), set()))
     monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: aggregations)
     monkeypatch.setattr(
         service, "validate_candidate_set_id",

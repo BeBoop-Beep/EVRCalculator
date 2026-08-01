@@ -13,6 +13,18 @@ def list_source_identities(source_system: str = "tcgplayer") -> set[str]:
     return {str(row["source_set_id"]) for row in (response.data or []) if row.get("source_set_id")}
 
 
+def list_source_identity_statuses(source_system: str = "tcgplayer") -> Dict[str, str]:
+    """Provider identity -> current job status, used to separate baseline rows from live jobs."""
+    response = (
+        supabase.table(TABLE).select("source_set_id,status").eq("source_system", source_system).execute()
+    )
+    return {
+        str(row["source_set_id"]): str(row.get("status") or "")
+        for row in (response.data or [])
+        if row.get("source_set_id")
+    }
+
+
 def get_by_source_identity(source_system: str, source_set_id: str) -> Optional[Dict[str, Any]]:
     response = (
         supabase.table(TABLE).select("*").eq("source_system", source_system)
