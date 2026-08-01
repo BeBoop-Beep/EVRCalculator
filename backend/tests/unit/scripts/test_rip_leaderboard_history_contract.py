@@ -78,6 +78,7 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
         approved = path.name in {
             "049_add_pokemon_public_rip_leaderboard_history.sql",
             "053_harden_pokemon_public_rip_leaderboard_publication.sql",
+            "054_fix_pokemon_public_rip_ranked_target_contract.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))
@@ -149,3 +150,108 @@ def test_requested_market_date_cannot_backdate_payload(monkeypatch):
         command.publish_explore_rip_rankings_snapshot(
             _Client(), market_date="2026-07-31", commit=False
         )
+
+
+def _publication_parameters(*, ranked=22, unranked=12):
+    row = _row(target_count=ranked)
+    row["ranking_payload_json"]["meta"]["publicAnalyticsCohort"]["overallRanked"]["rankedSetCount"] = ranked
+    row["ranking_payload_json"]["meta"]["publicAnalyticsCohort"]["eligibleSetCount"] = ranked
+    for index in range(ranked, ranked + unranked):
+        row["ranking_payload_json"]["targets"].append({
+            "set_id": f"00000000-0000-0000-0000-{index:012d}",
+            "canonical_key": f"set-{index}",
+            "rip": {"score": None, "rank": None},
+        })
+    snapshot, history = command.publication_contract(row)
+    row["ranking_payload_json"]["meta"]["snapshot"].update({
+        "publicationId": snapshot["id"],
+        "marketDate": snapshot["market_date"],
+    })
+    return row, snapshot, history
+
+
+def test_complete_discovery_payload_can_exceed_ranked_cohort():
+    row, snapshot, history = _publication_parameters(ranked=22, unranked=12)
+    command.validate_publication_payload(row, snapshot, history)
+    assert len(row["ranking_payload_json"]["targets"]) == 34
+    assert len(history) == 22
+
+
+def test_ranked_only_payload_remains_valid():
+    row, snapshot, history = _publication_parameters(ranked=22, unranked=0)
+    command.validate_publication_payload(row, snapshot, history)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda row, snapshot, history: history.pop(), "history row count"),
+        (
+            lambda row, snapshot, history: history[0].update(
+                set_id="ffffffff-ffff-ffff-ffff-ffffffffffff"
+            ),
+            "ranked target/history set IDs differ",
+        ),
+        (
+            lambda row, snapshot, history: row["ranking_payload_json"]["targets"][1].update(
+                set_id=row["ranking_payload_json"]["targets"][0]["set_id"]
+            ),
+            "duplicate ranked target set IDs",
+        ),
+        (
+            lambda row, snapshot, history: row["ranking_payload_json"]["meta"]["snapshot"].pop(
+                "publicationId"
+            ),
+            "publicationId is missing",
+        ),
+        (
+            lambda row, snapshot, history: row["ranking_payload_json"]["meta"]["snapshot"].update(
+                publicationId="ffffffff-ffff-ffff-ffff-ffffffffffff"
+            ),
+            "publicationId does not match",
+        ),
+        (
+            lambda row, snapshot, history: row["ranking_payload_json"]["meta"]["snapshot"].update(
+                marketDate="2026-07-31"
+            ),
+            "marketDate does not match",
+        ),
+    ],
+)
+def test_application_preflight_rejects_malformed_contract(mutation, message):
+    row, snapshot, history = _publication_parameters()
+    mutation(row, snapshot, history)
+    with pytest.raises(RuntimeError, match=message):
+        command.validate_publication_payload(row, snapshot, history)
+
+
+def test_application_preflight_rejects_ranked_count_mismatch():
+    row, snapshot, history = _publication_parameters()
+    row["ranking_payload_json"]["targets"][0]["rip"]["rank"] = None
+    with pytest.raises(RuntimeError, match="ranked target count"):
+        command.validate_publication_payload(row, snapshot, history)
+
+
+def test_rpc_contract_counts_ranked_targets_and_checks_set_parity():
+    migration = (
+        Path(__file__).resolve().parents[3]
+        / "db/migrations/054_fix_pokemon_public_rip_ranked_target_contract.sql"
+    ).read_text(encoding="utf-8")
+    assert "target #> '{rip,rank}' <> 'null'::JSONB" in migration
+    assert "v_ranked_targets <> v_expected" in migration
+    assert "v_total_targets < v_expected" in migration
+    assert "EXCEPT" in migration
+    assert "jsonb_array_length(v_payload->'targets') <> v_expected" not in migration
+
+
+def test_shared_publisher_sends_complete_discovery_payload(monkeypatch):
+    row, _snapshot, _history = _publication_parameters()
+    # The publisher owns publication metadata, so start with the builder shape.
+    row["ranking_payload_json"]["meta"]["snapshot"].pop("publicationId")
+    row["ranking_payload_json"]["meta"]["snapshot"].pop("marketDate")
+    client = _Client(previous=[], existing=[])
+    monkeypatch.setattr(command, "build_explore_rankings_snapshot_row", lambda **_kwargs: row)
+    command.publish_explore_rip_rankings_snapshot(client, commit=True)
+    rpc = next(call for call in client.calls if call[0] == "rpc")
+    assert len(rpc[2]["p_latest"]["ranking_payload_json"]["targets"]) == 34
+    assert len(rpc[2]["p_rows"]) == 22

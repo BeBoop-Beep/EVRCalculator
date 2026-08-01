@@ -4,7 +4,7 @@ import hashlib
 import logging
 from datetime import date, timedelta
 from typing import Any, Dict, Optional
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
@@ -94,6 +94,67 @@ def _reuse_publication_id(client: Any, snapshot: Dict[str, Any]) -> None:
         snapshot["id"] = str(rows[0]["id"])
 
 
+def _stable_uuid(value: Any, *, label: str) -> str:
+    if not value:
+        raise RuntimeError(f"Refusing to publish Explore RIP leaderboard: {label} is missing")
+    try:
+        return str(UUID(str(value)))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise RuntimeError(
+            f"Refusing to publish Explore RIP leaderboard: {label} is not a valid UUID"
+        ) from exc
+
+
+def validate_publication_payload(
+    row: Dict[str, Any], snapshot: Dict[str, Any], history_rows: list[Dict[str, Any]]
+) -> None:
+    """Catch malformed publication parameters before invoking the authoritative RPC."""
+    payload = row.get("ranking_payload_json")
+    targets = payload.get("targets") if isinstance(payload, dict) else None
+    if not isinstance(targets, list):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: latest targets must be an array")
+    expected = int(snapshot.get("eligible_cohort_count") or 0)
+    ranked_targets = [
+        target for target in targets
+        if isinstance(target, dict) and (target.get("rip") or {}).get("rank") is not None
+    ]
+    if expected <= 0 or len(ranked_targets) != expected:
+        raise RuntimeError(
+            "Refusing to publish Explore RIP leaderboard: ranked target count "
+            f"expected={expected} actual={len(ranked_targets)}"
+        )
+    if len(history_rows) != expected:
+        raise RuntimeError(
+            "Refusing to publish Explore RIP leaderboard: history row count "
+            f"expected={expected} actual={len(history_rows)}"
+        )
+    ranked_ids = [
+        _stable_uuid(target.get("set_id") or target.get("target_id"), label="ranked target set ID")
+        for target in ranked_targets
+    ]
+    history_ids = [
+        _stable_uuid(history.get("set_id"), label="history row set ID")
+        for history in history_rows
+    ]
+    if len(set(ranked_ids)) != len(ranked_ids):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: duplicate ranked target set IDs")
+    if len(set(history_ids)) != len(history_ids):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: duplicate history row set IDs")
+    if set(ranked_ids) != set(history_ids):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: ranked target/history set IDs differ")
+    snapshot_meta = ((payload.get("meta") or {}).get("snapshot") or {})
+    publication_id = snapshot_meta.get("publicationId")
+    if not publication_id:
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: publicationId is missing")
+    if str(publication_id) != str(snapshot.get("id")):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: publicationId does not match snapshot")
+    market_date = snapshot_meta.get("marketDate")
+    if not market_date:
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: marketDate is missing")
+    if str(market_date) != str(snapshot.get("market_date")):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: marketDate does not match snapshot")
+
+
 def publish_explore_rip_rankings_snapshot(
     client: Any, *, limit: int = DEFAULT_RANKINGS_LIMIT,
     market_date: Optional[str] = None, commit: bool = True,
@@ -113,6 +174,7 @@ def publish_explore_rip_rankings_snapshot(
     row["ranking_payload_json"].setdefault("meta", {}).setdefault("snapshot", {}).update({
         "publicationId": snapshot["id"], "marketDate": snapshot["market_date"],
     })
+    validate_publication_payload(row, snapshot, history_rows)
     if not commit:
         logger.info("[dry-run] validated complete RIP publication market_date=%s rows=%s",
                     snapshot["market_date"], len(history_rows))
