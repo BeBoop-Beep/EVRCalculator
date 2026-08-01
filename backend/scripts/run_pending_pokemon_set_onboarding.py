@@ -134,7 +134,7 @@ def main() -> int:
                 ) if key in outcome.evidence
             }
             if outcome.kind == "advance":
-                fields = {**common, **source_fields, "status": "retry", "current_step": outcome.step,
+                fields = {**common, **source_fields, "status": "ready", "current_step": outcome.step,
                           "next_attempt_at": datetime.now(timezone.utc).isoformat()}
             elif outcome.kind == "wait":
                 fields = {**common, **source_fields, "status": "waiting", "current_step": outcome.step}

@@ -65,7 +65,7 @@ def get_job(job_id: str) -> Optional[Dict[str, Any]]:
 def list_jobs(
     *, include_waiting: bool = False, include_manual_review: bool = False, limit: int = 25,
 ) -> list[Dict[str, Any]]:
-    statuses = ["detected", "retry"]
+    statuses = ["detected", "ready", "retry"]
     if include_waiting:
         statuses.append("waiting")
     if include_manual_review:

@@ -24,11 +24,16 @@ def main() -> int:
     parser.add_argument("--min-confidence", type=float, default=0.90)
     parser.add_argument("--max-new", type=int, default=12)
     parser.add_argument("--provider-timeout-seconds", type=float, default=10.0)
+    parser.add_argument(
+        "--max-same-name-audits", type=int, default=10,
+        help="Bounded secondary stable-ID audit for provider names already registered locally.",
+    )
     args = parser.parse_args()
     _load_backend_env()
     result = discover_new_sets(
         commit=args.commit, min_confidence=args.min_confidence, max_new=max(1, args.max_new),
         provider_timeout_seconds=max(0.1, args.provider_timeout_seconds),
+        max_same_name_audits=max(0, args.max_same_name_audits),
     )
     print(json.dumps(result, indent=2, default=str))
     return 0 if result.get("status") == "ok" else 2

@@ -99,6 +99,7 @@ class OpeningSetSimulationStatus:
     set_name: Optional[str]
     status: str
     latest_simulation_date: Optional[str] = None
+    simulation_snapshot_date: Optional[str] = None
     calculation_run_id: Optional[str] = None
     reason: Optional[str] = None
 
@@ -405,6 +406,7 @@ def evaluate_opening_simulation_freshness(
                 set_name=_to_text(set_row.get("name")),
                 status=status_value,
                 latest_simulation_date=latest_by_set.get(set_id or ""),
+                simulation_snapshot_date=latest_by_set.get(set_id or ""),
                 calculation_run_id=run_id,
                 reason=reason,
             )

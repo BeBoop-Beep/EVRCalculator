@@ -39,8 +39,14 @@ def healthy():
         "pokemon_set_market_dashboard_snapshot_latest": [{"latest_market_date": "2026-08-01", "updated_at": "now"}],
         "pokemon_explore_rankings_snapshot_latest": [{"ranking_payload_json": {"sets": [{"canonical_key": "futureSet"}]}, "updated_at": "now"}],
         "pokemon_set_page_snapshot_latest": [{
-            "payload_json": {"collectorAppeal": {"status": "available", "score": 75},
-                             "rip": {"status": "available", "score": 70, "rankable": True}},
+            "payload_json": {
+                "publicRipContractV4": {
+                    "openingDesirability": {"status": "available", "score": 75},
+                    "overallRip": {"status": "available", "score": 70, "rankable": True},
+                },
+                "publicAnalyticsStatus": "analytics_ready",
+                "meta": {"warnings": []},
+            },
             "updated_at": "now",
         }],
     }
@@ -64,9 +70,11 @@ def test_healthy_set_completes_automatically(tmp_path):
     "mutation,missing",
     [
         (lambda rows: rows["pokemon_set_page_snapshot_latest"][0]["payload_json"].update(
-            collectorAppeal={"status": "unavailable", "score": None}), "canonical_ca7"),
+            publicRipContractV4={"openingDesirability": {"status": "unavailable", "score": None},
+                                 "overallRip": {"status": "available", "score": 70}}), "canonical_ca7"),
         (lambda rows: rows["pokemon_set_page_snapshot_latest"][0]["payload_json"].update(
-            rip={"status": "unavailable", "score": None}), "overall_rip"),
+            publicRipContractV4={"openingDesirability": {"status": "available", "score": 75},
+                                 "overallRip": {"status": "unavailable", "score": None}}), "overall_rip"),
         (lambda rows: rows.update(calculation_history_trend=[]), "current_opvc"),
         (lambda rows: rows.update(pokemon_explore_rankings_snapshot_latest=[]), "explore_contains_set"),
         (lambda rows: rows.update(pokemon_set_page_snapshot_latest=[]), "set_page_snapshot"),
@@ -81,3 +89,57 @@ def test_missing_or_misaligned_input_blocks(tmp_path, mutation, missing):
     )
     assert result["complete"] is False
     assert missing in result["missing"]
+
+
+def test_harmless_missing_prose_is_nonblocking(tmp_path):
+    rows = healthy()
+    rows["pokemon_set_page_snapshot_latest"][0]["payload_json"]["meta"]["warnings"] = [
+        "Optional historical comparison is missing."
+    ]
+    result = collect_final_verification(
+        Client(rows), canonical_key="futureSet", config_path=config(tmp_path), min_image_coverage=0.9,
+    )
+    assert result["complete"] is True
+    assert result["nonblocking_warnings"] == ["Optional historical comparison is missing."]
+
+
+def test_structured_missing_input_blocks_with_reason(tmp_path):
+    rows = healthy()
+    contract = rows["pokemon_set_page_snapshot_latest"][0]["payload_json"]["publicRipContractV4"]
+    contract["overallRip"]["missingInputs"] = ["opening_desirability_ca7"]
+    result = collect_final_verification(
+        Client(rows), canonical_key="futureSet", config_path=config(tmp_path), min_image_coverage=0.9,
+    )
+    assert result["complete"] is False
+    assert result["blocking_missing_inputs"] == ["opening_desirability_ca7"]
+    assert "no_satisfiable_missing_input_warning" in result["missing"]
+
+
+def test_unavailable_ca7_coverage_reason_blocks(tmp_path):
+    rows = healthy()
+    opening = rows["pokemon_set_page_snapshot_latest"][0]["payload_json"]["publicRipContractV4"]["openingDesirability"]
+    opening.update(
+        status="unavailable_missing_input", score=None,
+        coverage={"reasons": ["valid_pull_model_missing"]},
+    )
+    result = collect_final_verification(
+        Client(rows), canonical_key="futureSet", config_path=config(tmp_path), min_image_coverage=0.9,
+    )
+    assert result["blocking_missing_inputs"] == ["valid_pull_model_missing"]
+    assert {"canonical_ca7", "no_satisfiable_missing_input_warning"} <= set(result["missing"])
+
+
+def test_structured_blocking_warning_and_mixed_generation_are_distinguished(tmp_path):
+    rows = healthy()
+    rows["pokemon_set_page_snapshot_latest"][0]["payload_json"]["meta"]["warnings"] = [
+        {"code": "required_input_missing", "severity": "error"},
+        "Snapshot mixes multiple CA7 versions.",
+        "Optional 30-day movement history unavailable.",
+    ]
+    result = collect_final_verification(
+        Client(rows), canonical_key="futureSet", config_path=config(tmp_path), min_image_coverage=0.9,
+    )
+    assert result["blocking_warning_reasons"] == ["required_input_missing"]
+    assert result["mixed_generation_reasons"] == ["Snapshot mixes multiple CA7 versions."]
+    assert result["nonblocking_warnings"] == ["Optional 30-day movement history unavailable."]
+    assert {"no_mixed_generation_warning", "no_satisfiable_missing_input_warning"} <= set(result["missing"])

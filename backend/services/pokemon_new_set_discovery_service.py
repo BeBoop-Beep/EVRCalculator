@@ -70,7 +70,8 @@ def _database_catalog() -> tuple[set[str], set[str]]:
 def discover_new_sets(
     *, commit: bool, min_confidence: float = DEFAULT_MIN_CONFIDENCE,
     max_new: int = 12, provider_timeout_seconds: float = 10.0,
-    max_candidates: int = 100, session: Optional[requests.Session] = None,
+    max_candidates: int = 100, max_same_name_audits: int = 10,
+    session: Optional[requests.Session] = None,
     pokemon_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     summary = DiscoverySummary(dry_run=not commit)
@@ -97,9 +98,18 @@ def discover_new_sets(
         return {**asdict(summary), "status": "retryable_provider_error", "error": "empty setName aggregation"}
 
     summary.provider_candidates = len(aggregations)
-    # Names are diagnostic only. Stable provider identity is resolved before
-    # deduplication so a same-name/new-setId listing cannot be hidden.
-    candidates = [item for item in aggregations if item.get("value")][:max_candidates]
+    named = [item for item in aggregations if item.get("value")]
+    tier_1 = [
+        item for item in named
+        if normalize_name(str(item["value"])) not in local_names
+    ]
+    tier_2 = [
+        item for item in named
+        if normalize_name(str(item["value"])) in local_names
+    ]
+    # Unknown names receive the main budget regardless of their provider order.
+    # Same-name/new-ID detection remains available through a separate bounded audit.
+    candidates = tier_1[:max_candidates] + tier_2[:max(0, max_same_name_audits)]
     evidence: list[Dict[str, Any]] = []
     for aggregation in candidates:
         if summary.detected + summary.manual_review >= max_new:

@@ -482,7 +482,8 @@ class OnboardingEngine:
             if not market_date or not evidence.get("set_id"):
                 return StepOutcome("wait", step, evidence, "set_observation_missing")
             gate = self.publication_evaluator(
-                self._client(), set_id=str(evidence["set_id"]), market_date=str(market_date),
+                self._client(), set_id=str(evidence["set_id"]), canonical_key=key,
+                market_date=str(market_date),
             )
             if not gate.get("complete") or not gate.get("dates_aligned"):
                 return StepOutcome("wait", step, gate, str(gate.get("reason_code") or "publication_gate_not_ready"))

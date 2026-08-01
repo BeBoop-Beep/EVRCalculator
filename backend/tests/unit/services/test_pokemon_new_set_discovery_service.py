@@ -123,3 +123,28 @@ def test_unresolved_evidence_is_persisted_and_deduplicated(monkeypatch, tmp_path
     assert service.discover_new_sets(commit=True, pokemon_root=root)["unchanged"] == 1
     assert len(stored) == 1
     assert next(iter(stored)).startswith("unresolved:")
+
+
+def test_unknown_names_have_priority_over_bounded_same_name_audit(monkeypatch, tmp_path):
+    root = tmp_path / "pokemon"
+    root.mkdir()
+    for index in range(120):
+        (root / f"known_{index}.py").write_text(
+            f"SET_NAME = 'Known {index}'\nCARD_DETAILS_URL = 'https://x/set/{index + 1}/cards/'\n"
+        )
+    aggregations = [{"value": f"Known {index}"} for index in range(120)]
+    aggregations.extend([{"value": "Unknown A"}, {"value": "Unknown B"}])
+    seen = []
+    monkeypatch.setattr(service, "_database_catalog", lambda: (set(), set()))
+    monkeypatch.setattr(service, "fetch_global_set_aggregations", lambda *_: aggregations)
+    monkeypatch.setattr(
+        service, "validate_candidate_set_id",
+        lambda _requester, _cache, name, *_args, **_kwargs: seen.append(name) or (999, 0.99, "stable"),
+    )
+
+    service.discover_new_sets(
+        commit=False, pokemon_root=root, max_candidates=2, max_same_name_audits=3,
+    )
+
+    assert seen[:2] == ["Unknown A", "Unknown B"]
+    assert seen[2:] == ["Known 0", "Known 1", "Known 2"]

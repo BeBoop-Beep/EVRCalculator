@@ -13,9 +13,16 @@ def test_onboarding_identity_and_internal_permissions():
 def test_claim_is_lease_based_and_concurrency_safe():
     assert "FOR UPDATE SKIP LOCKED" in SQL
     assert "lease_expires_at < now()" in SQL
-    assert "attempt_count < max_attempts" in SQL
+    assert "status <> 'retry' OR attempt_count < max_attempts" in SQL
 
 
-def test_waiting_claims_do_not_consume_execution_attempts():
-    assert "CASE WHEN status IN ('detected','retry') THEN 1 ELSE 0 END" in SQL
-    assert "p_force_retry AND status IN ('waiting','manual_review','failed')" in SQL
+def test_only_real_retries_consume_execution_attempts():
+    assert "CASE WHEN status = 'retry' THEN 1 ELSE 0 END" in SQL
+    assert "p_force_retry AND status IN ('waiting','manual_review')" in SQL
+    assert "'ready'" in SQL
+
+
+def test_expired_leases_consume_attempts_and_eventually_fail():
+    assert "last_error_code = 'lease_expired'" in SQL
+    assert "SET status = 'retry'" in SQL
+    assert "WHERE status = 'retry' AND attempt_count >= max_attempts" in SQL

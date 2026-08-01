@@ -31,6 +31,70 @@ def _find_mapping(payload: Any, key: str) -> Dict[str, Any]:
     return {}
 
 
+def _string_list(value: Any) -> list[str]:
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
+def _public_contract_health(payload: Dict[str, Any]) -> Dict[str, Any]:
+    contract = payload.get("publicRipContractV4")
+    if not isinstance(contract, dict):
+        contract = payload
+    opening = contract.get("openingDesirability")
+    if not isinstance(opening, dict):
+        opening = payload.get("openingExperience") if isinstance(payload.get("openingExperience"), dict) else {}
+    overall = contract.get("overallRip")
+    if not isinstance(overall, dict):
+        overall = payload.get("rip") if isinstance(payload.get("rip"), dict) else {}
+
+    blocking_missing_inputs = [
+        *_string_list(opening.get("missingInputs")),
+        *_string_list(overall.get("missingInputs")),
+    ]
+    opening_status = str(opening.get("status") or "").lower()
+    opening_coverage = opening.get("coverage")
+    if opening_status.startswith("unavailable") and isinstance(opening_coverage, dict):
+        blocking_missing_inputs.extend(_string_list(opening_coverage.get("reasons")))
+    public_status = payload.get("publicAnalyticsStatus")
+    public_cohort = payload.get("publicAnalyticsCohort")
+    public_reasons: list[str] = []
+    if public_status and public_status != "analytics_ready":
+        public_reasons.append(str(public_status))
+    if isinstance(public_cohort, dict):
+        cohort_status = public_cohort.get("status")
+        if cohort_status and cohort_status != "analytics_ready":
+            public_reasons.append(str(cohort_status))
+        public_reasons.extend(_string_list(public_cohort.get("reasons")))
+
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    raw_warnings = meta.get("warnings") if isinstance(meta.get("warnings"), list) else []
+    blocking_warning_reasons: list[str] = []
+    mixed_generation_reasons: list[str] = []
+    nonblocking_warnings: list[Any] = []
+    for warning in raw_warnings:
+        if isinstance(warning, dict) and (
+            warning.get("blocking") is True
+            or str(warning.get("severity") or "").lower() in {"error", "fatal", "blocking"}
+        ):
+            blocking_warning_reasons.append(str(warning.get("code") or warning.get("message") or warning))
+            continue
+        text = str(warning)
+        normalized = text.lower()
+        if "mixed generation" in normalized or "mixes multiple" in normalized:
+            mixed_generation_reasons.append(text)
+        else:
+            nonblocking_warnings.append(warning)
+    return {
+        "contract": contract,
+        "opening": opening,
+        "overall": overall,
+        "blocking_missing_inputs": blocking_missing_inputs,
+        "blocking_public_analytics_reasons": public_reasons,
+        "blocking_warning_reasons": blocking_warning_reasons,
+        "mixed_generation_reasons": mixed_generation_reasons,
+        "nonblocking_warnings": nonblocking_warnings,
+    }
+
+
 def collect_final_verification(
     client: Any, *, canonical_key: str, config_path: Path,
     min_image_coverage: float,
@@ -126,12 +190,13 @@ def collect_final_verification(
         .eq("set_id", set_id).limit(1).execute().data
     )
     payload = page.get("payload_json") or {}
+    contract_health = _public_contract_health(payload)
     collector = _find_mapping(payload, "collectorAppeal")
+    if not collector:
+        collector = contract_health["opening"]
     rip = _find_mapping(payload, "rip")
-    warnings = [
-        str(value).lower() for value in _walk(payload)
-        if isinstance(value, str) and ("warning" in value.lower() or "missing" in value.lower())
-    ]
+    if not rip:
+        rip = contract_health["overall"]
     market_date = str((market_snapshot or {}).get("latest_market_date") or set_value.get("snapshot_date") or "")
     source_dates = {
         "market_date": market_date or None,
@@ -149,6 +214,11 @@ def collect_final_verification(
         "desirability_versions": {k: v for k, v in desirability.items() if "version" in k},
         "ca7_status": collector.get("status"), "ca7_reason": collector.get("reason") or collector.get("statusReason"),
         "overall_rip_status": rip.get("status"), "overall_rip_reason": rip.get("statusReason"),
+        "blocking_missing_inputs": contract_health["blocking_missing_inputs"],
+        "blocking_public_analytics_reasons": contract_health["blocking_public_analytics_reasons"],
+        "blocking_warning_reasons": contract_health["blocking_warning_reasons"],
+        "mixed_generation_reasons": contract_health["mixed_generation_reasons"],
+        "nonblocking_warnings": contract_health["nonblocking_warnings"],
         "set_value_date": set_value.get("snapshot_date"), "set_value": set_value.get("set_value"),
         "latest_opvc_date": opvc.get("snapshot_date"), "latest_top_chase_date": top_chase.get("snapshot_date"),
         "explore_rank_present": _contains_identity(explore.get("ranking_payload_json"), set_id, canonical_key),
@@ -172,15 +242,26 @@ def collect_final_verification(
         "current_simulation": bool(run),
         "simulation_details": bool(summary and derived and inputs),
         "current_desirability_components": bool(desirability),
-        "canonical_ca7": collector.get("score") is not None and collector.get("status") != "unavailable",
-        "overall_rip": rip.get("score") is not None and rip.get("rankable") is not False,
+        "canonical_ca7": (
+            (collector.get("score") is not None or collector.get("absoluteScore") is not None)
+            and not str(collector.get("status") or "").startswith("unavailable")
+        ),
+        "overall_rip": (
+            (rip.get("score") is not None or rip.get("absoluteScore") is not None)
+            and rip.get("rankable") is not False
+            and not str(rip.get("status") or "").startswith("unavailable")
+        ),
         "current_opvc": bool(opvc.get("simulated_mean_pack_value_vs_pack_cost") is not None),
         "current_top_chase": bool(top_chase),
         "explore_contains_set": _contains_identity(explore.get("ranking_payload_json"), set_id, canonical_key),
         "set_page_snapshot": bool(page),
         "source_dates_align": dates_align,
-        "no_mixed_generation_warning": not any("mixed" in warning for warning in warnings),
-        "no_satisfiable_missing_input_warning": not any("missing" in warning for warning in warnings),
+        "no_mixed_generation_warning": not contract_health["mixed_generation_reasons"],
+        "no_satisfiable_missing_input_warning": not (
+            contract_health["blocking_missing_inputs"]
+            or contract_health["blocking_public_analytics_reasons"]
+            or contract_health["blocking_warning_reasons"]
+        ),
     }
     required = (
         "source_config_registered", "public_set_correct", "ready_for_daily_scrape", "cards_populated",

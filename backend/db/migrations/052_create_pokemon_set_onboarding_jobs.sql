@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.pokemon_set_onboarding_jobs (
     pokemon_api_set_id text,
     era_folder text,
     status text NOT NULL DEFAULT 'detected'
-        CHECK (status IN ('detected','running','waiting','manual_review',
+        CHECK (status IN ('detected','ready','running','waiting','manual_review',
                           'retry','completed','failed')),
     current_step text NOT NULL DEFAULT 'metadata_resolution',
     attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.pokemon_set_onboarding_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_pokemon_set_onboarding_claim
     ON public.pokemon_set_onboarding_jobs (next_attempt_at, created_at)
-    WHERE status IN ('detected','retry');
+    WHERE status IN ('detected','ready','retry');
 CREATE INDEX IF NOT EXISTS idx_pokemon_set_onboarding_lease
     ON public.pokemon_set_onboarding_jobs (lease_expires_at)
     WHERE status = 'running';
@@ -54,28 +54,32 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_job public.pokemon_set_onboarding_jobs;
 BEGIN
     UPDATE public.pokemon_set_onboarding_jobs
-       SET status = CASE WHEN attempt_count >= max_attempts THEN 'failed' ELSE 'retry' END,
-           next_attempt_at = CASE WHEN attempt_count >= max_attempts THEN next_attempt_at ELSE now() END,
+       SET status = 'retry',
+           next_attempt_at = now(),
            worker_id = NULL, lease_expires_at = NULL, heartbeat_at = NULL,
            last_error_code = 'lease_expired',
            last_error_message = 'Worker lease expired before completion',
            updated_at = now(),
-           completed_at = CASE WHEN attempt_count >= max_attempts THEN now() ELSE NULL END
+           completed_at = NULL
      WHERE status = 'running' AND lease_expires_at < now();
+
+    UPDATE public.pokemon_set_onboarding_jobs
+       SET status = 'failed', completed_at = now(), updated_at = now()
+     WHERE status = 'retry' AND attempt_count >= max_attempts;
 
     SELECT * INTO v_job
       FROM public.pokemon_set_onboarding_jobs
-     WHERE (status IN ('detected','retry') OR (p_force_retry AND status IN ('waiting','manual_review','failed')))
+     WHERE (status IN ('detected','ready','retry') OR (p_force_retry AND status IN ('waiting','manual_review')))
        AND (p_job_id IS NULL OR id = p_job_id)
        AND (p_force_retry OR next_attempt_at <= now())
-       AND attempt_count < max_attempts
+       AND (status <> 'retry' OR attempt_count < max_attempts)
      ORDER BY next_attempt_at, detected_at
      FOR UPDATE SKIP LOCKED LIMIT 1;
     IF NOT FOUND THEN RETURN; END IF;
 
     UPDATE public.pokemon_set_onboarding_jobs
        SET status='running', worker_id=p_worker_id,
-           attempt_count=attempt_count + CASE WHEN status IN ('detected','retry') THEN 1 ELSE 0 END,
+           attempt_count=attempt_count + CASE WHEN status = 'retry' THEN 1 ELSE 0 END,
            lease_expires_at=now() + make_interval(secs => greatest(60, p_lease_seconds)),
            updated_at=now()
      WHERE id=v_job.id RETURNING * INTO v_job;
