@@ -33,6 +33,7 @@ SLIM_ENDPOINTS: List[Tuple[str, str]] = [
     ("shell", "/tcgs/pokemon/sets/{set_id}/shell"),
     ("overview", "/tcgs/pokemon/sets/{set_id}/overview?window=365d"),
     ("top_chase", "/tcgs/pokemon/sets/{set_id}/market/top-chase?window=30D&limit=10"),
+    ("sealed_market", "/tcgs/pokemon/sets/{set_id}/market/sealed"),
     ("movers", "/tcgs/pokemon/sets/{set_id}/market/movers?window=30D&limit=5"),
     ("cards_page", "/tcgs/pokemon/sets/{set_id}/cards/page?page=1&page_size=60"),
     ("cards_validation", "/tcgs/pokemon/sets/{set_id}/cards/validation"),

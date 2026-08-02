@@ -1,11 +1,11 @@
 {
   "summary": {
-    "apply_changes": true,
-    "sets_fetched_from_api": 172,
-    "local_set_files_inspected": 170,
-    "files_updated": 16,
+    "apply_changes": false,
+    "sets_fetched_from_api": 174,
+    "local_set_files_inspected": 209,
+    "files_updated": 37,
     "fields_filled": 0,
-    "unresolved_sets": 0
+    "unresolved_sets": 37
   },
   "results": [
     {
@@ -629,6 +629,26 @@
       "notes": ""
     },
     {
+      "era": "megaEvolutionEra",
+      "canonical_key": "chaosRising",
+      "set_name": "Chaos Rising",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/chaosRising.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me4",
+      "notes": ""
+    },
+    {
+      "era": "megaEvolutionEra",
+      "canonical_key": "pitchBlack",
+      "set_name": "Pitch Black",
+      "file_path": "backend/constants/tcg/pokemon/megaEvolutionEra/pitchBlack.py",
+      "status": "unchanged",
+      "updated_fields": [],
+      "api_set_id": "me5",
+      "notes": ""
+    },
+    {
       "era": "neoEra",
       "canonical_key": "neoDestiny",
       "set_name": "Neo Destiny",
@@ -829,6 +849,339 @@
       "notes": ""
     },
     {
+      "era": "otherEra",
+      "canonical_key": "expedition",
+      "set_name": "Expedition",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/expedition.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "wotcPromo",
+      "set_name": "WoTC Promo",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/wotcPromo.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "diamondAndPearlPromos",
+      "set_name": "Diamond and Pearl Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/diamondAndPearlPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "bestOfPromos",
+      "set_name": "Best of Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/bestOfPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "legendaryTreasuresRadiantCollection",
+      "set_name": "Legendary Treasures: Radiant Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/legendaryTreasuresRadiantCollection.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitSylveonAndNoivern",
+      "set_name": "XY Trainer Kit: Sylveon & Noivern",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitSylveonAndNoivern.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
+      "set_name": "XY Trainer Kit: Bisharp & Wigglytuff",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitBisharpAndWigglytuff.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitLatiasAndLatios",
+      "set_name": "XY Trainer Kit: Latias & Latios",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitLatiasAndLatios.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "bwTrainerKitExcadrillAndZoroark",
+      "set_name": "BW Trainer Kit: Excadrill & Zoroark",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/bwTrainerKitExcadrillAndZoroark.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
+      "set_name": "HGSS Trainer Kit: Gyarados & Raichu",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/hgssTrainerKitGyaradosAndRaichu.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "dpTrainerKitManaphyAndLucario",
+      "set_name": "DP Trainer Kit: Manaphy & Lucario",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/dpTrainerKitManaphyAndLucario.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "baseSetShadowless",
+      "set_name": "Base Set (Shadowless)",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/baseSetShadowless.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "generationsRadiantCollection",
+      "set_name": "Generations: Radiant Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/generationsRadiantCollection.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
+      "set_name": "XY Trainer Kit: Pikachu Libre & Suicune",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitPikachuLibreAndSuicune.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "deckExclusives",
+      "set_name": "Deck Exclusives",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/deckExclusives.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "alternateArtPromos",
+      "set_name": "Alternate Art Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/alternateArtPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
+      "set_name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitLycanrocAndAlolanRaichu.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "countdownCalendarPromos",
+      "set_name": "Countdown Calendar Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/countdownCalendarPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "pikachuWorldCollectionPromos",
+      "set_name": "Pikachu World Collection Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/pikachuWorldCollectionPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
+      "set_name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitAlolanSandslashAndAlolanNinetales.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "worldChampionshipDecks",
+      "set_name": "World Championship Decks",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/worldChampionshipDecks.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "svScarletAndVioletPromoCards",
+      "set_name": "SV: Scarlet & Violet Promo Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/svScarletAndVioletPromoCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "blisterExclusives",
+      "set_name": "Blister Exclusives",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/blisterExclusives.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "trickOrTradeBOOsterBundle2023",
+      "set_name": "Trick or Trade BOOster Bundle 2023",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2023.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSPromos2023",
+      "set_name": "McDonald's Promos 2023",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSPromos2023.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "professorProgramPromos",
+      "set_name": "Professor Program Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/professorProgramPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "tradingCardGameClassic",
+      "set_name": "Trading Card Game Classic",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/tradingCardGameClassic.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy2024",
+      "set_name": "Battle Academy 2024",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2024.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "trickOrTradeBOOsterBundle2024",
+      "set_name": "Trick or Trade BOOster Bundle 2024",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2024.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "sveScarletAndVioletEnergies",
+      "set_name": "SVE: Scarlet & Violet Energies",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/sveScarletAndVioletEnergies.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "eReaderSampleCards",
+      "set_name": "e-Reader Sample Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/eReaderSampleCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "firstPartnerCollection2026",
+      "set_name": "First Partner Collection 2026",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerCollection2026.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "me30thCelebration",
+      "set_name": "ME: 30th Celebration",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/me30thCelebration.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "swshSwordAndShieldPromoCards",
+      "set_name": "SWSH: Sword & Shield Promo Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/swshSwordAndShieldPromoCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy",
+      "set_name": "Battle Academy",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "firstPartnerPack",
+      "set_name": "First Partner Pack",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerPack.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy2022",
+      "set_name": "Battle Academy 2022",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2022.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set match found."
+    },
+    {
       "era": "platinumEra",
       "canonical_key": "arceus",
       "set_name": "Arceus",
@@ -963,160 +1316,160 @@
       "canonical_key": "blackBolt",
       "set_name": "Black Bolt",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/blackBolt.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "zsv10pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "destinedRivals",
       "set_name": "Destined Rivals",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/destinedRivals.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv10",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "journeyTogether",
       "set_name": "Journey Together",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/journeyTogether.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv9",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "obsidianFlames",
       "set_name": "Obsidian Flames",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/obsidianFlames.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv3",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "paldeaEvolved",
       "set_name": "Paldea Evolved",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paldeaEvolved.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv2",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "paldeanFates",
       "set_name": "Paldean Fates",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paldeanFates.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv4pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "paradoxRift",
       "set_name": "Paradox Rift",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/paradoxRift.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv4",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "prismaticEvolutions",
       "set_name": "Prismatic Evolutions",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/prismaticEvolutions.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv8pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "scarletAndViolet151",
       "set_name": "Scarlet and Violet 151",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndViolet151.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv3pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "scarletAndVioletBase",
       "set_name": "Scarlet and Violet Base Set",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/scarletAndVioletBase.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv1",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "shroudedFable",
       "set_name": "Shrouded Fable",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/shroudedFable.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv6pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "stellarCrown",
       "set_name": "Stellar Crown",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/stellarCrown.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv7",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "surgingSparks",
       "set_name": "Surging Sparks",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/surgingSparks.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv8",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "temporalForces",
       "set_name": "Temporal Forces",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/temporalForces.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "twilightMasquerade",
       "set_name": "Twilight Masquerade",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/twilightMasquerade.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "sv6",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "scarletAndVioletEra",
       "canonical_key": "whiteFlare",
       "set_name": "White Flare",
       "file_path": "backend/constants/tcg/pokemon/scarletAndVioletEra/whiteFlare.py",
-      "status": "formatted",
+      "status": "unchanged",
       "updated_fields": [],
       "api_set_id": "rsv10pt5",
-      "notes": "spacing normalized"
+      "notes": ""
     },
     {
       "era": "sunAndMoonEra",

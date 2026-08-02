@@ -34,6 +34,7 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
+import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -15260,23 +15261,23 @@ export default function RipStatisticsPageClient({
                           </SectionErrorBoundary>
                         </div>
                       ) : null}
-                      <div
-                        id="set-detail-set-intelligence"
-                        className={`min-w-0 scroll-mt-24 md:scroll-mt-28 ${shouldShowTopMarketCards ? "" : "lg:col-span-3"}`.trim()}
-                      >
-                        {/* Decision Signals — derived purely from summary/interpretation,
-                            both already available from the SSR shell on this tab — no
-                            async gate needed, just render-exception isolation. */}
-                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                          <DecisionSignalsCard
-                            pillarSignals={overviewPillarSignals}
-                            summary={summary}
-                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                            trackedSignals={overviewDecisionTrackedSignals}
-                            requestTimeout={isTimeoutFallbackPayload}
-                          />
+                      <div className="min-w-0">
+                        {/* Sealed Market owns an independent prepared-snapshot request. */}
+                        <SectionErrorBoundary sectionName="overview-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
+                          <SealedMarketTrendCard setId={resolvedSetResourceId} />
                         </SectionErrorBoundary>
                       </div>
+                    </div>
+                    <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                        <DecisionSignalsCard
+                          pillarSignals={overviewPillarSignals}
+                          summary={summary}
+                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                          trackedSignals={overviewDecisionTrackedSignals}
+                          requestTimeout={isTimeoutFallbackPayload}
+                        />
+                      </SectionErrorBoundary>
                     </div>
                   </section>
                 ) : null}

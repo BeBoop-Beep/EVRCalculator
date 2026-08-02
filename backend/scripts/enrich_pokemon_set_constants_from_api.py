@@ -144,7 +144,15 @@ def resolve_api_row(local_key: str, set_name: str, set_id: Optional[str], by_id:
 
 def build_local_inventory() -> List[Dict[str, Any]]:
     inventory: List[Dict[str, Any]] = []
-    era_dirs = [path for path in POKEMON_ROOT.iterdir() if path.is_dir() and path.name != "__pycache__"]
+    # Not every directory under the Pokemon root is an era: scrape_job_reports/
+    # holds generated JSON and has no setMap.py to import.
+    era_dirs = [
+        path
+        for path in POKEMON_ROOT.iterdir()
+        if path.is_dir()
+        and path.name != "__pycache__"
+        and (path / "setMap.py").is_file()
+    ]
 
     for era_dir in sorted(era_dirs, key=lambda path: path.name.lower()):
         module_name = f"backend.constants.tcg.pokemon.{era_dir.name}.setMap"

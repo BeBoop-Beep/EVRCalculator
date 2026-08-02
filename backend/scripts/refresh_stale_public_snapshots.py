@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -234,9 +235,9 @@ class SetPageFreshnessAudit:
 class RefreshSummary:
     source_checks_performed: int = 0
     stale_snapshot_families: set[str] = field(default_factory=set)
-    rebuilt_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
-    skipped_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
-    failed_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
+    rebuilt_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
+    skipped_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
+    failed_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
     warnings_remaining: List[str] = field(default_factory=list)
     problem_canonical_keys: List[str] = field(default_factory=list)
     global_rebuilt: List[str] = field(default_factory=list)
@@ -1623,7 +1624,7 @@ def _print_summary(summary: RefreshSummary) -> None:
     print(f"global rebuilt: {', '.join(summary.global_rebuilt) or 'none'}")
     print(f"global skipped: {', '.join(summary.global_skipped) or 'none'}")
     print(f"global failed: {', '.join(summary.global_failed) or 'none'}")
-    for family in ("cards", "market_dashboard", "set_page"):
+    for family in ("sealed_market", "cards", "market_dashboard", "set_page"):
         print(f"{family} rebuilt: {len(summary.rebuilt_sets[family])} {summary.rebuilt_sets[family][:20]}")
         print(f"{family} skipped: {len(summary.skipped_sets[family])} {summary.skipped_sets[family][:20]}")
         print(f"{family} failed: {len(summary.failed_sets[family])} {summary.failed_sets[family][:20]}")
@@ -1690,8 +1691,32 @@ def main() -> None:
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
 
-    # Rebuild order: coordinated Cards + Market Dashboard, global card movers,
-    # rankings, set pages, validation.
+    # Sealed Market is deliberately refreshed from sealed ingestion alone,
+    # before and independently of card/simulation/RIP snapshot families.
+    from backend.scripts.build_pokemon_set_sealed_market_snapshots import build_one as build_sealed_market
+    for plan in plans:
+        canonical_key = str(plan.set_row.get("canonical_key") or plan.set_row.get("id"))
+        # Unit/in-memory plans may use symbolic IDs; persisted sets use UUIDs.
+        # Do not let a non-database fixture trigger a real Supabase read.
+        try:
+            UUID(str(plan.set_row.get("id")))
+        except (TypeError, ValueError):
+            summary.skipped_sets["sealed_market"].append(f"{canonical_key}: non-persisted set id")
+            continue
+        try:
+            report = build_sealed_market(plan.set_row, commit)
+            if report["action"] == "unchanged":
+                summary.skipped_sets["sealed_market"].append(canonical_key)
+            elif commit:
+                summary.rebuilt_sets["sealed_market"].append(canonical_key)
+            else:
+                summary.stale_snapshot_families.add("sealed_market")
+                summary.skipped_sets["sealed_market"].append(f"{canonical_key}: dry-run {report['action']}")
+        except Exception as exc:
+            summary.failed_sets["sealed_market"].append(f"{canonical_key}: {exc}")
+
+    # Rebuild order for the remaining families: coordinated Cards + Market
+    # Dashboard, global card movers, rankings, set pages, validation.
     for plan in plans:
         _maybe_rebuild_coordinated_market(
             client,

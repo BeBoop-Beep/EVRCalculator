@@ -89,6 +89,10 @@ def main() -> None:
 
     steps: list[tuple[str, list[str]]] = [
         (
+            "set sealed market snapshots",
+            ["backend/scripts/build_pokemon_set_sealed_market_snapshots.py", "--all", mode_flag],
+        ),
+        (
             "coordinated set cards and market dashboards",
             [
                 "backend/scripts/build_pokemon_set_market_snapshots.py",
