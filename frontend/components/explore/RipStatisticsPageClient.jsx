@@ -243,8 +243,9 @@ const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 // display client-side.
 const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d";
 const TOP_CHASE_MOBILE_PREVIEW_LIMIT = 5;
-const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 64;
-const MOBILE_SET_MENU_SCROLL_NOISE_PX = 3;
+const MOBILE_SET_MENU_HIDE_DISTANCE_PX = 10;
+const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 56;
+const MOBILE_SET_MENU_SCROLL_NOISE_PX = 2;
 const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
 const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
 const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
@@ -2918,6 +2919,7 @@ function SetValueTrendCard({
       title="Set Value Trend"
       titleInfoText="Tracks the selected set-value scope using daily Near Mint card market observations. Set sums tracked checklist cards, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
+      bodySpacingClassName="mt-2"
     >
       {(status === "loading" || status === "idle") && points.length === 0 && currentValue === null ? (
         <InlinePanelSkeleton rows={4} />
@@ -2926,9 +2928,7 @@ function SetValueTrendCard({
       ) : !hasTrend ? (
         <div className="space-y-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
             <MarketValueChange
-              className="mt-1"
               value={currentValue}
               windowLabel={deltaWindowLabel}
               unavailable
@@ -2954,9 +2954,7 @@ function SetValueTrendCard({
         <div className="flex min-h-0 flex-col space-y-4 desk:min-h-[29rem]">
           <div className="min-w-0">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
               <MarketValueChange
-                className="mt-1"
                 value={currentValue}
                 changeAmount={deltaAmount}
                 changePercent={deltaPercent}
@@ -7544,7 +7542,18 @@ function SectionEyebrow({ children }) {
 const SECTION_CARD_MOBILE_FLUSH_CLASS =
   "max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]";
 
-function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "", mobileFlush = false }) {
+function SectionCard({
+  title,
+  subtitle,
+  titleInfoText,
+  eyebrow = null,
+  tone = "default",
+  children,
+  className = "",
+  bodyClassName = "",
+  bodySpacingClassName = "mt-4",
+  mobileFlush = false,
+}) {
   // A flush card states its 1200px+ inset with `desk:p-5`, not `sm:p-5`.
   // `max-desk:` utilities are emitted BEFORE `sm:` in the stylesheet and both
   // are !important, so an sm-scoped inset wins back 640-1199px and the card
@@ -7571,7 +7580,7 @@ function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "d
         </div>
         {subtitle ? <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
       </div>
-      <div className={["mt-4 min-w-0 max-w-full", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
+      <div className={[bodySpacingClassName, "min-w-0 max-w-full", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
     </article>
   );
 }
@@ -10434,18 +10443,17 @@ export default function RipStatisticsPageClient({
   const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
   const [isMobileSetContextHidden, setIsMobileSetContextHidden] = useState(false);
   const [showReturnToTop, setShowReturnToTop] = useState(false);
-  const [isSetContextFocusWithin, setIsSetContextFocusWithin] = useState(false);
   const mobileSetContextRef = useRef(null);
   const isMobileSetContextHiddenRef = useRef(false);
   const mobileSetContextScrollRef = useRef({
     currentNormalizedY: 0,
     maxNormalizedY: 0,
     previousNormalizedY: 0,
+    cumulativeDownwardPx: 0,
     cumulativeUpwardPx: 0,
     direction: "none",
     nearTop: true,
     pickerOpen: false,
-    focusWithin: false,
   });
   const revealMobileSetContext = useCallback(() => {
     setIsMobileSetContextHidden(false);
@@ -11218,47 +11226,11 @@ export default function RipStatisticsPageClient({
   }, [isMobileSetContextHidden]);
 
   useEffect(() => {
-    if (!setDetailMode || typeof document === "undefined") {
-      return undefined;
-    }
-
-    const updateFocusWithin = () => {
-      const isWithin = Boolean(
-        mobileSetContextRef.current &&
-        document.activeElement instanceof Node &&
-        mobileSetContextRef.current.contains(document.activeElement)
-      );
-
-      mobileSetContextScrollRef.current.focusWithin = isWithin;
-      setIsSetContextFocusWithin((previous) => (previous === isWithin ? previous : isWithin));
-      if (isWithin) {
-        setIsMobileSetContextHidden(false);
-      }
-    };
-
-    updateFocusWithin();
-    document.addEventListener("focusin", updateFocusWithin);
-    document.addEventListener("focusout", updateFocusWithin);
-
-    return () => {
-      document.removeEventListener("focusin", updateFocusWithin);
-      document.removeEventListener("focusout", updateFocusWithin);
-    };
-  }, [setDetailMode]);
-
-  useEffect(() => {
     mobileSetContextScrollRef.current.pickerOpen = heroSetPickerOpen;
     if (heroSetPickerOpen) {
       setIsMobileSetContextHidden(false);
     }
   }, [heroSetPickerOpen]);
-
-  useEffect(() => {
-    mobileSetContextScrollRef.current.focusWithin = isSetContextFocusWithin;
-    if (isSetContextFocusWithin) {
-      setIsMobileSetContextHidden(false);
-    }
-  }, [isSetContextFocusWithin]);
 
   useEffect(() => {
     if (!setDetailMode || typeof window === "undefined") {
@@ -11279,11 +11251,11 @@ export default function RipStatisticsPageClient({
       scrollState.currentNormalizedY = normalizedY;
       scrollState.maxNormalizedY = maxY;
       scrollState.previousNormalizedY = normalizedY;
+      scrollState.cumulativeDownwardPx = 0;
       scrollState.cumulativeUpwardPx = 0;
       scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
       scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
       scrollState.pickerOpen = heroSetPickerOpen;
-      scrollState.focusWithin = isSetContextFocusWithin;
       setShowReturnToTop((previous) => {
         const shouldShow = normalizedY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
         return previous === shouldShow ? previous : shouldShow;
@@ -11331,15 +11303,14 @@ export default function RipStatisticsPageClient({
         scrollState.maxNormalizedY = maxY;
         scrollState.previousNormalizedY = nextY;
         scrollState.nearTop = nearTop;
-        scrollState.pickerOpen = heroSetPickerOpen;
-        scrollState.focusWithin = isSetContextFocusWithin;
         setShowReturnToTop((previous) => {
           const shouldShow = nextY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
           return previous === shouldShow ? previous : shouldShow;
         });
 
-        if (nearTop || heroSetPickerOpen || isSetContextFocusWithin) {
+        if (nearTop || scrollState.pickerOpen) {
           scrollState.direction = nearTop ? "none" : "up";
+          scrollState.cumulativeDownwardPx = 0;
           scrollState.cumulativeUpwardPx = 0;
           setIsMobileSetContextHidden(false);
           return;
@@ -11350,11 +11321,18 @@ export default function RipStatisticsPageClient({
         }
 
         if (delta > 0) {
-          hideMenuImmediately();
+          scrollState.direction = "down";
+          scrollState.cumulativeUpwardPx = 0;
+          scrollState.cumulativeDownwardPx += delta;
+          if (scrollState.cumulativeDownwardPx >= MOBILE_SET_MENU_HIDE_DISTANCE_PX) {
+            scrollState.cumulativeDownwardPx = 0;
+            hideMenuImmediately();
+          }
           return;
         }
 
         scrollState.direction = "up";
+        scrollState.cumulativeDownwardPx = 0;
         if (!isMobileSetContextHiddenRef.current) {
           scrollState.cumulativeUpwardPx = 0;
           return;
@@ -11369,7 +11347,7 @@ export default function RipStatisticsPageClient({
     };
 
     const shouldUseBottomEdgeIntent = () => {
-      if (!mediaQuery.matches || heroSetPickerOpen) {
+      if (!mediaQuery.matches || scrollState.pickerOpen) {
         return false;
       }
       if (isMobileSetContextHiddenRef.current) {
@@ -11451,7 +11429,7 @@ export default function RipStatisticsPageClient({
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [setDetailMode, heroSetPickerOpen, isSetContextFocusWithin, requestedTargetId]);
+  }, [setDetailMode]);
 
   useEffect(() => {
     if (!setDetailMode || typeof window === "undefined") {
@@ -11464,6 +11442,7 @@ export default function RipStatisticsPageClient({
     scrollState.currentNormalizedY = normalizedY;
     scrollState.maxNormalizedY = maxY;
     scrollState.previousNormalizedY = normalizedY;
+    scrollState.cumulativeDownwardPx = 0;
     scrollState.cumulativeUpwardPx = 0;
     scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
     scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
@@ -14953,6 +14932,7 @@ export default function RipStatisticsPageClient({
                 </div>
                 <section
                   data-set-context-header
+                  data-set-picker-open={isDesktopHeroComposition && heroSetPickerOpen ? "true" : "false"}
                   className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
                   <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
