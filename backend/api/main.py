@@ -71,6 +71,10 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
 )
+from backend.db.services.pokemon_explore_card_movers_service import (
+    ExploreCardMoversUnavailable,
+    read_explore_card_movers_snapshot,
+)
 
 
 app = FastAPI(title="EVR Collection API")
@@ -445,6 +449,25 @@ def get_explore_rip_statistics_targets(
         logger.exception("/explore/rip-statistics/targets unexpected error")
         return JSONResponse(
             content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/explore/card-market-movers")
+def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
+    """Serve the prepared, fixed-window global Explore card-movers snapshot."""
+    try:
+        return read_explore_card_movers_snapshot(limit=limit or 30)
+    except ExploreCardMoversUnavailable as exc:
+        return JSONResponse(
+            content={"message": str(exc), "code": "POKEMON_EXPLORE_CARD_MOVERS_UNAVAILABLE"},
+            status_code=404,
+        )
+    except Exception:
+        logger.exception("/explore/card-market-movers unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load Explore card market movers",
+                     "code": "POKEMON_EXPLORE_CARD_MOVERS_FAILED"},
             status_code=500,
         )
 

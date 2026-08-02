@@ -55,6 +55,7 @@ import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming"
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "@/components/explore/MoversTickerViewport";
+import SevenDayMarketMoversTicker from "@/components/explore/SevenDayMarketMoversTicker";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
@@ -15110,8 +15111,10 @@ export default function RipStatisticsPageClient({
                           Always renders; loading/error/empty states live inside the
                           same fixed-height strip (no layout shift). */}
                       <SectionErrorBoundary sectionName="overview-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
-                        <MarketMoversTicker
-                          items={moversTickerItems}
+                        <SevenDayMarketMoversTicker
+                          entry={moversTickerEntry}
+                          maxItems={10}
+                          scope="set"
                           status={moversTickerStatus}
                           error={activeMarketMoversState.error}
                           viewAllHref={moversTickerHref}

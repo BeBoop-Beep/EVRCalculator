@@ -586,6 +586,7 @@ def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail
             summary.rebuilt_sets["cards"].append("alpha")
 
     monkeypatch.setattr(refresh, "_maybe_rebuild_coordinated_market", _rebuild_coordinated)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_explore_card_movers", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_maybe_rebuild_rankings", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_maybe_rebuild_set_page", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_build_validation_snapshot", lambda *_a, **_k: None)

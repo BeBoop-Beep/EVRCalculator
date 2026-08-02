@@ -42,6 +42,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     upsert_rows,
 )
 from backend.scripts.pokemon_explore_rankings_publisher import publish_explore_rip_rankings_snapshot
+from backend.scripts.build_pokemon_explore_card_movers_snapshot import build as build_explore_card_movers
 
 logger = logging.getLogger(__name__)
 
@@ -1090,6 +1091,40 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
         summary.global_failed.append(f"explore_rankings: {exc}")
 
 
+def _maybe_rebuild_explore_card_movers(
+    client: Any, *, market_date: Optional[str], commit: bool, summary: RefreshSummary
+) -> None:
+    if not market_date:
+        summary.global_failed.append("explore_card_movers: promoted market date unavailable")
+        return
+    try:
+        candidate = build_explore_card_movers(
+            client=client, market_date=str(market_date)[:10], commit=False
+        )
+        current = _read_snapshot_row(
+            client, "pokemon_explore_card_movers_snapshot_latest",
+            "source_generation_fingerprint",
+            (("tcg", "pokemon"), ("scope", "explore"), ("window_key", "7D")),
+        )
+        stale = (
+            not current
+            or current.get("source_generation_fingerprint")
+            != candidate.get("source_generation_fingerprint")
+        )
+        if not stale:
+            return
+        summary.stale_snapshot_families.add("explore_card_movers")
+        if not commit:
+            summary.global_skipped.append("explore_card_movers: dry-run source generation changed")
+            return
+        from backend.db.services.pokemon_explore_card_movers_service import upsert_explore_card_movers_snapshot
+        upsert_explore_card_movers_snapshot(candidate, client=client)
+        summary.global_rebuilt.append("explore_card_movers")
+    except Exception as exc:
+        logger.exception("failed Explore card movers snapshot refresh")
+        summary.global_failed.append(f"explore_card_movers: {exc}")
+
+
 def _maybe_rebuild_set_page(
     client: Any,
     plan: SetRefreshPlan,
@@ -1655,7 +1690,8 @@ def main() -> None:
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
 
-    # Rebuild order: coordinated Cards + Market Dashboard, rankings, set pages, validation.
+    # Rebuild order: coordinated Cards + Market Dashboard, global card movers,
+    # rankings, set pages, validation.
     for plan in plans:
         _maybe_rebuild_coordinated_market(
             client,
@@ -1664,6 +1700,12 @@ def main() -> None:
             days=args.days,
             window=args.window,
             summary=summary,
+        )
+
+    if not args.set_id:
+        _maybe_rebuild_explore_card_movers(
+            client, market_date=args.market_date or gate.market_date,
+            commit=commit, summary=summary,
         )
 
     rankings_needed = rankings.stale

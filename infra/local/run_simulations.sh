@@ -36,45 +36,89 @@ PY
 
 HOSTNAME_VALUE=$(hostname)
 START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Checkout verification has two modes:
+#
+#   current_branch (default) - local development. Run the simulator and the
+#     coordinated publication job from whatever branch the developer actually has
+#     checked out. No branch-name requirement, no origin comparison, no fetch.
+#   production - the scheduled task. Unchanged fail-closed behavior: the checkout
+#     must BE the expected branch, match its origin ref, and be clean, so
+#     automation can never publish from an accidental feature/research checkout.
+EVR_PUBLICATION_CHECKOUT_MODE="${EVR_PUBLICATION_CHECKOUT_MODE:-current_branch}"
 EXPECTED_PUBLICATION_BRANCH="${EXPECTED_PUBLICATION_BRANCH:-main}"
 ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT="${ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT:-0}"
 PUBLICATION_FETCH_ORIGIN="${PUBLICATION_FETCH_ORIGIN:-0}"
 
+# The branch actually checked out, reported in every log line and notification.
+# EXPECTED_PUBLICATION_BRANCH is only ever a requirement, never a report.
+ACTUAL_PUBLICATION_BRANCH="$(git symbolic-ref --short -q HEAD || true)"
+
 verify_publication_checkout() {
-  local branch_name=""
   local head_sha=""
   local origin_sha=""
   local dirty_files=""
   local failure_reason=""
+  local expectation_line=""
+  local action_line=""
 
-  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if [ "$EVR_PUBLICATION_CHECKOUT_MODE" != "current_branch" ] && [ "$EVR_PUBLICATION_CHECKOUT_MODE" != "production" ]; then
+    # Fail closed on a typo: "prod" must never silently degrade production to the
+    # permissive local mode.
+    failure_reason="unknown EVR_PUBLICATION_CHECKOUT_MODE '$EVR_PUBLICATION_CHECKOUT_MODE' (expected current_branch or production)"
+  elif ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     failure_reason="repository path is not a Git worktree: $REPO_DIR"
   else
-    if [ "$PUBLICATION_FETCH_ORIGIN" = "1" ]; then
+    if [ "$EVR_PUBLICATION_CHECKOUT_MODE" = "production" ] && [ "$PUBLICATION_FETCH_ORIGIN" = "1" ]; then
       if ! git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"; then
         failure_reason="git fetch origin $EXPECTED_PUBLICATION_BRANCH failed"
       fi
     fi
 
-    branch_name=$(git symbolic-ref --short -q HEAD || true)
+    ACTUAL_PUBLICATION_BRANCH=$(git symbolic-ref --short -q HEAD || true)
     head_sha=$(git rev-parse HEAD 2>/dev/null || true)
-    origin_sha=$(git rev-parse "refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH" 2>/dev/null || true)
     dirty_files=$(git status --porcelain --untracked-files=no 2>/dev/null || true)
 
-    if [ -z "$failure_reason" ] && [ "$branch_name" != "$EXPECTED_PUBLICATION_BRANCH" ]; then
-      failure_reason="expected branch $EXPECTED_PUBLICATION_BRANCH but checkout is ${branch_name:-detached}"
-    elif [ -z "$failure_reason" ] && [ -z "$head_sha" ]; then
-      failure_reason="unable to resolve checkout HEAD"
-    elif [ -z "$failure_reason" ] && [ -z "$origin_sha" ]; then
-      failure_reason="unable to resolve refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH"
-    elif [ -z "$failure_reason" ] && [ "$head_sha" != "$origin_sha" ]; then
-      failure_reason="checkout HEAD $head_sha does not match origin/$EXPECTED_PUBLICATION_BRANCH $origin_sha"
-    elif [ -z "$failure_reason" ] && [ -n "$dirty_files" ]; then
-      failure_reason="tracked working-tree changes are present"
+    if [ "$EVR_PUBLICATION_CHECKOUT_MODE" = "production" ]; then
+      # [checkout-mode:production] Strict: right branch, in sync with origin, clean.
+      origin_sha=$(git rev-parse --verify --quiet "refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH" || true)
+      expectation_line="Expected: origin/$EXPECTED_PUBLICATION_BRANCH ${origin_sha:-unknown}"
+      action_line="Action: deploy the latest clean $EXPECTED_PUBLICATION_BRANCH checkout or set the emergency override explicitly."
+
+      if [ -z "$failure_reason" ] && [ "$ACTUAL_PUBLICATION_BRANCH" != "$EXPECTED_PUBLICATION_BRANCH" ]; then
+        failure_reason="expected branch $EXPECTED_PUBLICATION_BRANCH but checkout is ${ACTUAL_PUBLICATION_BRANCH:-detached}"
+      elif [ -z "$failure_reason" ] && [ -z "$head_sha" ]; then
+        failure_reason="unable to resolve checkout HEAD"
+      elif [ -z "$failure_reason" ] && [ -z "$origin_sha" ]; then
+        failure_reason="unable to resolve refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH"
+      elif [ -z "$failure_reason" ] && [ "$head_sha" != "$origin_sha" ]; then
+        failure_reason="checkout HEAD $head_sha does not match origin/$EXPECTED_PUBLICATION_BRANCH $origin_sha"
+      elif [ -z "$failure_reason" ] && [ -n "$dirty_files" ]; then
+        failure_reason="tracked working-tree changes are present"
+      fi
+    else
+      # [checkout-mode:current_branch] Any named branch is valid. The point of a
+      # local run is to exercise the code the developer actually has checked out,
+      # so there is deliberately no branch-name requirement and no comparison
+      # against any remote ref - the branch need not be pushed or synchronized.
+      # Detached HEAD is still refused (nothing identifies what ran), and tracked
+      # working-tree changes are still refused so a run is reproducible from a
+      # commit. Untracked files remain ignored, as before.
+      expectation_line="Mode: current_branch (any named, clean branch is accepted)"
+      action_line="Action: check out a named branch and commit or stash tracked changes, or set the emergency override explicitly."
+
+      if [ -z "$failure_reason" ] && [ -z "$ACTUAL_PUBLICATION_BRANCH" ]; then
+        failure_reason="detached HEAD is not a named branch"
+      elif [ -z "$failure_reason" ] && [ -z "$head_sha" ]; then
+        failure_reason="unable to resolve checkout HEAD"
+      elif [ -z "$failure_reason" ] && [ -n "$dirty_files" ]; then
+        failure_reason="tracked working-tree changes are present"
+      fi
     fi
+    # [checkout-mode:end]
   fi
 
-  local checkout_line="[publication-checkout] repo=$REPO_DIR branch=${branch_name:-unknown} head=${head_sha:-unknown} origin_${EXPECTED_PUBLICATION_BRANCH}=${origin_sha:-unknown} fetch_origin=$PUBLICATION_FETCH_ORIGIN"
+  local checkout_line="[publication-checkout] repo=$REPO_DIR mode=$EVR_PUBLICATION_CHECKOUT_MODE branch=${ACTUAL_PUBLICATION_BRANCH:-detached} head=${head_sha:-unknown} expected_branch=$EXPECTED_PUBLICATION_BRANCH origin_sha=${origin_sha:-n/a} fetch_origin=$PUBLICATION_FETCH_ORIGIN"
   echo "$checkout_line" | tee -a logs/run_simulations.log logs/refresh_public_snapshots.log
 
   if [ -z "$failure_reason" ]; then
@@ -87,9 +131,10 @@ verify_publication_checkout() {
     notify_slack "⚠️ Public snapshot publication checkout guard OVERRIDDEN
 Host: $HOSTNAME_VALUE
 Repo: $REPO_DIR
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Reason: $failure_reason
 HEAD: ${head_sha:-unknown}
-Expected: origin/$EXPECTED_PUBLICATION_BRANCH ${origin_sha:-unknown}"
+$expectation_line"
     return 0
   fi
 
@@ -98,21 +143,24 @@ Expected: origin/$EXPECTED_PUBLICATION_BRANCH ${origin_sha:-unknown}"
   notify_slack "❌ Simulation/publication job REFUSED unsafe checkout
 Host: $HOSTNAME_VALUE
 Repo: $REPO_DIR
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Reason: $failure_reason
 HEAD: ${head_sha:-unknown}
-Expected: origin/$EXPECTED_PUBLICATION_BRANCH ${origin_sha:-unknown}
-Action: deploy the latest clean $EXPECTED_PUBLICATION_BRANCH checkout or set the emergency override explicitly."
+$expectation_line
+$action_line"
   return 2
 }
 
-# Never run simulations or publish snapshots from an accidental feature/research
-# checkout. A nonzero result exits immediately because set -e is enabled.
+# In production mode this refuses to run simulations or publish snapshots from an
+# accidental feature/research checkout. In current_branch mode it only refuses a
+# checkout nothing can be attributed to (detached HEAD) or reproduced from (dirty
+# tracked files). A nonzero result exits immediately because set -e is enabled.
 verify_publication_checkout
 
 notify_slack "🚀 Simulation job started
 Host: $HOSTNAME_VALUE
 Repo: $REPO_DIR
-Branch: $EXPECTED_PUBLICATION_BRANCH
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached} (checkout mode: $EVR_PUBLICATION_CHECKOUT_MODE)
 Commit: $(git rev-parse HEAD)
 Script: backend/scripts/run_daily_opening_publication.py
 Started: $START_TIME
@@ -159,6 +207,7 @@ PUBLICATION_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 if [ "$PUBLICATION_EXIT" -eq 0 ]; then
   notify_slack "✅ Simulation + publication completed
 Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Commit: $(git rev-parse HEAD)
 Script: backend/scripts/run_daily_opening_publication.py
 Started: $PUBLICATION_START_TIME
@@ -173,6 +222,7 @@ elif [ "$PUBLICATION_EXIT" -eq 3 ]; then
 
   notify_slack "⏸️ Public snapshot publication DEFERRED (cohort not ready; previous good snapshots preserved)
 Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Commit: $(git rev-parse HEAD)
 Script: backend/scripts/run_daily_opening_publication.py
 Started: $PUBLICATION_START_TIME
@@ -186,6 +236,7 @@ else
 
   notify_slack "❌ Simulation/publication FAILED (Opening Profit vs Cost may be stale)
 Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Commit: $(git rev-parse HEAD)
 Script: backend/scripts/run_daily_opening_publication.py
 Started: $PUBLICATION_START_TIME
@@ -210,6 +261,7 @@ if [ "$AUDIT_EXIT" -ne 0 ]; then
 
   notify_slack "❌ Opening analytics publication audit FAILED
 Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Commit: $(git rev-parse HEAD)
 Script: backend/scripts/audit_opening_analytics_publication.py
 Exit: $AUDIT_EXIT

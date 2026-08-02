@@ -102,6 +102,10 @@ def main() -> None:
             ],
         ),
         (
+            "global explore card movers",
+            ["backend/scripts/build_pokemon_explore_card_movers_snapshot.py", mode_flag, *gate_forward],
+        ),
+        (
             "explore rankings",
             ["backend/scripts/build_pokemon_explore_rankings_snapshot.py", "--all", mode_flag, *gate_forward],
         ),

@@ -1,6 +1,8 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import ExploreTableClient from "@/components/explore/ExploreTableClient";
 import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
+import ExploreMarketMovers from "@/components/explore/ExploreMarketMovers";
+import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import styles from "@/components/explore/explore.module.css";
 
@@ -44,7 +46,14 @@ export const metadata = {
 
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
-  const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
+  const [rankingsResult, moversResult] = await Promise.allSettled([
+    getRipStatisticsTargets({ limit: 60 }),
+    getExploreMarketMovers(),
+  ]);
+  const payload = rankingsResult.status === "fulfilled" ? rankingsResult.value : null;
+  const moversPayload = moversResult.status === "fulfilled"
+    ? moversResult.value
+    : { marketMovers: { window: "7D", all: [] }, meta: { requestFailed: true } };
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   // Sword & Shield's simulator-era data is not yet validated for public
   // analytics (incomplete pull/hit-rate model, unblended subsets) — see
@@ -77,11 +86,14 @@ export default async function ExplorePage({ searchParams }) {
         aligned, and each renders independently — a failure in one leaves the
         other intact because they share only the already-fetched target list.
       */}
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
-        <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
-        <div className="mt-3 border-t border-[var(--border-subtle)] pt-3 desk:mt-0 desk:border-t-0 desk:pt-0">
+      <div className="space-y-5">
+        <ExploreMarketMovers payload={moversPayload} />
+        <section aria-label="Top Rankings">
           <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
-        </div>
+        </section>
+        <section aria-label="Best Sets to Rip Right Now">
+          <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
+        </section>
       </div>
     </div>
   );
