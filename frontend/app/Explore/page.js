@@ -86,14 +86,14 @@ export default async function ExplorePage({ searchParams }) {
         aligned, and each renders independently — a failure in one leaves the
         other intact because they share only the already-fetched target list.
       */}
-      <div className="space-y-5">
+      <div className="mb-5">
         <ExploreMarketMovers payload={moversPayload} />
-        <section aria-label="Top Rankings">
-          <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
-        </section>
-        <section aria-label="Best Sets to Rip Right Now">
+      </div>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+        <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
+        <div className="mt-3 border-t border-[var(--border-subtle)] pt-3 desk:mt-0 desk:border-t-0 desk:pt-0">
           <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import pytest
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
     build_global_card_movers_row,
+    read_explore_card_movers_snapshot,
 )
 from backend.db.services.pokemon_card_market_delta_contract import WINDOW_CONVENTION
 
@@ -50,3 +51,42 @@ def test_incoherent_source_blocks_publication(sources):
     with pytest.raises(ExploreCardMoversUnavailable):
         build_global_card_movers_row([{"id": "a", "name": "Alpha"}], sources,
                                      target_market_date="2026-08-01")
+
+
+def test_valid_empty_all_array_is_included_not_malformed():
+    row = build_global_card_movers_row(
+        [{"id": "a", "name": "Alpha", "canonical_key": "alpha"}],
+        [snapshot("a", [])],
+        target_market_date="2026-08-01",
+    )
+    assert row["eligible_set_count"] == 1
+    assert row["card_count"] == 0
+    assert row["_diagnostics"]["includedSetCount"] == 1
+
+
+class _Result:
+    def __init__(self, data):
+        self.data = data
+
+
+class _Query:
+    def __init__(self, rows):
+        self.rows = rows
+    def select(self, *_args): return self
+    def eq(self, *_args): return self
+    def limit(self, *_args): return self
+    def execute(self): return _Result(self.rows)
+
+
+class _Client:
+    def __init__(self, rows):
+        self.rows = rows
+    def table(self, _name): return _Query(self.rows)
+
+
+def test_read_service_serves_only_prepared_snapshot_and_caps_limit():
+    payload = {"marketMovers": {"window": "7D", "all": [movement(str(i), i, i) for i in range(35)]},
+               "meta": {"snapshot": {"marketDate": "2026-08-01"}}}
+    result = read_explore_card_movers_snapshot(client=_Client([{"payload_json": payload}]), limit=99)
+    assert result["marketMovers"]["window"] == "7D"
+    assert len(result["marketMovers"]["all"]) == 30

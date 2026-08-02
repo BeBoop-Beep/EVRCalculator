@@ -3,14 +3,18 @@
 The wrapper cannot run under pytest (it needs bash + the VM environment), so we
 assert its source contracts.
 
-Checkout verification has two modes:
+Checkout handling has exactly two paths:
 
-* ``current_branch`` (default) — local development runs from whatever branch is
-  actually checked out. No branch-name equality check, no origin comparison.
-* ``production`` — unchanged fail-closed behavior: the checkout must be the
-  expected branch, in sync with its origin ref, and clean.
+* ``local`` (the default, and anything that is not "production") — purely
+  informational. It logs branch/HEAD/working-tree state and continues. It can
+  never refuse a run because of the branch name, a detached HEAD, dirty tracked
+  files, or origin synchronization. A developer runs
+  ``bash infra/local/run_simulations.sh`` from a feature branch with uncommitted
+  changes and no environment variables at all.
+* ``production`` — opt in with EVR_PUBLICATION_CHECKOUT_MODE=production. Strict,
+  fail-closed: expected branch, HEAD == origin ref, clean tracked tree.
 
-Everything after verification (orchestrator, deferral, audit, exit codes) is
+Everything after the checkout step (orchestrator, deferral, audit, exit codes) is
 unchanged and still asserted here.
 """
 from pathlib import Path
@@ -20,10 +24,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCRIPT = REPO_ROOT / "infra" / "local" / "run_simulations.sh"
 
-PRODUCTION_MARKER = "# [checkout-mode:production]"
-CURRENT_BRANCH_MARKER = "# [checkout-mode:current_branch]"
-END_MARKER = "# [checkout-mode:end]"
-
 
 @pytest.fixture(scope="module")
 def script_text():
@@ -31,154 +31,161 @@ def script_text():
     return SCRIPT.read_text(encoding="utf-8")
 
 
-def _block(text: str, start: str, end: str) -> str:
-    start_index = text.index(start)
-    end_index = text.index(end, start_index)
-    return text[start_index:end_index]
+def _function_body(text: str, name: str) -> str:
+    """Slice one shell function body, from its `name() {` to the closing brace."""
+    start = text.index(f"{name}() {{")
+    end = text.index("\n}\n", start)
+    return text[start:end]
 
 
 @pytest.fixture(scope="module")
-def production_block(script_text):
-    return _block(script_text, PRODUCTION_MARKER, CURRENT_BRANCH_MARKER)
+def local_body(script_text):
+    return _function_body(script_text, "log_local_checkout")
 
 
 @pytest.fixture(scope="module")
-def current_branch_block(script_text):
-    return _block(script_text, CURRENT_BRANCH_MARKER, END_MARKER)
+def production_body(script_text):
+    return _function_body(script_text, "verify_production_checkout")
 
 
 # ---------------------------------------------------------------------------
-# Repo location + mode selection
+# 1. Local mode is the default
 # ---------------------------------------------------------------------------
-def test_wrapper_supports_isolated_production_checkout(script_text):
-    assert 'REPO_DIR="${EVR_PRODUCTION_REPO_DIR:-/d/EVRCalculator}"' in script_text
-    assert 'cd "$REPO_DIR"' in script_text
+def test_checkout_mode_defaults_to_local(script_text):
+    assert 'EVR_PUBLICATION_CHECKOUT_MODE="${EVR_PUBLICATION_CHECKOUT_MODE:-local}"' in script_text
 
 
-def test_checkout_mode_defaults_to_current_branch(script_text):
-    assert (
-        'EVR_PUBLICATION_CHECKOUT_MODE="${EVR_PUBLICATION_CHECKOUT_MODE:-current_branch}"'
-        in script_text
-    )
+def test_dispatch_sends_only_production_down_the_strict_path(script_text):
+    assert 'case "$EVR_PUBLICATION_CHECKOUT_MODE" in' in script_text
+    assert "  production)\n    verify_production_checkout\n    ;;" in script_text
+    assert "  *)\n    log_local_checkout\n    ;;" in script_text
 
 
-def test_both_checkout_modes_are_dispatched_explicitly(script_text):
-    assert PRODUCTION_MARKER in script_text
-    assert CURRENT_BRANCH_MARKER in script_text
-    assert END_MARKER in script_text
-    assert script_text.index(PRODUCTION_MARKER) < script_text.index(CURRENT_BRANCH_MARKER)
+def test_checkout_step_still_runs_before_any_work(script_text):
+    assert 'esac\n\nnotify_slack "🚀 Simulation job started' in script_text
 
 
-def test_an_unknown_checkout_mode_fails_closed(script_text):
-    # A typo like "prod" must not silently fall through to the permissive mode.
-    assert "unknown EVR_PUBLICATION_CHECKOUT_MODE" in script_text
-
-
-def test_the_checkout_guard_still_runs_before_any_work(script_text):
-    assert 'verify_publication_checkout\n\nnotify_slack "🚀 Simulation job started' in script_text
+def test_only_an_invalid_repo_path_can_fail_the_checkout_step_locally(script_text):
+    assert "repository path is not a Git worktree: $REPO_DIR" in script_text
 
 
 # ---------------------------------------------------------------------------
-# current_branch mode
+# 2-5. Local mode refuses nothing
 # ---------------------------------------------------------------------------
-def test_current_branch_mode_detects_the_branch_dynamically(script_text):
-    assert 'ACTUAL_PUBLICATION_BRANCH="$(git symbolic-ref --short -q HEAD || true)"' in script_text
-    assert "ACTUAL_PUBLICATION_BRANCH=$(git symbolic-ref --short -q HEAD || true)" in script_text
+def test_local_mode_never_returns_a_failure(local_body):
+    # No refusal, no nonzero return, no exit: the local path is informational.
+    assert "return 2" not in local_body
+    assert "REFUSED" not in local_body
+    assert "exit" not in local_body
+    assert "failure_reason" not in local_body
+    assert local_body.rstrip().endswith("return 0")
 
 
-def test_current_branch_mode_accepts_any_named_branch(current_branch_block):
-    # No branch-name equality check at all: a feature branch is a valid checkout.
-    assert "EXPECTED_PUBLICATION_BRANCH" not in current_branch_block
-    assert "expected branch" not in current_branch_block
+def test_local_mode_accepts_any_branch(local_body):
+    assert "EXPECTED_PUBLICATION_BRANCH" not in local_body
+    assert "expected branch" not in local_body
 
 
-def test_current_branch_mode_never_compares_head_against_an_origin_ref(current_branch_block):
-    assert "refs/remotes/origin" not in current_branch_block
-    assert "origin_sha" not in current_branch_block
-    assert "does not match origin" not in current_branch_block
+def test_local_mode_accepts_a_detached_head(local_body):
+    # The branch is only ever read for reporting, never validated.
+    assert "detached HEAD is not a named branch" not in local_body
+    assert 'ACTUAL_PUBLICATION_BRANCH=$(git symbolic-ref --short -q HEAD || true)' in local_body
 
 
-def test_current_branch_mode_still_rejects_detached_head(current_branch_block):
-    assert '[ -z "$ACTUAL_PUBLICATION_BRANCH" ]' in current_branch_block
-    assert "detached HEAD" in current_branch_block
+def test_local_mode_accepts_tracked_working_tree_changes(local_body):
+    # Dirtiness is recorded as state, never used as a failure condition.
+    assert "tracked working-tree changes are present" not in local_body
+    assert 'PUBLICATION_WORKING_TREE_STATE="modified"' in local_body
+    assert 'PUBLICATION_WORKING_TREE_STATE="clean"' in local_body
 
 
-def test_current_branch_mode_still_requires_a_clean_tracked_working_tree(current_branch_block):
-    assert '[ -n "$dirty_files" ]' in current_branch_block
-    assert "tracked working-tree changes are present" in current_branch_block
+def test_local_mode_ignores_untracked_files(local_body):
+    assert "git status --porcelain --untracked-files=no" in local_body
 
 
-def test_current_branch_mode_does_not_fetch_origin(script_text):
-    # The fetch is gated on production mode, so a local run makes no network call.
-    assert (
-        'if [ "$EVR_PUBLICATION_CHECKOUT_MODE" = "production" ] '
-        '&& [ "$PUBLICATION_FETCH_ORIGIN" = "1" ]; then' in script_text
-    )
+def test_local_mode_never_compares_head_against_origin(local_body):
+    assert "refs/remotes/origin" not in local_body
+    assert "origin_sha" not in local_body
+    assert "git fetch" not in local_body
 
 
-def test_untracked_files_are_still_ignored(script_text):
-    assert "git status --porcelain --untracked-files=no" in script_text
+def test_local_mode_requires_no_environment_override(local_body):
+    assert "ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT" not in local_body
+
+
+def test_local_mode_logs_branch_head_and_working_tree_state(local_body):
+    assert "[publication-checkout]" in local_body
+    assert "mode=local" in local_body
+    assert "branch=${ACTUAL_PUBLICATION_BRANCH:-detached}" in local_body
+    assert "head=${PUBLICATION_HEAD_SHA:-unknown}" in local_body
+    assert "working_tree=$PUBLICATION_WORKING_TREE_STATE" in local_body
 
 
 # ---------------------------------------------------------------------------
-# production mode
+# 6. Production mode keeps the strict guard
 # ---------------------------------------------------------------------------
 def test_expected_publication_branch_still_defaults_to_main(script_text):
     assert 'EXPECTED_PUBLICATION_BRANCH="${EXPECTED_PUBLICATION_BRANCH:-main}"' in script_text
 
 
-def test_production_mode_requires_the_expected_branch(production_block):
-    assert '"$ACTUAL_PUBLICATION_BRANCH" != "$EXPECTED_PUBLICATION_BRANCH"' in production_block
-    assert "expected branch $EXPECTED_PUBLICATION_BRANCH but checkout is" in production_block
+def test_production_mode_requires_the_expected_branch(production_body):
+    assert '"$ACTUAL_PUBLICATION_BRANCH" != "$EXPECTED_PUBLICATION_BRANCH"' in production_body
+    assert "expected branch $EXPECTED_PUBLICATION_BRANCH but checkout is" in production_body
 
 
-def test_production_mode_requires_head_to_match_origin(production_block):
-    assert 'refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH' in production_block
-    assert '"$head_sha" != "$origin_sha"' in production_block
-    assert "does not match origin/$EXPECTED_PUBLICATION_BRANCH" in production_block
-
-
-def test_production_mode_resolves_the_origin_ref_without_echoing_it_back(production_block):
-    # Plain `git rev-parse <ref>` prints the ref itself on stdout when it cannot
-    # resolve it, which made origin_sha a bogus non-empty string, killed the
-    # "unable to resolve" branch, and logged a fake SHA. --verify prints nothing.
+def test_production_mode_requires_head_to_match_origin(production_body):
     assert (
         'git rev-parse --verify --quiet "refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH"'
-        in production_block
+        in production_body
     )
-    assert "unable to resolve refs/remotes/origin/$EXPECTED_PUBLICATION_BRANCH" in production_block
+    assert '"$head_sha" != "$origin_sha"' in production_body
+    assert "does not match origin/$EXPECTED_PUBLICATION_BRANCH" in production_body
 
 
-def test_production_mode_requires_a_clean_tracked_working_tree(production_block):
-    assert '[ -n "$dirty_files" ]' in production_block
-    assert "tracked working-tree changes are present" in production_block
+def test_production_mode_requires_a_clean_tracked_working_tree(production_body):
+    assert '[ -n "$dirty_files" ]' in production_body
+    assert "tracked working-tree changes are present" in production_body
 
 
-def test_production_mode_keeps_optional_origin_fetch(script_text):
+def test_production_mode_still_rejects_a_detached_head(production_body):
+    assert "${ACTUAL_PUBLICATION_BRANCH:-detached}" in production_body
+
+
+def test_production_mode_keeps_optional_origin_fetch(production_body, script_text):
     assert 'PUBLICATION_FETCH_ORIGIN="${PUBLICATION_FETCH_ORIGIN:-0}"' in script_text
-    assert 'git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"' in script_text
+    assert '[ "$PUBLICATION_FETCH_ORIGIN" = "1" ]' in production_body
+    assert 'git fetch --quiet origin "$EXPECTED_PUBLICATION_BRANCH"' in production_body
 
 
-# ---------------------------------------------------------------------------
-# Emergency override + refusal, unchanged
-# ---------------------------------------------------------------------------
-def test_wrapper_checkout_guard_fails_closed_with_explicit_emergency_override(script_text):
+def test_production_mode_fails_closed_with_an_explicit_emergency_override(production_body, script_text):
     assert (
         'ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT="${ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT:-0}"'
         in script_text
     )
-    assert 'if [ "$ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT" = "1" ]' in script_text
-    assert "REFUSED unsafe checkout" in script_text
-    assert "return 2" in script_text
+    assert 'if [ "$ALLOW_UNVERIFIED_PUBLICATION_CHECKOUT" = "1" ]' in production_body
+    assert "REFUSED unsafe checkout" in production_body
+    assert "return 2" in production_body
 
 
 # ---------------------------------------------------------------------------
-# Branch reporting
+# Reporting
 # ---------------------------------------------------------------------------
-def test_checkout_log_reports_the_actual_branch_and_mode(script_text):
-    assert "[publication-checkout]" in script_text
-    assert 'mode=$EVR_PUBLICATION_CHECKOUT_MODE' in script_text
-    assert 'branch=${ACTUAL_PUBLICATION_BRANCH:-detached}' in script_text
+def test_startup_notification_reports_mode_branch_commit_and_working_tree(script_text):
+    assert (
+        'notify_slack "🚀 Simulation job started\n'
+        "Host: $HOSTNAME_VALUE\n"
+        "Repo: $REPO_DIR\n"
+        "Mode: $EVR_PUBLICATION_CHECKOUT_MODE\n"
+        "Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}\n"
+        "Commit: $(git rev-parse HEAD)\n"
+        "Working tree: $PUBLICATION_WORKING_TREE_STATE\n" in script_text
+    )
+
+
+def test_a_modified_working_tree_is_informational_not_a_refusal(script_text):
+    # The only place the state appears is reporting; it gates nothing.
+    assert "$PUBLICATION_WORKING_TREE_STATE" in script_text
+    assert 'if [ "$PUBLICATION_WORKING_TREE_STATE"' not in script_text
 
 
 def test_every_job_notification_reports_the_actual_branch(script_text):
@@ -187,7 +194,7 @@ def test_every_job_notification_reports_the_actual_branch(script_text):
     assert script_text.count(branch_line) >= 7, script_text.count(branch_line)
 
 
-def test_notifications_no_longer_hardcode_the_expected_branch_as_the_actual_branch(script_text):
+def test_notifications_never_report_the_expected_branch_as_the_actual_branch(script_text):
     assert "Branch: $EXPECTED_PUBLICATION_BRANCH" not in script_text
 
 
@@ -195,8 +202,13 @@ def test_wrapper_logs_commit_in_job_notifications(script_text):
     assert "Commit: $(git rev-parse HEAD)" in script_text
 
 
+def test_wrapper_supports_isolated_production_checkout(script_text):
+    assert 'REPO_DIR="${EVR_PRODUCTION_REPO_DIR:-/d/EVRCalculator}"' in script_text
+    assert 'cd "$REPO_DIR"' in script_text
+
+
 # ---------------------------------------------------------------------------
-# Unchanged coordinated workflow
+# 7. Unchanged coordinated workflow
 # ---------------------------------------------------------------------------
 def test_wrapper_captures_publication_exit_code(script_text):
     assert "PUBLICATION_EXIT=$?" in script_text

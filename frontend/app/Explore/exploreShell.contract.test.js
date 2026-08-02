@@ -55,18 +55,21 @@ test("document metadata and route semantics are preserved", () => {
 
 // --- B. Layout -----------------------------------------------------------
 
-test("Explore modules use the required accessible DOM order", () => {
+test("Market Movers precedes the restored grid and tables have the required DOM order", () => {
   const source = readPage();
   const movers = source.indexOf("<ExploreMarketMovers");
+  const grid = source.indexOf("grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]");
   const rankings = source.indexOf("<ExploreTopRankings");
   const bestSets = source.indexOf("<ExploreTableClient");
-  assert.ok(movers > 0 && movers < rankings && rankings < bestSets);
+  assert.ok(movers > 0 && movers < grid && grid < rankings && rankings < bestSets);
 });
 
-test("Top Rankings is full-width rather than a secondary desktop sidebar", () => {
+test("Top Rankings and Best Sets remain siblings in the original two-column grid", () => {
   const source = readPage();
-  assert.ok(source.includes('className="space-y-5"'));
-  assert.ok(!source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
+  assert.ok(source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
+  assert.ok(!source.includes('className="space-y-5"'));
+  const gridSource = source.slice(source.indexOf("grid grid-cols-1 items-start gap-4"));
+  assert.ok(gridSource.indexOf("<ExploreTopRankings") < gridSource.indexOf("<ExploreTableClient"));
 });
 
 test("movers and rankings load independently with one global movers request", () => {
