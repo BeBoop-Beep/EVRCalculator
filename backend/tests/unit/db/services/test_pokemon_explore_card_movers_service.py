@@ -13,9 +13,11 @@ def movement(card_id, percent, amount, **extra):
             "name": card_id, "changePercent": percent, "changeAmount": amount, **extra}
 
 
-def snapshot(set_id, rows, date="2026-08-01", version="pokemon_card_movement_v1"):
+def snapshot(set_id, rows, date="2026-08-01", version="pokemon_card_movement_v1", top_cards=None):
+    top_cards = rows[:10] if top_cards is None else top_cards
     return {"set_id": set_id, "latest_market_date": date, "updated_at": f"{date}T12:00:00Z",
-            "payload_json": {"marketMoversByWindow": {"7D": {"all": rows}}, "meta": {
+            "payload_json": {"topChaseCards": top_cards,
+                "marketMoversByWindow": {"7D": {"all": rows}}, "meta": {
                 "movementContractVersion": version, "windowConvention": WINDOW_CONVENTION,
                 "movementGenerationId": f"generation-{set_id}"}}}
 
@@ -36,14 +38,38 @@ def test_aggregates_deduplicates_sorts_and_adds_cross_set_identity():
     assert row["payload_json"]["meta"]["coverage"]["candidateCardCount"] == 4
 
 
-def test_excludes_non_public_sets_and_applies_limit_after_global_sort():
+def test_excludes_non_public_sets_and_caps_each_set_at_ten_candidates():
     sets = [{"id": "a", "name": "Alpha"}, {"id": "hidden", "name": "Sword and Shield",
              "era": "Sword and Shield"}]
     rows = [movement(f"c{i:02}", i, i) for i in range(40)]
-    row = build_global_card_movers_row(sets, [snapshot("a", rows)], target_market_date="2026-08-01")
+    row = build_global_card_movers_row(
+        sets, [snapshot("a", rows, top_cards=rows[10:40])], target_market_date="2026-08-01"
+    )
     assert row["eligible_set_count"] == 1
-    assert row["card_count"] == 30
-    assert row["payload_json"]["marketMovers"]["all"][0]["canonicalCardId"] == "c39"
+    assert row["card_count"] == 10
+    assert row["payload_json"]["marketMovers"]["all"][0]["canonicalCardId"] == "c19"
+
+
+def test_only_current_top_ten_per_set_enter_global_candidate_pool():
+    sets = [{"id": "a", "name": "Alpha"}, {"id": "b", "name": "Beta"}]
+    alpha_top = [movement(f"a{i}", i, i) for i in range(10)]
+    beta_top = [movement(f"b{i}", i + 20, i + 20) for i in range(4)]
+    noisy_outside_top_ten = movement("cheap-noise", 999, 0.01)
+    row = build_global_card_movers_row(
+        sets,
+        [
+            snapshot("a", [noisy_outside_top_ten, *alpha_top], top_cards=alpha_top),
+            snapshot("b", beta_top, top_cards=beta_top),
+        ],
+        target_market_date="2026-08-01",
+    )
+    cards = row["payload_json"]["marketMovers"]["all"]
+    assert "cheap-noise" not in [card["canonicalCardId"] for card in cards]
+    assert cards[0]["canonicalCardId"] == "b3"
+    coverage = row["payload_json"]["meta"]["coverage"]
+    assert coverage["topChaseCandidateCardCount"] == 14
+    assert coverage["candidateCardCount"] == 14
+    assert coverage["participatingSetCount"] == 2
 
 
 @pytest.mark.parametrize("sources", [[], [snapshot("a", [], date="2026-07-31")],

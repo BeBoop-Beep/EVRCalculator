@@ -42,6 +42,16 @@ def _source_entry(snapshot: Mapping[str, Any]) -> Mapping[str, Any]:
     return by_window.get("7D") or by_window.get("7d") or {}
 
 
+def _top_chase_cards(snapshot: Mapping[str, Any]) -> Optional[List[Mapping[str, Any]]]:
+    payload = snapshot.get("payload_json") or {}
+    cards = payload.get("topChaseCards")
+    if cards is None:
+        cards = payload.get("top_chase_cards")
+    if not isinstance(cards, list):
+        return None
+    return [card for card in cards if isinstance(card, Mapping)]
+
+
 def build_global_card_movers_row(
     sets: Iterable[Mapping[str, Any]],
     snapshots: Sequence[Mapping[str, Any]],
@@ -53,6 +63,8 @@ def build_global_card_movers_row(
     eligible = [dict(row) for row in sets if is_public_analytics_eligible(row)]
     by_set = {str(row.get("set_id")): row for row in snapshots}
     missing, stale, malformed, generation_parts, candidates = [], [], [], [], []
+    top_chase_candidate_count = 0
+    participating_set_count = 0
     contract_versions, conventions = set(), set()
     generation_paths = set()
 
@@ -70,6 +82,7 @@ def build_global_card_movers_row(
         payload = source.get("payload_json") or {}
         entry = _source_entry(source)
         movements = entry.get("all") if isinstance(entry, Mapping) else None
+        top_chase_cards = _top_chase_cards(source)
         meta = payload.get("meta") or {}
         snapshot_meta = meta.get("snapshot") or {}
         version = (meta.get("movementContractVersion") or snapshot_meta.get("movementContractVersion")
@@ -86,6 +99,8 @@ def build_global_card_movers_row(
         missing_fields = []
         if not isinstance(movements, list):
             missing_fields.append("marketMoversByWindow.7D.all")
+        if top_chase_cards is None:
+            missing_fields.append("topChaseCards")
         if not version:
             missing_fields.append("movementContractVersion")
         if not convention:
@@ -105,6 +120,14 @@ def build_global_card_movers_row(
             "setCanonicalKey": pokemon_set.get("canonical_key"),
             "setName": pokemon_set.get("name"),
         }
+        top_chase_identities = set()
+        for card in (top_chase_cards or [])[:10]:
+            try:
+                top_chase_identities.add(movement_identity(card)[0])
+            except ValueError:
+                continue
+        top_chase_candidate_count += len(top_chase_identities)
+        set_candidate_count = 0
         for movement in movements:
             if not isinstance(movement, Mapping):
                 malformed.append({"setId": set_id, "canonicalKey": pokemon_set.get("canonical_key"),
@@ -112,22 +135,30 @@ def build_global_card_movers_row(
                 break
             normalized = {**movement, **set_identity, "sourceMovementGenerationId": generation}
             try:
-                movement_identity(normalized)
+                identity = movement_identity(normalized)
             except ValueError:
                 malformed.append({"setId": set_id, "canonicalKey": pokemon_set.get("canonical_key"),
                                   "missingFields": ["canonical card identity"]})
                 break
+            if identity[0] not in top_chase_identities:
+                continue
             candidates.append(normalized)
+            set_candidate_count += 1
+        if set_candidate_count:
+            participating_set_count += 1
 
     diagnostics = {
         "requestedTargetMarketDate": target_market_date,
         "eligiblePokemonSetCount": len(eligible),
         "snapshotRowsFound": len(snapshots),
         "includedSetCount": len(eligible) - len(missing) - len(stale) - len(malformed),
+        "participatingSetCount": participating_set_count,
         "missingSets": missing,
         "staleSets": stale,
         "malformedSets": malformed,
+        "topChaseCandidateCardCount": top_chase_candidate_count,
         "candidateCardCount": len(candidates),
+        "candidatesWithValidSevenDayHistoryCount": len(candidates),
         "movementContractVersionsEncountered": sorted(contract_versions),
         "windowConventionsEncountered": sorted(conventions),
         "generationMetadataPathsUsed": sorted(generation_paths),
@@ -160,12 +191,17 @@ def build_global_card_movers_row(
             "snapshot": {"builtAt": built_at, "marketDate": target_market_date, "window": "7D", "limit": LIMIT},
             "coverage": {
                 "expectedEligibleSetCount": len(eligible), "includedSetCount": len(eligible),
-                "excludedSetCount": 0, "candidateCardCount": len(candidates),
+                "participatingSetCount": participating_set_count,
+                "excludedSetCount": 0,
+                "topChaseCandidateCardCount": top_chase_candidate_count,
+                "candidateCardCount": len(candidates),
+                "candidatesWithValidSevenDayHistoryCount": len(candidates),
                 "deduplicatedCardCount": len(deduped), "publishedCardCount": len(published),
             },
             "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
             "windowConvention": WINDOW_CONVENTION,
             "sourceGenerationFingerprint": fingerprint,
+            "builder": "pokemon_explore_top_chase_seven_day_movers",
             "warnings": [],
         },
     }

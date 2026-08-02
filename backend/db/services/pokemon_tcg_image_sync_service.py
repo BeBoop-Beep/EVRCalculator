@@ -18,6 +18,7 @@ from backend.db.repositories.cards_repository import (
     update_card_image_sync_fields_batch,
 )
 from backend.db.repositories.sets_repository import get_set_by_name, get_set_id_by_name
+from backend.constants.tcg.pokemon import historical_catalog_image_sources as catalog_sources
 
 
 TARGET_SET_API_SEARCH_NAMES = {
@@ -115,14 +116,33 @@ class PokemonTCGImageSyncService:
             raise ValueError(f"Set '{set_name}' was not found in the internal database")
 
         set_row = get_set_by_name(set_name)
-        pokemon_api_set_id = (set_row.data or {}).get("pokemon_api_set_id") if set_row and set_row.data else None
+        set_data = (set_row.data or {}) if set_row and set_row.data else {}
+        pokemon_api_set_id = set_data.get("pokemon_api_set_id")
+        canonical_key = set_data.get("canonical_key")
 
-        if pokemon_api_set_id:
+        # Historical TCGplayer-only catalogs have no Pokemon API identity, but some
+        # of their cards also exist inside reviewed API sets. Those ids are an image
+        # SOURCE only: they are frequently owned by another local set, so they must
+        # never be written back as this catalog's pokemon_api_set_id.
+        image_source_mapping = (
+            catalog_sources.resolve(canonical_key=canonical_key) if canonical_key else None
+        )
+        image_source_api_set_ids = list(image_source_mapping.api_set_ids) if image_source_mapping else []
+
+        if image_source_api_set_ids:
+            api_set = {"id": image_source_api_set_ids[0], "name": set_name}
+            api_set_ids_to_fetch = image_source_api_set_ids
+        elif pokemon_api_set_id:
             api_set = {"id": pokemon_api_set_id, "name": set_name}
+            api_set_ids_to_fetch = [pokemon_api_set_id]
         else:
             api_set_search_name = TARGET_SET_API_SEARCH_NAMES.get(set_name, set_name)
             api_set = self.client.resolve_set(api_set_search_name)
-        api_cards = list(self.client.iter_cards_for_set(api_set["id"]))
+            api_set_ids_to_fetch = [api_set["id"]]
+
+        api_cards = []
+        for api_set_id in api_set_ids_to_fetch:
+            api_cards.extend(self.client.iter_cards_for_set(api_set_id))
 
         internal_cards = get_all_cards_for_set(internal_set_id)
         card_ids = [card["id"] for card in internal_cards]
@@ -151,6 +171,10 @@ class PokemonTCGImageSyncService:
             "pokemon_api_set_id": pokemon_api_set_id,
             "api_set_id_used": api_set.get("id"),
             "api_set_name_used": api_set.get("name"),
+            "api_set_ids_fetched": list(api_set_ids_to_fetch),
+            "image_source_api_set_ids": image_source_api_set_ids,
+            "image_source_kind": image_source_mapping.match_kind if image_source_mapping else None,
+            "image_source_is_borrowed": bool(image_source_api_set_ids),
             "api_cards_fetched": len(api_cards),
             "internal_cards_loaded": len(internal_cards),
             "internal_variants_loaded": len(variants),

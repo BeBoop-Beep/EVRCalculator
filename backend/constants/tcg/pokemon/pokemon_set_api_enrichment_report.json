@@ -5,8 +5,479 @@
     "local_set_files_inspected": 209,
     "files_updated": 37,
     "fields_filled": 0,
-    "unresolved_sets": 37
+    "unresolved_sets": 37,
+    "historical_catalog_reviews": {
+      "one_to_one_api_match": 6,
+      "multi_or_parent_api_mapping_required": 3,
+      "no_api_equivalent": 28,
+      "accepted_image_source_mappings": 9,
+      "rejected_or_unmapped": 28
+    }
   },
+  "historical_catalog_review": [
+    {
+      "canonical_key": "expedition",
+      "tcgplayer_set_id": "1375",
+      "tcgplayer_set_name": "Expedition",
+      "proposed_api_image_source_ids": [
+        "ecard1"
+      ],
+      "match_strategy": "confirmed_name_alias",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 165,
+      "expected_api_card_count": 165,
+      "accepted": true,
+      "reason": "accepted: TCGplayer 'Expedition' is the API 'Expedition Base Set'. Card counts agree exactly (internal 165 / API 165). ecard1 is already owned by eCardEra/expeditionBaseSet, so this is an image source only."
+    },
+    {
+      "canonical_key": "wotcPromo",
+      "tcgplayer_set_id": "1418",
+      "tcgplayer_set_name": "WoTC Promo",
+      "proposed_api_image_source_ids": [
+        "basep"
+      ],
+      "match_strategy": "confirmed_name_alias",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 69,
+      "expected_api_card_count": 53,
+      "accepted": true,
+      "reason": "accepted: TCGplayer 'WoTC Promo' is the API 'Wizards Black Star Promos'. Internal 69 vs API 53: TCGplayer carries extra printings/variants, so image coverage is partial by design. basep is owned by baseWotcEra/wizardsBlackStarPromos."
+    },
+    {
+      "canonical_key": "diamondAndPearlPromos",
+      "tcgplayer_set_id": "1421",
+      "tcgplayer_set_name": "Diamond and Pearl Promos",
+      "proposed_api_image_source_ids": [
+        "dpp"
+      ],
+      "match_strategy": "confirmed_name_alias",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 56,
+      "accepted": true,
+      "reason": "accepted: TCGplayer 'Diamond and Pearl Promos' is the API 'DP Black Star Promos'. Internal 60 vs API 56. dpp is owned by diamondAndPearlEra/dpBlackStarPromos."
+    },
+    {
+      "canonical_key": "bestOfPromos",
+      "tcgplayer_set_id": "1455",
+      "tcgplayer_set_name": "Best of Promos",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 15,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Ambiguous: the only near-name API set is 'Best of Game' (bp, 9 cards), which otherEra/bestOfGame already owns and which does not match the 15 internal cards. Needs manual card-level review before any mapping."
+    },
+    {
+      "canonical_key": "legendaryTreasuresRadiantCollection",
+      "tcgplayer_set_id": "1465",
+      "tcgplayer_set_name": "Legendary Treasures: Radiant Collection",
+      "proposed_api_image_source_ids": [
+        "bw11"
+      ],
+      "match_strategy": "parent_set_subset",
+      "mapping_kind": "multi_or_parent_api_mapping_required",
+      "expected_internal_card_count": 25,
+      "expected_api_card_count": 140,
+      "accepted": true,
+      "reason": "accepted: The Radiant Collection is the RC1-RC25 subrange printed inside the API parent set 'Legendary Treasures' (bw11); it has no API set of its own. Verified live: bw11 returns 140 cards of which exactly 25 are numbered RC1-RC25, matching the 25 internal cards. Image matching is keyed on card number, so only the RC range can match. bw11 is owned by blackAndWhiteEra/legendaryTreasures."
+    },
+    {
+      "canonical_key": "xyTrainerKitSylveonAndNoivern",
+      "tcgplayer_set_id": "1532",
+      "tcgplayer_set_name": "XY Trainer Kit: Sylveon & Noivern",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
+      "tcgplayer_set_id": "1533",
+      "tcgplayer_set_name": "XY Trainer Kit: Bisharp & Wigglytuff",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 53,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "xyTrainerKitLatiasAndLatios",
+      "tcgplayer_set_id": "1536",
+      "tcgplayer_set_name": "XY Trainer Kit: Latias & Latios",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "bwTrainerKitExcadrillAndZoroark",
+      "tcgplayer_set_id": "1538",
+      "tcgplayer_set_name": "BW Trainer Kit: Excadrill & Zoroark",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
+      "tcgplayer_set_id": "1540",
+      "tcgplayer_set_name": "HGSS Trainer Kit: Gyarados & Raichu",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "dpTrainerKitManaphyAndLucario",
+      "tcgplayer_set_id": "1541",
+      "tcgplayer_set_name": "DP Trainer Kit: Manaphy & Lucario",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 23,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "baseSetShadowless",
+      "tcgplayer_set_id": "1663",
+      "tcgplayer_set_name": "Base Set (Shadowless)",
+      "proposed_api_image_source_ids": [
+        "base1"
+      ],
+      "match_strategy": "print_variant_of_parent",
+      "mapping_kind": "multi_or_parent_api_mapping_required",
+      "expected_internal_card_count": 102,
+      "expected_api_card_count": 102,
+      "accepted": true,
+      "reason": "accepted: Shadowless is a print variant of Base Set, not a separate set: the API has no shadowless set. Internal 102 matches API base1 102 exactly, so images carry over card-for-card, but the catalog identity stays TCGplayer 1663 because base1 is owned by baseWotcEra/base."
+    },
+    {
+      "canonical_key": "generationsRadiantCollection",
+      "tcgplayer_set_id": "1729",
+      "tcgplayer_set_name": "Generations: Radiant Collection",
+      "proposed_api_image_source_ids": [
+        "g1"
+      ],
+      "match_strategy": "parent_set_subset",
+      "mapping_kind": "multi_or_parent_api_mapping_required",
+      "expected_internal_card_count": 32,
+      "expected_api_card_count": 117,
+      "accepted": true,
+      "reason": "accepted: The Radiant Collection is the RC1-RC32 subrange printed inside the API parent set 'Generations' (g1). Verified live: g1 returns 117 cards of which exactly 32 are numbered RC1-RC32, matching the 32 internal cards. g1 is owned by xyEra/generations."
+    },
+    {
+      "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
+      "tcgplayer_set_id": "1796",
+      "tcgplayer_set_name": "XY Trainer Kit: Pikachu Libre & Suicune",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "deckExclusives",
+      "tcgplayer_set_id": "1840",
+      "tcgplayer_set_name": "Deck Exclusives",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 506,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: 506 internal cards pulled from multiple theme decks across eras."
+    },
+    {
+      "canonical_key": "alternateArtPromos",
+      "tcgplayer_set_id": "1938",
+      "tcgplayer_set_name": "Alternate Art Promos",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 56,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: alternate-art promos sourced from multiple API sets and distributions."
+    },
+    {
+      "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
+      "tcgplayer_set_id": "2069",
+      "tcgplayer_set_name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 60,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "countdownCalendarPromos",
+      "tcgplayer_set_id": "2155",
+      "tcgplayer_set_name": "Countdown Calendar Promos",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 22,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "pikachuWorldCollectionPromos",
+      "tcgplayer_set_id": "2205",
+      "tcgplayer_set_name": "Pikachu World Collection Promos",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 18,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
+      "tcgplayer_set_id": "2208",
+      "tcgplayer_set_name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 59,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "worldChampionshipDecks",
+      "tcgplayer_set_id": "2282",
+      "tcgplayer_set_name": "World Championship Decks",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 1831,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: 1831 internal cards spanning every era of championship decks; multiple API sets and many cards with no API equivalent at all."
+    },
+    {
+      "canonical_key": "svScarletAndVioletPromoCards",
+      "tcgplayer_set_id": "22872",
+      "tcgplayer_set_name": "SV: Scarlet & Violet Promo Cards",
+      "proposed_api_image_source_ids": [
+        "svp"
+      ],
+      "match_strategy": "era_promo_naming_pattern",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 280,
+      "expected_api_card_count": 196,
+      "accepted": true,
+      "reason": "accepted: Same '<ERA>: <Era> Promo Cards' -> '<ERA> Black Star Promos' pattern as the confirmed swshp and dpp mappings; svp is the only Scarlet & Violet promo set in the API catalog. Internal 280 vs API 196 (TCGplayer carries extra variants). svp is not owned by any local set."
+    },
+    {
+      "canonical_key": "blisterExclusives",
+      "tcgplayer_set_id": "2289",
+      "tcgplayer_set_name": "Blister Exclusives",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 135,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: 135 internal cards from multiple blister promos across eras."
+    },
+    {
+      "canonical_key": "trickOrTradeBOOsterBundle2023",
+      "tcgplayer_set_id": "23266",
+      "tcgplayer_set_name": "Trick or Trade BOOster Bundle 2023",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 30,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "mcdonaldSPromos2023",
+      "tcgplayer_set_id": "23306",
+      "tcgplayer_set_name": "McDonald's Promos 2023",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 15,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "professorProgramPromos",
+      "tcgplayer_set_id": "2332",
+      "tcgplayer_set_name": "Professor Program Promos",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 46,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "tradingCardGameClassic",
+      "tcgplayer_set_id": "23323",
+      "tcgplayer_set_name": "Trading Card Game Classic",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 102,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Ambiguous: 102 internal cards coincidentally equals Base Set's 102, but Trading Card Game Classic is a three-deck reprint product spanning several sets. Needs card-level review."
+    },
+    {
+      "canonical_key": "battleAcademy2024",
+      "tcgplayer_set_id": "23520",
+      "tcgplayer_set_name": "Battle Academy 2024",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 138,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: reprints drawn from multiple API sets across several eras."
+    },
+    {
+      "canonical_key": "trickOrTradeBOOsterBundle2024",
+      "tcgplayer_set_id": "23561",
+      "tcgplayer_set_name": "Trick or Trade BOOster Bundle 2024",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 30,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "sveScarletAndVioletEnergies",
+      "tcgplayer_set_id": "24382",
+      "tcgplayer_set_name": "SVE: Scarlet & Violet Energies",
+      "proposed_api_image_source_ids": [
+        "sve"
+      ],
+      "match_strategy": "confirmed_name_alias",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 40,
+      "expected_api_card_count": 8,
+      "accepted": true,
+      "reason": "accepted: TCGplayer 'SVE: Scarlet & Violet Energies' is the API 'Scarlet & Violet Energies' (sve), the only energy set in the API catalog. Internal 40 vs API 8: TCGplayer lists many printings of the same 8 energies, so image coverage is partial by design."
+    },
+    {
+      "canonical_key": "eReaderSampleCards",
+      "tcgplayer_set_id": "24493",
+      "tcgplayer_set_name": "e-Reader Sample Cards",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 0,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "firstPartnerCollection2026",
+      "tcgplayer_set_id": "24584",
+      "tcgplayer_set_name": "First Partner Collection 2026",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 0,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "me30thCelebration",
+      "tcgplayer_set_id": "24722",
+      "tcgplayer_set_name": "ME: 30th Celebration",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 0,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+    },
+    {
+      "canonical_key": "swshSwordAndShieldPromoCards",
+      "tcgplayer_set_id": "2545",
+      "tcgplayer_set_name": "SWSH: Sword & Shield Promo Cards",
+      "proposed_api_image_source_ids": [
+        "swshp"
+      ],
+      "match_strategy": "confirmed_name_alias",
+      "mapping_kind": "one_to_one_api_match",
+      "expected_internal_card_count": 341,
+      "expected_api_card_count": 304,
+      "accepted": true,
+      "reason": "accepted: TCGplayer 'SWSH: Sword & Shield Promo Cards' is the API 'SWSH Black Star Promos'. Internal 341 vs API 304. swshp is owned by swordAndShieldEra/swshBlackStarPromos."
+    },
+    {
+      "canonical_key": "battleAcademy",
+      "tcgplayer_set_id": "2686",
+      "tcgplayer_set_name": "Battle Academy",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 138,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: Battle Academy decks reprint cards from multiple source sets; no single API set covers it."
+    },
+    {
+      "canonical_key": "firstPartnerPack",
+      "tcgplayer_set_id": "2776",
+      "tcgplayer_set_name": "First Partner Pack",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 24,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: First Partner Pack jumbo cards reprint art from multiple generations; no single API set covers it."
+    },
+    {
+      "canonical_key": "battleAcademy2022",
+      "tcgplayer_set_id": "3051",
+      "tcgplayer_set_name": "Battle Academy 2022",
+      "proposed_api_image_source_ids": [],
+      "match_strategy": "none",
+      "mapping_kind": "no_api_equivalent",
+      "expected_internal_card_count": 138,
+      "expected_api_card_count": 0,
+      "accepted": false,
+      "reason": "rejected: Mixed catalog: reprints drawn from multiple API sets across several eras."
+    }
+  ],
   "results": [
     {
       "era": "baseWotcEra",
@@ -847,339 +1318,6 @@
       "updated_fields": [],
       "api_set_id": "si1",
       "notes": ""
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "expedition",
-      "set_name": "Expedition",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/expedition.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "wotcPromo",
-      "set_name": "WoTC Promo",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/wotcPromo.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "diamondAndPearlPromos",
-      "set_name": "Diamond and Pearl Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/diamondAndPearlPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "bestOfPromos",
-      "set_name": "Best of Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/bestOfPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "legendaryTreasuresRadiantCollection",
-      "set_name": "Legendary Treasures: Radiant Collection",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/legendaryTreasuresRadiantCollection.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "xyTrainerKitSylveonAndNoivern",
-      "set_name": "XY Trainer Kit: Sylveon & Noivern",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitSylveonAndNoivern.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
-      "set_name": "XY Trainer Kit: Bisharp & Wigglytuff",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitBisharpAndWigglytuff.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "xyTrainerKitLatiasAndLatios",
-      "set_name": "XY Trainer Kit: Latias & Latios",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitLatiasAndLatios.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "bwTrainerKitExcadrillAndZoroark",
-      "set_name": "BW Trainer Kit: Excadrill & Zoroark",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/bwTrainerKitExcadrillAndZoroark.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
-      "set_name": "HGSS Trainer Kit: Gyarados & Raichu",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/hgssTrainerKitGyaradosAndRaichu.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "dpTrainerKitManaphyAndLucario",
-      "set_name": "DP Trainer Kit: Manaphy & Lucario",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/dpTrainerKitManaphyAndLucario.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "baseSetShadowless",
-      "set_name": "Base Set (Shadowless)",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/baseSetShadowless.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "generationsRadiantCollection",
-      "set_name": "Generations: Radiant Collection",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/generationsRadiantCollection.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
-      "set_name": "XY Trainer Kit: Pikachu Libre & Suicune",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitPikachuLibreAndSuicune.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "deckExclusives",
-      "set_name": "Deck Exclusives",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/deckExclusives.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "alternateArtPromos",
-      "set_name": "Alternate Art Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/alternateArtPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
-      "set_name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitLycanrocAndAlolanRaichu.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "countdownCalendarPromos",
-      "set_name": "Countdown Calendar Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/countdownCalendarPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "pikachuWorldCollectionPromos",
-      "set_name": "Pikachu World Collection Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/pikachuWorldCollectionPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
-      "set_name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitAlolanSandslashAndAlolanNinetales.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "worldChampionshipDecks",
-      "set_name": "World Championship Decks",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/worldChampionshipDecks.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "svScarletAndVioletPromoCards",
-      "set_name": "SV: Scarlet & Violet Promo Cards",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/svScarletAndVioletPromoCards.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "blisterExclusives",
-      "set_name": "Blister Exclusives",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/blisterExclusives.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "trickOrTradeBOOsterBundle2023",
-      "set_name": "Trick or Trade BOOster Bundle 2023",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2023.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "mcdonaldSPromos2023",
-      "set_name": "McDonald's Promos 2023",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSPromos2023.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "professorProgramPromos",
-      "set_name": "Professor Program Promos",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/professorProgramPromos.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "tradingCardGameClassic",
-      "set_name": "Trading Card Game Classic",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/tradingCardGameClassic.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "battleAcademy2024",
-      "set_name": "Battle Academy 2024",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2024.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "trickOrTradeBOOsterBundle2024",
-      "set_name": "Trick or Trade BOOster Bundle 2024",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2024.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "sveScarletAndVioletEnergies",
-      "set_name": "SVE: Scarlet & Violet Energies",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/sveScarletAndVioletEnergies.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "eReaderSampleCards",
-      "set_name": "e-Reader Sample Cards",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/eReaderSampleCards.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "firstPartnerCollection2026",
-      "set_name": "First Partner Collection 2026",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerCollection2026.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "me30thCelebration",
-      "set_name": "ME: 30th Celebration",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/me30thCelebration.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "swshSwordAndShieldPromoCards",
-      "set_name": "SWSH: Sword & Shield Promo Cards",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/swshSwordAndShieldPromoCards.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "battleAcademy",
-      "set_name": "Battle Academy",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "firstPartnerPack",
-      "set_name": "First Partner Pack",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerPack.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
-    },
-    {
-      "era": "otherEra",
-      "canonical_key": "battleAcademy2022",
-      "set_name": "Battle Academy 2022",
-      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2022.py",
-      "status": "unresolved",
-      "updated_fields": [],
-      "notes": "No API set match found."
     },
     {
       "era": "platinumEra",
@@ -2060,6 +2198,801 @@
       "updated_fields": [],
       "api_set_id": "xyp",
       "notes": ""
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "expedition",
+      "set_name": "Expedition",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/expedition.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "expedition",
+        "tcgplayer_set_id": "1375",
+        "tcgplayer_set_name": "Expedition",
+        "proposed_api_image_source_ids": [
+          "ecard1"
+        ],
+        "match_strategy": "confirmed_name_alias",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 165,
+        "expected_api_card_count": 165,
+        "accepted": true,
+        "reason": "accepted: TCGplayer 'Expedition' is the API 'Expedition Base Set'. Card counts agree exactly (internal 165 / API 165). ecard1 is already owned by eCardEra/expeditionBaseSet, so this is an image source only."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "wotcPromo",
+      "set_name": "WoTC Promo",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/wotcPromo.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "wotcPromo",
+        "tcgplayer_set_id": "1418",
+        "tcgplayer_set_name": "WoTC Promo",
+        "proposed_api_image_source_ids": [
+          "basep"
+        ],
+        "match_strategy": "confirmed_name_alias",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 69,
+        "expected_api_card_count": 53,
+        "accepted": true,
+        "reason": "accepted: TCGplayer 'WoTC Promo' is the API 'Wizards Black Star Promos'. Internal 69 vs API 53: TCGplayer carries extra printings/variants, so image coverage is partial by design. basep is owned by baseWotcEra/wizardsBlackStarPromos."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "diamondAndPearlPromos",
+      "set_name": "Diamond and Pearl Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/diamondAndPearlPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "diamondAndPearlPromos",
+        "tcgplayer_set_id": "1421",
+        "tcgplayer_set_name": "Diamond and Pearl Promos",
+        "proposed_api_image_source_ids": [
+          "dpp"
+        ],
+        "match_strategy": "confirmed_name_alias",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 56,
+        "accepted": true,
+        "reason": "accepted: TCGplayer 'Diamond and Pearl Promos' is the API 'DP Black Star Promos'. Internal 60 vs API 56. dpp is owned by diamondAndPearlEra/dpBlackStarPromos."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "bestOfPromos",
+      "set_name": "Best of Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/bestOfPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "bestOfPromos",
+        "tcgplayer_set_id": "1455",
+        "tcgplayer_set_name": "Best of Promos",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 15,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Ambiguous: the only near-name API set is 'Best of Game' (bp, 9 cards), which otherEra/bestOfGame already owns and which does not match the 15 internal cards. Needs manual card-level review before any mapping."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "legendaryTreasuresRadiantCollection",
+      "set_name": "Legendary Treasures: Radiant Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/legendaryTreasuresRadiantCollection.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "legendaryTreasuresRadiantCollection",
+        "tcgplayer_set_id": "1465",
+        "tcgplayer_set_name": "Legendary Treasures: Radiant Collection",
+        "proposed_api_image_source_ids": [
+          "bw11"
+        ],
+        "match_strategy": "parent_set_subset",
+        "mapping_kind": "multi_or_parent_api_mapping_required",
+        "expected_internal_card_count": 25,
+        "expected_api_card_count": 140,
+        "accepted": true,
+        "reason": "accepted: The Radiant Collection is the RC1-RC25 subrange printed inside the API parent set 'Legendary Treasures' (bw11); it has no API set of its own. Verified live: bw11 returns 140 cards of which exactly 25 are numbered RC1-RC25, matching the 25 internal cards. Image matching is keyed on card number, so only the RC range can match. bw11 is owned by blackAndWhiteEra/legendaryTreasures."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitSylveonAndNoivern",
+      "set_name": "XY Trainer Kit: Sylveon & Noivern",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitSylveonAndNoivern.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "xyTrainerKitSylveonAndNoivern",
+        "tcgplayer_set_id": "1532",
+        "tcgplayer_set_name": "XY Trainer Kit: Sylveon & Noivern",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
+      "set_name": "XY Trainer Kit: Bisharp & Wigglytuff",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitBisharpAndWigglytuff.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "xyTrainerKitBisharpAndWigglytuff",
+        "tcgplayer_set_id": "1533",
+        "tcgplayer_set_name": "XY Trainer Kit: Bisharp & Wigglytuff",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 53,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitLatiasAndLatios",
+      "set_name": "XY Trainer Kit: Latias & Latios",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitLatiasAndLatios.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "xyTrainerKitLatiasAndLatios",
+        "tcgplayer_set_id": "1536",
+        "tcgplayer_set_name": "XY Trainer Kit: Latias & Latios",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "bwTrainerKitExcadrillAndZoroark",
+      "set_name": "BW Trainer Kit: Excadrill & Zoroark",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/bwTrainerKitExcadrillAndZoroark.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "bwTrainerKitExcadrillAndZoroark",
+        "tcgplayer_set_id": "1538",
+        "tcgplayer_set_name": "BW Trainer Kit: Excadrill & Zoroark",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
+      "set_name": "HGSS Trainer Kit: Gyarados & Raichu",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/hgssTrainerKitGyaradosAndRaichu.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "hgssTrainerKitGyaradosAndRaichu",
+        "tcgplayer_set_id": "1540",
+        "tcgplayer_set_name": "HGSS Trainer Kit: Gyarados & Raichu",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "dpTrainerKitManaphyAndLucario",
+      "set_name": "DP Trainer Kit: Manaphy & Lucario",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/dpTrainerKitManaphyAndLucario.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "dpTrainerKitManaphyAndLucario",
+        "tcgplayer_set_id": "1541",
+        "tcgplayer_set_name": "DP Trainer Kit: Manaphy & Lucario",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 23,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "baseSetShadowless",
+      "set_name": "Base Set (Shadowless)",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/baseSetShadowless.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "baseSetShadowless",
+        "tcgplayer_set_id": "1663",
+        "tcgplayer_set_name": "Base Set (Shadowless)",
+        "proposed_api_image_source_ids": [
+          "base1"
+        ],
+        "match_strategy": "print_variant_of_parent",
+        "mapping_kind": "multi_or_parent_api_mapping_required",
+        "expected_internal_card_count": 102,
+        "expected_api_card_count": 102,
+        "accepted": true,
+        "reason": "accepted: Shadowless is a print variant of Base Set, not a separate set: the API has no shadowless set. Internal 102 matches API base1 102 exactly, so images carry over card-for-card, but the catalog identity stays TCGplayer 1663 because base1 is owned by baseWotcEra/base."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "generationsRadiantCollection",
+      "set_name": "Generations: Radiant Collection",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/generationsRadiantCollection.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "generationsRadiantCollection",
+        "tcgplayer_set_id": "1729",
+        "tcgplayer_set_name": "Generations: Radiant Collection",
+        "proposed_api_image_source_ids": [
+          "g1"
+        ],
+        "match_strategy": "parent_set_subset",
+        "mapping_kind": "multi_or_parent_api_mapping_required",
+        "expected_internal_card_count": 32,
+        "expected_api_card_count": 117,
+        "accepted": true,
+        "reason": "accepted: The Radiant Collection is the RC1-RC32 subrange printed inside the API parent set 'Generations' (g1). Verified live: g1 returns 117 cards of which exactly 32 are numbered RC1-RC32, matching the 32 internal cards. g1 is owned by xyEra/generations."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
+      "set_name": "XY Trainer Kit: Pikachu Libre & Suicune",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/xyTrainerKitPikachuLibreAndSuicune.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "xyTrainerKitPikachuLibreAndSuicune",
+        "tcgplayer_set_id": "1796",
+        "tcgplayer_set_name": "XY Trainer Kit: Pikachu Libre & Suicune",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "deckExclusives",
+      "set_name": "Deck Exclusives",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/deckExclusives.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "deckExclusives",
+        "tcgplayer_set_id": "1840",
+        "tcgplayer_set_name": "Deck Exclusives",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 506,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: 506 internal cards pulled from multiple theme decks across eras."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "alternateArtPromos",
+      "set_name": "Alternate Art Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/alternateArtPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "alternateArtPromos",
+        "tcgplayer_set_id": "1938",
+        "tcgplayer_set_name": "Alternate Art Promos",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 56,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: alternate-art promos sourced from multiple API sets and distributions."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
+      "set_name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitLycanrocAndAlolanRaichu.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "smTrainerKitLycanrocAndAlolanRaichu",
+        "tcgplayer_set_id": "2069",
+        "tcgplayer_set_name": "SM Trainer Kit: Lycanroc & Alolan Raichu",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 60,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "countdownCalendarPromos",
+      "set_name": "Countdown Calendar Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/countdownCalendarPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "countdownCalendarPromos",
+        "tcgplayer_set_id": "2155",
+        "tcgplayer_set_name": "Countdown Calendar Promos",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 22,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "pikachuWorldCollectionPromos",
+      "set_name": "Pikachu World Collection Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/pikachuWorldCollectionPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "pikachuWorldCollectionPromos",
+        "tcgplayer_set_id": "2205",
+        "tcgplayer_set_name": "Pikachu World Collection Promos",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 18,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
+      "set_name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/smTrainerKitAlolanSandslashAndAlolanNinetales.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "smTrainerKitAlolanSandslashAndAlolanNinetales",
+        "tcgplayer_set_id": "2208",
+        "tcgplayer_set_name": "SM Trainer Kit: Alolan Sandslash & Alolan Ninetales",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 59,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "worldChampionshipDecks",
+      "set_name": "World Championship Decks",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/worldChampionshipDecks.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "worldChampionshipDecks",
+        "tcgplayer_set_id": "2282",
+        "tcgplayer_set_name": "World Championship Decks",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 1831,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: 1831 internal cards spanning every era of championship decks; multiple API sets and many cards with no API equivalent at all."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "svScarletAndVioletPromoCards",
+      "set_name": "SV: Scarlet & Violet Promo Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/svScarletAndVioletPromoCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "svScarletAndVioletPromoCards",
+        "tcgplayer_set_id": "22872",
+        "tcgplayer_set_name": "SV: Scarlet & Violet Promo Cards",
+        "proposed_api_image_source_ids": [
+          "svp"
+        ],
+        "match_strategy": "era_promo_naming_pattern",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 280,
+        "expected_api_card_count": 196,
+        "accepted": true,
+        "reason": "accepted: Same '<ERA>: <Era> Promo Cards' -> '<ERA> Black Star Promos' pattern as the confirmed swshp and dpp mappings; svp is the only Scarlet & Violet promo set in the API catalog. Internal 280 vs API 196 (TCGplayer carries extra variants). svp is not owned by any local set."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "blisterExclusives",
+      "set_name": "Blister Exclusives",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/blisterExclusives.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "blisterExclusives",
+        "tcgplayer_set_id": "2289",
+        "tcgplayer_set_name": "Blister Exclusives",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 135,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: 135 internal cards from multiple blister promos across eras."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "trickOrTradeBOOsterBundle2023",
+      "set_name": "Trick or Trade BOOster Bundle 2023",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2023.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "trickOrTradeBOOsterBundle2023",
+        "tcgplayer_set_id": "23266",
+        "tcgplayer_set_name": "Trick or Trade BOOster Bundle 2023",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 30,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "mcdonaldSPromos2023",
+      "set_name": "McDonald's Promos 2023",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/mcdonaldSPromos2023.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "mcdonaldSPromos2023",
+        "tcgplayer_set_id": "23306",
+        "tcgplayer_set_name": "McDonald's Promos 2023",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 15,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "professorProgramPromos",
+      "set_name": "Professor Program Promos",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/professorProgramPromos.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "professorProgramPromos",
+        "tcgplayer_set_id": "2332",
+        "tcgplayer_set_name": "Professor Program Promos",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 46,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "tradingCardGameClassic",
+      "set_name": "Trading Card Game Classic",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/tradingCardGameClassic.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "tradingCardGameClassic",
+        "tcgplayer_set_id": "23323",
+        "tcgplayer_set_name": "Trading Card Game Classic",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 102,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Ambiguous: 102 internal cards coincidentally equals Base Set's 102, but Trading Card Game Classic is a three-deck reprint product spanning several sets. Needs card-level review."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy2024",
+      "set_name": "Battle Academy 2024",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2024.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "battleAcademy2024",
+        "tcgplayer_set_id": "23520",
+        "tcgplayer_set_name": "Battle Academy 2024",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 138,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: reprints drawn from multiple API sets across several eras."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "trickOrTradeBOOsterBundle2024",
+      "set_name": "Trick or Trade BOOster Bundle 2024",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/trickOrTradeBOOsterBundle2024.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "trickOrTradeBOOsterBundle2024",
+        "tcgplayer_set_id": "23561",
+        "tcgplayer_set_name": "Trick or Trade BOOster Bundle 2024",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 30,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "sveScarletAndVioletEnergies",
+      "set_name": "SVE: Scarlet & Violet Energies",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/sveScarletAndVioletEnergies.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "sveScarletAndVioletEnergies",
+        "tcgplayer_set_id": "24382",
+        "tcgplayer_set_name": "SVE: Scarlet & Violet Energies",
+        "proposed_api_image_source_ids": [
+          "sve"
+        ],
+        "match_strategy": "confirmed_name_alias",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 40,
+        "expected_api_card_count": 8,
+        "accepted": true,
+        "reason": "accepted: TCGplayer 'SVE: Scarlet & Violet Energies' is the API 'Scarlet & Violet Energies' (sve), the only energy set in the API catalog. Internal 40 vs API 8: TCGplayer lists many printings of the same 8 energies, so image coverage is partial by design."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "eReaderSampleCards",
+      "set_name": "e-Reader Sample Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/eReaderSampleCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "eReaderSampleCards",
+        "tcgplayer_set_id": "24493",
+        "tcgplayer_set_name": "e-Reader Sample Cards",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 0,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "firstPartnerCollection2026",
+      "set_name": "First Partner Collection 2026",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerCollection2026.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "firstPartnerCollection2026",
+        "tcgplayer_set_id": "24584",
+        "tcgplayer_set_name": "First Partner Collection 2026",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 0,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "me30thCelebration",
+      "set_name": "ME: 30th Celebration",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/me30thCelebration.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "me30thCelebration",
+        "tcgplayer_set_id": "24722",
+        "tcgplayer_set_name": "ME: 30th Celebration",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 0,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: no Pokemon API set covers this TCGplayer catalog; it stays TCGplayer-only with no image source"
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "swshSwordAndShieldPromoCards",
+      "set_name": "SWSH: Sword & Shield Promo Cards",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/swshSwordAndShieldPromoCards.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "swshSwordAndShieldPromoCards",
+        "tcgplayer_set_id": "2545",
+        "tcgplayer_set_name": "SWSH: Sword & Shield Promo Cards",
+        "proposed_api_image_source_ids": [
+          "swshp"
+        ],
+        "match_strategy": "confirmed_name_alias",
+        "mapping_kind": "one_to_one_api_match",
+        "expected_internal_card_count": 341,
+        "expected_api_card_count": 304,
+        "accepted": true,
+        "reason": "accepted: TCGplayer 'SWSH: Sword & Shield Promo Cards' is the API 'SWSH Black Star Promos'. Internal 341 vs API 304. swshp is owned by swordAndShieldEra/swshBlackStarPromos."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy",
+      "set_name": "Battle Academy",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "battleAcademy",
+        "tcgplayer_set_id": "2686",
+        "tcgplayer_set_name": "Battle Academy",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 138,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: Battle Academy decks reprint cards from multiple source sets; no single API set covers it."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "firstPartnerPack",
+      "set_name": "First Partner Pack",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/firstPartnerPack.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "firstPartnerPack",
+        "tcgplayer_set_id": "2776",
+        "tcgplayer_set_name": "First Partner Pack",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 24,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: First Partner Pack jumbo cards reprint art from multiple generations; no single API set covers it."
+      }
+    },
+    {
+      "era": "otherEra",
+      "canonical_key": "battleAcademy2022",
+      "set_name": "Battle Academy 2022",
+      "file_path": "backend/constants/tcg/pokemon/otherEra/battleAcademy2022.py",
+      "status": "unresolved",
+      "updated_fields": [],
+      "notes": "No API set identity; see historical_catalog_review.",
+      "historical_catalog_review": {
+        "canonical_key": "battleAcademy2022",
+        "tcgplayer_set_id": "3051",
+        "tcgplayer_set_name": "Battle Academy 2022",
+        "proposed_api_image_source_ids": [],
+        "match_strategy": "none",
+        "mapping_kind": "no_api_equivalent",
+        "expected_internal_card_count": 138,
+        "expected_api_card_count": 0,
+        "accepted": false,
+        "reason": "rejected: Mixed catalog: reprints drawn from multiple API sets across several eras."
+      }
     }
   ]
 }
