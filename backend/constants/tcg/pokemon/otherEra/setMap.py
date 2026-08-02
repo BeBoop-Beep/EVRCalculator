@@ -13,6 +13,21 @@ from .mcdonaldSCollection2022 import SetMcdonaldSCollection2022Config
 from .pokMonFutsalCollection import SetPokMonFutsalCollectionConfig
 from .pokMonRumble import SetPokMonRumbleConfig
 from .southernIslands import SetSouthernIslandsConfig
+from .expedition import SetExpeditionConfig
+from .wotcPromo import SetWotcPromoConfig
+from .diamondAndPearlPromos import SetDiamondAndPearlPromosConfig
+from .bestOfPromos import SetBestOfPromosConfig
+from .legendaryTreasuresRadiantCollection import SetLegendaryTreasuresRadiantCollectionConfig
+from .xyTrainerKitSylveonAndNoivern import SetXyTrainerKitSylveonAndNoivernConfig
+from .xyTrainerKitBisharpAndWigglytuff import SetXyTrainerKitBisharpAndWigglytuffConfig
+from .xyTrainerKitLatiasAndLatios import SetXyTrainerKitLatiasAndLatiosConfig
+from .bwTrainerKitExcadrillAndZoroark import SetBwTrainerKitExcadrillAndZoroarkConfig
+from .hgssTrainerKitGyaradosAndRaichu import SetHgssTrainerKitGyaradosAndRaichuConfig
+from .dpTrainerKitManaphyAndLucario import SetDpTrainerKitManaphyAndLucarioConfig
+from .baseSetShadowless import SetBaseSetShadowlessConfig
+from .generationsRadiantCollection import SetGenerationsRadiantCollectionConfig
+from .xyTrainerKitPikachuLibreAndSuicune import SetXyTrainerKitPikachuLibreAndSuicuneConfig
+from .deckExclusives import SetDeckExclusivesConfig
 
 
 SET_CONFIG_MAP = {
@@ -31,6 +46,21 @@ SET_CONFIG_MAP = {
     'pokMonFutsalCollection' : SetPokMonFutsalCollectionConfig,
     'pokMonRumble' : SetPokMonRumbleConfig,
     'southernIslands' : SetSouthernIslandsConfig,
+    'expedition' : SetExpeditionConfig,
+    'wotcPromo' : SetWotcPromoConfig,
+    'diamondAndPearlPromos' : SetDiamondAndPearlPromosConfig,
+    'bestOfPromos' : SetBestOfPromosConfig,
+    'legendaryTreasuresRadiantCollection' : SetLegendaryTreasuresRadiantCollectionConfig,
+    'xyTrainerKitSylveonAndNoivern' : SetXyTrainerKitSylveonAndNoivernConfig,
+    'xyTrainerKitBisharpAndWigglytuff' : SetXyTrainerKitBisharpAndWigglytuffConfig,
+    'xyTrainerKitLatiasAndLatios' : SetXyTrainerKitLatiasAndLatiosConfig,
+    'bwTrainerKitExcadrillAndZoroark' : SetBwTrainerKitExcadrillAndZoroarkConfig,
+    'hgssTrainerKitGyaradosAndRaichu' : SetHgssTrainerKitGyaradosAndRaichuConfig,
+    'dpTrainerKitManaphyAndLucario' : SetDpTrainerKitManaphyAndLucarioConfig,
+    'baseSetShadowless' : SetBaseSetShadowlessConfig,
+    'generationsRadiantCollection' : SetGenerationsRadiantCollectionConfig,
+    'xyTrainerKitPikachuLibreAndSuicune' : SetXyTrainerKitPikachuLibreAndSuicuneConfig,
+    'deckExclusives' : SetDeckExclusivesConfig,
 }
 
 SET_ALIAS_MAP = {
@@ -80,4 +110,33 @@ SET_ALIAS_MAP = {
     "si1": "southernIslands",
     "southern islands": "southernIslands",
     "southernislands": "southernIslands",
+    'expedition': 'expedition',
+    'wotc promo': 'wotcPromo',
+    'wotcpromo': 'wotcPromo',
+    'diamond and pearl promos': 'diamondAndPearlPromos',
+    'diamondandpearlpromos': 'diamondAndPearlPromos',
+    'best of promos': 'bestOfPromos',
+    'bestofpromos': 'bestOfPromos',
+    'legendary treasures radiant collection': 'legendaryTreasuresRadiantCollection',
+    'legendarytreasuresradiantcollection': 'legendaryTreasuresRadiantCollection',
+    'xy trainer kit sylveon and noivern': 'xyTrainerKitSylveonAndNoivern',
+    'xytrainerkitsylveonandnoivern': 'xyTrainerKitSylveonAndNoivern',
+    'xy trainer kit bisharp and wigglytuff': 'xyTrainerKitBisharpAndWigglytuff',
+    'xytrainerkitbisharpandwigglytuff': 'xyTrainerKitBisharpAndWigglytuff',
+    'xy trainer kit latias and latios': 'xyTrainerKitLatiasAndLatios',
+    'xytrainerkitlatiasandlatios': 'xyTrainerKitLatiasAndLatios',
+    'bw trainer kit excadrill and zoroark': 'bwTrainerKitExcadrillAndZoroark',
+    'bwtrainerkitexcadrillandzoroark': 'bwTrainerKitExcadrillAndZoroark',
+    'hgss trainer kit gyarados and raichu': 'hgssTrainerKitGyaradosAndRaichu',
+    'hgsstrainerkitgyaradosandraichu': 'hgssTrainerKitGyaradosAndRaichu',
+    'dp trainer kit manaphy and lucario': 'dpTrainerKitManaphyAndLucario',
+    'dptrainerkitmanaphyandlucario': 'dpTrainerKitManaphyAndLucario',
+    'base set shadowless': 'baseSetShadowless',
+    'basesetshadowless': 'baseSetShadowless',
+    'generations radiant collection': 'generationsRadiantCollection',
+    'generationsradiantcollection': 'generationsRadiantCollection',
+    'xy trainer kit pikachu libre and suicune': 'xyTrainerKitPikachuLibreAndSuicune',
+    'xytrainerkitpikachulibreandsuicune': 'xyTrainerKitPikachuLibreAndSuicune',
+    'deck exclusives': 'deckExclusives',
+    'deckexclusives': 'deckExclusives',
 }

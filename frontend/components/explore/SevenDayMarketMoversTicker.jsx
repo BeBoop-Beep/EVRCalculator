@@ -14,11 +14,11 @@ function Item({ card, movement, href, hidden, crossSet }) {
   const name = card?.name || "Unknown card";
   const price = Number(card?.marketPrice ?? card?.currentPrice);
   return <a href={href} tabIndex={hidden ? -1 : undefined} title={`${name} — view market movers`}
-    className="flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
+    className={`flex min-w-0 flex-none items-center gap-2 rounded-lg px-2 py-1 hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${crossSet ? "w-[13.5rem] sm:w-[15rem]" : ""}`.trim()}>
     <span className="flex h-10 w-7 flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)]">
       {image ? <img src={image} alt="" className="h-full w-full object-contain" loading="lazy" decoding="async" /> : <span className="text-[8px]">{name.slice(0, 2)}</span>}
     </span>
-    <span className="min-w-0 max-w-[11rem]">
+    <span className={crossSet ? "min-w-0 flex-1" : "min-w-0 max-w-[11rem]"}>
       <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{name}</span>
       {crossSet ? <span className="block truncate text-[10px] text-[var(--text-secondary)]">{card?.setName || "Unknown set"}</span> : null}
       <MarketValueChange value={Number.isFinite(price) ? price : null} changeAmount={movement?.amount}
