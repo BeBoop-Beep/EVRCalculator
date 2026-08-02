@@ -98,6 +98,7 @@ export default function TimeRangeSelector({
   selectedValue,
   onValueChange,
   ariaLabel = "Time range",
+  ariaDescription,
   disabled = false,
   fullWidth = false,
   className = "",
@@ -141,6 +142,7 @@ export default function TimeRangeSelector({
       <div
         role="radiogroup"
         aria-label={ariaLabel}
+        aria-description={ariaDescription || undefined}
         onKeyDown={handleKeyDown}
         className={fullWidth
           ? "grid min-w-0 w-full grid-cols-7 gap-1.5"

@@ -21,6 +21,7 @@ import {
 import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
+import MarketTrendTooltipCard from "@/components/explore/MarketTrendTooltipCard";
 import SimulationSectionSelector from "@/components/explore/SimulationSectionSelector";
 import {
   MINIMAL_Y_AXIS_PROPS,
@@ -2233,61 +2234,17 @@ function buildCurrencyTicks(points) {
   );
 }
 
-function SetValueCompactTooltipCard({
-  date,
-  value,
-  deltaAmount,
-  deltaPercent,
-  isCarriedForward = false,
-  sourceDate = null,
-  className = "",
-  style,
-  ...props
-}) {
-  const normalizedDeltaAmount = toNumber(deltaAmount);
-  const normalizedDeltaPercent = toNumber(deltaPercent);
-
-  return (
-    <div
-      {...props}
-      className={[
-        "min-w-[9rem] max-w-[14rem] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]",
-        className,
-      ].filter(Boolean).join(" ")}
-      style={style}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(date)}</p>
-      <MarketValueChange
-        className="mt-1"
-        value={value}
-        changeAmount={normalizedDeltaAmount}
-        changePercent={normalizedDeltaPercent}
-        variant="tooltip"
-        accessibleLabel="Market value at selected date"
-      />
-      {isCarriedForward && sourceDate ? (
-        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(sourceDate)}</p>
-      ) : null}
-    </div>
-  );
-}
-
 function SetValueTooltip({ active, payload }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const row = payload[0]?.payload;
+  const row = active && payload?.[0]?.payload;
   if (!row) {
     return null;
   }
-
   return (
-    <SetValueCompactTooltipCard
+    <MarketTrendTooltipCard
       date={row.date}
       value={row.setValue}
-      deltaAmount={toNumber(row.deltaFromPrevious)}
-      deltaPercent={toNumber(row.deltaPercentFromPrevious)}
+      deltaAmount={row.deltaFromPrevious}
+      deltaPercent={row.deltaPercentFromPrevious}
       isCarriedForward={row.isCarriedForward}
       sourceDate={row.sourceDate}
     />
@@ -2335,7 +2292,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         chartLeft: bounds.left,
         chartWidth: bounds.width,
         pointerX: clientX - bounds.left,
-        // Matches SetValueCompactTooltipCard's max-w-[14rem].
+        // Matches MarketTrendTooltipCard's max-w-[14rem].
         tooltipWidth: 224,
         viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth,
         gutter: 8,
@@ -2538,7 +2495,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         </span>
       ) : null}
       {showTooltip && activePoint && tooltipX !== null ? (
-        <SetValueCompactTooltipCard
+        <MarketTrendTooltipCard
           data-compact-sparkline-tooltip
           date={activePoint.date}
           value={activePoint.y}

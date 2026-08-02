@@ -2,7 +2,7 @@
 
 import TimeRangeSelector from "@/components/explore/TimeRangeSelector";
 
-export default function MarketWindowSelector({ windows, value, onChange, fullWidth = false, className = "" }) {
+export default function MarketWindowSelector({ windows, value, onChange, fullWidth = false, className = "", ariaDescription }) {
   const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];
   if (windowOptions.length <= 1) {
     return null;
@@ -16,6 +16,7 @@ export default function MarketWindowSelector({ windows, value, onChange, fullWid
       ariaLabel="Time range"
       fullWidth={fullWidth}
       className={className}
+      ariaDescription={ariaDescription}
     />
   );
 }

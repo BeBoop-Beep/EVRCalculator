@@ -94,6 +94,8 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
             "endPrice": end["marketPrice"],
             "currentPrice": end["marketPrice"],
             "historyPointCount": len(history),
+            "fullWindowCoverage": False,
+            "coverageDays": 0,
         }
     if start["date"] == end["date"]:
         return {
@@ -105,8 +107,13 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
             "endPrice": end["marketPrice"],
             "currentPrice": end["marketPrice"],
             "historyPointCount": len(history),
+            "fullWindowCoverage": False,
+            "coverageDays": 0,
         }
-    partial = window not in ("1D", "lifetime") and start["date"] > requested
+    coverage_days = (end_date - date.fromisoformat(start["date"])).days
+    full_coverage = window in ("1D", "lifetime") or history[0]["date"] <= requested
+    partial = not full_coverage
+    visible_point_count = sum(start["date"] <= point["date"] <= end["date"] for point in history)
     amount = round(end["marketPrice"] - start["marketPrice"], 2)
     percent = round(amount / start["marketPrice"] * 100, 2)
     return {
@@ -123,7 +130,9 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
         "status": "available",
         "comparisonStatus": "since_first_available" if partial else "available",
         "isSinceFirstAvailable": partial or window == "lifetime",
-        "historyPointCount": len(history),
+        "historyPointCount": visible_point_count,
+        "fullWindowCoverage": full_coverage,
+        "coverageDays": coverage_days,
     }
 
 

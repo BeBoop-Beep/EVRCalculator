@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 
 const pagePath = path.resolve(__dirname, "RipStatisticsPageClient.jsx");
 const componentPath = path.resolve(__dirname, "../ui/MarketValueChange.jsx");
+const marketTrendTooltipPath = path.resolve(__dirname, "MarketTrendTooltipCard.jsx");
 const cardClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetCardsClient.js");
 const marketClientPath = path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js");
 const pricingContractPath = path.resolve(__dirname, "../../lib/pokemon/pricingSnapshotContract.mjs");
@@ -132,7 +133,7 @@ test("7D ticker and shared Set Value/Top Chase tooltip use the same stack withou
   assert.ok(!ticker.includes("<DeltaTrendIcon"));
   assert.ok(!ticker.includes("rounded-md border"));
 
-  const tooltip = section(source, "function SetValueCompactTooltipCard", "function SetValueTooltip");
+  const tooltip = read(marketTrendTooltipPath);
   assert.ok(tooltip.includes("<MarketValueChange"));
   assert.ok(tooltip.includes('variant="tooltip"'));
   assert.ok(!tooltip.includes("windowLabel="), "point-to-point tooltip change must not be mislabeled as a full window");

@@ -15,7 +15,7 @@
   --surface-hover: #18223f;
   --surface-primary: var(--surface-page);
   --border-subtle: rgba(255, 255, 255, 0.06);
-  --mobile-section-divider: rgba(226, 232, 240, 0.38);
+  --mobile-section-divider: rgba(226, 232, 240, 0.30);
   --text-primary: #e8eef7;
   --text-secondary: rgba(232, 238, 247, 0.72);
   --brand: #059669;
@@ -106,7 +106,7 @@
   --surface-hero-bottom: #f3f7fc;
   --surface-hover: rgba(2, 6, 23, 0.05);
   --border-subtle: rgba(15, 23, 42, 0.09);
-  --mobile-section-divider: rgba(100, 116, 139, 0.32);
+  --mobile-section-divider: rgba(100, 116, 139, 0.25);
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.72);
   --surface-primary: var(--surface-page);

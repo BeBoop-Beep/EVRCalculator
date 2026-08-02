@@ -1,27 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
+import MarketTrendTooltipCard from "@/components/explore/MarketTrendTooltipCard";
 import { MINIMAL_Y_AXIS_PROPS, buildEdgeDateTicks, getMinimalPlotMargin } from "@/components/explore/minimalChartAxis.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
-import { POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
-import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
+import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
 
 const INFO = "Tracks market-price history for unopened sealed products associated with this set. This first version does not include promo-card value, pack contents, or opening expected value.";
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const shortDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+const WINDOW_NAMES = { "1D": "1 day", "7D": "7 days", "30D": "30 days", "3M": "3 months", "6M": "6 months", "1Y": "1 year", lifetime: "lifetime" };
+const NEUTRAL_MARKET_COLOR = "rgba(148,163,184,0.9)";
+
+function SealedMarketTooltip({ active, payload }) {
+  const row = active && payload?.[0]?.payload;
+  if (!row) return null;
+  return (
+    <MarketTrendTooltipCard
+      date={row.date}
+      value={row.marketPrice}
+      deltaAmount={row.deltaFromWindowStart}
+      deltaPercent={row.deltaPercentFromWindowStart}
+      accessibleLabel="Market price at selected date"
+    />
+  );
+}
 
 export default function SealedMarketTrendCard({ setId }) {
   const [state, setState] = useState({ status: "idle", payload: null, error: null });
   const [selectedId, setSelectedId] = useState(null);
   const [windowKey, setWindowKey] = useState("30D");
   const [retryKey, setRetryKey] = useState(0);
+  const pointerMode = usePointerMode();
+  const chartId = useId().replace(/:/g, "");
+  const gradientId = `sealed-market-fill-${chartId}`;
+  const glowId = `sealed-market-glow-${chartId}`;
   const retry = useCallback(() => setRetryKey((value) => value + 1), []);
 
   useEffect(() => {
@@ -38,12 +59,33 @@ export default function SealedMarketTrendCard({ setId }) {
 
   const product = useMemo(() => selectSealedProduct(state.payload, selectedId), [state.payload, selectedId]);
   const selected = useMemo(() => selectSealedWindow(product, windowKey), [product, windowKey]);
-  const ticks = buildEdgeDateTicks(selected.history, "date");
+  const chartHistory = useMemo(() => {
+    const firstPrice = Number(selected.history?.[0]?.marketPrice);
+    return (selected.history || []).map((point) => {
+      const value = Number(point.marketPrice);
+      const amount = Number.isFinite(value) && Number.isFinite(firstPrice) ? value - firstPrice : null;
+      return {
+        ...point,
+        deltaFromWindowStart: amount,
+        deltaPercentFromWindowStart: amount !== null && firstPrice !== 0 ? amount / firstPrice * 100 : null,
+      };
+    });
+  }, [selected.history]);
+  const ticks = buildEdgeDateTicks(chartHistory, "date");
+  const fallbackDescription = selected.isFallback
+    ? `${WINDOW_NAMES[selected.requestedWindowKey]} view selected; showing ${WINDOW_NAMES[selected.effectiveWindowKey]} because ${WINDOW_NAMES[selected.requestedWindowKey]} of history are not available yet.`
+    : undefined;
+  const trendDirection = getDisplayedTrendDirection(selected.movement);
+  const trendColor = trendDirection === "positive"
+    ? POSITIVE_VALUE_COLOR
+    : trendDirection === "negative"
+      ? NEGATIVE_VALUE_COLOR
+      : NEUTRAL_MARKET_COLOR;
 
   return (
     <section data-sealed-market-card className="set-glass-surface min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] p-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold leading-normal text-[var(--text-primary)] desk:text-sm">Sealed Market</h2>
+        <h2 className="text-lg font-semibold leading-normal text-[var(--text-primary)]">Sealed Market</h2>
         <InfoPopover text={INFO} />
       </div>
       {state.status === "loading" ? (
@@ -68,17 +110,17 @@ export default function SealedMarketTrendCard({ setId }) {
               {state.payload.products.map((item) => <option key={item.sealedProductId} value={item.sealedProductId} title={item.name}>{compactSealedProductLabel(item)} — {item.name}</option>)}
             </select>
           </label>
-          <p className="mt-2 truncate text-xs text-[var(--text-secondary)]" title={product.name}>{product.name}</p>
           <div className="mt-2">
             <MarketValueChange
               value={product.currentPrice}
               changeAmount={selected.movement.amount}
               changePercent={selected.movement.percent}
               unavailable={selected.movement.status !== "available"}
-              windowLabel={windowKey}
+              windowLabel={selected.effectiveWindowKey}
               variant="chart-summary"
               accessibleLabel={`${product.name} market price`}
             />
+            {fallbackDescription ? <span className="sr-only">{fallbackDescription}</span> : null}
           </div>
           <MarketWindowSelector
             windows={SEALED_MARKET_WINDOWS}
@@ -86,15 +128,32 @@ export default function SealedMarketTrendCard({ setId }) {
             onChange={setWindowKey}
             fullWidth
             className="mt-2"
+            ariaDescription={fallbackDescription}
           />
           <ChartFrame className="mt-2 h-32 md:h-36 lg:h-32">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={selected.history} margin={getMinimalPlotMargin({ top: 8, bottom: 16 })}>
+              <ComposedChart data={chartHistory} margin={getMinimalPlotMargin({ top: 6, bottom: 2 })}>
+                <defs>
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={trendColor} stopOpacity="0.13" />
+                    <stop offset="68%" stopColor={trendColor} stopOpacity="0.035" />
+                    <stop offset="100%" stopColor={trendColor} stopOpacity="0" />
+                  </linearGradient>
+                  <filter id={glowId} x="-12%" y="-18%" width="124%" height="136%">
+                    <feGaussianBlur stdDeviation="1.8" />
+                  </filter>
+                </defs>
+                <Area type="linear" dataKey="marketPrice" baseValue="dataMin" fill={`url(#${gradientId})`} stroke="none" dot={false} activeDot={false} legendType="none" tooltipType="none" isAnimationActive={false} />
                 <XAxis dataKey="date" ticks={ticks} tick={<ChartEdgeDateTick ticks={ticks} formatter={shortDate} />} tickLine={false} axisLine={false} interval={0} />
                 <YAxis {...MINIMAL_Y_AXIS_PROPS} domain={["dataMin", "dataMax"]} />
-                <Tooltip formatter={(value) => [money.format(value), "Market price"]} labelFormatter={shortDate} />
-                <Line type="monotone" dataKey="marketPrice" stroke={POSITIVE_VALUE_COLOR} strokeWidth={2} dot={false} isAnimationActive={false} />
-              </LineChart>
+                <Tooltip
+                  trigger={pointerMode === POINTER_MODE_COARSE ? "click" : "hover"}
+                  content={<SealedMarketTooltip />}
+                  cursor={{ stroke: "rgba(255,255,255,0.16)", strokeWidth: 1 }}
+                />
+                <Line type="linear" dataKey="marketPrice" stroke={trendColor} strokeWidth={7} strokeOpacity={0.16} filter={`url(#${glowId})`} dot={false} activeDot={false} legendType="none" tooltipType="none" isAnimationActive={false} />
+                <Line type="linear" dataKey="marketPrice" stroke={trendColor} strokeWidth={2.5} dot={{ r: 2.5, fill: trendColor, strokeWidth: 0 }} activeDot={{ r: 4.5, fill: trendColor, stroke: "var(--surface-page)", strokeWidth: 2 }} isAnimationActive={false} />
+              </ComposedChart>
             </ResponsiveContainer>
           </ChartFrame>
           <p className="mt-1 text-[10px] text-[var(--text-secondary)]">As of {shortDate(product.priceAsOf)} · Unopened market price only</p>

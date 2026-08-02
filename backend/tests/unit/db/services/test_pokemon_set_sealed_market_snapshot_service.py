@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import backend.db.services.pokemon_set_sealed_market_snapshot_service as snapshot_service
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import (
     MOVEMENT_WINDOWS,
@@ -27,6 +29,8 @@ def test_daily_normalization_and_movements():
     assert movement(history, "1D")["actualStartDate"] == "2026-01-01"
     assert movement(history, "30D")["comparisonStatus"] == "since_first_available"
     assert movement(history, "lifetime")["actualStartDate"] == "2026-01-01"
+    assert seven["fullWindowCoverage"] is True
+    assert seven["coverageDays"] == 7
 
 
 def test_all_windows_partial_coverage_and_unavailable_baseline():
@@ -49,9 +53,40 @@ def test_all_windows_partial_coverage_and_unavailable_baseline():
     partial = movement(history[-2:], "1Y")
     assert partial["comparisonStatus"] == "since_first_available"
     assert partial["isSinceFirstAvailable"] is True
+    assert partial["fullWindowCoverage"] is False
     unavailable = movement(history[-1:], "1D")
     assert unavailable["comparisonStatus"] == "baseline_unavailable"
     assert "amount" not in unavailable
+
+
+def test_one_day_uses_previous_distinct_observed_date_and_known_prices():
+    history = normalize_daily_history([
+        {"id": 1, "sealed_product_id": 10, "market_price": 430.00, "captured_at": "2026-08-01T09:00:00Z"},
+        {"id": 2, "sealed_product_id": 10, "market_price": 431.72, "captured_at": "2026-08-01T10:00:00Z"},
+        {"id": 3, "sealed_product_id": 10, "market_price": 422.60, "captured_at": "2026-08-02T09:00:00Z"},
+    ])
+    one_day = movement(history, "1D")
+    assert one_day["actualStartDate"] == "2026-08-01"
+    assert one_day["endDate"] == "2026-08-02"
+    assert one_day["amount"] == -9.12
+    assert one_day["percent"] == -2.11
+
+
+def test_exact_fixed_windows_and_insufficient_long_windows():
+    end = date(2026, 8, 2)
+    history = [
+        {"date": (end - timedelta(days=days)).isoformat(), "marketPrice": price}
+        for days, price in [(90, 100), (30, 110), (7, 120), (0, 130)]
+    ]
+    for key in ("7D", "30D", "3M"):
+        result = movement(history, key)
+        assert result["fullWindowCoverage"] is True
+        assert result["coverageDays"] == snapshot_service.WINDOW_DAYS[key]
+    for key in ("6M", "1Y"):
+        result = movement(history, key)
+        assert result["status"] == "available"
+        assert result["fullWindowCoverage"] is False
+        assert result["comparisonStatus"] == "since_first_available"
 
 
 def test_default_priority_fingerprint_and_empty_set():
