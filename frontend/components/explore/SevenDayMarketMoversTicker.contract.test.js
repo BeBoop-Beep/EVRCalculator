@@ -8,9 +8,12 @@ const source = fs.readFileSync(
   "utf8"
 );
 
-test("Explore mode widens shared ticker items while set mode keeps its original sizing", () => {
-  assert.ok(source.includes('crossSet ? "w-[13.5rem] sm:w-[15rem]" : ""'));
-  assert.ok(source.includes('crossSet ? "min-w-0 flex-1" : "min-w-0 max-w-[11rem]"'));
+test("both modes retain compact item width while Explore alone receives extra height", () => {
+  assert.ok(!source.includes("w-[13.5rem]"));
+  assert.ok(!source.includes("sm:w-[15rem]"));
+  assert.ok(source.includes('className="min-w-0 max-w-[11rem]"'));
+  assert.ok(source.includes('const containerHeightClass = crossSet ? "h-20" : "h-14";'));
+  assert.ok(source.includes("`flex ${containerHeightClass} min-w-0 items-center"));
 });
 
 test("set identity remains exclusive to Explore mode", () => {
@@ -25,4 +28,22 @@ test("both modes continue through the single shared item implementation", () => 
   assert.equal((source.match(/function Item\(/g) || []).length, 1);
   assert.equal((source.match(/function SevenDayMarketMoversTicker\(/g) || []).length, 1);
   assert.ok(source.includes("crossSet={crossSet}"));
+  assert.equal((source.match(/<MoversTickerViewport/g) || []).length, 1);
+});
+
+test("set action uses one responsive accessible anchor and Explore still omits it", () => {
+  assert.ok(source.includes("!crossSet && viewAllHref ? <a href={viewAllHref}"));
+  assert.ok(source.includes('aria-label="View all 7-day movers"'));
+  assert.ok(source.includes("h-10 w-10 flex-none items-center justify-center"));
+  assert.ok(source.includes('className="desk:hidden" aria-hidden="true"'));
+  assert.ok(source.includes('className="h-4 w-4"'));
+  assert.ok(source.includes('d="m7.5 4.5 5 5-5 5"'));
+  assert.ok(source.includes('className="hidden text-xs font-semibold desk:inline"'));
+  assert.ok(source.includes("View all movers →"));
+  assert.equal((source.match(/aria-label="View all 7-day movers"/g) || []).length, 1);
+  const mobileChild = source.slice(
+    source.indexOf('<span className="desk:hidden"'),
+    source.indexOf('<span className="hidden text-xs font-semibold desk:inline"')
+  );
+  assert.ok(!mobileChild.includes("View all movers"));
 });
