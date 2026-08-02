@@ -31,6 +31,7 @@ def test_aggregates_deduplicates_sorts_and_adds_cross_set_identity():
     cards = row["payload_json"]["marketMovers"]["all"]
     assert [card["canonicalCardId"] for card in cards] == ["negative", "duplicate", "positive"]
     assert cards[0]["setName"] == "Beta"
+    assert "setSlug" not in cards[0]
     assert len([card for card in cards if card["canonicalCardId"] == "duplicate"]) == 1
     assert row["payload_json"]["meta"]["coverage"]["candidateCardCount"] == 4
 

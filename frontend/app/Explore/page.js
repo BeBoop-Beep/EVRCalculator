@@ -2,7 +2,9 @@ import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import ExploreTableClient from "@/components/explore/ExploreTableClient";
 import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
 import ExploreMarketMovers from "@/components/explore/ExploreMarketMovers";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
+import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import styles from "@/components/explore/explore.module.css";
 
@@ -46,6 +48,7 @@ export const metadata = {
 
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
+  const backgroundUrl = getExploreBackground("pokemon");
   const [rankingsResult, moversResult] = await Promise.allSettled([
     getRipStatisticsTargets({ limit: 60 }),
     getExploreMarketMovers(),
@@ -73,7 +76,13 @@ export default async function ExplorePage({ searchParams }) {
   return (
     // The root layout already provides the <main> landmark, so this is a plain
     // container — two <main> elements would announce two main regions.
-    <div className={`${styles.dashboard} mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+      <PageArtworkAtmosphere
+        src={backgroundUrl}
+        dataAttribute="data-explore-ambient-artwork"
+        visibilityClassName="hidden desk:block"
+        loading="lazy"
+      />
       {/*
         No outer context box: the modules sit directly on the application
         canvas. The page heading stays in the document for structure but is

@@ -64,6 +64,15 @@ test("Market Movers precedes the restored grid and tables have the required DOM 
   assert.ok(movers > 0 && movers < grid && grid < rankings && rankings < bestSets);
 });
 
+test("Explore reuses the set-page atmosphere and glass primitives", () => {
+  const source = readPage();
+  assert.ok(source.includes('getExploreBackground("pokemon")'));
+  assert.ok(source.includes("explore-glass-scope relative isolate"));
+  assert.ok(source.includes('dataAttribute="data-explore-ambient-artwork"'));
+  assert.ok(source.includes('visibilityClassName="hidden desk:block"'));
+  assert.ok(source.includes('loading="lazy"'));
+});
+
 test("Top Rankings and Best Sets remain siblings in the original two-column grid", () => {
   const source = readPage();
   assert.ok(source.includes("xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]"));

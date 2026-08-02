@@ -103,7 +103,6 @@ def build_global_card_movers_row(
         set_identity = {
             "setId": set_id,
             "setCanonicalKey": pokemon_set.get("canonical_key"),
-            "setSlug": pokemon_set.get("slug") or pokemon_set.get("canonical_key"),
             "setName": pokemon_set.get("name"),
         }
         for movement in movements:

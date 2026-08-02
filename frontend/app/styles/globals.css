@@ -820,6 +820,44 @@ body::-webkit-scrollbar-thumb:hover {
   background: rgba(8, 17, 31, 0.10);
 }
 
+.explore-glass-scope .set-glass-surface,
+.explore-glass-scope .set-glass-surface-dense {
+  border-color: var(--set-glass-border);
+  background: var(--set-glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--set-glass-highlight),
+    0 18px 44px rgba(2, 6, 23, 0.22);
+  -webkit-backdrop-filter: blur(var(--set-glass-blur));
+  backdrop-filter: blur(var(--set-glass-blur));
+}
+
+.explore-glass-scope .set-glass-surface-dense {
+  background: var(--set-glass-bg-dense);
+  -webkit-backdrop-filter: blur(var(--set-glass-blur-dense));
+  backdrop-filter: blur(var(--set-glass-blur-dense));
+}
+
+/* The wide Pokémon wordmark needs artwork-specific definition and placement;
+   set artwork continues to use the untouched defaults above. */
+.explore-glass-scope .set-page-atmosphere {
+  --set-artwork-scale: 1.02;
+  --set-artwork-opacity: 0.09945;
+  --set-artwork-grayscale: 0.04;
+  --set-artwork-brightness: 1.02;
+  --set-artwork-saturate: 0.95;
+  --set-artwork-bloom-opacity: 0.0459;
+  --set-artwork-bloom-scale: 1.037;
+  --set-artwork-bloom-brightness: 0.918;
+  --set-artwork-mask:
+    linear-gradient(
+      to bottom,
+      #000 0%,
+      rgba(0, 0, 0, 0.94) 38%,
+      rgba(0, 0, 0, 0.58) 72%,
+      rgba(0, 0, 0, 0.20) 100%
+    );
+}
+
 /* Opening Outlook edge highlight.
    The callout's illumination is the horizontal wash on its own background plus
    the tier rail on its left border. This adds the one missing premium cue: a
@@ -870,6 +908,11 @@ body::-webkit-scrollbar-thumb:hover {
   filter:
     grayscale(var(--set-artwork-grayscale)) brightness(var(--set-artwork-brightness))
     saturate(var(--set-artwork-saturate)) blur(var(--set-artwork-blur));
+}
+
+.explore-glass-scope .set-page-atmosphere-artwork {
+  transform: translateY(var(--set-artwork-y-offset)) scale(var(--set-artwork-scale));
+  object-position: center 38% !important;
 }
 
 /* Static: the bloom never animates, so the blur rasterises once. */
@@ -990,6 +1033,12 @@ body::-webkit-scrollbar-thumb:hover {
      most expensive effect on a phone anyway. Desktop keeps it untouched. */
   .set-detail-glass-scope .set-glass-surface,
   .set-detail-glass-scope .set-glass-surface-dense {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .explore-glass-scope .set-glass-surface,
+  .explore-glass-scope .set-glass-surface-dense {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }

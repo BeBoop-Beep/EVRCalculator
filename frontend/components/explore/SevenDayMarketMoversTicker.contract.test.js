@@ -13,7 +13,17 @@ test("both modes retain compact item width while Explore alone receives extra he
   assert.ok(!source.includes("sm:w-[15rem]"));
   assert.ok(source.includes('className="min-w-0 max-w-[11rem]"'));
   assert.ok(source.includes('const containerHeightClass = crossSet ? "h-20" : "h-14";'));
-  assert.ok(source.includes("`flex ${containerHeightClass} min-w-0 items-center"));
+  assert.ok(source.includes("`set-glass-surface flex ${containerHeightClass} min-w-0 items-center"));
+});
+
+test("the optional medium thumbnail is larger and responsive without changing the default set size", () => {
+  assert.ok(source.includes('thumbnailSize = "small"'));
+  assert.ok(source.includes('thumbnailSize === "medium"'));
+  assert.ok(source.includes('"h-12 w-[2.1rem] max-desk:h-11 max-desk:w-[1.925rem]"'));
+  assert.ok(source.includes(': "h-10 w-7"'));
+  assert.ok(source.includes("items-center justify-center overflow-hidden"));
+  assert.ok(source.includes('className="h-full w-full object-contain"'));
+  assert.ok(!source.includes("object-cover"));
 });
 
 test("set identity remains exclusive to Explore mode", () => {
@@ -46,4 +56,14 @@ test("set action uses one responsive accessible anchor and Explore still omits i
     source.indexOf('<span className="hidden text-xs font-semibold desk:inline"')
   );
   assert.ok(!mobileChild.includes("View all movers"));
+});
+
+test("Explore cards use canonical shared set routing and ignore false setSlug values", () => {
+  assert.ok(source.includes('import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting"'));
+  assert.ok(source.includes("const setName = card?.setName || card?.set_name;"));
+  assert.ok(source.includes("if (!targetId || !setName) return fallback;"));
+  assert.ok(source.includes('{ target_type: "set", target_id: targetId, name: setName }'));
+  assert.ok(source.includes('{ tab: "cards", section: "market-movers", window: "7D" }'));
+  assert.ok(!source.includes("card?.setSlug"));
+  assert.ok(source.includes("href={crossSet ? hrefFor(card, viewAllHref) : viewAllHref}"));
 });
