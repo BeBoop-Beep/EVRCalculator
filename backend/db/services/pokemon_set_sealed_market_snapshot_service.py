@@ -13,8 +13,9 @@ from backend.domain.pokemon.sealed_product_classifier import (
     classify_sealed_product,
 )
 
-SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v1"
-WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90}
+SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v2"
+WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
+MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 FAMILY_PRIORITY = {
     "booster_box": 0,
     "enhanced_booster_box": 1,
@@ -73,9 +74,16 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
         return {"status": "unavailable", "comparisonStatus": "unavailable", "historyPointCount": 0}
     end = history[-1]
     end_date = date.fromisoformat(end["date"])
-    requested = history[0]["date"] if window == "LT" else (end_date - timedelta(days=WINDOW_DAYS[window])).isoformat()
-    candidates = [point for point in history if point["date"] <= requested]
-    start = history[0] if window == "LT" else (candidates[-1] if candidates else None)
+    if window == "1D":
+        requested = history[-2]["date"] if len(history) >= 2 else None
+        start = history[-2] if len(history) >= 2 else None
+    elif window == "lifetime":
+        requested = history[0]["date"]
+        start = history[0]
+    else:
+        requested = (end_date - timedelta(days=WINDOW_DAYS[window])).isoformat()
+        candidates = [point for point in history if point["date"] <= requested]
+        start = candidates[-1] if candidates else history[0]
     if not start:
         return {
             "status": "unavailable",
@@ -87,6 +95,18 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
             "currentPrice": end["marketPrice"],
             "historyPointCount": len(history),
         }
+    if start["date"] == end["date"]:
+        return {
+            "status": "unavailable",
+            "comparisonStatus": "baseline_unavailable",
+            "requestedStartDate": requested,
+            "actualStartDate": None,
+            "endDate": end["date"],
+            "endPrice": end["marketPrice"],
+            "currentPrice": end["marketPrice"],
+            "historyPointCount": len(history),
+        }
+    partial = window not in ("1D", "lifetime") and start["date"] > requested
     amount = round(end["marketPrice"] - start["marketPrice"], 2)
     percent = round(amount / start["marketPrice"] * 100, 2)
     return {
@@ -101,7 +121,8 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
         "actualStartDate": start["date"],
         "endDate": end["date"],
         "status": "available",
-        "comparisonStatus": "available",
+        "comparisonStatus": "since_first_available" if partial else "available",
+        "isSinceFirstAvailable": partial or window == "lifetime",
         "historyPointCount": len(history),
     }
 
@@ -131,7 +152,6 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
         history = normalize_daily_history(observations_by_product.get(str(product["id"]), []))
         if not history:
             continue
-        bounded = history if len(history) <= 365 else [history[0], *history[-364:]]
         current = history[-1]
         payload_products.append(
             {
@@ -141,8 +161,8 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
                 "currentPrice": current["marketPrice"],
                 "priceAsOf": current["date"],
                 "source": current["source"],
-                "movements": {key: movement(history, key) for key in ("7D", "30D", "3M", "LT")},
-                "history": bounded,
+                "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+                "history": history,
             }
         )
     payload_products.sort(key=lambda item: (FAMILY_PRIORITY.get(item["productFamily"], 99), item["variantLabel"] or "", item["name"] or "", item["sealedProductId"]))

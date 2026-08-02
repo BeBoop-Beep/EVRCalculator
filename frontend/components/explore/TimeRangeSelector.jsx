@@ -99,6 +99,7 @@ export default function TimeRangeSelector({
   onValueChange,
   ariaLabel = "Time range",
   disabled = false,
+  fullWidth = false,
   className = "",
 }) {
   const items = resolveItems({ windows, supportedValues });
@@ -108,7 +109,7 @@ export default function TimeRangeSelector({
     return null;
   }
 
-  const wrapperClassName = ["w-full desk:w-auto", className].filter(Boolean).join(" ");
+  const wrapperClassName = [fullWidth ? "w-full" : "w-full desk:w-auto", className].filter(Boolean).join(" ");
 
   const handleKeyDown = (event) => {
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
@@ -141,7 +142,9 @@ export default function TimeRangeSelector({
         role="radiogroup"
         aria-label={ariaLabel}
         onKeyDown={handleKeyDown}
-        className="grid min-w-0 w-full grid-flow-col auto-cols-fr gap-1.5 desk:flex desk:w-auto desk:flex-wrap"
+        className={fullWidth
+          ? "grid min-w-0 w-full grid-cols-7 gap-1.5"
+          : "grid min-w-0 w-full grid-flow-col auto-cols-fr gap-1.5 desk:flex desk:w-auto desk:flex-wrap"}
       >
         {items.map((item) => {
           const isActive = selectedKey === item.key;
@@ -159,7 +162,8 @@ export default function TimeRangeSelector({
               tabIndex={isActive ? 0 : -1}
               onClick={() => onValueChange?.(item.key)}
               className={[
-                "min-w-0 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+                "min-w-0 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
+                fullWidth ? "desk:px-1" : "",
                 "max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:justify-center max-desk:px-2",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40",
                 isActive

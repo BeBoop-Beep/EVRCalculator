@@ -3242,6 +3242,7 @@ function TopMarketCardsContent({
   marketAsOfDate = null,
   rowHref = null,
   onRetry = null,
+  mobileExpanded = true,
 }) {
   const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
   const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
@@ -3324,14 +3325,18 @@ function TopMarketCardsContent({
         </div>
         <div className="divide-y divide-[var(--border-subtle)]">
           {cards.slice(0, maxRows).map((card, index) => (
-            <TopMarketCardRow
+            <div
               key={`top-market-card:${card?.id || card?.cardNumber || card?.name || index}`}
-              card={card}
-              index={index}
-              selectedWindowKey={effectiveWindowKey}
-              marketAsOfDate={marketAsOfDate}
-              href={rowHref}
-            />
+              className={index >= TOP_CHASE_MOBILE_PREVIEW_LIMIT && !mobileExpanded ? "max-desk:hidden" : ""}
+            >
+              <TopMarketCardRow
+                card={card}
+                index={index}
+                selectedWindowKey={effectiveWindowKey}
+                marketAsOfDate={marketAsOfDate}
+                href={rowHref}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -3415,7 +3420,8 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         cards={cards}
         status={status}
         error={error}
-        maxRows={showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT}
+        maxRows={10}
+        mobileExpanded={showAllChaseCards}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
@@ -3423,7 +3429,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         onRetry={onRetry}
       />
       {totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT ? (
-        <div className="mt-4 flex justify-end max-desk:mt-1 max-desk:justify-center">
+        <div className="mt-1 hidden justify-center max-desk:flex">
           {/* Compact visible label below 1200px; the accessible name stays the
               full, descriptive wording at every width.
               The list expands in place, downward — so the affordance is a down
@@ -3436,12 +3442,9 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
             onClick={() => setShowAllChaseCards((value) => !value)}
             aria-expanded={showAllChaseCards}
             aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:gap-1.5 max-desk:border-0 max-desk:bg-transparent max-desk:px-2 max-desk:text-[var(--accent)]"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border-0 bg-transparent px-2 py-2 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)]"
           >
-            <span aria-hidden="true" className="max-desk:hidden">
-              {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
-            </span>
-            <span aria-hidden="true" className="hidden max-desk:inline">
+            <span aria-hidden="true">
               {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
             </span>
             <svg
@@ -3449,7 +3452,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
               fill="currentColor"
               aria-hidden="true"
               data-chase-reveal-chevron
-              className={`hidden h-4 w-4 flex-none transition-transform max-desk:block ${showAllChaseCards ? "rotate-180" : ""}`}
+              className={`h-4 w-4 flex-none transition-transform ${showAllChaseCards ? "rotate-180" : ""}`}
             >
               <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
             </svg>
@@ -15125,7 +15128,7 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
-                      <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
+                      <div id="set-detail-set-value-trend" data-mobile-section className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
                             it only needs render-exception isolation here. */}
@@ -15144,7 +15147,7 @@ export default function RipStatisticsPageClient({
                           />
                         </SectionErrorBoundary>
                       </div>
-                      <div className="min-w-0 lg:h-full">
+                      <div data-mobile-section className="min-w-0 lg:h-full">
                         {/* Priority 3: Performance vs Cost. PackValueHistoryChart
                             has no internal status handling, so it gets an
                             explicit SectionBoundary keyed to the /overview
@@ -15244,7 +15247,7 @@ export default function RipStatisticsPageClient({
                         stack, Top Chase first. */}
                     <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
                       {shouldShowTopMarketCards ? (
-                        <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
+                        <div id="set-detail-top-market-cards" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
                           {/* Top Chase Cards — self-renders loading/error. */}
                           <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
                             <TopChaseCardsModule
@@ -15261,23 +15264,25 @@ export default function RipStatisticsPageClient({
                           </SectionErrorBoundary>
                         </div>
                       ) : null}
-                      <div className="min-w-0">
-                        {/* Sealed Market owns an independent prepared-snapshot request. */}
-                        <SectionErrorBoundary sectionName="overview-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
-                          <SealedMarketTrendCard setId={resolvedSetResourceId} />
-                        </SectionErrorBoundary>
+                      <div className="min-w-0 space-y-5">
+                        <div data-mobile-section>
+                          {/* Sealed Market owns an independent prepared-snapshot request. */}
+                          <SectionErrorBoundary sectionName="overview-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
+                            <SealedMarketTrendCard setId={resolvedSetResourceId} />
+                          </SectionErrorBoundary>
+                        </div>
+                        <div id="set-detail-set-intelligence" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                          <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                            <DecisionSignalsCard
+                              pillarSignals={overviewPillarSignals}
+                              summary={summary}
+                              setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                              trackedSignals={overviewDecisionTrackedSignals}
+                              requestTimeout={isTimeoutFallbackPayload}
+                            />
+                          </SectionErrorBoundary>
+                        </div>
                       </div>
-                    </div>
-                    <div id="set-detail-set-intelligence" className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                        <DecisionSignalsCard
-                          pillarSignals={overviewPillarSignals}
-                          summary={summary}
-                          setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                          trackedSignals={overviewDecisionTrackedSignals}
-                          requestTimeout={isTimeoutFallbackPayload}
-                        />
-                      </SectionErrorBoundary>
                     </div>
                   </section>
                 ) : null}
@@ -15903,6 +15908,7 @@ export default function RipStatisticsPageClient({
                 {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
                   <RipScoreBreakdownModule
                     score={topScoreRaw}
@@ -15922,6 +15928,7 @@ export default function RipStatisticsPageClient({
                     collectorAppeal={ripCollectorAppealTerm}
                   />
                 </SectionErrorBoundary>
+                </div>
 
                 {/* Priority 2: the Collector Profile — Set Desirability and
                     Collector Appeal in one section, in the order the model
@@ -15929,6 +15936,7 @@ export default function RipStatisticsPageClient({
                     reads `universalSetDesirability` only (no simulation, no pull
                     model, no CA7), so it renders for every adequately covered
                     set even when Opening Paths cannot. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-collector-profile" resetKeys={[resolvedSetResourceId]} title="Collector Profile" minHeightClassName="min-h-[14rem]">
                   <CollectorProfileSection
                     universalSetDesirability={canonicalUniversalSetDesirability}
@@ -15939,10 +15947,12 @@ export default function RipStatisticsPageClient({
                     loadingTimedOut={insightsSectionsShowFallbackCopy}
                   />
                 </SectionErrorBoundary>
+                </div>
 
                 {/* Priority 4: the Simulation Results deep-dive (formerly
                     "Opening Outcomes"). Already internally gated on the
                     secondary tier via insightsSectionsBlocked. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Simulation Results" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   {/* Always-expanded card (same card treatment as SectionCard): the
@@ -16165,6 +16175,7 @@ export default function RipStatisticsPageClient({
                   </article>
                 </section>
                 </SectionErrorBoundary>
+                </div>
               </section>
             ) : null}
 

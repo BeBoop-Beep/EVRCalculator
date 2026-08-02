@@ -1,4 +1,7 @@
+import backend.db.services.pokemon_set_sealed_market_snapshot_service as snapshot_service
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import (
+    MOVEMENT_WINDOWS,
+    SNAPSHOT_CONTRACT_VERSION,
     build_snapshot,
     fingerprint,
     movement,
@@ -21,8 +24,34 @@ def test_daily_normalization_and_movements():
     seven = movement(history, "7D")
     assert seven["status"] == "available"
     assert seven["amount"] == 5
-    assert movement(history, "30D")["comparisonStatus"] == "baseline_unavailable"
-    assert movement(history, "LT")["actualStartDate"] == "2026-01-01"
+    assert movement(history, "1D")["actualStartDate"] == "2026-01-01"
+    assert movement(history, "30D")["comparisonStatus"] == "since_first_available"
+    assert movement(history, "lifetime")["actualStartDate"] == "2026-01-01"
+
+
+def test_all_windows_partial_coverage_and_unavailable_baseline():
+    history = [
+        {"date": "2025-01-01", "marketPrice": 100.0},
+        {"date": "2025-06-30", "marketPrice": 120.0},
+        {"date": "2025-12-31", "marketPrice": 150.0},
+        {"date": "2026-01-01", "marketPrice": 160.0},
+    ]
+    assert tuple(MOVEMENT_WINDOWS) == ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
+    for key in MOVEMENT_WINDOWS:
+        assert movement(history, key)["status"] == "available"
+    assert movement(history, "1D")["actualStartDate"] == "2025-12-31"
+    assert movement(history, "7D")["actualStartDate"] == "2025-06-30"
+    assert movement(history, "30D")["actualStartDate"] == "2025-06-30"
+    assert movement(history, "3M")["actualStartDate"] == "2025-06-30"
+    assert movement(history, "6M")["actualStartDate"] == "2025-06-30"
+    assert movement(history, "1Y")["actualStartDate"] == "2025-01-01"
+    assert movement(history, "lifetime")["actualStartDate"] == "2025-01-01"
+    partial = movement(history[-2:], "1Y")
+    assert partial["comparisonStatus"] == "since_first_available"
+    assert partial["isSinceFirstAvailable"] is True
+    unavailable = movement(history[-1:], "1D")
+    assert unavailable["comparisonStatus"] == "baseline_unavailable"
+    assert "amount" not in unavailable
 
 
 def test_default_priority_fingerprint_and_empty_set():
@@ -37,6 +66,17 @@ def test_default_priority_fingerprint_and_empty_set():
     result = build_snapshot({"id": "s", "canonical_key": "set", "name": "Set"}, products, observations)
     assert result["payload_json"]["defaultProductId"] == "21"
     assert fingerprint("s", products, observations) == fingerprint("s", list(reversed(products)), list(reversed(observations)))
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v2"
+    assert result["payload_json"]["meta"]["snapshotContractVersion"] == SNAPSHOT_CONTRACT_VERSION
+    assert list(result["payload_json"]["products"][0]["movements"]) == list(MOVEMENT_WINDOWS)
     empty = build_snapshot({"id": "x", "canonical_key": "x", "name": "X"}, [], [])
     assert empty["payload_json"]["products"] == []
     assert empty["product_count"] == 0
+
+
+def test_contract_version_changes_fingerprint(monkeypatch):
+    products = [{"id": 10}]
+    observations = [rows()[0]]
+    current = fingerprint("s", products, observations)
+    monkeypatch.setattr(snapshot_service, "SNAPSHOT_CONTRACT_VERSION", "pokemon-set-sealed-market-v1")
+    assert fingerprint("s", products, observations) != current

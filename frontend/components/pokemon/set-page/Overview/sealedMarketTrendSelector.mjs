@@ -1,9 +1,6 @@
-export const SEALED_MARKET_WINDOWS = Object.freeze([
-  { key: "7D", label: "7D" },
-  { key: "30D", label: "30D" },
-  { key: "3M", label: "3M" },
-  { key: "LT", label: "LT" },
-]);
+import { getStandardDeltaWindowDefinitions } from "../../../../lib/explore/marketDeltaWindows.mjs";
+
+export const SEALED_MARKET_WINDOWS = Object.freeze(getStandardDeltaWindowDefinitions());
 
 const FAMILY_LABELS = {
   booster_box: "Booster Box",
@@ -29,11 +26,14 @@ export function selectSealedProduct(payload, selectedId) {
 }
 
 export function selectSealedWindow(product, windowKey = "30D") {
-  const movement = product?.movements?.[windowKey] || {};
+  const movement = product?.movements?.[windowKey]
+    || (windowKey === "lifetime" ? product?.movements?.LT : null)
+    || {};
   const endDate = movement.endDate || product?.priceAsOf;
   const history = Array.isArray(product?.history) ? product.history : [];
-  const visibleHistory = windowKey === "LT" || !movement.requestedStartDate
+  const startDate = movement.actualStartDate || movement.requestedStartDate;
+  const visibleHistory = windowKey === "lifetime" || !startDate
     ? history
-    : history.filter((point) => point.date >= movement.requestedStartDate && (!endDate || point.date <= endDate));
+    : history.filter((point) => point.date >= startDate && (!endDate || point.date <= endDate));
   return { movement, history: visibleHistory };
 }

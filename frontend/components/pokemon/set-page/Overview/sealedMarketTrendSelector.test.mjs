@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compactSealedProductLabel, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
+import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
+
+test("sealed market uses all canonical shared windows and keeps lifetime readable from legacy snapshots", () => {
+  assert.deepEqual(SEALED_MARKET_WINDOWS.map(({ key }) => key), ["1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"]);
+  const legacy = {
+    priceAsOf: "2026-02-01",
+    movements: { LT: { status: "available", actualStartDate: "2025-01-01", amount: 12 } },
+    history: [{ date: "2025-01-01" }, { date: "2026-02-01" }],
+  };
+  assert.equal(selectSealedWindow(legacy, "lifetime").movement.amount, 12);
+  assert.equal(selectSealedWindow(legacy, "lifetime").history.length, 2);
+});
 
 test("variants stay separate and default selection is deterministic", () => {
   const products = [

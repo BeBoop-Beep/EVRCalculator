@@ -43,7 +43,7 @@ export default function SealedMarketTrendCard({ setId }) {
   return (
     <section data-sealed-market-card className="set-glass-surface min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] p-4">
       <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Sealed Market</h3>
+        <h2 className="text-lg font-semibold leading-normal text-[var(--text-primary)] desk:text-sm">Sealed Market</h2>
         <InfoPopover text={INFO} />
       </div>
       {state.status === "loading" ? (
@@ -69,7 +69,7 @@ export default function SealedMarketTrendCard({ setId }) {
             </select>
           </label>
           <p className="mt-2 truncate text-xs text-[var(--text-secondary)]" title={product.name}>{product.name}</p>
-          <div className="mt-2 flex items-start justify-between gap-2">
+          <div className="mt-2">
             <MarketValueChange
               value={product.currentPrice}
               changeAmount={selected.movement.amount}
@@ -79,8 +79,14 @@ export default function SealedMarketTrendCard({ setId }) {
               variant="chart-summary"
               accessibleLabel={`${product.name} market price`}
             />
-            <MarketWindowSelector windows={SEALED_MARKET_WINDOWS} value={windowKey} onChange={setWindowKey} />
           </div>
+          <MarketWindowSelector
+            windows={SEALED_MARKET_WINDOWS}
+            value={windowKey}
+            onChange={setWindowKey}
+            fullWidth
+            className="mt-2"
+          />
           <ChartFrame className="mt-2 h-32 md:h-36 lg:h-32">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={selected.history} margin={getMinimalPlotMargin({ top: 8, bottom: 16 })}>
