@@ -17,13 +17,32 @@ import styles from "./landing.module.css";
  * cards, and the Explore entry to a ranking board.
  */
 
+/*
+ * "Should I open it?" — the rank leads, the absolutes give it context.
+ *
+ * Pack Cost, Modeled Mean and Above Cost stay because a rank on its own says
+ * nothing about the money involved; RIP Score drops to a small secondary line.
+ */
 function RipLevel({ set, sealedProducts }) {
   const economics = selectOpeningEconomics(set);
   const probability = formatProbability(set?.probProfit);
+  const hasRank = set?.rank !== null && set?.rank !== undefined;
 
   return (
     <div className={`${styles.levelCard} ${styles.levelCardSealed}`}>
-      <p className={styles.levelCardHead}>Opening profile</p>
+      {hasRank ? (
+        <p className={styles.levelRank}>
+          <span className={styles.levelRankNum}>#{set.rank}</span>
+          <span className={styles.levelRankLabel}>
+            Opening Rank
+            {set.cohortSize !== null ? (
+              <span className={styles.levelRankCohort}>of {set.cohortSize} tracked sets</span>
+            ) : null}
+          </span>
+        </p>
+      ) : (
+        <p className={styles.levelCardHead}>Opening profile</p>
+      )}
 
       {sealedProducts.length > 0 ? (
         <SealedProductLine products={sealedProducts} />
@@ -51,11 +70,8 @@ function RipLevel({ set, sealedProducts }) {
         </>
       ) : null}
 
-      {set?.rank !== null && set?.rank !== undefined ? (
-        <p className={styles.levelCardFoot}>
-          <span className={styles.levelCardFootRank}>#{set.rank}</span> opening profile
-          {set.cohortSize !== null ? ` of ${set.cohortSize} tracked sets` : ""}
-        </p>
+      {set?.score !== null && set?.score !== undefined ? (
+        <p className={styles.levelCardFoot}>RIP Score {set.score.toFixed(0)}</p>
       ) : null}
     </div>
   );
@@ -95,7 +111,7 @@ function SetLevel({ set, chaseCards }) {
 function ExploreLevel({ rows }) {
   return (
     <div className={`${styles.levelCard} ${styles.levelCardBoard}`}>
-      <p className={styles.levelCardHead}>Tracked sets by opening profile</p>
+      <p className={styles.levelCardHead}>Tracked sets by Opening Rank</p>
       {rows.length > 0 ? (
         <ol className={styles.rankList}>
           {rows.map((row) => {
@@ -132,7 +148,20 @@ function ExploreLevel({ rows }) {
   );
 }
 
-export default function LevelsSection({ set, chaseCards = [], sealedProducts = [], exploreRows = [] }) {
+/**
+ * Each level answers a different question about a DIFFERENT deliberately
+ * chosen set: the opening spotlight demonstrates current opening leadership,
+ * and the Set Intelligence spotlight — selected on published desirability with
+ * the opening spotlight excluded — is the set worth understanding. The board
+ * shows the real ranking, whoever is in it.
+ */
+export default function LevelsSection({
+  openingSet,
+  setIntelligenceSet,
+  setIntelligenceChaseCards = [],
+  sealedProducts = [],
+  rankingRows = [],
+}) {
   const LEVELS = [
     {
       key: "rip",
@@ -140,14 +169,16 @@ export default function LevelsSection({ set, chaseCards = [], sealedProducts = [
       product: "RIP Score",
       meaning:
         "See modeled opening outcomes, downside, and relative opening strength before breaking the seal.",
-      visual: <RipLevel set={set} sealedProducts={sealedProducts} />,
+      visual: <RipLevel set={openingSet} sealedProducts={sealedProducts} />,
     },
     {
       key: "set",
       question: "What is driving the set?",
       product: "Set Intelligence",
       meaning: "Understand set value, chase-card movement, opening economics, and decision signals.",
-      visual: <SetLevel set={set} chaseCards={chaseCards} />,
+      // The SAME set the full Set Intelligence section below expands on, so
+      // this preview introduces it rather than showing an unrelated set.
+      visual: <SetLevel set={setIntelligenceSet} chaseCards={setIntelligenceChaseCards} />,
     },
     {
       key: "explore",
@@ -155,7 +186,7 @@ export default function LevelsSection({ set, chaseCards = [], sealedProducts = [
       product: "Explore",
       meaning:
         "Compare opening profiles, set values, tiers, and recent movement across tracked Pokémon sets.",
-      visual: <ExploreLevel rows={exploreRows} />,
+      visual: <ExploreLevel rows={rankingRows} />,
     },
   ];
 

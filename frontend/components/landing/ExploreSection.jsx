@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { getInterpretationBadgeStyle } from "@/lib/explore/interpretationTone";
-import RemoteImg from "./previews/RemoteImg";
 import { Arrow, RankLogo, ValueDelta } from "./previews/previewPrimitives";
 import { currency0 } from "./landingFormat.mjs";
 import styles from "./landing.module.css";
@@ -9,20 +8,23 @@ import styles from "./landing.module.css";
 /**
  * Section 4 — the ranking board.
  *
- * Two panels with deliberately different weight, because they answer different
- * questions and the first pass made them look interchangeable:
+ * ENTITY IMAGERY IS UNIFORM. Every row on both boards is a SET, so every row
+ * shows that set's logo. An earlier pass gave the leading Best Sets to Rip row
+ * the top chase card from the hero set instead, which put a single card image
+ * in a column of set logos and implied the row was about that card. The lead
+ * row still reads as the lead row — through the rank numeral and a subtle
+ * background — but its entity image is the set logo like every other row.
  *
- *   PRIMARY   Best Sets to Rip — the cohort's opening-profile rank, the leading
- *             result given a real card thumbnail so the board is recognizably
- *             Pokemon at a glance.
- *   SECONDARY Set Value Leaders — ordered by checklist set value. Its position
- *             is this list's own descending order, a presentational index and
- *             never a cohort rank, which is what the caption says.
+ * The two boards differ by HIERARCHY AND METRIC, not by imagery:
+ *   PRIMARY   Best Sets to Rip — strong numbered rank, tier, RIP Score secondary
+ *   SECONDARY Set Value Leaders — compact financial rows, value and 7-day move
  *
  * Both read published rankings and route through the same set Overview links
- * Explore uses. Explore's own styling is untouched.
+ * Explore uses. Explore's own styling is untouched, and no row is withheld
+ * because the set is featured elsewhere on the page — the board has to be the
+ * real ranking.
  */
-export default function ExploreSection({ exploreRows = [], setValueLeaders = [], leadCard = null }) {
+export default function ExploreSection({ openingRankingRows = [], setValueRankingRows = [] }) {
   return (
     <section className={styles.section} aria-labelledby="landing-explore-heading">
       <div className={styles.shell}>
@@ -47,47 +49,36 @@ export default function ExploreSection({ exploreRows = [], setValueLeaders = [],
             <p className={styles.cardHead}>
               <span className={styles.liveDot} aria-hidden="true" />
               <span id="landing-board-rip">Best sets to rip</span>
-              <span className={styles.cardHeadNote}>Opening rank · RIP Score</span>
+              <span className={styles.cardHeadNote}>Opening Rank</span>
             </p>
 
-            {exploreRows.length > 0 ? (
+            {openingRankingRows.length > 0 ? (
               <ol className={styles.rankList} aria-labelledby="landing-board-rip">
-                {exploreRows.map((row, index) => {
+                {openingRankingRows.map((row, index) => {
                   const tierStyle = row.tier ? getInterpretationBadgeStyle({ rankTier: row.tier }) : null;
-                  const showLeadCard = index === 0 && leadCard;
 
                   return (
                     <li key={row.key}>
                       <Link
                         href={row.href}
-                        className={`${styles.rankRow} ${showLeadCard ? styles.rankRowLead : ""}`.trim()}
+                        className={`${styles.rankRow} ${index === 0 ? styles.rankRowLead : ""}`.trim()}
                       >
-                        <span className={`${styles.rankPos} ${row.rank <= 3 ? styles.rankPosLead : ""}`.trim()}>
+                        <span
+                          className={`${styles.rankPos} ${row.rank <= 3 ? styles.rankPosLead : ""}`.trim()}
+                        >
                           {row.rank}
                         </span>
-                        {showLeadCard ? (
-                          <span className={styles.leadThumb}>
-                            <RemoteImg
-                              src={leadCard.image}
-                              className={styles.leadThumbImg}
-                              width={245}
-                              height={342}
-                              fallback={<RankLogo logoUrl={row.logoUrl} name={row.name} />}
-                            />
-                          </span>
-                        ) : (
-                          <RankLogo logoUrl={row.logoUrl} name={row.name} />
-                        )}
+                        <RankLogo logoUrl={row.logoUrl} name={row.name} />
                         <span className={styles.rankName}>{row.name}</span>
                         <span className={styles.rankTrail}>
-                          <span className={styles.rankScore}>
-                            {row.score !== null ? row.score.toFixed(1) : "—"}
-                            {row.tier ? (
-                              <span className={styles.tierPill} style={tierStyle || undefined}>
-                                {row.tier}
-                              </span>
-                            ) : null}
-                          </span>
+                          {row.tier ? (
+                            <span className={styles.tierPill} style={tierStyle || undefined}>
+                              {row.tier}
+                            </span>
+                          ) : null}
+                          {row.score !== null ? (
+                            <span className={styles.rankScoreMuted}>{row.score.toFixed(0)}</span>
+                          ) : null}
                         </span>
                       </Link>
                     </li>
@@ -114,9 +105,9 @@ export default function ExploreSection({ exploreRows = [], setValueLeaders = [],
               <span className={styles.cardHeadNote}>Highest checklist value first</span>
             </p>
 
-            {setValueLeaders.length > 0 ? (
+            {setValueRankingRows.length > 0 ? (
               <ol className={styles.valueList} aria-labelledby="landing-board-value">
-                {setValueLeaders.map((row) => (
+                {setValueRankingRows.map((row) => (
                   <li key={row.key}>
                     <Link href={row.href} className={styles.valueRowLink}>
                       <RankLogo logoUrl={row.logoUrl} name={row.name} />

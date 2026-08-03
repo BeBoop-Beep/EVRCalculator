@@ -63,10 +63,12 @@ export default function MethodologySection({ marketContext, methodologyHref = "/
               </div>
             ) : null}
 
-            {/* The RIP Score breakdown on a published set is the methodology
-                surface that exists today; there is no standalone docs route. */}
+            {/* Deep-links to one published set's RIP Score breakdown — the
+                methodology surface that exists today; there is no standalone
+                docs route. Phrased for what the link actually opens, and it
+                does not rename the breakdown model behind it. */}
             <Link href={methodologyHref} className={styles.methodLink}>
-              How RIP Score works
+              Why this set ranks here
               <Arrow />
             </Link>
           </div>

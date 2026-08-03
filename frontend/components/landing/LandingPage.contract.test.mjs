@@ -178,21 +178,48 @@ test("real Pokemon product imagery carries the category, with a stated fallback 
   assert.ok(row.includes("if (cards.length === 0) return null"), "no empty card frames render");
 });
 
-test("RIP Score is not left as an unexplained number", () => {
+test("Opening Rank leads and RIP Score is demoted to supporting detail", () => {
   const panel = read("./previews/FeaturedSetPanel.jsx");
-  assert.ok(panel.includes("Opening profile"), "the panel leads with a readable rank");
+  const panelBody = stripComments(panel);
+  assert.ok(panel.includes("Opening Rank"), "the panel leads with a readable rank");
   assert.ok(
-    panel.indexOf("openingRank") < panel.indexOf("RIP Score"),
+    panelBody.indexOf("openingRank") < panelBody.indexOf("RIP Score"),
     "the rank precedes the score in the panel"
   );
   assert.ok(
-    panel.includes("Relative opening rank&mdash;not a profit probability."),
-    "the microcopy states what the score is not"
+    panel.includes("statMuted") && landingCss.includes(".statMuted .statValue"),
+    "RIP Score renders in the muted supporting treatment, never as the headline figure"
   );
+  // Within the "Should I open it?" card specifically: the rank block is
+  // rendered before the RIP Score footnote.
+  const ripLevel = stripComments(levels).slice(
+    stripComments(levels).indexOf("function RipLevel"),
+    stripComments(levels).indexOf("function SetLevel")
+  );
+  assert.ok(ripLevel.includes("Opening Rank"), "'Should I open it?' leads with the rank too");
+  assert.ok(
+    ripLevel.indexOf("levelRankNum") < ripLevel.indexOf("RIP Score"),
+    "and its RIP Score is the closing footnote, not the opener"
+  );
+  assert.ok(
+    /Opening Rank/.test(exploreSection),
+    "the ranking board is labelled by Opening Rank rather than by the score"
+  );
+});
+
+test("the rank explanation is stated once, and never as a probability", () => {
+  const caveat = "Relative opening rank&mdash;not a profit probability.";
+  const occurrences = [hero, showcase, strip, levels, setSection, exploreSection, methodology, finalCta, read("./previews/FeaturedSetPanel.jsx")]
+    .filter((source) => source.includes(caveat)).length;
+  assert.equal(occurrences, 1, "the caveat belongs in exactly one place, not on every component");
+
   assert.ok(
     !/\bprobability of profit\b/i.test(allCopy),
     "RIP Score must never be described as a probability"
   );
+  for (const banned of ["Guaranteed", "Profit score", "RIP Ranking Breakdown"]) {
+    assert.ok(!new RegExp(banned, "i").test(allCopy), `"${banned}" must not appear on the homepage`);
+  }
 });
 
 test("no unsupported claim and no investment-advice language ships", () => {
@@ -299,6 +326,113 @@ test("motion and focus floors hold", () => {
     assert.ok(css.includes("@media (prefers-reduced-motion: reduce)"), `${name} respects reduced motion`);
     assert.ok(css.includes(":focus-visible"), `${name} keeps a visible focus treatment`);
   }
+});
+
+test("no production set, card, or market value is hardcoded anywhere on the homepage", () => {
+  const production = [
+    page, hero, showcase, strip, levels, setSection, exploreSection, methodology, finalCta,
+    read("./previews/FeaturedSetPanel.jsx"),
+    read("./previews/ChaseCard.jsx"),
+    read("./previews/ChaseCardRow.jsx"),
+    read("./previews/SealedProductLine.jsx"),
+    read("./previews/previewPrimitives.jsx"),
+    read("../../lib/landing/landingHeroServer.js"),
+    read("../../lib/landing/landingSpotlights.mjs"),
+    read("../../lib/landing/landingPreviews.mjs"),
+    read("../../lib/landing/landingSetMedia.js"),
+    read("../../lib/landing/landingHeroSpotlight.mjs"),
+  ].join("\n");
+
+  for (const banned of ["Temporal Forces", "Paradox Rift", "Ascended Heroes", "Gastly", "Prismatic Evolutions"]) {
+    assert.ok(!production.includes(banned), `"${banned}" must never be named in production homepage code`);
+  }
+  // Set keys/slugs and image hosts are data, not literals.
+  assert.ok(!/temporalForces|paradoxRift|ascendedHeroes/.test(production), "no set slug may be hardcoded");
+  assert.ok(
+    !/images\.(pokemontcg|scrydex)\./.test(production),
+    "no card image URL may be hardcoded — hosts come from the payload"
+  );
+  assert.ok(!/\b20\d{2}-\d{2}-\d{2}\b/.test(production), "no market date may be hardcoded");
+});
+
+test("each homepage section has its own named selection role", () => {
+  assert.ok(page.includes("openingSpotlightSet"), "role 1 is named");
+  assert.ok(page.includes("setIntelligenceSpotlightSet"), "role 2 is named");
+  assert.ok(
+    page.includes("openingRankingRows") && page.includes("setValueRankingRows"),
+    "role 3 is named"
+  );
+  assert.ok(
+    !/\bfeatureSet\b|\bheroSet\b/.test(page),
+    "the old positional heroSet/featureSet picks must be gone"
+  );
+
+  const server = read("../../lib/landing/landingHeroServer.js");
+  assert.ok(server.includes("selectOpeningSpotlight"), "the hero uses the published rank #1 selector");
+  assert.ok(
+    server.includes("rankSetIntelligenceCandidates"),
+    "the set intelligence spotlight uses the desirability selector"
+  );
+  assert.ok(
+    server.includes("excludeKey: openingSpotlightSet?.key"),
+    "and it excludes the opening spotlight"
+  );
+  assert.ok(
+    !/entries\[1\]/.test(server),
+    "the set intelligence spotlight must not be 'the second-ranked set'"
+  );
+});
+
+test("both Set Intelligence surfaces feature the same selected set", () => {
+  const levelsCall = page.slice(page.indexOf("<LevelsSection"), page.indexOf("<SetIntelligenceSection"));
+  const fullCall = page.slice(page.indexOf("<SetIntelligenceSection"), page.indexOf("<ExploreSection"));
+
+  assert.ok(
+    levelsCall.includes("setIntelligenceSet={setIntelligenceSpotlightSet}"),
+    "'What is driving the set?' takes the spotlight set"
+  );
+  assert.ok(
+    fullCall.includes("set={setIntelligenceSpotlightSet}"),
+    "and so does the full section, from the same value"
+  );
+  assert.ok(
+    levelsCall.includes("setIntelligenceChaseCards") && fullCall.includes("setIntelligenceChaseCards"),
+    "both render that set's own chase cards"
+  );
+});
+
+test("every ranking row uses the set logo — no per-row card art", () => {
+  assert.ok(!/leadCard/.test(exploreSection), "the first-row chase-card behaviour is gone");
+  assert.ok(!/leadCard/.test(page), "and the page no longer passes one in");
+  assert.ok(
+    !/leadThumb/.test(landingCss),
+    "its styling is removed too, so it cannot be reintroduced by accident"
+  );
+
+  // Both boards render exactly one entity image per row, and it is RankLogo.
+  const boardBlock = exploreSection.slice(exploreSection.indexOf("boardGrid"));
+  assert.equal(
+    (boardBlock.match(/<RankLogo/g) || []).length,
+    2,
+    "one entity image per board, and both are the set logo"
+  );
+  assert.ok(!/<RemoteImg/.test(exploreSection), "no raw card image is rendered inside a ranking row");
+
+  // The lead row is distinguished by wash and numeral weight only.
+  assert.ok(landingCss.includes(".rankRowLead .rankPos"), "the lead row is marked by its rank numeral");
+  assert.ok(
+    !/\.rankRowLead\s*\{[^}]*grid-template-columns/.test(landingCss),
+    "the lead row must not reserve a different image column"
+  );
+});
+
+test("the ranking board is never filtered to hide featured sets", () => {
+  const server = read("../../lib/landing/landingHeroServer.js");
+  const rowsBlock = server.slice(server.indexOf("openingRankingRows:"), server.indexOf("marketSignals:"));
+  assert.ok(
+    !/filter|exclude|reject/i.test(rowsBlock),
+    "the board must represent the complete published ranking"
+  );
 });
 
 test("no sample financial value is hardcoded into a component", () => {

@@ -31,46 +31,50 @@ export const metadata = {
  */
 export default async function HomePage() {
   const {
-    heroSet,
-    featureSet,
-    heroChaseCards,
-    heroSealedProducts,
-    heroCardsAsOf,
-    featureChaseCards,
+    openingSpotlightSet,
+    openingChaseCards,
+    openingSealedProducts,
+    openingCardsAsOf,
+    setIntelligenceSpotlightSet,
+    setIntelligenceChaseCards,
     marketSignals,
-    bestSets,
-    exploreRows,
-    setValueLeaders,
+    bestSetsRows,
+    openingRankingRows,
+    setValueRankingRows,
     marketContext,
   } = await getLandingPageData();
 
   return (
     <div className={styles.page}>
+      {/* ROLE 1 — current published opening rank #1. */}
       <LandingHero
-        set={heroSet}
-        chaseCards={heroChaseCards}
-        sealedProducts={heroSealedProducts}
-        cardsAsOf={heroCardsAsOf}
+        set={openingSpotlightSet}
+        chaseCards={openingChaseCards}
+        sealedProducts={openingSealedProducts}
+        cardsAsOf={openingCardsAsOf}
         marketContext={marketContext}
       />
       <MarketStrip signals={marketSignals} />
       <LevelsSection
-        set={heroSet}
-        chaseCards={heroChaseCards}
-        sealedProducts={heroSealedProducts}
-        exploreRows={bestSets}
+        openingSet={openingSpotlightSet}
+        setIntelligenceSet={setIntelligenceSpotlightSet}
+        setIntelligenceChaseCards={setIntelligenceChaseCards}
+        sealedProducts={openingSealedProducts}
+        rankingRows={bestSetsRows}
       />
-      {/* A different real set from the hero wherever more than one is
-          published, so the page demonstrates breadth. */}
-      <SetIntelligenceSection set={featureSet} chaseCards={featureChaseCards} />
+      {/* ROLE 2 — the SAME set "What is driving the set?" introduces above. */}
+      <SetIntelligenceSection
+        set={setIntelligenceSpotlightSet}
+        chaseCards={setIntelligenceChaseCards}
+      />
+      {/* ROLE 3 — the complete published rankings, nothing withheld. */}
       <ExploreSection
-        exploreRows={exploreRows}
-        setValueLeaders={setValueLeaders}
-        leadCard={heroChaseCards[0] || null}
+        openingRankingRows={openingRankingRows}
+        setValueRankingRows={setValueRankingRows}
       />
       <MethodologySection
         marketContext={marketContext}
-        methodologyHref={heroSet?.ripScoreHref || "/Explore"}
+        methodologyHref={openingSpotlightSet?.ripScoreHref || "/Explore"}
       />
       <FinalCtaSection />
       <Footer />

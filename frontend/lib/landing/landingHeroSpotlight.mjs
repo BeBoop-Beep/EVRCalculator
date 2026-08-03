@@ -63,6 +63,26 @@ function readSetValueStatus7d(target) {
 }
 
 /**
+ * The published set-level desirability figures, read straight through.
+ *
+ * `universalSetDesirability` is the authoritative Set Desirability lens Explore
+ * ships; `collector_appeal_score` is CA7, still published and still 10% of
+ * Overall RIP. `desirability_is_fallback` is carried alongside them because a
+ * substituted desirability must not be treated as a measured one — see
+ * readDesirability in landingSpotlights.mjs, which does the trusting.
+ */
+function readDesirabilityFields(target) {
+  return {
+    universalDesirabilityScore: toOptionalNumber(target?.universalSetDesirability?.score),
+    universalDesirabilityRank: toOptionalNumber(target?.universalSetDesirability?.rank),
+    collectorAppealScore:
+      toOptionalNumber(target?.collector_appeal_score) ?? toOptionalNumber(target?.collectorAppealScore),
+    desirabilityIsFallback:
+      target?.desirability_is_fallback === true || target?.desirabilityIsFallback === true,
+  };
+}
+
+/**
  * The published opening economics for one pack of this set: what a pack costs,
  * the modeled mean value the simulation returns, and the modeled probability an
  * opening lands above cost. These are the SAME three fields the Explore table
@@ -96,6 +116,7 @@ function toEntry(target) {
   }
 
   const economics = readOpeningEconomics(target);
+  const cohortSize = toOptionalNumber(hero.cohortSize);
 
   return {
     key: `${toOptionalString(target?.target_type) || "set"}:${toOptionalString(target?.target_id) || ""}`,
@@ -109,7 +130,7 @@ function toEntry(target) {
     scoreLabel: hero.label,
     tier: toOptionalString(hero.tier),
     rank: toOptionalNumber(hero.rank),
-    cohortSize: toOptionalNumber(hero.cohortSize),
+    cohortSize,
     setValue: readSetValue(target),
     setValueAsOf:
       toOptionalString(target?.currentChecklistSetValueDate) ??
@@ -130,6 +151,7 @@ function toEntry(target) {
     decisionSeverity: toOptionalString(target?.recommendation_severity),
     interpretationLabel: toOptionalString(hero.interpretation?.label),
     interpretationSummary: toOptionalString(hero.interpretation?.summary),
+    ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };
 }

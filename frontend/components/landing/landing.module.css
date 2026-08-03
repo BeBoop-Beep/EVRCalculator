@@ -429,11 +429,24 @@
 }
 
 .featuredSetName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 7px;
   font-size: 0.9375rem;
   font-weight: 600;
   letter-spacing: -0.012em;
   color: var(--ink-soft);
+}
+
+/* The published read on the set, in plain language, between the identity and
+   the numbers. */
+.featuredSignal {
+  margin-top: 7px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #d6f7e8;
 }
 
 .featuredStats {
@@ -513,6 +526,14 @@
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+}
+
+/* RIP Score's slot. Retained as supporting analytical detail, and sized so it
+   can never read as the panel's headline figure again. */
+.statMuted .statValue {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 /* ------------------------------------------------- profit vs cost bars --- */
@@ -657,29 +678,19 @@
   background: rgba(55, 152, 139, 0.1);
 }
 
-/* The leading result carries a real card thumbnail, so its row is taller and
-   the board is recognizably Pokemon at the top rather than uniformly abstract. */
+/*
+ * The leading row is marked by a wash and a heavier rank numeral only. It used
+ * to swap in a chase-card thumbnail, which made one row in a column of set
+ * logos look like it was about a card instead of a set — the entity imagery on
+ * this board is uniformly the set logo.
+ */
 .rankRowLead {
-  grid-template-columns: 24px 40px minmax(0, 1fr) auto;
-  min-height: 62px;
   background: rgba(55, 152, 139, 0.07);
 }
 
-.leadThumb {
-  display: block;
-  width: 40px;
-  aspect-ratio: var(--card-ratio);
-  border-radius: 5px;
-  overflow: hidden;
-  background: rgba(238, 246, 255, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(150, 195, 235, 0.16);
-}
-
-.leadThumbImg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.rankRowLead .rankPos {
+  font-size: 0.9375rem;
+  color: var(--ink);
 }
 
 .rankPos {
@@ -732,11 +743,12 @@
   white-space: nowrap;
 }
 
+/* Tier then score, on one line — the board's metric column. */
 .rankTrail {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .rankScore {
@@ -747,6 +759,16 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+}
+
+/* Opening Rank is the row's headline; the score is supporting detail. */
+.rankScoreMuted {
+  min-width: 2.25ch;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
 }
 
 .rankDelta {
@@ -1029,6 +1051,13 @@
   background: linear-gradient(168deg, rgba(16, 32, 50, 0.6) 0%, rgba(7, 16, 30, 0.86) 100%);
 }
 
+/* One per line in this column — at a third of the shell width two side-by-side
+   sealed lines truncate the product name, and a truncated product name is the
+   part that carries the category. */
+.levelCardSealed .sealedList {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Cards: art-forward, so the card has almost no chrome of its own. */
 .levelCardCards {
   border-color: rgba(150, 195, 235, 0.1);
@@ -1048,18 +1077,47 @@
   color: rgba(226, 238, 252, 0.44);
 }
 
+/* "Should I open it?" leads with the rank, same as the hero panel — the two
+   surfaces must not disagree about which figure matters. */
+.levelRank {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.levelRankNum {
+  font-size: 1.625rem;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #f4fbff;
+}
+
+.levelRankLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.levelRankCohort {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+/* RIP Score, as a footnote. */
 .levelCardFoot {
   margin-top: 12px;
   padding-top: 11px;
   border-top: 1px solid rgba(150, 195, 235, 0.1);
-  font-size: 0.75rem;
-  color: var(--ink-faint);
-}
-
-.levelCardFootRank {
-  font-weight: 700;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--ink-faint);
 }
 
 /* ------------------------------------------ section 3: set intelligence --- */
@@ -1535,13 +1593,8 @@
     min-height: 48px;
   }
 
-  .rankRowLead {
-    grid-template-columns: 20px 34px minmax(0, 1fr) auto;
-  }
-
-  .leadThumb {
-    width: 34px;
-  }
+  /* Same grid as every other row — the lead row differs by wash and numeral
+     weight, not by a wider entity-image column. */
 }
 
 @media (prefers-reduced-motion: reduce) {

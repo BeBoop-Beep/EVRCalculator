@@ -238,19 +238,23 @@ export function selectSealedProducts(payload, limit = 2) {
  * `mover` comes from the SAME global 7-day card movers payload the Explore
  * ticker reads, so the card named here is the card Explore names.
  */
-export function selectMarketSignals({ entries = [], moversPayload = null } = {}) {
+export function selectMarketSignals({ entries = [], openingSpotlightSet = null, moversPayload = null } = {}) {
   const list = toList(entries);
   const signals = [];
 
-  const topOpening = list.find((entry) => toFiniteNumber(entry?.rank) === 1) || list[0] || null;
-  if (topOpening && toFiniteNumber(topOpening.score) !== null) {
+  // The SAME set the hero features — passed in rather than re-derived, so the
+  // strip and the hero can never disagree about who is ranked first.
+  const topOpening = openingSpotlightSet;
+  if (topOpening && toFiniteNumber(topOpening.rank) !== null) {
     signals.push({
       key: "opening",
       label: "Best opening profile",
       setName: topOpening.name,
       logoUrl: topOpening.logoUrl || topOpening.symbolUrl || null,
-      value: topOpening.score.toFixed(1),
-      unit: "RIP Score",
+      // The rank leads here too; the score is not a percentage and must not
+      // read as one on a strip this compact.
+      value: `#${topOpening.rank}`,
+      unit: "Opening rank",
       tier: topOpening.tier || null,
       href: topOpening.overviewHref || topOpening.href,
     });

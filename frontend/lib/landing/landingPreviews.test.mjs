@@ -208,6 +208,7 @@ test("the market strip omits any signal whose data is missing", () => {
 
   const full = selectMarketSignals({
     entries: [entry],
+    openingSpotlightSet: entry,
     moversPayload: {
       marketMovers: {
         all: [
@@ -221,8 +222,18 @@ test("the market strip omits any signal whose data is missing", () => {
   assert.equal(full[2].cardName, "Big Move", "the largest absolute move wins, in either direction");
   assert.equal(full[2].movement.direction, "down");
 
-  const noMovers = selectMarketSignals({ entries: [entry], moversPayload: null });
+  assert.equal(full[0].value, "#1", "the opening signal leads with the rank, not a score that reads as a percentage");
+  assert.equal(full[0].unit, "Opening rank");
+
+  const noMovers = selectMarketSignals({ entries: [entry], openingSpotlightSet: entry, moversPayload: null });
   assert.deepEqual(noMovers.map((s) => s.key), ["opening", "value"], "a missing movers payload drops only its own signal");
+
+  const noOpening = selectMarketSignals({ entries: [entry], openingSpotlightSet: null, moversPayload: null });
+  assert.deepEqual(
+    noOpening.map((s) => s.key),
+    ["value"],
+    "the opening signal is omitted rather than re-derived when there is no spotlight"
+  );
 
   assert.deepEqual(selectMarketSignals({}), [], "no data at all renders no strip");
 });

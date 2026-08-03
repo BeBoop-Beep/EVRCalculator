@@ -6,18 +6,19 @@ import { Arrow } from "./previewPrimitives";
 import styles from "../landing.module.css";
 
 /**
- * The featured set's intelligence, led by something a first-time visitor can
- * read.
+ * The opening spotlight's intelligence, led by the one figure a first-time
+ * visitor can actually read.
  *
- * The previous version made a bare "100.0" the dominant element, which is
- * meaningless cold: it is a cohort-relative position, not a score out of a
- * hundred and not a probability. So the headline is now the rank in plain
- * language — "#1 Opening Profile" — the number is demoted to a supporting
- * figure, and the microcopy states outright what it is and is not. The one
- * genuinely interpretable figure beside it is the published share of simulated
- * openings that land above pack cost.
+ * ORDER IS THE POINT. Rank, then what the rank is, then the cohort it is out
+ * of, then the set, its tier, its published read, and only then the absolute
+ * opening metrics — with RIP Score last and smallest. A bare "100.0" led this
+ * panel before: it is a cohort-relative position, not a score out of a hundred
+ * and not a probability, and leading with it invited exactly that misreading.
+ *
+ * This is also the ONE place on the page that spells the caveat out. Every
+ * other surface just uses an accurate label.
  */
-export default function FeaturedSetPanel({ set, marketDate = null, compact = false }) {
+export default function FeaturedSetPanel({ set, marketDate = null }) {
   if (!set) {
     return (
       <div className={styles.featuredPanel}>
@@ -26,7 +27,7 @@ export default function FeaturedSetPanel({ set, marketDate = null, compact = fal
           Live set intelligence
         </p>
         <p className={styles.emptyNote}>
-          Set rankings are refreshing. Open Explore for the sets published right now.
+          Opening rankings are refreshing. Open Explore for the sets published right now.
         </p>
         <Link href="/Explore" className={styles.cardCta}>
           Explore Pokémon sets
@@ -39,6 +40,7 @@ export default function FeaturedSetPanel({ set, marketDate = null, compact = fal
   const tierStyle = set.tier ? getInterpretationBadgeStyle({ rankTier: set.tier }) : null;
   const probability = formatProbability(set.probProfit);
   const asOf = formatAsOf(marketDate || set.setValueAsOf);
+  const valueSignal = set.decisionLabel || set.interpretationLabel;
 
   return (
     <div className={styles.featuredPanel}>
@@ -53,43 +55,46 @@ export default function FeaturedSetPanel({ set, marketDate = null, compact = fal
           <>
             <span className={styles.openingRankNum}>#{set.rank}</span>
             <span className={styles.openingRankLabel}>
-              Opening profile
+              Opening Rank
               {set.cohortSize !== null ? (
                 <span className={styles.openingRankCohort}>of {set.cohortSize} tracked sets</span>
               ) : null}
             </span>
           </>
         ) : (
-          <span className={styles.openingRankLabel}>Opening profile</span>
+          <span className={styles.openingRankLabel}>Opening Rank</span>
         )}
       </p>
 
-      <p className={styles.featuredSetName}>{set.name}</p>
+      <p className={styles.featuredSetName}>
+        {set.name}
+        {set.tier ? (
+          <span className={styles.tierPill} style={tierStyle || undefined}>
+            {set.tier}
+          </span>
+        ) : null}
+      </p>
+
+      {valueSignal ? <p className={styles.featuredSignal}>{valueSignal}</p> : null}
 
       <div className={styles.featuredStats}>
-        <span className={styles.stat}>
-          <span className={styles.statLabel}>RIP Score</span>
-          <span className={styles.statValue}>
-            {set.score.toFixed(1)}
-            {set.tier ? (
-              <span className={styles.tierPill} style={tierStyle || undefined}>
-                {set.tier}
-              </span>
-            ) : null}
-          </span>
-        </span>
         {probability ? (
           <span className={styles.stat}>
             <span className={styles.statLabel}>Above pack cost</span>
             <span className={styles.statValue}>{probability}</span>
           </span>
         ) : null}
-        {set.packCost !== null && !compact ? (
+        {set.packCost !== null ? (
           <span className={styles.stat}>
             <span className={styles.statLabel}>Pack cost</span>
             <span className={styles.statValue}>{currency2.format(set.packCost)}</span>
           </span>
         ) : null}
+        {/* Supporting analytical detail, deliberately last and smallest. */}
+        <span className={`${styles.stat} ${styles.statMuted}`}>
+          <span className={styles.statLabel}>RIP Score</span>
+          <span className={styles.statValue}>{set.score.toFixed(0)}</span>
+        </span>
       </div>
 
       <p className={styles.scoreCaveat}>Relative opening rank&mdash;not a profit probability.</p>
