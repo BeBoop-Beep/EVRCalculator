@@ -167,7 +167,6 @@ import {
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { forwardFillDailyHistoryThroughDate, normalizeHistoryTrendPoint } from "./packValueHistoryNormalization.mjs";
 import {
-  chooseFresherMarketPayload,
   getMarketDateSourceFromPayload,
   resolveMarketAsOfDate,
   warnOnMixedMarketDates,
@@ -183,7 +182,11 @@ import {
   resolveTopCardWindowState,
   warnForTopCardWindowState,
 } from "./topChaseWindowState.mjs";
-import { getLatestRealPerformanceDate, selectOverviewPerformanceHistoryState } from "./performanceHistorySelector.mjs";
+import {
+  chooseFresherOverviewPayload,
+  getLatestRealPerformanceDate,
+  selectOverviewPerformanceHistoryState,
+} from "./performanceHistorySelector.mjs";
 import { buildOpeningSimulationFreshness } from "./openingSimulationFreshness.mjs";
 import { selectOverviewSetValueTrendByScope } from "./setValueTrendSelector.mjs";
 import {
@@ -11710,7 +11713,11 @@ export default function RipStatisticsPageClient({
           })
         : guardedOverviewState)
     : (() => {
-        const fresher = chooseFresherMarketPayload(seededOverviewPayload, guardedOverviewState.payload);
+        // Overview-specific: compares real OPvC history end date, then snapshot
+        // updatedAt, then market date, then point count. Market date alone
+        // cannot separate two payloads that advertise the same date while one's
+        // OPvC series ends a day earlier.
+        const fresher = chooseFresherOverviewPayload(seededOverviewPayload, guardedOverviewState.payload);
         return fresher === guardedOverviewState.payload
           ? guardedOverviewState
           : { ...guardedOverviewState, payload: fresher };

@@ -1585,9 +1585,24 @@ test("overview proxy route serves no-store on failure and public cache on succes
 
   assert.ok(contract.includes('const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600"'));
   assert.ok(contract.includes('const FAILED_ANALYTICS_CACHE_CONTROL = "no-store"'));
+  // Cache-control selection is now module-specific rather than a single
+  // ok/not-ok ternary: /overview opts out of shared caching entirely because
+  // stale-while-revalidate=3600 let an edge keep serving a payload whose
+  // Opening Profit vs Cost history ended on the previous market date for up to
+  // an hour after the market-dashboard row was rebuilt. The policy itself is
+  // asserted in slimSetModuleOverviewCachePolicy.contract.test.mjs; here we
+  // only pin that the proxy defers to it and never re-inlines a constant.
   assert.ok(
-    proxy.includes("proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL"),
-    "cache-control selection must be conditional on proxyResponse.ok"
+    proxy.includes("resolveSlimSetModuleCacheControl(moduleKey, { ok: proxyResponse.ok })"),
+    "success cache-control must come from the module-specific policy resolver"
+  );
+  assert.ok(
+    proxy.includes("resolveSlimSetModuleCacheControl(moduleKey, { ok: false })"),
+    "failure cache-control must come from the same resolver"
+  );
+  assert.ok(
+    contract.includes("overview: UNCACHED_ANALYTICS_CACHE_CONTROL"),
+    "overview must be declared uncacheable so a previous-market-date OPvC payload cannot be replayed"
   );
   assert.ok(proxy.includes('cache: "no-store"'), "the backend fetch itself must not use Next's fetch-level cache");
   assert.ok(!proxy.includes("next: { revalidate"), "must not pass next: { revalidate } to fetch");

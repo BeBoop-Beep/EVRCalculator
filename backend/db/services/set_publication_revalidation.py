@@ -22,12 +22,85 @@ import json
 import logging
 import os
 import urllib.request
-from typing import Any, Iterable, List, MutableSet, Optional
+from typing import Any, Dict, Iterable, List, MutableSet, Optional
 
 logger = logging.getLogger(__name__)
 
 _TAG = "[set-revalidation]"
 _TIMEOUT_SECONDS = 5
+
+# Visible publication diagnostics.
+#
+# Tagged seed invalidation is best-effort by design, which previously made it
+# invisible: a run where the frontend URL was never configured and a run where
+# every POST succeeded produced the same (silent) publication summary, so
+# "database is current but the page still shows yesterday" had no evidence trail.
+# These counters make each publication state distinguishable in the log without
+# changing the best-effort, non-fatal contract.
+_DIAGNOSTICS: Dict[str, Any] = {
+    "configured": None,
+    "sets_considered": 0,
+    "sets_attempted": 0,
+    "sets_succeeded": 0,
+    "sets_failed": 0,
+    "sets_skipped_dry_run": 0,
+    "sets_skipped_duplicate": 0,
+    "failed_sets": [],
+}
+
+
+def reset_revalidation_diagnostics() -> None:
+    """Start a fresh accounting window (one publication run)."""
+    _DIAGNOSTICS.update(
+        {
+            "configured": None,
+            "sets_considered": 0,
+            "sets_attempted": 0,
+            "sets_succeeded": 0,
+            "sets_failed": 0,
+            "sets_skipped_dry_run": 0,
+            "sets_skipped_duplicate": 0,
+            "failed_sets": [],
+        }
+    )
+
+
+def get_revalidation_diagnostics() -> Dict[str, Any]:
+    """Snapshot of this run's cache-invalidation accounting."""
+    snapshot = dict(_DIAGNOSTICS)
+    snapshot["failed_sets"] = list(_DIAGNOSTICS["failed_sets"])
+    return snapshot
+
+
+def format_revalidation_diagnostics() -> str:
+    """One greppable line stating exactly what happened to the tagged seeds."""
+    diagnostics = get_revalidation_diagnostics()
+    configured = diagnostics["configured"]
+    configured_text = "unknown" if configured is None else ("yes" if configured else "no")
+    line = (
+        f"{_TAG} publication diagnostics: cache_invalidation_configured={configured_text} "
+        f"sets_considered={diagnostics['sets_considered']} "
+        f"attempted={diagnostics['sets_attempted']} "
+        f"succeeded={diagnostics['sets_succeeded']} "
+        f"failed={diagnostics['sets_failed']} "
+        f"skipped_dry_run={diagnostics['sets_skipped_dry_run']} "
+        f"skipped_duplicate={diagnostics['sets_skipped_duplicate']}"
+    )
+    if diagnostics["failed_sets"]:
+        line += f" failed_sets={','.join(diagnostics['failed_sets'])}"
+    if configured is False and diagnostics["sets_considered"]:
+        line += (
+            " note=tagged seeds were NOT invalidated; the set page serves its cached seed "
+            "until the tag timer elapses"
+        )
+    return line
+
+
+def log_revalidation_diagnostics() -> str:
+    """Emit the diagnostics line at INFO and return it."""
+    line = format_revalidation_diagnostics()
+    logger.info("%s", line)
+    return line
 
 # Overview cache-tag windows the frontend seeds a set page from. Mirrors
 # OVERVIEW_WINDOWS in frontend/app/api/internal/revalidate-set/route.js: every
@@ -95,18 +168,31 @@ def notify_set_publication(
     Best-effort and non-fatal by design: an unreachable frontend logs a visible
     warning but leaves the publication successful.
     """
+    _DIAGNOSTICS["sets_considered"] += 1
     if not commit:
+        _DIAGNOSTICS["sets_skipped_dry_run"] += 1
         return False
     identifiers = resolve_set_revalidation_identifiers(set_row)
     if not identifiers:
         return False
     if seen is not None:
         if identifiers[0] in seen:
+            _DIAGNOSTICS["sets_skipped_duplicate"] += 1
             return False
         seen.add(identifiers[0])
 
+    configured = is_revalidation_configured()
+    _DIAGNOSTICS["configured"] = configured
+    _DIAGNOSTICS["sets_attempted"] += 1
+
     ok = notify_set_snapshot_published(*identifiers, windows=resolve_revalidation_windows(window))
-    if not ok and is_revalidation_configured():
+    if ok:
+        _DIAGNOSTICS["sets_succeeded"] += 1
+        logger.info("%s cache invalidation OK set=%s", _TAG, identifiers[0])
+    else:
+        _DIAGNOSTICS["sets_failed"] += 1
+        _DIAGNOSTICS["failed_sets"].append(identifiers[0])
+    if not ok and configured:
         logger.warning(
             "%s cache invalidation FAILED for published set=%s; the publication itself succeeded "
             "and the frontend will serve the older cached seed until its timer elapses",
