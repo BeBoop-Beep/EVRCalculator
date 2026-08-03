@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -42,6 +43,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     upsert_rows,
 )
 from backend.scripts.pokemon_explore_rankings_publisher import publish_explore_rip_rankings_snapshot
+from backend.scripts.build_pokemon_explore_card_movers_snapshot import build as build_explore_card_movers
 
 logger = logging.getLogger(__name__)
 
@@ -233,9 +235,9 @@ class SetPageFreshnessAudit:
 class RefreshSummary:
     source_checks_performed: int = 0
     stale_snapshot_families: set[str] = field(default_factory=set)
-    rebuilt_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
-    skipped_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
-    failed_sets: Dict[str, List[str]] = field(default_factory=lambda: {"cards": [], "market_dashboard": [], "set_page": []})
+    rebuilt_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
+    skipped_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
+    failed_sets: Dict[str, List[str]] = field(default_factory=lambda: {"sealed_market": [], "cards": [], "market_dashboard": [], "set_page": []})
     warnings_remaining: List[str] = field(default_factory=list)
     problem_canonical_keys: List[str] = field(default_factory=list)
     global_rebuilt: List[str] = field(default_factory=list)
@@ -545,7 +547,37 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
     )
     checks.extend(table_checks)
     timestamps.append(latest)
+
+    # The dashboard's performance_vs_cost_history_json is built from the set's
+    # simulation history. Without these dependencies a newer simulation run can
+    # leave the dashboard stale while the set-page snapshot (which does track
+    # simulation_latest_by_target) rebuilds, producing two conflicting OPvC
+    # histories. Both queries stay scoped to this set so one set's simulation
+    # never invalidates every other set's dashboard.
+    for table, columns in (
+        ("simulation_latest_by_target", ("updated_at", "run_at")),
+        ("calculation_history_trend", ("run_created_at", "snapshot_date")),
+    ):
+        latest, table_checks = _latest_timestamp(
+            client,
+            table=table,
+            timestamp_columns=columns,
+            filters=(("target_type", "set"), ("target_id", set_id)),
+        )
+        checks.extend(table_checks)
+        timestamps.append(latest)
     return _max_datetime_text(*timestamps), checks
+
+
+def _latest_simulation_history_date(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
+    """Latest calculation_history_trend snapshot_date for this set (date only)."""
+    latest, checks = _latest_timestamp(
+        client,
+        table="calculation_history_trend",
+        timestamp_columns=("snapshot_date",),
+        filters=(("target_type", "set"), ("target_id", set_id)),
+    )
+    return (latest[:10] if latest else None), checks
 
 
 SET_VALUE_HISTORY_SCOPES = ("standard", "hits", "top10")
@@ -811,10 +843,12 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     latest_value_history_updated_at = _max_datetime_text(*value_history_updated_by_scope.values())
     latest_value_history_date = max((date for date in value_history_date_by_scope.values() if date), default=None)
     dependency_updated_at = _max_datetime_text(dependency_updated_at, latest_value_history_updated_at)
+    simulation_history_date, simulation_date_checks = _latest_simulation_history_date(client, set_id)
+    checks.extend(simulation_date_checks)
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,latest_market_date,updated_at",
+        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,performance_vs_cost_history_json,latest_market_date,updated_at",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
@@ -862,6 +896,19 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
                 dependency_updated_at,
                 checks,
             )
+    performance_history = row.get("performance_vs_cost_history_json")
+    if not isinstance(performance_history, list):
+        performance_history = payload.get("performanceVsCostHistory") or payload.get("performance_vs_cost_history")
+    dashboard_performance_history_end = _history_latest_date(performance_history)
+    if _is_newer(simulation_history_date, dashboard_performance_history_end):
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            "simulation history newer than dashboard performance history",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     if movement_marker_missing:
@@ -1088,6 +1135,40 @@ def _maybe_rebuild_rankings(client: Any, rankings: FreshnessResult, *, commit: b
     except Exception as exc:
         logger.exception("failed explore rankings snapshot refresh")
         summary.global_failed.append(f"explore_rankings: {exc}")
+
+
+def _maybe_rebuild_explore_card_movers(
+    client: Any, *, market_date: Optional[str], commit: bool, summary: RefreshSummary
+) -> None:
+    if not market_date:
+        summary.global_failed.append("explore_card_movers: promoted market date unavailable")
+        return
+    try:
+        candidate = build_explore_card_movers(
+            client=client, market_date=str(market_date)[:10], commit=False
+        )
+        current = _read_snapshot_row(
+            client, "pokemon_explore_card_movers_snapshot_latest",
+            "source_generation_fingerprint",
+            (("tcg", "pokemon"), ("scope", "explore"), ("window_key", "7D")),
+        )
+        stale = (
+            not current
+            or current.get("source_generation_fingerprint")
+            != candidate.get("source_generation_fingerprint")
+        )
+        if not stale:
+            return
+        summary.stale_snapshot_families.add("explore_card_movers")
+        if not commit:
+            summary.global_skipped.append("explore_card_movers: dry-run source generation changed")
+            return
+        from backend.db.services.pokemon_explore_card_movers_service import upsert_explore_card_movers_snapshot
+        upsert_explore_card_movers_snapshot(candidate, client=client)
+        summary.global_rebuilt.append("explore_card_movers")
+    except Exception as exc:
+        logger.exception("failed Explore card movers snapshot refresh")
+        summary.global_failed.append(f"explore_card_movers: {exc}")
 
 
 def _maybe_rebuild_set_page(
@@ -1588,7 +1669,7 @@ def _print_summary(summary: RefreshSummary) -> None:
     print(f"global rebuilt: {', '.join(summary.global_rebuilt) or 'none'}")
     print(f"global skipped: {', '.join(summary.global_skipped) or 'none'}")
     print(f"global failed: {', '.join(summary.global_failed) or 'none'}")
-    for family in ("cards", "market_dashboard", "set_page"):
+    for family in ("sealed_market", "cards", "market_dashboard", "set_page"):
         print(f"{family} rebuilt: {len(summary.rebuilt_sets[family])} {summary.rebuilt_sets[family][:20]}")
         print(f"{family} skipped: {len(summary.skipped_sets[family])} {summary.skipped_sets[family][:20]}")
         print(f"{family} failed: {len(summary.failed_sets[family])} {summary.failed_sets[family][:20]}")
@@ -1655,7 +1736,32 @@ def main() -> None:
         _record_stale(summary, plan.set_page)
     _record_stale(summary, rankings)
 
-    # Rebuild order: coordinated Cards + Market Dashboard, rankings, set pages, validation.
+    # Sealed Market is deliberately refreshed from sealed ingestion alone,
+    # before and independently of card/simulation/RIP snapshot families.
+    from backend.scripts.build_pokemon_set_sealed_market_snapshots import build_one as build_sealed_market
+    for plan in plans:
+        canonical_key = str(plan.set_row.get("canonical_key") or plan.set_row.get("id"))
+        # Unit/in-memory plans may use symbolic IDs; persisted sets use UUIDs.
+        # Do not let a non-database fixture trigger a real Supabase read.
+        try:
+            UUID(str(plan.set_row.get("id")))
+        except (TypeError, ValueError):
+            summary.skipped_sets["sealed_market"].append(f"{canonical_key}: non-persisted set id")
+            continue
+        try:
+            report = build_sealed_market(plan.set_row, commit)
+            if report["action"] == "unchanged":
+                summary.skipped_sets["sealed_market"].append(canonical_key)
+            elif commit:
+                summary.rebuilt_sets["sealed_market"].append(canonical_key)
+            else:
+                summary.stale_snapshot_families.add("sealed_market")
+                summary.skipped_sets["sealed_market"].append(f"{canonical_key}: dry-run {report['action']}")
+        except Exception as exc:
+            summary.failed_sets["sealed_market"].append(f"{canonical_key}: {exc}")
+
+    # Rebuild order for the remaining families: coordinated Cards + Market
+    # Dashboard, global card movers, rankings, set pages, validation.
     for plan in plans:
         _maybe_rebuild_coordinated_market(
             client,
@@ -1664,6 +1770,12 @@ def main() -> None:
             days=args.days,
             window=args.window,
             summary=summary,
+        )
+
+    if not args.set_id:
+        _maybe_rebuild_explore_card_movers(
+            client, market_date=args.market_date or gate.market_date,
+            commit=commit, summary=summary,
         )
 
     rankings_needed = rankings.stale

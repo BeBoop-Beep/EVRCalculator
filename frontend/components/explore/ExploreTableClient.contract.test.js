@@ -247,6 +247,16 @@ test("Explore visual treatment stays in an Explore-scoped CSS module", () => {
   assert.ok(css.includes("prefers-reduced-motion"), "reduced motion must be respected");
 });
 
+test("the desktop table header uses a readable translucent glass band", () => {
+  const cssPath = path.resolve(__dirname, "explore.module.css");
+  const css = fs.readFileSync(cssPath, "utf8");
+  const headerBlock = css.slice(css.indexOf(".head th {"), css.indexOf(".head th[aria-sort]"));
+  assert.ok(headerBlock.includes("rgba(24, 38, 60, 0.62)"));
+  assert.ok(headerBlock.includes("rgba(8, 17, 31, 0.48)"));
+  assert.ok(headerBlock.includes("backdrop-filter: blur(var(--set-glass-blur-dense))"));
+  assert.ok(!headerBlock.includes("0.98"), "the header must not return to its former near-opaque fill");
+});
+
 // The alternate ranking lenses are planned to sit behind a paid tier, so the
 // picker is hidden — NOT deleted. The modes, the sorting, and the mode-scoped
 // columns must all still be present and wired so the flag alone brings it back.

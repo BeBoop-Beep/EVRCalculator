@@ -104,7 +104,7 @@ export default function PokemonSetMobileHero({
           role="listbox"
           aria-label="Available sets"
           onKeyDown={onPickerKeyDown}
-          className="index-scrollbar absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+          className="index-scrollbar set-dropdown-glass absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl p-1.5"
         >
           {availableTargets.map((target) => {
             const isSelected = String(target.target_id) === String(selectedTargetId || "");
@@ -115,10 +115,8 @@ export default function PokemonSetMobileHero({
                 role="option"
                 aria-selected={isSelected}
                 onClick={() => onSelectTarget(target)}
-                className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
-                  isSelected
-                    ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                className={`set-dropdown-option flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                  isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate">{target.name}</span>

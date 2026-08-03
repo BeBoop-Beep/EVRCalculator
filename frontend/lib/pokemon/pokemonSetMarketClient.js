@@ -981,6 +981,33 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
   });
 }
 
+export async function getPokemonSetSealedMarket(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    throw new Error("Set id is required");
+  }
+  const cacheKey = `sealed:${resolvedSetId}`;
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed`,
+      { method: "GET", signal }
+    );
+    const payload = await readJsonResponse(response, "Unable to load sealed market history");
+    const identity = payload?.set || {};
+    const target = resolvedSetId.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const matches = [identity.id, identity.canonicalKey, identity.slug]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().replace(/[^a-z0-9]+/g, "") === target);
+    if (!matches) {
+      const error = new Error("Sealed market response did not match the requested set");
+      error.code = "POKEMON_SET_SEALED_MARKET_IDENTITY_MISMATCH";
+      error.retryable = true;
+      throw error;
+    }
+    return payload;
+  });
+}
+
 export async function getPokemonSetValueHistory(setId, { days = 365, scope = "standard" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {

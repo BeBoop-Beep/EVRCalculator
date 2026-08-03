@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
+from backend.constants.tcg.pokemon import historical_catalog_image_sources as catalog_sources
 from backend.scripts.bootstrap_pokemon_set_configs import fetch_sets_from_api, load_backend_env, normalize_set_key
 
 
@@ -144,7 +145,15 @@ def resolve_api_row(local_key: str, set_name: str, set_id: Optional[str], by_id:
 
 def build_local_inventory() -> List[Dict[str, Any]]:
     inventory: List[Dict[str, Any]] = []
-    era_dirs = [path for path in POKEMON_ROOT.iterdir() if path.is_dir() and path.name != "__pycache__"]
+    # Not every directory under the Pokemon root is an era: scrape_job_reports/
+    # holds generated JSON and has no setMap.py to import.
+    era_dirs = [
+        path
+        for path in POKEMON_ROOT.iterdir()
+        if path.is_dir()
+        and path.name != "__pycache__"
+        and (path / "setMap.py").is_file()
+    ]
 
     for era_dir in sorted(era_dirs, key=lambda path: path.name.lower()):
         module_name = f"backend.constants.tcg.pokemon.{era_dir.name}.setMap"
@@ -165,6 +174,136 @@ def build_local_inventory() -> List[Dict[str, Any]]:
     return inventory
 
 
+def parse_string_literal(file_text: str, variable_name: str) -> Optional[str]:
+    raw = parse_assignment_value(file_text, variable_name)
+    if raw is None:
+        return None
+    stripped = raw.strip().rstrip(",")
+    if stripped in {"None", ""}:
+        return None
+    return stripped.strip("'\"") or None
+
+
+def build_catalog_review(
+    *,
+    canonical_key: str,
+    config_text: str,
+    api_by_id: Dict[str, Dict[str, Any]],
+    internal_card_count: Optional[int],
+) -> Dict[str, Any]:
+    """Review one historical TCGplayer-only catalog for reviewed image sources.
+
+    This proposes IMAGE SOURCES only. It never returns a set identity, because a
+    reviewed API set is frequently already owned by another local set.
+    """
+    mapping = catalog_sources.resolve(canonical_key=canonical_key)
+
+    if mapping is not None:
+        tcgplayer_set_id = mapping.tcgplayer_set_id
+        tcgplayer_set_name = mapping.tcgplayer_set_name
+        api_set_ids = list(mapping.api_set_ids)
+        match_strategy = mapping.strategy
+        mapping_kind = mapping.match_kind
+        expected_api_card_count = sum(
+            int((api_by_id.get(api_id) or {}).get("total") or 0) for api_id in api_set_ids
+        )
+        missing_api_ids = [api_id for api_id in api_set_ids if api_id not in api_by_id]
+
+        if missing_api_ids:
+            accepted = False
+            reason = (
+                f"rejected: reviewed image-source id(s) {missing_api_ids} are not in the "
+                "current Pokemon API catalog"
+            )
+        elif internal_card_count is not None and internal_card_count != mapping.reviewed_internal_card_count:
+            accepted = False
+            reason = (
+                "rejected: internal card-count drift since review "
+                f"(reviewed {mapping.reviewed_internal_card_count}, live {internal_card_count}); "
+                "re-verify before syncing images"
+            )
+        else:
+            accepted = True
+            reason = f"accepted: {mapping.evidence}"
+    else:
+        tcgplayer_set_id = parse_string_literal(config_text, "TCGPLAYER_SET_ID")
+        tcgplayer_set_name = parse_string_literal(config_text, "TCGPLAYER_SET_NAME")
+        api_set_ids = []
+        match_strategy = "none"
+        mapping_kind = catalog_sources.NO_EQUIVALENT
+        expected_api_card_count = 0
+        accepted = False
+        refusal = catalog_sources.refusal_reason(canonical_key)
+        reason = (
+            f"rejected: {refusal}"
+            if refusal
+            else (
+                "rejected: no Pokemon API set covers this TCGplayer catalog; it stays "
+                "TCGplayer-only with no image source"
+            )
+        )
+
+    return {
+        "canonical_key": canonical_key,
+        "tcgplayer_set_id": tcgplayer_set_id,
+        "tcgplayer_set_name": tcgplayer_set_name,
+        "proposed_api_image_source_ids": api_set_ids,
+        "match_strategy": match_strategy,
+        "mapping_kind": mapping_kind,
+        "expected_internal_card_count": internal_card_count,
+        "expected_api_card_count": expected_api_card_count,
+        "accepted": accepted,
+        "reason": reason,
+    }
+
+
+def summarize_catalog_reviews(reviews: List[Dict[str, Any]]) -> Dict[str, int]:
+    summary = {
+        catalog_sources.ONE_TO_ONE: 0,
+        catalog_sources.PARENT_OR_MULTI: 0,
+        catalog_sources.NO_EQUIVALENT: 0,
+        "accepted_image_source_mappings": 0,
+        "rejected_or_unmapped": 0,
+    }
+    for review in reviews:
+        summary[review["mapping_kind"]] = summary.get(review["mapping_kind"], 0) + 1
+        if review["accepted"]:
+            summary["accepted_image_source_mappings"] += 1
+        else:
+            summary["rejected_or_unmapped"] += 1
+    return summary
+
+
+def load_internal_card_counts(canonical_keys: List[str]) -> Dict[str, Optional[int]]:
+    """Live per-set card counts, used to detect drift since the mapping review.
+
+    Best effort: the enrichment dry run must still produce a report when the
+    database is unreachable, so failures degrade to unknown counts.
+    """
+    counts: Dict[str, Optional[int]] = {key: None for key in canonical_keys}
+    if not canonical_keys:
+        return counts
+    try:
+        from backend.db.clients.supabase_client import supabase
+
+        set_rows = (
+            supabase.table("sets").select("id,canonical_key")
+            .in_("canonical_key", canonical_keys).execute()
+        ).data or []
+        for set_row in set_rows:
+            key = set_row.get("canonical_key")
+            if not key:
+                continue
+            response = (
+                supabase.table("cards").select("id", count="exact")
+                .eq("set_id", set_row["id"]).limit(1).execute()
+            )
+            counts[key] = response.count
+    except Exception as exc:  # noqa: BLE001 - report generation must not depend on the DB
+        print(f"[enrich] internal card counts unavailable ({exc}); reporting them as null")
+    return counts
+
+
 def enrich_constants(apply_changes: bool, report_path: Path) -> Dict[str, Any]:
     load_backend_env()
     api_key = os.getenv("POKEMON_TCG_API_KEY", "")
@@ -173,6 +312,7 @@ def enrich_constants(apply_changes: bool, report_path: Path) -> Dict[str, Any]:
     inventory = build_local_inventory()
 
     results: List[Dict[str, Any]] = []
+    unresolved_rows: List[Dict[str, Any]] = []
     updated_files = 0
     updated_fields = 0
     unresolved = 0
@@ -191,15 +331,13 @@ def enrich_constants(apply_changes: bool, report_path: Path) -> Dict[str, Any]:
 
         if not api_row:
             unresolved += 1
-            results.append(
+            unresolved_rows.append(
                 {
                     "era": row["era"],
                     "canonical_key": row["key"],
                     "set_name": row["set_name"],
                     "file_path": file_path.as_posix(),
-                    "status": "unresolved",
-                    "updated_fields": [],
-                    "notes": "No API set match found.",
+                    "config_text": file_text,
                 }
             )
             continue
@@ -270,6 +408,34 @@ def enrich_constants(apply_changes: bool, report_path: Path) -> Dict[str, Any]:
             }
         )
 
+    # Historical TCGplayer-only catalogs cannot be resolved by name: they have no
+    # Pokemon API set of their own. Report reviewed IMAGE SOURCES for them instead
+    # of a bare "no match found", and never turn a source into an identity.
+    internal_card_counts = load_internal_card_counts([row["canonical_key"] for row in unresolved_rows])
+    catalog_reviews: List[Dict[str, Any]] = []
+    for row in unresolved_rows:
+        review = build_catalog_review(
+            canonical_key=row["canonical_key"],
+            config_text=row["config_text"],
+            api_by_id=by_id,
+            internal_card_count=internal_card_counts.get(row["canonical_key"]),
+        )
+        catalog_reviews.append(review)
+        results.append(
+            {
+                "era": row["era"],
+                "canonical_key": row["canonical_key"],
+                "set_name": row["set_name"],
+                "file_path": row["file_path"],
+                "status": "unresolved",
+                "updated_fields": [],
+                "notes": "No API set identity; see historical_catalog_review.",
+                "historical_catalog_review": review,
+            }
+        )
+
+    catalog_summary = summarize_catalog_reviews(catalog_reviews)
+
     report = {
         "summary": {
             "apply_changes": apply_changes,
@@ -278,7 +444,9 @@ def enrich_constants(apply_changes: bool, report_path: Path) -> Dict[str, Any]:
             "files_updated": updated_files if apply_changes else sum(1 for row in results if row["status"] != "unchanged"),
             "fields_filled": updated_fields,
             "unresolved_sets": unresolved,
+            "historical_catalog_reviews": catalog_summary,
         },
+        "historical_catalog_review": catalog_reviews,
         "results": results,
     }
 

@@ -21,6 +21,7 @@ import {
 import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
+import MarketTrendTooltipCard from "@/components/explore/MarketTrendTooltipCard";
 import SimulationSectionSelector from "@/components/explore/SimulationSectionSelector";
 import {
   MINIMAL_Y_AXIS_PROPS,
@@ -34,6 +35,7 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
+import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -55,6 +57,7 @@ import { markSectionTiming, debugSectionTiming } from "@/lib/perf/sectionTiming"
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "@/components/explore/MoversTickerViewport";
+import SevenDayMarketMoversTicker from "@/components/explore/SevenDayMarketMoversTicker";
 import InterpretationBadge from "@/components/ui/InterpretationBadge";
 import RankBadge from "@/components/ui/RankBadge";
 import SegmentedControl from "@/components/ui/SegmentedControl";
@@ -243,8 +246,9 @@ const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
 // display client-side.
 const DEFAULT_TOP_CHASE_MARKET_WINDOW = "365d";
 const TOP_CHASE_MOBILE_PREVIEW_LIMIT = 5;
-const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 64;
-const MOBILE_SET_MENU_SCROLL_NOISE_PX = 3;
+const MOBILE_SET_MENU_HIDE_DISTANCE_PX = 10;
+const MOBILE_SET_MENU_REVEAL_DISTANCE_PX = 56;
+const MOBILE_SET_MENU_SCROLL_NOISE_PX = 2;
 const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
 const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
 const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
@@ -2230,61 +2234,17 @@ function buildCurrencyTicks(points) {
   );
 }
 
-function SetValueCompactTooltipCard({
-  date,
-  value,
-  deltaAmount,
-  deltaPercent,
-  isCarriedForward = false,
-  sourceDate = null,
-  className = "",
-  style,
-  ...props
-}) {
-  const normalizedDeltaAmount = toNumber(deltaAmount);
-  const normalizedDeltaPercent = toNumber(deltaPercent);
-
-  return (
-    <div
-      {...props}
-      className={[
-        "min-w-[9rem] max-w-[14rem] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]",
-        className,
-      ].filter(Boolean).join(" ")}
-      style={style}
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(date)}</p>
-      <MarketValueChange
-        className="mt-1"
-        value={value}
-        changeAmount={normalizedDeltaAmount}
-        changePercent={normalizedDeltaPercent}
-        variant="tooltip"
-        accessibleLabel="Market value at selected date"
-      />
-      {isCarriedForward && sourceDate ? (
-        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(sourceDate)}</p>
-      ) : null}
-    </div>
-  );
-}
-
 function SetValueTooltip({ active, payload }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  const row = payload[0]?.payload;
+  const row = active && payload?.[0]?.payload;
   if (!row) {
     return null;
   }
-
   return (
-    <SetValueCompactTooltipCard
+    <MarketTrendTooltipCard
       date={row.date}
       value={row.setValue}
-      deltaAmount={toNumber(row.deltaFromPrevious)}
-      deltaPercent={toNumber(row.deltaPercentFromPrevious)}
+      deltaAmount={row.deltaFromPrevious}
+      deltaPercent={row.deltaPercentFromPrevious}
       isCarriedForward={row.isCarriedForward}
       sourceDate={row.sourceDate}
     />
@@ -2332,7 +2292,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         chartLeft: bounds.left,
         chartWidth: bounds.width,
         pointerX: clientX - bounds.left,
-        // Matches SetValueCompactTooltipCard's max-w-[14rem].
+        // Matches MarketTrendTooltipCard's max-w-[14rem].
         tooltipWidth: 224,
         viewportWidth: typeof window === "undefined" ? bounds.width : window.innerWidth,
         gutter: 8,
@@ -2535,7 +2495,7 @@ function CompactSparkline({ points, valueKey = "value", trendDirection = "neutra
         </span>
       ) : null}
       {showTooltip && activePoint && tooltipX !== null ? (
-        <SetValueCompactTooltipCard
+        <MarketTrendTooltipCard
           data-compact-sparkline-tooltip
           date={activePoint.date}
           value={activePoint.y}
@@ -2918,6 +2878,7 @@ function SetValueTrendCard({
       title="Set Value Trend"
       titleInfoText="Tracks the selected set-value scope using daily Near Mint card market observations. Set sums tracked checklist cards, and Top 10 sums the highest-value tracked cards for each date."
       className="h-full"
+      bodySpacingClassName="mt-2"
     >
       {(status === "loading" || status === "idle") && points.length === 0 && currentValue === null ? (
         <InlinePanelSkeleton rows={4} />
@@ -2926,9 +2887,7 @@ function SetValueTrendCard({
       ) : !hasTrend ? (
         <div className="space-y-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
             <MarketValueChange
-              className="mt-1"
               value={currentValue}
               windowLabel={deltaWindowLabel}
               unavailable
@@ -2954,9 +2913,7 @@ function SetValueTrendCard({
         <div className="flex min-h-0 flex-col space-y-4 desk:min-h-[29rem]">
           <div className="min-w-0">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Current {selectedMetricLabel}</p>
               <MarketValueChange
-                className="mt-1"
                 value={currentValue}
                 changeAmount={deltaAmount}
                 changePercent={deltaPercent}
@@ -3242,6 +3199,7 @@ function TopMarketCardsContent({
   marketAsOfDate = null,
   rowHref = null,
   onRetry = null,
+  mobileExpanded = true,
 }) {
   const [localSelectedWindowKey, setLocalSelectedWindowKey] = useState(null);
   const selectedWindowKey = controlledSelectedWindowKey ?? localSelectedWindowKey;
@@ -3324,14 +3282,18 @@ function TopMarketCardsContent({
         </div>
         <div className="divide-y divide-[var(--border-subtle)]">
           {cards.slice(0, maxRows).map((card, index) => (
-            <TopMarketCardRow
+            <div
               key={`top-market-card:${card?.id || card?.cardNumber || card?.name || index}`}
-              card={card}
-              index={index}
-              selectedWindowKey={effectiveWindowKey}
-              marketAsOfDate={marketAsOfDate}
-              href={rowHref}
-            />
+              className={index >= TOP_CHASE_MOBILE_PREVIEW_LIMIT && !mobileExpanded ? "max-desk:hidden" : ""}
+            >
+              <TopMarketCardRow
+                card={card}
+                index={index}
+                selectedWindowKey={effectiveWindowKey}
+                marketAsOfDate={marketAsOfDate}
+                href={rowHref}
+              />
+            </div>
           ))}
         </div>
       </div>
@@ -3415,7 +3377,8 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         cards={cards}
         status={status}
         error={error}
-        maxRows={showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT}
+        maxRows={10}
+        mobileExpanded={showAllChaseCards}
         selectedWindowKey={selectedWindowKey}
         onWindowChange={onWindowChange}
         marketAsOfDate={marketAsOfDate}
@@ -3423,7 +3386,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
         onRetry={onRetry}
       />
       {totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT ? (
-        <div className="mt-4 flex justify-end max-desk:mt-1 max-desk:justify-center">
+        <div className="mt-1 hidden justify-center max-desk:flex">
           {/* Compact visible label below 1200px; the accessible name stays the
               full, descriptive wording at every width.
               The list expands in place, downward — so the affordance is a down
@@ -3436,12 +3399,9 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
             onClick={() => setShowAllChaseCards((value) => !value)}
             aria-expanded={showAllChaseCards}
             aria-label={showAllChaseCards ? "Show fewer chase cards" : `Show ${hiddenRowCount} more chase cards`}
-            className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/50 px-3 py-2 text-xs font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:gap-1.5 max-desk:border-0 max-desk:bg-transparent max-desk:px-2 max-desk:text-[var(--accent)]"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border-0 bg-transparent px-2 py-2 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)]"
           >
-            <span aria-hidden="true" className="max-desk:hidden">
-              {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
-            </span>
-            <span aria-hidden="true" className="hidden max-desk:inline">
+            <span aria-hidden="true">
               {showAllChaseCards ? "Show less" : `Show ${hiddenRowCount} more`}
             </span>
             <svg
@@ -3449,7 +3409,7 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
               fill="currentColor"
               aria-hidden="true"
               data-chase-reveal-chevron
-              className={`hidden h-4 w-4 flex-none transition-transform max-desk:block ${showAllChaseCards ? "rotate-180" : ""}`}
+              className={`h-4 w-4 flex-none transition-transform ${showAllChaseCards ? "rotate-180" : ""}`}
             >
               <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
             </svg>
@@ -7544,7 +7504,18 @@ function SectionEyebrow({ children }) {
 const SECTION_CARD_MOBILE_FLUSH_CLASS =
   "max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]";
 
-function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "default", children, className = "", bodyClassName = "", mobileFlush = false }) {
+function SectionCard({
+  title,
+  subtitle,
+  titleInfoText,
+  eyebrow = null,
+  tone = "default",
+  children,
+  className = "",
+  bodyClassName = "",
+  bodySpacingClassName = "mt-4",
+  mobileFlush = false,
+}) {
   // A flush card states its 1200px+ inset with `desk:p-5`, not `sm:p-5`.
   // `max-desk:` utilities are emitted BEFORE `sm:` in the stylesheet and both
   // are !important, so an sm-scoped inset wins back 640-1199px and the card
@@ -7571,7 +7542,7 @@ function SectionCard({ title, subtitle, titleInfoText, eyebrow = null, tone = "d
         </div>
         {subtitle ? <p className="mt-1 min-w-0 max-w-full text-sm text-[var(--text-secondary)]">{subtitle}</p> : null}
       </div>
-      <div className={["mt-4 min-w-0 max-w-full", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
+      <div className={[bodySpacingClassName, "min-w-0 max-w-full", bodyClassName].filter(Boolean).join(" ")}>{children}</div>
     </article>
   );
 }
@@ -10434,18 +10405,17 @@ export default function RipStatisticsPageClient({
   const [marketMoversRetryNonce, setMarketMoversRetryNonce] = useState(0);
   const [isMobileSetContextHidden, setIsMobileSetContextHidden] = useState(false);
   const [showReturnToTop, setShowReturnToTop] = useState(false);
-  const [isSetContextFocusWithin, setIsSetContextFocusWithin] = useState(false);
   const mobileSetContextRef = useRef(null);
   const isMobileSetContextHiddenRef = useRef(false);
   const mobileSetContextScrollRef = useRef({
     currentNormalizedY: 0,
     maxNormalizedY: 0,
     previousNormalizedY: 0,
+    cumulativeDownwardPx: 0,
     cumulativeUpwardPx: 0,
     direction: "none",
     nearTop: true,
     pickerOpen: false,
-    focusWithin: false,
   });
   const revealMobileSetContext = useCallback(() => {
     setIsMobileSetContextHidden(false);
@@ -11218,47 +11188,11 @@ export default function RipStatisticsPageClient({
   }, [isMobileSetContextHidden]);
 
   useEffect(() => {
-    if (!setDetailMode || typeof document === "undefined") {
-      return undefined;
-    }
-
-    const updateFocusWithin = () => {
-      const isWithin = Boolean(
-        mobileSetContextRef.current &&
-        document.activeElement instanceof Node &&
-        mobileSetContextRef.current.contains(document.activeElement)
-      );
-
-      mobileSetContextScrollRef.current.focusWithin = isWithin;
-      setIsSetContextFocusWithin((previous) => (previous === isWithin ? previous : isWithin));
-      if (isWithin) {
-        setIsMobileSetContextHidden(false);
-      }
-    };
-
-    updateFocusWithin();
-    document.addEventListener("focusin", updateFocusWithin);
-    document.addEventListener("focusout", updateFocusWithin);
-
-    return () => {
-      document.removeEventListener("focusin", updateFocusWithin);
-      document.removeEventListener("focusout", updateFocusWithin);
-    };
-  }, [setDetailMode]);
-
-  useEffect(() => {
     mobileSetContextScrollRef.current.pickerOpen = heroSetPickerOpen;
     if (heroSetPickerOpen) {
       setIsMobileSetContextHidden(false);
     }
   }, [heroSetPickerOpen]);
-
-  useEffect(() => {
-    mobileSetContextScrollRef.current.focusWithin = isSetContextFocusWithin;
-    if (isSetContextFocusWithin) {
-      setIsMobileSetContextHidden(false);
-    }
-  }, [isSetContextFocusWithin]);
 
   useEffect(() => {
     if (!setDetailMode || typeof window === "undefined") {
@@ -11279,11 +11213,11 @@ export default function RipStatisticsPageClient({
       scrollState.currentNormalizedY = normalizedY;
       scrollState.maxNormalizedY = maxY;
       scrollState.previousNormalizedY = normalizedY;
+      scrollState.cumulativeDownwardPx = 0;
       scrollState.cumulativeUpwardPx = 0;
       scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
       scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
       scrollState.pickerOpen = heroSetPickerOpen;
-      scrollState.focusWithin = isSetContextFocusWithin;
       setShowReturnToTop((previous) => {
         const shouldShow = normalizedY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
         return previous === shouldShow ? previous : shouldShow;
@@ -11331,15 +11265,14 @@ export default function RipStatisticsPageClient({
         scrollState.maxNormalizedY = maxY;
         scrollState.previousNormalizedY = nextY;
         scrollState.nearTop = nearTop;
-        scrollState.pickerOpen = heroSetPickerOpen;
-        scrollState.focusWithin = isSetContextFocusWithin;
         setShowReturnToTop((previous) => {
           const shouldShow = nextY > MOBILE_RETURN_TO_TOP_THRESHOLD_PX;
           return previous === shouldShow ? previous : shouldShow;
         });
 
-        if (nearTop || heroSetPickerOpen || isSetContextFocusWithin) {
+        if (nearTop || scrollState.pickerOpen) {
           scrollState.direction = nearTop ? "none" : "up";
+          scrollState.cumulativeDownwardPx = 0;
           scrollState.cumulativeUpwardPx = 0;
           setIsMobileSetContextHidden(false);
           return;
@@ -11350,11 +11283,18 @@ export default function RipStatisticsPageClient({
         }
 
         if (delta > 0) {
-          hideMenuImmediately();
+          scrollState.direction = "down";
+          scrollState.cumulativeUpwardPx = 0;
+          scrollState.cumulativeDownwardPx += delta;
+          if (scrollState.cumulativeDownwardPx >= MOBILE_SET_MENU_HIDE_DISTANCE_PX) {
+            scrollState.cumulativeDownwardPx = 0;
+            hideMenuImmediately();
+          }
           return;
         }
 
         scrollState.direction = "up";
+        scrollState.cumulativeDownwardPx = 0;
         if (!isMobileSetContextHiddenRef.current) {
           scrollState.cumulativeUpwardPx = 0;
           return;
@@ -11369,7 +11309,7 @@ export default function RipStatisticsPageClient({
     };
 
     const shouldUseBottomEdgeIntent = () => {
-      if (!mediaQuery.matches || heroSetPickerOpen) {
+      if (!mediaQuery.matches || scrollState.pickerOpen) {
         return false;
       }
       if (isMobileSetContextHiddenRef.current) {
@@ -11451,7 +11391,7 @@ export default function RipStatisticsPageClient({
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [setDetailMode, heroSetPickerOpen, isSetContextFocusWithin, requestedTargetId]);
+  }, [setDetailMode]);
 
   useEffect(() => {
     if (!setDetailMode || typeof window === "undefined") {
@@ -11464,6 +11404,7 @@ export default function RipStatisticsPageClient({
     scrollState.currentNormalizedY = normalizedY;
     scrollState.maxNormalizedY = maxY;
     scrollState.previousNormalizedY = normalizedY;
+    scrollState.cumulativeDownwardPx = 0;
     scrollState.cumulativeUpwardPx = 0;
     scrollState.direction = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX ? "none" : "down";
     scrollState.nearTop = normalizedY <= MOBILE_SET_MENU_TOP_BOUNDARY_PX;
@@ -14953,6 +14894,7 @@ export default function RipStatisticsPageClient({
                 </div>
                 <section
                   data-set-context-header
+                  data-set-picker-open={isDesktopHeroComposition && heroSetPickerOpen ? "true" : "false"}
                   className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
                   <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
@@ -15008,7 +14950,7 @@ export default function RipStatisticsPageClient({
                             role="listbox"
                             aria-label="Available sets"
                             onKeyDown={handleSetPickerKeyDown}
-                            className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+                            className="index-scrollbar set-dropdown-glass absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl p-1.5"
                           >
                             {switcherTargets.map((target) => {
                               const isSelected = String(target.target_id) === String(requestedTargetId || "");
@@ -15021,10 +14963,8 @@ export default function RipStatisticsPageClient({
                                   onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                                   onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                                   onClick={() => handleHeroSetSelect(target)}
-                                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
-                                    isSelected
-                                      ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                                  className={`set-dropdown-option flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                                    isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                                   }`}
                                 >
                                   <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
@@ -15130,8 +15070,10 @@ export default function RipStatisticsPageClient({
                           Always renders; loading/error/empty states live inside the
                           same fixed-height strip (no layout shift). */}
                       <SectionErrorBoundary sectionName="overview-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
-                        <MarketMoversTicker
-                          items={moversTickerItems}
+                        <SevenDayMarketMoversTicker
+                          entry={moversTickerEntry}
+                          maxItems={10}
+                          scope="set"
                           status={moversTickerStatus}
                           error={activeMarketMoversState.error}
                           viewAllHref={moversTickerHref}
@@ -15141,7 +15083,10 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
-                      <div id="set-detail-set-value-trend" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
+                      {/* First ordinary analytical section after the set-level
+                          7D Movers ticker, so it takes the quiet 1px rule
+                          rather than the luminous divider. */}
+                      <div id="set-detail-set-value-trend" data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
                             it only needs render-exception isolation here. */}
@@ -15160,7 +15105,7 @@ export default function RipStatisticsPageClient({
                           />
                         </SectionErrorBoundary>
                       </div>
-                      <div className="min-w-0 lg:h-full">
+                      <div data-mobile-section className="min-w-0 lg:h-full">
                         {/* Priority 3: Performance vs Cost. PackValueHistoryChart
                             has no internal status handling, so it gets an
                             explicit SectionBoundary keyed to the /overview
@@ -15260,7 +15205,7 @@ export default function RipStatisticsPageClient({
                         stack, Top Chase first. */}
                     <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
                       {shouldShowTopMarketCards ? (
-                        <div id="set-detail-top-market-cards" className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
+                        <div id="set-detail-top-market-cards" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
                           {/* Top Chase Cards — self-renders loading/error. */}
                           <SectionErrorBoundary sectionName="overview-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
                             <TopChaseCardsModule
@@ -15277,22 +15222,24 @@ export default function RipStatisticsPageClient({
                           </SectionErrorBoundary>
                         </div>
                       ) : null}
-                      <div
-                        id="set-detail-set-intelligence"
-                        className={`min-w-0 scroll-mt-24 md:scroll-mt-28 ${shouldShowTopMarketCards ? "" : "lg:col-span-3"}`.trim()}
-                      >
-                        {/* Decision Signals — derived purely from summary/interpretation,
-                            both already available from the SSR shell on this tab — no
-                            async gate needed, just render-exception isolation. */}
-                        <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                          <DecisionSignalsCard
-                            pillarSignals={overviewPillarSignals}
-                            summary={summary}
-                            setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                            trackedSignals={overviewDecisionTrackedSignals}
-                            requestTimeout={isTimeoutFallbackPayload}
-                          />
-                        </SectionErrorBoundary>
+                      <div className="min-w-0 space-y-5">
+                        <div data-mobile-section>
+                          {/* Sealed Market owns an independent prepared-snapshot request. */}
+                          <SectionErrorBoundary sectionName="overview-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
+                            <SealedMarketTrendCard setId={resolvedSetResourceId} />
+                          </SectionErrorBoundary>
+                        </div>
+                        <div id="set-detail-set-intelligence" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                          <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
+                            <DecisionSignalsCard
+                              pillarSignals={overviewPillarSignals}
+                              summary={summary}
+                              setIntelligenceMeta={interpretationMeta?.set_intelligence}
+                              trackedSignals={overviewDecisionTrackedSignals}
+                              requestTimeout={isTimeoutFallbackPayload}
+                            />
+                          </SectionErrorBoundary>
+                        </div>
                       </div>
                     </div>
                   </section>
@@ -15641,7 +15588,7 @@ export default function RipStatisticsPageClient({
                       role="listbox"
                       aria-label="Available sets"
                       onKeyDown={handleSetPickerKeyDown}
-                      className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                      className="index-scrollbar set-dropdown-glass absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl p-1.5 text-left"
                     >
                       {switcherTargets.map((target) => {
                         const isSelected = String(target.target_id) === String(requestedTargetId || "");
@@ -15654,10 +15601,8 @@ export default function RipStatisticsPageClient({
                             onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                             onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                             onClick={() => handleHeroSetSelect(target)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                              isSelected
-                                ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                                : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                            className={`set-dropdown-option flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             }`}
                           >
                             <span className="truncate">{target.name}</span>
@@ -15919,6 +15864,7 @@ export default function RipStatisticsPageClient({
                 {/* Priorities 1-2: RIP Score hero + pillar cards. Gated above
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
                   <RipScoreBreakdownModule
                     score={topScoreRaw}
@@ -15938,6 +15884,7 @@ export default function RipStatisticsPageClient({
                     collectorAppeal={ripCollectorAppealTerm}
                   />
                 </SectionErrorBoundary>
+                </div>
 
                 {/* Priority 2: the Collector Profile — Set Desirability and
                     Collector Appeal in one section, in the order the model
@@ -15945,6 +15892,7 @@ export default function RipStatisticsPageClient({
                     reads `universalSetDesirability` only (no simulation, no pull
                     model, no CA7), so it renders for every adequately covered
                     set even when Opening Paths cannot. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-collector-profile" resetKeys={[resolvedSetResourceId]} title="Collector Profile" minHeightClassName="min-h-[14rem]">
                   <CollectorProfileSection
                     universalSetDesirability={canonicalUniversalSetDesirability}
@@ -15955,10 +15903,12 @@ export default function RipStatisticsPageClient({
                     loadingTimedOut={insightsSectionsShowFallbackCopy}
                   />
                 </SectionErrorBoundary>
+                </div>
 
                 {/* Priority 4: the Simulation Results deep-dive (formerly
                     "Opening Outcomes"). Already internally gated on the
                     secondary tier via insightsSectionsBlocked. */}
+                <div data-mobile-section>
                 <SectionErrorBoundary sectionName="insights-opening-outcomes" resetKeys={[resolvedSetResourceId]} title="Simulation Results" minHeightClassName="min-h-[24rem]">
                 <section id={ANALYSIS_SECTION_ID} className="scroll-mt-24 md:scroll-mt-28">
                   {/* Always-expanded card (same card treatment as SectionCard): the
@@ -16181,6 +16131,7 @@ export default function RipStatisticsPageClient({
                   </article>
                 </section>
                 </SectionErrorBoundary>
+                </div>
               </section>
             ) : null}
 

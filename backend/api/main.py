@@ -71,6 +71,11 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
 )
+from backend.db.services.pokemon_explore_card_movers_service import (
+    ExploreCardMoversUnavailable,
+    read_explore_card_movers_snapshot,
+)
+from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot as read_sealed_market_snapshot
 
 
 app = FastAPI(title="EVR Collection API")
@@ -78,6 +83,14 @@ app = FastAPI(title="EVR Collection API")
 logger = logging.getLogger(__name__)
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
+
+
+def _looks_like_uuid(value: str) -> bool:
+    try:
+        UUID(str(value))
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 class LoginRequest(BaseModel):
@@ -445,6 +458,25 @@ def get_explore_rip_statistics_targets(
         logger.exception("/explore/rip-statistics/targets unexpected error")
         return JSONResponse(
             content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/explore/card-market-movers")
+def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
+    """Serve the prepared, fixed-window global Explore card-movers snapshot."""
+    try:
+        return read_explore_card_movers_snapshot(limit=limit or 30)
+    except ExploreCardMoversUnavailable as exc:
+        return JSONResponse(
+            content={"message": str(exc), "code": "POKEMON_EXPLORE_CARD_MOVERS_UNAVAILABLE"},
+            status_code=404,
+        )
+    except Exception:
+        logger.exception("/explore/card-market-movers unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load Explore card market movers",
+                     "code": "POKEMON_EXPLORE_CARD_MOVERS_FAILED"},
             status_code=500,
         )
 
@@ -897,6 +929,41 @@ def get_pokemon_set_top_chase(
         logger.exception("/tcgs/pokemon/sets/%s/market/top-chase unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set top chase cards", "code": "POKEMON_SET_TOP_CHASE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/sealed")
+def get_pokemon_set_sealed_market(set_id: str):
+    """Read the prepared sealed-market snapshot; never aggregates observations."""
+    try:
+        resolved_set_id = set_id
+        if not _looks_like_uuid(set_id):
+            result = (
+                public_read_client.table("sets")
+                .select("id")
+                .or_(f"canonical_key.eq.{set_id},pokemon_api_set_id.eq.{set_id}")
+                .limit(1)
+                .execute()
+            )
+            rows = list(result.data or [])
+            if not rows:
+                return JSONResponse(
+                    content={"message": "Pokemon set not found", "code": "POKEMON_SET_NOT_FOUND"},
+                    status_code=404,
+                )
+            resolved_set_id = str(rows[0]["id"])
+        payload = read_sealed_market_snapshot(public_read_client, resolved_set_id)
+        if payload is None:
+            return JSONResponse(
+                content={"message": "Sealed market history is not available", "code": "POKEMON_SET_SEALED_MARKET_UNAVAILABLE"},
+                status_code=404,
+            )
+        return payload
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/sealed unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load sealed market history", "code": "POKEMON_SET_SEALED_MARKET_FAILED"},
             status_code=500,
         )
 

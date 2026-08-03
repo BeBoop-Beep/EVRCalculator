@@ -55,34 +55,37 @@ test("document metadata and route semantics are preserved", () => {
 
 // --- B. Layout -----------------------------------------------------------
 
-test("Best Sets and Top Rankings are siblings of the primary dashboard row", () => {
+test("Market Movers precedes the restored grid and tables have the required DOM order", () => {
   const source = readPage();
-  const gridStart = source.indexOf("grid grid-cols-1 items-start");
-  assert.ok(gridStart >= 0, "the first major row must be a grid that stacks by default");
-  const rowSource = source.slice(gridStart);
-  const tableIndex = rowSource.indexOf("<ExploreTableClient");
-  const rankingsIndex = rowSource.indexOf("<ExploreTopRankings");
-  const gridEnd = rowSource.indexOf("</div>");
-  assert.ok(tableIndex > 0 && rankingsIndex > 0, "both modules must render inside the row");
-  assert.ok(tableIndex < gridEnd && rankingsIndex < gridEnd, "both modules must be siblings within the same grid");
-  assert.ok(tableIndex < rankingsIndex, "Best Sets must come first in source order so it leads on mobile");
+  const movers = source.indexOf("<ExploreMarketMovers");
+  const grid = source.indexOf("grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]");
+  const rankings = source.indexOf("<ExploreTopRankings");
+  const bestSets = source.indexOf("<ExploreTableClient");
+  assert.ok(movers > 0 && movers < grid && grid < rankings && rankings < bestSets);
 });
 
-test("desktop renders the two modules side by side, wider table first", () => {
+test("Explore reuses the set-page atmosphere and glass primitives", () => {
   const source = readPage();
-  assert.ok(
-    source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"),
-    "desktop must place Best Sets at roughly two thirds and Top Rankings at one third"
-  );
-  assert.ok(source.includes("items-start"), "sibling modules must share a top alignment");
+  assert.ok(source.includes('getExploreBackground("pokemon")'));
+  assert.ok(source.includes("explore-glass-scope relative isolate"));
+  assert.ok(source.includes('dataAttribute="data-explore-ambient-artwork"'));
+  assert.ok(source.includes('visibilityClassName="hidden desk:block"'));
+  assert.ok(source.includes('loading="lazy"'));
 });
 
-test("mobile introduces a subtle divider before Top Rankings and removes it at desk+", () => {
+test("Top Rankings and Best Sets remain siblings in the original two-column grid", () => {
   const source = readPage();
-  assert.ok(
-    source.includes("mt-3 border-t border-[var(--border-subtle)] pt-3 desk:mt-0 desk:border-t-0 desk:pt-0"),
-    "Top Rankings wrapper must create mobile/tablet separation and reset at desktop"
-  );
+  assert.ok(source.includes("xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]"));
+  assert.ok(!source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
+  assert.ok(!source.includes('className="space-y-5"'));
+  const gridSource = source.slice(source.indexOf("grid grid-cols-1 items-start gap-4"));
+  assert.ok(gridSource.indexOf("<ExploreTopRankings") < gridSource.indexOf("<ExploreTableClient"));
+});
+
+test("movers and rankings load independently with one global movers request", () => {
+  const source = readPage();
+  assert.ok(source.includes("Promise.allSettled"));
+  assert.ok(source.includes("getExploreMarketMovers()"));
 });
 
 test("either module can render when the other has no data", () => {
@@ -96,11 +99,11 @@ test("either module can render when the other has no data", () => {
 
 // --- D. No regression ----------------------------------------------------
 
-test("the redesign introduces no additional data request", () => {
+test("the redesign introduces exactly one request per prepared snapshot family", () => {
   const source = readPage();
   const fetches = source.match(/getRipStatisticsTargets\(/g) || [];
   assert.equal(fetches.length, 1, "Explore must still make exactly one targets request");
-  assert.ok(!source.includes("fetch("), "no new client or server fetch may be added for the redesign");
+  assert.equal((source.match(/getExploreMarketMovers\(\)/g) || []).length, 1);
 });
 
 test("public-analytics eligibility filtering is unchanged", () => {

@@ -146,7 +146,7 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
   }, [mobilePreviewResetKey]);
 
   return (
-    <section className={`${styles.surfaceQuiet} flex min-w-0 flex-col`} aria-labelledby="explore-top-rankings-heading">
+    <section className={`${styles.surfaceQuiet} set-glass-surface flex min-w-0 flex-col`} aria-labelledby="explore-top-rankings-heading">
       <div className={`${styles.divider} flex items-center gap-2 px-3 py-3 desk:py-2.5 sm:px-4`}>
         <h2
           id="explore-top-rankings-heading"

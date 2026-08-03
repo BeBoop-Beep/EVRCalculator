@@ -21,6 +21,7 @@ from backend.db.services.explore_page_service import (
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_card_market_delta_contract import (
+    MOVEMENT_CONTRACT_VERSION,
     WINDOW_CONVENTION,
     calculate_pokemon_card_market_delta,
     utc_date_key,
@@ -75,7 +76,6 @@ RIP_DESIRABILITY_COMPARISON_FIELDS = (
 
 MARKET_MOVERS_WINDOWS_DAYS = {"1D": 1, "7D": 7, "30D": 30}
 MARKET_MOVERS_COMPATIBILITY_WINDOW = "30D"
-MOVEMENT_CONTRACT_VERSION = "pokemon_card_movement_v1"
 CARD_PRICE_OBSERVATION_CHUNK_SIZE = 50
 CARD_PRICE_OBSERVATION_PAGE_SIZE = 1000
 CARD_MOVEMENT_LOOKBACK_DAYS = 45

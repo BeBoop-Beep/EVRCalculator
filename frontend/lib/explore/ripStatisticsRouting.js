@@ -3,6 +3,7 @@ import { toSetSlug as toCanonicalSetSlug } from "@/utils/slugify";
 const TCG_SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
 const SET_DETAIL_DEFAULT_TAB = "cards";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+const SET_MARKET_MOVER_WINDOWS = new Set(["7D", "30D"]);
 const SET_DETAIL_TAB_ALIASES = {
   market: "overview",
   analytics: "insights",
@@ -27,6 +28,7 @@ function appendSetDetailParams(href, options = {}) {
   const rawTab = normaliseString(options.tab).toLowerCase();
   const tab = SET_DETAIL_TAB_ALIASES[rawTab] || rawTab;
   const section = normaliseString(options.section);
+  const window = normaliseString(options.window).toUpperCase();
   const params = new URLSearchParams();
 
   if (SET_DETAIL_TABS.has(tab)) {
@@ -35,6 +37,10 @@ function appendSetDetailParams(href, options = {}) {
 
   if (section) {
     params.set("section", section);
+  }
+
+  if (SET_MARKET_MOVER_WINDOWS.has(window)) {
+    params.set("window", window);
   }
 
   const query = params.toString();
