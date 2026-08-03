@@ -547,7 +547,37 @@ def _latest_for_market_dashboard(client: Any, set_id: str) -> Tuple[Optional[str
     )
     checks.extend(table_checks)
     timestamps.append(latest)
+
+    # The dashboard's performance_vs_cost_history_json is built from the set's
+    # simulation history. Without these dependencies a newer simulation run can
+    # leave the dashboard stale while the set-page snapshot (which does track
+    # simulation_latest_by_target) rebuilds, producing two conflicting OPvC
+    # histories. Both queries stay scoped to this set so one set's simulation
+    # never invalidates every other set's dashboard.
+    for table, columns in (
+        ("simulation_latest_by_target", ("updated_at", "run_at")),
+        ("calculation_history_trend", ("run_created_at", "snapshot_date")),
+    ):
+        latest, table_checks = _latest_timestamp(
+            client,
+            table=table,
+            timestamp_columns=columns,
+            filters=(("target_type", "set"), ("target_id", set_id)),
+        )
+        checks.extend(table_checks)
+        timestamps.append(latest)
     return _max_datetime_text(*timestamps), checks
+
+
+def _latest_simulation_history_date(client: Any, set_id: str) -> Tuple[Optional[str], List[str]]:
+    """Latest calculation_history_trend snapshot_date for this set (date only)."""
+    latest, checks = _latest_timestamp(
+        client,
+        table="calculation_history_trend",
+        timestamp_columns=("snapshot_date",),
+        filters=(("target_type", "set"), ("target_id", set_id)),
+    )
+    return (latest[:10] if latest else None), checks
 
 
 SET_VALUE_HISTORY_SCOPES = ("standard", "hits", "top10")
@@ -813,10 +843,12 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     latest_value_history_updated_at = _max_datetime_text(*value_history_updated_by_scope.values())
     latest_value_history_date = max((date for date in value_history_date_by_scope.values() if date), default=None)
     dependency_updated_at = _max_datetime_text(dependency_updated_at, latest_value_history_updated_at)
+    simulation_history_date, simulation_date_checks = _latest_simulation_history_date(client, set_id)
+    checks.extend(simulation_date_checks)
     row = _read_snapshot_row(
         client,
         "pokemon_set_market_dashboard_snapshot_latest",
-        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,latest_market_date,updated_at",
+        "set_id,window_key,payload_json,set_value_histories_json,top_chase_card_histories_json,performance_vs_cost_history_json,latest_market_date,updated_at",
         (("set_id", set_id), ("window_key", window)),
     )
     if not row:
@@ -864,6 +896,19 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
                 dependency_updated_at,
                 checks,
             )
+    performance_history = row.get("performance_vs_cost_history_json")
+    if not isinstance(performance_history, list):
+        performance_history = payload.get("performanceVsCostHistory") or payload.get("performance_vs_cost_history")
+    dashboard_performance_history_end = _history_latest_date(performance_history)
+    if _is_newer(simulation_history_date, dashboard_performance_history_end):
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            "simulation history newer than dashboard performance history",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     if movement_marker_missing:

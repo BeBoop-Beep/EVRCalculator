@@ -27,6 +27,7 @@ const header = read("../Header.js");
 const page = read("RipStatisticsPageClient.jsx");
 const mobileHero = read("../pokemon/set-page/PokemonSetHero/PokemonSetMobileHero.jsx");
 const sealedCard = read("../pokemon/set-page/Overview/SealedMarketTrendCard.jsx");
+const picker = read("../pokemon/set-page/Overview/SealedProductPicker.jsx");
 
 test("the shared dropdown glass class exists and is built from the set-page glass tokens", () => {
   assert.match(css, /\.set-dropdown-glass,\n\s*\.set-dropdown-glass-trigger \{/);
@@ -227,35 +228,52 @@ test("set-picker navigation, ownership and list content are unchanged by the sty
   assert.doesNotMatch(page, /switcherTargets\s*\n?\s*\.sort\(/);
 });
 
-test("the Sealed Market trigger uses the shared glass and keeps its size, label and native behavior", () => {
-  assert.match(
-    sealedCard,
-    /className="set-dropdown-glass-trigger h-10 w-full min-w-0 appearance-none truncate rounded-lg pl-2 pr-10 text-xs text-\[var\(--text-primary\)\]"/
-  );
+test("the Sealed Market card delegates to the custom picker and keeps no native select", () => {
+  // The native <select> is gone: its opened panel was drawn by the OS and could
+  // never match the set picker's frosted menu.
+  assert.doesNotMatch(sealedCard, /<select|<option|appearance-none/);
   assert.doesNotMatch(sealedCard, /bg-\[var\(--surface-panel\)\]/);
+  assert.match(sealedCard, /import SealedProductPicker from "\.\/SealedProductPicker";/);
+  assert.match(sealedCard, /<SealedProductPicker\n\s*products=\{orderedProducts\}\n\s*value=\{product\.sealedProductId\}\n\s*onChange=\{setSelectedId\}/);
 
-  // Still a native <select>: no custom listbox was introduced for this pass.
-  assert.match(sealedCard, /<select/);
-  assert.doesNotMatch(sealedCard, /role="listbox"/);
-
-  // Accessible label, title and the existing selection handler are preserved,
-  // and switching products still triggers no extra fetch.
-  assert.match(sealedCard, /<span className="sr-only">Sealed product<\/span>/);
-  assert.match(sealedCard, /onChange=\{\(event\) => setSelectedId\(event\.target\.value\)\}/);
-  assert.doesNotMatch(/onChange=\{[^}]*\}/.exec(sealedCard)[0], /fetch|retry/);
-
-  // OS-drawn option panels only get a readable, theme-aware fallback.
-  assert.match(css, /\.set-dropdown-glass-trigger option \{\n\s*background-color: var\(--surface-panel\);\n\s*color: var\(--text-primary\);/);
+  // The picker reuses the same shared surfaces as the set picker.
+  assert.match(picker, /className="set-dropdown-glass-trigger /);
+  assert.match(picker, /className="index-scrollbar set-dropdown-glass absolute/);
+  assert.match(picker, /className=\{`set-dropdown-option flex/);
   assert.match(css, /\.set-dropdown-glass-trigger:hover \{\n\s*border-color: rgba\(148, 180, 220, 0\.24\);/);
+
+  // Selecting a product still re-reads the loaded payload rather than
+  // refetching: the fetch effect keys on setId/retryKey only.
+  assert.match(sealedCard, /\}, \[setId, retryKey\]\);/);
+  assert.doesNotMatch(picker, /fetch|getPokemonSetSealedMarket|useEffect\([^)]*retry/);
+
+  // Ordering and default selection still come from the shared selectors.
+  assert.match(sealedCard, /sortSealedProductsByCurrentPrice\(state\.payload\?\.products\)/);
+  assert.match(sealedCard, /selectSealedProduct\(state\.payload, selectedId\)/);
+});
+
+test("the dead native-select styling was removed with the select", () => {
+  // These existed only to tame a <select>. The trigger is a <button> now.
+  assert.doesNotMatch(css, /\.set-dropdown-glass-trigger option/);
+  assert.doesNotMatch(css, /select\.set-dropdown-glass-trigger/);
+
+  // The global form-field rule stays — real inputs still depend on it.
+  assert.match(css, /input:focus,\ntextarea:focus,\nselect:focus \{/);
+
+  // The trigger class itself is still live, and still keyboard-accessible.
+  assert.match(css, /\.set-dropdown-glass-trigger:focus \{[\s\S]*?outline: none;/);
+  assert.match(css, /\.set-dropdown-glass-trigger:focus-visible \{[\s\S]*?0 0 0 2px var\(--accent\)/);
+  const plainFocus = /\.set-dropdown-glass-trigger:focus \{[\s\S]*?\n\}/.exec(css)[0];
+  assert.doesNotMatch(plainFocus, /--accent|rgba\(250, 204, 21/);
 });
 
 test("the Sealed Market trigger is neutral on pointer focus and yellow only for keyboard", () => {
   // The global form rule paints accent + yellow glow on ANY focus. It is still
-  // there for real inputs; the dropdown trigger opts out of it.
+  // there for real inputs; the dropdown trigger is a <button> and out of reach.
   assert.match(css, /input:focus,\ntextarea:focus,\nselect:focus \{\n\s*border-color: var\(--accent\);\n\s*box-shadow: 0 0 0 3px rgba\(250, 204, 21, 0\.2\);/);
 
-  const plainFocus = /select\.set-dropdown-glass-trigger:focus,\n\.set-dropdown-glass-trigger:focus \{[\s\S]*?\n\}/.exec(css)[0];
-  const keyboardFocus = /select\.set-dropdown-glass-trigger:focus-visible,\n\.set-dropdown-glass-trigger:focus-visible \{[\s\S]*?\n\}/.exec(css)[0];
+  const plainFocus = /\.set-dropdown-glass-trigger:focus \{[\s\S]*?\n\}/.exec(css)[0];
+  const keyboardFocus = /\.set-dropdown-glass-trigger:focus-visible \{[\s\S]*?\n\}/.exec(css)[0];
 
   // Rest/hover/pointer-focus are the same material: no accent, no gray halo,
   // no browser outline.
@@ -269,61 +287,71 @@ test("the Sealed Market trigger is neutral on pointer focus and yellow only for 
   assert.match(keyboardFocus, /0 0 0 2px var\(--accent\)/);
   assert.match(keyboardFocus, /var\(--set-dropdown-glass-shadow\)/);
 
-  // The element-qualified selector is what outranks `select:focus`; a bare
-  // class would silently lose to it.
-  assert.ok(css.includes("select.set-dropdown-glass-trigger:focus"));
-  assert.ok(css.includes("select.set-dropdown-glass-trigger:focus-visible"));
   assert.doesNotMatch(plainFocus + keyboardFocus, /!important/);
 
   // Hover is a slightly brighter glass border, not a highlight.
   assert.match(css, /\.set-dropdown-glass-trigger:hover \{\n\s*border-color: rgba\(148, 180, 220, 0\.24\);/);
 
-  // Focus handling lives in CSS, so no competing Tailwind ring utility remains
-  // on the select (it would lose to the global rule anyway).
-  const trigger = /className="set-dropdown-glass-trigger[^"]*"/.exec(sealedCard)[0];
+  // Focus handling lives in CSS, so no competing Tailwind ring utility sits on
+  // the trigger.
+  const trigger = /className="set-dropdown-glass-trigger[^"]*"/.exec(picker)[0];
   assert.doesNotMatch(trigger, /focus-visible:ring|focus:ring|ring-\[var\(--accent\)\]/);
   assert.doesNotMatch(trigger, /border-\[var\(--border-subtle\)\]/);
 });
 
-test("the Sealed Market caret reuses the set picker chevron and never blocks the label", () => {
+test("the Sealed Market caret reuses the set picker chevron", () => {
   const CHEVRON = "M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z";
 
   // Byte-identical to the path the hero and compact set pickers draw.
   assert.ok(page.includes(CHEVRON), "set picker chevron must still exist");
-  assert.ok(sealedCard.includes(CHEVRON), "Sealed Market must reuse that exact path");
+  assert.ok(picker.includes(CHEVRON), "the sealed picker must reuse that exact path");
 
-  // Decorative, non-interactive, right-aligned, secondary colour.
-  const caret = sealedCard.slice(sealedCard.indexOf('<span aria-hidden="true" className="pointer-events-none'), sealedCard.indexOf(CHEVRON));
-  assert.match(caret, /pointer-events-none absolute right-3 top-1\/2 -translate-y-1\/2 text-\[var\(--text-secondary\)\]/);
-  assert.match(caret, /viewBox="0 0 20 20"/);
-  assert.match(caret, /className="h-4 w-4"/);
+  // Decorative, secondary colour, and it rotates on open like the set picker.
+  const chevron = picker.slice(picker.indexOf("function Chevron"), picker.indexOf(CHEVRON));
+  assert.match(chevron, /aria-hidden="true"/);
+  assert.match(chevron, /viewBox="0 0 20 20"/);
+  assert.match(chevron, /text-\[var\(--text-secondary\)\]/);
+  assert.match(chevron, /\$\{open \? "rotate-180" : ""\}/);
 
-  // The OS arrow is suppressed and the label is padded clear of the caret.
-  assert.match(sealedCard, /appearance-none/);
-  assert.match(sealedCard, /pr-10/);
-  assert.match(sealedCard, /<label className="relative mt-3 block min-w-0">/);
-  // No second caret icon was introduced.
-  assert.equal((sealedCard.match(/<svg/g) || []).length, 1);
+  // One caret only — no leftover native arrow workaround.
+  assert.equal((picker.match(/<svg/g) || []).length, 1);
+  assert.equal((sealedCard.match(/<svg/g) || []).length, 0);
 });
 
-test("making Sealed Market consistent did not touch the set picker or product behavior", () => {
-  // The set picker is the reference: its trigger keeps its own focus classes.
+test("the set picker itself was not altered to match Sealed Market", () => {
+  // The set picker is the reference: it keeps its own trigger focus classes and
+  // never adopts the sealed trigger class.
   assert.match(page, /focus:outline-none focus-visible:ring-2 focus-visible:ring-\[var\(--accent\)\]/);
-  assert.doesNotMatch(page, /set-dropdown-glass-trigger/);
+  assert.doesNotMatch(page, /set-dropdown-glass-trigger|SealedProductPicker/);
 
-  // Product ordering, default selection and the no-extra-request contract are
-  // untouched by this styling pass.
-  assert.match(sealedCard, /sortSealedProductsByCurrentPrice\(state\.payload\?\.products\)/);
-  assert.match(sealedCard, /selectSealedProduct\(state\.payload, selectedId\)/);
-  assert.match(sealedCard, /onChange=\{\(event\) => setSelectedId\(event\.target\.value\)\}/);
-  assert.match(sealedCard, /orderedProducts\.map\(/);
-  assert.match(sealedCard, /<span className="sr-only">Sealed product<\/span>/);
+  // Its panels and rows still use the shared classes, unchanged.
+  assert.equal((page.match(/index-scrollbar set-dropdown-glass/g) || []).length, 2);
+  assert.equal((page.match(/set-dropdown-option/g) || []).length, 2);
+  assert.match(page, /handleSetPickerKeyDown/);
+  assert.match(page, /onClick=\{\(\) => handleHeroSetSelect\(target\)\}/);
+});
+
+test("the sealed picker owns its own interaction and the card only lifts for the menu", () => {
+  // Interaction logic lives in the picker, not the card.
+  // `useId` is excluded: the card legitimately uses it for chart gradient ids.
+  for (const contract of ['aria-haspopup="listbox"', 'role="listbox"', 'role="option"', "aria-selected", "ArrowDown", "Escape", "mousedown", "touchstart"]) {
+    assert.ok(picker.includes(contract), `picker must own ${contract}`);
+    assert.ok(!sealedCard.includes(contract), `card must not re-implement ${contract}`);
+  }
+
+  // The card no longer clips its own menu; the chart keeps its own clip.
+  assert.match(sealedCard, /className=\{`set-glass-surface relative min-w-0 overflow-visible rounded-2xl/);
+  assert.match(sealedCard, /<ChartFrame className="mt-2 h-32 overflow-hidden rounded-xl/);
+  // `.set-glass-surface` makes a backdrop-filter stacking context the menu's
+  // z-50 cannot escape, so the whole card is raised while the menu is open.
+  assert.match(sealedCard, /\$\{pickerOpen \? "z-50" : ""\}/);
+  assert.match(sealedCard, /onOpenChange=\{setPickerOpen\}/);
 });
 
 test("the shared surfaces agree on blur, border, highlight and corner-radius family", () => {
   // One class supplies border/background/shadow to all four surfaces, so
   // consistency is structural rather than four copies of the same literals.
-  const consumers = [header, page, mobileHero, sealedCard];
+  const consumers = [header, page, mobileHero, picker];
   const usages = consumers.reduce(
     (total, source) => total + (source.match(/set-dropdown-glass(?!-)|set-dropdown-glass-trigger/g) || []).length,
     0
@@ -333,7 +361,8 @@ test("the shared surfaces agree on blur, border, highlight and corner-radius fam
   // Corner-radius family: rounded-xl panels, rounded-lg rows and trigger.
   assert.match(header, /rounded-xl \$\{navDropdownSurface\}/);
   assert.match(page, /set-dropdown-glass[^"]*rounded-xl/);
-  assert.match(sealedCard, /set-dropdown-glass-trigger[^"]*rounded-lg/);
+  assert.match(picker, /set-dropdown-glass-trigger[^"]*rounded-lg/);
+  assert.match(picker, /set-dropdown-glass absolute[^"]*rounded-xl/);
 
   // Menus keep distinct widths — this is a shared material, not one component.
   assert.match(header, /w-36/);

@@ -13,7 +13,8 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
-import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow, sortSealedProductsByCurrentPrice } from "./sealedMarketTrendSelector.mjs";
+import SealedProductPicker from "./SealedProductPicker";
+import { SEALED_MARKET_WINDOWS, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow, sortSealedProductsByCurrentPrice } from "./sealedMarketTrendSelector.mjs";
 
 const INFO = "Tracks market-price history for unopened sealed products associated with this set. This first version does not include promo-card value, pack contents, or opening expected value.";
 const shortDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
@@ -39,6 +40,8 @@ export default function SealedMarketTrendCard({ setId }) {
   const [selectedId, setSelectedId] = useState(null);
   const [windowKey, setWindowKey] = useState("30D");
   const [retryKey, setRetryKey] = useState(0);
+  // Only used to lift the card while its menu is open — see the section below.
+  const [pickerOpen, setPickerOpen] = useState(false);
   const pointerMode = usePointerMode();
   const chartId = useId().replace(/:/g, "");
   const gradientId = `sealed-market-fill-${chartId}`;
@@ -89,7 +92,19 @@ export default function SealedMarketTrendCard({ setId }) {
       : NEUTRAL_MARKET_COLOR;
 
   return (
-    <section data-sealed-market-card className="set-glass-surface min-w-0 overflow-hidden rounded-2xl border border-[var(--border-subtle)] p-4">
+    /* The card clipped its own dropdown. `overflow-hidden` existed to keep the
+       chart inside the rounded corners, but it also cropped the product menu at
+       the card edge, so the clip moves onto the ChartFrame (which is what
+       actually needs it) and the card goes overflow-visible.
+       `.set-glass-surface` carries a backdrop-filter on desktop, which creates a
+       stacking context the menu's z-50 cannot escape — so while the menu is
+       open the whole card is raised above its later siblings (Decision Signals
+       follows it in DOM order and would otherwise paint over the menu). */
+    <section
+      data-sealed-market-card
+      data-picker-open={pickerOpen ? "true" : "false"}
+      className={`set-glass-surface relative min-w-0 overflow-visible rounded-2xl border border-[var(--border-subtle)] p-4 ${pickerOpen ? "z-50" : ""}`}
+    >
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold leading-normal text-[var(--text-primary)]">Sealed Market</h2>
         <InfoPopover text={INFO} />
@@ -105,35 +120,12 @@ export default function SealedMarketTrendCard({ setId }) {
         <p className="flex min-h-[11rem] items-center justify-center text-center text-sm text-[var(--text-secondary)]">Sealed market history is not available for this set yet.</p>
       ) : (
         <>
-          {/* Native select, kept deliberately — this is a product switch, not a
-              navigation surface, and the set picker's custom listbox would be
-              overkill here. Only the closed trigger is styled to match it: the
-              OS draws the opened option panel and that cannot be guaranteed to
-              match across browsers.
-
-              `appearance-none` drops the platform arrow so the chevron below is
-              the same SVG the set picker uses, and `pr-10` reserves room for it
-              so long product names never run underneath. Focus states live in
-              `.set-dropdown-glass-trigger` (globals.css) rather than in
-              Tailwind focus-visible utilities, because the global
-              `select:focus` rule outranks those utilities on a <select>. */}
-          <label className="relative mt-3 block min-w-0">
-            <span className="sr-only">Sealed product</span>
-            <select
-              value={product.sealedProductId}
-              onChange={(event) => setSelectedId(event.target.value)}
-              title={product.name}
-              className="set-dropdown-glass-trigger h-10 w-full min-w-0 appearance-none truncate rounded-lg pl-2 pr-10 text-xs text-[var(--text-primary)]"
-            >
-              {orderedProducts.map((item) => <option key={item.sealedProductId} value={item.sealedProductId} title={item.name}>{compactSealedProductLabel(item)} — {item.name}</option>)}
-            </select>
-            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
-                <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-              </svg>
-            </span>
-          </label>
-          <div className="mt-2">
+          {/* Order is deliberate: the market value is the insight, so it leads.
+              The product is the analytical subject and the window is a filter
+              applied to it, so the stack reads value → product → time → chart.
+              One DOM order for every breakpoint — no CSS `order` utilities and
+              no second composition. 12px between each layer. */}
+          <div data-sealed-market-summary className="mt-3">
             <MarketValueChange
               value={product.currentPrice}
               changeAmount={selected.movement.amount}
@@ -145,15 +137,21 @@ export default function SealedMarketTrendCard({ setId }) {
             />
             {fallbackDescription ? <span className="sr-only">{fallbackDescription}</span> : null}
           </div>
+          <SealedProductPicker
+            products={orderedProducts}
+            value={product.sealedProductId}
+            onChange={setSelectedId}
+            onOpenChange={setPickerOpen}
+          />
           <MarketWindowSelector
             windows={SEALED_MARKET_WINDOWS}
             value={windowKey}
             onChange={setWindowKey}
             fullWidth
-            className="mt-2"
+            className="mt-3"
             ariaDescription={fallbackDescription}
           />
-          <ChartFrame className="mt-2 h-32 md:h-36 lg:h-32">
+          <ChartFrame className="mt-3 h-32 overflow-hidden rounded-xl md:h-36 lg:h-32">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartHistory} margin={getMinimalPlotMargin({ top: 6, bottom: 2 })}>
                 <defs>

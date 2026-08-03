@@ -442,17 +442,15 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Focus states for the dropdown trigger.
    -----------------------------------------------------------------------
-   The global `input:focus, textarea:focus, select:focus` rule above paints an
-   accent border plus a yellow glow on ANY focus — including a plain mouse
-   click, which is how the Sealed Market selector ended up wearing a persistent
-   yellow ring that no other dropdown has. That rule outranks a bare class
-   (`select:focus` is 0,1,1 against 0,1,0), so these selectors are qualified
-   with the element to win on specificity rather than with !important.
-
    Rest, hover and pointer-focus all look identical: a dropdown that has been
    clicked is not in a special state worth signalling. The accent survives only
-   for :focus-visible, which is the keyboard affordance the set picker uses. */
-select.set-dropdown-glass-trigger:focus,
+   for :focus-visible, which is the keyboard affordance the set picker uses.
+
+   These were previously element-qualified (`select.set-...`) to outrank the
+   global `input/textarea/select:focus` rule, which painted an accent border and
+   yellow glow on any focus including a mouse click. The trigger is a <button>
+   now, so that rule no longer reaches it and the qualifier is gone. The global
+   rule itself stays — real form fields still rely on it. */
 .set-dropdown-glass-trigger:focus {
   outline: none;
   border-color: var(--set-dropdown-glass-border, var(--set-glass-border));
@@ -461,7 +459,6 @@ select.set-dropdown-glass-trigger:focus,
     inset 0 1px 0 var(--set-dropdown-glass-highlight, var(--set-glass-highlight));
 }
 
-select.set-dropdown-glass-trigger:focus-visible,
 .set-dropdown-glass-trigger:focus-visible {
   outline: none;
   border-color: var(--set-dropdown-glass-border, var(--set-glass-border));
@@ -469,13 +466,6 @@ select.set-dropdown-glass-trigger:focus-visible,
     0 0 0 2px var(--accent),
     var(--set-dropdown-glass-shadow),
     inset 0 1px 0 var(--set-dropdown-glass-highlight, var(--set-glass-highlight));
-}
-
-/* Native <select> option panels are drawn by the OS, so only a readable dark
-   fallback is applied here. No custom listbox is introduced to force styling. */
-.set-dropdown-glass-trigger option {
-  background-color: var(--surface-panel);
-  color: var(--text-primary);
 }
 
 /* 7D Movers ticker viewport: horizontally scrollable strip without a visible
