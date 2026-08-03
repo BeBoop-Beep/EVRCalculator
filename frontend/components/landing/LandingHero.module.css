@@ -1,18 +1,20 @@
 /*
- * The landing aperture.
+ * The landing hero.
  *
- * The composition has one idea: the inDex mark is a lens with a rising signal
- * inside it, so in this scene the mark IS the light source. An oversized copy
- * of the real logo sits behind the intelligence panel, cropped by the right
- * edge of the frame; a heavily blurred copy of the SAME file — the pattern the
- * set pages already use for --set-artwork-bloom — is what illuminates the
- * scene. Every highlight in the frame falls off from there, which is why the
- * panel catches teal on its top-right corner and nothing glows on the left.
+ * SECOND PASS. The first version made the inDex mark the subject: an oversized
+ * wordmark in the lockup, a giant cropped logo behind the panel, an abstract
+ * signal trace. It read as premium and said nothing about the category — the
+ * same frame would have suited a crypto index or an equities screener.
  *
- * The palette is sampled from the artwork itself rather than invented:
+ * Now the mark is only the light source and the SUBJECT IS THE PRODUCT: real
+ * Pokemon chase-card art, a real set logo, real sealed products, and a set
+ * intelligence panel. The palette is unchanged, still sampled from the artwork:
  *   #0e6a4e  the mark's "in" body        #37988b  the arrow's cool end
  *   #47b791  the arrow tip highlight     #a7f3d0  --brand-light, for type
  * with --accent (#facc15) spent in exactly one place, the primary CTA.
+ *
+ * The frame no longer carries a viewport-derived min-height. It is sized by its
+ * content, which is what removed the large empty band under the copy column.
  *
  * Tailwind runs with `important: true` in this repo, so a utility class would
  * outrank anything here. The hero is deliberately module-CSS only — do not mix
@@ -37,7 +39,7 @@
   width: 100%;
   overflow: hidden;
   background: var(--void);
-  padding: clamp(20px, 2.6vw, 40px) clamp(14px, 3vw, 44px) clamp(28px, 3vw, 44px);
+  padding: clamp(16px, 2.2vw, 32px) clamp(14px, 3vw, 44px) clamp(20px, 2.4vw, 32px);
 }
 
 /* Atmospheric bleed outside the frame, so the frame reads as a window cut into
@@ -63,23 +65,20 @@
 
 /* ---------------------------------------------------------------- frame --- */
 
+/* No min-height. The frame is exactly as tall as the product composition
+   inside it — the clamped `100svh` height the first pass used is what produced
+   the empty band beneath the copy at 1440x900. */
 .frame {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 30px;
-  min-height: 540px;
-  /* Bounded so the ranked strip and the top of the footer always clear the fold
-     at 1440x900, and so the frame never grows taller than its own content. */
-  min-height: clamp(496px, calc(100svh - var(--app-header-offset, 64px) - 232px), 588px);
+  border-radius: 26px;
   background: var(--navy);
   box-shadow:
     0 48px 120px -40px rgba(0, 0, 0, 0.9),
     0 8px 26px -12px rgba(0, 0, 0, 0.7);
 }
 
-/* The inner border and top light-catch, kept above the artwork but below the
-   content so a highlight never sits on top of a number. */
 .frame::after {
   content: "";
   position: absolute;
@@ -105,10 +104,10 @@
     linear-gradient(178deg, #0b1728 0%, #050d19 100%);
 }
 
-/* Faint instrument grid, strongest under the panel and gone before it reaches
-   the headline. */
+/* Faint instrument grid, strongest under the product and gone before it
+   reaches the headline. */
 .layerGrid {
-  opacity: 0.5;
+  opacity: 0.45;
   background-image:
     linear-gradient(rgba(150, 200, 230, 0.045) 1px, transparent 1px),
     linear-gradient(90deg, rgba(150, 200, 230, 0.045) 1px, transparent 1px);
@@ -117,14 +116,14 @@
   mask-image: radial-gradient(76% 70% at 74% 44%, #000 0%, rgba(0, 0, 0, 0.35) 58%, transparent 84%);
 }
 
-/* The oversized mark and its bloom share this box so the light stays registered
-   to the silhouette exactly. */
+/*
+ * The light source, and now the ONLY trace of the mark in the hero. The
+ * oversized silhouette and its tinted copy are gone: the product composition
+ * occupies that space, which is the whole point of this pass.
+ */
 .markLayer {
   position: absolute;
   top: 50%;
-  /* Far enough left that the ascending arrow — the part of the mark that reads
-     at a glance — clears the panel, while the bowl of the "D" still runs off
-     the right edge of the frame. */
   right: -1%;
   z-index: 0;
   height: 132%;
@@ -133,99 +132,27 @@
   pointer-events: none;
 }
 
-.markImg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/*
- * The light source. This is a gradient rather than a blurred copy of the file
- * on purpose: the mark's "D" is white, so blurring the artwork produces grey
- * haze and washes the teal out of the scene. Emitting the colour separately
- * keeps the illumination on brand while the silhouette below stays the shape.
- */
 .markGlow {
   height: 152%;
   background: radial-gradient(
     closest-side,
-    rgba(71, 183, 145, 0.3) 0%,
-    rgba(55, 152, 139, 0.17) 40%,
-    rgba(14, 106, 78, 0.07) 64%,
+    rgba(71, 183, 145, 0.26) 0%,
+    rgba(55, 152, 139, 0.14) 40%,
+    rgba(14, 106, 78, 0.06) 64%,
     rgba(14, 106, 78, 0) 82%
   );
   animation: apertureBreathe 21s ease-in-out infinite;
 }
 
-/* The artwork itself, carrying the mark's real two-tone structure. Kept low —
-   the white counter of the "D" turns grey at any higher opacity, and grey is
-   what made this read as a stray slab rather than as the brand. */
-.markCrisp {
-  opacity: 0.15;
-  filter: blur(1.2px) saturate(1.7);
-  -webkit-mask-image: radial-gradient(closest-side at 52% 50%, #000 24%, rgba(0, 0, 0, 0.5) 56%, transparent 82%);
-  mask-image: radial-gradient(closest-side at 52% 50%, #000 24%, rgba(0, 0, 0, 0.5) 56%, transparent 82%);
-}
-
-/*
- * The mark, illuminated. inDex-mark-silhouette.png is the alpha channel of
- * inDex.png cropped to its own ink bounds — the approved artwork's exact
- * outline, nothing redrawn — used here as a mask so the shape can be painted
- * in brand teal instead of showing as a white ghost.
- *
- * The percentages register that crop back onto the uncropped artwork in
- * .markCrisp, which object-fit: contain lays out across this same square box:
- * the ink occupies 1113x1165 of a 2000x2000 canvas at offset (459, 379), which
- * is 55.65% x 58.25% of the box, positioned at 51.75% / 45.39% once the
- * background-position formula is solved for that offset. Change the source
- * crop and these four numbers change with it.
- */
-.markTint {
-  opacity: 0.3;
-  background: linear-gradient(
-    162deg,
-    #7ef0c6 0%,
-    #37988b 38%,
-    #0e6a4e 72%,
-    rgba(14, 106, 78, 0.4) 100%
-  );
-  filter: blur(2px);
-  -webkit-mask-image:
-    url("/images/inDex-mark-silhouette.png"),
-    radial-gradient(closest-side at 52% 50%, #000 26%, rgba(0, 0, 0, 0.62) 58%, transparent 84%);
-  -webkit-mask-size: 55.65% 58.25%, 100% 100%;
-  -webkit-mask-position: 51.75% 45.39%, center;
-  -webkit-mask-repeat: no-repeat, no-repeat;
-  -webkit-mask-composite: source-in;
-  mask-image:
-    url("/images/inDex-mark-silhouette.png"),
-    radial-gradient(closest-side at 52% 50%, #000 26%, rgba(0, 0, 0, 0.62) 58%, transparent 84%);
-  mask-size: 55.65% 58.25%, 100% 100%;
-  mask-position: 51.75% 45.39%, center;
-  mask-repeat: no-repeat, no-repeat;
-  mask-composite: intersect;
-}
-
-/* Directional rake from the upper right, the same direction the arrow points. */
+/* Directional rake from the upper right. */
 .layerRake {
   background: linear-gradient(202deg, rgba(120, 205, 195, 0.1) 0%, rgba(120, 205, 195, 0) 42%);
-}
-
-.layerSignal {
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 0.5;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 34%, #000 78%, transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 34%, #000 78%, transparent 100%);
 }
 
 /* Readability floor for the left column, and the frame vignette. */
 .layerVeil {
   background:
-    linear-gradient(96deg, rgba(4, 8, 15, 0.9) 0%, rgba(4, 8, 15, 0.62) 34%, rgba(4, 8, 15, 0) 62%),
+    linear-gradient(96deg, rgba(4, 8, 15, 0.88) 0%, rgba(4, 8, 15, 0.56) 34%, rgba(4, 8, 15, 0) 62%),
     radial-gradient(120% 100% at 50% 50%, transparent 52%, rgba(2, 5, 11, 0.6) 100%);
 }
 
@@ -235,85 +162,60 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(292px, 356px);
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
   align-items: center;
   gap: clamp(28px, 3.4vw, 56px);
-  height: 100%;
-  min-height: inherit;
-  padding: clamp(30px, 3.6vw, 60px);
+  padding: clamp(32px, 3.4vw, 52px);
 }
 
-.col {
+.col,
+.showcaseCol {
   min-width: 0;
 }
 
-/* --------------------------------------------------------------- lockup --- */
-
-/* Brand mark and descriptor on one baseline: a lockup, not a logo parked above
-   the copy. The rule between them is the join. */
-.lockup {
-  display: flex;
-  align-items: center;
-  gap: clamp(14px, 1.4vw, 20px);
-  margin-bottom: clamp(22px, 2.6vw, 34px);
-}
+/* --------------------------------------------------------------- eyebrow --- */
 
 /*
- * The wordmark file is a 2000x2000 canvas whose ink occupies 1456x437 at offset
- * (272, 781). Every number below is that geometry expressed against --wm-h, the
- * ink height — so the artwork is cropped to its own bounds and scaled, never
- * redrawn and never re-proportioned.
+ * This line is the reason for the whole pass: it is the first thing read, and
+ * it says the category before the headline gets a chance to be ambiguous. It
+ * sits where the oversized wordmark used to be.
  */
-.wordmark {
-  --wm-h: 54px;
-  position: relative;
-  flex: none;
-  height: var(--wm-h);
-  width: calc(var(--wm-h) * 3.3318);
-  overflow: hidden;
-}
-
-.wordmarkImg {
-  position: absolute;
-  left: calc(var(--wm-h) * -0.62243);
-  top: calc(var(--wm-h) * -1.78719);
-  width: calc(var(--wm-h) * 4.5767);
-  height: calc(var(--wm-h) * 4.5767);
-  max-width: none;
-}
-
-.lockupRule {
-  flex: none;
-  width: 1px;
-  height: calc(var(--wm-h, 54px) * 0.72);
-  background: linear-gradient(180deg, transparent, rgba(167, 243, 208, 0.4), transparent);
-}
-
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: clamp(16px, 1.8vw, 22px);
+  padding: 6px 13px 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(71, 183, 145, 0.28);
+  background: rgba(55, 152, 139, 0.12);
   font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.26em;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(167, 243, 208, 0.74);
-  line-height: 1.3;
+  color: rgba(167, 243, 208, 0.92);
 }
 
-/* ------------------------------------------------------------ headline --- */
+.eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px rgba(71, 183, 145, 0.16);
+}
 
-/* Sized so "Know what's worth opening" holds one line in the left column at
-   desktop widths — the break after it is written into the markup and has to be
-   the break the reader gets. */
+/* ------------------------------------------------------------- headline --- */
+
 .headline {
-  font-size: clamp(2.25rem, 3.72vw, 3.3rem);
+  font-size: clamp(2.2rem, 3.5vw, 3.15rem);
   font-weight: 800;
-  line-height: 1.02;
+  line-height: 1.03;
   letter-spacing: -0.036em;
   color: var(--ink);
 }
 
-/* Both breaks in the headline are written, never left to the wrap point: at
-   narrow widths the line has to fall after "what's", or "opening" ends up
-   stranded alone on its own line. */
+/* Both breaks in the headline are written, never left to the wrap point. */
 .breakNarrow {
   display: none;
 }
@@ -336,10 +238,10 @@
 }
 
 .lede {
-  margin-top: clamp(16px, 1.8vw, 22px);
-  max-width: 47ch;
-  font-size: clamp(0.96rem, 1.05vw, 1.0625rem);
-  line-height: 1.62;
+  margin-top: clamp(14px, 1.6vw, 20px);
+  max-width: 50ch;
+  font-size: clamp(0.94rem, 1.02vw, 1.0625rem);
+  line-height: 1.6;
   letter-spacing: -0.005em;
   color: var(--ink-soft);
 }
@@ -347,98 +249,58 @@
 /* ----------------------------------------------------------------- ctas --- */
 
 .ctas {
-  margin-top: clamp(24px, 2.8vw, 34px);
-}
-
-.form {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
+  gap: 12px;
+  margin-top: clamp(22px, 2.4vw, 30px);
 }
 
-.field {
-  flex: 1 1 216px;
-  min-width: 0;
-  max-width: 288px;
-  height: 46px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: rgba(8, 18, 32, 0.72);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.9rem;
-  letter-spacing: -0.005em;
-  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
-}
-
-.field::placeholder {
-  color: var(--ink-faint);
-}
-
-.field:hover:not(:disabled) {
-  border-color: rgba(150, 200, 230, 0.24);
-}
-
-.field:focus-visible {
-  outline: none;
-  border-color: rgba(71, 183, 145, 0.6);
-  box-shadow: 0 0 0 3px rgba(55, 152, 139, 0.22);
-}
-
-.field:disabled {
-  opacity: 0.55;
-}
-
-/* The single loudest element in the frame. */
+/*
+ * The single loudest element in the frame, and it is now Explore — the product
+ * that works today. The waitlist held this slot in the first pass and sent
+ * every visitor toward something that has not shipped.
+ */
 .ctaPrimary {
-  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 46px;
-  padding: 0 22px;
+  min-height: 48px;
+  padding: 0 24px;
   border: 0;
   border-radius: 999px;
   background: var(--accent);
   color: #0a1220;
-  font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
-  cursor: pointer;
+  text-decoration: none;
   box-shadow: 0 10px 26px -12px rgba(250, 204, 21, 0.62);
   transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
-.ctaPrimary:hover:not(:disabled) {
+.ctaPrimary:hover {
   background: #fde047;
   transform: translateY(-1px);
   box-shadow: 0 14px 32px -12px rgba(250, 204, 21, 0.72);
 }
 
-.ctaPrimary:active:not(:disabled) {
+.ctaPrimary:active {
   transform: translateY(0);
-}
-
-.ctaPrimary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
 }
 
 .ctaSecondary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 14px;
-  padding: 9px 16px 9px 17px;
+  min-height: 48px;
+  padding: 9px 18px;
   border-radius: 999px;
   border: 1px solid var(--hairline);
   color: rgba(226, 238, 252, 0.82);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.005em;
   text-decoration: none;
@@ -451,7 +313,25 @@
   color: var(--ink);
 }
 
+/* Forced onto its own line beneath the two buttons on desktop. */
+.waitlistLink {
+  flex: 1 0 100%;
+}
+
+/* Coverage and freshness, in words. Published figures only — the line is
+   dropped entirely rather than defaulted. */
+.heroMeta {
+  margin-top: clamp(18px, 2vw, 26px);
+  padding-top: clamp(14px, 1.6vw, 20px);
+  border-top: 1px solid rgba(150, 190, 225, 0.1);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--ink-faint);
+}
+
 .ctaArrow {
+  flex: none;
   transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
@@ -459,338 +339,11 @@
   transform: translateX(3px);
 }
 
-.feedback {
-  margin-top: 12px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-.feedbackSuccess {
-  color: #6ee7b7;
-}
-
-.feedbackExists {
-  color: #fde68a;
-}
-
-.feedbackError {
-  color: #fca5a5;
-}
-
-.resend {
-  margin-top: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-faint);
-  font: inherit;
-  font-size: 0.8125rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.resend:hover:not(:disabled) {
-  color: var(--ink);
-}
-
-.resend:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* One visible focus treatment for every interactive element in the hero. */
 .ctaPrimary:focus-visible,
-.ctaSecondary:focus-visible,
-.panelCta:focus-visible,
-.stripItem:focus-visible,
-.resend:focus-visible {
+.ctaSecondary:focus-visible {
   outline: 2px solid rgba(126, 240, 198, 0.9);
   outline-offset: 3px;
-}
-
-/* ---------------------------------------------------------------- panel --- */
-
-.panel {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: 22px;
-  padding: 22px 22px 20px;
-  border: 1px solid rgba(150, 195, 235, 0.15);
-  background:
-    linear-gradient(168deg, rgba(19, 38, 58, 0.82) 0%, rgba(9, 20, 36, 0.9) 56%, rgba(6, 14, 26, 0.94) 100%);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  backdrop-filter: blur(16px) saturate(1.15);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 30px 70px -34px rgba(0, 0, 0, 0.92);
-  transition: transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 260ms ease;
-}
-
-/* Reflected light off the mark behind it — the panel is lit by the scene, not
-   painted with its own glow. */
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: -40% -30% auto -10%;
-  height: 130%;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(52% 46% at 88% 12%, rgba(71, 183, 145, 0.22) 0%, rgba(71, 183, 145, 0) 72%);
-}
-
-.panel:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 38px 84px -34px rgba(0, 0, 0, 0.95);
-}
-
-.panelHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(226, 238, 252, 0.56);
-}
-
-.liveDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 0 3px rgba(71, 183, 145, 0.16);
-}
-
-.panelSet {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  margin-top: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(150, 195, 235, 0.1);
-}
-
-.setMark {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 11px;
-  overflow: hidden;
-  border: 1px solid rgba(150, 195, 235, 0.14);
-  background: rgba(238, 246, 255, 0.09);
-}
-
-.setMarkImg {
-  width: 84%;
-  height: 84%;
-  object-fit: contain;
-}
-
-.setMarkFallback {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--ink-faint);
-}
-
-.setName {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-  color: var(--ink);
-}
-
-.setEra {
-  margin-top: 3px;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  color: var(--ink-faint);
-}
-
-.metric {
-  margin-top: 16px;
-}
-
-.metricLabel {
-  display: block;
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(226, 238, 252, 0.5);
-}
-
-.scoreRow {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.score {
-  font-size: clamp(2.6rem, 3.4vw, 3.2rem);
-  font-weight: 800;
-  line-height: 0.92;
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-  color: #f4fbff;
-}
-
-.scoreMeta {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding-bottom: 3px;
-}
-
-.tierPill {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid;
-  border-radius: 999px;
-  padding: 3px 9px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.rankNote {
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-faint);
-}
-
-.valueRow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 5px;
-}
-
-.value {
-  font-size: 1.375rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-  color: var(--ink);
-}
-
-.valueAsOf {
-  font-size: 0.6875rem;
-  font-variant-numeric: tabular-nums;
-  color: rgba(226, 238, 252, 0.34);
-}
-
-.panelCta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 20px;
-  padding: 11px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(71, 183, 145, 0.26);
-  background: rgba(55, 152, 139, 0.12);
-  color: #d6f7e8;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  text-decoration: none;
-  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
-}
-
-.panelCta:hover {
-  background: rgba(55, 152, 139, 0.2);
-  border-color: rgba(71, 183, 145, 0.44);
-  color: #f0fdf8;
-}
-
-.panelCta:hover .ctaArrow {
-  transform: translateX(3px);
-}
-
-.panelNote {
-  margin-top: 14px;
-  font-size: 0.8125rem;
-  line-height: 1.55;
-  color: var(--ink-soft);
-}
-
-/* ---------------------------------------------------------------- strip --- */
-
-/* Real rows from the same payload as the panel — the fold cue is the ranking
-   continuing, not a decorative chevron. */
-.strip {
-  display: flex;
-  align-items: center;
-  gap: clamp(10px, 1.4vw, 18px);
-  margin-top: clamp(14px, 1.6vw, 22px);
-  padding: 0 clamp(4px, 1vw, 12px);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.strip::-webkit-scrollbar {
-  display: none;
-}
-
-.stripLabel {
-  flex: none;
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(226, 238, 252, 0.38);
-}
-
-.stripItem {
-  flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(150, 195, 235, 0.1);
-  background: rgba(10, 21, 38, 0.6);
-  color: var(--ink-soft);
-  font-size: 0.8125rem;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
-}
-
-.stripItem:hover {
-  border-color: rgba(71, 183, 145, 0.34);
-  background: rgba(55, 152, 139, 0.1);
-  color: var(--ink);
-}
-
-.stripRank {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgba(226, 238, 252, 0.4);
-}
-
-.stripScore {
-  font-size: 0.75rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: rgba(167, 243, 208, 0.8);
 }
 
 /* --------------------------------------------------------------- motion --- */
@@ -807,8 +360,6 @@
   }
 }
 
-/* Same breath, for the mobile placement where the layer is not vertically
-   centred and so must not carry the -50% translate. */
 @keyframes apertureBreatheStatic {
   0%,
   100% {
@@ -824,7 +375,7 @@
 @keyframes heroRise {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -833,114 +384,78 @@
 }
 
 .rise {
-  animation: heroRise 720ms cubic-bezier(0.2, 0.72, 0.2, 1) both;
+  animation: heroRise 640ms cubic-bezier(0.2, 0.72, 0.2, 1) both;
   animation-delay: var(--d, 0ms);
 }
 
 /* --------------------------------------------------------------- mobile --- */
 
-@media (max-width: 900px) {
+/*
+ * Below 960px the hero stops being a card.
+ *
+ * The frame's chrome comes off and the hero becomes two blocks on the page
+ * background: the message, then the Pokemon product composition. Nothing is
+ * scaled — the showcase re-lays out internally (see landing.module.css), and
+ * the decorative mark shrinks to an ambient glow that occupies no content
+ * space at all.
+ */
+@media (max-width: 960px) {
   .content {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 26px;
+    gap: 22px;
+    padding: clamp(18px, 4vw, 30px) 0 0;
   }
 
   .frame {
-    border-radius: 22px;
-    min-height: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
   }
 
-  /* Recomposed, not scaled. The mark drops to the lower right and reads
-     THROUGH the panel — which goes more translucent below — so the identity
-     survives without a second logo appearing beside the lockup and without
-     anything atmospheric crossing the headline. */
-  /* Lifted until the top of the mark clears the panel: at 390x844 the crown of
-     the "D" lands in the gap under the CTAs, so the atmosphere is in the first
-     viewport rather than parked below it. */
-  .markLayer {
-    top: auto;
-    bottom: 9%;
-    right: -22%;
-    height: auto;
-    width: 114%;
-    transform: none;
-  }
-
-  /* Read through the panel rather than around it: at this opacity the mark is
-     plainly the inDex mark behind the glass, and the panel's own gradient still
-     holds its text well clear of the artwork. */
-  .markCrisp {
-    opacity: 0.22;
-    filter: blur(1px) saturate(1.8);
-    -webkit-mask-image: radial-gradient(closest-side at 50% 50%, #000 26%, rgba(0, 0, 0, 0.5) 56%, transparent 80%);
-    mask-image: radial-gradient(closest-side at 50% 50%, #000 26%, rgba(0, 0, 0, 0.5) 56%, transparent 80%);
-  }
-
-  .markTint {
-    opacity: 0.44;
-  }
-
-  .markGlow {
-    width: 150%;
-    height: auto;
-    right: -36%;
-    bottom: -8%;
-    animation-name: apertureBreatheStatic;
-  }
-
-  .panel {
-    background: linear-gradient(
-      168deg,
-      rgba(19, 38, 58, 0.62) 0%,
-      rgba(9, 20, 36, 0.74) 56%,
-      rgba(6, 14, 26, 0.8) 100%
-    );
-  }
-
-  .layerVeil {
-    background:
-      linear-gradient(184deg, rgba(4, 8, 15, 0.86) 0%, rgba(4, 8, 15, 0.6) 40%, rgba(4, 8, 15, 0.12) 70%),
-      radial-gradient(130% 100% at 50% 50%, transparent 48%, rgba(2, 5, 11, 0.62) 100%);
-  }
-
-  .layerGrid {
-    opacity: 0.34;
-    -webkit-mask-image: radial-gradient(90% 60% at 70% 86%, #000 0%, transparent 82%);
-    mask-image: radial-gradient(90% 60% at 70% 86%, #000 0%, transparent 82%);
-  }
-}
-
-@media (max-width: 560px) {
-  .content {
-    padding: 26px 20px 24px;
-  }
-
-  .wordmark {
-    --wm-h: 40px;
-  }
-
-  /* "inDex | Collectible intelligence" does not survive one line at 390px, and
-     a two-line descriptor beside the mark breaks the lockup. Stacked, with the
-     rule dropped, the pairing still reads as one unit. */
-  .lockup {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 9px;
-    margin-bottom: 20px;
-  }
-
-  .lockupRule {
+  .frame::after {
     display: none;
   }
 
+  /* Ambient glow only — no silhouette, no watermark, nothing occupying space
+     the product composition needs. */
+  .markLayer {
+    top: auto;
+    bottom: 2%;
+    right: -30%;
+    height: auto;
+    width: 92%;
+    aspect-ratio: 1 / 1;
+    transform: none;
+  }
+
+  .markGlow {
+    animation-name: apertureBreatheStatic;
+  }
+
+  .layerBase,
+  .layerGrid,
+  .layerRake,
+  .layerVeil {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .stage {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
   .eyebrow {
+    margin-bottom: 14px;
+    padding: 5px 11px 5px 10px;
     font-size: 0.625rem;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.16em;
   }
 
   .headline {
-    font-size: clamp(2.05rem, 9.6vw, 2.7rem);
+    font-size: clamp(1.95rem, 9.2vw, 2.5rem);
     letter-spacing: -0.032em;
   }
 
@@ -948,37 +463,58 @@
     display: inline;
   }
 
-  /* Every line reclaimed here is a line the intelligence panel rises by. */
+  /* Every line reclaimed here is a line the product composition rises by. */
   .lede {
-    margin-top: 14px;
-    font-size: 0.94rem;
-    line-height: 1.54;
+    margin-top: 12px;
+    font-size: 0.9375rem;
+    line-height: 1.52;
   }
 
   .ctas {
-    margin-top: 20px;
+    margin-top: 18px;
+    gap: 4px 18px;
   }
 
-  .field {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
+  /*
+   * ONE button on a phone. Two full-width pills read as equally weighted, cost
+   * ~100px of the first viewport, and pushed the card art below the fold — so
+   * the primary keeps its pill and the secondary drops to a link that sits on
+   * one row with the waitlist beneath it.
+   */
   .ctaPrimary {
     flex: 1 1 100%;
   }
 
   .ctaSecondary {
-    justify-content: center;
-    width: 100%;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    font-size: 0.8125rem;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: rgba(150, 190, 225, 0.32);
   }
 
-  .panel {
-    padding: 18px 18px 16px;
+  .ctaSecondary:hover {
+    background: none;
   }
 
-  .score {
-    font-size: 2.75rem;
+  /* Compact, and without its rule — every pixel here is a pixel the card art
+     rises by in the first viewport. */
+  .heroMeta {
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: 0;
+    font-size: 0.6875rem;
+  }
+
+  /* Beside the secondary link rather than beneath it — the two quiet actions
+     share one row. */
+  .waitlistLink {
+    flex: 0 0 auto;
   }
 }
 
@@ -989,13 +525,16 @@
   }
 
   .ctaPrimary,
-  .panel,
+  .ctaSecondary,
   .ctaArrow {
     transition: none;
   }
 
-  .ctaPrimary:hover:not(:disabled),
-  .panel:hover {
+  .ctaPrimary:hover {
+    transform: none;
+  }
+
+  .ctaSecondary:hover .ctaArrow {
     transform: none;
   }
 }

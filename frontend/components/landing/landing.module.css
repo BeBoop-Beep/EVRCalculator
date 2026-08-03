@@ -1,0 +1,1621 @@
+/*
+ * The homepage below the hero.
+ *
+ * SECOND PASS. The first version was a correct product story told entirely in
+ * dark rectangles: every section was heading -> paragraph -> metric card -> a
+ * large empty gap, and nothing on screen said "Pokemon". The corrections here
+ * are structural, not decorative:
+ *
+ *   - real Pokemon card art is the primary category signal, at a size where it
+ *     reads as a card rather than an icon;
+ *   - each of the three product levels gets its OWN composition (sealed lines,
+ *     card art, ranking board) instead of one card design used three times;
+ *   - section padding dropped from ~164px between sections to ~104px, and the
+ *     methodology section went from a full-width three-column band to a single
+ *     two-column strip.
+ *
+ * The palette is unchanged, sampled from the inDex mark over near-black --void,
+ * with --accent (#facc15) still spent only on a primary action.
+ *
+ * Tailwind runs with `important: true` in this repo, so a utility class would
+ * outrank anything here. These sections are deliberately module-CSS only.
+ */
+
+.page {
+  --void: #04080f;
+  --navy: #0a1526;
+  --emerald: #0e6a4e;
+  --teal: #37988b;
+  --signal: #47b791;
+  --mint: #a7f3d0;
+  --accent: #facc15;
+  --ink: #eaf2fb;
+  --ink-soft: rgba(226, 238, 252, 0.64);
+  --ink-faint: rgba(226, 238, 252, 0.42);
+  --hairline: rgba(150, 190, 225, 0.14);
+  --up: #6ee7b7;
+  --down: #fca5a5;
+  /* Pokemon card art box (pokemontcg.io serves 245x342). Declared once so every
+     card frame on the page reserves the right space before the image loads. */
+  --card-ratio: 245 / 342;
+
+  background: var(--void);
+}
+
+/* --------------------------------------------------------------- shell --- */
+
+.section {
+  position: relative;
+  width: 100%;
+  padding: clamp(40px, 4vw, 58px) 0;
+}
+
+.sectionRaised {
+  background: linear-gradient(180deg, rgba(12, 26, 45, 0.5) 0%, rgba(4, 8, 15, 0) 78%);
+  border-top: 1px solid rgba(150, 190, 225, 0.08);
+}
+
+.shell {
+  width: 100%;
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 3vw, 44px);
+}
+
+/* -------------------------------------------------------------- heading --- */
+
+.sectionHead {
+  max-width: 62ch;
+}
+
+.sectionEyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(167, 243, 208, 0.72);
+}
+
+.sectionTitle {
+  font-size: clamp(1.7rem, 3.1vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.034em;
+  color: var(--ink);
+}
+
+.sectionLede {
+  margin-top: 12px;
+  max-width: 58ch;
+  font-size: clamp(0.94rem, 1.02vw, 1.0625rem);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------- cards --- */
+
+.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid rgba(150, 195, 235, 0.15);
+  background: linear-gradient(168deg, rgba(19, 38, 58, 0.68) 0%, rgba(9, 20, 36, 0.84) 56%, rgba(6, 14, 26, 0.9) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 26px 60px -34px rgba(0, 0, 0, 0.9);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.54);
+}
+
+.cardHeadNote {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: rgba(226, 238, 252, 0.36);
+}
+
+.liveDot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px rgba(71, 183, 145, 0.16);
+}
+
+.divider {
+  margin: 14px 0;
+  height: 1px;
+  background: rgba(150, 195, 235, 0.1);
+}
+
+/* ---------------------------------------------------------- pokemon art --- */
+
+/*
+ * THE CATEGORY SIGNAL.
+ *
+ * Real chase-card art from the set being featured, at a size where the
+ * illustration, the holo treatment and the card frame are all legible. This is
+ * what tells a cold visitor what inDex is about before they finish the lede,
+ * and it is why the abstract hero graphic was removed to make room.
+ */
+.chaseRow {
+  margin-top: 14px;
+}
+
+.chaseRowHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 9px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.5);
+}
+
+.chaseRowAsOf {
+  margin-left: auto;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: rgba(226, 238, 252, 0.34);
+}
+
+.chaseRowCards {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.chaseCard {
+  min-width: 0;
+  margin: 0;
+}
+
+/* Reserves the card's aspect ratio before the image arrives — no reflow when a
+   remote card image resolves late. */
+.chaseCardFrame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--card-ratio);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(238, 246, 255, 0.05);
+  box-shadow:
+    inset 0 0 0 1px rgba(150, 195, 235, 0.14),
+    0 12px 26px -16px rgba(0, 0, 0, 0.9);
+}
+
+.chaseCardImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chaseCardFallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  text-align: center;
+}
+
+.chaseCardFallbackName {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink-soft);
+}
+
+.chaseCardFallbackMeta {
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.chaseCardMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.chaseCardName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.chaseCardPrice {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------ sealed products --- */
+
+/*
+ * Sealed product, in type.
+ *
+ * The published sealed contract carries names, families and prices but NO
+ * artwork, and no sealed imagery exists locally — so rather than commission a
+ * stand-in box render, the real product and its real price are stated. This is
+ * still unmistakably sealed Pokemon and every number here is published.
+ */
+/* Side by side, not stacked: two sealed lines stacked added ~40px to the hero
+   showcase, and that height came straight out of the empty band beside it. */
+.sealedList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sealedItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(150, 195, 235, 0.11);
+  background: rgba(10, 21, 38, 0.55);
+}
+
+.sealedIcon {
+  display: flex;
+  flex: none;
+  color: rgba(167, 243, 208, 0.72);
+}
+
+.sealedLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.sealedPrice {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------- hero showcase --- */
+
+.showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.showcaseHead {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.showcaseLogo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  overflow: hidden;
+  border: 1px solid rgba(150, 195, 235, 0.14);
+  background: rgba(238, 246, 255, 0.09);
+}
+
+.showcaseSetName {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.showcaseSetMeta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* The hero showcase's own chase row sits directly on the frame, not in a card,
+   so the art is the object rather than the contents of another rectangle. */
+.showcase .chaseRow {
+  margin-top: 0;
+}
+
+/* ------------------------------------------------- featured set panel --- */
+
+.featuredPanel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid rgba(150, 195, 235, 0.15);
+  background: linear-gradient(168deg, rgba(19, 38, 58, 0.82) 0%, rgba(9, 20, 36, 0.9) 56%, rgba(6, 14, 26, 0.94) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  backdrop-filter: blur(16px) saturate(1.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 30px 70px -34px rgba(0, 0, 0, 0.92);
+}
+
+/*
+ * The panel's headline is a RANK, in words. A bare "100.0" was the dominant
+ * element in the first pass and it means nothing cold — it is a cohort-relative
+ * position, not a score out of a hundred and not a probability.
+ */
+.openingRank {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.openingRankNum {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  color: #f4fbff;
+}
+
+.openingRankLabel {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.openingRankCohort {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+
+.featuredSetName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink-soft);
+}
+
+/* The published read on the set, in plain language, between the identity and
+   the numbers. */
+.featuredSignal {
+  margin-top: 7px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #d6f7e8;
+}
+
+.featuredStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 22px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(150, 195, 235, 0.1);
+}
+
+/* The disclaimer that keeps RIP Score from being read as a profit chance. */
+.scoreCaveat {
+  margin-top: 9px;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+/* -------------------------------------------------------------- metrics --- */
+
+.metricLabel {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.5);
+}
+
+.tierPill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.value {
+  margin-top: 4px;
+  font-size: 1.3125rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  min-width: 0;
+}
+
+.statLabel {
+  display: block;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.46);
+}
+
+.statValue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* RIP Score's slot. Retained as supporting analytical detail, and sized so it
+   can never read as the panel's headline figure again. */
+.statMuted .statValue {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------- profit vs cost bars --- */
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.barLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(226, 238, 252, 0.6);
+}
+
+.barValue {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.barTrack {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(150, 195, 235, 0.1);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--emerald), var(--signal));
+}
+
+.barFillCost {
+  background: linear-gradient(90deg, rgba(150, 195, 235, 0.28), rgba(150, 195, 235, 0.42));
+}
+
+/* --------------------------------------------------------------- signal --- */
+
+.signal {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(71, 183, 145, 0.22);
+  background: rgba(55, 152, 139, 0.1);
+}
+
+.signalDot {
+  flex: none;
+  margin-top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.signalText {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  font-weight: 600;
+  color: #d6f7e8;
+}
+
+/*
+ * The Quick Read. Published interpretation only — `leaderboard_label`, then the
+ * canonical recommendation header, then the RIP interpretation label. When none
+ * of those exist the caller renders nothing here rather than writing a verdict.
+ */
+.quickRead {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(71, 183, 145, 0.26);
+  border-left-width: 3px;
+  background: rgba(55, 152, 139, 0.1);
+}
+
+.quickReadLabel {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(167, 243, 208, 0.78);
+}
+
+.quickReadText {
+  margin-top: 7px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.024em;
+  color: #eafaf3;
+}
+
+.quickReadNote {
+  margin-top: 7px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------- rank lists --- */
+
+.rankList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rankRow {
+  display: grid;
+  grid-template-columns: 24px 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.rankRow:hover {
+  background: rgba(55, 152, 139, 0.1);
+}
+
+/*
+ * The leading row is marked by a wash and a heavier rank numeral only. It used
+ * to swap in a chase-card thumbnail, which made one row in a column of set
+ * logos look like it was about a card instead of a set — the entity imagery on
+ * this board is uniformly the set logo.
+ */
+.rankRowLead {
+  background: rgba(55, 152, 139, 0.07);
+}
+
+.rankRowLead .rankPos {
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.rankPos {
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: rgba(226, 238, 252, 0.42);
+}
+
+.rankPosLead {
+  color: var(--ink);
+}
+
+.rankLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+}
+
+.rankLogoImg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.rankLogoFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  background: rgba(238, 246, 255, 0.07);
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+.rankName {
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tier then score, on one line — the board's metric column. */
+.rankTrail {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.rankScore {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* Opening Rank is the row's headline; the score is supporting detail. */
+.rankScoreMuted {
+  min-width: 2.25ch;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.rankDelta {
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.deltaUp {
+  color: var(--up);
+}
+
+.deltaDown {
+  color: var(--down);
+}
+
+/* --------------------------------------------------------------- links --- */
+
+.cardCta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(71, 183, 145, 0.26);
+  background: rgba(55, 152, 139, 0.12);
+  color: #d6f7e8;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.cardCta:hover {
+  background: rgba(55, 152, 139, 0.2);
+  border-color: rgba(71, 183, 145, 0.44);
+  color: #f0fdf8;
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  color: rgba(226, 238, 252, 0.82);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+
+.ctaSecondary:hover {
+  border-color: rgba(71, 183, 145, 0.42);
+  background: rgba(55, 152, 139, 0.1);
+  color: var(--ink);
+}
+
+.ctaArrow {
+  flex: none;
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.cardCta:hover .ctaArrow,
+.ctaSecondary:hover .ctaArrow,
+.methodLink:hover .ctaArrow {
+  transform: translateX(3px);
+}
+
+.cardCta:focus-visible,
+.ctaSecondary:focus-visible,
+.rankRow:focus-visible,
+.valueRowLink:focus-visible,
+.stripItem:focus-visible,
+.methodLink:focus-visible,
+.finalPrimary:focus-visible {
+  outline: 2px solid rgba(126, 240, 198, 0.9);
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------- live pokemon market strip --- */
+
+/*
+ * Replaces the first pass's "Also ranked" pills, which were decorative and too
+ * small to read. Three published signals answering three different questions,
+ * as a wrapping grid — no carousel, nothing auto-advancing, nothing hidden
+ * behind a swipe.
+ */
+.strip {
+  position: relative;
+  width: 100%;
+  padding: 4px 0 clamp(28px, 3vw, 40px);
+}
+
+.stripHeading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.46);
+}
+
+.stripList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stripItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(150, 195, 235, 0.11);
+  background: rgba(10, 21, 38, 0.55);
+  text-decoration: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.stripItem:hover {
+  border-color: rgba(71, 183, 145, 0.34);
+  background: rgba(55, 152, 139, 0.1);
+}
+
+.stripThumb {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+}
+
+.stripCardImg {
+  display: block;
+  width: 34px;
+  aspect-ratio: var(--card-ratio);
+  height: auto;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: inset 0 0 0 1px rgba(150, 195, 235, 0.16);
+}
+
+.stripBody {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.stripLabel {
+  display: block;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.44);
+}
+
+.stripName {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stripSub {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stripTrail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.stripValue {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.stripUnit {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.4);
+}
+
+.stripMove {
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------- section 2: levels --- */
+
+.levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 1.8vw, 24px);
+  margin-top: clamp(24px, 2.6vw, 34px);
+  align-items: start;
+}
+
+.level {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* The question leads, because that is what a visitor arrives with. */
+.levelQuestion {
+  font-size: 1.1875rem;
+  font-weight: 700;
+  letter-spacing: -0.024em;
+  color: var(--ink);
+}
+
+.levelProduct {
+  margin-top: 5px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(167, 243, 208, 0.78);
+}
+
+.levelCopy {
+  margin-top: 9px;
+  font-size: 0.875rem;
+  line-height: 1.56;
+  color: var(--ink-soft);
+}
+
+.levelPreview {
+  margin-top: 14px;
+}
+
+/* Three different compositions, not one card design repeated. */
+.levelCard {
+  position: relative;
+  border-radius: 16px;
+  padding: 14px;
+  border: 1px solid rgba(150, 195, 235, 0.13);
+  background: linear-gradient(168deg, rgba(19, 38, 58, 0.6) 0%, rgba(9, 20, 36, 0.82) 100%);
+}
+
+/* Sealed: the product lines are the object, so the card is quiet behind them. */
+.levelCardSealed {
+  background: linear-gradient(168deg, rgba(16, 32, 50, 0.6) 0%, rgba(7, 16, 30, 0.86) 100%);
+}
+
+/* One per line in this column — at a third of the shell width two side-by-side
+   sealed lines truncate the product name, and a truncated product name is the
+   part that carries the category. */
+.levelCardSealed .sealedList {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Cards: art-forward, so the card has almost no chrome of its own. */
+.levelCardCards {
+  border-color: rgba(150, 195, 235, 0.1);
+  background: rgba(9, 20, 36, 0.5);
+}
+
+/* Board: a ranking, so it gets the tighter list rhythm and a top rule. */
+.levelCardBoard {
+  padding-top: 12px;
+}
+
+.levelCardHead {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.44);
+}
+
+/* "Should I open it?" leads with the rank, same as the hero panel — the two
+   surfaces must not disagree about which figure matters. */
+.levelRank {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.levelRankNum {
+  font-size: 1.625rem;
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #f4fbff;
+}
+
+.levelRankLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.levelRankCohort {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+/* RIP Score, as a footnote. */
+.levelCardFoot {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(150, 195, 235, 0.1);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------ section 3: set intelligence --- */
+
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(28px, 3.6vw, 56px);
+}
+
+.featureCopy,
+.featureMedia {
+  min-width: 0;
+}
+
+.featureActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.setBoard {
+  border-radius: 20px;
+  padding: 18px;
+  border: 1px solid rgba(150, 195, 235, 0.15);
+  background: linear-gradient(168deg, rgba(19, 38, 58, 0.72) 0%, rgba(7, 16, 30, 0.92) 100%);
+  box-shadow: 0 30px 70px -38px rgba(0, 0, 0, 0.92);
+}
+
+.setBoardHead {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.setBoardStats {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 18px 26px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(150, 195, 235, 0.1);
+}
+
+.setBoardStat {
+  min-width: 0;
+}
+
+/* -------------------------------------------------- section 4: explore --- */
+
+/* Deliberately unequal: the opening-profile board is the primary answer, the
+   value ladder is a secondary lens on the same cohort. */
+.boardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(14px, 1.6vw, 20px);
+  margin-top: clamp(22px, 2.4vw, 32px);
+}
+
+.boardPrimary {
+  padding: 18px;
+}
+
+.boardSecondary {
+  background: rgba(9, 20, 36, 0.55);
+  box-shadow: none;
+}
+
+.valueList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.valueRowLink {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.valueRowLink:hover {
+  background: rgba(55, 152, 139, 0.1);
+}
+
+.valueName {
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.valueTrail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.valueAmount {
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------- section 5: methodology --- */
+
+/* One band, not a slide: heading and figures on the left, the three steps on
+   the right. The first pass gave this a full-width heading block and a
+   three-column grid, and it occupied most of a viewport for three sentences. */
+.sectionMethod {
+  border-top: 1px solid rgba(150, 190, 225, 0.08);
+  background: linear-gradient(180deg, rgba(10, 21, 38, 0.42) 0%, rgba(4, 8, 15, 0) 70%);
+}
+
+.method {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: clamp(26px, 3.4vw, 52px);
+}
+
+.methodIntro {
+  min-width: 0;
+}
+
+.methodTitle {
+  margin-top: 10px;
+  font-size: clamp(1.375rem, 2.2vw, 1.75rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 30px;
+  margin-top: 18px;
+}
+
+.fact {
+  min-width: 0;
+}
+
+.factValue {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.factLabel {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.46);
+}
+
+.methodLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgba(167, 243, 208, 0.86);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.methodLink:hover {
+  color: #eafaf3;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 1.8vw, 24px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(150, 190, 225, 0.14);
+}
+
+.stepIndex {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(167, 243, 208, 0.6);
+}
+
+.stepTitle {
+  margin-top: 7px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+}
+
+.stepCopy {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+  line-height: 1.54;
+  color: var(--ink-soft);
+}
+
+/* Visible, but plainly secondary. */
+.disclaimer {
+  margin-top: clamp(20px, 2.2vw, 28px);
+  max-width: 82ch;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------ section 6: final cta --- */
+
+.final {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: clamp(30px, 3.8vw, 52px) clamp(20px, 3.6vw, 48px);
+  border: 1px solid rgba(150, 195, 235, 0.13);
+  background:
+    radial-gradient(72% 120% at 82% 12%, rgba(55, 152, 139, 0.16) 0%, rgba(55, 152, 139, 0) 70%),
+    linear-gradient(168deg, rgba(17, 34, 54, 0.8) 0%, rgba(7, 16, 30, 0.94) 100%);
+  box-shadow: 0 40px 90px -46px rgba(0, 0, 0, 0.92);
+  text-align: center;
+}
+
+.finalTitle {
+  font-size: clamp(1.625rem, 3.2vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.034em;
+  color: var(--ink);
+}
+
+.finalLede {
+  margin: 12px auto 0;
+  max-width: 54ch;
+  font-size: clamp(0.94rem, 1.02vw, 1.0625rem);
+  line-height: 1.58;
+  color: var(--ink-soft);
+}
+
+.finalActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 20px;
+  margin-top: clamp(20px, 2.4vw, 30px);
+}
+
+.finalPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0a1220;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  box-shadow: 0 10px 26px -12px rgba(250, 204, 21, 0.62);
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.finalPrimary:hover {
+  background: #fde047;
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------- empty --- */
+
+.emptyNote {
+  margin-top: 10px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------- shared bits --- */
+
+.setRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.setMark {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid rgba(150, 195, 235, 0.14);
+  background: rgba(238, 246, 255, 0.09);
+}
+
+.setMarkImg {
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+}
+
+.setMarkFallback {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+.setText {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.setName {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setEra {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--ink-faint);
+}
+
+/* -------------------------------------------------------------- tablet --- */
+
+@media (max-width: 1080px) {
+  .boardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .method {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (max-width: 960px) {
+  .levels {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+  }
+
+  .feature {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .setBoardStats {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* -------------------------------------------------------------- mobile --- */
+
+@media (max-width: 600px) {
+  .section {
+    padding: 34px 0;
+  }
+
+  .sectionTitle {
+    font-size: clamp(1.55rem, 7vw, 1.9rem);
+  }
+
+  .card,
+  .setBoard,
+  .featuredPanel {
+    padding: 14px;
+  }
+
+  /* Three cards still fit a 320px viewport at ~88px each, which is wide enough
+     to read as a Pokemon card. They are never scaled or scrolled. */
+  .chaseRowCards {
+    gap: 8px;
+  }
+
+  .statGrid {
+    gap: 8px;
+  }
+
+  .statValue {
+    font-size: 0.875rem;
+  }
+
+  .stripList {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quickRead {
+    margin-top: 18px;
+    padding: 14px 15px;
+  }
+
+  .quickReadText {
+    font-size: 1.0625rem;
+  }
+
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .facts {
+    gap: 10px 22px;
+  }
+
+  .featureActions,
+  .finalActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rankRow {
+    grid-template-columns: 20px 24px minmax(0, 1fr) auto;
+    gap: 8px;
+    min-height: 48px;
+  }
+
+  /* Same grid as every other row — the lead row differs by wash and numeral
+     weight, not by a wider entity-image column. */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rankRow,
+  .valueRowLink,
+  .stripItem,
+  .cardCta,
+  .ctaSecondary,
+  .ctaArrow,
+  .finalPrimary,
+  .methodLink {
+    transition: none;
+  }
+
+  .cardCta:hover .ctaArrow,
+  .ctaSecondary:hover .ctaArrow,
+  .methodLink:hover .ctaArrow {
+    transform: none;
+  }
+
+  .finalPrimary:hover {
+    transform: none;
+  }
+}
