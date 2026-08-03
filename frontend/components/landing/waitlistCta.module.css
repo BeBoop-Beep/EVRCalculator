@@ -1,0 +1,346 @@
+/*
+ * The waitlist action, and the compact dialog behind it.
+ *
+ * The landing page asks for the same primary action in two places (hero and
+ * final CTA) and cannot afford a permanent email field in either — on a 390px
+ * viewport that field is what pushed the product proof below the fold. So the
+ * field moves into a dialog and the button becomes the only resting state.
+ *
+ * Colours are the hero's, sampled from the mark and re-declared here so this
+ * component is self-contained: --accent (#facc15) is spent on the primary
+ * button and nowhere else, exactly as in LandingHero.module.css.
+ */
+
+.root {
+  --void: #04080f;
+  --signal: #47b791;
+  --accent: #facc15;
+  --ink: #eaf2fb;
+  --ink-soft: rgba(226, 238, 252, 0.64);
+  --ink-faint: rgba(226, 238, 252, 0.42);
+  --hairline: rgba(150, 190, 225, 0.14);
+
+  display: contents;
+}
+
+/* The single loudest element on the page. */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0a1220;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 10px 26px -12px rgba(250, 204, 21, 0.62);
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.trigger:hover {
+  background: #fde047;
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px -12px rgba(250, 204, 21, 0.72);
+}
+
+.trigger:active {
+  transform: translateY(0);
+}
+
+/*
+ * The tertiary weight. The waitlist is for the portfolio product, which is not
+ * shipped, so in the hero it must not compete with Explore — it reads as a
+ * quiet link while keeping a full 44px target.
+ */
+.triggerLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(150, 190, 225, 0.32);
+  cursor: pointer;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.triggerLink:hover {
+  color: var(--ink);
+  text-decoration-color: rgba(126, 240, 198, 0.7);
+}
+
+.triggerLink:focus-visible {
+  outline: 2px solid rgba(126, 240, 198, 0.9);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* --------------------------------------------------------------- dialog --- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  /* Above the fixed bottom navigation, and clear of the notch on both ends. */
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  background: rgba(3, 7, 14, 0.76);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: waitlistFade 180ms ease both;
+}
+
+.dialog {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  overflow-y: auto;
+  border-radius: 22px;
+  padding: 26px 24px 24px;
+  border: 1px solid rgba(150, 195, 235, 0.16);
+  background: linear-gradient(168deg, rgba(19, 38, 58, 0.96) 0%, rgba(9, 20, 36, 0.98) 56%, rgba(6, 14, 26, 0.99) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 40px 90px -30px rgba(0, 0, 0, 0.95);
+  animation: waitlistRise 220ms cubic-bezier(0.2, 0.72, 0.2, 1) both;
+}
+
+.dialogHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(167, 243, 208, 0.74);
+}
+
+.dialogDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px rgba(71, 183, 145, 0.16);
+}
+
+.dialogTitle {
+  margin-top: 12px;
+  font-size: 1.375rem;
+  font-weight: 800;
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.dialogNote {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.close:hover {
+  background: rgba(150, 200, 230, 0.08);
+  color: var(--ink);
+}
+
+.form {
+  margin-top: 18px;
+}
+
+.label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(226, 238, 252, 0.5);
+}
+
+.field {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: rgba(8, 18, 32, 0.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  letter-spacing: -0.005em;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.field::placeholder {
+  color: var(--ink-faint);
+}
+
+.field:hover:not(:disabled) {
+  border-color: rgba(150, 200, 230, 0.24);
+}
+
+.field:disabled {
+  opacity: 0.55;
+}
+
+.submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0a1220;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 10px 26px -12px rgba(250, 204, 21, 0.62);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.submit:hover:not(:disabled) {
+  background: #fde047;
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.feedback {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.feedbackSuccess {
+  color: #6ee7b7;
+}
+
+.feedbackExists {
+  color: #fde68a;
+}
+
+.feedbackError {
+  color: #fca5a5;
+}
+
+.resend {
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.resend:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.resend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* One visible focus treatment for every interactive element here. */
+.trigger:focus-visible,
+.submit:focus-visible,
+.close:focus-visible,
+.resend:focus-visible,
+.field:focus-visible {
+  outline: 2px solid rgba(126, 240, 198, 0.9);
+  outline-offset: 3px;
+}
+
+.field:focus-visible {
+  border-color: rgba(71, 183, 145, 0.6);
+}
+
+@keyframes waitlistFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes waitlistRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog {
+    animation: none;
+  }
+
+  .trigger,
+  .submit {
+    transition: none;
+  }
+
+  .trigger:hover {
+    transform: none;
+  }
+}

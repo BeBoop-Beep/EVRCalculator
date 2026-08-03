@@ -42,6 +42,40 @@ function readSetValue(target) {
   );
 }
 
+/**
+ * The 7-day set value comparison the Explore Top Rankings ladder already
+ * reads. Kept as three separate fields rather than a derived delta so the
+ * caller can tell "no change" from "no comparable snapshot" — the landing
+ * previews render those two states differently and neither may become a zero.
+ */
+function readPreviousSetValue7d(target) {
+  return (
+    toOptionalNumber(target?.previousChecklistSetValue7d) ??
+    toOptionalNumber(target?.previous_checklist_set_value_7d)
+  );
+}
+
+function readSetValueStatus7d(target) {
+  return (
+    toOptionalString(target?.setValueComparisonStatus7d) ??
+    toOptionalString(target?.set_value_comparison_status_7d)
+  );
+}
+
+/**
+ * The published opening economics for one pack of this set: what a pack costs,
+ * the modeled mean value the simulation returns, and the modeled probability an
+ * opening lands above cost. These are the SAME three fields the Explore table
+ * publishes (`pack_cost`, `mean_value`, `prob_profit`) — read, never derived.
+ */
+function readOpeningEconomics(target) {
+  return {
+    packCost: toOptionalNumber(target?.pack_cost) ?? toOptionalNumber(target?.packCost),
+    meanValue: toOptionalNumber(target?.mean_value) ?? toOptionalNumber(target?.meanValue),
+    probProfit: toOptionalNumber(target?.prob_profit) ?? toOptionalNumber(target?.probProfit),
+  };
+}
+
 function buildRipLink(target) {
   const targetType = toOptionalString(target?.target_type);
   const targetId = toOptionalString(target?.target_id);
@@ -61,6 +95,8 @@ function toEntry(target) {
     return null;
   }
 
+  const economics = readOpeningEconomics(target);
+
   return {
     key: `${toOptionalString(target?.target_type) || "set"}:${toOptionalString(target?.target_id) || ""}`,
     targetType: toOptionalString(target?.target_type),
@@ -77,7 +113,23 @@ function toEntry(target) {
     setValue: readSetValue(target),
     setValueAsOf:
       toOptionalString(target?.currentChecklistSetValueDate) ??
-      toOptionalString(target?.current_checklist_set_value_date),
+      toOptionalString(target?.current_checklist_set_value_date) ??
+      toOptionalString(target?.checklistSetValueAsOf) ??
+      toOptionalString(target?.checklist_set_value_as_of),
+    previousSetValue7d: readPreviousSetValue7d(target),
+    setValueStatus7d: readSetValueStatus7d(target),
+    packCost: economics.packCost,
+    meanValue: economics.meanValue,
+    probProfit: economics.probProfit,
+    // The backend's own one-line read on this set. `leaderboard_label` is the
+    // short form the Explore table shows; the canonical recommendation header
+    // is the long form it shortens. Severity drives tone only.
+    decisionLabel:
+      toOptionalString(target?.leaderboard_label) ??
+      toOptionalString(target?.canonical_recommendation_header),
+    decisionSeverity: toOptionalString(target?.recommendation_severity),
+    interpretationLabel: toOptionalString(hero.interpretation?.label),
+    interpretationSummary: toOptionalString(hero.interpretation?.summary),
     href: buildRipLink(target),
   };
 }
