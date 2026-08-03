@@ -35,6 +35,7 @@ export default async function HomePage() {
     openingChaseCards,
     openingSealedProducts,
     openingCardsAsOf,
+    openingBoosterPackImage,
     setIntelligenceSpotlightSet,
     setIntelligenceChaseCards,
     marketSignals,
@@ -53,6 +54,7 @@ export default async function HomePage() {
         sealedProducts={openingSealedProducts}
         cardsAsOf={openingCardsAsOf}
         marketContext={marketContext}
+        boosterPackImage={openingBoosterPackImage}
       />
       <MarketStrip signals={marketSignals} />
       <LevelsSection

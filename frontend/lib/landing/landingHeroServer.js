@@ -9,6 +9,7 @@ import {
   selectOpeningSpotlight,
 } from "@/lib/landing/landingSpotlights.mjs";
 import { getSetChaseCardsPayload, getSetSealedPayload } from "@/lib/landing/landingSetMedia";
+import { selectHeroBoosterPackImage } from "@/lib/landing/landingBoosterPack.mjs";
 import {
   selectChaseCards,
   selectExploreRankingRows,
@@ -133,13 +134,22 @@ export async function getLandingPageData() {
   ]);
 
   const openingChasePayload = settled(openingChaseResult);
+  const openingSealedPayload = settled(openingSealedResult);
   const showcase = settled(showcaseResult) || { set: null, cards: [] };
   const setIntelligenceSpotlightSet = showcase.set;
 
   return {
     openingSpotlightSet,
     openingChaseCards: selectChaseCards(openingChasePayload, HERO_CHASE_CARD_LIMIT),
-    openingSealedProducts: selectSealedProducts(settled(openingSealedResult), SEALED_HIGHLIGHT_LIMIT),
+    openingSealedProducts: selectSealedProducts(openingSealedPayload, SEALED_HIGHLIGHT_LIMIT),
+
+    // Decorative hero backdrop only. Resolved from the sealed payload ALREADY
+    // fetched above — no extra request — so the pack follows the spotlight set.
+    // Null whenever that set publishes no usable product art, in which case the
+    // hero renders exactly as it does without this feature.
+    openingBoosterPackImage: selectHeroBoosterPackImage(openingSealedPayload, {
+      setName: openingSpotlightSet?.name || null,
+    }),
     openingCardsAsOf:
       openingChasePayload?.latestMarketDate || openingChasePayload?.latest_market_date || null,
 

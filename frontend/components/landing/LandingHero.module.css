@@ -144,6 +144,90 @@
   animation: apertureBreathe 21s ease-in-out infinite;
 }
 
+/* ------------------------------------------------- booster pack backdrop --- */
+
+/*
+ * Atmospheric product imagery: one booster pack, sitting behind the right-hand
+ * intelligence composition as a lit silhouette.
+ *
+ * It is a sibling of the other `.layer` elements at z-index 0, placed in the DOM
+ * BEFORE `.layerRake` and `.layerVeil` on purpose — the veil paints over it, so
+ * the pack is pushed further down into the background on the copy side and the
+ * headline's readability floor is unchanged. `.content` sits at z-index 1, so
+ * every word, button and panel stays above it.
+ *
+ * Clipped by `.frame` (desktop) and `.stage` (mobile, where the frame drops its
+ * own background), both of which already carry `overflow: hidden`. It occupies
+ * no space in the grid and therefore cannot shift layout or add hero height.
+ */
+.packBackdrop {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  /*
+   * DESKTOP. Anchored to the open band between the copy column and the
+   * right-hand intelligence composition, with its right edge running a little
+   * way UNDER the composition — so part of the pack is genuinely visible
+   * (recognizable on a normal scan) while the rest tucks behind the chase-card
+   * and panel stack.
+   *
+   * It deliberately stops above `.heroMeta`: the earlier placement sat entirely
+   * behind the opaque panel, where it could not be seen at all, and pushing it
+   * lower instead would have put it under the meta line's small faint type.
+   */
+  top: 14%;
+  right: 36%;
+  width: clamp(180px, 17vw, 290px);
+  aspect-ratio: 5 / 9;
+  transform: rotate(-7deg);
+  opacity: 0.42;
+  /*
+   * Both vertical edges fade, and the body stays solid.
+   *
+   * A one-directional fade was wrong here: the solid end landed under the
+   * opaque intelligence composition and only the faded end showed, so the pack
+   * read as a stray light wash. Keeping the middle opaque means the part in the
+   * open band is the part you can actually recognize, while the leading edge
+   * dissolves toward the copy and the trailing edge dissolves as it slides
+   * under the cards. The second gradient does the same downward, so nothing
+   * ends on a hard cut at the frame edge.
+   */
+  -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(0, 0, 0, 0.45) 14%,
+      #000 30%,
+      #000 66%,
+      rgba(0, 0, 0, 0.4) 90%,
+      transparent 100%
+    ),
+    linear-gradient(#000 58%, rgba(0, 0, 0, 0.22) 86%, transparent 100%);
+  mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(0, 0, 0, 0.45) 14%,
+      #000 30%,
+      #000 66%,
+      rgba(0, 0, 0, 0.4) 90%,
+      transparent 100%
+    ),
+    linear-gradient(#000 58%, rgba(0, 0, 0, 0.22) 86%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  /* Ambient teal cast from the existing palette, not a new token. */
+  filter: saturate(0.62) brightness(0.88) blur(1px)
+    drop-shadow(0 22px 46px rgba(4, 8, 15, 0.85))
+    drop-shadow(0 0 30px rgba(55, 152, 139, 0.22));
+}
+
+.packBackdropImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
 /* Directional rake from the upper right. */
 .layerRake {
   background: linear-gradient(202deg, rgba(120, 205, 195, 0.1) 0%, rgba(120, 205, 195, 0) 42%);
@@ -438,6 +522,61 @@
   .layerRake,
   .layerVeil {
     display: none;
+  }
+
+  /*
+   * MOBILE PLACEMENT — authored from scratch, not the desktop composition
+   * scaled. The veil layer is gone here, so the pack is taken further toward a
+   * shadow: lower opacity, less saturation, more blur.
+   *
+   * ANCHORING. `top` is a fixed px offset from the top of the hero, NOT a
+   * percentage of it. The mobile hero's height swings by several hundred pixels
+   * depending on whether the featured set published chase-card art, and a
+   * percentage anchor put the pack entirely behind that opaque card row on the
+   * tall variant — invisible. A px offset keeps it in the one reliably open
+   * region on a phone: the right-hand column beside the short headline lines.
+   *
+   * It bleeds off the right edge (clipped by `.stage`'s existing
+   * `overflow: hidden`, so no horizontal scroll) and is sized purely by width +
+   * aspect-ratio, so it never depends on hero height, never grows toward the
+   * fixed bottom navigation, and adds no height of its own.
+   */
+  .packBackdrop {
+    top: 84px;
+    bottom: auto;
+    right: -12%;
+    left: auto;
+    width: 48%;
+    max-width: 220px;
+    height: auto;
+    aspect-ratio: 5 / 9;
+    transform: rotate(-6deg);
+    /* Tuned by measurement, not by guess: at 0.2/brightness 0.6 the pack moved
+       peak screen luminance by 0.007 — below the perceptual floor, i.e. it was
+       not actually visible. These values land it around 0.017, still well under
+       the desktop treatment and safely under the type that passes over it. */
+    opacity: 0.27;
+    filter: saturate(0.42) brightness(0.72) blur(1.5px)
+      drop-shadow(0 16px 34px rgba(4, 8, 15, 0.9));
+    /* Fades hard toward the text side of the screen. */
+    -webkit-mask-image: linear-gradient(268deg, #000 22%, rgba(0, 0, 0, 0.3) 62%, transparent 88%),
+      linear-gradient(#000 56%, rgba(0, 0, 0, 0.2) 86%, transparent 100%);
+    mask-image: linear-gradient(268deg, #000 22%, rgba(0, 0, 0, 0.3) 62%, transparent 88%),
+      linear-gradient(#000 56%, rgba(0, 0, 0, 0.2) 86%, transparent 100%);
+  }
+}
+
+/*
+ * Narrow phones. The copy runs the full width here, so the pack is pushed
+ * FURTHER off the right edge and narrowed to a sliver rather than widened —
+ * at 320px the wider treatment put a visible band across the lede.
+ */
+@media (max-width: 400px) {
+  .packBackdrop {
+    top: 76px;
+    right: -26%;
+    width: 45%;
+    opacity: 0.2;
   }
 }
 

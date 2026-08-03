@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import WaitlistCta from "@/components/landing/WaitlistCta";
 import HeroShowcase from "@/components/landing/HeroShowcase";
+import HeroBoosterPackBackdrop from "@/components/landing/HeroBoosterPackBackdrop";
 import { formatFullDate } from "@/components/landing/landingFormat.mjs";
 import styles from "./LandingHero.module.css";
 
@@ -39,6 +40,7 @@ export default function LandingHero({
   sealedProducts = [],
   cardsAsOf = null,
   marketContext = null,
+  boosterPackImage = null,
 }) {
   // Published coverage and freshness, stated as a line rather than as a badge.
   // Both figures are real or the clause is dropped — there is no default here.
@@ -61,6 +63,11 @@ export default function LandingHero({
           {/* The inDex mark stays, but only as the scene's light source — a
               supporting element behind the product, not the subject. */}
           <div className={`${styles.markLayer} ${styles.markGlow}`} aria-hidden="true" />
+
+          {/* Decorative product imagery. Sits BEFORE the rake and veil so both
+              paint over it, keeping the copy column's readability floor exactly
+              as it was. Renders nothing when no image resolved. */}
+          <HeroBoosterPackBackdrop image={boosterPackImage} />
 
           <div className={`${styles.layer} ${styles.layerRake}`} aria-hidden="true" />
           <div className={`${styles.layer} ${styles.layerVeil}`} aria-hidden="true" />
