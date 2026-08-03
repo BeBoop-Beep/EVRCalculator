@@ -33,8 +33,10 @@ test("sealed chart shares the dark tooltip and Set Value ombre language", () => 
   assert.match(card, /<Line type="linear" dataKey="marketPrice"/);
 });
 
-test("mobile divider opacity is reduced and its three-pixel rule remains", () => {
-  assert.match(css, /--mobile-section-divider: rgba\(226, 232, 240, 0\.30\)/);
-  assert.match(css, /--mobile-section-divider: rgba\(100, 116, 139, 0\.25\)/);
+test("mobile divider keeps its restrained three-pixel footprint after the luminous pass", () => {
+  // The flat single-token fill became a layered luminous hairline; the 3px
+  // decorative box (and so the section separation) is unchanged.
+  assert.match(css, /--mobile-section-divider-core: rgba\(226, 232, 240, 0\.28\)/);
+  assert.match(css, /--mobile-section-divider-core: rgba\(71, 85, 105, 0\.22\)/);
   assert.match(css, /\[data-mobile-section\]::before\s*\{[^}]*height: 3px;/s);
 });

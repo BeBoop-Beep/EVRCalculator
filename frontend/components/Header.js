@@ -45,12 +45,14 @@ export default function Header() {
   const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
   const navTabActive = "text-[var(--accent)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
   const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
-  const navDropdownSurface = "bg-[var(--surface-panel)]";
+  // Border, background and shadow all come from the shared dropdown glass so
+  // the header menus read as the same material as the set-page dropdowns.
+  const navDropdownSurface = "set-dropdown-glass";
   const navDropTrigger = "inline-flex items-center gap-1.5 px-2 py-2 text-sm xl:text-[15px] font-medium leading-5 rounded-md border border-transparent transition-[color,background-color,opacity] duration-150 ease-out";
-  const navDropPanel = `absolute top-full mt-1 rounded-xl ${navDropdownSurface} text-[var(--text-primary)] z-[1100] border border-[var(--border-subtle)] whitespace-nowrap py-1 dropdown-enter`;
+  const navDropPanel = `absolute top-full mt-1 rounded-xl ${navDropdownSurface} text-[var(--text-primary)] z-[1100] whitespace-nowrap py-1 dropdown-enter`;
   const navDropPanelCompact = "w-36";
   const navDropPanelAccount = "w-48";
-  const navDropItem = "block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors";
+  const navDropItem = "set-dropdown-option block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors";
   const navDropTriggerOpen = "text-[var(--text-primary)] bg-[var(--surface-hover)]";
   const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
   const navDropTriggerActive = "relative text-[var(--accent)] after:content-[''] after:absolute after:left-2 after:right-2 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";

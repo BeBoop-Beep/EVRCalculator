@@ -13,9 +13,11 @@ from backend.domain.pokemon.sealed_product_classifier import (
     classify_sealed_product,
 )
 
-SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v2"
+SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v3"
 WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
 MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
+# Retained as product-family metadata for consumers; product ordering itself is
+# now driven by current market price rather than by family.
 FAMILY_PRIORITY = {
     "booster_box": 0,
     "enhanced_booster_box": 1,
@@ -25,6 +27,29 @@ FAMILY_PRIORITY = {
     "booster_pack": 5,
     "sleeved_booster_pack": 6,
 }
+
+
+def product_sort_key(item: Dict[str, Any]) -> tuple:
+    """Order sealed products most expensive first.
+
+    Missing or non-positive prices are handled explicitly rather than being
+    left to float comparison, so they sort last instead of ordering on NaN.
+    Ties break deterministically on the concise family label, the full product
+    name, then the product id.
+    """
+    try:
+        price = float(item.get("currentPrice"))
+    except (TypeError, ValueError):
+        price = None
+    has_price = price is not None and price == price and price > 0
+    label = item.get("variantLabel") or item.get("productFamilyLabel") or ""
+    return (
+        0 if has_price else 1,
+        -price if has_price else 0.0,
+        str(label),
+        str(item.get("name") or ""),
+        str(item.get("sealedProductId") or ""),
+    )
 
 
 def _date_key(value: Any) -> Optional[str]:
@@ -174,7 +199,7 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
                 "history": history,
             }
         )
-    payload_products.sort(key=lambda item: (FAMILY_PRIORITY.get(item["productFamily"], 99), item["variantLabel"] or "", item["name"] or "", item["sealedProductId"]))
+    payload_products.sort(key=product_sort_key)
     now = datetime.now(timezone.utc).isoformat()
     market_date = max((item["priceAsOf"] for item in payload_products), default=None)
     eligible_products = [product for product, _ in eligible]
@@ -182,6 +207,8 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
     payload = {
         "set": {"id": str(set_row["id"]), "canonicalKey": set_row.get("canonical_key"), "name": set_row.get("name")},
         "marketDate": market_date,
+        # products is published price-descending, so the head is the most
+        # expensive valid product and the API order matches what the UI shows.
         "defaultProductId": payload_products[0]["sealedProductId"] if payload_products else None,
         "products": payload_products,
         "meta": {

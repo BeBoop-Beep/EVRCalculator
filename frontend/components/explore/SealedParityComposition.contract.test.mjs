@@ -28,11 +28,13 @@ test("Overview right column stacks Sealed Market then unchanged Decision Signals
 });
 
 test("shared mobile section treatment is explicit, three pixels, and desktop-free", () => {
-  assert.match(css, /--mobile-section-divider:/);
-  assert.match(css, /\[data-mobile-section\]::before\s*\{[^}]*height: 3px;[^}]*background: var\(--mobile-section-divider\)/s);
+  assert.match(css, /--mobile-section-divider-core:/);
+  assert.match(css, /\[data-mobile-section\]::before\s*\{[^}]*height: 3px;[^}]*var\(--mobile-section-divider-core\)/s);
   assert.doesNotMatch(css, /\[data-mobile-feed\] > \* \+ \*/);
-  assert.equal((client.match(/data-mobile-section/g) || []).length, 8);
-  assert.equal((explore.match(/data-mobile-section/g) || []).length, 2);
+  // `(?!-)` so the after-movers `data-mobile-section-variant` attribute is not
+  // double-counted as a second section marker.
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 8);
+  assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
   const moversWrapper = explore.slice(explore.lastIndexOf('<div className="mb-5">', explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);
 });

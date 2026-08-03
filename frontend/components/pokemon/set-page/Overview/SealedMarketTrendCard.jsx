@@ -13,7 +13,7 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
-import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
+import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow, sortSealedProductsByCurrentPrice } from "./sealedMarketTrendSelector.mjs";
 
 const INFO = "Tracks market-price history for unopened sealed products associated with this set. This first version does not include promo-card value, pack contents, or opening expected value.";
 const shortDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
@@ -57,6 +57,12 @@ export default function SealedMarketTrendCard({ setId }) {
     return () => { active = false; };
   }, [setId, retryKey]);
 
+  // One price-descending array drives both the option order and the default
+  // selection, so the showcased product is always the first option listed.
+  const orderedProducts = useMemo(
+    () => sortSealedProductsByCurrentPrice(state.payload?.products),
+    [state.payload],
+  );
   const product = useMemo(() => selectSealedProduct(state.payload, selectedId), [state.payload, selectedId]);
   const selected = useMemo(() => selectSealedWindow(product, windowKey), [product, windowKey]);
   const chartHistory = useMemo(() => {
@@ -99,16 +105,33 @@ export default function SealedMarketTrendCard({ setId }) {
         <p className="flex min-h-[11rem] items-center justify-center text-center text-sm text-[var(--text-secondary)]">Sealed market history is not available for this set yet.</p>
       ) : (
         <>
-          <label className="mt-3 block min-w-0">
+          {/* Native select, kept deliberately — this is a product switch, not a
+              navigation surface, and the set picker's custom listbox would be
+              overkill here. Only the closed trigger is styled to match it: the
+              OS draws the opened option panel and that cannot be guaranteed to
+              match across browsers.
+
+              `appearance-none` drops the platform arrow so the chevron below is
+              the same SVG the set picker uses, and `pr-10` reserves room for it
+              so long product names never run underneath. Focus states live in
+              `.set-dropdown-glass-trigger` (globals.css) rather than in
+              Tailwind focus-visible utilities, because the global
+              `select:focus` rule outranks those utilities on a <select>. */}
+          <label className="relative mt-3 block min-w-0">
             <span className="sr-only">Sealed product</span>
             <select
               value={product.sealedProductId}
               onChange={(event) => setSelectedId(event.target.value)}
               title={product.name}
-              className="h-10 w-full min-w-0 truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-2 text-xs text-[var(--text-primary)]"
+              className="set-dropdown-glass-trigger h-10 w-full min-w-0 appearance-none truncate rounded-lg pl-2 pr-10 text-xs text-[var(--text-primary)]"
             >
-              {state.payload.products.map((item) => <option key={item.sealedProductId} value={item.sealedProductId} title={item.name}>{compactSealedProductLabel(item)} — {item.name}</option>)}
+              {orderedProducts.map((item) => <option key={item.sealedProductId} value={item.sealedProductId} title={item.name}>{compactSealedProductLabel(item)} — {item.name}</option>)}
             </select>
+            <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor">
+                <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
+              </svg>
+            </span>
           </label>
           <div className="mt-2">
             <MarketValueChange

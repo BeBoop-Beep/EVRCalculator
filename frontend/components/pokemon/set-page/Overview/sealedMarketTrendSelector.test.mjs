@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, deriveOneDayMovementFromHistory, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow } from "./sealedMarketTrendSelector.mjs";
+import { SEALED_MARKET_WINDOWS, compactSealedProductLabel, deriveOneDayMovementFromHistory, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow, sortSealedProductsByCurrentPrice } from "./sealedMarketTrendSelector.mjs";
 
 test("sealed market uses all canonical shared windows and keeps lifetime readable from legacy snapshots", () => {
   assert.deepEqual(SEALED_MARKET_WINDOWS.map(({ key }) => key), ["1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"]);
@@ -149,4 +149,113 @@ test("six-month and one-year coverage promote longer fallbacks and true lifetime
   assert.equal(selectSealedWindow(product, "lifetime").effectiveWindowKey, "6M");
   product.movements["1Y"].fullWindowCoverage = true;
   assert.equal(selectSealedWindow(product, "lifetime").effectiveWindowKey, "lifetime");
+});
+
+// Sealed product ordering: most expensive first.
+//
+// The backend previously ordered products by product family, which put the
+// Booster Box family ahead of a Pokémon Center ETB worth several times more,
+// and defaultProductId simply took the head of that list. Ordering is now
+// numeric on currentPrice, and the frontend re-sorts defensively so an older
+// snapshot still showcases the right product without a rebuild.
+
+const ascendedHeroes = () => ({
+  defaultProductId: "bundle",
+  products: [
+    { sealedProductId: "bundle", productFamily: "booster_bundle", name: "Booster Bundle", currentPrice: 80.38 },
+    { sealedProductId: "pc-etb", productFamily: "pokemon_center_elite_trainer_box", name: "Pokemon Center ETB", currentPrice: 422.6 },
+    { sealedProductId: "pack", productFamily: "booster_pack", name: "Booster Pack", currentPrice: 6.75 },
+    { sealedProductId: "etb", productFamily: "elite_trainer_box", name: "Elite Trainer Box", currentPrice: 169.41 },
+  ],
+});
+
+test("products sort by numeric current price descending, not lexically", () => {
+  const payload = ascendedHeroes();
+  assert.deepEqual(
+    sortSealedProductsByCurrentPrice(payload.products).map((item) => item.sealedProductId),
+    ["pc-etb", "etb", "bundle", "pack"]
+  );
+
+  // The lexical failure mode this guards against: "422.60" < "80.38" as text.
+  const ordered = sortSealedProductsByCurrentPrice(payload.products).map((item) => item.currentPrice);
+  assert.deepEqual(ordered, [422.6, 169.41, 80.38, 6.75]);
+  assert.ok(ordered[0] > ordered[1], "$422.60 must sort above $169.41");
+});
+
+test("products without a usable current price sort last", () => {
+  const products = [
+    { sealedProductId: "missing", productFamily: "booster_box", name: "Booster Box" },
+    { sealedProductId: "priced", productFamily: "booster_pack", name: "Booster Pack", currentPrice: 6.75 },
+    { sealedProductId: "null", productFamily: "booster_bundle", name: "Booster Bundle", currentPrice: null },
+    { sealedProductId: "nan", productFamily: "sleeved_booster_pack", name: "Sleeved Pack", currentPrice: Number.NaN },
+    { sealedProductId: "zero", productFamily: "elite_trainer_box", name: "Elite Trainer Box", currentPrice: 0 },
+  ];
+  const ordered = sortSealedProductsByCurrentPrice(products).map((item) => item.sealedProductId);
+  assert.equal(ordered[0], "priced");
+  assert.deepEqual(new Set(ordered.slice(1)), new Set(["missing", "null", "nan", "zero"]));
+});
+
+test("equal prices break ties deterministically on label, then name, then id", () => {
+  const products = [
+    { sealedProductId: "z", productFamily: "elite_trainer_box", variantLabel: "Koraidon", name: "ETB Koraidon", currentPrice: 50 },
+    { sealedProductId: "a", productFamily: "elite_trainer_box", variantLabel: "Koraidon", name: "ETB Koraidon", currentPrice: 50 },
+    { sealedProductId: "m", productFamily: "booster_bundle", name: "Booster Bundle", currentPrice: 50 },
+  ];
+  const ordered = sortSealedProductsByCurrentPrice(products).map((item) => item.sealedProductId);
+  assert.deepEqual(ordered, ["m", "a", "z"]);
+  // Stable across input order.
+  assert.deepEqual(sortSealedProductsByCurrentPrice([...products].reverse()).map((item) => item.sealedProductId), ordered);
+});
+
+test("sorting never mutates the payload array it was given", () => {
+  const payload = ascendedHeroes();
+  const before = payload.products.map((item) => item.sealedProductId);
+  const sorted = sortSealedProductsByCurrentPrice(payload.products);
+  assert.deepEqual(payload.products.map((item) => item.sealedProductId), before);
+  assert.notEqual(sorted, payload.products);
+});
+
+test("the highest-priced product is the initial selection and beats a stale cheaper default", () => {
+  const payload = ascendedHeroes();
+  // defaultProductId still points at the cheap Booster Bundle from the old
+  // family-priority snapshot; price order must win.
+  assert.equal(payload.defaultProductId, "bundle");
+  assert.equal(selectSealedProduct(payload, null).sealedProductId, "pc-etb");
+  assert.equal(selectSealedProduct(payload, undefined).sealedProductId, "pc-etb");
+  assert.equal(selectSealedProduct(payload, "no-such-id").sealedProductId, "pc-etb");
+});
+
+test("an explicit user selection is always preserved", () => {
+  const payload = ascendedHeroes();
+  assert.equal(selectSealedProduct(payload, "pack").sealedProductId, "pack");
+  assert.equal(selectSealedProduct(payload, "etb").sealedProductId, "etb");
+  // Numeric ids still match their string form.
+  assert.equal(selectSealedProduct({ products: [{ sealedProductId: 7, currentPrice: 1 }] }, "7").sealedProductId, 7);
+});
+
+test("the backend default is used only when no product carries a usable price", () => {
+  const payload = {
+    defaultProductId: "b",
+    products: [
+      { sealedProductId: "a", productFamily: "elite_trainer_box", name: "ETB" },
+      { sealedProductId: "b", productFamily: "booster_box", name: "Booster Box", currentPrice: null },
+    ],
+  };
+  assert.equal(selectSealedProduct(payload, null).sealedProductId, "b");
+  // With no default either, the deterministic sorted head is the final
+  // fallback ("Booster Box" precedes "ETB" on the label tie-breaker).
+  const head = sortSealedProductsByCurrentPrice(payload.products)[0];
+  assert.equal(selectSealedProduct({ products: payload.products }, null).sealedProductId, head.sealedProductId);
+  assert.equal(head.sealedProductId, "b");
+  assert.equal(selectSealedProduct({ products: [] }, null), null);
+  assert.equal(selectSealedProduct(null, null), null);
+});
+
+test("standard and Pokemon Center ETBs stay separate products through sorting", () => {
+  const payload = ascendedHeroes();
+  const ordered = sortSealedProductsByCurrentPrice(payload.products);
+  const etbs = ordered.filter((item) => item.productFamily.includes("elite_trainer_box"));
+  assert.equal(etbs.length, 2);
+  assert.deepEqual(etbs.map((item) => compactSealedProductLabel(item)), ["PC ETB", "ETB"]);
+  assert.equal(ordered.length, payload.products.length, "no product is dropped or merged");
 });

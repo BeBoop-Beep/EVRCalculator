@@ -99,7 +99,9 @@ export default async function ExplorePage({ searchParams }) {
         <ExploreMarketMovers payload={moversPayload} />
       </div>
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]">
-        <div data-mobile-section>
+        {/* First ordinary section after the global 7D Movers ticker, so it
+            takes the quiet 1px rule rather than the luminous divider. */}
+        <div data-mobile-section data-mobile-section-variant="after-movers">
           <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
         </div>
         <div data-mobile-section>

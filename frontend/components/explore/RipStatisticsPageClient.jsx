@@ -14950,7 +14950,7 @@ export default function RipStatisticsPageClient({
                             role="listbox"
                             aria-label="Available sets"
                             onKeyDown={handleSetPickerKeyDown}
-                            className="index-scrollbar absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 shadow-[0_14px_34px_rgba(0,0,0,0.45)]"
+                            className="index-scrollbar set-dropdown-glass absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-56 w-full min-w-[16rem] overflow-y-auto rounded-xl p-1.5"
                           >
                             {switcherTargets.map((target) => {
                               const isSelected = String(target.target_id) === String(requestedTargetId || "");
@@ -14963,10 +14963,8 @@ export default function RipStatisticsPageClient({
                                   onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                                   onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                                   onClick={() => handleHeroSetSelect(target)}
-                                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
-                                    isSelected
-                                      ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                                  className={`set-dropdown-option flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm leading-5 transition-colors ${
+                                    isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                                   }`}
                                 >
                                   <span className="min-w-0 flex-1 truncate whitespace-nowrap">{target.name}</span>
@@ -15085,7 +15083,10 @@ export default function RipStatisticsPageClient({
                     </div>
 
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
-                      <div id="set-detail-set-value-trend" data-mobile-section className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
+                      {/* First ordinary analytical section after the set-level
+                          7D Movers ticker, so it takes the quiet 1px rule
+                          rather than the luminous divider. */}
+                      <div id="set-detail-set-value-trend" data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
                             it only needs render-exception isolation here. */}
@@ -15587,7 +15588,7 @@ export default function RipStatisticsPageClient({
                       role="listbox"
                       aria-label="Available sets"
                       onKeyDown={handleSetPickerKeyDown}
-                      className="index-scrollbar absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-1.5 text-left shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                      className="index-scrollbar set-dropdown-glass absolute left-1/2 top-full z-30 mt-2 max-h-72 w-[min(36rem,92vw)] -translate-x-1/2 overflow-y-auto rounded-xl p-1.5 text-left"
                     >
                       {switcherTargets.map((target) => {
                         const isSelected = String(target.target_id) === String(requestedTargetId || "");
@@ -15600,10 +15601,8 @@ export default function RipStatisticsPageClient({
                             onMouseEnter={() => handleTargetPrefetch(target.target_id, { reason: "hero-hover" })}
                             onFocus={() => handleTargetPrefetch(target.target_id, { reason: "hero-focus" })}
                             onClick={() => handleHeroSetSelect(target)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                              isSelected
-                                ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
-                                : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                            className={`set-dropdown-option flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                             }`}
                           >
                             <span className="truncate">{target.name}</span>

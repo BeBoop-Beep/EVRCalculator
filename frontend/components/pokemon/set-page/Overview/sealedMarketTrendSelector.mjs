@@ -17,11 +17,48 @@ export function compactSealedProductLabel(product) {
   return product?.variantLabel ? `${base} — ${product.variantLabel}` : base;
 }
 
+function finiteCurrentPrice(product) {
+  const price = Number(product?.currentPrice);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+/**
+ * Order sealed products most expensive first. Prices are compared numerically,
+ * never lexically ("422.60" would otherwise sort below "80.38"). Products with
+ * no usable current price sort last, and ties break deterministically on the
+ * concise label, then the full name, then the id.
+ *
+ * Returns a new array — the payload's own products array is never mutated,
+ * because it is shared React state read by other selectors.
+ */
+export function sortSealedProductsByCurrentPrice(products) {
+  const list = Array.isArray(products) ? products.filter(Boolean) : [];
+  return [...list].sort((a, b) => {
+    const priceA = finiteCurrentPrice(a);
+    const priceB = finiteCurrentPrice(b);
+    if (priceA !== priceB) {
+      if (priceA === null) return 1;
+      if (priceB === null) return -1;
+      return priceB - priceA;
+    }
+    return compactSealedProductLabel(a).localeCompare(compactSealedProductLabel(b))
+      || String(a?.name || "").localeCompare(String(b?.name || ""))
+      || String(a?.sealedProductId || "").localeCompare(String(b?.sealedProductId || ""));
+  });
+}
+
 export function selectSealedProduct(payload, selectedId) {
   const products = Array.isArray(payload?.products) ? payload.products : [];
-  return products.find((item) => String(item.sealedProductId) === String(selectedId))
+  const explicit = products.find((item) => String(item.sealedProductId) === String(selectedId));
+  if (explicit) return explicit;
+
+  // Price order wins over payload.defaultProductId so an older snapshot still
+  // showcases the most expensive product. The stored default is only a
+  // fallback for the case where no product carries a usable current price.
+  const byPrice = sortSealedProductsByCurrentPrice(products);
+  return byPrice.find((item) => finiteCurrentPrice(item) !== null)
     || products.find((item) => String(item.sealedProductId) === String(payload?.defaultProductId))
-    || products[0]
+    || byPrice[0]
     || null;
 }
 
