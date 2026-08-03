@@ -1,5 +1,5 @@
 import { getHistoryDateKey } from "./historyDateFormatting.mjs";
-import { getMarketDateSourceFromPayload } from "./marketAsOfDate.mjs";
+import { compareMarketFreshnessMetadata, getMarketDateSourceFromPayload } from "./marketAsOfDate.mjs";
 
 // Freshness-aware selection of Performance vs Cost history.
 //
@@ -221,6 +221,60 @@ function extractInsightsHistory(input) {
     return [];
   }
   return asArray(input.history_trend || input.historyTrend);
+}
+
+function snapshotUpdatedAtTimestamp(payload) {
+  const snapshot = payload?.meta?.snapshot;
+  const raw = snapshot?.updatedAt ?? snapshot?.updated_at ?? snapshot?.builtAt ?? snapshot?.built_at ?? null;
+  if (!raw) {
+    return null;
+  }
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Derive the freshness signals that decide which Overview payload wins.
+ *
+ * `latestRealHistoryDate` deliberately ignores carried-forward points: a
+ * carried point exists only so the chart stays continuous through a day with no
+ * simulation run, and letting one establish freshness would make a frozen
+ * history look current — exactly the failure this selection is guarding.
+ */
+export function getOverviewFreshnessMetadata(payload) {
+  const history = extractOverviewHistory(payload);
+  return {
+    latestRealHistoryDate: getLatestRealPerformanceDate(history),
+    snapshotUpdatedAt: snapshotUpdatedAtTimestamp(payload),
+    marketAsOfDate: getMarketDateSourceFromPayload("overview", payload)?.marketAsOfDate || null,
+    historyPointCount: history.length,
+  };
+}
+
+/**
+ * Choose between the server seed and the live-fetched Overview payload.
+ *
+ * Supersedes chooseFresherMarketPayload for Overview specifically. The plain
+ * market-date comparison cannot separate two payloads that advertise the same
+ * marketAsOfDate while one's Opening Profit vs Cost history ends a day earlier —
+ * which is precisely the shape a stale cached /overview response has after the
+ * market-dashboard row is rebuilt. A payload whose real OPvC history ends later
+ * wins regardless of an equal market date. On a genuine tie across every signal
+ * the live payload wins, preserving the existing "just-fetched is authoritative"
+ * rule.
+ */
+export function chooseFresherOverviewPayload(seedPayload, livePayload) {
+  if (!livePayload) {
+    return seedPayload || null;
+  }
+  if (!seedPayload) {
+    return livePayload;
+  }
+  const order = compareMarketFreshnessMetadata(
+    getOverviewFreshnessMetadata(seedPayload),
+    getOverviewFreshnessMetadata(livePayload)
+  );
+  return order > 0 ? seedPayload : livePayload;
 }
 
 function clampPerformanceHistoryToDate(history, endDateKey) {

@@ -35,6 +35,6 @@ test("shared mobile section treatment is explicit, three pixels, and desktop-fre
   // double-counted as a second section marker.
   assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 8);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
-  const moversWrapper = explore.slice(explore.lastIndexOf('<div className="mb-5">', explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));
+  const moversWrapper = explore.slice(explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);
 });

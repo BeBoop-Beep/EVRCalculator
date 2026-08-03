@@ -87,6 +87,60 @@ export function chooseFresherMarketPayload(seedPayload, livePayload) {
   return livePayload;
 }
 
+// ---------------------------------------------------------------------------
+// Freshness metadata comparison.
+//
+// chooseFresherMarketPayload above compares ONLY marketAsOfDate, which is not
+// sufficient for Overview. A market-dashboard snapshot advertises the promoted
+// market date it was built against, but its Opening Profit vs Cost history is
+// assembled from simulation rows — so a payload can honestly claim
+// marketAsOfDate = 2026-08-02 while its OPvC series ends 2026-08-01. Two such
+// payloads tie on market date and the comparison silently keeps the one with
+// the shorter history.
+//
+// The comparator below ranks derived metadata instead, most authoritative
+// signal first. It takes plain metadata objects rather than payloads so it can
+// live here without importing the OPvC selector (which imports this module).
+// ---------------------------------------------------------------------------
+
+/** Order: -1 left older, 1 left newer, 0 indistinguishable. */
+function compareOptional(left, right) {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null || left === undefined) {
+    return -1;
+  }
+  if (right === null || right === undefined) {
+    return 1;
+  }
+  return left < right ? -1 : 1;
+}
+
+/**
+ * Compare two freshness-metadata records. Signals in strict precedence order:
+ *
+ *   1. latestRealHistoryDate — what the module can actually render, and the
+ *      only signal that reflects a carried-forward-free simulation history;
+ *   2. snapshotUpdatedAt     — when the snapshot row was rebuilt;
+ *   3. marketAsOfDate        — the advertised publication date;
+ *   4. historyPointCount     — deterministic tie-break, so equal-freshness
+ *      payloads never flip based on arrival order.
+ *
+ * Returns a negative number when `left` is staler, positive when fresher, 0
+ * when the two are indistinguishable on every signal.
+ */
+export function compareMarketFreshnessMetadata(left, right) {
+  const a = left || {};
+  const b = right || {};
+  return (
+    compareOptional(a.latestRealHistoryDate ?? null, b.latestRealHistoryDate ?? null) ||
+    compareOptional(a.snapshotUpdatedAt ?? null, b.snapshotUpdatedAt ?? null) ||
+    compareOptional(a.marketAsOfDate ?? null, b.marketAsOfDate ?? null) ||
+    compareOptional(a.historyPointCount ?? null, b.historyPointCount ?? null)
+  );
+}
+
 /**
  * True when a server seed is strictly older (by market as-of date) than a live
  * payload — i.e. the seed must be rejected in favor of the newer response.

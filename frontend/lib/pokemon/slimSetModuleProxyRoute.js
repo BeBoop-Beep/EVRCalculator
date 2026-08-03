@@ -7,6 +7,7 @@ import {
   buildSlimSetModuleBackendUrl,
   buildSlimSetModuleProxyErrorBody,
   isAbortError,
+  resolveSlimSetModuleCacheControl,
   slimSetModuleProxyErrorStatus,
 } from "./slimSetModuleProxyContract.mjs";
 
@@ -14,6 +15,7 @@ export {
   BACKEND_FETCH_TIMEOUT_MS,
   FAILED_ANALYTICS_CACHE_CONTROL,
   PUBLIC_ANALYTICS_CACHE_CONTROL,
+  resolveSlimSetModuleCacheControl,
 };
 
 function backendPathForDiagnostics(url) {
@@ -29,7 +31,11 @@ function backendPathForDiagnostics(url) {
  *  - bounds a stalled backend read with AbortController +
  *    BACKEND_FETCH_TIMEOUT_MS and answers with a structured, retryable 504
  *    (502 for a non-timeout transport failure) instead of hanging forever;
- *  - marks every failed response no-store so a failure is never cached;
+ *  - marks every failed response no-store so a failure is never cached, and
+ *    applies the module's own success policy (see
+ *    resolveSlimSetModuleCacheControl — /overview is no-store so a cached
+ *    previous-market-date Opening Profit vs Cost payload can never be replayed
+ *    after the row has been rebuilt);
  *  - passes a normal backend response through untouched — original status,
  *    original body, original content-type — so a slow-but-successful read is
  *    still a success and a backend 4xx/5xx keeps its own body.
@@ -70,7 +76,7 @@ export async function proxySlimSetModuleRequest(moduleKey, request, context) {
       }),
       {
         status: slimSetModuleProxyErrorStatus(timedOut),
-        headers: { "Cache-Control": FAILED_ANALYTICS_CACHE_CONTROL },
+        headers: { "Cache-Control": resolveSlimSetModuleCacheControl(moduleKey, { ok: false }) },
       }
     );
   } finally {
@@ -79,7 +85,7 @@ export async function proxySlimSetModuleRequest(moduleKey, request, context) {
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
-  const cacheControl = proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL;
+  const cacheControl = resolveSlimSetModuleCacheControl(moduleKey, { ok: proxyResponse.ok });
 
   return new NextResponse(payload, {
     status: proxyResponse.status,

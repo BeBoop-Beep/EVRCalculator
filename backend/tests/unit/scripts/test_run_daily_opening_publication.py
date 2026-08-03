@@ -103,7 +103,22 @@ def patched(monkeypatch):
 
     import backend.scripts.audit_opening_analytics_publication as audit_module
 
+    def fake_audit(_client, **_kwargs):
+        calls.append(("audit", []))
+        return audit_module.AuditReport(
+            market_date=MARKET_DATE,
+            rows=[
+                audit_module.SetAuditRow(
+                    canonical_key="alpha",
+                    set_id="id-a",
+                    set_name="Alpha",
+                    simulation_status="current",
+                )
+            ],
+        )
+
     monkeypatch.setattr(audit_module, "resolve_market_date", fake_resolve)
+    monkeypatch.setattr(audit_module, "run_audit", fake_audit)
     monkeypatch.setattr(orchestrator, "run_simulations_for_sets", fake_run_sims)
     monkeypatch.setattr(orchestrator, "refresh_public_snapshots", fake_refresh)
     return calls
@@ -134,7 +149,9 @@ def test_simulations_run_before_snapshots_are_built(patched):
     client = _client([_history(STALE_DATE), _history(MARKET_DATE)])
     summary = _orchestrate(client)
 
-    assert [step for step, _ in patched] == ["simulate", "refresh"], "simulate must precede refresh"
+    assert [step for step, _ in patched] == ["simulate", "refresh", "audit"], (
+        "simulate must precede refresh, and the publication audit must run last on what was published"
+    )
     assert patched[0][1] == ["alpha"]
     assert summary.exit_code == EXIT_OK
     assert summary.verification_passed is True
@@ -285,3 +302,92 @@ def test_snapshot_builders_are_not_asked_to_run_simulations():
 def test_default_summary_is_a_failure_until_proven_otherwise():
     assert PublicationSummary().exit_code == EXIT_CANNOT_START
     assert PublicationSummary().verification_passed is False
+
+
+# ---------------------------------------------------------------------------
+# The publication verdict must consume the read-only audit.
+#
+# Current simulations are necessary but not sufficient: the market-dashboard
+# snapshot is what Overview reads, and it can lag the simulation it was built
+# from. Exit 0 must mean "what got published reached the market date", not
+# "the commands ran".
+# ---------------------------------------------------------------------------
+
+
+def _failing_audit_report(reason="performance history ends 2026-07-31, market date is 2026-08-01"):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    return audit_module.AuditReport(
+        market_date=MARKET_DATE,
+        rows=[
+            audit_module.SetAuditRow(
+                canonical_key="alpha",
+                set_id="id-a",
+                set_name="Alpha",
+                simulation_status="current",
+                failures=[reason],
+            )
+        ],
+    )
+
+
+def test_current_simulations_do_not_excuse_a_lagging_dashboard(monkeypatch, patched):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    monkeypatch.setattr(audit_module, "run_audit", lambda _client, **_kwargs: _failing_audit_report())
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client)
+
+    assert summary.verification_passed is True, "simulations themselves are current"
+    assert summary.exit_code == EXIT_FAILED, "a lagging published dashboard must not exit 0"
+    assert summary.publication_audit_status == "failed"
+    assert summary.publication_audit_failed_sets == ["alpha"]
+    assert "did not reach" in (summary.error or "")
+
+
+def test_a_passing_audit_allows_exit_zero(patched):
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_OK
+    assert summary.publication_audit_status == "passed"
+    assert summary.publication_audit_failed_sets == []
+
+
+def test_an_unreadable_audit_is_not_reported_as_success(monkeypatch, patched):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    def raise_audit(_client, **_kwargs):
+        raise RuntimeError("dashboard read failed")
+
+    monkeypatch.setattr(audit_module, "run_audit", raise_audit)
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.publication_audit_status.startswith("error:")
+
+
+def test_audit_is_skipped_when_nothing_was_published(patched):
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client, skip_snapshots=True)
+
+    assert summary.publication_audit_status == "skipped"
+    assert summary.exit_code == EXIT_OK
+    assert "audit" not in [step for step, _ in patched]
+
+
+def test_summary_reports_the_publication_audit_verdict(monkeypatch, patched):
+    import backend.scripts.audit_opening_analytics_publication as audit_module
+
+    monkeypatch.setattr(audit_module, "run_audit", lambda _client, **_kwargs: _failing_audit_report())
+    client = _client([_history(MARKET_DATE)])
+
+    text = "\n".join(_orchestrate(client).lines())
+
+    assert "publication_audit_status=failed" in text
+    assert "publication_audit_failed_sets=alpha" in text

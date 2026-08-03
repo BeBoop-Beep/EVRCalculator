@@ -1028,3 +1028,108 @@ def test_simulation_stale_market_dashboard_triggers_set_page_rebuild_in_same_run
 
     assert rebuilt == ["pokemon_set_page_snapshot_latest"]
     assert summary.rebuilt_sets["set_page"] == ["pitchBlack"]
+
+
+def test_carried_forward_dashboard_point_does_not_establish_opvc_freshness(monkeypatch):
+    # A carried-forward point exists for chart continuity only. Letting one
+    # count as the history end date would make a frozen dashboard look current.
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: ("2026-08-02", []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            [
+                {"date": "2026-08-01", "meanValueToCostRatio": 0.8},
+                {"date": "2026-08-02", "meanValueToCostRatio": 0.8, "isCarriedForward": True},
+            ],
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "simulation history newer than dashboard performance history"
+
+
+def test_malformed_dashboard_history_still_stale_via_timestamp_comparison(monkeypatch):
+    # Requirement: a simulation run_at newer than the dashboard updated_at must
+    # mark it stale even when the history is unusable for a date comparison.
+    monkeypatch.setattr(
+        refresh, "_latest_for_market_dashboard",
+        lambda _client, _set_id: ("2026-08-02T00:00:00+00:00", []),
+    )
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            "not-a-list",
+            updated_at="2026-08-01T00:00:00+00:00",
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "dependency newer than snapshot"
+
+
+def test_performance_history_latest_real_date_ignores_carried_points():
+    history = [
+        {"date": "2026-08-01"},
+        {"snapshot_date": "2026-08-02", "is_carried_forward": True},
+        {"snapshotDate": "2026-07-31"},
+    ]
+    assert refresh._performance_history_latest_real_date(history) == "2026-08-01"
+    assert refresh._performance_history_latest_real_date(None) is None
+    assert refresh._performance_history_latest_real_date([{"date": None}]) is None
+
+
+# ---------------------------------------------------------------------------
+# Variable-precision Postgres timestamps.
+#
+# Postgres trims trailing zeros from fractional seconds, so it emits 1-6 digits.
+# datetime.fromisoformat on Python 3.8 accepts only 3 or 6, and an unparseable
+# right-hand side makes _is_newer return True — reporting current snapshots as
+# stale. One --strict run mis-flagged 25 sets this way.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2026-08-03T04:59:35.25412+00:00",
+        "2026-08-03T04:59:35.2+00:00",
+        "2026-08-03T04:59:35.25+00:00",
+        "2026-08-03T04:59:35.254+00:00",
+        "2026-08-03T04:59:35.2541+00:00",
+        "2026-08-03T04:59:35.254120+00:00",
+        "2026-08-03T04:59:35.2541209+00:00",
+        "2026-08-03T04:59:35+00:00",
+        "2026-08-03T04:59:35.25412Z",
+    ],
+)
+def test_every_postgres_fractional_second_precision_parses(text):
+    assert refresh._parse_datetime(text) is not None, text
+
+
+def test_a_five_digit_fraction_is_not_treated_as_newer_than_an_earlier_timestamp():
+    older = "2026-08-02T23:37:20.771845+00:00"
+    newer = "2026-08-03T04:59:35.25412+00:00"
+
+    assert refresh._is_newer(newer, older) is True
+    assert refresh._is_newer(older, newer) is False, (
+        "an unparseable right-hand side must not make an older timestamp look newer"
+    )
+
+
+def test_fraction_normalization_preserves_ordering_within_the_same_second():
+    assert refresh._is_newer("2026-08-03T04:59:35.9+00:00", "2026-08-03T04:59:35.25412+00:00") is True
+    assert refresh._is_newer("2026-08-03T04:59:35.25412+00:00", "2026-08-03T04:59:35.9+00:00") is False
+
+
+def test_genuinely_malformed_timestamps_still_parse_to_none():
+    assert refresh._parse_datetime("not-a-timestamp") is None
+    assert refresh._parse_datetime("") is None
+    assert refresh._parse_datetime(None) is None

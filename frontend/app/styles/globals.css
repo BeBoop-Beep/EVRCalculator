@@ -1192,8 +1192,8 @@ body::-webkit-scrollbar-thumb:hover {
 
   [data-mobile-section] {
     position: relative;
-    margin-top: 1.25rem;
-    padding-top: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1.25rem;
   }
 
   /* Static luminous hairline. The flat 3px fill this replaces read as a solid
@@ -1237,6 +1237,14 @@ body::-webkit-scrollbar-thumb:hover {
      of chrome competing with it. Explicitly clears BOTH background layers and
      the drop-shadow so this boundary never renders a thin line and a glowing
      line at once. */
+  /* The ticker boundary is also the tightest one in the feed. The ordinary
+     gap reads as a hole directly under a dense band that already ends in its
+     own whitespace, so this variant halves the lead-in and trailing gap. */
+  [data-mobile-section][data-mobile-section-variant="after-movers"] {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+  }
+
   [data-mobile-section][data-mobile-section-variant="after-movers"]::before {
     height: 1px;
     background: var(--border-subtle);
