@@ -213,14 +213,14 @@ python backend/scripts/run_daily_opening_publication.py \
 PUBLICATION_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 
 if [ "$PUBLICATION_EXIT" -eq 0 ]; then
-  notify_slack "✅ Simulation + publication completed
-Host: $HOSTNAME_VALUE
-Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
-Commit: $(git rev-parse HEAD)
-Script: backend/scripts/run_daily_opening_publication.py
-Started: $PUBLICATION_START_TIME
-Completed: $PUBLICATION_END_TIME
-Log: logs/run_simulations.log"
+  # Deliberately NO success notification here. "Publication exited 0" is not the
+  # same claim as "what got published is current": the final read-only audit
+  # below re-reads the published market-dashboard rows, and only after IT passes
+  # has anything actually completed. Announcing success at this point is how a
+  # green Slack message accompanied an Overview still serving the previous day's
+  # Opening Profit vs Cost.
+  echo "[publication] orchestrator exited 0; withholding success notification until the final audit passes" \
+    >> logs/run_simulations.log
 elif [ "$PUBLICATION_EXIT" -eq 3 ]; then
   # Publication DEFERRED, not a build exception: the day's scrape cohort is not
   # observation-complete, so nothing was published and the previous good public
@@ -276,6 +276,24 @@ Exit: $AUDIT_EXIT
 Details: ${AUDIT_LINE:-see log}
 Action: Opening Profit vs Cost and/or Top Chase windows are behind for at least one supported set
 Log: logs/opening_analytics_audit.log"
+fi
+
+# The ONLY success notification. It requires publication exit 0 AND a passing
+# final audit, so "completed" means the published market-dashboard rows actually
+# reached the promoted market date — not merely that the commands ran. Deferred
+# (⏸️) and failure (❌) notifications above remain distinct events and are never
+# replaced by this one.
+if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ]; then
+  AUDIT_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
+  notify_slack "✅ Simulation + publication completed (final audit passed)
+Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
+Commit: $(git rev-parse HEAD)
+Script: backend/scripts/run_daily_opening_publication.py
+Started: $PUBLICATION_START_TIME
+Published: $PUBLICATION_END_TIME
+Audited: $AUDIT_END_TIME
+Log: logs/run_simulations.log"
 fi
 
 # A deferred publication, a hard failure and a failed audit are distinct events

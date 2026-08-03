@@ -89,6 +89,8 @@ class PublicationSummary:
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
     verification_passed: bool = False
+    publication_audit_status: str = "not_attempted"
+    publication_audit_failed_sets: List[str] = field(default_factory=list)
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -108,6 +110,11 @@ class PublicationSummary:
             out.append(f"{TAG}   {set_key}={self.latest_simulation_date_by_set[set_key] or '-'}")
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
         out.append(f"{TAG} verification_passed={self.verification_passed}")
+        out.append(f"{TAG} publication_audit_status={self.publication_audit_status}")
+        if self.publication_audit_failed_sets:
+            out.append(
+                f"{TAG} publication_audit_failed_sets={','.join(self.publication_audit_failed_sets)}"
+            )
         if self.error:
             out.append(f"{TAG} error={self.error}")
         out.append(f"{TAG} exit_code={self.exit_code}")
@@ -297,8 +304,83 @@ def orchestrate(
             )
         return summary
 
+    # ---- Step 6: the published artifact must agree, not just the sources ---
+    # Current simulations are necessary but NOT sufficient. The market-dashboard
+    # snapshot is what Overview actually reads, and it can lag the simulation it
+    # was built from (its freshness never tracked the simulation sources, so a
+    # newer run left it classified fresh). Consuming the read-only audit here is
+    # what stops this command exiting 0 while Overview still serves yesterday's
+    # Opening Profit vs Cost.
+    summary.publication_audit_status = _run_publication_audit(
+        client,
+        summary,
+        resolved_market_date=resolved_market_date,
+        unsupported_keys=unsupported_keys,
+        dry_run=dry_run,
+        skip_snapshots=skip_snapshots,
+    )
+    if summary.publication_audit_status not in {"passed", "skipped"}:
+        summary.exit_code = EXIT_FAILED
+        if not summary.error:
+            detail = ", ".join(summary.publication_audit_failed_sets) or summary.publication_audit_status
+            summary.error = (
+                "published market-dashboard Opening Profit vs Cost history did not reach "
+                f"{resolved_market_date}; refusing to report full freshness ({detail})"
+            )
+        return summary
+
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _run_publication_audit(
+    client: Any,
+    summary: PublicationSummary,
+    *,
+    resolved_market_date: str,
+    unsupported_keys: Sequence[str],
+    dry_run: bool,
+    skip_snapshots: bool,
+) -> str:
+    """Re-read what was actually published and report whether OPvC reached the date.
+
+    Returns one of: ``passed``, ``skipped``, ``failed``, or ``error:<reason>``.
+    ``skipped`` only when nothing was published in this invocation.
+    """
+    if dry_run or skip_snapshots:
+        return "skipped"
+
+    from backend.scripts.audit_opening_analytics_publication import run_audit
+
+    try:
+        report = run_audit(
+            client,
+            market_date=resolved_market_date,
+            unsupported_keys=unsupported_keys,
+        )
+    except Exception as exc:  # noqa: BLE001 - an unreadable audit must not read as success
+        logger.warning("%s publication audit raised", TAG, exc_info=True)
+        return f"error:{exc}"
+
+    if report.error:
+        return f"error:{report.error}"
+
+    summary.publication_audit_failed_sets = [
+        row.canonical_key or row.set_id or "?" for row in report.failed_rows
+    ]
+    for line in _format_audit_failures(report):
+        print(line)
+    return "passed" if report.passed else "failed"
+
+
+def _format_audit_failures(report: Any) -> List[str]:
+    lines: List[str] = []
+    for row in report.failed_rows:
+        lines.append(
+            f"{TAG} publication audit FAILED set={row.canonical_key or row.set_id} "
+            f"reasons={'; '.join(row.failures) if getattr(row, 'failures', None) else 'see audit log'}"
+        )
+    return lines
 
 
 def build_parser() -> argparse.ArgumentParser:

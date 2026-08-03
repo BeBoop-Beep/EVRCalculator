@@ -19,7 +19,10 @@ from backend.db.services.publication_gate import (
     evaluate_publication_gate,
     gate_decision_report,
 )
-from backend.db.services.set_publication_revalidation import notify_set_publication
+from backend.db.services.set_publication_revalidation import (
+    log_revalidation_diagnostics,
+    notify_set_publication,
+)
 from backend.scripts.snapshot_query_retry import run_snapshot_operation_with_retry
 from backend.desirability.set_validation import FORMULA_VERSION, build_desirability_validation_payload, build_opening_set_audit
 from backend.scripts.build_pokemon_desirability_validation_snapshots import (
@@ -607,6 +610,27 @@ def _history_latest_date(history: Any) -> Optional[str]:
     return max((date[:10] for date in dates if date), default=None)
 
 
+def _performance_history_latest_real_date(history: Any) -> Optional[str]:
+    """Last OPvC point backed by a real simulation run.
+
+    Carried-forward points exist for chart continuity and must never establish
+    the history's freshness — treating one as current is exactly how a dashboard
+    that stopped advancing keeps looking published. Mirrors
+    audit_opening_analytics_publication.latest_real_performance_date.
+    """
+    latest: Optional[str] = None
+    for point in history if isinstance(history, list) else []:
+        if not isinstance(point, dict):
+            continue
+        if point.get("isCarriedForward") or point.get("is_carried_forward"):
+            continue
+        raw = point.get("date") or point.get("snapshotDate") or point.get("snapshot_date")
+        date_key = (_to_text(raw) or "")[:10] or None
+        if date_key and (latest is None or date_key > latest):
+            latest = date_key
+    return latest
+
+
 def _dashboard_set_value_latest_date_by_scope(row: Dict[str, Any]) -> Dict[str, Optional[str]]:
     payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
     meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
@@ -899,7 +923,7 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
     performance_history = row.get("performance_vs_cost_history_json")
     if not isinstance(performance_history, list):
         performance_history = payload.get("performanceVsCostHistory") or payload.get("performance_vs_cost_history")
-    dashboard_performance_history_end = _history_latest_date(performance_history)
+    dashboard_performance_history_end = _performance_history_latest_real_date(performance_history)
     if _is_newer(simulation_history_date, dashboard_performance_history_end):
         return FreshnessResult(
             "market_dashboard",
@@ -1809,6 +1833,11 @@ def main() -> None:
     _verify_after_build(client, set_rows, summary)
     summary.set_page_audit = _audit_set_page_freshness(client, set_rows)
     _print_summary(summary)
+    # Tagged seed invalidation stays best-effort and non-fatal, but it is no
+    # longer silent: a run where it was never configured and a run where every
+    # POST succeeded must be distinguishable in the log, because "database is
+    # current but the page still shows yesterday" has exactly one other cause.
+    print(log_revalidation_diagnostics())
 
     # A hard build failure always fails the run so the scheduler never treats a
     # partial recovery as success; --strict additionally fails on staleness.

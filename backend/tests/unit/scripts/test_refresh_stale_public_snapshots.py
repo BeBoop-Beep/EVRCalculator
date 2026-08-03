@@ -1028,3 +1028,59 @@ def test_simulation_stale_market_dashboard_triggers_set_page_rebuild_in_same_run
 
     assert rebuilt == ["pokemon_set_page_snapshot_latest"]
     assert summary.rebuilt_sets["set_page"] == ["pitchBlack"]
+
+
+def test_carried_forward_dashboard_point_does_not_establish_opvc_freshness(monkeypatch):
+    # A carried-forward point exists for chart continuity only. Letting one
+    # count as the history end date would make a frozen dashboard look current.
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: ("2026-08-02", []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            [
+                {"date": "2026-08-01", "meanValueToCostRatio": 0.8},
+                {"date": "2026-08-02", "meanValueToCostRatio": 0.8, "isCarriedForward": True},
+            ],
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "simulation history newer than dashboard performance history"
+
+
+def test_malformed_dashboard_history_still_stale_via_timestamp_comparison(monkeypatch):
+    # Requirement: a simulation run_at newer than the dashboard updated_at must
+    # mark it stale even when the history is unusable for a date comparison.
+    monkeypatch.setattr(
+        refresh, "_latest_for_market_dashboard",
+        lambda _client, _set_id: ("2026-08-02T00:00:00+00:00", []),
+    )
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            "not-a-list",
+            updated_at="2026-08-01T00:00:00+00:00",
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "dependency newer than snapshot"
+
+
+def test_performance_history_latest_real_date_ignores_carried_points():
+    history = [
+        {"date": "2026-08-01"},
+        {"snapshot_date": "2026-08-02", "is_carried_forward": True},
+        {"snapshotDate": "2026-07-31"},
+    ]
+    assert refresh._performance_history_latest_real_date(history) == "2026-08-01"
+    assert refresh._performance_history_latest_real_date(None) is None
+    assert refresh._performance_history_latest_real_date([{"date": None}]) is None

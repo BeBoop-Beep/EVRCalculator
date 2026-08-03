@@ -32,6 +32,38 @@ export const BACKEND_FETCH_TIMEOUT_MS = 12_000;
 
 export const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 export const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
+export const UNCACHED_ANALYTICS_CACHE_CONTROL = "no-store";
+
+// Per-module success cache policy.
+//
+// The shared `public, s-maxage=300, stale-while-revalidate=3600` policy is
+// correct for modules whose payload only moves when the daily publication moves
+// it. It is NOT correct for /overview: Overview carries the Opening Profit vs
+// Cost history, and stale-while-revalidate=3600 lets an edge/CDN keep answering
+// with a payload whose OPvC series ends on the previous market date for up to an
+// hour AFTER the market-dashboard row has been rebuilt for the new one. The
+// user-visible symptom is an Overview stuck a day behind a database that is
+// already current.
+//
+// Overview therefore opts out of shared caching entirely. Correctness of the
+// freshest published date beats a 5-minute edge hit on the one module whose
+// staleness is the defect being repaired. Every other module keeps its existing
+// policy unchanged.
+const SUCCESS_CACHE_CONTROL_BY_MODULE = Object.freeze({
+  overview: UNCACHED_ANALYTICS_CACHE_CONTROL,
+});
+
+/**
+ * Cache-Control for a slim module response. Failures are always no-store;
+ * successes use the module's declared policy, defaulting to the shared public
+ * analytics policy.
+ */
+export function resolveSlimSetModuleCacheControl(moduleKey, { ok } = {}) {
+  if (!ok) {
+    return FAILED_ANALYTICS_CACHE_CONTROL;
+  }
+  return SUCCESS_CACHE_CONTROL_BY_MODULE[moduleKey] || PUBLIC_ANALYTICS_CACHE_CONTROL;
+}
 
 // Each entry declares the backend sub-path and the exact query params the
 // proxy forwards. A param is either a plain name (forwarded unchanged) or

@@ -55,14 +55,47 @@ export async function POST(request) {
     : OVERVIEW_WINDOWS;
 
   const invalidated = [];
-  const shellTag = `pokemon-set-shell:${setId}`;
-  revalidateTag(shellTag);
-  invalidated.push(shellTag);
+  const failed = [];
+  const invalidate = (tag) => {
+    try {
+      revalidateTag(tag);
+      invalidated.push(tag);
+    } catch (error) {
+      // One failing tag must not abandon the rest of the family: a partially
+      // invalidated set is still better than a wholly cached one, and the
+      // caller needs to know exactly which tags did not clear.
+      failed.push({ tag, message: String(error?.message || error) });
+    }
+  };
+
+  invalidate(`pokemon-set-shell:${setId}`);
   for (const window of requestedWindows) {
-    const overviewTag = `pokemon-set-overview:${setId}:${window}`;
-    revalidateTag(overviewTag);
-    invalidated.push(overviewTag);
+    invalidate(`pokemon-set-overview:${setId}:${window}`);
   }
 
-  return NextResponse.json({ ok: true, setId, invalidated });
+  // Visible publication diagnostics. The backend logs whether invalidation was
+  // configured and attempted; this is the other half — what the frontend
+  // actually cleared. Without it, "the row was rebuilt but the page shows the
+  // previous market date" has no evidence on either side of the call.
+  const revalidatedAt = new Date().toISOString();
+  console.info("[revalidate-set] tags cleared", {
+    setId,
+    requestedWindows,
+    invalidatedCount: invalidated.length,
+    failedCount: failed.length,
+    invalidated,
+    ...(failed.length > 0 ? { failed } : {}),
+    revalidatedAt,
+  });
+
+  return NextResponse.json(
+    {
+      ok: failed.length === 0,
+      setId,
+      invalidated,
+      failed,
+      revalidatedAt,
+    },
+    { status: failed.length === 0 ? 200 : 500 }
+  );
 }

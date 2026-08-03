@@ -1106,6 +1106,12 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/overview${params.toString() ? `?${params}` : ""}`,
       {
         method: "GET",
+        // Overview carries the Opening Profit vs Cost history, so a browser/BFcache
+        // hit on a payload from the previous market date is a visible correctness
+        // bug, not a saved request. Paired with the proxy's no-store success
+        // policy. Deliberately NOT a cache-busting query param: the URL stays
+        // stable so the shared in-flight key and any server-side keying still work.
+        cache: "no-store",
         signal,
       }
     );
