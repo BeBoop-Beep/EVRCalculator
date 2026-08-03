@@ -1084,3 +1084,52 @@ def test_performance_history_latest_real_date_ignores_carried_points():
     assert refresh._performance_history_latest_real_date(history) == "2026-08-01"
     assert refresh._performance_history_latest_real_date(None) is None
     assert refresh._performance_history_latest_real_date([{"date": None}]) is None
+
+
+# ---------------------------------------------------------------------------
+# Variable-precision Postgres timestamps.
+#
+# Postgres trims trailing zeros from fractional seconds, so it emits 1-6 digits.
+# datetime.fromisoformat on Python 3.8 accepts only 3 or 6, and an unparseable
+# right-hand side makes _is_newer return True — reporting current snapshots as
+# stale. One --strict run mis-flagged 25 sets this way.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2026-08-03T04:59:35.25412+00:00",
+        "2026-08-03T04:59:35.2+00:00",
+        "2026-08-03T04:59:35.25+00:00",
+        "2026-08-03T04:59:35.254+00:00",
+        "2026-08-03T04:59:35.2541+00:00",
+        "2026-08-03T04:59:35.254120+00:00",
+        "2026-08-03T04:59:35.2541209+00:00",
+        "2026-08-03T04:59:35+00:00",
+        "2026-08-03T04:59:35.25412Z",
+    ],
+)
+def test_every_postgres_fractional_second_precision_parses(text):
+    assert refresh._parse_datetime(text) is not None, text
+
+
+def test_a_five_digit_fraction_is_not_treated_as_newer_than_an_earlier_timestamp():
+    older = "2026-08-02T23:37:20.771845+00:00"
+    newer = "2026-08-03T04:59:35.25412+00:00"
+
+    assert refresh._is_newer(newer, older) is True
+    assert refresh._is_newer(older, newer) is False, (
+        "an unparseable right-hand side must not make an older timestamp look newer"
+    )
+
+
+def test_fraction_normalization_preserves_ordering_within_the_same_second():
+    assert refresh._is_newer("2026-08-03T04:59:35.9+00:00", "2026-08-03T04:59:35.25412+00:00") is True
+    assert refresh._is_newer("2026-08-03T04:59:35.25412+00:00", "2026-08-03T04:59:35.9+00:00") is False
+
+
+def test_genuinely_malformed_timestamps_still_parse_to_none():
+    assert refresh._parse_datetime("not-a-timestamp") is None
+    assert refresh._parse_datetime("") is None
+    assert refresh._parse_datetime(None) is None

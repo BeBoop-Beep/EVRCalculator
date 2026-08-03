@@ -30,6 +30,8 @@ const client = read("RipStatisticsPageClient.jsx");
 
 const ordinaryRule = /\[data-mobile-section\]::before \{[\s\S]*?\n  \}/.exec(css)[0];
 const afterMoversRule = /\[data-mobile-section\]\[data-mobile-section-variant="after-movers"\]::before \{[\s\S]*?\n  \}/.exec(css)[0];
+const ordinarySpacing = /\[data-mobile-section\] \{[\s\S]*?\n  \}/.exec(css)[0];
+const afterMoversSpacing = /\[data-mobile-section\]\[data-mobile-section-variant="after-movers"\] \{[\s\S]*?\n  \}/.exec(css)[0];
 
 test("Explore Top Rankings takes the after-movers variant and Best Sets to Rip does not", () => {
   const rankings = explore.slice(explore.indexOf("<div data-mobile-section"), explore.indexOf("<ExploreTopRankings"));
@@ -49,7 +51,7 @@ test("Explore Top Rankings takes the after-movers variant and Best Sets to Rip d
 
 test("the 7D Movers tickers are never themselves section-marked", () => {
   const moversWrapper = explore.slice(
-    explore.lastIndexOf('<div className="mb-5">', explore.indexOf("<ExploreMarketMovers")),
+    explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")),
     explore.indexOf("<ExploreMarketMovers")
   );
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);
@@ -168,5 +170,31 @@ test("both dividers are static and confined to the mobile feed breakpoint", () =
   assert.ok(css.indexOf(ordinaryRule) > scope);
   assert.ok(css.indexOf(afterMoversRule) > scope);
   // No divider rule escaped to root scope.
-  assert.equal((css.match(/\[data-mobile-section\](\[|\)|::before)/g) || []).length, 2);
+  assert.equal((css.match(/\[data-mobile-section\](\[|\)|::before)/g) || []).length, 3);
+});
+
+test("ordinary sections carry the tightened 16px/20px spacing", () => {
+  assert.match(ordinarySpacing, /margin-top: 1rem;/);
+  assert.match(ordinarySpacing, /padding-top: 1\.25rem;/);
+});
+
+test("the after-movers boundary is considerably tighter than an ordinary one", () => {
+  assert.match(afterMoversSpacing, /margin-top: 0\.5rem;/);
+  assert.match(afterMoversSpacing, /padding-top: 0\.75rem;/);
+
+  // Spacing only — the variant must never restate divider paint here.
+  assert.doesNotMatch(afterMoversSpacing, /background|height|filter|box-shadow/);
+
+  // And it must win the cascade, so it follows the ordinary rule in source.
+  assert.ok(css.indexOf(afterMoversSpacing) > css.indexOf(ordinarySpacing));
+});
+
+test("the Explore Movers wrapper drops its mobile margin but keeps the desktop one", () => {
+  const wrapper = explore.slice(
+    explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")),
+    explore.indexOf("<ExploreMarketMovers")
+  );
+  assert.match(wrapper, /className="mb-0 desk:mb-5"/);
+  // No unqualified mobile bottom margin survives anywhere on the shell.
+  assert.doesNotMatch(explore, /className="mb-5"/);
 });

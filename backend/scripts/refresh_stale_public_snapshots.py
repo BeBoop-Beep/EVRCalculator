@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -345,12 +346,27 @@ def _to_text(value: Any) -> Optional[str]:
     return text or None
 
 
+# Postgres renders fractional seconds at whatever precision the value needs,
+# trimming trailing zeros: 2026-08-03T04:59:35.25412+00:00 has five digits.
+# datetime.fromisoformat on Python 3.8 accepts ONLY 3 or 6, so such a timestamp
+# raised ValueError and parsed as None. That is not a harmless gap: _is_newer
+# treats an unparseable right-hand side as "older than anything", so every
+# freshness comparison against one of these timestamps returned True and
+# reported a perfectly current snapshot as stale (25 sets in one --strict run).
+# Normalize the fractional part to 6 digits before parsing.
+_FRACTIONAL_SECONDS_RE = re.compile(r"(?<=:\d\d)\.(\d+)")
+
+
+def _normalize_fractional_seconds(text: str) -> str:
+    return _FRACTIONAL_SECONDS_RE.sub(lambda match: "." + match.group(1)[:6].ljust(6, "0"), text, count=1)
+
+
 def _parse_datetime(value: Any) -> Optional[datetime]:
     text = _to_text(value)
     if not text:
         return None
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(_normalize_fractional_seconds(text.replace("Z", "+00:00")))
     except ValueError:
         return None
     if parsed.tzinfo is None:
