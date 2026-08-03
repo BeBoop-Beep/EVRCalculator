@@ -194,7 +194,45 @@ test("the Explore Movers wrapper drops its mobile margin but keeps the desktop o
     explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")),
     explore.indexOf("<ExploreMarketMovers")
   );
-  assert.match(wrapper, /className="mb-0 desk:mb-5"/);
-  // No unqualified mobile bottom margin survives anywhere on the shell.
-  assert.doesNotMatch(explore, /className="mb-5"/);
+  // Desktop-first, deliberately: the original desktop mb-5 is the
+  // unconditional base and mobile subtracts it. Written the other way round
+  // (`mb-0 desk:mb-5`) the desktop value depends on the mobile utility losing
+  // a source-order tie, which is how desktop regressed to zero spacing.
+  assert.match(wrapper, /className="mb-5 max-desk:mb-0"/);
+  // The mobile removal must stay breakpoint-qualified — an unprefixed mb-0
+  // token here would flatten desktop again.
+  const classes = /className="([^"]*)"/.exec(wrapper)[1].split(/\s+/);
+  assert.ok(!classes.includes("mb-0"), "mb-0 must always carry the max-desk: prefix");
+  assert.ok(classes.includes("mb-5"));
+  assert.ok(classes.includes("max-desk:mb-0"));
+});
+
+test("desktop Explore spacing is exactly what it was before the mobile pass", () => {
+  // The mobile pass must not have moved any desktop-scoped value. These are
+  // the five the regression report named: page top padding, container width,
+  // horizontal padding, the gap below Movers, and the gap between the tables.
+  const root = explore.slice(explore.indexOf("<div className={`${styles.dashboard}"), explore.indexOf("<PageArtworkAtmosphere"));
+  assert.match(root, /\bpt-5\b/, "page top padding");
+  assert.match(root, /\bmax-w-7xl\b/, "container width");
+  assert.match(root, /\bpx-4\b/, "horizontal padding");
+  assert.match(root, /\bsm:px-6\b/);
+  assert.match(root, /\blg:px-8\b/);
+
+  const grid = explore.slice(explore.indexOf('<div className="grid grid-cols-1'));
+  assert.match(grid, /\bgap-4\b/, "gap between the two desktop tables");
+  assert.match(
+    grid,
+    /xl:grid-cols-\[minmax\(19rem,1fr\)_minmax\(0,2fr\)\]/,
+    "desktop column sizes"
+  );
+});
+
+test("the tightened mobile divider spacing never reaches desktop", () => {
+  // The whole point of the fix: mobile values stay untouched, and they stay
+  // sealed inside the sub-1200px feed scope. If these rules ever escaped that
+  // media query they would re-open the desktop regression from the CSS side.
+  const scopeStart = css.indexOf("@media (max-width: 1199.98px)");
+  assert.ok(scopeStart > -1, "the mobile feed scope must exist");
+  assert.ok(css.indexOf(ordinarySpacing) > scopeStart);
+  assert.ok(css.indexOf(afterMoversSpacing) > scopeStart);
 });

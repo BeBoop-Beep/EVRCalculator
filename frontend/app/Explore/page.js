@@ -96,9 +96,11 @@ export default async function ExplorePage({ searchParams }) {
         other intact because they share only the already-fetched target list.
       */}
       {/* Mobile owns this boundary through the section variant below; a bottom
-          margin here would stack on top of it. Desktop keeps its original
-          grid spacing. */}
-      <div className="mb-0 desk:mb-5">
+          margin here would stack on top of it. Declared desktop-first — the
+          original mb-5 is the unconditional base and mobile subtracts it — so
+          the desktop value can never lose a source-order coin toss to the
+          mobile override the way `mb-0 desk:mb-5` did. */}
+      <div className="mb-5 max-desk:mb-0">
         <ExploreMarketMovers payload={moversPayload} />
       </div>
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]">
