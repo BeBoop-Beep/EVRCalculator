@@ -45,6 +45,12 @@ if _PROJECT_ROOT not in sys.path:
 from backend.db.repositories.scrape_jobs_repository import (
     create_daily_scrape_batch,
     get_active_batch,
+    record_batch_runtime_provenance,
+)
+from backend.db.services.pokemon_scrape_runtime_preflight import (
+    RuntimePreflightReport,
+    format_preflight_json,
+    run_runtime_preflight,
 )
 from backend.scripts.run_pokemon_set_scrape import _load_backend_env, _market_date_iso
 
@@ -54,6 +60,78 @@ logger = logging.getLogger(__name__)
 BATCH_TAG = "[scrape-batch-create]"
 MARKET_TIMEZONE = "America/Phoenix"
 DISCOVERY_TIMEOUT_SECONDS = 180
+
+
+def run_preflight_or_fail(market_date: str, *, preflight_runner=None) -> RuntimePreflightReport:
+    """Verify runtime/database registry parity BEFORE any batch or job is created.
+
+    A mismatch means the database expects canonical keys this deployed runtime
+    cannot resolve (or vice versa). Creating a batch anyway is what produced the
+    2026-08-03 incident: 34 jobs that could only ever fail, each retried three
+    times, holding the batch incomplete.
+
+    ``preflight_runner`` is a test-only injection seam. There is deliberately no
+    production bypass flag.
+    """
+    report = (preflight_runner or run_runtime_preflight)()
+    for line in report.report_lines():
+        logger.info("%s", line)
+
+    if report.ok:
+        return report
+
+    logger.error(
+        "%s runtime/database registry preflight FAILED for market_date=%s "
+        "(mismatches=%s); refusing to create a batch or enqueue any job",
+        BATCH_TAG, market_date, report.mismatch_count,
+    )
+    try:
+        from backend.alerts.scrape_alerts import alert_runtime_registry_mismatch
+
+        alert_runtime_registry_mismatch(market_date, report=report)
+    except Exception:  # pragma: no cover - alerting must never mask the failure
+        logger.exception("%s failed to queue runtime_registry_mismatch alert", BATCH_TAG)
+
+    raise PreflightFailedError(report)
+
+
+class PreflightFailedError(RuntimeError):
+    """Raised when runtime/database registry parity fails; blocks batch creation."""
+
+    def __init__(self, report: RuntimePreflightReport) -> None:
+        super().__init__(
+            "runtime/database scrape registry preflight failed with "
+            f"{report.mismatch_count} mismatch(es)"
+        )
+        self.report = report
+
+
+def persist_runtime_provenance(batch_id, report: RuntimePreflightReport) -> dict:
+    """Record which code SHA / registry hash validated and created this batch.
+
+    Returns a status dict. A provenance write failure is reported honestly rather
+    than swallowed: the batch exists and is valid, but it is not fully traceable.
+    """
+    try:
+        ok = record_batch_runtime_provenance(
+            batch_id,
+            runtime_git_sha=report.runtime_git_sha,
+            runtime_registry_hash=report.local_registry_hash,
+            runtime_preflight_json=report.to_dict(),
+        )
+    except Exception as exc:
+        logger.error("%s failed to record runtime provenance on batch %s: %s", BATCH_TAG, batch_id, exc)
+        return {"status": "failed", "error": str(exc)}
+
+    if not ok:
+        logger.error("%s runtime provenance write reported no updated row for batch %s", BATCH_TAG, batch_id)
+        return {"status": "failed", "error": "no batch row updated"}
+
+    return {
+        "status": "recorded",
+        "runtime_git_sha": report.runtime_git_sha,
+        "runtime_registry_hash": report.local_registry_hash,
+    }
 
 
 def create_batch(market_date: str, trigger_source: str) -> dict:
@@ -155,7 +233,12 @@ def main() -> int:
         if args.check_only:
             return check_only(market_date, deadline=datetime.now(timezone.utc).isoformat())
 
+        # Registry parity is verified BEFORE the batch RPC. On failure this
+        # raises, so no batch is created and no job is enqueued.
+        preflight = run_preflight_or_fail(market_date)
+
         batch = create_batch(market_date, args.trigger_source)
+        provenance = persist_runtime_provenance(batch.get("id"), preflight)
         discovery = (
             {"status": "skipped"}
             if args.skip_new_set_detection
@@ -168,9 +251,16 @@ def main() -> int:
             "expected_set_count": batch.get("expected_set_count"),
             "queued_set_count": batch.get("queued_set_count"),
             "trigger_source": args.trigger_source,
+            "runtime_preflight": preflight.to_dict(),
+            "runtime_provenance": provenance,
             "new_set_discovery": discovery,
         }, indent=2))
-        return 0
+        # The batch is valid, but claiming it is "fully verified" when its
+        # provenance could not be written would be a lie.
+        return 0 if provenance.get("status") == "recorded" else 1
+    except PreflightFailedError as exc:
+        print(format_preflight_json(exc.report))
+        return 1
     except Exception as exc:
         logger.exception("%s batch creation failed: %s", BATCH_TAG, exc)
         return 1

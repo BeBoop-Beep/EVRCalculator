@@ -4284,6 +4284,76 @@ def _top_chase_row_latest_date(row: Optional[Dict[str, Any]]) -> Optional[str]:
     return _parse_date_key(row.get("latest_market_date"))
 
 
+_TOP_CHASE_MIN_GRAPH_POINTS = 2
+
+
+def _top_chase_usable_point_count(history: Any) -> int:
+    """Dated points with a finite price — the only points a chart can plot."""
+    if not isinstance(history, list):
+        return 0
+    count = 0
+    for point in history:
+        if not isinstance(point, dict):
+            continue
+        if not _parse_date_key(point.get("date")):
+            continue
+        raw = point.get("marketPrice", point.get("market_price", point.get("price")))
+        try:
+            if raw is not None and float(raw) == float(raw):  # finite check
+                count += 1
+        except (TypeError, ValueError):
+            continue
+    return count
+
+
+def _score_top_chase_row_quality(row: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    """Structural quality of a stored dashboard row for Top Chase rendering.
+
+    A row can carry cards and prices while carrying no usable history at all —
+    that row renders as a full grid of "Awaiting trend" charts. Counting cards is
+    therefore not a measure of quality; counting cards that can actually draw a
+    line is.
+    """
+    if not isinstance(row, dict):
+        return {"priced_cards": 0, "renderable_cards": 0, "complete": 0}
+
+    cards = row.get("top_chase_cards_json")
+    cards = cards if isinstance(cards, list) else []
+    histories = row.get("top_chase_card_histories_json")
+    histories = histories if isinstance(histories, dict) else {}
+
+    priced = 0
+    renderable = 0
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        if not _top_chase_card_history_keys(card):
+            continue
+        raw_price = card.get(
+            "marketPrice",
+            card.get("market_price", card.get("currentPrice", card.get("current_price"))),
+        )
+        try:
+            price = float(raw_price) if raw_price is not None else None
+        except (TypeError, ValueError):
+            price = None
+        if price is None or price <= 0:
+            continue
+        priced += 1
+
+        best = _top_chase_usable_point_count(card.get("priceHistory") or card.get("price_history"))
+        for key in _top_chase_card_history_keys(card):
+            best = max(best, _top_chase_usable_point_count(histories.get(key)))
+        if best >= _TOP_CHASE_MIN_GRAPH_POINTS:
+            renderable += 1
+
+    return {
+        "priced_cards": priced,
+        "renderable_cards": renderable,
+        "complete": 1 if priced > 0 and renderable == priced else 0,
+    }
+
+
 def _pick_fresher_top_chase_row(
     requested_row: Optional[Dict[str, Any]],
     canonical_row: Optional[Dict[str, Any]],
@@ -4305,10 +4375,29 @@ def _pick_fresher_top_chase_row(
         return canonical_row, True, "missing_requested_window_row"
     if canonical_row is None:
         return requested_row, False, None
+
+    # 1. Freshness first — never let stale stored data override current data.
     requested_date = _top_chase_row_latest_date(requested_row)
     canonical_date = _top_chase_row_latest_date(canonical_row)
     if canonical_date and (requested_date is None or canonical_date > requested_date):
         return canonical_row, True, "requested_window_row_stale"
+    if requested_date and (canonical_date is None or requested_date > canonical_date):
+        return requested_row, False, None
+
+    # 2. Equally fresh (or both undated) — break the tie on structural quality.
+    #    A same-date row with cards but no usable histories must not beat a
+    #    same-date row with complete histories, because the first one renders as
+    #    "Awaiting trend" on every card while the second renders real trends.
+    requested_quality = _score_top_chase_row_quality(requested_row)
+    canonical_quality = _score_top_chase_row_quality(canonical_row)
+    if (canonical_quality["complete"], canonical_quality["renderable_cards"]) > (
+        requested_quality["complete"],
+        requested_quality["renderable_cards"],
+    ):
+        # The canonical row is the complete one; the caller slices its stored
+        # history down to the requested window, so this costs no extra query.
+        return canonical_row, True, "requested_window_row_incomplete"
+
     return requested_row, False, None
 
 
@@ -4515,6 +4604,29 @@ def get_pokemon_set_top_chase_snapshot_payload(
             window=resolved_window,
             warnings=["Pokemon top chase snapshot is missing; served empty fallback payload."],
             fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
+        )
+
+    # A row that exists but cannot render any trend is not a successful answer.
+    # Returning HTTP 200 with cards whose charts all read "Awaiting trend" is the
+    # misleading outcome this endpoint used to produce; a structured retryable 503
+    # lets the client's single bounded retry (and its validated last-known-good
+    # cache) do something useful instead. A row with NO priced cards at all is a
+    # genuinely empty/new set and is reported truthfully further below, not here.
+    chosen_quality = _score_top_chase_row_quality(row)
+    if chosen_quality["priced_cards"] > 0 and chosen_quality["renderable_cards"] == 0:
+        logger.warning(
+            "[pokemon-snapshot] top chase snapshot structurally incomplete set_id=%s "
+            "requested_window=%s source_window=%s priced_cards=%s renderable_cards=%s",
+            resolved_set_id,
+            resolved_window,
+            row.get("window_key"),
+            chosen_quality["priced_cards"],
+            chosen_quality["renderable_cards"],
+        )
+        raise PokemonSetMarketError(
+            503,
+            "Pokemon top chase snapshot is incomplete; no usable card history is available yet.",
+            "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE",
         )
 
     if used_fallback_window:

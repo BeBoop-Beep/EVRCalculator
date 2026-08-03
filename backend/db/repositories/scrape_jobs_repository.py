@@ -329,6 +329,47 @@ def create_daily_scrape_batch(
         raise
 
 
+def record_batch_runtime_provenance(
+    batch_id: Any,
+    *,
+    runtime_git_sha: Optional[str] = None,
+    runtime_registry_hash: Optional[str] = None,
+    runtime_preflight_json: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Record which runtime created and validated a batch.
+
+    Makes three questions answerable from one row: which code SHA created this
+    batch, which registry hash it validated, and which canonical keys it
+    considered ready. Returns ``True`` only when a batch row was actually updated
+    — the caller must not claim a batch is fully verified otherwise.
+    """
+    if batch_id is None:
+        return False
+
+    params: Dict[str, Any] = {
+        "p_batch_id": int(batch_id),
+        "p_runtime_git_sha": runtime_git_sha,
+        "p_runtime_registry_hash": runtime_registry_hash,
+        "p_runtime_preflight_json": runtime_preflight_json,
+    }
+
+    result = supabase.rpc("record_scrape_batch_runtime_provenance", params).execute()
+    data = _rpc_data(result)
+    payload = data[0] if isinstance(data, list) and data else data
+    ok = bool(payload.get("ok")) if isinstance(payload, dict) else False
+    if ok:
+        logger.info(
+            "%s recorded runtime provenance batch=%s sha=%s registry_hash=%s",
+            _JOB_TAG, batch_id, runtime_git_sha, runtime_registry_hash,
+        )
+    else:
+        logger.error(
+            "%s runtime provenance write did not update batch %s: %s",
+            _JOB_TAG, batch_id, payload,
+        )
+    return ok
+
+
 def reconcile_stale_scrape_jobs() -> int:
     """Expire crashed/timed-out jobs and requeue or terminally fail them."""
     try:
@@ -402,6 +443,7 @@ def finalize_scrape_job(
     error_summary: Optional[str] = None,
     report_path: Optional[str] = None,
     completed_at: Optional[str] = None,
+    error_code: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Transactionally finalize a queue job + its diagnostic run + batch counters.
 
@@ -423,6 +465,9 @@ def finalize_scrape_job(
         "p_metrics": metrics or {},
         "p_error_summary": (error_summary or None) and error_summary[:2000],
         "p_report_path": report_path,
+        # Deterministic codes make the SQL side burn the remaining attempt budget
+        # so cohort repair can never reopen a job that cannot succeed.
+        "p_error_code": error_code,
     }
 
     last_exc: Optional[Exception] = None

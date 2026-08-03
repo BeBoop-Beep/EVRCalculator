@@ -465,31 +465,131 @@ Why this is safe:
 
 ---
 
-## 13. Updating the Scraper
+## 13. Updating the Scraper — MANDATORY DEPLOYMENT ORDER
 
-Standard update procedure:
+### Why the order is fixed
 
-1. SSH to VM.
-2. Move to repo and pull latest main.
-3. Activate venv.
-4. Install/refresh dependencies if needed.
-5. Run a small manual validation scrape.
+On **2026-08-03** the VM was running commit `e4ac8208`, 19 revisions behind
+`main`, which predated 37 `otherEra` config files. Database set metadata had
+already been synchronized from a **newer** code generation, so 34 database cohort
+rows named canonical keys the deployed runtime could not resolve. Every one of
+those jobs failed with `invalid_set_key_filter`, each burned three attempts, and
+the batch stayed `incomplete` — correctly keeping August 2 public, but stalling
+the pipeline with no actionable signal.
 
-Commands:
+The invariant that prevents a recurrence:
+
+> **Database set metadata must NEVER get ahead of the deployed runtime registry.**
+
+Deploy code first, verify it, and only then let the database learn about new sets.
+
+### The permanent order
+
+Any code/config change that **adds or changes sets** must follow these steps in
+this order. Do not reorder, and do not skip step 4.
+
+| # | Step | Command / owner |
+|---|------|-----------------|
+| 1 | Merge the reviewed code | GitHub PR into `main` |
+| 2 | Deploy **that exact approved commit** to the scraper VM | §13.1 below |
+| 3 | Verify cron's repo path, branch, Python executable, `PYTHONPATH` | §13.2 below |
+| 4 | Run the runtime preflight **on the VM** | `audit_pokemon_scrape_runtime.py` |
+| 5 | Only after preflight passes: synchronize set metadata into the database | `sync_pokemon_eras_and_sets.py --apply` |
+| 6 | Create the daily batch | `create_daily_scrape_batch.py` |
+| 7 | Drain the required cohort | worker cron / `run_next_scrape_job.py` |
+| 8 | Complete / promote the batch | `complete_scrape_batch_if_ready` |
+| 9 | Run simulations | `run_all_v2_sets.py` |
+| 10 | Build snapshots | snapshot builders |
+| 11 | Run the complete publication audit | `audit_pokemon_market_publication.py` |
+| 12 | Send success **only if every required audit passes** | `run_daily_opening_publication.py` |
+
+At step 5 the preflight will still be re-run automatically inside
+`create_daily_scrape_batch.py`. That is intentional: it is the enforcement point,
+and it refuses to create a batch or enqueue a single job on any mismatch.
+
+### 13.1 Deploy a specific, identifiable commit
+
+Production runs a **deliberately deployed, identifiable commit** — never
+"whatever `main` happens to be right now".
 
 ```bash
 cd ~/repos/EVRCalculator
 git fetch origin
+
+# Deploy the exact approved commit (use the merge SHA from the PR).
+export DEPLOY_SHA=<approved-merge-sha>
 git checkout main
-git pull origin main
+git reset --hard "$DEPLOY_SHA"
+
 source .venv/bin/activate
 pip install -r backend/requirements.txt
+
+# Record what is actually deployed.
+git rev-parse HEAD
+git status --porcelain    # MUST be empty
+```
+
+> **Do NOT put an unconditional `git pull` inside the cron job.** A self-updating
+> cron makes the running code unidentifiable, deploys unreviewed commits at
+> 03:00, and can pull a half-merged state mid-run. The preflight is designed to
+> fail fast when database metadata gets ahead of the deployed runtime; a
+> self-pulling cron hides exactly the signal that failure is meant to give you.
+
+### 13.2 Verify cron's runtime matches the deployed checkout
+
+A correct commit in the wrong checkout is the same defect. Confirm all four:
+
+```bash
+crontab -l | grep -E 'EVRCalculator|python'   # repo path + python executable
+cd ~/repos/EVRCalculator && git rev-parse --abbrev-ref HEAD   # branch
+cd ~/repos/EVRCalculator && git rev-parse HEAD                # SHA
+ls -l ~/repos/EVRCalculator/.venv/bin/python                  # interpreter
+echo "${PYTHONPATH:-<unset>}"                                 # import root
+```
+
+Every cron entry must use the **absolute** repo path and the **venv** Python:
+
+```
+/home/ubuntu/repos/EVRCalculator/.venv/bin/python /home/ubuntu/repos/EVRCalculator/backend/scripts/<script>.py
+```
+
+### 13.3 Run the runtime preflight (the gate)
+
+```bash
+cd ~/repos/EVRCalculator
+source .venv/bin/activate
+python backend/scripts/audit_pokemon_scrape_runtime.py --json
+```
+
+Exit code `0` means the deployed runtime registry and the database daily cohort
+agree. Any nonzero exit means **stop** — do not sync metadata, do not create a
+batch. The report names:
+
+- `runtime.git_sha` / `git_branch` / `repository_root` / `python_executable` /
+  `working_directory` / `pythonpath` — what is actually running
+- `hashes.local_eligible_registry_sha256` vs `hashes.database_cohort_sha256`
+- `mismatches.missing_local_key` — **the database is ahead of this runtime**
+  (the August 3 signature); deploy the newer commit
+- `mismatches.unexpected_db_key` — the runtime is ahead; run the metadata sync
+- `mismatches.url_mismatch` / `mismatches.lifecycle_flag_mismatch`
+
+### 13.4 Validation scrape
+
+```bash
 python backend/scripts/run_pokemon_set_scrape.py --run --limit 1 --no-db-ingest
 ```
 
-After success:
+After success, let cron continue on the next schedule, or trigger a full run
+manually.
 
-- Let cron continue on next schedule, or trigger a full run manually.
+### 13.5 Catalog-only sets
+
+Sets whose config declares `CATALOG_ONLY = True` (promos, trainer kits, product
+catalogs — 37 as of migration 058) are stored with `catalog_only = true` and are
+**excluded from the publication-critical daily cohort**. They remain in the
+database and remain fully usable for manual, onboarding and historical catalog
+backfills; they simply can never block public daily publication. The daily cohort
+is `card_details_url IS NOT NULL AND NOT catalog_only`.
 
 ---
 

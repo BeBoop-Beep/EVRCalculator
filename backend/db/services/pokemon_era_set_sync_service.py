@@ -21,6 +21,10 @@ from backend.db.repositories.sets_repository import (
     update_set_by_id,
 )
 from backend.db.repositories.tcgs_repository import get_tcg_by_name
+from backend.db.services.pokemon_set_lifecycle_flags import (
+    is_daily_scrape_ready,
+    resolve_config_lifecycle_flags,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -169,8 +173,9 @@ def discover_pokemon_era_and_set_metadata() -> Dict[str, List[Dict[str, Any]]]:
             pokemon_api_set_id = _clean_str(getattr(config_cls, "SET_ID", None))
             symbol_image_url = _clean_str(getattr(config_cls, "SYMBOL_IMAGE_URL", None))
             logo_image_url = _clean_str(getattr(config_cls, "LOGO_IMAGE_URL", None))
-            card_details_url = _clean_str(getattr(config_cls, "CARD_DETAILS_URL", None))
-            sealed_details_url = _clean_str(getattr(config_cls, "SEALED_DETAILS_URL", None))
+            lifecycle = resolve_config_lifecycle_flags(config_cls)
+            card_details_url = lifecycle["card_details_url"]
+            sealed_details_url = lifecycle["sealed_details_url"]
             source_config_path = (
                 Path("backend")
                 / "constants"
@@ -200,9 +205,11 @@ def discover_pokemon_era_and_set_metadata() -> Dict[str, List[Dict[str, Any]]]:
                     "source_config_path": source_config_path,
                     "card_details_url": card_details_url,
                     "sealed_details_url": sealed_details_url,
-                    "has_card_details_url": bool(card_details_url),
-                    "has_sealed_details_url": bool(sealed_details_url),
-                    "ready_for_daily_scrape": bool(card_details_url or sealed_details_url),
+                    "has_card_details_url": lifecycle["has_card_details_url"],
+                    "has_sealed_details_url": lifecycle["has_sealed_details_url"],
+                    "catalog_only": lifecycle["catalog_only"],
+                    "supports_opening_simulation": lifecycle["supports_opening_simulation"],
+                    "ready_for_daily_scrape": lifecycle["ready_for_daily_scrape"],
                 }
             )
 
@@ -291,7 +298,8 @@ def _build_set_payload(
         source.get("sealed_details_url"),
         existing.get("sealed_details_url") if existing else None,
     )
-    
+    catalog_only = bool(source.get("catalog_only", False))
+
     # Validate and merge image URLs
     source_logo_url = _clean_str(source.get("logo_image_url"))
     source_symbol_url = _clean_str(source.get("symbol_image_url"))
@@ -332,7 +340,17 @@ def _build_set_payload(
         "source_config_path": source.get("source_config_path"),
         "has_card_details_url": bool(merged_card_details_url),
         "has_sealed_details_url": bool(merged_sealed_details_url),
-        "ready_for_daily_scrape": bool(merged_card_details_url or merged_sealed_details_url),
+        # Lifecycle flags come from the config, which is authoritative. They are
+        # not coalesced against the existing row: a config that flips to
+        # CATALOG_ONLY must be able to REMOVE a set from the daily cohort.
+        "catalog_only": catalog_only,
+        "supports_opening_simulation": bool(source.get("supports_opening_simulation", not catalog_only)),
+        # Derived, never independent: a sealed URL alone can no longer make a set
+        # daily-eligible, and a catalog-only set can never be daily-eligible.
+        "ready_for_daily_scrape": is_daily_scrape_ready(
+            card_details_url=merged_card_details_url,
+            catalog_only=catalog_only,
+        ),
         "card_details_url": merged_card_details_url,
         "sealed_details_url": merged_sealed_details_url,
     }
@@ -569,6 +587,21 @@ def sync_pokemon_era_and_set_metadata(
 
     source_scrape_ready_count = sum(1 for row in source_sets if row.get("ready_for_daily_scrape"))
     final_scrape_ready_count = sum(1 for row in metric_final_sets if row.get("ready_for_daily_scrape"))
+    source_catalog_only_count = sum(1 for row in source_sets if row.get("catalog_only"))
+    final_catalog_only_count = sum(1 for row in metric_final_sets if row.get("catalog_only"))
+    source_simulation_supported_count = sum(
+        1 for row in source_sets if row.get("supports_opening_simulation")
+    )
+    final_simulation_supported_count = sum(
+        1 for row in metric_final_sets if row.get("supports_opening_simulation")
+    )
+    # The invariant that would have prevented the 2026-08-03 incident cohort:
+    # a catalog-only set must never be advertised as daily-scrape ready.
+    catalog_only_marked_ready = sorted(
+        str(row.get("canonical_key"))
+        for row in metric_final_sets
+        if row.get("catalog_only") and row.get("ready_for_daily_scrape")
+    )
     final_card_details_count = sum(1 for row in metric_final_sets if row.get("has_card_details_url"))
     final_sealed_details_count = sum(1 for row in metric_final_sets if row.get("has_sealed_details_url"))
     synced_tcg_ids = sorted({str(row.get("tcg_id")) for row in final_eras + final_sets if row.get("tcg_id")})
@@ -587,8 +620,14 @@ def sync_pokemon_era_and_set_metadata(
             "sets_inserted": sum(1 for row in set_actions if row["action"] == "inserted"),
             "sets_updated": sum(1 for row in set_actions if row["action"] == "updated"),
             "sets_skipped": sum(1 for row in set_actions if row["action"] == "skipped"),
+            "total_configs": len(source_sets),
             "total_scrape_ready_sets_from_constants": source_scrape_ready_count,
             "total_scrape_ready_sets_in_db": final_scrape_ready_count,
+            "total_catalog_only_from_constants": source_catalog_only_count,
+            "total_catalog_only_in_db": final_catalog_only_count,
+            "total_simulation_supported_from_constants": source_simulation_supported_count,
+            "total_simulation_supported_in_db": final_simulation_supported_count,
+            "catalog_only_marked_ready_count": len(catalog_only_marked_ready),
             "total_sets_with_card_details_urls": final_card_details_count,
             "total_sets_with_sealed_details_urls": final_sealed_details_count,
             "conflict_count": len(conflicts),
@@ -603,6 +642,11 @@ def sync_pokemon_era_and_set_metadata(
             "pokemon_tcg_id_consistent": synced_tcg_ids == [str(tcg_id)],
             "synced_tcg_ids": synced_tcg_ids,
             "scrape_ready_count_matches_constants": final_scrape_ready_count == source_scrape_ready_count,
+            "catalog_only_count_matches_constants": final_catalog_only_count == source_catalog_only_count,
+            # MUST be empty. A non-empty list means catalog-only rows can enter the
+            # publication-critical daily cohort.
+            "catalog_only_marked_ready": catalog_only_marked_ready,
+            "catalog_only_never_daily_ready": not catalog_only_marked_ready,
             "target_set": (
                 {
                     "canonical_key": metric_final_sets[0].get("canonical_key"),

@@ -921,14 +921,25 @@ def get_pokemon_set_top_chase(
     try:
         return get_pokemon_set_top_chase_snapshot_payload(set_id=set_id, window=window or "30D", limit=limit)
     except PokemonSetMarketError as exc:
+        # 5xx here means "ask again" (an incomplete/malformed snapshot row), which
+        # is what authorizes the client's single bounded retry. A 4xx is settled
+        # and must not be retried.
         return JSONResponse(
-            content={"message": exc.message, "code": exc.code},
+            content={
+                "message": exc.message,
+                "code": exc.code,
+                "retryable": exc.status_code >= 500,
+            },
             status_code=exc.status_code,
         )
     except Exception:
         logger.exception("/tcgs/pokemon/sets/%s/market/top-chase unexpected error", set_id)
         return JSONResponse(
-            content={"message": "Unable to load Pokemon set top chase cards", "code": "POKEMON_SET_TOP_CHASE_FAILED"},
+            content={
+                "message": "Unable to load Pokemon set top chase cards",
+                "code": "POKEMON_SET_TOP_CHASE_FAILED",
+                "retryable": True,
+            },
             status_code=500,
         )
 

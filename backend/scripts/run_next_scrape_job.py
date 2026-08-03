@@ -21,6 +21,15 @@ from backend.db.repositories.scrape_jobs_repository import (
     finalize_scrape_job,
 )
 from backend.db.repositories.sets_repository import get_set_by_id
+from backend.db.services.scrape_failure_classification import (
+    ERROR_CATALOG_ONLY_NOT_DAILY_ELIGIBLE,
+    ERROR_MISSING_CANONICAL_KEY,
+    ERROR_SET_NOT_FOUND,
+    ERROR_TRANSIENT_SCRAPE_FAILURE,
+    classify_report_failure,
+    is_deterministic,
+    remediation_for,
+)
 from backend.scripts.run_pokemon_set_scrape import (
     _apply_safe_runtime_defaults,
     _load_backend_env,
@@ -95,11 +104,16 @@ def _finalize(
     failed: int,
     error_summary: Optional[str],
     canonical_key: Optional[str] = None,
+    error_code: Optional[str] = None,
 ) -> None:
     """Finalize the queue job + diagnostic run + batch counters transactionally.
 
     On permanent DB failure a durable local recovery record is written and a
     high-severity alert is queued; the lease watchdog will reconcile the job.
+
+    A deterministic ``error_code`` is passed through so the database burns the
+    remaining attempt budget: a configuration/deployment failure must not consume
+    three identical attempts, and cohort repair must not reopen it.
     """
     report = report or {}
     result = finalize_scrape_job(
@@ -111,8 +125,31 @@ def _finalize(
         metrics=_request_metrics(report),
         error_summary=error_summary,
         report_path=str(_build_job_report_path(job_id)),
+        error_code=error_code,
     )
-    logger.info("%s final status update job id=%s -> %s", DISPATCHER_TAG, job_id, final_status)
+    logger.info(
+        "%s final status update job id=%s -> %s error_code=%s",
+        DISPATCHER_TAG, job_id, final_status, error_code,
+    )
+
+    if final_status == "failed" and is_deterministic(error_code):
+        logger.error(
+            "%s DETERMINISTIC failure job id=%s canonical_key=%s code=%s — not retryable. %s",
+            DISPATCHER_TAG, job_id, canonical_key, error_code,
+            remediation_for(error_code) or "",
+        )
+        try:
+            from backend.alerts.scrape_alerts import alert_deterministic_scrape_failure
+
+            alert_deterministic_scrape_failure(
+                job_id=job_id,
+                canonical_key=canonical_key,
+                error_code=str(error_code),
+                market_date=report.get("market_date"),
+                error_summary=error_summary,
+            )
+        except Exception:  # pragma: no cover - alerting must never break the worker
+            logger.exception("%s failed to queue deterministic-failure alert", DISPATCHER_TAG)
 
     if not result.get("ok"):
         try:
@@ -170,14 +207,30 @@ def dispatch_next_scrape_job() -> int:
     if not set_row:
         logger.error("%s set lookup failed for job id=%s set_id=%s", DISPATCHER_TAG, job_id, set_id)
         _finalize(job_id, None, "failed", succeeded=0, failed=1,
-                  error_summary=f"Set not found for set_id={set_id}")
+                  error_summary=f"Set not found for set_id={set_id}",
+                  error_code=ERROR_SET_NOT_FOUND)
         return 0
 
     canonical_key: Optional[str] = set_row.get("canonical_key")
     if not canonical_key:
         logger.error("%s canonical_key missing for job id=%s set_id=%s", DISPATCHER_TAG, job_id, set_id)
         _finalize(job_id, None, "failed", succeeded=0, failed=1,
-                  error_summary=f"Set canonical_key missing for set_id={set_id}")
+                  error_summary=f"Set canonical_key missing for set_id={set_id}",
+                  error_code=ERROR_MISSING_CANONICAL_KEY)
+        return 0
+
+    # Secondary defence behind the preflight: if a catalog-only set somehow
+    # reached the queue (a race against a metadata sync), fail it deterministically
+    # rather than letting it retry and hold the batch incomplete.
+    if set_row.get("catalog_only") is True:
+        logger.error(
+            "%s catalog-only set reached the daily queue job id=%s canonical_key=%s",
+            DISPATCHER_TAG, job_id, canonical_key,
+        )
+        _finalize(job_id, None, "failed", succeeded=0, failed=1,
+                  error_summary=f"Set {canonical_key} is catalog_only and is not daily-eligible",
+                  canonical_key=canonical_key,
+                  error_code=ERROR_CATALOG_ONLY_NOT_DAILY_ELIGIBLE)
         return 0
 
     logger.info("%s scraper start job id=%s canonical_key=%s", DISPATCHER_TAG, job_id, canonical_key)
@@ -196,8 +249,10 @@ def dispatch_next_scrape_job() -> int:
     except Exception as exc:
         error_message = _truncate_error_message(exc)
         logger.exception("%s scraper failure job id=%s canonical_key=%s", DISPATCHER_TAG, job_id, canonical_key)
+        # An unexpected exception is treated as transient: it keeps its retries.
         _finalize(job_id, None, "failed", succeeded=0, failed=1,
-                  error_summary=error_message, canonical_key=canonical_key)
+                  error_summary=error_message, canonical_key=canonical_key,
+                  error_code=ERROR_TRANSIENT_SCRAPE_FAILURE)
         return 0
 
     if report.get("sets_succeeded") == 1 and report.get("sets_failed") == 0:
@@ -207,12 +262,17 @@ def dispatch_next_scrape_job() -> int:
         return 0
 
     error_message = _report_error_summary(report)
+    # This is the path the 2026-08-03 failures took: run_scraper returns a report
+    # with run_abort_reason='invalid_set_key_filter'. Classifying it here is what
+    # stops three identical attempts and turns it into an actionable alert.
+    error_code = classify_report_failure(report) or ERROR_TRANSIENT_SCRAPE_FAILURE
     logger.error(
-        "%s scraper failure job id=%s canonical_key=%s summary=%s",
-        DISPATCHER_TAG, job_id, canonical_key, error_message,
+        "%s scraper failure job id=%s canonical_key=%s code=%s summary=%s",
+        DISPATCHER_TAG, job_id, canonical_key, error_code, error_message,
     )
     _finalize(job_id, report, "failed", succeeded=0, failed=1,
-              error_summary=error_message, canonical_key=canonical_key)
+              error_summary=error_message, canonical_key=canonical_key,
+              error_code=error_code)
     return 0
 
 

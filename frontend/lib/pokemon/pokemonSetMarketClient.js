@@ -1,4 +1,8 @@
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "./pricingSnapshotContract.mjs";
+import {
+  isRetryableTopChaseStatus,
+  validateTopChasePayload,
+} from "./topChasePayloadContract.mjs";
 
 function toOptionalString(value) {
   const text = String(value || "").trim();
@@ -800,6 +804,14 @@ async function readJsonResponse(response, fallbackMessage) {
     const message = payload?.message || payload?.error || fallbackMessage;
     const requestError = new Error(message);
     requestError.status = response.status;
+    // Carry the structured body through so callers can branch on the declared
+    // contract (code / retryable) instead of re-deriving it from the status.
+    if (payload?.code) {
+      requestError.code = payload.code;
+    }
+    if (typeof payload?.retryable === "boolean") {
+      requestError.retryable = payload.retryable;
+    }
     throw requestError;
   }
 
@@ -950,6 +962,69 @@ export function normalizeTopChasePayload(payload) {
   });
 }
 
+// --- Top Chase last-known-good cache ----------------------------------------
+//
+// Keyed by set + window + limit so a stale payload can only ever be reused for
+// the exact request that produced it. Nothing is written here unless the
+// dedicated payload validated as COMPLETE, which is what stops a degraded or
+// previous-generation response from being resurrected later and presented as if
+// it were current.
+const topChaseLastKnownGood = new Map();
+
+function getTopChaseIdentityKey(setId, window, limit) {
+  return `top-chase:${setId}:${window || ""}:${limit || ""}`;
+}
+
+export function __resetTopChaseLastKnownGoodForTests() {
+  topChaseLastKnownGood.clear();
+}
+
+export function getCachedPokemonSetTopChase(setId, { window = "365d", limit = 10 } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) {
+    return null;
+  }
+  return topChaseLastKnownGood.get(getTopChaseIdentityKey(resolvedSetId, window, limit)) || null;
+}
+
+// Exactly one automatic retry (two attempts total). A bounded, single retry
+// covers the transient cases — a cold backend read, a 5xx, an aborted socket —
+// without turning a genuinely broken section into a polling loop.
+const TOP_CHASE_RETRY_STATUSES = new Set([500, 502, 503, 504]);
+const TOP_CHASE_RETRY_DELAY_MS = 400;
+
+function isRetryableTopChaseError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error.retryable === true || error.isTimeout === true) {
+    return true;
+  }
+  if (error.name === "AbortError") {
+    return true;
+  }
+  return TOP_CHASE_RETRY_STATUSES.has(Number(error.status));
+}
+
+function buildTopChaseContractError(verdict) {
+  const error = new Error("Top chase cards response was incomplete.");
+  error.code = "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE";
+  error.status = 503;
+  error.retryable = true;
+  error.topChaseVerdict = verdict;
+  return error;
+}
+
+async function fetchTopChaseOnce(resolvedSetId, params, signal) {
+  const response = await fetch(
+    `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
+    { method: "GET", signal, cache: "no-store" }
+  );
+
+  const payload = await readJsonResponse(response, "Unable to load top chase cards");
+  return normalizeTopChasePayload(payload);
+}
+
 export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -965,19 +1040,60 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
     params.set("limit", String(limit));
   }
 
-  const cacheKey = `top-chase:${resolvedSetId}:${window || ""}:${limit || ""}`;
-  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
-    const response = await fetch(
-      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/top-chase${params.toString() ? `?${params}` : ""}`,
-      {
-        method: "GET",
-        signal,
-      }
-    );
+  const identityKey = getTopChaseIdentityKey(resolvedSetId, window, limit);
 
-    return normalizeTopChasePayload(
-      await readJsonResponse(response, "Unable to load top chase cards")
-    );
+  // joinSlimModuleRequest releases the key in .finally(), so it is cleared after
+  // success, error, timeout AND contract-validation failure alike.
+  return joinSlimModuleRequest(identityKey, async ({ signal } = {}) => {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const normalized = await fetchTopChaseOnce(resolvedSetId, params, signal);
+        const verdict = validateTopChasePayload(normalized, {
+          setId: resolvedSetId,
+          window,
+          limit,
+        });
+
+        if (verdict.renderable || !isRetryableTopChaseStatus(verdict.status)) {
+          // Settled: either it renders, or it is a truthful terminal state
+          // (genuinely new set / empty snapshot) that retrying cannot improve.
+          const result = {
+            ...normalized,
+            topChaseVerdict: verdict,
+            isStale: false,
+            isLastKnownGood: false,
+          };
+          if (verdict.complete) {
+            topChaseLastKnownGood.set(identityKey, { ...result, isLastKnownGood: true, isStale: true });
+          }
+          return result;
+        }
+
+        lastError = buildTopChaseContractError(verdict);
+      } catch (error) {
+        lastError = error;
+        if (!isRetryableTopChaseError(error)) {
+          break;
+        }
+      }
+
+      if (attempt === 1) {
+        await new Promise((resolve) => setTimeout(resolve, TOP_CHASE_RETRY_DELAY_MS));
+      }
+    }
+
+    // Both attempts failed. A validated same-set, same-window payload may stand
+    // in, clearly marked stale. A different set's payload never may, and generic
+    // checklist rows are never a Top Chase result.
+    const lastKnownGood = topChaseLastKnownGood.get(identityKey);
+    if (lastKnownGood) {
+      debugTiming("top_chase.serving_last_known_good", { setId: resolvedSetId, window, limit });
+      return { ...lastKnownGood, isStale: true, isLastKnownGood: true };
+    }
+
+    throw lastError || buildTopChaseContractError(null);
   });
 }
 

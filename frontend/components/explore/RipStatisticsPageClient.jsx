@@ -182,6 +182,7 @@ import {
   resolveTopCardWindowState,
   warnForTopCardWindowState,
 } from "./topChaseWindowState.mjs";
+import { validateTopChasePayload } from "@/lib/pokemon/topChasePayloadContract.mjs";
 import {
   chooseFresherOverviewPayload,
   getLatestRealPerformanceDate,
@@ -11845,29 +11846,43 @@ export default function RipStatisticsPageClient({
     isStateForResolvedSet(marketMoversState.setId, resolvedSetResourceId)
       ? marketMoversState
       : createMarketDashboardState({ setId: resolvedSetResourceId, sourceWindow: marketMoversState.sourceWindow });
-  // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to
-  // the (possibly seeded/cached) monolithic dashboard state only until the
-  // dedicated fetch lands.
+  // Top Chase Cards: prefer the slim /market/top-chase fetch; fall back to the
+  // (possibly seeded/cached) monolithic dashboard state only while the dedicated
+  // fetch is still in flight AND only when that fallback itself carries valid
+  // Top Chase histories.
+  //
+  // The old rule was `topChaseFallbackCards.length > 0`, which is not the same
+  // question as "can this render". Plain checklist/dashboard rows carry images
+  // and prices but no dedicated Top Chase history series, so a failed dedicated
+  // module was reported as `success_stale` and the section filled with cards
+  // whose every chart read "Awaiting trend". Row count is never evidence of a
+  // usable trend — validated history is.
   const topChaseLiveCards = Array.isArray(activeTopChaseState.payload?.cards) ? activeTopChaseState.payload.cards : [];
   const topChaseLiveHasRows = topChaseLiveCards.length > 0;
-  const topChaseFallbackCards = activeMarketDashboardDerivedState.topCards.cards;
+  const topChaseFallbackCandidates = activeMarketDashboardDerivedState.topCards.cards;
+  // setId is intentionally omitted: these rows are same-set by construction, so
+  // only their structural quality is in question here.
+  const topChaseFallbackVerdict = validateTopChasePayload(
+    { cards: topChaseFallbackCandidates },
+    {}
+  );
+  const topChaseFallbackRenderable = topChaseFallbackVerdict.renderable;
+  const topChaseFallbackCards = topChaseFallbackRenderable ? topChaseFallbackCandidates : [];
   const topChaseStatus =
     activeTopChaseState.status === "success" || activeTopChaseState.status === "success_stale"
       ? topChaseLiveHasRows
         ? activeTopChaseState.status
         : "empty"
       : activeTopChaseState.status === "error"
-      ? activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-        ? topChaseFallbackCards.length > 0
-          ? "success_stale"
-          : "empty"
+      ? topChaseFallbackRenderable
+        ? "success_stale"
         : "error"
       : activeTopChaseState.status === "loading"
-      ? topChaseFallbackCards.length > 0
+      ? topChaseFallbackRenderable
         ? "success_stale"
         : "loading"
       : activeMarketDashboardState.status === "success" || activeMarketDashboardState.status === "success_stale"
-      ? topChaseFallbackCards.length > 0
+      ? topChaseFallbackRenderable
         ? activeMarketDashboardState.status === "success_stale"
           ? "success_stale"
           : "success"

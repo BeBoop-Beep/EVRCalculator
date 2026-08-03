@@ -49,8 +49,18 @@ export const UNCACHED_ANALYTICS_CACHE_CONTROL = "no-store";
 // freshest published date beats a 5-minute edge hit on the one module whose
 // staleness is the defect being repaired. Every other module keeps its existing
 // policy unchanged.
+//
+// top-chase opts out for the same class of reason. It is a slim request whose
+// payload must agree with the promoted market date, and replaying an incomplete
+// or previous-generation Top Chase response for up to an hour is exactly how the
+// section ends up showing cards whose charts all read "Awaiting trend". The
+// client validates every response against the dedicated payload contract and
+// keeps its own validated last-known-good copy, so correctness here is worth
+// more than a 5-minute edge hit. Cache-busting query parameters are deliberately
+// NOT used — the request stays cacheable-by-identity, it is simply not cached.
 const SUCCESS_CACHE_CONTROL_BY_MODULE = Object.freeze({
   overview: UNCACHED_ANALYTICS_CACHE_CONTROL,
+  "top-chase": UNCACHED_ANALYTICS_CACHE_CONTROL,
 });
 
 /**

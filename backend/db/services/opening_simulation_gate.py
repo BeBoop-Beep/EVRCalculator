@@ -180,6 +180,20 @@ def _date_key(value: Any) -> Optional[str]:
     return text[:10] if text else None
 
 
+def _stored_unsupported_reason(set_row: Dict[str, Any]) -> Optional[str]:
+    """Authoritative "unsupported" reason carried by the set row itself.
+
+    Returns ``None`` when the row does not disqualify the set. Missing columns are
+    treated as supported so this remains correct against a database that has not
+    yet had migration 058 applied.
+    """
+    if set_row.get("catalog_only") is True:
+        return "set is catalog_only; catalog/onboarding sets are not simulated"
+    if set_row.get("supports_opening_simulation") is False:
+        return "set row has supports_opening_simulation=false"
+    return None
+
+
 def resolve_supported_opening_sets(
     client: Any,
     *,
@@ -197,7 +211,7 @@ def resolve_supported_opening_sets(
     try:
         result = (
             client.table("sets")
-            .select("id,name,canonical_key")
+            .select("id,name,canonical_key,catalog_only,supports_opening_simulation")
             .in_("canonical_key", keys)
             .execute()
         )
@@ -388,6 +402,24 @@ def evaluate_opening_simulation_freshness(
                     set_name=None,
                     status=STATUS_UNRESOLVED,
                     reason="no row in sets matches this canonical key",
+                )
+            )
+            continue
+
+        # The lifecycle flags stored on the set are authoritative: a catalog-only
+        # or explicitly non-simulation set is UNSUPPORTED without any operator
+        # having to maintain a second manual list for a flag the row already
+        # carries. Absent columns default to "supported" so this stays safe on a
+        # runtime that predates migration 058.
+        stored_unsupported_reason = _stored_unsupported_reason(set_row)
+        if stored_unsupported_reason:
+            statuses.append(
+                OpeningSetSimulationStatus(
+                    canonical_key=canonical_key,
+                    set_id=_to_text(set_row.get("id")),
+                    set_name=_to_text(set_row.get("name")),
+                    status=STATUS_UNSUPPORTED,
+                    reason=stored_unsupported_reason,
                 )
             )
             continue

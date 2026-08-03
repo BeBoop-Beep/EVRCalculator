@@ -14,6 +14,8 @@ Alert types (Phase 8):
     missing_current_sets         — current/newest sets missing from the batch
     finalization_db_failure      — finalization could not reach the database
     snapshot_promotion_blocked   — partial batch blocked downstream promotion
+    runtime_registry_mismatch    — deployed runtime disagrees with DB metadata
+    deterministic_scrape_failure — non-retryable configuration/deployment failure
 """
 
 from __future__ import annotations
@@ -137,6 +139,77 @@ def alert_batch_incomplete(
             "succeeded_set_count": succeeded_set_count,
             "failed_set_count": failed_set_count,
             "error_category": "batch_incomplete",
+        },
+    )
+
+
+def alert_runtime_registry_mismatch(market_date: str, *, report: Any) -> Optional[Dict[str, Any]]:
+    """Deployed runtime disagrees with database metadata; batch creation refused.
+
+    This is a configuration/deployment defect, not a data problem: the fix is to
+    deploy the correct commit to the VM (or run the metadata sync), never to
+    retry. The message names the diverging keys so the operator does not have to
+    reconstruct them from job rows.
+    """
+    missing = list(getattr(report, "missing_local_keys", []) or [])
+    unexpected = list(getattr(report, "unexpected_db_keys", []) or [])
+    preview = ", ".join((missing + unexpected)[:10]) or "-"
+
+    return queue_alert(
+        "runtime_registry_mismatch",
+        title=f"Scrape runtime/database registry mismatch blocked {market_date}",
+        message=(
+            f"Batch creation for market_date {market_date} was refused: the deployed "
+            f"runtime and the database daily cohort disagree on "
+            f"{getattr(report, 'mismatch_count', 0)} canonical key(s)/field(s). "
+            f"Runtime sha={getattr(report, 'runtime_git_sha', None)} "
+            f"branch={getattr(report, 'runtime_git_branch', None)} "
+            f"root={getattr(report, 'repository_root', None)}. "
+            f"Diverging keys: {preview}. "
+            "Deploy the approved commit to the scraper VM and re-run the preflight; "
+            "do NOT retry the batch."
+        ),
+        severity="critical",
+        dedupe_key=f"runtime_registry_mismatch:{market_date}",
+        payload={
+            "market_date": market_date,
+            "error_category": "runtime_registry_mismatch",
+            "preflight": report.to_dict() if hasattr(report, "to_dict") else None,
+        },
+    )
+
+
+def alert_deterministic_scrape_failure(
+    *,
+    job_id: Any,
+    canonical_key: Optional[str],
+    error_code: str,
+    market_date: Optional[str] = None,
+    error_summary: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """A job failed for a deterministic configuration/deployment reason.
+
+    Retrying cannot fix these, so the job is finalized without consuming further
+    attempts and this alert carries the actionable detail instead.
+    """
+    return queue_alert(
+        "deterministic_scrape_failure",
+        title=f"Non-retryable scrape failure ({error_code}) for {canonical_key or 'unknown set'}",
+        message=(
+            f"Scrape job {job_id} for canonical_key={canonical_key} failed with the "
+            f"deterministic error code '{error_code}' on market_date {market_date}. "
+            "This is a configuration/deployment defect and was NOT requeued. "
+            f"Detail: {(error_summary or '')[:500]}"
+        ),
+        severity="critical",
+        dedupe_key=f"deterministic_scrape_failure:{market_date}:{canonical_key}:{error_code}",
+        payload={
+            "market_date": market_date,
+            "queue_job_id": job_id,
+            "canonical_key": canonical_key,
+            "error_code": error_code,
+            "error_category": "deterministic_configuration_failure",
+            "retryable": False,
         },
     )
 

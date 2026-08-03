@@ -545,9 +545,12 @@ test("getPokemonSetOverview joins concurrent identical calls into a single fetch
 test("getPokemonSetTopChase joins concurrent identical calls into a single fetch", async () => {
   const stub = stubFetchJson(() => makeTopChasePayload());
   try {
+    // The requested id must match the fixture's `set.id`: getPokemonSetTopChase
+    // now validates response identity, so a payload for another set is rejected
+    // (and retried) rather than rendered. Deduping is what this test asserts.
     await Promise.all([
-      getPokemonSetTopChase("set-dedupe-topchase", { window: "30D", limit: 10 }),
-      getPokemonSetTopChase("set-dedupe-topchase", { window: "30D", limit: 10 }),
+      getPokemonSetTopChase("set-1", { window: "30D", limit: 10 }),
+      getPokemonSetTopChase("set-1", { window: "30D", limit: 10 }),
     ]);
     assert.equal(stub.getCallCount(), 1, "two concurrent identical top-chase calls must issue exactly one network fetch");
     assert.match(stub.getUrls()[0], /snapshot_contract=pricing-v4/);

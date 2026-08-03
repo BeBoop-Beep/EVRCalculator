@@ -91,6 +91,9 @@ class PublicationSummary:
     verification_passed: bool = False
     publication_audit_status: str = "not_attempted"
     publication_audit_failed_sets: List[str] = field(default_factory=list)
+    market_audit_status: str = "not_attempted"
+    market_audit_failed_sets: List[str] = field(default_factory=list)
+    market_audit_report: Optional[Dict[str, Any]] = None
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -115,6 +118,15 @@ class PublicationSummary:
             out.append(
                 f"{TAG} publication_audit_failed_sets={','.join(self.publication_audit_failed_sets)}"
             )
+        out.append(f"{TAG} market_audit_status={self.market_audit_status}")
+        if self.market_audit_failed_sets:
+            out.append(
+                f"{TAG} market_audit_failed_sets={','.join(self.market_audit_failed_sets)}"
+            )
+        if self.market_audit_report:
+            failed_by_section = self.market_audit_report.get("failed_by_section") or {}
+            for section, sets in sorted(failed_by_section.items()):
+                out.append(f"{TAG}   failed_section={section} sets={','.join(sets)}")
         if self.error:
             out.append(f"{TAG} error={self.error}")
         out.append(f"{TAG} exit_code={self.exit_code}")
@@ -329,8 +341,72 @@ def orchestrate(
             )
         return summary
 
+    # ---- Step 7: every OTHER public market surface must agree too -----------
+    # The audit above covers simulation freshness and Opening Profit vs Cost for
+    # simulation-supported sets. It says nothing about Set Value, Top Chase,
+    # Sealed Market, card prices, or the set-page header, and nothing at all
+    # about the sets that carry no simulation. Any of those can sit a generation
+    # behind while this command still reports success. This step closes that gap
+    # across every publication-required set.
+    summary.market_audit_status = _run_market_publication_audit(
+        client,
+        summary,
+        resolved_market_date=resolved_market_date,
+        dry_run=dry_run,
+        skip_snapshots=skip_snapshots,
+    )
+    if summary.market_audit_status not in {"passed", "skipped"}:
+        summary.exit_code = EXIT_FAILED
+        if not summary.error:
+            detail = ", ".join(summary.market_audit_failed_sets[:10]) or summary.market_audit_status
+            summary.error = (
+                "one or more public market sections are behind the promoted market date "
+                f"{resolved_market_date}; refusing to report success ({detail})"
+            )
+        return summary
+
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _run_market_publication_audit(
+    client: Any,
+    summary: PublicationSummary,
+    *,
+    resolved_market_date: str,
+    dry_run: bool,
+    skip_snapshots: bool,
+) -> str:
+    """Verify every publication-required set on every user-facing market surface.
+
+    Returns ``passed``, ``skipped``, ``failed`` or ``error:<reason>``. An
+    unreadable audit is never a pass — the previous last-known-good public data
+    stays visible, which is the correct fail-closed outcome.
+    """
+    if dry_run or skip_snapshots:
+        return "skipped"
+
+    from backend.scripts.audit_pokemon_market_publication import (
+        format_report_lines,
+        run_market_publication_audit,
+    )
+
+    try:
+        report = run_market_publication_audit(client, market_date=resolved_market_date)
+    except Exception as exc:  # noqa: BLE001 - an unreadable audit must not read as success
+        logger.warning("%s market publication audit raised", TAG, exc_info=True)
+        return f"error:{exc}"
+
+    if report.error:
+        return f"error:{report.error}"
+
+    summary.market_audit_failed_sets = [
+        row.canonical_key or row.set_id or "?" for row in report.failed_rows
+    ]
+    summary.market_audit_report = report.to_dict()
+    for line in format_report_lines(report):
+        print(line)
+    return "passed" if report.passed else "failed"
 
 
 def _run_publication_audit(
