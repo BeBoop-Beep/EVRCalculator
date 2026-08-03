@@ -19,6 +19,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 
 WINDOW_CONVENTION = "inclusive_calendar_dates_v1"
+MOVEMENT_CONTRACT_VERSION = "pokemon_card_movement_v1"
 MIN_HISTORY_SPAN_DAYS = {1: 1, 7: 3, 30: 14}
 MAX_HISTORY_SPAN_DAYS = {1: 3, 7: 10, 30: 45}
 MIN_CURRENT_PRICE = 1.0

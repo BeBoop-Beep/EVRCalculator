@@ -199,6 +199,7 @@ def _market_row(*, updated_at="2026-06-21T00:00:00+00:00", latest_market_date="2
 
 def test_market_dashboard_stale_when_raw_set_value_snapshot_date_newer(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
 
     def latest_by_scope(_client, _set_id, *, column):
         if column == "updated_at":
@@ -217,6 +218,7 @@ def test_market_dashboard_stale_when_raw_set_value_snapshot_date_newer(monkeypat
 
 def test_market_dashboard_missing_row_is_stale(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
     monkeypatch.setattr(
         refresh,
         "_latest_set_value_history_by_scope",
@@ -232,6 +234,7 @@ def test_market_dashboard_missing_row_is_stale(monkeypatch):
 
 def test_market_dashboard_stale_when_one_scope_history_lags(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
 
     def latest_by_scope(_client, _set_id, *, column):
         if column == "updated_at":
@@ -259,6 +262,7 @@ def test_market_dashboard_stale_when_one_scope_history_lags(monkeypatch):
 
 def test_market_dashboard_stale_when_raw_set_value_updated_after_dashboard(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
 
     def latest_by_scope(_client, _set_id, *, column):
         if column == "updated_at":
@@ -586,6 +590,7 @@ def _patch_main_pipeline(monkeypatch, *, gate_allowed=True, override=False, fail
             summary.rebuilt_sets["cards"].append("alpha")
 
     monkeypatch.setattr(refresh, "_maybe_rebuild_coordinated_market", _rebuild_coordinated)
+    monkeypatch.setattr(refresh, "_maybe_rebuild_explore_card_movers", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_maybe_rebuild_rankings", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_maybe_rebuild_set_page", lambda *_a, **_k: None)
     monkeypatch.setattr(refresh, "_build_validation_snapshot", lambda *_a, **_k: None)
@@ -837,3 +842,189 @@ def test_31b_missing_snapshot_marker_fails(monkeypatch):
     _patch_page_row(monkeypatch, row)
     problems = _verify(None)
     assert any("meta.snapshot missing" in p for p in problems)
+
+
+# ---------------------------------------------------------------------------
+# Opening Profit vs Cost stale-dashboard regression: the market dashboard's
+# performance_vs_cost_history_json is built from the set's simulation history,
+# so simulation sources must participate in market-dashboard freshness.
+# ---------------------------------------------------------------------------
+
+
+class _FakeQuery:
+    def __init__(self, store, table, column):
+        self._store = store
+        self._table = table
+        self._column = column
+        self._filters = {}
+
+    def eq(self, field, value):
+        self._filters[field] = value
+        return self
+
+    def in_(self, field, values):
+        self._filters[field] = list(values)
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        self._store["queries"].append((self._table, self._column, dict(self._filters)))
+        rows = self._store["rows"].get((self._table, self._column), [])
+        matched = [
+            row for row in rows
+            if all(row.get(field) == value for field, value in self._filters.items())
+        ]
+        data = [{self._column: row[self._column]} for row in matched if row.get(self._column)]
+        return type("Result", (), {"data": data})()
+
+
+class _FakeTable:
+    def __init__(self, store, table):
+        self._store = store
+        self._table = table
+
+    def select(self, column):
+        return _FakeQuery(self._store, self._table, column)
+
+
+class _FakeClient:
+    def __init__(self, rows):
+        self.store = {"rows": rows, "queries": []}
+
+    def table(self, name):
+        return _FakeTable(self.store, name)
+
+
+def test_latest_for_market_dashboard_reads_simulation_sources_scoped_to_set(monkeypatch):
+    seen = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=(), in_filters=()):
+        seen.append((table, tuple(filters)))
+        return None, [f"{table}: ok"]
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+    monkeypatch.setattr(refresh, "_variant_ids_for_set", lambda _client, _set_id: [])
+    monkeypatch.setattr(refresh, "_canonical_selected_variant_ids", lambda _client, _set_id: [])
+
+    refresh._latest_for_market_dashboard(None, "set-1")
+
+    assert ("simulation_latest_by_target", (("target_type", "set"), ("target_id", "set-1"))) in seen
+    assert ("calculation_history_trend", (("target_type", "set"), ("target_id", "set-1"))) in seen
+
+
+def test_latest_for_market_dashboard_ignores_other_sets_simulation_runs():
+    rows = {
+        ("simulation_latest_by_target", "updated_at"): [
+            {"target_type": "set", "target_id": "set-2", "updated_at": "2026-08-02T00:00:00+00:00"},
+        ],
+        ("simulation_latest_by_target", "run_at"): [
+            {"target_type": "set", "target_id": "set-2", "run_at": "2026-08-02T00:00:00+00:00"},
+        ],
+        ("calculation_history_trend", "run_created_at"): [
+            {"target_type": "set", "target_id": "set-2", "run_created_at": "2026-08-02T00:00:00+00:00"},
+        ],
+    }
+    client = _FakeClient(rows)
+
+    latest, _checks = refresh._latest_for_market_dashboard(client, "set-1")
+
+    assert latest is None
+    simulation_filters = [
+        filters for table, _column, filters in client.store["queries"]
+        if table in {"simulation_latest_by_target", "calculation_history_trend"}
+    ]
+    assert simulation_filters
+    assert all(filters.get("target_id") == "set-1" for filters in simulation_filters)
+
+
+def _market_row_with_performance(performance_history, **kwargs):
+    row = _market_row(**kwargs)
+    row["performance_vs_cost_history_json"] = performance_history
+    return row
+
+
+def _no_set_value_history(_client, _set_id, *, column):
+    return {"standard": None, "hits": None, "top10": None}, []
+
+
+def test_market_dashboard_stale_when_simulation_run_newer_than_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        refresh, "_latest_for_market_dashboard",
+        lambda _client, _set_id: ("2026-08-02T00:00:00+00:00", []),
+    )
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: ("2026-06-20", []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            [{"date": "2026-06-20", "meanValueToCostRatio": 0.8}],
+            updated_at="2026-06-21T00:00:00+00:00",
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "dependency newer than snapshot"
+
+
+def test_market_dashboard_stale_when_simulation_history_date_newer_than_performance_history(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: ("2026-08-02", []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            [{"date": "2026-07-20", "meanValueToCostRatio": 0.8}],
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "simulation history newer than dashboard performance history"
+
+
+def test_market_dashboard_matching_simulation_and_performance_dates_are_not_stale_for_that_reason(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: ("2026-07-20", []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(
+        refresh, "_read_snapshot_row",
+        lambda *_args, **_kwargs: _market_row_with_performance(
+            [
+                {"date": "2026-07-19", "meanValueToCostRatio": 0.7},
+                {"date": "2026-07-20", "meanValueToCostRatio": 0.8},
+            ],
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.reason != "simulation history newer than dashboard performance history"
+
+
+def test_simulation_stale_market_dashboard_triggers_set_page_rebuild_in_same_run(monkeypatch):
+    rebuilt = []
+    monkeypatch.setattr(refresh, "build_set_page_snapshot_row", lambda set_row, client=None: {"set_id": set_row["id"]})
+    monkeypatch.setattr(refresh, "upsert_row", lambda _client, table, _row, *, on_conflict, commit: rebuilt.append(table))
+    summary = refresh.RefreshSummary()
+    plan = refresh.SetRefreshPlan(
+        set_row={"id": "set-1", "canonical_key": "pitchBlack"},
+        cards=refresh.FreshnessResult("cards", False, "fresh", "2026-08-01T00:00:00+00:00"),
+        market_dashboard=refresh.FreshnessResult(
+            "market_dashboard", True, "simulation history newer than dashboard performance history",
+            "2026-08-01T00:00:00+00:00",
+        ),
+        set_page=refresh.FreshnessResult("set_page", False, "fresh", "2026-08-01T00:00:00+00:00"),
+    )
+
+    refresh._maybe_rebuild_set_page(None, plan, rankings_updated_at=None, commit=True, summary=summary)
+
+    assert rebuilt == ["pokemon_set_page_snapshot_latest"]
+    assert summary.rebuilt_sets["set_page"] == ["pitchBlack"]

@@ -422,3 +422,28 @@ Two compounding causes, both now addressed:
 
 Do not run production simulations as part of code changes; the above is the
 operator deployment step.
+# Global Explore card movers
+
+`pokemon_explore_card_movers_snapshot_latest` is an independent public read
+model for Explore's fixed seven-day card ticker. It is built only after the
+coordinated per-set Cards/Market Dashboard snapshots and before Explore RIP
+rankings. The builder uses the backend public-analytics cohort and each set's
+persisted `marketMoversByWindow.7D.all`; it never recalculates price movement.
+
+Publication is fail-closed unless every eligible set has the target market date,
+movement contract version, window convention, and generation ID. Cards are
+deduplicated by canonical card/variant/condition identity, globally ordered by
+the canonical mover comparator, and capped at 30. A closed scrape-cohort gate
+preserves the previous row. This family is independent of simulations and RIP
+ranking publication.
+
+Operators may inspect or publish it with:
+
+```bash
+python backend/scripts/build_pokemon_explore_card_movers_snapshot.py --dry-run --market-date YYYY-MM-DD
+python backend/scripts/build_pokemon_explore_card_movers_snapshot.py --commit --market-date YYYY-MM-DD
+```
+
+The read-only endpoint is `GET /explore/card-market-movers`. Explore performs
+one server-side request and never fans out across sets. Set Overview reuses the
+same ticker presentation but remains capped at 10 cards.

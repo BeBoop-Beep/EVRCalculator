@@ -60,6 +60,12 @@ export const SLIM_SET_MODULE_PROXY_CONTRACTS = Object.freeze({
     // query contract the backend reads (see get_pokemon_set_market_movers).
     forwardParams: ["window", "limit", "movement", "snapshot_contract"],
   },
+  sealed: {
+    backendPath: "market/sealed",
+    moduleLabel: "set sealed market history",
+    codePrefix: "POKEMON_SET_SEALED_MARKET",
+    forwardParams: [],
+  },
   "value-history": {
     backendPath: "market/value-history",
     moduleLabel: "set value history",

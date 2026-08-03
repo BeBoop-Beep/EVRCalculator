@@ -439,7 +439,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} flex min-w-0 flex-col`} aria-labelledby="explore-best-sets-heading">
+    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-labelledby="explore-best-sets-heading">
       {/* One compact control row: title menu, definition, hint, cohort size. */}
       <div className={`${styles.divider} flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 desk:py-2.5 sm:px-4`}>
         <div className="flex min-w-0 items-center gap-1.5">

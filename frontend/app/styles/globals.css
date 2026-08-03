@@ -15,6 +15,11 @@
   --surface-hover: #18223f;
   --surface-primary: var(--surface-page);
   --border-subtle: rgba(255, 255, 255, 0.06);
+  /* Luminous mobile section divider: crisp cool white-gray core, faint edge
+     fade, restrained neutral-blue bloom. Structural, so no brand accent. */
+  --mobile-section-divider-core: rgba(226, 232, 240, 0.28);
+  --mobile-section-divider-edge: rgba(203, 213, 225, 0.08);
+  --mobile-section-divider-glow: rgba(147, 197, 253, 0.10);
   --text-primary: #e8eef7;
   --text-secondary: rgba(232, 238, 247, 0.72);
   --brand: #059669;
@@ -35,6 +40,33 @@
   --set-glass-blur-dense: 6px;
   --set-glass-inner-bg: rgba(8, 17, 31, 0.14);
   --set-glass-inner-bg-dense: rgba(8, 17, 31, 0.20);
+  /* Dropdown glass is one material shared by the header portfolio menu, the
+     set-picker listboxes and the Sealed Market trigger.
+
+     FROSTED PRIVACY GLASS, not clear glass. These float over set artwork, hero
+     wordmarks and live charts. Two earlier passes (0.78/0.68 at 6px blur, then
+     0.88/0.82 at 14px) both still let the page behind resolve into readable
+     text and chart lines that competed with the option labels.
+
+     The base is now 0.94/0.90 at 18px blur. Opacity and blur do different jobs
+     and both are needed: opacity sets how much light gets through at all, blur
+     destroys the spatial detail in whatever does. Together they leave soft
+     abstract colour and a sense of depth, but nothing legible.
+
+     These are deliberately denser than the --set-glass-* context-card tokens
+     and no longer alias them: a menu that sits ON TOP of a glass card has to be
+     more opaque than the card, or the two materials read as one muddy layer.
+     Context-card glass is unchanged. */
+  --set-dropdown-glass-bg:
+    radial-gradient(circle at 18% 0%, rgba(96, 165, 250, 0.07), transparent 34%),
+    linear-gradient(135deg, rgba(6, 14, 26, 0.94), rgba(7, 16, 29, 0.90));
+  --set-dropdown-glass-fallback: linear-gradient(135deg, rgba(6, 14, 26, 0.99), rgba(7, 16, 29, 0.98));
+  --set-dropdown-glass-border: rgba(148, 180, 220, 0.15);
+  --set-dropdown-glass-highlight: rgba(255, 255, 255, 0.045);
+  --set-dropdown-glass-blur: 18px;
+  --set-dropdown-glass-shadow: 0 18px 42px rgba(1, 5, 15, 0.42);
+  --set-dropdown-glass-hover: rgba(148, 180, 220, 0.10);
+  --set-dropdown-glass-active: rgba(148, 180, 220, 0.14);
   --set-context-bg:
     radial-gradient(circle at 12% 0%, rgba(96, 165, 250, 0.10), transparent 38%),
     linear-gradient(112deg, rgba(16, 31, 53, 0.97) 0%, rgba(9, 20, 37, 0.96) 52%, rgba(12, 27, 48, 0.97) 100%);
@@ -105,10 +137,27 @@
   --surface-hero-bottom: #f3f7fc;
   --surface-hover: rgba(2, 6, 23, 0.05);
   --border-subtle: rgba(15, 23, 42, 0.09);
+  --mobile-section-divider-core: rgba(71, 85, 105, 0.22);
+  --mobile-section-divider-edge: rgba(100, 116, 139, 0.07);
+  --mobile-section-divider-glow: rgba(59, 130, 246, 0.06);
   --text-primary: #0f172a;
   --text-secondary: rgba(15, 23, 42, 0.72);
   --surface-primary: var(--surface-page);
   --accent: #ca8a04;
+  /* Light theme keeps the same glass construction — translucent, blurred,
+     soft top highlight — but inverts the tint so the dark --text-primary
+     stays readable. Without this the shared dropdown surface would paint
+     dark navy behind near-black option text. */
+  --set-dropdown-glass-bg:
+    radial-gradient(circle at 18% 0%, rgba(96, 165, 250, 0.09), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(244, 248, 253, 0.94));
+  --set-dropdown-glass-fallback: linear-gradient(135deg, #ffffff, #f6f9fd);
+  --set-dropdown-glass-border: rgba(15, 23, 42, 0.14);
+  --set-dropdown-glass-highlight: rgba(255, 255, 255, 0.75);
+  --set-dropdown-glass-blur: 18px;
+  --set-dropdown-glass-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+  --set-dropdown-glass-hover: rgba(15, 23, 42, 0.06);
+  --set-dropdown-glass-active: rgba(15, 23, 42, 0.09);
 }
 
 * {
@@ -343,6 +392,80 @@ body::-webkit-scrollbar-thumb:hover {
 
 .index-scrollbar:hover::-webkit-scrollbar-thumb {
   background: rgba(94, 234, 212, 0.62);
+}
+
+/* ---------------------------------------------------------------------------
+   Shared dropdown glass
+   ---------------------------------------------------------------------------
+   One material for every dropdown surface: the header "My Portfolio" menu, the
+   hero/compact set-picker listboxes and the Sealed Market product trigger.
+   These live at root scope rather than inside .set-detail-glass-scope because
+   the header renders outside the set-page scope and still has to match.
+
+   The opaque fallback is declared first so browsers without backdrop-filter
+   (and the brief pre-paint frame in browsers that have it) keep readable text
+   over set artwork. The translucent layer is only applied inside the support
+   query. */
+.set-dropdown-glass,
+.set-dropdown-glass-trigger {
+  border: 1px solid var(--set-dropdown-glass-border, var(--set-glass-border));
+  background: var(--set-dropdown-glass-fallback);
+  box-shadow:
+    var(--set-dropdown-glass-shadow),
+    inset 0 1px 0 var(--set-dropdown-glass-highlight, var(--set-glass-highlight));
+}
+
+@supports ((backdrop-filter: blur(18px)) or (-webkit-backdrop-filter: blur(18px))) {
+  .set-dropdown-glass,
+  .set-dropdown-glass-trigger {
+    background: var(--set-dropdown-glass-bg);
+    -webkit-backdrop-filter: blur(var(--set-dropdown-glass-blur, 18px)) saturate(130%);
+    backdrop-filter: blur(var(--set-dropdown-glass-blur, 18px)) saturate(130%);
+  }
+}
+
+/* Option rows stay a restrained wash — no per-option border or filled block,
+   which would turn a long set list into a stack of buttons. */
+.set-dropdown-option:hover,
+.set-dropdown-option:focus-visible {
+  background: var(--set-dropdown-glass-hover);
+}
+
+.set-dropdown-option[aria-selected="true"],
+.set-dropdown-option[data-selected="true"] {
+  background: var(--set-dropdown-glass-active);
+}
+
+.set-dropdown-glass-trigger:hover {
+  border-color: rgba(148, 180, 220, 0.24);
+}
+
+/* Focus states for the dropdown trigger.
+   -----------------------------------------------------------------------
+   Rest, hover and pointer-focus all look identical: a dropdown that has been
+   clicked is not in a special state worth signalling. The accent survives only
+   for :focus-visible, which is the keyboard affordance the set picker uses.
+
+   These were previously element-qualified (`select.set-...`) to outrank the
+   global `input/textarea/select:focus` rule, which painted an accent border and
+   yellow glow on any focus including a mouse click. The trigger is a <button>
+   now, so that rule no longer reaches it and the qualifier is gone. The global
+   rule itself stays — real form fields still rely on it. */
+.set-dropdown-glass-trigger:focus {
+  outline: none;
+  border-color: var(--set-dropdown-glass-border, var(--set-glass-border));
+  box-shadow:
+    var(--set-dropdown-glass-shadow),
+    inset 0 1px 0 var(--set-dropdown-glass-highlight, var(--set-glass-highlight));
+}
+
+.set-dropdown-glass-trigger:focus-visible {
+  outline: none;
+  border-color: var(--set-dropdown-glass-border, var(--set-glass-border));
+  box-shadow:
+    0 0 0 2px var(--accent),
+    var(--set-dropdown-glass-shadow),
+    inset 0 1px 0 var(--set-dropdown-glass-highlight, var(--set-glass-highlight));
 }
 
 /* 7D Movers ticker viewport: horizontally scrollable strip without a visible
@@ -703,6 +826,10 @@ body::-webkit-scrollbar-thumb:hover {
   overflow: visible;
 }
 
+[data-set-context-header][data-set-picker-open="true"] {
+  z-index: 50;
+}
+
 .set-context-premium {
   border-color: var(--set-context-border);
   background: var(--set-context-bg);
@@ -816,6 +943,44 @@ body::-webkit-scrollbar-thumb:hover {
   background: rgba(8, 17, 31, 0.10);
 }
 
+.explore-glass-scope .set-glass-surface,
+.explore-glass-scope .set-glass-surface-dense {
+  border-color: var(--set-glass-border);
+  background: var(--set-glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--set-glass-highlight),
+    0 18px 44px rgba(2, 6, 23, 0.22);
+  -webkit-backdrop-filter: blur(var(--set-glass-blur));
+  backdrop-filter: blur(var(--set-glass-blur));
+}
+
+.explore-glass-scope .set-glass-surface-dense {
+  background: var(--set-glass-bg-dense);
+  -webkit-backdrop-filter: blur(var(--set-glass-blur-dense));
+  backdrop-filter: blur(var(--set-glass-blur-dense));
+}
+
+/* The wide Pokémon wordmark needs artwork-specific definition and placement;
+   set artwork continues to use the untouched defaults above. */
+.explore-glass-scope .set-page-atmosphere {
+  --set-artwork-scale: 1.02;
+  --set-artwork-opacity: 0.09945;
+  --set-artwork-grayscale: 0.04;
+  --set-artwork-brightness: 1.02;
+  --set-artwork-saturate: 0.95;
+  --set-artwork-bloom-opacity: 0.0459;
+  --set-artwork-bloom-scale: 1.037;
+  --set-artwork-bloom-brightness: 0.918;
+  --set-artwork-mask:
+    linear-gradient(
+      to bottom,
+      #000 0%,
+      rgba(0, 0, 0, 0.94) 38%,
+      rgba(0, 0, 0, 0.58) 72%,
+      rgba(0, 0, 0, 0.20) 100%
+    );
+}
+
 /* Opening Outlook edge highlight.
    The callout's illumination is the horizontal wash on its own background plus
    the tier rail on its left border. This adds the one missing premium cue: a
@@ -866,6 +1031,11 @@ body::-webkit-scrollbar-thumb:hover {
   filter:
     grayscale(var(--set-artwork-grayscale)) brightness(var(--set-artwork-brightness))
     saturate(var(--set-artwork-saturate)) blur(var(--set-artwork-blur));
+}
+
+.explore-glass-scope .set-page-atmosphere-artwork {
+  transform: translateY(var(--set-artwork-y-offset)) scale(var(--set-artwork-scale));
+  object-position: center 38% !important;
 }
 
 /* Static: the bloom never animates, so the blur rasterises once. */
@@ -950,8 +1120,8 @@ body::-webkit-scrollbar-thumb:hover {
     z-index: 40;
     transform: translateY(0);
     transition:
-      transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 180ms ease-out;
+      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 280ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: transform, opacity;
     /* First element on mobile now, so it carries a full border and radius
        instead of the bottom-only pairing it has under the desktop hero. */
@@ -967,8 +1137,8 @@ body::-webkit-scrollbar-thumb:hover {
   }
 
   .set-detail-sticky-tabs[data-mobile-set-context-hidden="true"] {
-    transform: translateY(calc(-100% - 1px));
-    opacity: 0.92;
+    transform: translate3d(0, calc(-100% - 1px), 0);
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -986,6 +1156,12 @@ body::-webkit-scrollbar-thumb:hover {
      most expensive effect on a phone anyway. Desktop keeps it untouched. */
   .set-detail-glass-scope .set-glass-surface,
   .set-detail-glass-scope .set-glass-surface-dense {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .explore-glass-scope .set-glass-surface,
+  .explore-glass-scope .set-glass-surface-dense {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -1014,10 +1190,58 @@ body::-webkit-scrollbar-thumb:hover {
     padding-block: 0;
   }
 
-  [data-mobile-feed] > * + * {
+  [data-mobile-section] {
+    position: relative;
     margin-top: 1.25rem;
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 1.25rem;
+    padding-top: 1.5rem;
+  }
+
+  /* Static luminous hairline. The flat 3px fill this replaces read as a solid
+     gray bar; the separation it bought is kept by holding the same 3px
+     decorative box, but the ink inside it is now a 1px cool white-gray core
+     plus a soft bloom that fades out at both ends.
+
+     Two background layers, no animation and no accent colour: the core line is
+     sized `100% 1px` and the bloom `100% 3px`, both centred in the same 3px
+     box, so the crisp edge and the soft edge never separate into two rules.
+     Static by design — these sit next to a moving ticker and live charts, and
+     anything that shimmers would compete with the data. */
+  [data-mobile-section]::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    content: "";
+    pointer-events: none;
+    background:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--mobile-section-divider-edge) 9%,
+        var(--mobile-section-divider-core) 50%,
+        var(--mobile-section-divider-edge) 91%,
+        transparent 100%
+      )
+      center / 100% 1px no-repeat,
+      radial-gradient(
+        ellipse 72% 100% at 50% 0%,
+        var(--mobile-section-divider-glow) 0%,
+        transparent 72%
+      )
+      center / 100% 3px no-repeat;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--mobile-section-divider-glow) 70%, transparent));
+  }
+
+  /* The first ordinary section after a 7D Movers ticker keeps the quiet 1px
+     rule this feed used before the divider pass. The ticker is already a dense,
+     busy band; a luminous separator directly beneath it read as a second piece
+     of chrome competing with it. Explicitly clears BOTH background layers and
+     the drop-shadow so this boundary never renders a thin line and a glowing
+     line at once. */
+  [data-mobile-section][data-mobile-section-variant="after-movers"]::before {
+    height: 1px;
+    background: var(--border-subtle);
+    box-shadow: none;
+    filter: none;
   }
 
   /* A phone must never inherit a stray centring margin from the tablet cap. */

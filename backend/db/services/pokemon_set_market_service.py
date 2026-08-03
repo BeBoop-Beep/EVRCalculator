@@ -110,6 +110,19 @@ def _to_optional_int(value: Any) -> Optional[int]:
     return parsed
 
 
+def canonical_card_movement_sort_key(movement: Dict[str, Any]) -> Tuple[Any, ...]:
+    """Authoritative ordering for overall card movers on every public surface."""
+    return (
+        -abs(_to_signed_float(movement.get("changePercent") or movement.get("change_percent")) or 0),
+        -abs(_to_signed_float(movement.get("changeAmount") or movement.get("change_amount")) or 0),
+        (_to_optional_str(movement.get("canonicalCardId") or movement.get("canonical_card_id"))
+         or _to_optional_str(movement.get("cardId") or movement.get("card_id"))
+         or _to_optional_str(movement.get("id")) or "").lower(),
+        (_to_optional_str(movement.get("cardVariantId") or movement.get("card_variant_id")) or "").lower(),
+        (_to_optional_str(movement.get("conditionId") or movement.get("condition_id")) or "").lower(),
+    )
+
+
 def _sanitize_limit(value: Any) -> int:
     try:
         parsed = int(value)
@@ -1267,13 +1280,7 @@ def _movement_payload_for_window(
         movement.setdefault("moverEligible", True)
     eligible_movements = sorted(
         [movement for movement in movements if movement.get("moverEligible")],
-        key=lambda movement: (
-            -abs(_to_signed_float(movement.get("changePercent")) or 0),
-            -abs(_to_signed_float(movement.get("changeAmount")) or 0),
-            (_to_optional_str(movement.get("canonicalCardId")) or _to_optional_str(movement.get("cardId")) or _to_optional_str(movement.get("id")) or "").lower(),
-            (_to_optional_str(movement.get("cardVariantId")) or "").lower(),
-            (_to_optional_str(movement.get("conditionId")) or "").lower(),
-        ),
+        key=canonical_card_movement_sort_key,
     )
     heating = sorted(
         [movement for movement in eligible_movements if (movement.get("changeAmount") or 0) > 0],

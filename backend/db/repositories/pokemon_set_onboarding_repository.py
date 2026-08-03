@@ -42,6 +42,30 @@ def upsert_discovery(row: Dict[str, Any]) -> Dict[str, Any]:
     return response.data[0]
 
 
+def list_baseline_catalog_jobs(source_system: str = "tcgplayer") -> list[Dict[str, Any]]:
+    """Historical catalog identities recorded by the one-time cold-start baseline.
+
+    Deliberately separate from `list_jobs`: these rows are `ignored` and must stay
+    invisible to the nightly onboarding worker's queue read.
+    """
+    response = (
+        supabase.table(TABLE).select("*").eq("source_system", source_system)
+        .eq("status", "ignored").eq("current_step", "catalog_baseline")
+        .order("source_set_id").execute()
+    )
+    return response.data or []
+
+
+def update_baseline_job(job_id: str, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Update a baseline row, guarded so only an untouched baseline row can move."""
+    payload = {**fields, "updated_at": datetime.now(timezone.utc).isoformat()}
+    response = (
+        supabase.table(TABLE).update(payload).eq("id", job_id)
+        .eq("status", "ignored").eq("current_step", "catalog_baseline").execute()
+    )
+    return (response.data or [None])[0]
+
+
 def claim_next(
     worker_id: str, lease_seconds: int = 1800, *,
     job_id: Optional[str] = None, force_retry: bool = False,

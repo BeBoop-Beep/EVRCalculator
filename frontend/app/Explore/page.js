@@ -1,6 +1,10 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import ExploreTableClient from "@/components/explore/ExploreTableClient";
 import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
+import ExploreMarketMovers from "@/components/explore/ExploreMarketMovers";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
+import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import styles from "@/components/explore/explore.module.css";
 
@@ -44,7 +48,15 @@ export const metadata = {
 
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
-  const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
+  const backgroundUrl = getExploreBackground("pokemon");
+  const [rankingsResult, moversResult] = await Promise.allSettled([
+    getRipStatisticsTargets({ limit: 60 }),
+    getExploreMarketMovers(),
+  ]);
+  const payload = rankingsResult.status === "fulfilled" ? rankingsResult.value : null;
+  const moversPayload = moversResult.status === "fulfilled"
+    ? moversResult.value
+    : { marketMovers: { window: "7D", all: [] }, meta: { requestFailed: true } };
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   // Sword & Shield's simulator-era data is not yet validated for public
   // analytics (incomplete pull/hit-rate model, unblended subsets) — see
@@ -64,7 +76,13 @@ export default async function ExplorePage({ searchParams }) {
   return (
     // The root layout already provides the <main> landmark, so this is a plain
     // container — two <main> elements would announce two main regions.
-    <div className={`${styles.dashboard} mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+      <PageArtworkAtmosphere
+        src={backgroundUrl}
+        dataAttribute="data-explore-ambient-artwork"
+        visibilityClassName="hidden desk:block"
+        loading="lazy"
+      />
       {/*
         No outer context box: the modules sit directly on the application
         canvas. The page heading stays in the document for structure but is
@@ -77,10 +95,17 @@ export default async function ExplorePage({ searchParams }) {
         aligned, and each renders independently — a failure in one leaves the
         other intact because they share only the already-fetched target list.
       */}
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
-        <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
-        <div className="mt-3 border-t border-[var(--border-subtle)] pt-3 desk:mt-0 desk:border-t-0 desk:pt-0">
+      <div className="mb-5">
+        <ExploreMarketMovers payload={moversPayload} />
+      </div>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]">
+        {/* First ordinary section after the global 7D Movers ticker, so it
+            takes the quiet 1px rule rather than the luminous divider. */}
+        <div data-mobile-section data-mobile-section-variant="after-movers">
           <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
+        </div>
+        <div data-mobile-section>
+          <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>
