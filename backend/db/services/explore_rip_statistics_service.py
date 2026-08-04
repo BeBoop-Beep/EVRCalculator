@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import time
@@ -35,8 +36,22 @@ from backend.desirability.public_rip_contract_v4 import (
     PUBLIC_RIP_CONTRACT_V4_KEY,
     build_public_rip_contract_v4,
 )
+from backend.desirability.public_rip_contract_v5 import (
+    PUBLIC_RIP_CONTRACT_V5_KEY,
+    build_public_rip_contract_v5,
+)
+from backend.calculations.evr.financial_rip_v3_config import (
+    FINANCIAL_RIP_V3_COMPONENT_ORDER,
+    FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+    FINANCIAL_RIP_V3_VERSION,
+)
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
-from backend.desirability.weighted_rip import compute_financial_rip, compute_overall_rip
+from backend.desirability.weighted_rip import (
+    compute_financial_rip,
+    compute_financial_rip_v3,
+    compute_overall_rip,
+    compute_overall_rip_v5,
+)
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -520,8 +535,14 @@ def _calculate_score_ranks_and_tiers(
             result[target_id] = {"rank": None, "tier": None}
         return result
     
-    # Sort by score descending
-    scored_rows_with_valid_scores.sort(key=lambda x: x[1], reverse=True)
+    # Sort by score descending, breaking exact ties on the target id.
+    #
+    # Without the tie-break the order of equal scores was whatever order the
+    # rows arrived in, so two sets on an identical score could swap ranks
+    # between two runs over unchanged data - a rank that moves with no input
+    # change is indistinguishable, to a reader, from a real movement. The
+    # tie-break cannot reorder any pair with different scores.
+    scored_rows_with_valid_scores.sort(key=lambda item: (-item[1], item[0]))
     total = len(scored_rows_with_valid_scores)
     
     # Assign ranks and calculate rank-bucket tiers (mirrors DB view semantics)
@@ -581,7 +602,141 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     ("_rank_collector_appeal", "collectorAppeal"),
     ("_rank_chase_appeal", "chaseAppeal"),
     ("_rank_dual_path_depth", "dualPathDepth"),
+    # Canonical V3/V5 ranks. Ranked by the ABSOLUTE fixed-anchor V3 score, never
+    # by a cohort min-max transformation of it: min-maxing before ranking would
+    # not change the order but would put a cohort-dependent number under a field
+    # whose whole contract is cohort independence.
+    ("_rank_financial_rip_v3", "financialRipV3"),
+    ("_rank_overall_rip_v5", "overallRipV5"),
+    *(
+        (f"_rank_v3_{component}", f"financialRipV3.{component}")
+        for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
+    ),
 )
+
+
+# ---------------------------------------------------------------------------
+# Financial RIP V3 / Overall RIP V5 objects
+# ---------------------------------------------------------------------------
+
+def _parse_v3_payload(raw: Any) -> Dict[str, Any]:
+    """Read the persisted V3 audit document off a row.
+
+    Supabase returns JSONB as a dict, but a driver or a view cast can hand back
+    a JSON string. Both are accepted; anything else is treated as absent rather
+    than coerced into a shape that would then validate against nothing.
+    """
+    if isinstance(raw, Mapping):
+        return dict(raw)
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        return dict(parsed) if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _build_financial_rip_v3(target: Mapping[str, Any]) -> Dict[str, Any]:
+    """The canonical Financial RIP V3 object for one target.
+
+    Consumes the PERSISTED authoritative payload and validates it. Nothing here
+    reinterprets P95, P99, probability-of-profit or any other flattened public
+    field: the conditional tail means V3 depends on cannot be reconstructed from
+    percentile thresholds, so a "helpful" reconstruction here would be a
+    different, unlabelled model.
+
+    A missing, stale-versioned or invalid payload produces an explicit
+    unavailable object. It never borrows a Financial RIP V2 number.
+    """
+    payload = _parse_v3_payload(target.get("financial_rip_v3_payload"))
+    run_identity = {
+        "calculationRunId": _to_optional_str(target.get("calculation_run_id")),
+        "runAt": _to_optional_str(target.get("run_at")),
+        "packCost": _to_optional_float(target.get("pack_cost")),
+        "simulationCount": _to_optional_float(target.get("financial_rip_v3_simulation_count")),
+        "scoreVersion": _to_optional_str(target.get("financial_rip_v3_score_version")),
+        "normalizationVersion": _to_optional_str(
+            target.get("financial_rip_v3_normalization_version")
+        ),
+    }
+
+    if not payload:
+        return {
+            "score": None,
+            "scoreVersion": FINANCIAL_RIP_V3_VERSION,
+            "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+            "status": "unavailable",
+            "statusReason": "no_financial_rip_v3_payload_on_latest_run",
+            "statusDetail": (
+                "The latest accepted simulation for this set has no Financial RIP "
+                "V3 payload. It predates the V3 engine and must be re-run; V3 is "
+                "not reconstructed from stored percentiles."
+            ),
+            "rankable": False,
+            "components": {},
+            "depthAndRobustness": {},
+            "distributionDisclosures": {},
+            "sessionOpeningProfile": None,
+            "sourceRun": run_identity,
+        }
+
+    verified = compute_financial_rip_v3(payload)
+    components_source = payload.get("components") or {}
+    # The RAW metrics travel with the component so the card renders values from
+    # the same run as the score it is shown beside.
+    components = {
+        key: {
+            **(verified.get("components") or {}).get(key, {}),
+            "available": bool((components_source.get(key) or {}).get("available", True)),
+            "raw": dict((components_source.get(key) or {}).get("raw") or {}),
+        }
+        for key in FINANCIAL_RIP_V3_COMPONENT_ORDER
+    }
+
+    return {
+        "score": verified.get("score"),
+        "scoreVersion": payload.get("scoreVersion") or FINANCIAL_RIP_V3_VERSION,
+        "normalizationVersion": (
+            payload.get("normalizationVersion") or FINANCIAL_RIP_V3_NORMALIZATION_VERSION
+        ),
+        "status": verified.get("status"),
+        "statusReason": verified.get("statusReason"),
+        "statusDetail": payload.get("statusDetail"),
+        "validationProblems": verified.get("validationProblems"),
+        "rankable": bool(verified.get("rankable")),
+        "components": components,
+        "depthAndRobustness": dict(payload.get("depthAndRobustness") or {}),
+        "distributionDisclosures": dict(payload.get("distributionDisclosures") or {}),
+        "sessionOpeningProfile": payload.get("sessionOpeningProfile"),
+        "sourceRun": run_identity,
+        "audit": dict(payload.get("audit") or {}),
+    }
+
+
+def _rank_financial_rip_v3(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float((row.get("financialRipV3") or {}).get("score"))
+
+
+def _rank_overall_rip_v5(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float((row.get("overallRipV5") or {}).get("score"))
+
+
+def _make_v3_component_extractor(component: str):
+    def _extract(row: Mapping[str, Any]) -> Optional[float]:
+        components = (row.get("financialRipV3") or {}).get("components") or {}
+        return _to_optional_float((components.get(component) or {}).get("score"))
+
+    _extract.__name__ = f"_rank_v3_{component}"
+    return _extract
+
+
+# Registered into module globals so `_rank_within_cohort`'s data-driven lookup
+# finds them exactly like the hand-written extractors above. Generating them
+# keeps the six component ranks from being six near-identical copy-pastes that
+# can each acquire their own typo.
+for _v3_component_key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
+    globals()[f"_rank_v3_{_v3_component_key}"] = _make_v3_component_extractor(_v3_component_key)
 
 
 def _attach_public_rip_contract(
@@ -652,8 +807,17 @@ def _attach_public_rip_contract(
         ca7_score = (collector.get("collectorAppeal") or {}).get("score")
 
         target["openingExperience"] = _build_opening_experience(target, collector, cohort)
+        # LEGACY, still computed and still published: Financial RIP V2 and
+        # Overall RIP v4. Their meanings are unchanged by the V3 cutover; they
+        # are what the Legacy V2 comparison view and the V2-vs-V3 audit read.
         target["ripCore"] = compute_financial_rip(pillars)
         target["rip"] = compute_overall_rip(pillars, ca7_score)
+        # CANONICAL: Financial RIP V3 from the persisted authoritative payload,
+        # and Overall RIP V5 = 0.90 * V3 + 0.10 * the SAME CA7 score v4 used.
+        # CA7 is untouched by this task; only the financial input changed.
+        financial_v3 = _build_financial_rip_v3(target)
+        target["financialRipV3"] = financial_v3
+        target["overallRipV5"] = compute_overall_rip_v5(financial_v3.get("score"), ca7_score)
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}
         )
@@ -760,7 +924,15 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
     (``rip.score`` / ``ripCore.score``), never a blend of already-relative
     inputs — the extractors read the authoritative absolute scores directly.
     """
-    for extractor, obj_key in ((_rank_rip, "rip"), (_rank_rip_core, "ripCore")):
+    # V3/V5 relative scores are DIAGNOSTIC ONLY. `financialRipV3.score` stays the
+    # absolute fixed-anchor score; the cohort-relative number lives under a
+    # separate, explicitly named field so nothing can mistake one for the other.
+    for extractor, obj_key in (
+        (_rank_rip, "rip"),
+        (_rank_rip_core, "ripCore"),
+        (_rank_financial_rip_v3, "financialRipV3"),
+        (_rank_overall_rip_v5, "overallRipV5"),
+    ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
             for row in cohort_rows
@@ -813,11 +985,24 @@ def _apply_rank(
     it was computed against is the ambiguity this phase is removing, so the two
     always travel together.
     """
-    if contract_key in ("rip", "ripCore"):
+    if contract_key in ("rip", "ripCore", "financialRipV3", "overallRipV5"):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
         target["tier"] = entry.get("tier")
         target["cohortSize"] = cohort_size
+        return
+    if contract_key.startswith("financialRipV3."):
+        # A per-component rank on the V3 breakdown. Depth and Robustness is
+        # deliberately NOT in this list: it is an unweighted diagnostic, and
+        # giving it a rank alongside the six would present it as a seventh
+        # weighted component.
+        component_key = contract_key.split(".", 1)[1]
+        components = (row.get("financialRipV3") or {}).get("components") or {}
+        component = components.get(component_key)
+        if isinstance(component, dict):
+            component["rank"] = entry.get("rank")
+            component["tier"] = entry.get("tier")
+            component["cohortSize"] = cohort_size
         return
     if contract_key in ("profit", "safety", "stability"):
         # The pillars live on Financial RIP now. Overall RIP carries the same
@@ -1283,6 +1468,23 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "prob_profit": row.get("prob_profit"),
                 "prob_big_hit": row.get("prob_big_hit"),
                 "run_at": row.get("run_at"),
+                # --- Financial RIP V3 source row -----------------------------
+                # Carried raw so the V3 object, its rank and its published
+                # provenance all come from ONE row: the score, the raw metrics
+                # and the pack cost below are the same simulation run, and the
+                # contract builder never mixes a score from one run with raw
+                # metrics from another.
+                "calculation_run_id": row.get("calculation_run_id"),
+                "financial_rip_v3_payload": row.get("financial_rip_v3_payload"),
+                "financial_rip_v3_score": row.get("financial_rip_v3_score"),
+                "financial_rip_v3_status": row.get("financial_rip_v3_status"),
+                "financial_rip_v3_score_version": row.get("financial_rip_v3_score_version"),
+                "financial_rip_v3_normalization_version": row.get(
+                    "financial_rip_v3_normalization_version"
+                ),
+                "financial_rip_v3_rankable": row.get("financial_rip_v3_rankable"),
+                "financial_rip_v3_simulation_count": row.get("financial_rip_v3_simulation_count"),
+                "top2_ev_share": row.get("top2_ev_share"),
             }
         )
 
@@ -1450,6 +1652,10 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
     # page, and the leaderboard reads the cohort-ranked one.
     for target in targets:
         target[PUBLIC_RIP_CONTRACT_V4_KEY] = build_public_rip_contract_v4(target)
+        # The CANONICAL v5 projection (Financial RIP V3 + Overall RIP V5), with
+        # V2/v4 preserved under an explicit `legacy` namespace. Additive: the v4
+        # key above is byte-for-byte what it always was.
+        target[PUBLIC_RIP_CONTRACT_V5_KEY] = build_public_rip_contract_v5(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),

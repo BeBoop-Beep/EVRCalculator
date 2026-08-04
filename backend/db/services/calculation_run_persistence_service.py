@@ -5,7 +5,9 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+from backend.calculations.evr.financial_rip_v3 import validate_financial_rip_v3_payload
 from backend.db.repositories.calculation_runs_repository import (
+    FINANCIAL_RIP_V3_METRIC_FIELDS,
     build_calculation_config_payload,
     create_simulation_derived_metrics,
     create_simulation_etb_summary,
@@ -311,6 +313,200 @@ def _build_simulation_summary_payloads(
     return run_summary_payload, pack_summary_payload
 
 
+def _build_financial_rip_v3_persistence_payload(derived: Mapping[str, Any]) -> dict[str, Any]:
+    """Project the authoritative V3 result into its flat scalar columns.
+
+    The V3 payload built by
+    ``backend.calculations.evr.financial_rip_v3.build_financial_rip_v3`` is the
+    source of truth. This is a PROJECTION of it, not a second computation: no
+    metric is re-derived, no component is re-scored, and nothing here reads a
+    flattened public field.
+
+    A ready payload is VALIDATED BEFORE PERSISTENCE. A partially-populated
+    ready-status row would satisfy no downstream consumer but would still rank
+    and still render, so it is rejected at the boundary rather than stored.
+
+    A missing or unavailable V3 result yields NULL scalars and a recorded status
+    - never a fabricated score, never a fallback to a V2 field.
+    """
+    payload = derived.get("financial_rip_v3")
+    if not isinstance(payload, Mapping):
+        # An older derived payload (or a caller that did not compute V3). V2
+        # persistence is unaffected; V3 is simply absent for this run.
+        return {field: None for field in FINANCIAL_RIP_V3_METRIC_FIELDS}
+
+    status = payload.get("status")
+    if status == "ready":
+        ok, problems = validate_financial_rip_v3_payload(payload)
+        if not ok:
+            raise ValueError(
+                "Refusing to persist a ready-status Financial RIP V3 payload that "
+                "failed validation: " + "; ".join(problems)
+            )
+
+    components = payload.get("components") if isinstance(payload.get("components"), Mapping) else {}
+
+    def _component_score(key: str) -> float | None:
+        block = components.get(key)
+        return _coerce_optional_float(
+            block.get("score") if isinstance(block, Mapping) else None,
+            f"derived.financial_rip_v3.components.{key}.score",
+        )
+
+    def _raw(component: str, field: str) -> Any:
+        block = components.get(component)
+        raw = block.get("raw") if isinstance(block, Mapping) else None
+        return raw.get(field) if isinstance(raw, Mapping) else None
+
+    diagnostics = (
+        payload.get("estimationDiagnostics")
+        if isinstance(payload.get("estimationDiagnostics"), Mapping)
+        else {}
+    )
+
+    flat: dict[str, Any] = {
+        "financial_rip_v3_score": _coerce_optional_float(
+            payload.get("score"), "derived.financial_rip_v3.score"
+        ),
+        "financial_rip_v3_score_version": _coerce_optional_str(
+            payload.get("scoreVersion"), "derived.financial_rip_v3.scoreVersion"
+        ),
+        "financial_rip_v3_normalization_version": _coerce_optional_str(
+            payload.get("normalizationVersion"),
+            "derived.financial_rip_v3.normalizationVersion",
+        ),
+        "financial_rip_v3_status": _coerce_optional_str(
+            status, "derived.financial_rip_v3.status"
+        ),
+        "financial_rip_v3_rankable": _coerce_optional_bool(
+            payload.get("rankable"), "derived.financial_rip_v3.rankable"
+        ),
+        "financial_rip_v3_simulation_count": (
+            int(diagnostics["simulationCount"])
+            if diagnostics.get("simulationCount") is not None
+            else None
+        ),
+        "financial_rip_v3_true_win_frequency_score": _component_score("true_win_frequency"),
+        "financial_rip_v3_typical_retention_score": _component_score("typical_retention"),
+        "financial_rip_v3_loss_resilience_score": _component_score("loss_resilience"),
+        "financial_rip_v3_realistic_upside_score": _component_score("realistic_upside"),
+        "financial_rip_v3_jackpot_upside_score": _component_score("jackpot_upside"),
+        "financial_rip_v3_base_economic_efficiency_score": _component_score(
+            "base_economic_efficiency"
+        ),
+        "financial_rip_v3_true_win_probability": _coerce_optional_float(
+            _raw("true_win_frequency", "trueWinProbability"),
+            "derived.financial_rip_v3.trueWinProbability",
+        ),
+        "financial_rip_v3_typical_pack_value": _coerce_optional_float(
+            _raw("typical_retention", "typicalPackValue"),
+            "derived.financial_rip_v3.typicalPackValue",
+        ),
+        "financial_rip_v3_typical_retention_ratio": _coerce_optional_float(
+            _raw("typical_retention", "typicalRetentionRatio"),
+            "derived.financial_rip_v3.typicalRetentionRatio",
+        ),
+        "financial_rip_v3_average_retention_given_loss": _coerce_optional_float(
+            _raw("loss_resilience", "averageRetentionGivenLoss"),
+            "derived.financial_rip_v3.averageRetentionGivenLoss",
+        ),
+        "financial_rip_v3_soft_loss_share_given_loss": _coerce_optional_float(
+            _raw("loss_resilience", "softLossShareGivenLoss"),
+            "derived.financial_rip_v3.softLossShareGivenLoss",
+        ),
+        "financial_rip_v3_hard_loss_probability": _coerce_optional_float(
+            _raw("loss_resilience", "hardLossProbability"),
+            "derived.financial_rip_v3.hardLossProbability",
+        ),
+        "financial_rip_v3_p95_threshold_value": _coerce_optional_float(
+            _raw("realistic_upside", "p95ThresholdValue"),
+            "derived.financial_rip_v3.p95ThresholdValue",
+        ),
+        "financial_rip_v3_p95_threshold_ratio": _coerce_optional_float(
+            _raw("realistic_upside", "p95ThresholdRatio"),
+            "derived.financial_rip_v3.p95ThresholdRatio",
+        ),
+        "financial_rip_v3_realistic_tail_mean_value": _coerce_optional_float(
+            _raw("realistic_upside", "realisticTailMeanValue"),
+            "derived.financial_rip_v3.realisticTailMeanValue",
+        ),
+        "financial_rip_v3_realistic_tail_mean_ratio": _coerce_optional_float(
+            _raw("realistic_upside", "realisticTailMeanRatio"),
+            "derived.financial_rip_v3.realisticTailMeanRatio",
+        ),
+        "financial_rip_v3_p99_threshold_value": _coerce_optional_float(
+            _raw("jackpot_upside", "p99ThresholdValue"),
+            "derived.financial_rip_v3.p99ThresholdValue",
+        ),
+        "financial_rip_v3_p99_threshold_ratio": _coerce_optional_float(
+            _raw("jackpot_upside", "p99ThresholdRatio"),
+            "derived.financial_rip_v3.p99ThresholdRatio",
+        ),
+        "financial_rip_v3_jackpot_tail_mean_value": _coerce_optional_float(
+            _raw("jackpot_upside", "jackpotTailMeanValue"),
+            "derived.financial_rip_v3.jackpotTailMeanValue",
+        ),
+        "financial_rip_v3_jackpot_tail_mean_ratio": _coerce_optional_float(
+            _raw("jackpot_upside", "jackpotTailMeanRatio"),
+            "derived.financial_rip_v3.jackpotTailMeanRatio",
+        ),
+        "financial_rip_v3_total_rtp_ratio": _coerce_optional_float(
+            _raw("base_economic_efficiency", "totalRtpRatio"),
+            "derived.financial_rip_v3.totalRtpRatio",
+        ),
+        "financial_rip_v3_base_rtp_excluding_top_1pct": _coerce_optional_float(
+            _raw("base_economic_efficiency", "baseRtpExcludingTop1Pct"),
+            "derived.financial_rip_v3.baseRtpExcludingTop1Pct",
+        ),
+        "financial_rip_v3_jackpot_value_share": _coerce_optional_float(
+            _raw("base_economic_efficiency", "jackpotValueShare"),
+            "derived.financial_rip_v3.jackpotValueShare",
+        ),
+        # The complete audit document. `_json_safe_primitives` strips any NumPy
+        # scalar that survived upstream: a numpy.float64 inside a JSONB insert
+        # fails several layers away from where it was created.
+        "financial_rip_v3_payload": _json_safe_primitives(payload),
+    }
+
+    missing_columns = set(FINANCIAL_RIP_V3_METRIC_FIELDS) - set(flat)
+    if missing_columns:
+        raise ValueError(
+            "Financial RIP V3 persistence payload is missing declared columns: "
+            + ", ".join(sorted(missing_columns))
+        )
+    return flat
+
+
+def _json_safe_primitives(value: Any) -> Any:
+    """Recursively coerce a payload to ordinary JSON-serializable primitives.
+
+    NumPy scalars are the specific hazard: they survive dict construction and
+    only fail at serialization time inside the database client. Note the exact
+    TYPE check rather than ``isinstance`` - ``numpy.float64`` SUBCLASSES
+    ``float``, so an isinstance guard returns it unconverted and the value
+    reaches the driver still a NumPy scalar.
+    """
+    if value is None or type(value) in (str, bool, int, float):
+        return value
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe_primitives(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_primitives(item) for item in value]
+    item_method = getattr(value, "item", None)
+    if callable(item_method):  # numpy scalar
+        try:
+            return _json_safe_primitives(item_method())
+        except (TypeError, ValueError):
+            pass
+    tolist_method = getattr(value, "tolist", None)
+    if callable(tolist_method):  # numpy array
+        try:
+            return _json_safe_primitives(tolist_method())
+        except (TypeError, ValueError):
+            pass
+    return str(value)
+
+
 def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str, Any]:
     try:
         ev_comp = _extract_required_nested_mapping(derived, "ev_composition_metrics", "derived")
@@ -488,6 +684,19 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             "derived.chase_dependency_metrics.top1_ev_share",
             zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
         ),
+        # OPTIONAL, unlike its top-1/3/5 siblings. Top-2 is a new additive
+        # diagnostic, so a derived payload produced before it existed must still
+        # persist - it stores NULL rather than failing the whole insert or
+        # inventing a 0 share that would read as "the top two cards carry no EV".
+        "top2_ev_share": (
+            _coerce_share_or_zero(
+                chase.get("top2_ev_share"),
+                "derived.chase_dependency_metrics.top2_ev_share",
+                zero_when_empty=cards_tracked == 0 or total_card_ev <= 0,
+            )
+            if "top2_ev_share" in chase
+            else None
+        ),
         "top3_ev_share": _coerce_share_or_zero(
             chase.get("top3_ev_share"),
             "derived.chase_dependency_metrics.top3_ev_share",
@@ -563,6 +772,9 @@ def _build_flat_derived_metrics_payload(derived: Mapping[str, Any]) -> dict[str,
             _first_present(pack_score, ("derived_metric_version",)),
             "derived.pack_score.derived_metric_version",
         ),
+        # Financial RIP V3, projected from the authoritative payload. Additive:
+        # every V2 field above keeps its exact prior meaning and value.
+        **_build_financial_rip_v3_persistence_payload(derived),
     }
 
 

@@ -25,6 +25,15 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+from backend.calculations.evr.financial_rip_v3 import validate_financial_rip_v3_payload
+from backend.calculations.evr.financial_rip_v3_config import (
+    FINANCIAL_RIP_V3_COMPONENT_ORDER,
+    FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+    FINANCIAL_RIP_V3_VERSION,
+    FINANCIAL_RIP_V3_WEIGHTS,
+    OVERALL_RIP_V5_VERSION,
+    OVERALL_RIP_V5_WEIGHTS,
+)
 from backend.desirability.scoring_config import (
     DEFAULT_RIP_WEIGHTS,
     DESIRABILITY_ADJUSTMENT_BASELINE,
@@ -452,6 +461,154 @@ def compute_overall_rip(
             key: round(value, 6) for key, value in OVERALL_RIP_EFFECTIVE_WEIGHTS.items()
         },
         "formula": "0.90 * financial_rip + 0.10 * opening_desirability_ca7",
+        "rankable": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Financial RIP V3 / Overall RIP V5 — the canonical path after the cutover
+# ---------------------------------------------------------------------------
+# The V2 functions above are UNCHANGED and keep their meaning. `compute_overall_rip`
+# still computes v4 from the Profit/Safety/Stability pillars and is still the
+# legacy comparison path. Nothing below mutates it.
+
+def compute_financial_rip_v2(
+    pillar_scores: Mapping[str, Any],
+    *,
+    weights: Optional[Mapping[str, float]] = None,
+) -> Dict[str, Any]:
+    """Explicit V2 name for the 60/25/15 Profit/Safety/Stability Financial RIP.
+
+    :func:`compute_financial_rip` keeps its original name for the existing call
+    sites, but after the V3 cutover an unversioned "Financial RIP" is ambiguous.
+    New code should call THIS name when it means V2, so a reader never has to
+    check which model an unqualified call resolves to.
+    """
+    return compute_financial_rip(pillar_scores, weights=weights)
+
+
+def compute_financial_rip_v3(financial_rip_v3_payload: Any) -> Dict[str, Any]:
+    """Validate a persisted/authoritative V3 payload and return its absolute score.
+
+    This is a CONSUMER, not a second implementation. The six component scores
+    and the raw metrics were produced once by
+    :func:`backend.calculations.evr.financial_rip_v3.build_financial_rip_v3`
+    from the outcome vector; this function checks that what arrived is
+    internally consistent and lifts the score out of it.
+
+    It deliberately does NOT:
+      * recompute any component from flattened public fields (P95, P99,
+        probability-of-profit and the like are lossy projections of the
+        distribution and cannot reproduce a conditional tail mean),
+      * apply cohort min-max normalization of any kind - the returned score is
+        the fixed-anchor ABSOLUTE score, and adding or removing another set
+        cannot change it.
+    """
+    ok, problems = validate_financial_rip_v3_payload(financial_rip_v3_payload)
+    payload = financial_rip_v3_payload if isinstance(financial_rip_v3_payload, Mapping) else {}
+
+    if not ok:
+        return {
+            "score": None,
+            "version": FINANCIAL_RIP_V3_VERSION,
+            "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+            "status": payload.get("status") or "unavailable",
+            "statusReason": payload.get("statusReason") or "invalid_financial_rip_v3_payload",
+            "validationProblems": problems,
+            "components": {},
+            "rankable": False,
+        }
+
+    components = payload.get("components") or {}
+    return {
+        "score": _as_float(payload.get("score")),
+        "version": FINANCIAL_RIP_V3_VERSION,
+        "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+        "status": payload.get("status"),
+        "statusReason": None,
+        "components": {
+            key: {
+                "score": _as_float((components.get(key) or {}).get("score")),
+                "weight": _as_float((components.get(key) or {}).get("weight")),
+                "contribution": _as_float((components.get(key) or {}).get("contribution")),
+            }
+            for key in FINANCIAL_RIP_V3_COMPONENT_ORDER
+        },
+        "weights": dict(FINANCIAL_RIP_V3_WEIGHTS),
+        "normalizationMode": "fixed_absolute_anchors",
+        "rankable": True,
+    }
+
+
+def compute_overall_rip_v5(
+    financial_rip_v3_score: Any,
+    opening_desirability_ca7_score: Any,
+) -> Dict[str, Any]:
+    """Overall RIP V5 = 0.90 * Financial RIP V3 + 0.10 * CA7 Opening Desirability.
+
+    The 90/10 relationship is IDENTICAL to Overall RIP v4; only the financial
+    input changes, from Financial RIP V2 to Financial RIP V3. CA7 itself is
+    untouched by this task.
+
+    Requires BOTH inputs. A missing CA7 makes Overall RIP V5 unavailable with a
+    reason and, exactly as in v4, never falls back to Universal Set
+    Desirability - which already enters once as CA7's D base, so substituting it
+    would both double-count it and mix two constructs in one column. A missing
+    V3 never falls back to V2: a V2 number published under a V5 label would be a
+    different model wearing the canonical name.
+
+    This does not route through the V2 pillar dictionary at all; it takes the
+    absolute fixed-anchor V3 score directly.
+    """
+    financial_score = _as_float(financial_rip_v3_score)
+    ca7_score = _as_float(opening_desirability_ca7_score)
+
+    w_financial = OVERALL_RIP_V5_WEIGHTS["financial_rip"]
+    w_ca7 = OVERALL_RIP_V5_WEIGHTS["opening_desirability"]
+
+    if financial_score is None or ca7_score is None:
+        missing: List[str] = []
+        if financial_score is None:
+            missing.append("financial_rip_v3")
+        if ca7_score is None:
+            missing.append("opening_desirability_ca7")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V5_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP V5 needs a valid Financial RIP V3 and a valid CA7 "
+                "Opening Desirability score. Missing: " + ", ".join(missing) + ". "
+                "V3 is never substituted with Financial RIP V2, and CA7 is never "
+                "substituted with Universal Set Desirability."
+            ),
+            "missingInputs": missing,
+            "components": {},
+            "weights": dict(OVERALL_RIP_V5_WEIGHTS),
+            "rankable": False,
+        }
+
+    financial_contribution = w_financial * financial_score
+    ca7_contribution = w_ca7 * ca7_score
+    score = max(0.0, min(100.0, financial_contribution + ca7_contribution))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V5_VERSION,
+        "status": "ready",
+        "components": {
+            "financialRipV3": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "openingDesirability": {
+                "score": round(ca7_score, 4),
+                "weight": round(w_ca7, 6),
+                "contribution": round(ca7_contribution, 4),
+            },
+        },
+        "weights": dict(OVERALL_RIP_V5_WEIGHTS),
+        "formula": "0.90 * financial_rip_v3 + 0.10 * opening_desirability_ca7",
         "rankable": True,
     }
 

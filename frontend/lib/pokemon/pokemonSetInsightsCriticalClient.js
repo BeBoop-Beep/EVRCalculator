@@ -45,6 +45,13 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     // derives them (see backend explore_rip_statistics_service).
     rip: toPlainObject(payload?.rip),
     ripCore: toPlainObject(payload?.ripCore),
+    // Canonical after the V3 cutover. `rip`/`ripCore` above stay published as
+    // the LEGACY V2/v4 objects the comparison view reads; these are the current
+    // models. Pass-through only, exactly like the two above - every score, rank
+    // and tier is backend-computed.
+    financialRipV3: toPlainObject(payload?.financialRipV3),
+    overallRipV5: toPlainObject(payload?.overallRipV5),
+    publicRipContractV5: toPlainObject(payload?.publicRipContractV5),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

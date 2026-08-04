@@ -9,6 +9,50 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.db.clients.supabase_client import supabase
 
 
+# Financial RIP V3 columns on `simulation_derived_metrics` (migration 060).
+#
+# Declared as ONE list that both the insert payload builder and the select
+# contract read, so the two cannot drift: a column added here is written and read
+# in the same change. The scalar columns are a projection of
+# `financial_rip_v3_payload`; that JSONB document remains the source of truth for
+# anything not listed here (sub-scores, normalization records, tail selection).
+#
+# Deliberately separate from the V2 block below: nothing in this list overwrites,
+# renames or changes the meaning of a V2 field.
+FINANCIAL_RIP_V3_METRIC_FIELDS: List[str] = [
+    "financial_rip_v3_score",
+    "financial_rip_v3_score_version",
+    "financial_rip_v3_normalization_version",
+    "financial_rip_v3_status",
+    "financial_rip_v3_rankable",
+    "financial_rip_v3_simulation_count",
+    "financial_rip_v3_true_win_frequency_score",
+    "financial_rip_v3_typical_retention_score",
+    "financial_rip_v3_loss_resilience_score",
+    "financial_rip_v3_realistic_upside_score",
+    "financial_rip_v3_jackpot_upside_score",
+    "financial_rip_v3_base_economic_efficiency_score",
+    "financial_rip_v3_true_win_probability",
+    "financial_rip_v3_typical_pack_value",
+    "financial_rip_v3_typical_retention_ratio",
+    "financial_rip_v3_average_retention_given_loss",
+    "financial_rip_v3_soft_loss_share_given_loss",
+    "financial_rip_v3_hard_loss_probability",
+    "financial_rip_v3_p95_threshold_value",
+    "financial_rip_v3_p95_threshold_ratio",
+    "financial_rip_v3_realistic_tail_mean_value",
+    "financial_rip_v3_realistic_tail_mean_ratio",
+    "financial_rip_v3_p99_threshold_value",
+    "financial_rip_v3_p99_threshold_ratio",
+    "financial_rip_v3_jackpot_tail_mean_value",
+    "financial_rip_v3_jackpot_tail_mean_ratio",
+    "financial_rip_v3_total_rtp_ratio",
+    "financial_rip_v3_base_rtp_excluding_top_1pct",
+    "financial_rip_v3_jackpot_value_share",
+    "financial_rip_v3_payload",
+]
+
+
 DERIVED_METRIC_FIELDS: List[str] = [
     "simulated_set_value",
     "simulated_set_value_card_count",
@@ -23,6 +67,9 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "cards_tracked",
     "total_card_ev",
     "top1_ev_share",
+    # Additive: Depth and Robustness needs the top-2 share to distinguish a
+    # one-card set from a two-card set. Unweighted diagnostic only.
+    "top2_ev_share",
     "top3_ev_share",
     "top5_ev_share",
     "hhi_ev_concentration",
@@ -51,6 +98,7 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "chase_potential_tier",
     "experience_tier",
     "derived_metric_version",
+    *FINANCIAL_RIP_V3_METRIC_FIELDS,
 ]
 
 COMPARISON_METRIC_FIELDS: List[str] = [

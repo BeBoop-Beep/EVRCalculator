@@ -5,6 +5,7 @@ import pandas as pd
 import pandas as pd
 import pytest
 
+from backend.db.repositories.calculation_runs_repository import FINANCIAL_RIP_V3_METRIC_FIELDS
 from backend.db.services.calculation_run_persistence_service import (
     persist_parent_run_with_price_snapshots,
     persist_simulation_derived_metrics,
@@ -21,6 +22,17 @@ _NULL_DESIRABILITY_FIELDS = {
     "desirability_is_fallback": None,
     "desirability_fallback_reason": None,
 }
+
+# Financial RIP V3 is additive: a derived payload that predates it (as every
+# fixture in this file does) persists NULL V3 columns while every V2 field below
+# keeps its exact prior value. Built FROM the declared column list rather than
+# restated, so adding a V3 column cannot silently stop being asserted here.
+_NULL_FINANCIAL_RIP_V3_FIELDS = {
+    field: None for field in FINANCIAL_RIP_V3_METRIC_FIELDS
+}
+# The top-2 EV share is likewise additive, and optional: a chase payload built
+# before it existed stores NULL rather than a misleading 0 share.
+_NULL_TOP2_EV_SHARE = {"top2_ev_share": None}
 
 
 @patch("backend.db.services.calculation_run_persistence_service.create_simulation_etb_summary")
@@ -155,6 +167,8 @@ def test_persist_simulation_derived_metrics_maps_required_fields_from_runtime(mo
             "chase_potential_tier": None,
             "experience_tier": None,
             "derived_metric_version": None,
+            **_NULL_TOP2_EV_SHARE,
+            **_NULL_FINANCIAL_RIP_V3_FIELDS,
         },
     )
 
@@ -328,6 +342,8 @@ def test_persist_simulation_derived_metrics_accepts_legacy_chase_metric_names(mo
             "chase_potential_tier": None,
             "experience_tier": None,
             "derived_metric_version": None,
+            **_NULL_TOP2_EV_SHARE,
+            **_NULL_FINANCIAL_RIP_V3_FIELDS,
         },
     )
 
@@ -453,6 +469,8 @@ def test_persist_simulation_derived_metrics_coerces_empty_shares_to_zero(mock_cr
             "chase_potential_tier": None,
             "experience_tier": None,
             "derived_metric_version": None,
+            **_NULL_TOP2_EV_SHARE,
+            **_NULL_FINANCIAL_RIP_V3_FIELDS,
         },
     )
 

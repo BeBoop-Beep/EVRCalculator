@@ -46,6 +46,11 @@ export function normalizePokemonSetInsightsPayload(payload) {
     // Canonical public contract (pass-through; backend-computed).
     rip: toPlainObject(payload?.rip),
     ripCore: toPlainObject(payload?.ripCore),
+    // Canonical after the V3 cutover; `rip`/`ripCore` above are the legacy
+    // V2/v4 objects. Pass-through only, backend-computed.
+    financialRipV3: toPlainObject(payload?.financialRipV3),
+    overallRipV5: toPlainObject(payload?.overallRipV5),
+    publicRipContractV5: toPlainObject(payload?.publicRipContractV5),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

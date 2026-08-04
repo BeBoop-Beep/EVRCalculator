@@ -6174,6 +6174,9 @@ def _empty_insights_critical_payload(
         "ripScore": {},
         "rip": {},
         "ripCore": {},
+        "financialRipV3": {},
+        "overallRipV5": {},
+        "publicRipContractV5": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
         "publicAnalyticsStatus": None,
@@ -6254,6 +6257,25 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
     # SAME objects the Explore leaderboard ranked - one bundle, two surfaces.
     canonical_rip = payload_json.get("rip") if isinstance(payload_json.get("rip"), dict) else {}
     canonical_rip_core = payload_json.get("ripCore") if isinstance(payload_json.get("ripCore"), dict) else {}
+    # Canonical after the V3 cutover. Served verbatim beside `rip`/`ripCore`,
+    # which stay published as the LEGACY V2/v4 objects the comparison view reads.
+    # A missing V3 block renders as an explicit unavailable state on the client;
+    # it is never back-filled from `ripCore`, which is a different model.
+    financial_rip_v3 = (
+        payload_json.get("financialRipV3")
+        if isinstance(payload_json.get("financialRipV3"), dict)
+        else {}
+    )
+    overall_rip_v5 = (
+        payload_json.get("overallRipV5")
+        if isinstance(payload_json.get("overallRipV5"), dict)
+        else {}
+    )
+    public_rip_contract_v5 = (
+        payload_json.get("publicRipContractV5")
+        if isinstance(payload_json.get("publicRipContractV5"), dict)
+        else {}
+    )
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)
@@ -6272,6 +6294,14 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         warnings.append(
             "Canonical RIP contract is not in this snapshot yet; rebuild set-page snapshots."
         )
+    if not financial_rip_v3:
+        # A warning, not a failure: a stale or missing V3 must mark only V3 as
+        # unavailable and must never block the V2/Overall production payload
+        # during the comparison phase.
+        warnings.append(
+            "Financial RIP V3 is not in this snapshot yet; rebuild set-page "
+            "snapshots after a simulation run that computes V3."
+        )
 
     payload = {
         "set": set_identity,
@@ -6289,6 +6319,9 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         },
         "rip": canonical_rip,
         "ripCore": canonical_rip_core,
+        "financialRipV3": financial_rip_v3,
+        "overallRipV5": overall_rip_v5,
+        "publicRipContractV5": public_rip_contract_v5,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

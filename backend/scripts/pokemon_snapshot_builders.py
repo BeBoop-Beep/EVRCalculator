@@ -411,6 +411,15 @@ def _merge_canonical_rip_contract_into_set_payload(
         # rankedSetCount per block; CA7-gated Overall). Lifted verbatim so the
         # set page and Explore read one object, never two that can disagree.
         "publicRipContractV4",
+        # Canonical after the V3 cutover: the six-component Financial RIP V3,
+        # Overall RIP V5 (0.90 * V3 + 0.10 * CA7) and the v5 public contract
+        # that carries both plus the explicitly-labelled legacy V2/v4 blocks.
+        # Lifted verbatim from the SAME ranked target as `rip`/`ripCore`, so a
+        # set page and the Explore leaderboard cannot disagree about a V3 score,
+        # a V3 rank, or the simulation run either was computed from.
+        "financialRipV3",
+        "overallRipV5",
+        "publicRipContractV5",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The

@@ -77,6 +77,7 @@ import {
 } from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
+import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
@@ -504,6 +505,12 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     set: normalized?.set || null,
     summary: dualKeyCase(normalized?.summary || {}),
     interpretation: normalized?.interpretation || {},
+    // Canonical Financial RIP V3 / Overall RIP V5, carried through verbatim.
+    // Without these the set page would render the V3 breakdown as permanently
+    // unavailable even when the snapshot carries a complete V3 result.
+    financialRipV3: normalized?.financialRipV3 || null,
+    overallRipV5: normalized?.overallRipV5 || null,
+    publicRipContractV5: normalized?.publicRipContractV5 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -528,6 +535,13 @@ function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
     set: critical?.set || null,
     summary: dualKeyCase(critical?.summary || {}),
     interpretation: critical?.interpretation || {},
+    // The RIP Score Breakdown is a priority-1 surface, so the canonical V3/V5
+    // objects have to arrive in the CRITICAL slice - deferring them to the
+    // secondary fetch would leave the breakdown showing an unavailable state
+    // until the second request settled.
+    financialRipV3: critical?.financialRipV3 || null,
+    overallRipV5: critical?.overallRipV5 || null,
+    publicRipContractV5: critical?.publicRipContractV5 || null,
   };
 }
 
@@ -7234,6 +7248,14 @@ function RipScoreBreakdownModule({
   coreWeightLabel = null,
   coreWeightsCaption = null,
   collectorAppeal = null,
+  // Financial RIP V3 (canonical) and the legacy V2 object it is compared
+  // against. Both are passed in from the one resolution the page already
+  // performs, so this module never re-resolves a payload and cannot end up
+  // showing a V3 score from one run beside a V2 score from another.
+  financialRipV3 = null,
+  legacyRip = null,
+  breakdownTrends = {},
+  requestTimeout = false,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   // The one shared RIP tier presentation — the same helper the title-card
@@ -7369,6 +7391,29 @@ function RipScoreBreakdownModule({
           />
         </div>
 
+        {/* The canonical Financial RIP breakdown: six V3 component cards by
+            default, with the retired three-pillar model available as an
+            explicitly-labelled Legacy V2 view.
+
+            Placed ABOVE the composition, not below it. The composition is the
+            last thing in each mode arm by design — it is the 10% Collector
+            Appeal term that closes the Overall RIP story — so appending
+            anything after it would break that reading order. The financial
+            model's own breakdown belongs between the outlook and the
+            composition instead.
+
+            Spacing follows the section's existing rhythm (`mt-4`, no divider):
+            the header/outlook block deliberately dropped its oversized gaps and
+            its border-top, and this must not reintroduce either. */}
+        <div className="mt-4 min-w-0">
+          <FinancialRipV3Breakdown
+            financialRipV3={financialRipV3}
+            legacyRip={legacyRip}
+            trends={breakdownTrends}
+            requestTimeout={requestTimeout}
+          />
+        </div>
+
         {showsCollectorAppeal ? (
           // 1200px+ only: the desktop composition is unchanged. Below desktop
           // the compact feed above is the entire presentation, so exactly one
@@ -7461,6 +7506,7 @@ function RipScoreBreakdownModule({
             </div>
           </div>
         )}
+
       </article>
     </section>
   );
@@ -11554,6 +11600,19 @@ export default function RipStatisticsPageClient({
   // `selectRipHeroScoreMode` above resolves it from payload -> target -> summary
   // itself. The local mirror of that read was only ever consumed by the retired
   // RIP construction strip, so it is gone with it.
+  // The canonical Financial RIP V3 contract, resolved with the SAME
+  // payload -> target -> summary precedence as `rip`, so the V3 breakdown and
+  // the legacy V2 comparison can never be reading two different simulation
+  // runs. It is deliberately not defaulted to `ripCore`: an absent V3 renders
+  // as an explicit unavailable state, never as V2 wearing the V3 label.
+  const canonicalFinancialRipV3 = useMemo(
+    () =>
+      explorePayload?.financialRipV3 ||
+      selectedTarget?.financialRipV3 ||
+      summary?.financialRipV3 ||
+      null,
+    [explorePayload?.financialRipV3, selectedTarget?.financialRipV3, summary?.financialRipV3]
+  );
   const canonicalUniversalSetDesirability = useMemo(
     () =>
       explorePayload?.universalSetDesirability ||
@@ -15904,6 +15963,10 @@ export default function RipStatisticsPageClient({
                     coreWeightLabel={ripCoreWeightLabel}
                     coreWeightsCaption={ripCoreWeightsCaption}
                     collectorAppeal={ripCollectorAppealTerm}
+                    financialRipV3={canonicalFinancialRipV3}
+                    legacyRip={canonicalRip}
+                    breakdownTrends={trendByMetricKey}
+                    requestTimeout={isTimeoutFallbackPayload}
                   />
                 </SectionErrorBoundary>
                 </div>

@@ -16,6 +16,19 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, Mapping, Optional
 
+# Financial RIP V3's own configuration is the authoritative source for its
+# version identifiers, weights and anchors; it is imported rather than restated
+# so there is exactly ONE definition of each. The dependency runs
+# desirability -> calculations (never the reverse).
+from backend.calculations.evr.financial_rip_v3_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION as _CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION as _CANONICAL_OVERALL_RIP_VERSION,
+    FINANCIAL_RIP_V3_VERSION as FINANCIAL_RIP_V3_VERSION,
+    OVERALL_RIP_V5_VERSION as OVERALL_RIP_V5_VERSION_FROM_CONFIG,
+    OVERALL_RIP_V5_WEIGHTS as OVERALL_RIP_V5_WEIGHTS,
+    PUBLIC_RIP_CONTRACT_V5_VERSION as PUBLIC_RIP_CONTRACT_V5_VERSION,
+)
+
 
 # ---------------------------------------------------------------------------
 # Version identifiers
@@ -36,6 +49,11 @@ OVERALL_RIP_V3_VERSION = "overall_rip_v3_financial_plus_universal_desirability"
 # Desirability enters Overall RIP ONLY through CA7 (which consumes it as its D
 # base), never separately - see OVERALL_RIP_WEIGHTS and compute_overall_rip.
 OVERALL_RIP_V4_VERSION = "overall_rip_v4_90_financial_10_ca7"
+# The CANONICAL Overall RIP after the V3 cutover. Same 90/10 relationship as v4;
+# the financial input changes from Financial RIP V2 (60/25/15 Profit/Safety/
+# Stability) to the six-component Financial RIP V3 outcome-profile score. v4 is
+# retained, computed and published as a clearly-labelled LEGACY block.
+OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION_FROM_CONFIG
 UNIVERSAL_SET_DESIRABILITY_VERSION = "universal_set_desirability_v3"
 UNIVERSAL_ELIGIBILITY_POLICY_VERSION = "universal_desirability_eligibility_v2"
 SIMULATION_OPENING_DETAILS_VERSION = "simulation_opening_details_v1"
@@ -105,6 +123,59 @@ OVERALL_RIP_WEIGHTS: Dict[str, float] = {
     "financial_rip": 0.90,
     "opening_desirability": 0.10,
 }
+
+
+# ---------------------------------------------------------------------------
+# Canonical version resolution — the V3/V5 cutover switch
+# ---------------------------------------------------------------------------
+# ONE authoritative selection. Every public builder, ranking path and presenter
+# reads these two constants to decide which model is canonical; promotion is a
+# change HERE, not a conditional scattered through the publication layer.
+#
+# Deliberately NOT an environment variable. Two workers publishing one
+# leaderboard under different env values would emit two incompatible score
+# versions into a single ranked cohort, and nothing downstream would notice.
+#
+# After the cutover:
+#   canonical Financial RIP  = Financial RIP V3 (six-component outcome profile)
+#   canonical Overall RIP    = 0.90 * Financial RIP V3 + 0.10 * CA7
+#
+# Financial RIP V2 and Overall RIP v4 remain COMPUTED and PUBLISHED, under
+# explicitly legacy labels, for historical comparison, the V2-vs-V3 audit,
+# regression tests and rollback diagnostics. They no longer feed the canonical
+# score or the canonical ranking.
+
+CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
+CANONICAL_OVERALL_RIP_VERSION = _CANONICAL_OVERALL_RIP_VERSION
+
+LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
+LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
+
+
+def canonical_financial_rip_is_v3() -> bool:
+    """True when Financial RIP V3 is the canonical financial score."""
+    return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
+
+
+def canonical_overall_rip_is_v5() -> bool:
+    """True when Overall RIP V5 is the canonical overall score."""
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V5_VERSION
+
+
+def canonical_scoring_selection() -> Dict[str, object]:
+    """The published description of which models are canonical right now."""
+    return {
+        "canonicalFinancialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
+        "canonicalOverallRipVersion": CANONICAL_OVERALL_RIP_VERSION,
+        "legacyFinancialRipVersion": LEGACY_FINANCIAL_RIP_VERSION,
+        "legacyOverallRipVersion": LEGACY_OVERALL_RIP_VERSION,
+        "overallRipWeights": dict(OVERALL_RIP_V5_WEIGHTS),
+        "note": (
+            "Financial RIP V3 is the canonical financial score. Financial RIP V2 "
+            "and Overall RIP v4 remain published under explicitly legacy labels "
+            "and are never selected by fallback."
+        ),
+    }
 
 # The effective per-input weights after expanding Financial RIP's 60/25/15. Held
 # here so presentation surfaces read one authoritative source rather than each
