@@ -362,9 +362,35 @@ DEPTH_AND_ROBUSTNESS_LABELS: Dict[str, str] = {
 # presenter. Promotion is this constant, not a scattering of conditionals and
 # not an environment variable that can differ between two workers mid-publish
 # and emit two score versions into one leaderboard.
+#
+# THE FINANCIAL half is resolved HERE, because this module defines it.
 
 CANONICAL_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V3_VERSION
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V5_VERSION
+
+# THE OVERALL half is resolved in `backend.desirability.scoring_config`, and
+# deliberately NOT restated here.
+#
+# This module previously also defined `CANONICAL_OVERALL_RIP_VERSION`, pinned to
+# OVERALL_RIP_V5_VERSION. When the Overall cutover moved to V6 (80/20 Financial
+# V3 + Collector Appeal), `scoring_config` was updated and this copy was not, so
+# the codebase carried TWO constants of the same name disagreeing about which
+# Overall model is canonical - and which one a caller got depended purely on
+# which module they happened to import from. The stale copy had no importers,
+# which is exactly why it survived: nothing exercised it, and the next caller to
+# reach for the "obvious" definition (the one sitting beside the V3 weights)
+# would have silently published V5 under the canonical name.
+#
+# A second definition of a cutover switch is a second cutover. There is one:
+#
+#     from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
+#
+# It is not re-exported from here, because a re-export is a second import path
+# and this file must not own an answer it cannot keep current: `scoring_config`
+# imports THIS module, so the reverse import would be a cycle.
+#
+# `OVERALL_RIP_V5_VERSION` above remains a valid IDENTIFIER for the V5 model -
+# it names a real, still-computable blend. It is simply no longer the canonical
+# selection.
 
 # Overall RIP's 90/10 relationship is UNCHANGED by the V3 cutover; only the
 # financial input changes (V2 -> V3). Held here so V5 and the legacy V4 path
