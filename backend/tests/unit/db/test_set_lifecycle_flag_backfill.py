@@ -19,23 +19,25 @@ from backend.db.services.pokemon_set_lifecycle_flags import (
 )
 from backend.scripts.generate_set_lifecycle_flag_backfill import build_lifecycle_backfill
 
-MIGRATION_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "db"
-    / "migrations"
-    / "058_set_lifecycle_flags_and_scrape_runtime_provenance.sql"
-)
+_MIGRATIONS_DIR = Path(__file__).resolve().parents[3] / "db" / "migrations"
+MIGRATION_PATH = _MIGRATIONS_DIR / "058_set_lifecycle_flags_and_scrape_runtime_provenance.sql"
+MIGRATION_059_PATH = _MIGRATIONS_DIR / "059_correct_opening_simulation_capability.sql"
 
 
 def _sql_array_values(sql: str, variable: str) -> list[str]:
     match = re.search(rf"{variable} TEXT\[\] := ARRAY\[(.*?)\]::text\[\]", sql, re.DOTALL)
-    assert match, f"could not locate {variable} array in migration 058"
+    assert match, f"could not locate {variable} array in the migration"
     return re.findall(r"'([^']+)'", match.group(1))
 
 
 @pytest.fixture(scope="module")
 def migration_sql() -> str:
     return MIGRATION_PATH.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def migration_059_sql() -> str:
+    return MIGRATION_059_PATH.read_text(encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -59,7 +61,20 @@ class _SealedOnlyConfig:
 
 class _ExplicitNoSimConfig:
     SUPPORTS_OPENING_SIMULATION = False
+    USE_MONTE_CARLO_V2 = True
     CARD_DETAILS_URL = "https://www.tcgplayer.com/z"
+
+
+class _MonteCarloV2Config:
+    USE_MONTE_CARLO_V2 = True
+    CARD_DETAILS_URL = "https://www.tcgplayer.com/mc"
+
+
+class _ExplicitSimCatalogOnlyConfig:
+    CATALOG_ONLY = True
+    SUPPORTS_OPENING_SIMULATION = True
+    USE_MONTE_CARLO_V2 = True
+    CARD_DETAILS_URL = "https://www.tcgplayer.com/c"
 
 
 def test_catalog_only_config_is_discovered_and_defaults_to_no_simulation():
@@ -68,16 +83,48 @@ def test_catalog_only_config_is_discovered_and_defaults_to_no_simulation():
     assert flags["supports_opening_simulation"] is False
 
 
-def test_plain_config_defaults_to_simulation_supported():
+def test_plain_config_is_not_simulation_supported():
+    """Corrected semantics (migration 059).
+
+    A set that merely is not catalog-only is NOT simulation-supported. The old
+    `not catalog_only` default marked 172 production rows supported against a
+    real V2 runner list of 22.
+    """
     flags = resolve_config_lifecycle_flags(_PlainConfig)
     assert flags["catalog_only"] is False
+    assert flags["supports_opening_simulation"] is False
+
+
+def test_capability_is_derived_from_the_runner_criterion():
+    """Rule 2: USE_MONTE_CARLO_V2 is what run_all_v2_sets.py actually filters on."""
+    flags = resolve_config_lifecycle_flags(_MonteCarloV2Config)
     assert flags["supports_opening_simulation"] is True
 
 
-def test_explicit_simulation_flag_overrides_the_default():
+def test_explicit_simulation_flag_overrides_the_runner_criterion():
+    """Rule 1 beats rule 2: an explicit declaration wins even over V2=True."""
     flags = resolve_config_lifecycle_flags(_ExplicitNoSimConfig)
     assert flags["catalog_only"] is False
     assert flags["supports_opening_simulation"] is False
+
+
+def test_catalog_only_overrides_even_an_explicit_simulation_declaration():
+    """Rule 4 is absolute: catalog_only always implies false."""
+    flags = resolve_config_lifecycle_flags(_ExplicitSimCatalogOnlyConfig)
+    assert flags["catalog_only"] is True
+    assert flags["supports_opening_simulation"] is False
+
+
+def test_flag_matches_the_actual_v2_runner_set_list(backfill):
+    """The strongest anti-drift guard: the flag must equal what the runner runs.
+
+    If these ever diverge, `supports_opening_simulation` is once again claiming a
+    capability the simulation runner does not have.
+    """
+    from backend.scripts.run_all_v2_sets import discover_sets, filter_v2_enabled_sets
+
+    runner_keys = sorted(filter_v2_enabled_sets(discover_sets()).keys())
+    assert sorted(backfill["simulation_supported_keys"]) == runner_keys
 
 
 def test_catalog_only_config_can_never_become_daily_scrape_ready():
@@ -107,8 +154,70 @@ def test_migration_catalog_only_list_matches_configs(migration_sql, backfill):
     assert _sql_array_values(migration_sql, "v_catalog_only_keys") == backfill["catalog_only_keys"]
 
 
-def test_migration_no_simulation_list_matches_configs(migration_sql, backfill):
-    assert _sql_array_values(migration_sql, "v_no_simulation_keys") == backfill["no_simulation_keys"]
+def test_migration_058_simulation_list_is_a_frozen_historical_artifact(migration_sql, backfill):
+    """Migration 058 is APPLIED IN PRODUCTION and must never be rewritten.
+
+    Under 058's (now superseded) `not catalog_only` default, its no-simulation
+    list was by construction identical to its catalog-only list. That is frozen
+    history. The corrected capability lives in migration 059, and the generator's
+    current `no_simulation_keys` is deliberately NOT compared against 058 — doing
+    so would pressure someone into editing an already-applied migration.
+    """
+    assert _sql_array_values(migration_sql, "v_no_simulation_keys") == _sql_array_values(
+        migration_sql, "v_catalog_only_keys"
+    )
+    # And that frozen list is still exactly today's catalog-only set.
+    assert _sql_array_values(migration_sql, "v_catalog_only_keys") == backfill["catalog_only_keys"]
+
+
+# --- migration 059: corrected opening-simulation capability -------------------
+def test_migration_059_allow_list_matches_configs(migration_059_sql, backfill):
+    """The allow-list must stay generated, never hand-maintained."""
+    assert (
+        _sql_array_values(migration_059_sql, "v_simulation_supported_keys")
+        == backfill["simulation_supported_keys"]
+    )
+
+
+def test_migration_059_expected_count_matches_the_generated_list(migration_059_sql, backfill):
+    keys = _sql_array_values(migration_059_sql, "v_simulation_supported_keys")
+    match = re.search(r"v_expected_supported INTEGER := (\d+)", migration_059_sql)
+    assert match, "migration 059 must declare its expected supported count"
+    assert int(match.group(1)) == len(keys) == backfill["simulation_supported_count"]
+
+
+def test_migration_059_fails_closed_on_catalog_only(migration_059_sql):
+    assert "NOT COALESCE(catalog_only, FALSE)" in migration_059_sql
+    assert "Migration 059 invariant violated" in migration_059_sql
+    assert "catalog-only set(s) marked supports_opening_simulation" in migration_059_sql
+
+
+def test_migration_059_reports_the_resulting_supported_count(migration_059_sql):
+    assert "RAISE NOTICE" in migration_059_sql
+    assert "supports_opening_simulation=%" in migration_059_sql
+
+
+def test_migration_059_leaves_catalog_only_and_daily_cohort_untouched(migration_059_sql):
+    """Scope guard: 059 must not reopen the working migration-058 semantics."""
+    assert "SET catalog_only" not in migration_059_sql
+    assert "SET ready_for_daily_scrape" not in migration_059_sql
+    assert "pokemon_scrape_ready_cohort" not in migration_059_sql
+    # Exactly one column is recomputed.
+    assert migration_059_sql.count("SET supports_opening_simulation = (") == 1
+
+
+def test_migration_059_adds_no_grants_and_no_policies(migration_059_sql):
+    """Migration 051's privilege rules must survive untouched."""
+    for forbidden in ("GRANT ", "CREATE POLICY", "TO PUBLIC", "GRANT ALL", "CREATE OR REPLACE FUNCTION"):
+        assert forbidden not in migration_059_sql, forbidden
+
+
+def test_migration_059_is_idempotent(migration_059_sql):
+    """An unconditional recompute over all rows re-runs to the same state."""
+    assert "BEGIN;" in migration_059_sql and "COMMIT;" in migration_059_sql
+    # No append-only/DDL-conflicting statement that would break a second run.
+    assert "ADD CONSTRAINT" not in migration_059_sql
+    assert "INSERT INTO" not in migration_059_sql
 
 
 def test_no_config_is_both_catalog_only_and_daily_ready(backfill):
@@ -175,3 +284,56 @@ def test_migration_adds_runtime_provenance_columns(migration_sql):
 
 def test_catalog_only_daily_ready_invariant_is_structural(migration_sql):
     assert "CHECK (NOT (catalog_only AND ready_for_daily_scrape))" in migration_sql
+
+
+# --- one definition of "simulation-supported" --------------------------------
+def test_every_consumer_resolves_the_same_simulation_supported_set(backfill):
+    """One definition, four consumers.
+
+    The gate previously hardcoded two era maps and re-tested USE_MONTE_CARLO_V2
+    itself. That is a drift hazard in both directions: a simulatable set in a
+    third era would be invisible to the gate while the sync and the migration
+    counted it, and the duplicated criterion could diverge from the shared
+    resolution order. These key sets must be byte-identical.
+    """
+    from backend.db.services.opening_simulation_gate import supported_opening_set_keys
+    from backend.scripts.run_all_v2_sets import discover_sets, filter_v2_enabled_sets
+
+    # 1. the migration/backfill generator (feeds migration 059)
+    generator_keys = sorted(backfill["simulation_supported_keys"])
+    # 2. the opening simulation gate
+    gate_keys = sorted(supported_opening_set_keys())
+    # 3. the simulation runner itself
+    runner_keys = sorted(filter_v2_enabled_sets(discover_sets()).keys())
+
+    assert gate_keys == generator_keys == runner_keys
+    assert len(gate_keys) == backfill["simulation_supported_count"]
+
+
+def test_the_gate_resolves_over_the_full_registry_not_two_era_maps():
+    """A regression guard for the hardcoded-era-map shortcut."""
+    import inspect
+
+    from backend.db.services import opening_simulation_gate
+
+    source = inspect.getsource(opening_simulation_gate.supported_opening_set_keys)
+    assert "build_valid_set_key_registry" in source
+    assert "supports_opening_simulation" in source
+    # The two-era-map shortcut and the open-coded criterion are both gone.
+    assert "SCARLET_VIOLET_SET_CONFIG_MAP" not in source
+    assert "MEGA_EVOLUTION_SET_CONFIG_MAP" not in source
+    assert 'getattr(config, "USE_MONTE_CARLO_V2"' not in source
+
+
+def test_metadata_sync_resolves_the_same_capability_as_the_gate(backfill):
+    """The sync writes what resolve_config_lifecycle_flags decides."""
+    from backend.db.services.opening_simulation_gate import supported_opening_set_keys
+    from backend.scripts.run_pokemon_set_scrape import build_valid_set_key_registry
+
+    config_map = build_valid_set_key_registry()["config_map"]
+    sync_keys = sorted(
+        key
+        for key, config_cls in config_map.items()
+        if resolve_config_lifecycle_flags(config_cls)["supports_opening_simulation"]
+    )
+    assert sync_keys == sorted(supported_opening_set_keys())

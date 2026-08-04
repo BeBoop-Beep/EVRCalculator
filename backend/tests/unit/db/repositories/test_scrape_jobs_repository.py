@@ -109,12 +109,15 @@ class _FakeSupabase:
         return inserted
 
 
-def _ready_set(set_id="set-ready"):
+def _ready_set(set_id="set-ready", *, catalog_only=False):
     return {
         "id": set_id,
         "ready_for_daily_scrape": True,
         "has_card_details_url": True,
         "card_details_url": "https://example.test/cards",
+        # NOT NULL DEFAULT FALSE in the schema since migration 058, so a real row
+        # always carries a boolean here.
+        "catalog_only": catalog_only,
     }
 
 
@@ -230,3 +233,38 @@ def test_enqueue_missing_scrape_jobs_skips_sets_that_are_not_ready_or_have_no_ur
 
     assert repo.enqueue_missing_scrape_jobs_for_ready_sets() == 0
     assert fake_db.jobs == []
+
+
+def test_rest_fallback_excludes_catalog_only_sets(monkeypatch):
+    """The REST fallback must agree exactly with pokemon_scrape_ready_cohort().
+
+    A catalog-only set can carry ready_for_daily_scrape=TRUE only in stale
+    metadata, but this path is the one taken when the RPC is unavailable — if it
+    readmitted catalog-only sets, the publication-critical daily cohort would
+    regain the 34 unresolvable jobs that wedged the 2026-08-03 batch.
+    """
+    fake_db = _FakeSupabase(
+        sets=[
+            _ready_set("set-daily"),
+            {**_ready_set("set-catalog", catalog_only=True), "ready_for_daily_scrape": True},
+        ],
+        jobs=[],
+    )
+    _install_fake_db(monkeypatch, fake_db)
+
+    assert repo.enqueue_missing_scrape_jobs_for_ready_sets() == 1
+    assert [job["set_id"] for job in fake_db.jobs] == ["set-daily"]
+
+
+def test_rest_fallback_ready_set_ids_filter_catalog_only(monkeypatch):
+    """Pins the filter at the query layer, independent of the enqueue wrapper."""
+    fake_db = _FakeSupabase(
+        sets=[
+            _ready_set("set-daily"),
+            _ready_set("set-catalog", catalog_only=True),
+        ],
+        jobs=[],
+    )
+    _install_fake_db(monkeypatch, fake_db)
+
+    assert repo._fetch_scrape_ready_set_ids() == ["set-daily"]

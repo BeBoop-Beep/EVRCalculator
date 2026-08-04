@@ -2,6 +2,7 @@ import pytest
 from postgrest.exceptions import APIError
 
 from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service, public_read_retry
+from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
 
 
 class _Result:
@@ -2770,7 +2771,9 @@ def _top_chase_dashboard_row(**overrides):
         "set_id": _TEST_UUID,
         "window_key": "30d",
         "top_chase_cards_json": [
-            {"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card"},
+            # A real top_chase_cards_json entry always carries a market price;
+            # an unpriced card now classifies the row as a settled `empty`.
+            {"cardId": "card-1", "cardVariantId": "variant-1", "name": "Chase Card", "marketPrice": 42.0},
         ],
         "top_chase_card_histories_json": {
             "variant-1": [
@@ -2921,9 +2924,11 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
     freshness is handled by serving the freshest row upstream, never by syncing
     the price column onto the chart.
 
-    (The stale-stored-price-with-fresher-observations shape below is contrived:
-    the freshest served row normally carries a fresh price, so this divergence
-    doesn't arise in production — the test only pins the no-drag rule.)"""
+    The hydrated history deliberately ends BEFORE the row's latest_market_date:
+    that keeps the price-alignment step (which only fires on a history reaching
+    the declared market date) out of the way, so this test isolates the no-drag
+    rule. Points dated AFTER latest_market_date are now a structural error in
+    their own right, covered separately."""
     row = _top_chase_dashboard_row(
         top_chase_cards_json=[
             {
@@ -2946,8 +2951,8 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
     def fake_observation_histories(**_kwargs):
         return {
             "variant-1": [
-                {"date": "2026-07-06", "marketPrice": 150.0, "market_price": 150.0},
-                {"date": "2026-07-08", "marketPrice": 175.0, "market_price": 175.0},
+                {"date": "2026-06-15", "marketPrice": 150.0, "market_price": 150.0},
+                {"date": "2026-06-18", "marketPrice": 175.0, "market_price": 175.0},
             ]
         }
 
@@ -2959,10 +2964,10 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
-    # History hydrated from observations, latest point is 175.0 on 2026-07-08.
+    # History hydrated from observations, latest point is 175.0 on 2026-06-18.
     assert payload["topChaseCardHistories"]["variant-1"][-1]["marketPrice"] == 175.0
     assert payload["meta"]["topChaseHistoryHydratedFromObservations"] is True
-    assert payload["meta"]["topChaseHistorySourceLatestObservedDate"] == "2026-07-08"
+    assert payload["meta"]["topChaseHistorySourceLatestObservedDate"] == "2026-06-18"
     # The card price column keeps the snapshot's own stored current price — it
     # is NOT dragged onto the latest history point.
     card = payload["topChaseCards"][0]
@@ -3601,12 +3606,18 @@ def test_top_chase_payload_prefers_fresh_30d_row_over_365d(monkeypatch):
     row_30d = _top_chase_dashboard_row(
         window_key="30d",
         latest_market_date="2026-06-30",
-        top_chase_cards_json=[{"cardId": "card-30d", "cardVariantId": "variant-30d", "name": "30D Card"}],
+        top_chase_cards_json=[{"cardId": "card-30d", "cardVariantId": "variant-30d", "name": "30D Card", "marketPrice": 42.0}],
+        top_chase_card_histories_json={
+            "variant-30d": [{"date": "2026-06-29", "marketPrice": 41.0}, {"date": "2026-06-30", "marketPrice": 42.0}]
+        },
     )
     row_365d = _top_chase_dashboard_row(
         window_key="365d",
         latest_market_date="2026-06-30",
-        top_chase_cards_json=[{"cardId": "card-365d", "cardVariantId": "variant-365d", "name": "365D Card"}],
+        top_chase_cards_json=[{"cardId": "card-365d", "cardVariantId": "variant-365d", "name": "365D Card", "marketPrice": 43.0}],
+        top_chase_card_histories_json={
+            "variant-365d": [{"date": "2026-06-29", "marketPrice": 42.0}, {"date": "2026-06-30", "marketPrice": 43.0}]
+        },
     )
 
     def read_dashboard(query):
@@ -3783,19 +3794,22 @@ def test_top_chase_payload_fallback_preserves_card_order_and_histories(monkeypat
         assert payload["topChaseCardHistories"][key] == points
 
 
-def test_top_chase_payload_empty_fallback_when_neither_window_row_exists(monkeypatch):
-    """D: neither a 30d nor a 365d row exists — the endpoint must still
-    return the existing empty fallback shape with a missing-snapshot warning,
-    not raise or silently synthesize data."""
+def test_top_chase_payload_raises_snapshot_missing_when_neither_window_row_exists(monkeypatch):
+    """D: neither a 30d nor a 365d row exists.
+
+    This used to answer 200 with an empty fallback, which told the caller "this
+    set has no chase cards" when the truth was "the snapshot has not been built".
+    For a publication-required set that is a retryable missing snapshot; only a
+    row we actually read may establish emptiness.
+    """
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
-    payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
+    with pytest.raises(PokemonSetMarketError) as excinfo:
+        pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
-    assert payload["topChaseCards"] == []
-    assert payload["topChaseCardHistories"] == {}
-    assert payload["meta"]["snapshot"]["source"] == "empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest"
-    assert any("missing" in warning.lower() for warning in payload["meta"]["warnings"])
+    assert excinfo.value.status_code == 503
+    assert excinfo.value.code == "POKEMON_SET_TOP_CHASE_SNAPSHOT_MISSING"
 
 
 def test_top_chase_payload_fallback_uses_stored_histories_without_live_observation_query(monkeypatch):
@@ -3893,6 +3907,10 @@ def test_top_chase_payload_serialized_size_stays_under_250kb_with_embedded_card_
 
     row_365d = _top_chase_dashboard_row(
         window_key="365d",
+        # The synthetic history spans the whole of 2026, so the row must declare
+        # a market date that actually covers it — a point dated after
+        # latest_market_date is now a structural error, not a size question.
+        latest_market_date="2026-12-28",
         top_chase_cards_json=[_bloated_card(index) for index in range(10)],
         top_chase_card_histories_json={
             f"variant-{index}": [
@@ -4036,10 +4054,14 @@ def test_top_chase_payload_observation_hydration_meta_marks_source_clearly(monke
     assert payload["meta"]["topChaseHistoryMaxPoints"] == 7
 
 
-def test_top_chase_payload_safe_when_stored_histories_and_observations_both_empty(monkeypatch):
-    """E: cards exist, stored histories are empty, and no raw observations
-    exist either — the endpoint must not crash and must serve cards with a
-    clear history-missing warning instead of raising."""
+def test_top_chase_payload_raises_when_stored_histories_and_observations_both_empty(monkeypatch):
+    """E: priced cards exist, stored histories are empty, and no raw
+    observations exist either.
+
+    Serving those cards as a 200 produced a full grid of "Awaiting trend" charts
+    that the section recorded as a success, so nothing ever retried. The response
+    is atomic: it either renders every priced card or reports a retryable 503.
+    """
     row = _top_chase_dashboard_row(top_chase_card_histories_json={})
 
     def read_dashboard(_query):
@@ -4056,14 +4078,11 @@ def test_top_chase_payload_safe_when_stored_histories_and_observations_both_empt
     )
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
-    payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
+    with pytest.raises(PokemonSetMarketError) as excinfo:
+        pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
-    assert payload["topChaseCards"][0]["cardId"] == "card-1"
-    assert payload["topChaseCardHistories"] == {}
-    assert payload["meta"]["topChaseHistoryHydratedFromObservations"] is False
-    assert payload["meta"]["topChaseHistoryMinPoints"] == 0
-    assert payload["meta"]["topChaseHistoryMaxPoints"] == 0
-    assert any("no raw price" in warning.lower() for warning in payload["meta"]["warnings"])
+    assert excinfo.value.status_code == 503
+    assert excinfo.value.code == "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE"
 
 
 def test_top_chase_payload_does_not_query_observations_when_stored_histories_already_populated(monkeypatch):
