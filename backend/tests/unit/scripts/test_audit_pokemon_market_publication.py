@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from backend.scripts.audit_pokemon_market_publication import (
     SECTION_CARD_PRICES,
+    SECTION_EXPLORE_SET_VALUE,
     SECTION_HEADER_SUMMARY,
     SECTION_OPENING_PROFIT_VS_COST,
     SECTION_SEALED_MARKET,
@@ -60,6 +61,29 @@ def _page(**overrides):
     return row
 
 
+def _explore_target(**overrides):
+    """A published Explore rankings target, as ExploreTopRankings consumes it."""
+    target = {
+        "set_id": "set-1",
+        "canonical_key": "testSet",
+        "checklistSetValue": 100.0,
+        "checklistSetValueAsOf": DATE,
+    }
+    target.update(overrides)
+    return target
+
+
+def _explore_row(targets=None, **payload_overrides):
+    """A pokemon_explore_rankings_snapshot_latest row."""
+    payload = {
+        "meta": {"snapshot": {"marketDate": DATE}},
+        "targets": [_explore_target()] if targets is None else targets,
+    }
+    payload.update(payload_overrides)
+    return {"tcg": "pokemon", "scope": "rip-statistics", "ranking_payload_json": payload,
+            "updated_at": f"{DATE}T12:00:00Z"}
+
+
 def _audit(**overrides):
     kwargs = {
         "canonical_key": "testSet",
@@ -73,6 +97,8 @@ def _audit(**overrides):
         "page_row": _page(),
         "supports_simulation": True,
         "has_sealed_product": True,
+        "explore_target": _explore_target(),
+        "canonical_set_value": 100.0,
     }
     kwargs.update(overrides)
     return audit_market_set_row(**kwargs)
@@ -85,7 +111,7 @@ def _section(row, name):
 def test_fully_current_set_passes_every_section():
     row = _audit()
     assert row.passed, row.failed_sections
-    assert len(row.sections) == 6
+    assert len(row.sections) == 7
 
 
 def test_set_value_behind_promoted_date_fails():
@@ -450,7 +476,11 @@ def _publication_db(**overrides):
         "pokemon_set_value_daily_history": [
             {"set_id": "set-1", "snapshot_date": DATE, "set_value": 100.0, "value_scope": "standard"}
         ],
-        "sealed_products": [{"set_id": "set-1", "name": "Test Set Booster Box"}],
+        "sealed_products": [{"id": "sp-1", "set_id": "set-1", "name": "Test Set Booster Box"}],
+        "sealed_product_price_observations": [
+            {"sealed_product_id": "sp-1", "captured_at": f"{DATE}T09:00:00Z"}
+        ],
+        "pokemon_explore_rankings_snapshot_latest": [_explore_row()],
     }
     tables.update(overrides)
     return _FakeClient(tables)
@@ -630,3 +660,354 @@ def test_audit_still_passes_using_only_the_cards_json_fallback_end_to_end():
     report = run_market_publication_audit(client)
 
     assert report.passed, report.to_dict()["failed_by_section"]
+
+
+# --- post-scrape phase: OPvC is deferred, nothing else is ---------------------
+def test_stale_opvc_does_not_fail_post_scrape_phase():
+    """The early phase publishes pricing only; simulations run hours later."""
+    from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+
+    row = _audit(
+        phase=PHASE_POST_SCRAPE,
+        dashboard_row=_dashboard(performance_vs_cost_history_json=[
+            {"date": PRIOR, "simulatedMeanPackValueVsPackCost": 1.1},
+        ]),
+    )
+    verdict = _section(row, SECTION_OPENING_PROFIT_VS_COST)
+
+    assert row.passed, row.failed_sections
+    assert verdict.deferred is True
+    assert verdict.applicable is False
+    assert verdict.status == "deferred", "deferred must never be reported as passed"
+    assert verdict.observed_date == PRIOR, "the real stale date must still be stated"
+
+
+def test_missing_opvc_history_does_not_fail_post_scrape_phase():
+    from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+
+    row = _audit(
+        phase=PHASE_POST_SCRAPE,
+        dashboard_row=_dashboard(performance_vs_cost_history_json=[]),
+    )
+    assert row.passed, row.failed_sections
+    assert _section(row, SECTION_OPENING_PROFIT_VS_COST).status == "deferred"
+
+
+def test_the_same_stale_opvc_still_fails_the_full_phase():
+    row = _audit(dashboard_row=_dashboard(performance_vs_cost_history_json=[
+        {"date": PRIOR, "simulatedMeanPackValueVsPackCost": 1.1},
+    ]))
+    verdict = _section(row, SECTION_OPENING_PROFIT_VS_COST)
+
+    assert verdict.applicable is True
+    assert verdict.passed is False
+    assert SECTION_OPENING_PROFIT_VS_COST in row.failed_sections
+
+
+def test_missing_dashboard_row_defers_opvc_in_post_scrape_but_fails_in_full():
+    from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+
+    deferred = _section(_audit(dashboard_row=None, phase=PHASE_POST_SCRAPE),
+                        SECTION_OPENING_PROFIT_VS_COST)
+    required = _section(_audit(dashboard_row=None), SECTION_OPENING_PROFIT_VS_COST)
+
+    assert deferred.status == "deferred"
+    assert required.applicable is True and required.passed is False
+
+
+def test_other_stale_sections_still_fail_post_scrape_phase():
+    from backend.scripts.audit_pokemon_market_publication import PHASE_POST_SCRAPE
+
+    row = _audit(
+        phase=PHASE_POST_SCRAPE,
+        value_history=[{"date": PRIOR, "setValue": 100.0}],
+        sealed_row={"market_date": PRIOR},
+        cards_row=_cards(payload_json={"meta": {"pricingContract": {"latestMarketDate": PRIOR}}}),
+    )
+    assert row.passed is False
+    for section in (SECTION_SET_VALUE, SECTION_SEALED_MARKET, SECTION_CARD_PRICES):
+        assert section in row.failed_sections
+
+
+# --- Explore Top Rankings Set Value continuity --------------------------------
+def test_explore_set_value_current_and_matching_canonical_passes():
+    verdict = _section(_audit(), SECTION_EXPLORE_SET_VALUE)
+    assert verdict.applicable is True
+    assert verdict.passed is True
+
+
+def test_explore_set_value_dated_one_day_behind_fails():
+    """The August-4 production failure: Explore still advertised August 3."""
+    row = _audit(
+        explore_target=_explore_target(
+            checklistSetValue=6535.55, checklistSetValueAsOf=PRIOR,
+        ),
+        canonical_set_value=6444.06,
+    )
+    verdict = _section(row, SECTION_EXPLORE_SET_VALUE)
+
+    assert verdict.passed is False
+    assert PRIOR in verdict.detail
+    assert SECTION_EXPLORE_SET_VALUE in row.failed_sections
+
+
+def test_explore_set_value_dated_today_with_yesterdays_number_fails():
+    """A relabeled date over a stale number is the worst case, not the best."""
+    row = _audit(
+        explore_target=_explore_target(checklistSetValue=6535.55, checklistSetValueAsOf=DATE),
+        canonical_set_value=6444.06,
+    )
+    verdict = _section(row, SECTION_EXPLORE_SET_VALUE)
+
+    assert verdict.passed is False
+    assert "disagrees with the canonical" in verdict.detail
+
+
+def test_explore_set_value_matching_to_the_cent_passes():
+    row = _audit(
+        explore_target=_explore_target(checklistSetValue=6444.061, checklistSetValueAsOf=DATE),
+        canonical_set_value=6444.058,
+    )
+    assert _section(row, SECTION_EXPLORE_SET_VALUE).passed is True
+
+
+def test_explore_set_value_snake_case_aliases_are_handled():
+    row = _audit(explore_target={
+        "set_id": "set-1",
+        "checklist_set_value": 100.0,
+        "checklist_set_value_as_of": DATE,
+    })
+    assert _section(row, SECTION_EXPLORE_SET_VALUE).passed is True
+
+
+def test_explore_target_outside_the_cohort_is_not_required():
+    """The Explore cohort is narrower than the publication-required cohort."""
+    verdict = _section(_audit(explore_target=None), SECTION_EXPLORE_SET_VALUE)
+    assert verdict.applicable is False
+    assert verdict.passed is True
+
+
+def test_explore_target_without_a_checklist_set_value_is_not_required():
+    verdict = _section(
+        _audit(explore_target={"set_id": "set-1"}), SECTION_EXPLORE_SET_VALUE
+    )
+    assert verdict.applicable is False
+
+
+def test_explore_set_value_missing_canonical_history_row_fails():
+    row = _audit(explore_target=_explore_target(), canonical_set_value=None)
+    verdict = _section(row, SECTION_EXPLORE_SET_VALUE)
+    assert verdict.passed is False
+    assert "no canonical" in verdict.detail
+
+
+def test_explore_set_value_non_positive_value_fails():
+    row = _audit(explore_target=_explore_target(checklistSetValue=0))
+    verdict = _section(row, SECTION_EXPLORE_SET_VALUE)
+    assert verdict.applicable is True and verdict.passed is False
+    assert "finite positive" in verdict.detail
+
+
+def test_explore_snapshot_wide_problem_fails_every_set():
+    row = _audit(explore_snapshot_problem_detail="no published Explore rankings snapshot row")
+    verdict = _section(row, SECTION_EXPLORE_SET_VALUE)
+    assert verdict.applicable is True
+    assert verdict.passed is False
+
+
+def test_explore_snapshot_problem_detects_missing_malformed_and_stale():
+    from backend.scripts.audit_pokemon_market_publication import explore_snapshot_problem
+
+    assert "no published Explore rankings snapshot" in explore_snapshot_problem(DATE, None)
+    assert "not an object" in explore_snapshot_problem(
+        DATE, {"ranking_payload_json": "not-json-at-all"}
+    )
+    assert "not an array" in explore_snapshot_problem(
+        DATE, {"ranking_payload_json": {"meta": {"snapshot": {"marketDate": DATE}}, "targets": {}}}
+    )
+    assert "does not match promoted market date" in explore_snapshot_problem(
+        DATE, _explore_row(**{"meta": {"snapshot": {"marketDate": PRIOR}}})
+    )
+    assert explore_snapshot_problem(DATE, _explore_row()) is None
+
+
+def test_explore_snapshot_freshness_is_never_taken_from_updated_at():
+    """A rebuild that republishes yesterday's numbers still bumps updated_at."""
+    from backend.scripts.audit_pokemon_market_publication import explore_snapshot_problem
+
+    stale = _explore_row(**{"meta": {"snapshot": {"marketDate": PRIOR}}})
+    stale["updated_at"] = f"{DATE}T23:59:59Z"
+    assert explore_snapshot_problem(DATE, stale) is not None
+
+
+def test_explore_snapshot_date_falls_back_to_the_comparison_contract_path():
+    from backend.scripts.audit_pokemon_market_publication import explore_snapshot_market_date
+
+    row = _explore_row(**{"meta": {"comparisonSnapshots": {"currentMarketDate": DATE}}})
+    assert explore_snapshot_market_date(row) == DATE
+
+
+# --- Explore continuity end to end, in BOTH phases ----------------------------
+def test_stale_explore_snapshot_fails_the_post_scrape_audit():
+    from backend.scripts.audit_pokemon_market_publication import (
+        PHASE_POST_SCRAPE,
+        run_market_publication_audit,
+    )
+
+    client = _publication_db(pokemon_explore_rankings_snapshot_latest=[
+        _explore_row(**{"meta": {"snapshot": {"marketDate": PRIOR}}})
+    ])
+    report = run_market_publication_audit(client, phase=PHASE_POST_SCRAPE)
+
+    assert report.passed is False
+    assert SECTION_EXPLORE_SET_VALUE in report.to_dict()["failed_by_section"]
+
+
+def test_stale_explore_target_value_fails_the_full_audit_too():
+    """The later coordinated publication cannot claim success while Explore is stale."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    client = _publication_db(pokemon_explore_rankings_snapshot_latest=[
+        _explore_row(targets=[_explore_target(checklistSetValue=93.5)])
+    ])
+    report = run_market_publication_audit(client)
+
+    assert report.passed is False
+    assert SECTION_EXPLORE_SET_VALUE in report.to_dict()["failed_by_section"]
+
+
+def test_missing_explore_snapshot_fails_the_audit():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_rankings_snapshot_latest=[])
+    )
+    assert report.passed is False
+    assert SECTION_EXPLORE_SET_VALUE in report.to_dict()["failed_by_section"]
+
+
+def test_audit_reads_the_explore_and_sealed_source_tables():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    client = _publication_db()
+    run_market_publication_audit(client)
+
+    assert "pokemon_explore_rankings_snapshot_latest" in client.reads
+    assert "sealed_product_price_observations" in client.reads
+
+
+# --- sealed source freshness ---------------------------------------------------
+def test_sealed_source_observation_for_the_promoted_date_fails_a_prior_day_snapshot():
+    """The production case: >100 sealed snapshots behind their own source."""
+    row = _audit(sealed_row={"market_date": PRIOR}, sealed_source_latest_date=DATE)
+    verdict = _section(row, SECTION_SEALED_MARKET)
+
+    assert verdict.applicable is True
+    assert verdict.passed is False
+    assert "sealed source has an observation" in verdict.detail
+
+
+def test_sealed_source_and_snapshot_both_on_the_promoted_date_passes():
+    row = _audit(sealed_row={"market_date": DATE}, sealed_source_latest_date=DATE)
+    assert _section(row, SECTION_SEALED_MARKET).passed is True
+
+
+def test_sealed_source_freshness_end_to_end_fails_post_scrape():
+    from backend.scripts.audit_pokemon_market_publication import (
+        PHASE_POST_SCRAPE,
+        run_market_publication_audit,
+    )
+
+    client = _publication_db(pokemon_set_sealed_market_snapshot_latest=[
+        {"set_id": "set-1", "market_date": PRIOR, "product_count": 1}
+    ])
+    report = run_market_publication_audit(client, phase=PHASE_POST_SCRAPE)
+
+    assert report.passed is False
+    assert SECTION_SEALED_MARKET in report.to_dict()["failed_by_section"]
+
+
+def test_no_overview_eligible_product_leaves_sealed_non_applicable():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    client = _publication_db(
+        # A collector chest is classified as NOT overview-eligible by the builder.
+        sealed_products=[{"id": "sp-1", "set_id": "set-1", "name": "Test Set Collector Chest"}],
+        pokemon_set_sealed_market_snapshot_latest=[],
+    )
+    report = run_market_publication_audit(client)
+    sealed = next(v for v in report.rows[0].sections if v.section == SECTION_SEALED_MARKET)
+
+    assert sealed.applicable is False
+    assert report.passed, report.to_dict()["failed_by_section"]
+
+
+def test_excluded_product_families_do_not_create_a_false_sealed_failure():
+    """An excluded product with a fresh observation owes no Overview snapshot."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    client = _publication_db(
+        sealed_products=[{"id": "sp-1", "set_id": "set-1", "name": "Test Set Collector Chest"}],
+        sealed_product_price_observations=[
+            {"sealed_product_id": "sp-1", "captured_at": f"{DATE}T09:00:00Z"}
+        ],
+        pokemon_set_sealed_market_snapshot_latest=[
+            {"set_id": "set-1", "market_date": PRIOR, "product_count": 1}
+        ],
+    )
+    report = run_market_publication_audit(client)
+
+    assert SECTION_SEALED_MARKET not in report.to_dict().get("failed_by_section", {})
+
+
+def test_sealed_freshness_is_not_derived_from_card_or_dashboard_timestamps():
+    """A fresh dashboard/cards row must not excuse a sealed snapshot."""
+    row = _audit(
+        dashboard_row=_dashboard(latest_market_date=DATE),
+        cards_row=_cards(),
+        sealed_row={"market_date": PRIOR},
+        sealed_source_latest_date=DATE,
+    )
+    assert _section(row, SECTION_SEALED_MARKET).passed is False
+
+
+# --- phase plumbing ------------------------------------------------------------
+def test_report_records_its_phase_and_defaults_to_full():
+    from backend.scripts.audit_pokemon_market_publication import (
+        PHASE_FULL,
+        PHASE_POST_SCRAPE,
+        run_market_publication_audit,
+    )
+
+    assert run_market_publication_audit(_publication_db()).to_dict()["phase"] == PHASE_FULL
+    assert (
+        run_market_publication_audit(_publication_db(), phase=PHASE_POST_SCRAPE).to_dict()["phase"]
+        == PHASE_POST_SCRAPE
+    )
+
+
+def test_cli_defaults_to_the_full_phase():
+    from backend.scripts.audit_pokemon_market_publication import PHASE_FULL, build_parser
+
+    assert build_parser().parse_args([]).phase == PHASE_FULL
+    assert build_parser().parse_args(["--phase", "post-scrape"]).phase == "post-scrape"
+
+
+def test_deferred_sections_are_stated_in_the_text_report():
+    from backend.scripts.audit_pokemon_market_publication import (
+        PHASE_POST_SCRAPE,
+        format_report_lines,
+        run_market_publication_audit,
+    )
+
+    client = _publication_db(pokemon_set_market_dashboard_snapshot_latest=[
+        {"set_id": "set-1", "window_key": "365d",
+         **_dashboard(performance_vs_cost_history_json=[
+             {"date": PRIOR, "simulatedMeanPackValueVsPackCost": 1.1}])}
+    ])
+    report = run_market_publication_audit(client, phase=PHASE_POST_SCRAPE)
+    text = "\n".join(format_report_lines(report))
+
+    assert report.passed, report.to_dict()["failed_by_section"]
+    assert "DEFERRED" in text
+    assert SECTION_OPENING_PROFIT_VS_COST in text

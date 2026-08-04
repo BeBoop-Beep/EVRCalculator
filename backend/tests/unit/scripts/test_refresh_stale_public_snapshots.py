@@ -1133,3 +1133,83 @@ def test_genuinely_malformed_timestamps_still_parse_to_none():
     assert refresh._parse_datetime("not-a-timestamp") is None
     assert refresh._parse_datetime("") is None
     assert refresh._parse_datetime(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Post-scrape publication continuity: BOTH families must advance together.
+#
+# The August-4 failure was a set page on the promoted date while Explore and
+# Sealed Market stayed a day behind. These pin the orchestrator dependency edges
+# that make a single refresh run carry every market surface forward.
+# ---------------------------------------------------------------------------
+def test_explore_rankings_freshness_depends_on_the_coordinated_market_dashboard():
+    """A newer coordinated market snapshot must make Explore rankings stale."""
+    reads = []
+
+    def _latest_timestamp(_client, *, table, timestamp_columns, filters=None):
+        reads.append(table)
+        return ("2026-08-04T13:00:00Z" if table == "pokemon_set_market_dashboard_snapshot_latest" else None), []
+
+    original = refresh._latest_timestamp
+    try:
+        refresh._latest_timestamp = _latest_timestamp
+        latest, _checks = refresh._latest_for_explore_rankings(object())
+    finally:
+        refresh._latest_timestamp = original
+
+    assert "pokemon_set_market_dashboard_snapshot_latest" in reads
+    assert latest == "2026-08-04T13:00:00Z", "the dashboard rebuild must drive rankings staleness"
+
+
+def test_set_page_freshness_depends_on_the_explore_rankings_snapshot(monkeypatch):
+    """Set pages must rebuild AFTER Explore rankings, never before."""
+    reads = []
+
+    def _latest_timestamp(_client, *, table, timestamp_columns, filters=None):
+        reads.append(table)
+        return ("2026-08-04T13:30:00Z" if table == "pokemon_explore_rankings_snapshot_latest" else None), []
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", _latest_timestamp)
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a, **_k: None)
+
+    latest, _checks = refresh._latest_for_set_page(object(), "set-1")
+
+    assert "pokemon_explore_rankings_snapshot_latest" in reads
+    assert latest == "2026-08-04T13:30:00Z"
+
+
+def test_a_failed_sealed_market_rebuild_is_a_hard_failure():
+    """Sealed Market has no simulation dependency, so its failure is never soft."""
+    summary = refresh.RefreshSummary()
+    summary.failed_sets["sealed_market"].append("ascendedHeroes: boom")
+    assert refresh._has_hard_failures(summary) is True
+
+
+def test_a_failed_explore_rankings_rebuild_is_a_hard_failure():
+    summary = refresh.RefreshSummary()
+    summary.global_failed.append("explore_rankings: boom")
+    assert refresh._has_hard_failures(summary) is True
+    assert refresh._strict_should_fail(summary, commit=True) is True
+
+
+def test_main_exits_nonzero_when_the_sealed_market_family_fails(monkeypatch):
+    """A refresh must never report success while Sealed Market is unpublished."""
+    _patch_main_pipeline(monkeypatch, fail_set=False)
+
+    def _sealed_boom(_set_row, _commit):
+        raise RuntimeError("sealed build failed")
+
+    monkeypatch.setattr(
+        "backend.scripts.build_pokemon_set_sealed_market_snapshots.build_one", _sealed_boom
+    )
+    monkeypatch.setattr(
+        refresh, "_resolve_sets",
+        lambda _client, set_id=None: [
+            {"id": "11111111-1111-1111-1111-111111111111", "canonical_key": "alpha"}
+        ],
+    )
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        refresh.main()
+    assert excinfo.value.code == 1

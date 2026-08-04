@@ -51,6 +51,7 @@ SECTION_OPENING_PROFIT_VS_COST = "opening_profit_vs_cost"
 SECTION_SEALED_MARKET = "sealed_market"
 SECTION_CARD_PRICES = "card_prices"
 SECTION_HEADER_SUMMARY = "header_summary"
+SECTION_EXPLORE_SET_VALUE = "explore_set_value"
 
 ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_SET_VALUE,
@@ -58,8 +59,23 @@ ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_OPENING_PROFIT_VS_COST,
     SECTION_SEALED_MARKET,
     SECTION_CARD_PRICES,
+    SECTION_EXPLORE_SET_VALUE,
     SECTION_HEADER_SUMMARY,
 )
+
+# Audit phases.
+#
+# The daily pipeline publishes in TWO phases, and auditing them with one rule set
+# is what let a stale surface hide. The early post-scrape phase advances every
+# MARKET PRICING surface but deliberately runs no simulations, so Opening Profit
+# vs Cost truthfully remains on the previous simulation date. The later coordinated
+# publication runs simulations and must satisfy the full contract including OPvC.
+#
+# OPvC is optional ONLY in the explicit post-scrape phase, and even there it is
+# reported as DEFERRED — never as passed or current.
+PHASE_FULL = "full"
+PHASE_POST_SCRAPE = "post-scrape"
+ALL_PHASES: Tuple[str, ...] = (PHASE_FULL, PHASE_POST_SCRAPE)
 
 MIN_GRAPH_POINTS = 2
 
@@ -265,6 +281,76 @@ def displayed_set_value(page_row: Optional[Dict[str, Any]]) -> Optional[float]:
     return None
 
 
+# Ordered contract paths for the EXPLORE rankings snapshot's authoritative market
+# date. `meta.snapshot.marketDate` is stamped by
+# pokemon_explore_rankings_publisher.publish_explore_rip_rankings_snapshot, and
+# `meta.comparisonSnapshots.currentMarketDate` is the value that publication
+# contract derives it from. `updated_at` is deliberately NOT accepted: a rebuild
+# that republishes yesterday's numbers still bumps it.
+EXPLORE_SNAPSHOT_DATE_PATHS: Tuple[str, ...] = (
+    "meta.snapshot.marketDate",
+    "meta.snapshot.market_date",
+    "meta.comparisonSnapshots.currentMarketDate",
+    "meta.comparison_snapshots.current_market_date",
+)
+
+# Both alias spellings the Explore payload publishes. ExploreTopRankings reads
+# `checklistSetValue` straight off this persisted payload — it never re-reads the
+# set page — so a stale value here is a stale number on the user's screen.
+EXPLORE_SET_VALUE_KEYS: Tuple[str, ...] = ("checklistSetValue", "checklist_set_value")
+EXPLORE_SET_VALUE_AS_OF_KEYS: Tuple[str, ...] = (
+    "checklistSetValueAsOf",
+    "checklist_set_value_as_of",
+    "currentChecklistSetValueDate",
+    "current_checklist_set_value_date",
+)
+
+
+def _first_present(target: Dict[str, Any], keys: Sequence[str]) -> Any:
+    for key in keys:
+        if target.get(key) is not None:
+            return target.get(key)
+    return None
+
+
+def explore_snapshot_market_date(explore_row: Optional[Dict[str, Any]]) -> Optional[str]:
+    """The Explore rankings snapshot's own authoritative market date."""
+    if not explore_row:
+        return None
+    return _first_date_at(_as_obj(explore_row.get("ranking_payload_json")), EXPLORE_SNAPSHOT_DATE_PATHS)
+
+
+def explore_targets(explore_row: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """The persisted Explore targets array, or ``None`` when malformed.
+
+    ``None`` and ``[]`` are different answers: a payload whose ``targets`` is not
+    an array is a MALFORMED publication (hard failure), while an empty array is a
+    readable payload that simply ranks nobody.
+    """
+    if not explore_row:
+        return None
+    payload = explore_row.get("ranking_payload_json")
+    if not isinstance(payload, dict):
+        payload = _as_obj(payload)
+        if not payload:
+            return None
+    targets = payload.get("targets")
+    if not isinstance(targets, list):
+        return None
+    return [target for target in targets if isinstance(target, dict)]
+
+
+def index_explore_targets(targets: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Index targets by every identity a set row can be matched on."""
+    index: Dict[str, Dict[str, Any]] = {}
+    for target in targets:
+        for key in ("set_id", "setId", "target_id", "targetId", "canonical_key", "canonicalKey", "slug"):
+            identity = _to_text(target.get(key))
+            if identity:
+                index.setdefault(identity, target)
+    return index
+
+
 def set_has_supported_sealed_product(product_names: Sequence[Any]) -> bool:
     """Reuse the sealed snapshot builder's own mapping contract.
 
@@ -294,12 +380,27 @@ class SectionVerdict:
     passed: bool = True
     observed_date: Optional[str] = None
     detail: Optional[str] = None
+    # A section that is legitimately not current YET in this phase. Deferred is a
+    # third state on purpose: reporting phase-deferred OPvC as "passed" would be a
+    # false statement that the surface is current, and dropping it entirely would
+    # hide that it is stale. It never counts as a failure.
+    deferred: bool = False
+
+    @property
+    def status(self) -> str:
+        if self.deferred:
+            return "deferred"
+        if not self.applicable:
+            return "not_applicable"
+        return "passed" if self.passed else "failed"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "section": self.section,
             "applicable": self.applicable,
             "passed": self.passed,
+            "deferred": self.deferred,
+            "status": self.status,
             "observed_date": self.observed_date,
             "detail": self.detail,
         }
@@ -336,6 +437,7 @@ class MarketAuditReport:
     market_date: Optional[str]
     rows: List[MarketSetAuditRow] = field(default_factory=list)
     error: Optional[str] = None
+    phase: str = PHASE_FULL
 
     @property
     def passed(self) -> bool:
@@ -358,6 +460,7 @@ class MarketAuditReport:
 
         return {
             "market_date": self.market_date,
+            "phase": self.phase,
             "passed": self.passed,
             "error": self.error,
             "set_count": len(self.rows),
@@ -541,11 +644,38 @@ def _audit_top_chase(market_date: str, dashboard_row: Dict[str, Any], set_id: Op
     return verdict
 
 
-def _audit_opvc(market_date: str, dashboard_row: Dict[str, Any], supports_simulation: bool) -> SectionVerdict:
+def _audit_opvc(
+    market_date: str,
+    dashboard_row: Dict[str, Any],
+    supports_simulation: bool,
+    *,
+    phase: str = PHASE_FULL,
+) -> SectionVerdict:
     verdict = SectionVerdict(section=SECTION_OPENING_PROFIT_VS_COST)
     if not supports_simulation:
         verdict.applicable = False
         verdict.detail = "set does not support opening simulation"
+        return verdict
+
+    if phase == PHASE_POST_SCRAPE:
+        # The post-scrape phase publishes market pricing only; simulations run in
+        # the later coordinated phase. Report the REAL observed date so the log
+        # states plainly that OPvC is still on the previous simulation date.
+        verdict.applicable = False
+        verdict.deferred = True
+        verdict.observed_date = latest_real_point_date(
+            dashboard_row.get("performance_vs_cost_history_json"),
+            value_keys=(
+                "simulatedMeanPackValueVsPackCost",
+                "simulated_mean_pack_value_vs_pack_cost",
+                "simulatedMedianPackValueVsPackCost",
+                "simulated_median_pack_value_vs_pack_cost",
+            ),
+        )
+        verdict.detail = (
+            f"deferred in post-scrape phase: simulations have not run yet "
+            f"(latest real point {verdict.observed_date or 'nowhere'}, promoted market date {market_date})"
+        )
         return verdict
 
     # Only a REAL point counts: the trend view carries values forward by design,
@@ -569,13 +699,39 @@ def _audit_opvc(market_date: str, dashboard_row: Dict[str, Any], supports_simula
     return verdict
 
 
-def _audit_sealed(market_date: str, sealed_row: Optional[Dict[str, Any]], has_sealed_product: bool) -> SectionVerdict:
+def _audit_sealed(
+    market_date: str,
+    sealed_row: Optional[Dict[str, Any]],
+    has_sealed_product: bool,
+    *,
+    sealed_source_latest_date: Optional[str] = None,
+) -> SectionVerdict:
     verdict = SectionVerdict(section=SECTION_SEALED_MARKET)
-    if not has_sealed_product:
+
+    # A real SOURCE observation for the promoted date is proof the sealed snapshot
+    # owes that date, regardless of anything else. This is the August-4 failure:
+    # sealed_product_price_observations carried August 4 prices for
+    # overview-eligible products while the published snapshot stayed on August 3.
+    # Only the sealed builder's own eligibility classifier decides which products
+    # count, so excluded cases/displays/collections never manufacture a failure.
+    source_owes_market_date = sealed_source_latest_date is not None and sealed_source_latest_date >= market_date
+
+    if not has_sealed_product and not source_owes_market_date:
         # No mapped supported sealed product: nothing is owed here.
         verdict.applicable = False
         verdict.detail = "no mapped supported sealed product"
         return verdict
+
+    if source_owes_market_date:
+        observed = _date_key((sealed_row or {}).get("market_date"))
+        if observed is None or observed < market_date:
+            verdict.observed_date = observed
+            verdict.passed = False
+            verdict.detail = (
+                f"overview-eligible sealed source has an observation for {sealed_source_latest_date} "
+                f"but the published sealed snapshot is {observed or 'missing'}"
+            )
+            return verdict
 
     if not sealed_row:
         verdict.passed = False
@@ -616,6 +772,100 @@ def _audit_card_prices(market_date: str, cards_row: Optional[Dict[str, Any]]) ->
             f"does not match promoted date {market_date}"
         )
     return verdict
+
+
+def _audit_explore_set_value(
+    market_date: str,
+    *,
+    explore_target: Optional[Dict[str, Any]],
+    canonical_set_value: Optional[float],
+    snapshot_problem: Optional[str] = None,
+) -> SectionVerdict:
+    """The Explore Top Rankings Set Value must equal canonical Set Value for D.
+
+    ExploreTopRankings renders ``checklistSetValue`` straight off the persisted
+    Explore targets payload; it never independently reads the set page. So a set
+    page showing the promoted date while Explore still carries yesterday's number
+    is invisible to every other section of this audit — which is exactly how
+    Ascended Heroes advertised $6,444.06 on its set page and $6,535.55 in Explore
+    on the same day.
+
+    ``snapshot_problem`` carries a SNAPSHOT-WIDE defect (missing row, malformed
+    payload, stale snapshot date) so it fails every set rather than passing
+    silently on sets that happen to have no target.
+    """
+    verdict = SectionVerdict(section=SECTION_EXPLORE_SET_VALUE)
+    if snapshot_problem:
+        verdict.passed = False
+        verdict.detail = snapshot_problem
+        return verdict
+
+    if explore_target is None:
+        # The Explore cohort is narrower than the publication-required cohort
+        # (opening/ranked sets only). A set outside it owes no Explore target.
+        verdict.applicable = False
+        verdict.detail = "set is not in the published Explore rankings cohort"
+        return verdict
+
+    raw_value = _first_present(explore_target, EXPLORE_SET_VALUE_KEYS)
+    if raw_value is None:
+        verdict.applicable = False
+        verdict.detail = "Explore target publishes no checklist set value"
+        return verdict
+
+    as_of = _date_key(_first_present(explore_target, EXPLORE_SET_VALUE_AS_OF_KEYS))
+    verdict.observed_date = as_of
+    if as_of != market_date:
+        verdict.passed = False
+        verdict.detail = (
+            f"Explore checklist set value is dated {as_of or 'nowhere'}, "
+            f"not the promoted market date {market_date}"
+        )
+        return verdict
+
+    value = _finite(raw_value)
+    if value is None or value <= 0:
+        verdict.passed = False
+        verdict.detail = f"Explore checklist set value {raw_value!r} is not a finite positive number"
+        return verdict
+
+    if canonical_set_value is None:
+        verdict.passed = False
+        verdict.detail = (
+            f"Explore advertises a checklist set value for {market_date} but no canonical "
+            f"standard set-value row exists for that date"
+        )
+        return verdict
+
+    if round(value, 2) != round(canonical_set_value, 2):
+        verdict.passed = False
+        verdict.detail = (
+            f"Explore checklist set value {round(value, 2)} disagrees with the canonical "
+            f"standard set value {round(canonical_set_value, 2)} for {market_date}"
+        )
+    return verdict
+
+
+def explore_snapshot_problem(market_date: str, explore_row: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Snapshot-wide Explore defect, or ``None`` when the snapshot is publishable.
+
+    Freshness is never inferred from ``updated_at``: only the payload's own
+    authoritative market date counts.
+    """
+    if not explore_row:
+        return "no published Explore rankings snapshot row (tcg=pokemon, scope=rip-statistics)"
+    payload = explore_row.get("ranking_payload_json")
+    if not isinstance(payload, dict) and not _as_obj(payload):
+        return "Explore ranking_payload_json is not an object"
+    if explore_targets(explore_row) is None:
+        return "Explore ranking_payload_json.targets is not an array"
+    observed = explore_snapshot_market_date(explore_row)
+    if observed != market_date:
+        return (
+            f"Explore snapshot market date {observed or 'missing'} "
+            f"does not match promoted market date {market_date}"
+        )
+    return None
 
 
 def _audit_header_summary(
@@ -676,6 +926,11 @@ def audit_market_set_row(
     page_row: Optional[Dict[str, Any]] = None,
     supports_simulation: bool = False,
     has_sealed_product: bool = False,
+    sealed_source_latest_date: Optional[str] = None,
+    explore_target: Optional[Dict[str, Any]] = None,
+    explore_snapshot_problem_detail: Optional[str] = None,
+    canonical_set_value: Optional[float] = None,
+    phase: str = PHASE_FULL,
 ) -> MarketSetAuditRow:
     """Pure per-set verdict across every publication-required market surface.
 
@@ -686,9 +941,17 @@ def audit_market_set_row(
       opvc         -> pokemon_set_market_dashboard_snapshot_latest
       sealed       -> pokemon_set_sealed_market_snapshot_latest
       card_prices  -> pokemon_set_cards_snapshot_latest
+      explore      -> pokemon_explore_rankings_snapshot_latest (+ daily history)
       header       -> pokemon_set_page_snapshot_latest
     """
     row = MarketSetAuditRow(canonical_key=canonical_key, set_id=set_id, set_name=set_name)
+
+    explore_verdict = _audit_explore_set_value(
+        market_date,
+        explore_target=explore_target,
+        canonical_set_value=canonical_set_value,
+        snapshot_problem=explore_snapshot_problem_detail,
+    )
 
     if dashboard_row is None:
         # The dashboard row backs Top Chase and OPvC only. The other surfaces have
@@ -699,12 +962,23 @@ def audit_market_set_row(
             SectionVerdict(section=SECTION_TOP_CHASE, passed=False, detail="no published market dashboard row"),
             SectionVerdict(
                 section=SECTION_OPENING_PROFIT_VS_COST,
-                applicable=supports_simulation,
+                applicable=supports_simulation and phase != PHASE_POST_SCRAPE,
                 passed=not supports_simulation,
-                detail="no published market dashboard row" if supports_simulation else "set does not support opening simulation",
+                deferred=supports_simulation and phase == PHASE_POST_SCRAPE,
+                detail=(
+                    "deferred in post-scrape phase: simulations have not run yet"
+                    if supports_simulation and phase == PHASE_POST_SCRAPE
+                    else "no published market dashboard row"
+                    if supports_simulation
+                    else "set does not support opening simulation"
+                ),
             ),
-            _audit_sealed(market_date, sealed_row, has_sealed_product),
+            _audit_sealed(
+                market_date, sealed_row, has_sealed_product,
+                sealed_source_latest_date=sealed_source_latest_date,
+            ),
             _audit_card_prices(market_date, cards_row),
+            explore_verdict,
         ]
         row.sections.extend(dependent)
         row.sections.append(_audit_header_summary(market_date, page_row, dependent))
@@ -713,9 +987,13 @@ def audit_market_set_row(
     dependent = [
         _audit_set_value(market_date, value_history, page_row),
         _audit_top_chase(market_date, dashboard_row, set_id),
-        _audit_opvc(market_date, dashboard_row, supports_simulation),
-        _audit_sealed(market_date, sealed_row, has_sealed_product),
+        _audit_opvc(market_date, dashboard_row, supports_simulation, phase=phase),
+        _audit_sealed(
+            market_date, sealed_row, has_sealed_product,
+            sealed_source_latest_date=sealed_source_latest_date,
+        ),
         _audit_card_prices(market_date, cards_row),
+        explore_verdict,
     ]
     row.sections.extend(dependent)
     row.sections.append(_audit_header_summary(market_date, page_row, dependent))
@@ -800,28 +1078,95 @@ def _load_value_histories(client: Any, set_ids: Sequence[str], market_date: str)
     return by_set
 
 
-def _load_sealed_product_names(client: Any, set_ids: Sequence[str]) -> Dict[str, List[Any]]:
-    """Raw sealed-product names per set, for the builder's own classifier.
+def _load_sealed_products(client: Any, set_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Raw sealed-product rows per set, for the builder's own classifier.
 
     Read-only. A set with no rows here simply has no sealed products, which makes
     the sealed section non-applicable rather than failed.
     """
-    by_set: Dict[str, List[Any]] = {}
+    by_set: Dict[str, List[Dict[str, Any]]] = {}
     if not set_ids:
         return by_set
     chunk = 200
     for start in range(0, len(set_ids), chunk):
         result = (
             client.table("sealed_products")
-            .select("set_id,name")
+            .select("id,set_id,name")
             .in_("set_id", list(set_ids[start:start + chunk]))
             .execute()
         )
         for row in list((result.data if result else []) or []):
             set_id = _to_text(row.get("set_id"))
             if set_id:
-                by_set.setdefault(set_id, []).append(row.get("name"))
+                by_set.setdefault(set_id, []).append(row)
     return by_set
+
+
+def _overview_eligible_product_ids(products: Sequence[Dict[str, Any]]) -> List[str]:
+    """Product ids the SEALED BUILDER would actually publish, via its classifier."""
+    from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
+
+    eligible: List[str] = []
+    for product in products or []:
+        product_id = _to_text(product.get("id"))
+        if not product_id:
+            continue
+        try:
+            if classify_sealed_product(product.get("name")).get("isOverviewEligible"):
+                eligible.append(product_id)
+        except Exception:  # pragma: no cover - a broken name must not hide the rest
+            continue
+    return eligible
+
+
+def _load_sealed_source_latest_dates(
+    client: Any,
+    products_by_set: Dict[str, List[Dict[str, Any]]],
+    market_date: str,
+) -> Dict[str, str]:
+    """Newest SOURCE observation date per set, for overview-eligible products only.
+
+    Reads ``sealed_product_price_observations`` — the sealed builder's own source —
+    never a card, simulation, or dashboard timestamp. Restricted to observations on
+    or after the promoted date, because the only question this answers is "does the
+    source already carry the date the published snapshot is missing?".
+    """
+    set_id_by_product: Dict[str, str] = {}
+    for set_id, products in products_by_set.items():
+        for product_id in _overview_eligible_product_ids(products):
+            set_id_by_product[product_id] = set_id
+
+    latest_by_set: Dict[str, str] = {}
+    product_ids = list(set_id_by_product)
+    chunk = 200
+    for start in range(0, len(product_ids), chunk):
+        result = (
+            client.table("sealed_product_price_observations")
+            .select("sealed_product_id,captured_at")
+            .in_("sealed_product_id", product_ids[start:start + chunk])
+            .gte("captured_at", market_date)
+            .execute()
+        )
+        for row in list((result.data if result else []) or []):
+            set_id = set_id_by_product.get(_to_text(row.get("sealed_product_id")) or "")
+            observed = _date_key(row.get("captured_at"))
+            if set_id and observed and observed > latest_by_set.get(set_id, ""):
+                latest_by_set[set_id] = observed
+    return latest_by_set
+
+
+def _load_explore_rankings_row(client: Any) -> Optional[Dict[str, Any]]:
+    """The persisted Explore rankings payload ExploreTopRankings actually serves."""
+    result = (
+        client.table("pokemon_explore_rankings_snapshot_latest")
+        .select("tcg,scope,ranking_payload_json,updated_at")
+        .eq("tcg", "pokemon")
+        .eq("scope", "rip-statistics")
+        .limit(1)
+        .execute()
+    )
+    rows = list((result.data if result else []) or [])
+    return rows[0] if rows else None
 
 
 def run_market_publication_audit(
@@ -829,19 +1174,27 @@ def run_market_publication_audit(
     *,
     market_date: Optional[str] = None,
     canonical_keys: Optional[Sequence[str]] = None,
+    phase: str = PHASE_FULL,
 ) -> MarketAuditReport:
+    if phase not in ALL_PHASES:
+        raise ValueError(f"unknown audit phase {phase!r}; expected one of {ALL_PHASES}")
+
     resolved_date, date_error = resolve_promoted_market_date(client, market_date)
     if date_error or not resolved_date:
-        return MarketAuditReport(market_date=None, error=date_error or "no promoted market date resolved")
+        return MarketAuditReport(
+            market_date=None, phase=phase, error=date_error or "no promoted market date resolved"
+        )
 
     sets, set_error = _load_publication_required_sets(client)
     if set_error:
-        return MarketAuditReport(market_date=resolved_date, error=set_error)
+        return MarketAuditReport(market_date=resolved_date, phase=phase, error=set_error)
     if canonical_keys is not None:
         wanted = {str(k) for k in canonical_keys}
         sets = [row for row in sets if _to_text(row.get("canonical_key")) in wanted]
     if not sets:
-        return MarketAuditReport(market_date=resolved_date, error="no publication-required sets resolved")
+        return MarketAuditReport(
+            market_date=resolved_date, phase=phase, error="no publication-required sets resolved"
+        )
 
     set_ids = [text for row in sets if (text := _to_text(row.get("id")))]
 
@@ -876,21 +1229,39 @@ def run_market_publication_audit(
         )
         value_histories = _load_value_histories(client, set_ids, resolved_date)
         # D: sealed applicability comes from the builder's real mapping contract.
-        sealed_product_names = _load_sealed_product_names(client, set_ids)
+        sealed_products = _load_sealed_products(client, set_ids)
+        sealed_source_dates = _load_sealed_source_latest_dates(client, sealed_products, resolved_date)
+        # The persisted Explore payload ExploreTopRankings actually renders.
+        explore_row = _load_explore_rankings_row(client)
     except Exception as exc:
-        return MarketAuditReport(market_date=resolved_date, error=f"publication surface read failed ({exc})")
+        return MarketAuditReport(
+            market_date=resolved_date, phase=phase, error=f"publication surface read failed ({exc})"
+        )
 
-    report = MarketAuditReport(market_date=resolved_date)
+    explore_problem = explore_snapshot_problem(resolved_date, explore_row)
+    explore_index = index_explore_targets(explore_targets(explore_row) or [])
+
+    report = MarketAuditReport(market_date=resolved_date, phase=phase)
     for set_row in sorted(sets, key=lambda r: str(r.get("canonical_key") or "")):
         set_id = _to_text(set_row.get("id"))
+        canonical_key = _to_text(set_row.get("canonical_key"))
+        history = value_histories.get(set_id or "", [])
+        canonical_value = next(
+            (
+                _finite(point.get("setValue"))
+                for point in history
+                if _date_key(point.get("date")) == resolved_date
+            ),
+            None,
+        )
         report.rows.append(
             audit_market_set_row(
-                canonical_key=_to_text(set_row.get("canonical_key")),
+                canonical_key=canonical_key,
                 set_id=set_id,
                 set_name=_to_text(set_row.get("name")),
                 market_date=resolved_date,
                 dashboard_row=dashboards.get(set_id or ""),
-                value_history=value_histories.get(set_id or "", []),
+                value_history=history,
                 sealed_row=sealed.get(set_id or ""),
                 cards_row=cards.get(set_id or ""),
                 page_row=pages.get(set_id or ""),
@@ -899,8 +1270,15 @@ def run_market_publication_audit(
                 # migration 059; a missing/false value means not applicable.
                 supports_simulation=bool(set_row.get("supports_opening_simulation")),
                 has_sealed_product=set_has_supported_sealed_product(
-                    sealed_product_names.get(set_id or "", [])
+                    [p.get("name") for p in sealed_products.get(set_id or "", [])]
                 ),
+                sealed_source_latest_date=sealed_source_dates.get(set_id or ""),
+                explore_target=(
+                    explore_index.get(set_id or "") or explore_index.get(canonical_key or "")
+                ),
+                explore_snapshot_problem_detail=explore_problem,
+                canonical_set_value=canonical_value,
+                phase=phase,
             )
         )
     return report
@@ -908,11 +1286,26 @@ def run_market_publication_audit(
 
 def format_report_lines(report: MarketAuditReport) -> List[str]:
     lines = [
-        f"{AUDIT_TAG} market_date={report.market_date} sets={len(report.rows)} "
+        f"{AUDIT_TAG} phase={report.phase} market_date={report.market_date} sets={len(report.rows)} "
         f"failed={len(report.failed_rows)} passed={report.passed}"
     ]
     if report.error:
         lines.append(f"{AUDIT_TAG} authority_error={report.error}")
+
+    # Deferred sections are stated once, not per set: they are not failures, but
+    # silence would let "audit passed" read as "every surface is current".
+    deferred_sets = [
+        row.canonical_key or row.set_id or "?"
+        for row in report.rows
+        if any(v.deferred for v in row.sections)
+    ]
+    if deferred_sets:
+        lines.append(
+            f"{AUDIT_TAG} DEFERRED section={SECTION_OPENING_PROFIT_VS_COST} "
+            f"phase={report.phase} sets={len(deferred_sets)} "
+            f"(not current, not required in this phase): {deferred_sets[:10]}"
+        )
+
     for row in report.failed_rows:
         for verdict in row.sections:
             if verdict.applicable and not verdict.passed:
@@ -928,6 +1321,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--market-date", default=None, help="Override the promoted market date (recovery only).")
     parser.add_argument("--json", dest="as_json", action="store_true", help="Emit the structured JSON report.")
     parser.add_argument("--set", dest="sets", action="append", default=None, help="Limit to canonical key(s).")
+    parser.add_argument(
+        "--phase",
+        choices=list(ALL_PHASES),
+        default=PHASE_FULL,
+        help=(
+            "Publication phase being audited. 'full' (default) is the complete contract and "
+            "requires Opening Profit vs Cost on the promoted date. 'post-scrape' audits the "
+            "early market-pricing publication, where simulations have not run yet, so OPvC is "
+            "reported as DEFERRED instead of required. Every other surface is required in both."
+        ),
+    )
     return parser
 
 
@@ -937,7 +1341,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     from backend.db.clients.supabase_client import supabase
 
     report = run_market_publication_audit(
-        supabase, market_date=args.market_date, canonical_keys=args.sets
+        supabase, market_date=args.market_date, canonical_keys=args.sets, phase=args.phase
     )
 
     if args.as_json:

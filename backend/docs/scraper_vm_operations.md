@@ -232,35 +232,86 @@ When manual runs are useful:
 
 ## 8. Automated Execution (Cron)
 
-The daily scrape now has THREE scheduled roles that must be kept separate. The
-worker must never implicitly create the daily queue — batch creation is its own
-scheduled step keyed on the **America/Phoenix** market date (Arizona has no DST).
+The daily scrape has scheduled roles that must be kept separate. The worker must
+never implicitly create the daily queue — batch creation is its own scheduled step
+keyed on the **America/Phoenix** market date (Arizona has no DST, so Phoenix is
+always UTC-7).
 
-| Role | Command | Schedule (UTC) | Schedule (Arizona) |
-|------|---------|----------------|--------------------|
-| Batch creation | `python backend/scripts/create_daily_scrape_batch.py` | `0 10 * * *` | 03:00 |
-| Worker dispatch | `python backend/scripts/run_next_scrape_job.py` | `* * * * *` | every minute |
-| Batch-missing monitor | `python backend/scripts/create_daily_scrape_batch.py --check-only` | `30 11 * * *` | 04:30 |
+### 8.1 The active daily schedule
 
-Open crontab:
+| Time (Phoenix) | Time (UTC) | Role | Command |
+|----------------|-----------|------|---------|
+| 1:00 AM | `0 8 * * *` | Reset/reconcile stale scrape jobs | `backend/scripts/reconcile_stale_scrape_jobs.py --commit` |
+| 1:05 AM | `5 8 * * *` | Create the daily scrape batch | `backend/scripts/create_daily_scrape_batch.py` |
+| every minute | `* * * * *` | Run the next scrape job | `backend/scripts/run_next_scrape_job.py` |
+| 6:00 AM | `0 13 * * *` | **Post-scrape canonical market publication** | `backend/scripts/rebuild_snapshots_after_scrape.sh` |
+| later (Windows) | — | Simulations + full coordinated publication | Windows Task Scheduler → `infra/local/run_simulations.sh` |
+| 1:00 PM | `0 20 * * *` | Market-dashboard rebuild — **legacy/recovery** | see §8.3 |
+
+```cron
+# 1:00 AM Phoenix — reclaim expired leases and clear stale prior-day jobs BEFORE
+#         the new batch is derived.
+0 8 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/reconcile_stale_scrape_jobs.py --commit >> scraper.log 2>&1
+
+# 1:05 AM Phoenix — derive the cohort dynamically and enqueue one job per ready set.
+5 8 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
+
+# Every minute — claim + run ONE job under a lease. Creates no batch. When the
+#         queue drains it runs the batch completeness/cohort-repair check.
+* * * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_next_scrape_job.py >> scraper.log 2>&1
+
+# 6:00 AM Phoenix — post-scrape canonical market publication (phase 1 of 2).
+0 13 * * * /home/ubuntu/repos/EVRCalculator/backend/scripts/rebuild_snapshots_after_scrape.sh >> publication.log 2>&1
+```
+
+### 8.2 The two publication phases
+
+Publication happens in **two phases with different contracts**. Conflating them is
+what allowed a promoted market date to appear on a set page while Explore Top
+Rankings and Sealed Market stayed a day behind.
+
+**Phase 1 — 6:00 AM Phoenix, post-scrape (`rebuild_snapshots_after_scrape.sh`)**
+
+* Advances every market **pricing** surface: Set Value, Cards, Top Chase, Sealed
+  Market, Explore rankings (including the Explore Top Rankings Set Value), and the
+  set-page market/header data.
+* Runs **no simulations**. Opening Profit vs Cost therefore truthfully remains on
+  the previous simulation date. This is expected, not a defect.
+* Delegates the entire publication order to
+  `backend/scripts/refresh_stale_public_snapshots.py` — the canonical orchestrator.
+  The wrapper never calls individual builders, never uses `--force-publish`, and
+  never uses `--strict` (which would fail on the OPvC staleness this phase allows).
+* Waits on a closed publication gate up to 6 × 600s, then defers with **exit 3**
+  and publishes nothing.
+* Proves the result with
+  `audit_pokemon_market_publication.py --phase post-scrape`, where OPvC is reported
+  as **DEFERRED** (never as passed) and every other surface is required on the
+  promoted date. A stale Explore or Sealed snapshot fails the run.
+
+**Phase 2 — later, Windows Task Scheduler**
+
+* Runs simulations, then the full coordinated publication.
+* OPvC becomes current.
+* Audited in the **default (full)** phase, where OPvC is required for every
+  `supports_opening_simulation = true` set, alongside the same Explore Set Value
+  and Sealed Market continuity checks.
+
+Success in phase 1 means *"every market pricing surface reached date D"*. It does
+**not** mean the day's publication is complete — only phase 2's full audit does.
+
+### 8.3 The 1:00 PM market-dashboard rebuild is legacy/recovery
+
+A 1:00 PM Phoenix (20:00 UTC) market-dashboard rebuild still exists on the VM. It
+predates the canonical orchestrator, which now rebuilds the coordinated Cards +
+Market Dashboard family itself in both phases. Treat it as **legacy/recovery
+only**: keep it for a manual mid-day repair, do not rely on it for daily
+correctness, and do not add surfaces to it. It should be removed once a code
+investigation confirms nothing depends on it.
+
+Open crontab (never edited automatically from application code):
 
 ```bash
 crontab -e
-```
-
-Recommended entries (adjust absolute paths to your VM):
-
-```cron
-# 1. Create the daily batch at 03:00 America/Phoenix (10:00 UTC). Reconciles stale
-#    jobs first, derives the cohort dynamically, enqueues one job per ready set.
-0 10 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py >> scraper.log 2>&1
-
-# 2. Worker dispatch — claim + run ONE job per minute under a lease. Creates no batch.
-#    When the queue drains it runs the batch completeness/cohort-repair check.
-* * * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/run_next_scrape_job.py >> scraper.log 2>&1
-
-# 3. Alert if the batch was not created by the deadline.
-30 11 * * * cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python backend/scripts/create_daily_scrape_batch.py --check-only >> scraper.log 2>&1
 ```
 
 Scheduled dispatcher runs record diagnostics as `trigger_source=scheduled`.
