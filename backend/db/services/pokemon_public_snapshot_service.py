@@ -4306,6 +4306,144 @@ def _top_chase_usable_point_count(history: Any) -> int:
     return count
 
 
+# Terminal classifications for a FINAL Top Chase response candidate. Only
+# ``incomplete`` and ``identity_mismatch`` are retryable; the rest are settled
+# answers the caller should render (or truthfully report) without retrying.
+TOP_CHASE_STATUS_COMPLETE = "complete"
+TOP_CHASE_STATUS_EMPTY = "empty"
+TOP_CHASE_STATUS_INSUFFICIENT_HISTORY = "insufficient_history"
+TOP_CHASE_STATUS_INCOMPLETE = "incomplete"
+TOP_CHASE_STATUS_IDENTITY_MISMATCH = "identity_mismatch"
+
+_TOP_CHASE_RETRYABLE_STATUSES = frozenset(
+    {TOP_CHASE_STATUS_INCOMPLETE, TOP_CHASE_STATUS_IDENTITY_MISMATCH}
+)
+
+
+def _top_chase_card_market_price(card: Dict[str, Any]) -> Optional[float]:
+    """The card's own displayed market price, or None when it is not priced."""
+    raw_price = card.get(
+        "marketPrice",
+        card.get("market_price", card.get("currentPrice", card.get("current_price"))),
+    )
+    try:
+        price = float(raw_price) if raw_price is not None else None
+    except (TypeError, ValueError):
+        return None
+    if price is None or price <= 0:
+        return None
+    return price
+
+
+def _top_chase_best_history_for_card(
+    card: Dict[str, Any], histories: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """The richest history reachable from this card's own identity keys.
+
+    Reads the card's embedded history and the separate histories dict the same
+    way the client's ``chooseTopChaseHistory`` does, so backend and client agree
+    on which series a card would actually draw.
+    """
+    best = card.get("priceHistory") or card.get("price_history")
+    best = best if isinstance(best, list) else []
+    best_count = _top_chase_usable_point_count(best)
+    for key in _top_chase_card_history_keys(card):
+        candidate = histories.get(key)
+        candidate_count = _top_chase_usable_point_count(candidate)
+        if candidate_count > best_count:
+            best, best_count = candidate, candidate_count
+    return best if isinstance(best, list) else []
+
+
+def _top_chase_history_end_date(history: Any) -> Optional[str]:
+    """Latest dated point carrying a finite price, or None."""
+    latest: Optional[str] = None
+    for point in history if isinstance(history, list) else []:
+        if not isinstance(point, dict):
+            continue
+        date_key = _parse_date_key(point.get("date"))
+        if not date_key:
+            continue
+        raw = point.get("marketPrice", point.get("market_price", point.get("price")))
+        try:
+            if raw is None or float(raw) != float(raw):
+                continue
+        except (TypeError, ValueError):
+            continue
+        if latest is None or date_key > latest:
+            latest = date_key
+    return latest
+
+
+def _pick_richer_top_chase_history(stored: Any, observed: Any) -> Any:
+    """Choose between a card's stored history and a freshly observed one.
+
+    Richer (more usable points) wins; ties break on the fresher end date. A
+    poorer observation history must NEVER replace a richer stored one — the
+    hydration path exists to fill gaps, not to overwrite good data with a
+    thinner series.
+    """
+    stored_count = _top_chase_usable_point_count(stored)
+    observed_count = _top_chase_usable_point_count(observed)
+    if observed_count > stored_count:
+        return observed
+    if observed_count < stored_count:
+        return stored
+
+    stored_end = _top_chase_history_end_date(stored)
+    observed_end = _top_chase_history_end_date(observed)
+    if observed_end and (stored_end is None or observed_end > stored_end):
+        return observed
+    return stored
+
+
+def _top_chase_candidate_card_facts(cards: Any, histories: Any) -> List[Dict[str, Any]]:
+    """Per-PRICED-card structural facts the classifier reasons over.
+
+    One entry per priced, identifiable card: how many usable points it has, where
+    its series ends, and whether it names a foreign set.
+    """
+    cards = cards if isinstance(cards, list) else []
+    histories = histories if isinstance(histories, dict) else {}
+
+    facts: List[Dict[str, Any]] = []
+    for card in cards:
+        if not isinstance(card, dict):
+            continue
+        keys = _top_chase_card_history_keys(card)
+        if not keys:
+            continue
+        if _top_chase_card_market_price(card) is None:
+            continue
+        history = _top_chase_best_history_for_card(card, histories)
+        facts.append(
+            {
+                "keys": keys,
+                "points": _top_chase_usable_point_count(history),
+                "end_date": _top_chase_history_end_date(history),
+                "card_set_id": _to_optional_str(card.get("setId") or card.get("set_id")),
+            }
+        )
+    return facts
+
+
+def _top_chase_candidate_point_counts(cards: Any, histories: Any) -> List[int]:
+    """Usable graph points per PRICED card. A 0 renders as "Awaiting trend"."""
+    return [fact["points"] for fact in _top_chase_candidate_card_facts(cards, histories)]
+
+
+def _score_top_chase_candidate_quality(cards: Any, histories: Any) -> Dict[str, int]:
+    """Structural quality of a cards+histories pair, stored or hydrated."""
+    counts = _top_chase_candidate_point_counts(cards, histories)
+    priced = len(counts)
+    renderable = sum(1 for count in counts if count >= _TOP_CHASE_MIN_GRAPH_POINTS)
+    return {
+        "priced_cards": priced,
+        "renderable_cards": renderable,
+        "complete": 1 if priced > 0 and renderable == priced else 0,
+    }
+
+
 def _score_top_chase_row_quality(row: Optional[Dict[str, Any]]) -> Dict[str, int]:
     """Structural quality of a stored dashboard row for Top Chase rendering.
 
@@ -4313,45 +4451,109 @@ def _score_top_chase_row_quality(row: Optional[Dict[str, Any]]) -> Dict[str, int
     that row renders as a full grid of "Awaiting trend" charts. Counting cards is
     therefore not a measure of quality; counting cards that can actually draw a
     line is.
+
+    This is only ever used to CHOOSE between stored rows. The response itself is
+    judged by ``_classify_top_chase_candidate`` after the scoped observation
+    hydration has had its chance — a stored row with empty histories may still
+    produce a complete response.
     """
     if not isinstance(row, dict):
         return {"priced_cards": 0, "renderable_cards": 0, "complete": 0}
+    return _score_top_chase_candidate_quality(
+        row.get("top_chase_cards_json"), row.get("top_chase_card_histories_json")
+    )
 
-    cards = row.get("top_chase_cards_json")
-    cards = cards if isinstance(cards, list) else []
-    histories = row.get("top_chase_card_histories_json")
-    histories = histories if isinstance(histories, dict) else {}
 
-    priced = 0
-    renderable = 0
-    for card in cards:
-        if not isinstance(card, dict):
-            continue
-        if not _top_chase_card_history_keys(card):
-            continue
-        raw_price = card.get(
-            "marketPrice",
-            card.get("market_price", card.get("currentPrice", card.get("current_price"))),
-        )
-        try:
-            price = float(raw_price) if raw_price is not None else None
-        except (TypeError, ValueError):
-            price = None
-        if price is None or price <= 0:
-            continue
-        priced += 1
+def _classify_top_chase_candidate(
+    cards: Any,
+    histories: Any,
+    *,
+    requested_set_id: Optional[str] = None,
+    row_set_id: Optional[str] = None,
+    latest_market_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Classify the FINAL response candidate.
 
-        best = _top_chase_usable_point_count(card.get("priceHistory") or card.get("price_history"))
-        for key in _top_chase_card_history_keys(card):
-            best = max(best, _top_chase_usable_point_count(histories.get(key)))
-        if best >= _TOP_CHASE_MIN_GRAPH_POINTS:
-            renderable += 1
+    Called only after stored histories have been sliced AND after the strictly
+    scoped per-card observation hydration has had its chance, so an empty stored
+    history that was successfully recovered classifies as ``complete`` rather
+    than being rejected on the stored row alone.
 
-    return {
-        "priced_cards": priced,
-        "renderable_cards": renderable,
-        "complete": 1 if priced > 0 and renderable == priced else 0,
-    }
+    The five outcomes are deliberately distinct because they need different
+    handling:
+
+    ``identity_mismatch`` the served row is not the requested set, or a card
+                          names a foreign set (retryable).
+    ``empty``             no priced cards at all — a genuinely empty set.
+    ``complete``          every priced card can draw a line.
+    ``insufficient_history``
+                          a genuinely NEW set. This is a settled 200, so it must
+                          be PROVEN current rather than merely short (see below).
+    ``incomplete``        anything else, including a partially renderable
+                          candidate: some cards graph and some do not.
+    """
+    if requested_set_id and row_set_id and requested_set_id != row_set_id:
+        return {
+            "status": TOP_CHASE_STATUS_IDENTITY_MISMATCH,
+            "priced_cards": 0,
+            "renderable_cards": 0,
+            "min_points": 0,
+            "max_points": 0,
+            "retryable": True,
+        }
+
+    facts = _top_chase_candidate_card_facts(cards, histories)
+    counts = [fact["points"] for fact in facts]
+    priced = len(counts)
+    renderable = sum(1 for count in counts if count >= _TOP_CHASE_MIN_GRAPH_POINTS)
+    min_points = min(counts) if counts else 0
+    max_points = max(counts) if counts else 0
+
+    def _verdict(status: str) -> Dict[str, Any]:
+        return {
+            "status": status,
+            "priced_cards": priced,
+            "renderable_cards": renderable,
+            "min_points": min_points,
+            "max_points": max_points,
+            "retryable": status in _TOP_CHASE_RETRYABLE_STATUSES,
+        }
+
+    # A card assembled from another set's data is never renderable under this one.
+    if requested_set_id and any(
+        fact["card_set_id"] and fact["card_set_id"] != requested_set_id for fact in facts
+    ):
+        return _verdict(TOP_CHASE_STATUS_IDENTITY_MISMATCH)
+
+    # A point dated after the row's own declared market date is a malformed
+    # snapshot, never a "new set".
+    resolved_latest = _parse_date_key(latest_market_date)
+    if resolved_latest and any(
+        fact["end_date"] and fact["end_date"] > resolved_latest for fact in facts
+    ):
+        return _verdict(TOP_CHASE_STATUS_INCOMPLETE)
+
+    if priced == 0:
+        return _verdict(TOP_CHASE_STATUS_EMPTY)
+    if renderable == priced:
+        return _verdict(TOP_CHASE_STATUS_COMPLETE)
+
+    # `insufficient_history` is a SETTLED 200 that tells the user "this set is too
+    # new for a trend". It must therefore be proven CURRENT, not merely short: a
+    # single STALE point is a stalled pipeline and must fail as `incomplete`
+    # instead of being excused as a new set. Every condition below is required:
+    #   - the row declares a market date at all
+    #   - every priced card has at least one point and fewer than two
+    #   - every priced card's series ENDS on that declared market date
+    if (
+        resolved_latest
+        and min_points >= 1
+        and max_points < _TOP_CHASE_MIN_GRAPH_POINTS
+        and all(fact["end_date"] == resolved_latest for fact in facts)
+    ):
+        return _verdict(TOP_CHASE_STATUS_INSUFFICIENT_HISTORY)
+
+    return _verdict(TOP_CHASE_STATUS_INCOMPLETE)
 
 
 def _pick_fresher_top_chase_row(
@@ -4485,6 +4687,17 @@ def _empty_top_chase_payload(
         "latestMarketDate": None,
         "meta": {
             "warnings": list(warnings or []),
+            # No stored row at all is a settled "empty" answer, not a retryable
+            # structural failure — there is nothing for a retry to recover.
+            "topChaseCompleteness": {
+                "status": TOP_CHASE_STATUS_EMPTY,
+                "retryable": False,
+                "pricedCards": 0,
+                "renderableCards": 0,
+                "minUsablePoints": 0,
+                "maxUsablePoints": 0,
+                "minPointsForTrend": _TOP_CHASE_MIN_GRAPH_POINTS,
+            },
             "snapshot": {
                 "source": fallback_source,
                 "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -4580,6 +4793,11 @@ def get_pokemon_set_top_chase_snapshot_payload(
                 requested_row, canonical_row
             )
     except Exception as exc:
+        # A read FAILURE is not an empty set. Swallowing the exception into
+        # row=None and answering 200-with-no-cards told the caller "this set has
+        # no chase cards" when the truth was "the database did not answer" — an
+        # unretryable lie in place of a retryable fault. Surface it as a
+        # structured retryable 503 so the client's bounded retry can do its job.
         logger.warning(
             "[pokemon-snapshot] top chase snapshot read failed set_id=%s window=%s exc=%s",
             resolved_set_id,
@@ -4587,48 +4805,35 @@ def get_pokemon_set_top_chase_snapshot_payload(
             exc,
             exc_info=True,
         )
-        row = None
-        used_fallback_window = False
-        fallback_reason = None
+        raise PokemonSetMarketError(
+            503,
+            "Pokemon top chase snapshot could not be read; please retry.",
+            "POKEMON_SET_TOP_CHASE_SNAPSHOT_READ_FAILED",
+        ) from exc
     query_ms = round((time.perf_counter() - t_query) * 1000, 3)
 
     if not row:
-        logger.info(
+        # The read SUCCEEDED and returned no row. For a publication-required set
+        # that is a missing snapshot (a build that has not run), not a settled
+        # empty answer — only a row we actually read can establish emptiness.
+        logger.warning(
             "[pokemon-snapshot] top chase snapshot missing set_id=%s window=%s elapsed_ms=%s",
             resolved_set_id,
             resolved_window,
             round((time.perf_counter() - started) * 1000, 3),
         )
-        return _empty_top_chase_payload(
-            set_row=set_row or {"id": resolved_set_id},
-            window=resolved_window,
-            warnings=["Pokemon top chase snapshot is missing; served empty fallback payload."],
-            fallback_source="empty_fallback_missing_pokemon_set_market_dashboard_snapshot_latest",
-        )
-
-    # A row that exists but cannot render any trend is not a successful answer.
-    # Returning HTTP 200 with cards whose charts all read "Awaiting trend" is the
-    # misleading outcome this endpoint used to produce; a structured retryable 503
-    # lets the client's single bounded retry (and its validated last-known-good
-    # cache) do something useful instead. A row with NO priced cards at all is a
-    # genuinely empty/new set and is reported truthfully further below, not here.
-    chosen_quality = _score_top_chase_row_quality(row)
-    if chosen_quality["priced_cards"] > 0 and chosen_quality["renderable_cards"] == 0:
-        logger.warning(
-            "[pokemon-snapshot] top chase snapshot structurally incomplete set_id=%s "
-            "requested_window=%s source_window=%s priced_cards=%s renderable_cards=%s",
-            resolved_set_id,
-            resolved_window,
-            row.get("window_key"),
-            chosen_quality["priced_cards"],
-            chosen_quality["renderable_cards"],
-        )
         raise PokemonSetMarketError(
             503,
-            "Pokemon top chase snapshot is incomplete; no usable card history is available yet.",
-            "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE",
+            "Pokemon top chase snapshot has not been published yet; please retry.",
+            "POKEMON_SET_TOP_CHASE_SNAPSHOT_MISSING",
         )
 
+    # NOTE: the response is NOT judged here. A stored row can carry cards with
+    # empty stored histories and still produce a complete answer once the scoped
+    # observation hydration below runs. Validating the stored row at this point
+    # (which this function used to do) raised 503 before the recovery path could
+    # execute, so recoverable sets were reported as unavailable. The single
+    # validation now happens on the FINAL candidate, after hydration.
     if used_fallback_window:
         logger.info(
             "[pokemon-snapshot] top chase snapshot used fallback window set_id=%s requested_window=%s source_window=%s reason=%s",
@@ -4660,33 +4865,116 @@ def get_pokemon_set_top_chase_snapshot_payload(
         if key in kept_keys
     }
 
-    # Phase 5F (Gate 2): a small number of sets (e.g. Ascended Heroes) have a
-    # dashboard row — 30d or 365d — whose top_chase_cards_json is populated
-    # but whose top_chase_card_histories_json is empty for every one of those
-    # cards (distinct from the Phase 5E whole-row-missing case). When that
-    # happens, fall back to the same scoped card_variant_price_observations
-    # read the full market-dashboard payload already uses
-    # (_load_top_chase_observation_histories), limited to this row's own
-    # variant IDs — never a broad/unscoped observation scan, never a write.
+    # Phase 5F (Gate 2): some sets have a dashboard row whose top_chase_cards_json
+    # is populated but whose top_chase_card_histories_json is missing for some or
+    # all of those cards. Recover from the same scoped
+    # card_variant_price_observations read the full market-dashboard payload
+    # already uses (_load_top_chase_observation_histories) — never a broad or
+    # unscoped observation scan, never a write.
+    #
+    # Hydration is PER CARD, not all-or-nothing. Requiring EVERY stored history
+    # to be empty meant the common real case — most cards fine, a couple missing
+    # — never triggered recovery at all and the response stayed permanently
+    # partial. Only the deficient cards are hydrated, and only their variant IDs
+    # are queried, so the scope stays as tight as before (usually tighter).
     hydrated_from_observations = False
-    if top_chase_cards and not any(len(history) > 0 for history in top_chase_card_histories.values()):
-        observation_variant_ids = _top_chase_variant_ids(top_chase_cards)
+    deficient_cards = [
+        card
+        for card in top_chase_cards
+        if isinstance(card, dict)
+        and _top_chase_card_market_price(card) is not None
+        and _top_chase_card_history_keys(card)
+        and _top_chase_usable_point_count(
+            _top_chase_best_history_for_card(card, top_chase_card_histories)
+        )
+        < _TOP_CHASE_MIN_GRAPH_POINTS
+    ]
+    if deficient_cards:
+        observation_variant_ids = _top_chase_variant_ids(deficient_cards)
         if observation_variant_ids:
+            deficient_keys = {key for card in deficient_cards for key in _top_chase_card_history_keys(card)}
             observation_histories = _load_top_chase_observation_histories(
                 set_id=resolved_set_id,
-                cards=top_chase_cards,
+                cards=deficient_cards,
                 variant_ids=observation_variant_ids,
                 latest_date_key=_parse_date_key(row.get("latest_market_date")),
                 window_days=TOP_CHASE_HISTORY_SOURCE_WINDOW_DAYS,
             )
-            sliced_observation_histories = {
-                key: _slice_top_chase_history(history, days=window_days)
-                for key, history in observation_histories.items()
-                if key in kept_keys
-            }
-            if any(len(history) > 0 for history in sliced_observation_histories.values()):
-                top_chase_card_histories = sliced_observation_histories
-                hydrated_from_observations = True
+            merged_histories = dict(top_chase_card_histories)
+            for key, history in observation_histories.items():
+                # Only the deficient cards' own keys may be written, so a healthy
+                # card's stored series is never touched by this path.
+                if key not in kept_keys or key not in deficient_keys:
+                    continue
+                observed = _slice_top_chase_history(history, days=window_days)
+                chosen = _pick_richer_top_chase_history(merged_histories.get(key), observed)
+                if chosen is not merged_histories.get(key):
+                    merged_histories[key] = chosen
+                    hydrated_from_observations = True
+            if hydrated_from_observations:
+                top_chase_card_histories = merged_histories
+
+    # === Single validation point: the FINAL cards + histories candidate. ======
+    # Everything that could improve the answer (fresher-row selection, stored
+    # history slicing, scoped observation hydration) has already run, so this
+    # verdict describes what the caller would actually render.
+    candidate_verdict = _classify_top_chase_candidate(
+        top_chase_cards,
+        top_chase_card_histories,
+        requested_set_id=resolved_set_id,
+        row_set_id=_to_optional_str(row.get("set_id")),
+        latest_market_date=row.get("latest_market_date"),
+    )
+
+    # The response is ATOMIC: the section either renders every priced card or it
+    # does not render at all.
+    #
+    #   complete              → 200
+    #   empty                 → 200 (a read row that genuinely has no priced cards)
+    #   insufficient_history  → 200 (a proven-CURRENT new set)
+    #   incomplete            → 503 retryable, INCLUDING partially renderable
+    #   identity_mismatch     → 503 retryable
+    #
+    # Returning a partial candidate as 200 was the defect: it is renderable, so
+    # the section settled on it and the cards missing history sat on "Awaiting
+    # trend" forever. A half-populated grid is not a successful answer.
+    if candidate_verdict["status"] in (
+        TOP_CHASE_STATUS_INCOMPLETE,
+        TOP_CHASE_STATUS_IDENTITY_MISMATCH,
+    ):
+        logger.warning(
+            "[pokemon-snapshot] top chase candidate structurally incomplete set_id=%s "
+            "requested_window=%s source_window=%s status=%s priced_cards=%s "
+            "renderable_cards=%s hydrated_from_observations=%s",
+            resolved_set_id,
+            resolved_window,
+            row.get("window_key"),
+            candidate_verdict["status"],
+            candidate_verdict["priced_cards"],
+            candidate_verdict["renderable_cards"],
+            hydrated_from_observations,
+        )
+        raise PokemonSetMarketError(
+            503,
+            "Pokemon top chase snapshot is incomplete; not every chase card has a usable price history yet.",
+            "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE",
+        )
+
+    # A successfully read row with no priced cards at all is the ONLY settled
+    # empty answer. It is served in the empty shape so callers never have to
+    # distinguish "cards present but all unpriced" from "no cards".
+    if candidate_verdict["status"] == TOP_CHASE_STATUS_EMPTY:
+        logger.info(
+            "[pokemon-snapshot] top chase snapshot has no priced cards set_id=%s window=%s",
+            resolved_set_id,
+            resolved_window,
+        )
+        return _empty_top_chase_payload(
+            set_row=set_row or {"id": resolved_set_id},
+            window=resolved_window,
+            warnings=["Pokemon top chase snapshot contains no priced chase cards."],
+            fallback_source="pokemon_set_market_dashboard_snapshot_latest",
+        )
 
     # The card price column reads top_chase_cards_json's own marketPrice/
     # currentPrice — the price the snapshot builder computed for the served row.
@@ -4760,10 +5048,14 @@ def get_pokemon_set_top_chase_snapshot_payload(
             f"Top chase snapshot for window {resolved_window} is {stale_or_missing}; served the "
             f"fresher {DEFAULT_DASHBOARD_WINDOW} window's stored cards/histories instead."
         )
-    if top_chase_cards and not any(count > 0 for count in history_point_counts):
+    # Only `complete` and `insufficient_history` reach this point — `incomplete`
+    # and `identity_mismatch` raised 503 above, and `empty` returned the empty
+    # payload — so there is no partial/no-history warning left to emit here.
+    if candidate_verdict["status"] == TOP_CHASE_STATUS_INSUFFICIENT_HISTORY:
         warnings.append(
-            "Top chase card price histories are missing in the stored snapshot and no raw price "
-            "observations were found for these cards; served cards without price history."
+            "Top chase cards have price history but not yet enough points to draw a trend "
+            f"(max {candidate_verdict['max_points']} of {_TOP_CHASE_MIN_GRAPH_POINTS} required); "
+            "this set is too new for a trend line."
         )
     elif histories_stale:
         warnings.append(
@@ -4799,6 +5091,17 @@ def get_pokemon_set_top_chase_snapshot_payload(
             "historiesStale": histories_stale,
             "topChaseHistoryMinPoints": min(history_point_counts) if history_point_counts else 0,
             "topChaseHistoryMaxPoints": max(history_point_counts) if history_point_counts else 0,
+            # The verdict on the FINAL candidate (post-hydration). The client
+            # uses this to decide settle-vs-retry without re-deriving it.
+            "topChaseCompleteness": {
+                "status": candidate_verdict["status"],
+                "retryable": candidate_verdict["retryable"],
+                "pricedCards": candidate_verdict["priced_cards"],
+                "renderableCards": candidate_verdict["renderable_cards"],
+                "minUsablePoints": candidate_verdict["min_points"],
+                "maxUsablePoints": candidate_verdict["max_points"],
+                "minPointsForTrend": _TOP_CHASE_MIN_GRAPH_POINTS,
+            },
             "snapshot": {
                 **served_movement_snapshot,
                 "source": "pokemon_set_market_dashboard_snapshot_latest",

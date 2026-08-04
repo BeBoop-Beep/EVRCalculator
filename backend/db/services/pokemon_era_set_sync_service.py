@@ -344,7 +344,14 @@ def _build_set_payload(
         # not coalesced against the existing row: a config that flips to
         # CATALOG_ONLY must be able to REMOVE a set from the daily cohort.
         "catalog_only": catalog_only,
-        "supports_opening_simulation": bool(source.get("supports_opening_simulation", not catalog_only)),
+        # Capability, not "the absence of a catalog flag". The resolved value
+        # comes from the config via resolve_config_lifecycle_flags (explicit
+        # declaration -> USE_MONTE_CARLO_V2 -> false, and catalog_only always
+        # wins). Defaulting to `not catalog_only` here is what marked ordinary
+        # historical sets as simulation-supported; the fallback is now False so a
+        # source row without the key can never over-claim.
+        "supports_opening_simulation": bool(source.get("supports_opening_simulation", False))
+        and not catalog_only,
         # Derived, never independent: a sealed URL alone can no longer make a set
         # daily-eligible, and a catalog-only set can never be daily-eligible.
         "ready_for_daily_scrape": is_daily_scrape_ready(

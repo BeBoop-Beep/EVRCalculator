@@ -77,6 +77,39 @@ function stubFailingFetch(status, body) {
   };
 }
 
+// Top Chase makes up to TWO attempts, and each attempt owns its own
+// AbortController + timeout (a single shared controller would leave attempt two
+// with an already-aborted signal). Driving it to completion under mock timers
+// therefore needs the clock advanced past attempt one's timeout, the retry
+// delay, and attempt two's timeout — with microtasks flushed in between.
+// It must stop advancing as soon as the operation settles: a blind tick loop
+// would fire attempt two's own timeout before its (already resolved) fetch had
+// finished working through its microtasks, turning a success into a timeout.
+async function flushMicrotasks(count = 25) {
+  for (let i = 0; i < count; i += 1) {
+    await Promise.resolve();
+  }
+}
+
+async function advanceThroughBothTopChaseAttempts(settled, steps = 6) {
+  let done = false;
+  const tracked = settled.then((value) => {
+    done = true;
+    return value;
+  });
+
+  for (let step = 0; step < steps && !done; step += 1) {
+    await flushMicrotasks();
+    if (done) {
+      break;
+    }
+    mock.timers.tick(TIMEOUT_MS);
+  }
+
+  await flushMicrotasks();
+  return tracked;
+}
+
 test("an unresolved request eventually settles as a retryable timeout instead of loading forever", async () => {
   const stub = stubNeverResolvingFetch();
   mock.timers.enable({ apis: ["setTimeout"] });
@@ -87,8 +120,7 @@ test("an unresolved request eventually settles as a retryable timeout instead of
       (error) => ({ ok: false, error })
     );
 
-    mock.timers.tick(TIMEOUT_MS);
-    const result = await settled;
+    const result = await advanceThroughBothTopChaseAttempts(settled);
 
     assert.equal(result.ok, false, "a request that never responds must reject, not hang");
     assert.equal(result.error.code, "SLIM_MODULE_REQUEST_TIMEOUT");
@@ -244,5 +276,76 @@ test("a slow-but-successful request is never pre-empted into an error", async ()
   } finally {
     mock.timers.reset();
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("a timed-out Top Chase attempt is retried with a fresh, non-aborted signal", async () => {
+  // The defect this pins: joinSlimModuleRequest created ONE AbortController for
+  // the whole joined operation. When its timeout fired it aborted that
+  // controller, so attempt two started from an already-aborted signal and could
+  // never succeed. Each attempt must now own its controller.
+  const originalFetch = globalThis.fetch;
+  const observedSignals = [];
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    globalThis.fetch = (_url, init = {}) => {
+      observedSignals.push(init.signal);
+      if (observedSignals.length === 1) {
+        // Attempt one never responds, so its own timeout aborts it.
+        return new Promise(() => {});
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          set: { id: "retry-signal-set" },
+          topChaseCards: [
+            {
+              cardVariantId: "v0",
+              marketPrice: 12,
+              priceHistory: [
+                { date: "2026-08-02", marketPrice: 11 },
+                { date: "2026-08-03", marketPrice: 12 },
+              ],
+            },
+          ],
+          latestMarketDate: "2026-08-03",
+        }),
+      });
+    };
+
+    const pending = getPokemonSetTopChase("retry-signal-set", { window: "365d", limit: 10 });
+    const settled = pending.then(
+      (payload) => ({ ok: true, payload }),
+      (error) => ({ ok: false, error })
+    );
+
+    const result = await advanceThroughBothTopChaseAttempts(settled);
+
+    assert.equal(result.ok, true, "attempt two must be able to succeed after attempt one timed out");
+    assert.equal(result.payload.topChaseVerdict.status, "complete");
+
+    assert.equal(observedSignals.length, 2, "exactly two attempts, no more");
+    assert.notEqual(observedSignals[0], observedSignals[1], "each attempt needs its OWN controller");
+    assert.equal(observedSignals[0].aborted, true, "attempt one's signal was aborted by its own timeout");
+    assert.equal(observedSignals[1].aborted, false, "attempt two must start from a fresh, non-aborted signal");
+
+    // The shared identity key is still released after the final outcome.
+    assert.ok(!__hasSlimModuleInflightForTests("top-chase:retry-signal-set:365d:10"));
+    assert.equal(__getSlimModuleInflightSizeForTests(), 0);
+  } finally {
+    mock.timers.reset();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a non-retryable 4xx Top Chase response does not spend a second attempt", async () => {
+  const stub = stubFailingFetch(404, { message: "set not found", code: "POKEMON_SET_NOT_FOUND" });
+  try {
+    await assert.rejects(() => getPokemonSetTopChase("missing-set", { window: "365d", limit: 10 }));
+    assert.equal(stub.getCallCount(), 1, "a 4xx is settled; retrying it only burns a request");
+    assert.ok(!__hasSlimModuleInflightForTests("top-chase:missing-set:365d:10"));
+  } finally {
+    stub.restore();
   }
 });
