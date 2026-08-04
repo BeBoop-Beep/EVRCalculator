@@ -172,6 +172,36 @@ def test_registry_hash_is_stable_and_order_independent():
     assert first.local_registry_hash == second.local_registry_hash
 
 
+def test_preflight_uses_shared_resolver_when_explicit_simulation_flag_is_absent():
+    """A missing explicit capability flag must resolve false, not default true."""
+
+    class _ConfigWithoutSimulationFlag:
+        CARD_DETAILS_URL = "https://www.tcgplayer.com/no-simulation"
+        CATALOG_ONLY = False
+
+    config = _ConfigWithoutSimulationFlag()
+    rows = [
+        {
+            "id": "id-ordinarySet",
+            "canonical_key": "ordinarySet",
+            "card_details_url": config.CARD_DETAILS_URL,
+            "has_card_details_url": True,
+            "ready_for_daily_scrape": True,
+            "catalog_only": False,
+            "supports_opening_simulation": False,
+        }
+    ]
+
+    report = run_runtime_preflight(
+        registry_loader=lambda: _registry({"ordinarySet": config}),
+        cohort_loader=lambda: rows,
+    )
+
+    assert report.ok is True
+    assert report.mismatch_count == 0
+    assert report.lifecycle_flag_mismatches == []
+
+
 # --- batch creation must refuse to run on a failed preflight -----------------
 def test_batch_rpc_is_not_called_when_preflight_fails(monkeypatch):
     from backend.scripts import create_daily_scrape_batch as module
