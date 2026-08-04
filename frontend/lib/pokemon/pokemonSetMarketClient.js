@@ -59,10 +59,28 @@ export function createSlimModuleTimeoutError() {
  * that request settles. The key is released on success, on error and on
  * timeout, so a retry always creates a fresh request rather than joining a
  * request that can never resolve.
+ *
+ * `manageSignal` (default true) wraps the whole joined operation in ONE
+ * AbortController + timeout. That is correct for a single-attempt module, but
+ * wrong for an operation that makes more than one attempt: once the shared
+ * controller aborts, every later attempt inherits an already-aborted signal and
+ * fails instantly. Multi-attempt callers pass `manageSignal: false` and bound
+ * each attempt themselves (see `runTopChaseAttempt`). The in-flight join/release
+ * semantics are identical either way.
  */
-function joinSlimModuleRequest(key, factory) {
+function joinSlimModuleRequest(key, factory, { manageSignal = true } = {}) {
   if (slimModuleInflight.has(key)) {
     return slimModuleInflight.get(key);
+  }
+
+  if (!manageSignal) {
+    const unmanaged = Promise.resolve()
+      .then(() => factory({ signal: undefined }))
+      .finally(() => {
+        slimModuleInflight.delete(key);
+      });
+    slimModuleInflight.set(key, unmanaged);
+    return unmanaged;
   }
 
   const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -1025,6 +1043,49 @@ async function fetchTopChaseOnce(resolvedSetId, params, signal) {
   return normalizeTopChasePayload(payload);
 }
 
+/**
+ * One bounded Top Chase attempt with its OWN AbortController and timeout.
+ *
+ * Each attempt must own its abort lifecycle. Previously all attempts shared the
+ * single controller created by `joinSlimModuleRequest`, so when the outer
+ * timeout fired it aborted that controller and attempt two started with an
+ * already-aborted signal — the retry could never succeed, it just re-reported
+ * the same AbortError. A fresh controller per attempt makes the retry real.
+ *
+ * The timeout handle is always released in `finally`, so a fast attempt never
+ * leaves a pending timer behind.
+ */
+async function runTopChaseAttempt(resolvedSetId, params, { attempt } = {}) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  let timeoutHandle = null;
+
+  try {
+    return await new Promise((resolve, reject) => {
+      timeoutHandle = setTimeout(() => {
+        try {
+          controller?.abort();
+        } catch {
+          // An environment without abort support still gets a settled Promise.
+        }
+        debugTiming("top_chase.attempt_timeout", {
+          setId: resolvedSetId,
+          attempt,
+          timeoutMs: SLIM_MODULE_REQUEST_TIMEOUT_MS,
+        });
+        reject(createSlimModuleTimeoutError());
+      }, SLIM_MODULE_REQUEST_TIMEOUT_MS);
+
+      Promise.resolve()
+        .then(() => fetchTopChaseOnce(resolvedSetId, params, controller?.signal))
+        .then(resolve, reject);
+    });
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
 export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10 } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -1042,59 +1103,81 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
 
   const identityKey = getTopChaseIdentityKey(resolvedSetId, window, limit);
 
-  // joinSlimModuleRequest releases the key in .finally(), so it is cleared after
-  // success, error, timeout AND contract-validation failure alike.
-  return joinSlimModuleRequest(identityKey, async ({ signal } = {}) => {
-    let lastError = null;
+  // The in-flight key is released in .finally() below, so it is cleared after
+  // final success, error, timeout AND contract-validation failure alike.
+  //
+  // `manageSignal: false`: this operation makes up to two attempts, and each one
+  // owns its own controller/timeout via runTopChaseAttempt. A single shared
+  // controller would abort attempt two before it started.
+  return joinSlimModuleRequest(
+    identityKey,
+    async () => {
+      let lastError = null;
 
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      try {
-        const normalized = await fetchTopChaseOnce(resolvedSetId, params, signal);
-        const verdict = validateTopChasePayload(normalized, {
-          setId: resolvedSetId,
-          window,
-          limit,
-        });
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const normalized = await runTopChaseAttempt(resolvedSetId, params, { attempt });
+          const verdict = validateTopChasePayload(normalized, {
+            setId: resolvedSetId,
+            window,
+            limit,
+          });
 
-        if (verdict.renderable || !isRetryableTopChaseStatus(verdict.status)) {
-          // Settled: either it renders, or it is a truthful terminal state
-          // (genuinely new set / empty snapshot) that retrying cannot improve.
           const result = {
             ...normalized,
             topChaseVerdict: verdict,
             isStale: false,
             isLastKnownGood: false,
           };
-          if (verdict.complete) {
-            topChaseLastKnownGood.set(identityKey, { ...result, isLastKnownGood: true, isStale: true });
+
+          // Settle ONLY on a complete payload or on a settled, non-retryable
+          // truth (genuinely new set / empty snapshot).
+          //
+          // The previous condition was `verdict.renderable || !retryable`. A
+          // partially complete payload is BOTH renderable and structurally
+          // incomplete, so it settled immediately and the cards missing history
+          // kept displaying "Awaiting trend" with no automatic retry. Partial
+          // and identity-mismatch payloads are now retried.
+          if (verdict.complete || !isRetryableTopChaseStatus(verdict.status)) {
+            // Only a COMPLETE payload is ever stored as last-known-good, so a
+            // degraded response can never be resurrected later as if current.
+            if (verdict.complete) {
+              topChaseLastKnownGood.set(identityKey, { ...result, isLastKnownGood: true, isStale: true });
+            }
+            return result;
           }
-          return result;
+
+          lastError = buildTopChaseContractError(verdict);
+        } catch (error) {
+          lastError = error;
+          if (!isRetryableTopChaseError(error)) {
+            // A non-retryable 4xx is a settled answer; do not spend attempt two.
+            break;
+          }
         }
 
-        lastError = buildTopChaseContractError(verdict);
-      } catch (error) {
-        lastError = error;
-        if (!isRetryableTopChaseError(error)) {
-          break;
+        if (attempt === 1) {
+          await new Promise((resolve) => setTimeout(resolve, TOP_CHASE_RETRY_DELAY_MS));
         }
       }
 
-      if (attempt === 1) {
-        await new Promise((resolve) => setTimeout(resolve, TOP_CHASE_RETRY_DELAY_MS));
+      // Both attempts are spent. A validated same-set + same-window + same-limit
+      // payload may stand in, clearly marked stale. A different set's payload
+      // never may, and generic checklist rows are never a Top Chase result.
+      const lastKnownGood = topChaseLastKnownGood.get(identityKey);
+      if (lastKnownGood) {
+        debugTiming("top_chase.serving_last_known_good", { setId: resolvedSetId, window, limit });
+        return { ...lastKnownGood, isStale: true, isLastKnownGood: true };
       }
-    }
 
-    // Both attempts failed. A validated same-set, same-window payload may stand
-    // in, clearly marked stale. A different set's payload never may, and generic
-    // checklist rows are never a Top Chase result.
-    const lastKnownGood = topChaseLastKnownGood.get(identityKey);
-    if (lastKnownGood) {
-      debugTiming("top_chase.serving_last_known_good", { setId: resolvedSetId, window, limit });
-      return { ...lastKnownGood, isStale: true, isLastKnownGood: true };
-    }
-
-    throw lastError || buildTopChaseContractError(null);
-  });
+      // No last-known-good. A partially complete payload is NOT an acceptable
+      // final answer — rendering half a grid with the rest stuck on "Awaiting
+      // trend" is the misleading outcome this contract exists to prevent. Throw
+      // so the section shows its existing error state and Retry button.
+      throw lastError || buildTopChaseContractError(null);
+    },
+    { manageSignal: false }
+  );
 }
 
 export async function getPokemonSetSealedMarket(setId) {

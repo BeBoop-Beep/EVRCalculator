@@ -18,18 +18,49 @@ def _clean_url(value: Any) -> Optional[str]:
     return text or None
 
 
+def supports_opening_simulation(config_cls: Any, *, catalog_only: Optional[bool] = None) -> bool:
+    """Whether the opening-simulation runner would actually execute this set.
+
+    Resolution order:
+
+    1. An explicit ``SUPPORTS_OPENING_SIMULATION`` declaration wins.
+    2. Otherwise derive it from the SAME runtime criterion ``run_all_v2_sets.py``
+       uses to build its batch (``USE_MONTE_CARLO_V2``), so the flag can never
+       claim a capability the runner does not have.
+    3. Otherwise false.
+    4. ``catalog_only`` always implies false, overriding even an explicit true.
+
+    The previous default was ``not catalog_only``, which marked every ordinary
+    non-catalog historical set as simulation-supported even though the runner
+    would never execute it — 172 production rows against a far smaller real V2
+    set list. Capability must be derived from the runner, not from the absence of
+    a catalog flag.
+    """
+    resolved_catalog_only = (
+        bool(getattr(config_cls, "CATALOG_ONLY", False)) if catalog_only is None else bool(catalog_only)
+    )
+    if resolved_catalog_only:
+        return False
+
+    declared = getattr(config_cls, "SUPPORTS_OPENING_SIMULATION", None)
+    if declared is not None:
+        return bool(declared)
+
+    return bool(getattr(config_cls, "USE_MONTE_CARLO_V2", False))
+
+
 def resolve_config_lifecycle_flags(config_cls: Any) -> Dict[str, Any]:
     """Resolve lifecycle flags for one ``SET_CONFIG_MAP`` config class."""
     catalog_only = bool(getattr(config_cls, "CATALOG_ONLY", False))
-    supports_opening_simulation = bool(
-        getattr(config_cls, "SUPPORTS_OPENING_SIMULATION", not catalog_only)
+    supports_opening_simulation_flag = supports_opening_simulation(
+        config_cls, catalog_only=catalog_only
     )
     card_details_url = _clean_url(getattr(config_cls, "CARD_DETAILS_URL", None))
     sealed_details_url = _clean_url(getattr(config_cls, "SEALED_DETAILS_URL", None))
 
     return {
         "catalog_only": catalog_only,
-        "supports_opening_simulation": supports_opening_simulation,
+        "supports_opening_simulation": supports_opening_simulation_flag,
         "card_details_url": card_details_url,
         "sealed_details_url": sealed_details_url,
         "has_card_details_url": bool(card_details_url),

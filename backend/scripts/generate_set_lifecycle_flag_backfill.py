@@ -44,6 +44,9 @@ def build_lifecycle_backfill() -> Dict[str, Any]:
         )
 
     catalog_only_keys = [r["canonical_key"] for r in rows if r["catalog_only"]]
+    simulation_supported_keys = [
+        r["canonical_key"] for r in rows if r["supports_opening_simulation"]
+    ]
     no_simulation_keys = [
         r["canonical_key"] for r in rows if not r["supports_opening_simulation"]
     ]
@@ -52,9 +55,14 @@ def build_lifecycle_backfill() -> Dict[str, Any]:
     return {
         "total_configs": len(rows),
         "catalog_only_count": len(catalog_only_keys),
-        "simulation_supported_count": len(rows) - len(no_simulation_keys),
+        "simulation_supported_count": len(simulation_supported_keys),
         "daily_scrape_ready_count": len(daily_ready_keys),
         "catalog_only_keys": catalog_only_keys,
+        # Migration 059 backfills from the SUPPORTED list (22 keys) rather than
+        # the NOT-supported list (187): an allow-list is far shorter and, more
+        # importantly, fails closed — a config added later defaults to false
+        # until it is regenerated, instead of silently defaulting to supported.
+        "simulation_supported_keys": simulation_supported_keys,
         "no_simulation_keys": no_simulation_keys,
         "daily_scrape_ready_keys": daily_ready_keys,
         "rows": rows,
@@ -77,13 +85,28 @@ def render_sql(backfill: Dict[str, Any]) -> str:
     )
 
 
+def render_simulation_capability_sql(backfill: Dict[str, Any]) -> str:
+    """The array literal migration 059 embeds (opening-simulation allow-list)."""
+    return (
+        f"-- simulation-supported canonical keys ({backfill['simulation_supported_count']})\n"
+        f"{_sql_array(backfill['simulation_supported_keys'])}\n"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sql", action="store_true", help="Emit SQL array literals.")
+    parser.add_argument(
+        "--sql-simulation-capability",
+        action="store_true",
+        help="Emit the migration 059 opening-simulation allow-list array.",
+    )
     args = parser.parse_args()
 
     backfill = build_lifecycle_backfill()
-    if args.sql:
+    if args.sql_simulation_capability:
+        print(render_simulation_capability_sql(backfill))
+    elif args.sql:
         print(render_sql(backfill))
     else:
         print(json.dumps(backfill, indent=2))

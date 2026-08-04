@@ -79,6 +79,12 @@ def _fetch_scrape_ready_set_ids() -> List[str]:
         .eq("ready_for_daily_scrape", True)
         .eq("has_card_details_url", True)
         .not_.is_("card_details_url", "null")
+        # Must match public.pokemon_scrape_ready_cohort() exactly. This REST path
+        # is only taken when the RPC is temporarily unavailable, and a divergence
+        # here would silently readmit catalog-only sets into the publication-
+        # critical daily cohort — the 2026-08-03 failure mode migration 058
+        # closed on the SQL side.
+        .eq("catalog_only", False)
         .execute()
     )
     rows = response.data if response and response.data else []

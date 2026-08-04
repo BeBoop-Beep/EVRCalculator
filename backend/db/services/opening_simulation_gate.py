@@ -65,28 +65,36 @@ REQUIRED_OPVC_FIELDS: Tuple[str, ...] = (
 def supported_opening_set_keys() -> Tuple[str, ...]:
     """Canonical set keys eligible for opening analytics.
 
-    Deliberately reuses the SAME definition the simulation batch itself uses
-    (``USE_MONTE_CARLO_V2`` on the era set-config maps, see
-    ``backend/scripts/run_all_v2_sets.py``) so the gate can never expect a set
-    the batch would not run, or ignore one it would.
-    """
-    from backend.constants.tcg.pokemon.megaEvolutionEra.setMap import (
-        SET_CONFIG_MAP as MEGA_EVOLUTION_SET_CONFIG_MAP,
-    )
-    from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
-        SET_CONFIG_MAP as SCARLET_VIOLET_SET_CONFIG_MAP,
-    )
+    THE single definition of "simulation-supported", shared by the metadata sync,
+    the migration/backfill generator, this gate, and the publication audit's
+    expectations. It resolves over the FULL registry
+    (``build_valid_set_key_registry``) using ``supports_opening_simulation``, so
+    capability is decided in exactly one place.
 
-    combined = {**SCARLET_VIOLET_SET_CONFIG_MAP, **MEGA_EVOLUTION_SET_CONFIG_MAP}
+    This previously hardcoded two era maps and independently re-tested
+    ``USE_MONTE_CARLO_V2``. Both shortcuts were drift hazards: a third era's
+    simulatable set would have been invisible here while the sync and the
+    migration counted it, and the duplicated criterion could diverge from the
+    resolution order (explicit declaration -> USE_MONTE_CARLO_V2 -> false, with
+    catalog_only always false) the other three callers use.
+    """
+    from backend.db.services.pokemon_set_lifecycle_flags import supports_opening_simulation
+    from backend.scripts.run_pokemon_set_scrape import build_valid_set_key_registry
+
+    try:
+        config_map: Dict[str, Any] = build_valid_set_key_registry()["config_map"]
+    except Exception:  # pragma: no cover - a broken registry must fail closed
+        logger.warning("%s could not build the set key registry", _GATE_TAG, exc_info=True)
+        return ()
+
     keys: List[str] = []
-    for set_key, config_cls in combined.items():
+    for set_key, config_cls in config_map.items():
         try:
-            config = config_cls()
+            if supports_opening_simulation(config_cls):
+                keys.append(str(set_key))
         except Exception:  # pragma: no cover - a broken config must not hide the rest
-            logger.warning("%s could not instantiate set config %s", _GATE_TAG, set_key, exc_info=True)
+            logger.warning("%s could not resolve set config %s", _GATE_TAG, set_key, exc_info=True)
             continue
-        if bool(getattr(config, "USE_MONTE_CARLO_V2", False)):
-            keys.append(str(set_key))
     return tuple(sorted(keys))
 
 
@@ -183,15 +191,29 @@ def _date_key(value: Any) -> Optional[str]:
 def _stored_unsupported_reason(set_row: Dict[str, Any]) -> Optional[str]:
     """Authoritative "unsupported" reason carried by the set row itself.
 
-    Returns ``None`` when the row does not disqualify the set. Missing columns are
-    treated as supported so this remains correct against a database that has not
-    yet had migration 058 applied.
+    Returns ``None`` when the row does not disqualify the set. A MISSING column is
+    treated as non-disqualifying so this stays correct against a database that has
+    not yet had migrations 058/059 applied; an explicit ``False`` disqualifies.
+
+    Since migration 059 ``supports_opening_simulation`` means "the simulation
+    runner would actually execute this set" (derived from ``USE_MONTE_CARLO_V2``),
+    not merely "is not catalog-only" — the same criterion
+    ``supported_opening_set_keys()`` above already applies, so the two agree.
     """
     if set_row.get("catalog_only") is True:
         return "set is catalog_only; catalog/onboarding sets are not simulated"
     if set_row.get("supports_opening_simulation") is False:
         return "set row has supports_opening_simulation=false"
     return None
+
+
+def is_opening_simulation_supported(set_row: Dict[str, Any]) -> bool:
+    """Whether Opening Profit vs Cost analytics apply to this set row.
+
+    Shared with the publication audit so an audit can never demand an opening
+    simulation for a set the runner would never execute.
+    """
+    return _stored_unsupported_reason(set_row or {}) is None
 
 
 def resolve_supported_opening_sets(

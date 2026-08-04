@@ -332,3 +332,105 @@ test("the in-flight key is released after a contract-validation failure", async 
 
   assert.equal(__hasSlimModuleInflightForTests(`top-chase:${SET_ID}:365d:10`), false);
 });
+
+// --- Partially complete payloads must retry, not settle ----------------------
+//
+// The defect this pins: the client settled on
+//   `verdict.renderable || !isRetryableTopChaseStatus(verdict.status)`.
+// A partially complete payload is BOTH renderable and structurally incomplete,
+// so it returned on attempt one and the cards without history kept showing
+// "Awaiting trend" with no automatic retry ever firing.
+
+function partialTopChaseBody({ withHistory = 8, total = 10 } = {}) {
+  const cards = [];
+  const histories = {};
+  for (let index = 0; index < total; index += 1) {
+    const key = `v${index}`;
+    cards.push({ cardVariantId: key, cardId: `c${index}`, name: `Chase ${index}`, marketPrice: 50 + index, setId: SET_ID });
+    histories[key] = index < withHistory ? history([PRIOR, DATE], 50 + index) : [];
+  }
+  return topChaseBody({ cards, histories });
+}
+
+test("a partially complete payload (8/10 cards) is retried instead of settling", async () => {
+  const calls = installFetch([
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+    jsonResponse(partialTopChaseBody({ withHistory: 10, total: 10 })),
+  ]);
+
+  const result = await getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 });
+
+  assert.equal(calls.length, 2, "a partially complete payload must spend the retry");
+  assert.equal(result.topChaseVerdict.status, TOP_CHASE_STATUS.COMPLETE);
+  assert.equal(result.topChaseVerdict.renderableCardCount, 10);
+  assert.equal(result.isStale, false);
+});
+
+test("a partial payload is never stored as last-known-good", async () => {
+  installFetch([
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+  ]);
+
+  // Both attempts return the same partial payload, so the call fails.
+  await assert.rejects(() => getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 }));
+
+  // Nothing incomplete may enter the last-known-good cache.
+  assert.equal(getCachedPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 }), null);
+});
+
+test("after both attempts return partials, the section errors rather than rendering half a grid", async () => {
+  // ATOMIC: a partially renderable payload is not an acceptable final answer.
+  // Returning it would leave 2 of 10 cards on "Awaiting trend" while the section
+  // recorded a success, which is the outcome this contract exists to prevent.
+  const calls = installFetch([
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+  ]);
+
+  await assert.rejects(
+    () => getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 }),
+    (error) => {
+      assert.equal(error.code, "POKEMON_SET_TOP_CHASE_SNAPSHOT_INCOMPLETE");
+      assert.equal(error.retryable, true);
+      assert.equal(error.topChaseVerdict.status, TOP_CHASE_STATUS.STRUCTURALLY_INCOMPLETE);
+      return true;
+    }
+  );
+
+  assert.equal(calls.length, 2, "exactly two attempts, never a polling loop");
+});
+
+test("a complete last-known-good beats a later partial for the same set+window+limit", async () => {
+  installFetch([jsonResponse(topChaseBody())]);
+  const fresh = await getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 });
+  assert.equal(fresh.topChaseVerdict.complete, true);
+
+  // Both later attempts come back partial; the validated complete payload stands
+  // in, clearly marked stale.
+  installFetch([
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+    jsonResponse(partialTopChaseBody({ withHistory: 8, total: 10 })),
+  ]);
+  const stale = await getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 });
+
+  assert.equal(stale.isLastKnownGood, true);
+  assert.equal(stale.isStale, true);
+  assert.equal(stale.topChaseVerdict.status, TOP_CHASE_STATUS.COMPLETE);
+});
+
+test("insufficient history still settles on attempt one without retrying", async () => {
+  const calls = installFetch([
+    jsonResponse(
+      topChaseBody({
+        cards: [{ cardVariantId: "v1", cardId: "c1", name: "Chase A", marketPrice: 120.5, setId: SET_ID }],
+        histories: { v1: history([DATE]) },
+      })
+    ),
+  ]);
+
+  const result = await getPokemonSetTopChase(SET_ID, { window: "365d", limit: 10 });
+
+  assert.equal(calls.length, 1, "a settled truth must not spend the retry");
+  assert.equal(result.topChaseVerdict.status, TOP_CHASE_STATUS.INSUFFICIENT_HISTORY);
+});
