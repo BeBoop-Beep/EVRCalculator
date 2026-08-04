@@ -31,7 +31,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from backend.db.services.pokemon_set_lifecycle_flags import normalize_details_url
+from backend.db.services.pokemon_set_lifecycle_flags import (
+    normalize_details_url,
+    supports_opening_simulation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -347,7 +350,7 @@ def run_runtime_preflight(
             (
                 "supports_opening_simulation",
                 row.get("supports_opening_simulation"),
-                bool(getattr(config_cls, "SUPPORTS_OPENING_SIMULATION", True)),
+                supports_opening_simulation(config_cls),
             ),
         ):
             # Absent columns are not asserted against: a runtime predating
