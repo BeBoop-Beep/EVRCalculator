@@ -34,8 +34,9 @@ from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
     FINANCIAL_RIP_V2_VERSION,
     OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_V6_VERSION,
     canonical_financial_rip_is_v3,
-    canonical_overall_rip_is_v5,
+    canonical_overall_rip_is_v6,
 )
 from backend.desirability.weighted_rip import (
     compute_financial_rip,
@@ -97,14 +98,21 @@ def make_target(payload: dict, *, ca7: float | None = 70.0, set_id: str = "set-a
 # The cutover switch
 # ---------------------------------------------------------------------------
 
-def test_canonical_versions_point_at_v3_and_v5():
+def test_canonical_versions_point_at_v3_and_v6():
+    """Financial RIP V3 is still canonical; Overall RIP was promoted V5 -> V6.
+
+    V5 (90/10 over legacy CA7) is now a LEGACY model. Its identifier and its
+    arithmetic are unchanged - only its canonical status moved - and the tests
+    below still pin that arithmetic.
+    """
     assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V5_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V6_VERSION
     assert canonical_financial_rip_is_v3() is True
-    assert canonical_overall_rip_is_v5() is True
-    # The legacy identifiers still exist and are still distinct.
+    assert canonical_overall_rip_is_v6() is True
+    # Every legacy identifier still exists and is still distinct.
     assert FINANCIAL_RIP_V2_VERSION != FINANCIAL_RIP_V3_VERSION
     assert OVERALL_RIP_V4_VERSION != OVERALL_RIP_V5_VERSION
+    assert OVERALL_RIP_V5_VERSION != OVERALL_RIP_V6_VERSION
 
 
 # ---------------------------------------------------------------------------

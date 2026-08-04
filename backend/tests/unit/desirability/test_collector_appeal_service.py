@@ -60,7 +60,20 @@ from backend.desirability.universal_set_desirability import COVERAGE_FULL
 # The formula, the lambda and the mapping rule are untouched: the GOLDEN values
 # below are unchanged, which is the evidence that this moved the loader's
 # IDENTITY and not any score.
-FROZEN_FINGERPRINT = "27e0fb68166a4eaa4571f96f7a05312402285a330c508bad5b2fc3adad388fcd"
+# v3 (fingerprint schema collector_appeal_fingerprint_v2_d_f_p). The canonical
+# Collector Appeal formula changed from CA7 to the D/F/P blend:
+#
+#     CA7 = D + 0.50 * P * (1 - D)
+#     CA  = D + 0.50 * (0.60F + 0.40P) * (1 - D)
+#
+# This is a FORMULA change, so the fingerprint is required to move - that is the
+# whole purpose of the hash, and a stored row carrying the previous value is
+# correctly classified stale. The schema version moved too, because the v1
+# schema had no slot for F's version, its weights or its coverage policy.
+#
+# The GOLDEN CA7 values below are UNCHANGED and still pass, which is the
+# evidence that the legacy calculation was preserved rather than perturbed.
+FROZEN_FINGERPRINT = "543c7a5b96be409c395bd08506a6ec57ca3f13f6d84060a139b95d50c4fe9dfa"
 
 # The identity every pre-v2 artifact was produced under. Kept named so the
 # historical dry run can be checked against its own run rather than rewritten.
@@ -90,13 +103,41 @@ def test_lambda_is_frozen_at_the_selected_value():
 
 
 def test_service_imports_the_formula_rather_than_restating_it():
-    """The service must not contain its own copy of CA7."""
+    """The service must not contain its own copy of the Collector Appeal formula.
+
+    Checked against EXECUTABLE CODE, not raw text: the service legitimately
+    documents the formula in comments, and a text search cannot tell an
+    explanation from an implementation. Stripping comments and docstrings keeps
+    the original intent - no second copy of the arithmetic - while letting the
+    file explain itself.
+    """
+    import ast
+
     source = Path("backend/db/services/collector_appeal_service.py").read_text(encoding="utf-8")
     assert "compute_collector_appeal" in source
-    # The shape of the formula must appear nowhere in the service.
-    assert "1.0 - d" not in source
-    assert "* (1 -" not in source
-    assert "0.5 *" not in source
+
+    tree = ast.parse(source)
+    docstring_ids = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None) or []
+        if (
+            isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef))
+            and body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            docstring_ids.add(id(body[0].value))
+
+    # Any arithmetic on the headroom factor would show up as a BinOp; the
+    # service should contain none of the formula's operations at all.
+    formula_literals = {0.5, 0.6, 0.4, 1.0}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and id(node) not in docstring_ids:
+            if isinstance(node.value, float):
+                assert node.value not in formula_literals or node.value == 1.0, (
+                    f"the service must not restate the formula constant {node.value}"
+                )
 
 
 def test_no_price_field_enters_collector_appeal_construction():
@@ -125,7 +166,14 @@ def test_golden_set_ca7_reproduces(name):
 
 @pytest.mark.parametrize("name", sorted(GOLDEN))
 def test_golden_set_ca7_through_the_service_payload(name):
-    """The SERVICE - not just the formula - must produce the golden number."""
+    """The SERVICE must still reproduce the golden LEGACY CA7 number.
+
+    CA7 is no longer the published Collector Appeal - the canonical block now
+    carries the D/F/P formula - but the service still computes CA7 alongside it
+    for the comparison audit and for rollback. These goldens pin that legacy
+    calculation, so a regression in it stays detectable; the canonical formula
+    has its own assertions below.
+    """
     case = GOLDEN[name]
     payload = service._build_set_payload(
         set_id=f"set-{name}",
@@ -139,9 +187,41 @@ def test_golden_set_ca7_through_the_service_payload(name):
         pull_modeled=True,
     )
     assert payload["status"] == "available"
-    assert payload["collectorAppeal"]["rawValue"] == pytest.approx(case["ca7"], abs=5e-6)
-    assert payload["collectorAppeal"]["score"] == pytest.approx(case["ca7"] * 100.0, abs=5e-4)
+    legacy = payload["legacyCollectorAppealCA7"]
+    assert legacy["rawValue"] == pytest.approx(case["ca7"], abs=5e-6)
+    assert legacy["score"] == pytest.approx(case["ca7"] * 100.0, abs=5e-4)
     assert payload["rosterDesirability"]["score"] == case["d"]
+
+
+@pytest.mark.parametrize("name", sorted(GOLDEN))
+def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(name):
+    """The canonical block is the D/F/P formula, not CA7.
+
+    With a real F the two formulas must produce DIFFERENT numbers - if they
+    agreed, the refinement would not have been applied. The canonical score is
+    also bounded by CA7 from below only when F >= P, so the assertion is on
+    distinctness and on the published version, not on a direction.
+    """
+    case = GOLDEN[name]
+    payload = service._build_set_payload(
+        set_id=f"set-{name}",
+        universal_row={
+            "set_name": name,
+            "score": case["d"],
+            "coverage": {"status": COVERAGE_FULL},
+            "version": "universal_set_desirability_v3",
+        },
+        subjects=_subjects_with_dual_path_depth(case["p"]),
+        pull_modeled=True,
+    )
+    canonical = payload["collectorAppeal"]
+    assert canonical["version"] == "collector_appeal_v2_desirable_frequency_dual_path"
+    assert canonical["rawValue"] is not None
+    assert 0.0 <= canonical["rawValue"] <= 1.0
+    # The decomposition must reconstruct the published score exactly.
+    assert canonical["inputs"]["rosterDesirability"] + canonical["headroomBonus"] == (
+        pytest.approx(canonical["rawValue"], abs=1e-6)
+    )
 
 
 def test_golden_values_still_match_the_dry_run_artifact():

@@ -22,12 +22,17 @@ from typing import Dict, Iterable, Mapping, Optional
 # desirability -> calculations (never the reverse).
 from backend.calculations.evr.financial_rip_v3_config import (
     CANONICAL_FINANCIAL_RIP_VERSION as _CANONICAL_FINANCIAL_RIP_VERSION,
-    CANONICAL_OVERALL_RIP_VERSION as _CANONICAL_OVERALL_RIP_VERSION,
     FINANCIAL_RIP_V3_VERSION as FINANCIAL_RIP_V3_VERSION,
+    FINANCIAL_RIP_V3_WEIGHTS as FINANCIAL_RIP_V3_WEIGHTS,
     OVERALL_RIP_V5_VERSION as OVERALL_RIP_V5_VERSION_FROM_CONFIG,
     OVERALL_RIP_V5_WEIGHTS as OVERALL_RIP_V5_WEIGHTS,
     PUBLIC_RIP_CONTRACT_V5_VERSION as PUBLIC_RIP_CONTRACT_V5_VERSION,
 )
+# NOTE: Collector Appeal's version constants are deliberately NOT imported at
+# module scope. `collector_appeal` -> `factorized_opening_appeal` -> this module
+# is a real import cycle, and this module is the leaf. They are read through the
+# lazy accessors below instead, so `collector_appeal` remains the single source
+# of those strings without either module having to duplicate them.
 
 
 # ---------------------------------------------------------------------------
@@ -145,11 +150,73 @@ OVERALL_RIP_WEIGHTS: Dict[str, float] = {
 # regression tests and rollback diagnostics. They no longer feed the canonical
 # score or the canonical ranking.
 
-CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-CANONICAL_OVERALL_RIP_VERSION = _CANONICAL_OVERALL_RIP_VERSION
+# ---------------------------------------------------------------------------
+# Overall RIP V6: 80% Financial RIP V3 + 20% Collector Appeal
+# ---------------------------------------------------------------------------
+# The financial input is UNCHANGED from V5 (Financial RIP V3). Two things move:
+#
+#   1. the split, from 90/10 to 80/20, and
+#   2. the appeal input, from legacy CA7 to the canonical D/F/P Collector Appeal.
+#
+# V5's version string literally reads `..._90_financial_v3_10_ca7`, and its
+# published contract documents that split. Repointing it at 80/20 would make a
+# stored or cached V5 row mean two different things depending on when it was
+# written, with nothing in the row to say which. So V6 is a NEW identifier and
+# V5 keeps its exact prior meaning.
 
+OVERALL_RIP_V6_VERSION = "overall_rip_v6_80_financial_v3_20_collector_appeal_v2"
+
+OVERALL_RIP_V6_WEIGHTS: Dict[str, float] = {
+    "financial_rip": 0.80,
+    "collector_appeal": 0.20,
+}
+
+# The effective per-input weights after expanding Financial RIP V3's six
+# components across its 0.80 share. Held here so presentation surfaces read one
+# authoritative source rather than each re-deriving 0.80 * 0.25 = 0.20.
+#
+#   True Win Frequency        0.80 * 0.25 = 0.20
+#   Typical Retention         0.80 * 0.20 = 0.16
+#   Loss Resilience           0.80 * 0.15 = 0.12
+#   Realistic Upside          0.80 * 0.25 = 0.20
+#   Jackpot Upside            0.80 * 0.10 = 0.08
+#   Base Economic Efficiency  0.80 * 0.05 = 0.04
+#   Collector Appeal                        0.20
+#                                     total 1.00
+OVERALL_RIP_V6_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V6_WEIGHTS["financial_rip"] * weight
+        for component, weight in FINANCIAL_RIP_V3_WEIGHTS.items()
+    },
+    "collector_appeal": OVERALL_RIP_V6_WEIGHTS["collector_appeal"],
+}
+
+
+CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
+# Promoted from V5 to V6. This single constant is the cutover; no publication
+# surface decides for itself which Overall model it serves.
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V6_VERSION
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
+LEGACY_OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION
+
+
+def canonical_collector_appeal_version() -> str:
+    """The canonical Collector Appeal formula version (D/F/P).
+
+    Lazily imported to break the `collector_appeal` -> `factorized_opening_appeal`
+    -> `scoring_config` cycle. The string is defined once, in `collector_appeal`.
+    """
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V2_VERSION
+
+    return COLLECTOR_APPEAL_V2_VERSION
+
+
+def legacy_collector_appeal_version() -> str:
+    """Legacy CA7's version. Superseded; retained for comparison and rollback."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_CA7_VERSION
+
+    return COLLECTOR_APPEAL_CA7_VERSION
 
 
 def canonical_financial_rip_is_v3() -> bool:
@@ -157,9 +224,9 @@ def canonical_financial_rip_is_v3() -> bool:
     return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
 
 
-def canonical_overall_rip_is_v5() -> bool:
-    """True when Overall RIP V5 is the canonical overall score."""
-    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V5_VERSION
+def canonical_overall_rip_is_v6() -> bool:
+    """True when Overall RIP V6 (80/20) is the canonical overall score."""
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V6_VERSION
 
 
 def canonical_scoring_selection() -> Dict[str, object]:
@@ -167,15 +234,34 @@ def canonical_scoring_selection() -> Dict[str, object]:
     return {
         "canonicalFinancialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
         "canonicalOverallRipVersion": CANONICAL_OVERALL_RIP_VERSION,
+        "canonicalCollectorAppealVersion": canonical_collector_appeal_version(),
         "legacyFinancialRipVersion": LEGACY_FINANCIAL_RIP_VERSION,
         "legacyOverallRipVersion": LEGACY_OVERALL_RIP_VERSION,
-        "overallRipWeights": dict(OVERALL_RIP_V5_WEIGHTS),
+        "legacyOverallRipV5Version": LEGACY_OVERALL_RIP_V5_VERSION,
+        "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
+        "overallRipWeights": dict(OVERALL_RIP_V6_WEIGHTS),
+        "overallRipEffectiveWeights": dict(OVERALL_RIP_V6_EFFECTIVE_WEIGHTS),
         "note": (
-            "Financial RIP V3 is the canonical financial score. Financial RIP V2 "
-            "and Overall RIP v4 remain published under explicitly legacy labels "
-            "and are never selected by fallback."
+            "Overall RIP is 80% Financial RIP V3 + 20% Collector Appeal. "
+            "Financial RIP V2, Overall RIP v4/V5 and legacy CA7 remain published "
+            "under explicitly legacy labels and are never selected by fallback."
         ),
     }
+
+
+def _audit_overall_rip_v6_weights() -> None:
+    """Weights that do not sum to 1.0 put Overall RIP off the 0-100 scale."""
+    total = sum(OVERALL_RIP_V6_WEIGHTS.values())
+    if abs(total - 1.0) > 1e-12:
+        raise ValueError(f"OVERALL_RIP_V6_WEIGHTS must sum to 1.0; got {total!r}.")
+    effective_total = sum(OVERALL_RIP_V6_EFFECTIVE_WEIGHTS.values())
+    if abs(effective_total - 1.0) > 1e-12:
+        raise ValueError(
+            f"OVERALL_RIP_V6_EFFECTIVE_WEIGHTS must sum to 1.0; got {effective_total!r}."
+        )
+
+
+_audit_overall_rip_v6_weights()
 
 # The effective per-input weights after expanding Financial RIP's 60/25/15. Held
 # here so presentation surfaces read one authoritative source rather than each

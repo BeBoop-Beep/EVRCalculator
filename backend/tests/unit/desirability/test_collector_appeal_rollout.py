@@ -20,7 +20,12 @@ import inspect
 
 import pytest
 
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_DIAGNOSTICS_KEY
+# The rollout proposes the CANONICAL formula, so its block lives under the
+# canonical namespace. Imported under the old local name so the many call
+# sites below stay unchanged - only WHICH key they resolve to moved.
+from backend.desirability.collector_appeal import (
+    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+)
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.component_source import (
     COMPONENT_UNIQUE_KEY,
@@ -403,10 +408,14 @@ def test_the_block_is_namespaced_and_declares_what_it_is():
     state, _ = _state()
     plan = build_update_plan(state)
     block = plan["rows"][0]["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
-    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_ca7"
+    # The rollout now proposes the CANONICAL formula, so it writes under the
+    # canonical namespace. A D/F/P score stored under `collector_appeal_ca7`
+    # would be a block whose key asserts one formula and whose value came from
+    # another.
+    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_v2"
     assert block["metric_name"] == "collector_appeal_ca7"
     assert block["product_status"] == "internal_candidate"
-    assert block["formula"] == "CA7"
+    assert block["formula"] == "COLLECTOR_APPEAL_V2"
 
 
 def test_no_payload_introduces_a_generic_collector_appeal_key():
@@ -708,8 +717,8 @@ def test_every_proposed_diagnostics_carries_the_current_fingerprint():
     for row in plan["rows"]:
         block = row["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
         assert block["fingerprint"] == current_fingerprint()
-        assert block["lambda"] == 0.50
-        assert block["formula"] == "CA7"
+        assert block["headroom_gain"] == 0.50
+        assert block["formula"] == "COLLECTOR_APPEAL_V2"
 
 
 def test_rows_without_a_stored_fingerprint_are_reported_missing_and_updated():
@@ -976,5 +985,14 @@ def test_collector_appeal_is_computed_when_dual_path_is_available():
     row = next(r for r in plan["rows"] if r["set_id"] == "s1")
     assert row["collector_appeal_available"] is True
     block = row["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
-    d = block["inputs"]["roster_desirability_d"] / 100.0
-    assert row["collector_appeal_value"] == pytest.approx(d + 0.5 * 1.0 * (1 - d), abs=1e-6)
+    inputs = block["inputs"]
+    d = inputs["roster_desirability_d"] / 100.0
+    f = inputs["desirable_outcome_frequency_f"]
+    p = inputs["dual_path_depth_p"]
+    # The CANONICAL formula: structure is now a 0.60/0.40 blend of F and P, not
+    # P alone. All three inputs are read from the block the rollout proposed, so
+    # this checks the arithmetic rather than restating a fixture's numbers.
+    expected = d + 0.50 * (0.60 * f + 0.40 * p) * (1 - d)
+    assert row["collector_appeal_value"] == pytest.approx(expected, abs=1e-6)
+    # And it is genuinely different from what CA7 would have produced here.
+    assert row["collector_appeal_value"] != pytest.approx(d + 0.50 * p * (1 - d), abs=1e-6)

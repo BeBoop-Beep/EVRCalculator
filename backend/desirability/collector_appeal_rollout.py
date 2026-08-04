@@ -63,11 +63,18 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from backend.desirability.card_links import build_card_input_manifest, card_link_policy
 from backend.desirability.collector_appeal import (
-    COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
     COLLECTOR_APPEAL_METRIC_NAME,
     COLLECTOR_APPEAL_PRODUCT_STATUS,
-    compute_collector_appeal,
+    # The CANONICAL namespace. The rollout proposes a block for the formula it
+    # actually computes; writing the D/F/P score under the legacy
+    # `collector_appeal_ca7` key would leave a stored block whose name asserts
+    # one formula and whose value came from another.
+    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    compute_collector_appeal_v2,
     compute_dual_path_depth,
+)
+from backend.desirability.desirable_outcome_frequency import (
+    compute_desirable_outcome_frequency,
 )
 from backend.desirability.collector_appeal_fingerprint import (
     FINGERPRINT_CURRENT,
@@ -429,8 +436,12 @@ def _plan_row(
     depth = compute_dual_path_depth(subjects) if subjects else None
     p_value = (depth or {}).get("value")
 
+    # F, the third canonical input, through the one authoritative module.
+    frequency = compute_desirable_outcome_frequency(subjects)
+    f_value = frequency.get("rawValue")
+
     d_unit = (d_raw / 100.0) if d_raw is not None else None
-    collector_appeal = compute_collector_appeal(d_unit, p_value)
+    collector_appeal = compute_collector_appeal_v2(d_unit, f_value, p_value)
 
     unavailable_reason = None
     if not support["supported"]:
@@ -449,9 +460,13 @@ def _plan_row(
             if pull_modeled
             else "dual_path_depth_unavailable_no_pull_model"
         )
+    elif f_value is None:
+        # F's own reason vocabulary, surfaced verbatim - "no eligible desirable
+        # card" and "insufficient coverage" call for different fixes.
+        unavailable_reason = frequency.get("statusReason")
 
     if collector_appeal is None and unavailable_reason is None:
-        warnings.append("collector_appeal_ca7 is None with no recorded reason")
+        warnings.append("collector_appeal is None with no recorded reason")
 
     # --- proposed diagnostics ------------------------------------------
     # The block declares WHAT it is before it declares any number: a reader that
@@ -461,7 +476,7 @@ def _plan_row(
     appeal_block: Dict[str, Any] = {
         "metric_name": COLLECTOR_APPEAL_METRIC_NAME,
         "product_status": COLLECTOR_APPEAL_PRODUCT_STATUS,
-        "formula": "CA7",
+        "formula": "COLLECTOR_APPEAL_V2",
         "not_the_public_collector_appeal_score": (
             "The public collector_appeal_score field is Pure/Universal "
             "Desirability, a different construct. This block is an internal "
@@ -475,6 +490,7 @@ def _plan_row(
     appeal_block["unavailable_reason"] = unavailable_reason
     appeal_block["inputs"] = {
         "roster_desirability_d": d_raw,
+        "desirable_outcome_frequency_f": round(f_value, 8) if f_value is not None else None,
         "dual_path_depth_p": round(p_value, 6) if p_value is not None else None,
     }
 

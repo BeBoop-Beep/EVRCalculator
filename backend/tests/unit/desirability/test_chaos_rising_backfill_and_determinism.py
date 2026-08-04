@@ -25,7 +25,11 @@ import copy
 
 import pytest
 
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_DIAGNOSTICS_KEY
+# The rollout writes the canonical formula's block under the canonical
+# namespace; aliased so the call sites below are unchanged.
+from backend.desirability.collector_appeal import (
+    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+)
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.collector_appeal_rollout import (
     COMPONENT_TABLE,

@@ -420,6 +420,12 @@ def _merge_canonical_rip_contract_into_set_payload(
         "financialRipV3",
         "overallRipV5",
         "publicRipContractV5",
+        # Canonical after the 80/20 cutover: Overall RIP V6 and the v6 public
+        # contract, which carries the D/F/P Collector Appeal as a first-class
+        # block. Lifted verbatim from the same ranked target, so the set page and
+        # Explore cannot disagree about a Collector Appeal score or its rank.
+        "overallRipV6",
+        "publicRipContractV6",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The

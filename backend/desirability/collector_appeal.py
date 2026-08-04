@@ -102,8 +102,73 @@ from backend.desirability.factorized_opening_appeal import (
 # grid. Renamed from ``collector_appeal_v1_research``: that string described a
 # study, and this constant now identifies a formula proposed for production
 # storage. The grid below stays research-only and is not covered by this version.
-COLLECTOR_APPEAL_VERSION = "collector_appeal_ca7_v1"
+# LEGACY. CA7's identity, retained so stored CA7 rows stay identifiable and the
+# V2-vs-CA7 comparison has something honest to name. It is NO LONGER the
+# canonical Collector Appeal - see COLLECTOR_APPEAL_V2_VERSION below.
+COLLECTOR_APPEAL_CA7_VERSION = "collector_appeal_ca7_v1"
+# Back-compat alias for existing importers that mean "the CA7 formula's version".
+COLLECTOR_APPEAL_VERSION = COLLECTOR_APPEAL_CA7_VERSION
 DUAL_PATH_DEPTH_VERSION = "dual_path_depth_v1"
+
+# ---------------------------------------------------------------------------
+# THE CANONICAL COLLECTOR APPEAL (D / F / P)
+# ---------------------------------------------------------------------------
+# The PUBLIC PRODUCT NAME IS UNCHANGED: "Collector Appeal". There is deliberately
+# no second visible card called CA8, Collector Appeal V2 or Enhanced Collector
+# Appeal - a product does not get a version number in its name because its
+# formula improved. The version lives here, in the code, where it belongs.
+#
+#     structural_opening_appeal = 0.60 * F + 0.40 * P
+#     Collector Appeal          = D + 0.50 * structural_opening_appeal * (1 - D)
+#
+# i.e.  CA = D + 0.50 * (0.60F + 0.40P) * (1 - D)
+#
+# WHAT CHANGED FROM CA7, AND WHAT DID NOT
+# ---------------------------------------
+# CA7 was ``D + 0.50 * P * (1 - D)``: desirability, plus a bounded bonus for
+# dual-path structure. The refinement replaces the single structural term P with
+# a blend of two structural terms, F and P, and changes nothing else:
+#
+#   * D is still the foundation and still enters exactly once.
+#   * The headroom gain is still 0.50 - the maximum structural bonus is
+#     IDENTICAL to CA7's. This is a refinement of what "structure" means, not a
+#     rescaling engineered to manufacture rank movement.
+#   * (1 - D) still bounds the result at 1.0.
+#   * Structure still cannot replace an undesirable roster: at maximum structure
+#     only half the remaining headroom is claimable.
+#   * F = P = 0 still gives CA = D exactly.
+#
+# WHY F BELONGS ALONGSIDE P
+# -------------------------
+# P asks a STRUCTURAL question about the subjects a set cares about: do they
+# offer both an attainable printing and a genuine elite chase? It says nothing
+# about how often a pack actually delivers one of them. A set can have excellent
+# dual-path structure over subjects that are collectively very hard to hit.
+#
+# F asks the complementary question: how often does the modeled pack actually
+# put a desirable card in your hands? The two are related but measure different
+# things, and the service reports their rank correlation as a diagnostic so the
+# relationship stays visible rather than assumed.
+
+COLLECTOR_APPEAL_V2_VERSION = "collector_appeal_v2_desirable_frequency_dual_path"
+COLLECTOR_APPEAL_V2_FORMULA_VERSION = "collector_appeal_bounded_headroom_d_f_p_v1"
+COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION = "CA = D + 0.50 * (0.60F + 0.40P) * (1 - D)"
+
+# Authoritative constants. Nothing in the calculation, persistence, publication,
+# audit or test path is permitted to restate these literals.
+COLLECTOR_APPEAL_FREQUENCY_WEIGHT = 0.60
+COLLECTOR_APPEAL_DUAL_PATH_WEIGHT = 0.40
+COLLECTOR_APPEAL_HEADROOM_GAIN = 0.50
+
+COLLECTOR_APPEAL_V2_STRUCTURAL_WEIGHTS: Dict[str, float] = {
+    "desirable_outcome_frequency": COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
+    "dual_path_depth": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
+}
+
+# The canonical diagnostics namespace. Deliberately NOT the CA7 key: leaving a
+# `collector_appeal_ca7` block carrying a different formula would make the
+# stored identity a lie that nothing could detect.
+COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY = "collector_appeal_v2"
 
 # Chase Appeal (D x M) ships as its own visible metric and is NOT a RIP pillar.
 # Intentionally absent from ``collector_appeal_fingerprint.collect_assumptions``:
@@ -242,6 +307,27 @@ LABEL_SIZE_DRIVEN = "size_driven"
 LABEL_FINANCIAL_REDUNDANT = "redundant_with_a_financial_pillar"
 LABEL_DISTINCT = "genuinely_distinct"
 LABEL_DEGENERATE = "degenerate_by_construction"
+
+
+def _audit_collector_appeal_v2_weights() -> None:
+    """Structural weights that do not sum to 1.0 silently rescale the bonus.
+
+    ``0.60F + 0.40P`` is documented as a weighted average on [0, 1]; if the
+    weights summed to, say, 0.9, the maximum structural bonus would quietly stop
+    being the 0.50 headroom gain the formula claims. That must fail at import,
+    not at publication.
+    """
+    total = sum(COLLECTOR_APPEAL_V2_STRUCTURAL_WEIGHTS.values())
+    if abs(total - 1.0) > 1e-12:
+        raise ValueError(
+            "Collector Appeal structural weights must sum to exactly 1.0; got "
+            f"{total!r}."
+        )
+    if not 0.0 <= COLLECTOR_APPEAL_HEADROOM_GAIN <= 1.0:
+        raise ValueError("COLLECTOR_APPEAL_HEADROOM_GAIN must be in [0, 1].")
+
+
+_audit_collector_appeal_v2_weights()
 
 
 def _as_float(value: Any) -> Optional[float]:
@@ -433,14 +519,94 @@ def dual_path_utility(p: Any) -> Optional[float]:
     return _clamp(CA6_DUAL_PATH_FLOOR + CA6_DUAL_PATH_GAIN * _clamp(value))
 
 
-def compute_collector_appeal(d: Any, p: Any, *, lam: float = CA7_PRODUCTION_LAMBDA) -> Optional[float]:
-    """THE production Collector Appeal: CA7 at the selected lambda = 0.50.
+def compute_collector_appeal_ca7(d: Any, p: Any, *, lam: float = CA7_PRODUCTION_LAMBDA) -> Optional[float]:
+    """LEGACY CA7: ``D + 0.50 * P * (1 - D)``.
 
-    One entry point, so preview and commit cannot diverge on which candidate or
-    which lambda they compute. Returns None - never 0.0 - when either input is
-    missing (see MISSING_DATA_POLICY).
+    No longer canonical. Retained for the V2-vs-CA7 comparison audit, for
+    regression tests, and so any already-stored CA7 row can be reproduced
+    exactly. Callers that want the shipping Collector Appeal must call
+    :func:`compute_collector_appeal_v2`.
     """
     return bounded_bonus_appeal(d, p, lam)
+
+
+# The historical name, kept so existing importers do not break. It still means
+# CA7 - the legacy formula - and is NOT the canonical Collector Appeal.
+compute_collector_appeal = compute_collector_appeal_ca7
+
+
+def structural_opening_appeal(f: Any, p: Any) -> Optional[float]:
+    """``0.60 * F + 0.40 * P`` on [0, 1]: the structural half of Collector Appeal.
+
+    Separated from the final blend so the decomposition the service publishes is
+    the SAME number the score used, rather than a re-derivation that could drift.
+
+    Returns None - never 0.0 - when either input is missing. F and P are both
+    required: a structural term computed from one of the two would silently mean
+    something different from the term the formula documents.
+    """
+    f_value = _as_float(f)
+    p_value = _as_float(p)
+    if f_value is None or p_value is None:
+        return None
+    return _clamp(
+        COLLECTOR_APPEAL_FREQUENCY_WEIGHT * _clamp(f_value)
+        + COLLECTOR_APPEAL_DUAL_PATH_WEIGHT * _clamp(p_value)
+    )
+
+
+def compute_collector_appeal_v2(d: Any, f: Any, p: Any) -> Optional[float]:
+    """THE canonical Collector Appeal: ``D + 0.50 * (0.60F + 0.40P) * (1 - D)``.
+
+    One entry point, so every surface computes the same number.
+
+    Properties, all exact and all asserted in the unit tests:
+      * ``F = 0, P = 0``      -> ``CA = D``      (no structure costs nothing)
+      * ``D = 1``             -> ``CA = 1``      (a perfect roster is already at the ceiling)
+      * ``dCA/dD = 1 - 0.5*S >= 0.5 > 0``        (strictly increasing in D)
+      * ``dCA/dF = 0.5*0.6*(1-D) >= 0``          (non-decreasing in F)
+      * ``dCA/dP = 0.5*0.4*(1-D) >= 0``          (non-decreasing in P)
+      * ``CA <= 1`` for all admissible inputs    (bounded by the headroom factor)
+      * at ``S = 1``, ``CA = D + 0.5*(1-D)``     (only half the headroom is claimable)
+
+    The last property is the design constraint that keeps the metric honest:
+    perfect opening structure over a roster nobody wants cannot out-score a
+    beloved roster with no structure at all.
+
+    Returns None - never 0.0 - when any of D, F or P is missing. A structural
+    input defaulted to zero would be a claim that the set has no desirable
+    outcomes, which absent data does not support.
+    """
+    d_value = _as_float(d)
+    if d_value is None:
+        return None
+    structural = structural_opening_appeal(f, p)
+    if structural is None:
+        return None
+    d_value = _clamp(d_value)
+    return _clamp(d_value + COLLECTOR_APPEAL_HEADROOM_GAIN * structural * (1.0 - d_value))
+
+
+def collector_appeal_v2_decomposition(d: Any, f: Any, p: Any) -> Dict[str, Any]:
+    """The published breakdown, derived from the SAME call the score used.
+
+    Reported so a reader can reconstruct the score by hand. ``headroomBonus`` is
+    exactly ``score - D``, so the two lines always add up.
+    """
+    score = compute_collector_appeal_v2(d, f, p)
+    structural = structural_opening_appeal(f, p)
+    d_value = _as_float(d)
+    return {
+        "inputs": {
+            "rosterDesirability": d_value,
+            "desirableOutcomeFrequency": _as_float(f),
+            "dualPathDepth": _as_float(p),
+        },
+        "structuralOpeningAppeal": round(structural, 6) if structural is not None else None,
+        "headroomBonus": (
+            round(score - d_value, 6) if score is not None and d_value is not None else None
+        ),
+    }
 
 
 def compute_chase_appeal(d: Any, m_star: Any) -> Optional[float]:
@@ -454,9 +620,15 @@ def compute_chase_appeal(d: Any, m_star: Any) -> Optional[float]:
     ships under its own name (see
     docs/research/collector_appeal_market_prediction_results.md section 2).
 
-    It is deliberately NOT added to RIP. RIP has exactly four pillars, and D
-    already enters through Collector Appeal; adding D x M as a fifth would apply
-    desirability to RIP twice. A test pins the pillar count.
+    It is deliberately NOT added to RIP, and the canonical Collector Appeal
+    formula does not contain it. Overall RIP is exactly
+    ``0.80 * Financial RIP V3 + 0.20 * Collector Appeal``, and D already enters
+    through Collector Appeal; adding D x M as a separate term would apply
+    desirability to Overall RIP a second time. M's financial consequence - the
+    upper tail of pack value - is already measured, on the money side, by
+    Financial RIP V3's Realistic Upside and Jackpot Upside. A test pins that
+    Chase Appeal is absent from both the Collector Appeal formula and the
+    Overall RIP components.
 
     WHY THIS EXISTS RATHER THAN READING THE GRID
     --------------------------------------------

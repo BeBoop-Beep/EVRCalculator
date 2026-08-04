@@ -253,7 +253,17 @@ def test_the_module_version_is_the_production_candidate_identity():
 
     assert COLLECTOR_APPEAL_VERSION == "collector_appeal_ca7_v1"
     assert "research" not in COLLECTOR_APPEAL_VERSION
-    assert collect_assumptions()["dependencies"]["collector_appeal_module_version"] == COLLECTOR_APPEAL_VERSION
+
+    # CA7 is superseded: the fingerprint must name the CANONICAL formula, or it
+    # would certify mathematics the service no longer performs.
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V2_VERSION
+
+    assumptions = collect_assumptions()
+    assert assumptions["dependencies"]["collector_appeal_module_version"] == (
+        COLLECTOR_APPEAL_V2_VERSION
+    )
+    assert assumptions["legacy_ca7"]["version"] == COLLECTOR_APPEAL_VERSION
+    assert assumptions["legacy_ca7"]["status"] == "superseded_by_collector_appeal_v2"
 
 
 # ---------------------------------------------------------------------------
@@ -449,7 +459,13 @@ def test_collect_assumptions_is_a_pure_snapshot_of_live_constants():
     from backend.desirability.rarity_buckets import HIT_POLICY_VERSION
 
     assumptions = collect_assumptions()
-    assert assumptions["lambda"] == CA7_PRODUCTION_LAMBDA == 0.50
+    # The canonical formula's constants, read live from their defining module.
+    assert assumptions["frequency_weight"] == 0.60
+    assert assumptions["dual_path_weight"] == 0.40
+    assert assumptions["headroom_gain"] == 0.50
+    # CA7's lambda moved into the superseded block: it no longer describes what
+    # is computed, but is still tracked so a CA7-era row stays identifiable.
+    assert assumptions["legacy_ca7"]["lambda"] == CA7_PRODUCTION_LAMBDA == 0.50
     assert assumptions["dependencies"]["easy_probability_anchor"] == EASY_PROBABILITY
     assert assumptions["dependencies"]["elite_probability_anchor"] == ELITE_PROBABILITY
     assert assumptions["dependencies"]["hit_eligibility_version"] == HIT_POLICY_VERSION
@@ -457,8 +473,10 @@ def test_collect_assumptions_is_a_pure_snapshot_of_live_constants():
 
 def test_identity_payload_matches_the_requested_diagnostics_shape():
     identity = build_collector_appeal_identity()
-    assert identity["formula"] == "CA7"
-    assert identity["lambda"] == 0.50
+    assert identity["formula"] == "COLLECTOR_APPEAL_V2"
+    assert identity["formula_expression"] == "CA = D + 0.50 * (0.60F + 0.40P) * (1 - D)"
+    assert identity["headroom_gain"] == 0.50
+    assert identity["legacy_ca7"]["lambda"] == 0.50
     assert identity["fingerprint_algorithm"] == "sha256"
     for key in (
         "desirability_version", "dual_path_version", "access_transform_version",

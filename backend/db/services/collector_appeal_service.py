@@ -58,11 +58,23 @@ from backend.db.services.universal_set_desirability_service import (
 )
 from backend.desirability.collector_appeal import (
     CHASE_APPEAL_VERSION,
-    COLLECTOR_APPEAL_VERSION,
+    COLLECTOR_APPEAL_CA7_VERSION,
+    COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
+    COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
+    COLLECTOR_APPEAL_HEADROOM_GAIN,
+    COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+    COLLECTOR_APPEAL_V2_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V2_VERSION,
     DUAL_PATH_DEPTH_VERSION,
+    collector_appeal_v2_decomposition,
     compute_chase_appeal,
-    compute_collector_appeal,
+    compute_collector_appeal_ca7,
+    compute_collector_appeal_v2,
     compute_dual_path_depth,
+)
+from backend.desirability.desirable_outcome_frequency import (
+    DESIRABLE_OUTCOME_FREQUENCY_VERSION,
+    compute_desirable_outcome_frequency,
 )
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.collector_appeal_inputs import (
@@ -177,10 +189,20 @@ def _build_set_payload(
     depth = compute_dual_path_depth(subjects) if subjects else None
     p_value = (depth or {}).get("value")
 
+    # F: the ONE authoritative calculation, imported. Never recomputed here.
+    frequency = compute_desirable_outcome_frequency(subjects)
+    f_value = frequency.get("rawValue")
+
     magnetism = compute_m_star_m1(subjects) if subjects else None
     m_value = (magnetism or {}).get("value")
 
-    collector_appeal = compute_collector_appeal(d_unit, p_value)
+    # CANONICAL: D + 0.50 * (0.60F + 0.40P) * (1 - D).
+    collector_appeal = compute_collector_appeal_v2(d_unit, f_value, p_value)
+    decomposition = collector_appeal_v2_decomposition(d_unit, f_value, p_value)
+    # LEGACY CA7, computed alongside for the comparison audit and regression
+    # tests only. It is NOT the published Collector Appeal and is never used as
+    # a fallback when the canonical formula is unavailable.
+    legacy_ca7 = compute_collector_appeal_ca7(d_unit, p_value)
     chase_appeal = compute_chase_appeal(d_unit, m_value)
 
     reason: Optional[str] = None
@@ -192,6 +214,11 @@ def _build_set_payload(
         # desirable subject matched it" is a join failure. Reporting the second
         # as the first sends someone to build a model that already exists.
         reason = REASON_NO_PULL_MODEL if not pull_modeled else REASON_NO_MODELED_SUBJECT
+    elif f_value is None:
+        # F's own reason vocabulary, surfaced verbatim: "no eligible desirable
+        # card" and "insufficient coverage" call for different fixes, and
+        # collapsing them into one Collector Appeal reason would lose that.
+        reason = frequency.get("statusReason")
 
     available = collector_appeal is not None
     if available and reason is not None:  # pragma: no cover - defensive
@@ -210,6 +237,9 @@ def _build_set_payload(
             "score": d_score,
             "version": universal_row.get("version"),
         },
+        # F: how often the modeled pack delivers a desirable card. NOT a
+        # financial statistic - see the module's financialDistinction field.
+        "desirableOutcomeFrequency": frequency,
         "dualPathDepth": {
             # P is structurally compressed: it is a coverage share, not a grade
             # out of 100, and a frontend must not rescale it into one.
@@ -223,7 +253,27 @@ def _build_set_payload(
         "collectorAppeal": {
             "score": round(collector_appeal * 100.0, 4) if collector_appeal is not None else None,
             "rawValue": collector_appeal,
-            "version": COLLECTOR_APPEAL_VERSION,
+            "version": COLLECTOR_APPEAL_V2_VERSION,
+            "formulaVersion": COLLECTOR_APPEAL_V2_FORMULA_VERSION,
+            "formula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+            # The published breakdown, derived from the same call as the score.
+            # Weights are NOT repeated here - they live once, in the bundle's
+            # `identity` block.
+            **decomposition,
+        },
+        # Superseded. Published so the V2-vs-CA7 comparison has a real number to
+        # report and a rollback has something to compare against. It is never
+        # read as a fallback: an unavailable canonical Collector Appeal stays
+        # unavailable rather than quietly serving this.
+        "legacyCollectorAppealCA7": {
+            "score": round(legacy_ca7 * 100.0, 4) if legacy_ca7 is not None else None,
+            "rawValue": legacy_ca7,
+            "version": COLLECTOR_APPEAL_CA7_VERSION,
+            "status": "superseded_by_collector_appeal_v2",
+            "note": (
+                "Legacy CA7 (D + 0.50 * P * (1 - D)). Retained for comparison and "
+                "rollback only; not the published Collector Appeal."
+            ),
         },
         "chaseAppeal": {
             "score": round(chase_appeal * 100.0, 4) if chase_appeal is not None else None,
@@ -242,7 +292,62 @@ def _build_set_payload(
             "pullModelAvailable": bool(pull_modeled),
             "modeledSubjectCount": (depth or {}).get("subject_count"),
             "desirabilityCoverageStatus": coverage.get("status"),
+            # F's coverage travels with the Collector Appeal coverage, so a
+            # reader can see WHICH input was thin rather than only that the
+            # score is missing.
+            "desirableOutcomeFrequencyStatus": frequency.get("status"),
+            "desirableOutcomeFrequencyCoveredDemandShare": frequency.get("coveredDemandShare"),
+            "eligibleDesirableCardCount": frequency.get("eligibleCardCount"),
+            "eligibleDesirableSubjectCount": frequency.get("eligibleSubjectCount"),
+            "unmodeledDesirableSubjectCount": frequency.get("unmodeledDesirableSubjectCount"),
         },
+    }
+
+
+def _structural_correlation_diagnostics(built: Mapping[str, Any]) -> Dict[str, Any]:
+    """Spearman between D, F and P across the sets that have all three.
+
+    REPORT ONLY. F and P both describe opening structure, so a near-perfect rank
+    correlation between them would mean the 0.60/0.40 blend is measuring one
+    axis twice - a finding worth surfacing. It is deliberately NOT wired to the
+    weights: tuning a construct decision on its own correlation is how a
+    measurement becomes a fit.
+    """
+    from backend.desirability.weighted_rip import spearman
+
+    rows = [
+        row
+        for row in built.values()
+        if isinstance(row, Mapping) and row.get("status") == STATUS_AVAILABLE
+    ]
+
+    def _series(getter) -> List[float]:
+        return [value for value in (getter(row) for row in rows) if value is not None]
+
+    d_values, f_values, p_values = [], [], []
+    for row in rows:
+        d = ((row.get("collectorAppeal") or {}).get("inputs") or {}).get("rosterDesirability")
+        f = (row.get("desirableOutcomeFrequency") or {}).get("rawValue")
+        p = (row.get("dualPathDepth") or {}).get("rawValue")
+        if d is None or f is None or p is None:
+            continue
+        d_values.append(float(d))
+        f_values.append(float(f))
+        p_values.append(float(p))
+
+    def _rho(xs: List[float], ys: List[float]):
+        value = spearman(xs, ys)
+        return round(value, 4) if value is not None else None
+
+    return {
+        "n": len(d_values),
+        "spearmanFrequencyVsDualPath": _rho(f_values, p_values),
+        "spearmanDesirabilityVsFrequency": _rho(d_values, f_values),
+        "spearmanDesirabilityVsDualPath": _rho(d_values, p_values),
+        "note": (
+            "Descriptive only. These correlations never tune the 0.60/0.40 "
+            "structural split or the 0.50 headroom gain."
+        ),
     }
 
 
@@ -323,12 +428,28 @@ def _build_bundle() -> Dict[str, Any]:
         # answers "under what rules was this computed?", which is an operator's
         # question, and putting a 64-char hash on a product card would be
         # disclosure theatre rather than transparency.
+        # The ONE place the formula's weights are published. They are not
+        # repeated on every set payload: a weight restated per set is a weight
+        # that can disagree with itself across a bundle.
         "identity": {
-            "collectorAppealVersion": COLLECTOR_APPEAL_VERSION,
+            "collectorAppealVersion": COLLECTOR_APPEAL_V2_VERSION,
+            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V2_FORMULA_VERSION,
+            "collectorAppealFormula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+            "collectorAppealWeights": {
+                "desirableOutcomeFrequency": COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
+                "dualPathDepth": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
+                "headroomGain": COLLECTOR_APPEAL_HEADROOM_GAIN,
+            },
+            "desirableOutcomeFrequencyVersion": DESIRABLE_OUTCOME_FREQUENCY_VERSION,
             "dualPathDepthVersion": DUAL_PATH_DEPTH_VERSION,
             "chaseAppealVersion": CHASE_APPEAL_VERSION,
+            "legacyCollectorAppealCA7Version": COLLECTOR_APPEAL_CA7_VERSION,
             "formulaFingerprint": current_fingerprint(),
         },
+        # Descriptive only. F and P are related structural measurements, so their
+        # rank correlation is reported to keep the relationship visible - but it
+        # never tunes the 0.60/0.40 split, which is a construct decision.
+        "diagnostics": _structural_correlation_diagnostics(built),
         "buildMs": round(elapsed_ms, 1),
     }
 

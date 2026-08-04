@@ -67,18 +67,29 @@ from backend.desirability.card_links import (
     CARD_SUBJECT_ASSEMBLY_VERSION,
 )
 from backend.desirability.collector_appeal import (
-    CA7_FORMULA,
     CA7_FORMULA_VERSION,
     CA7_PRODUCTION_LAMBDA,
+    COLLECTOR_APPEAL_CA7_VERSION,
     COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
+    COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
+    COLLECTOR_APPEAL_HEADROOM_GAIN,
     COLLECTOR_APPEAL_METRIC_NAME,
     COLLECTOR_APPEAL_PRODUCT_STATUS,
-    COLLECTOR_APPEAL_VERSION,
+    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+    COLLECTOR_APPEAL_V2_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V2_VERSION,
     DUAL_PATH_DEPTH_VERSION,
     MISSING_DATA_POLICY,
     MISSING_DATA_POLICY_VERSION,
     ROUNDING_POLICY,
     ROUNDING_POLICY_VERSION,
+)
+from backend.desirability.desirable_outcome_frequency import (
+    DESIRABLE_OUTCOME_FREQUENCY_COVERAGE_POLICY_VERSION,
+    DESIRABLE_OUTCOME_FREQUENCY_VERSION,
+    MINIMUM_COVERED_DEMAND_SHARE,
 )
 from backend.desirability.component_source import (
     COMPONENT_SOURCE_CONTRACT_VERSION,
@@ -113,7 +124,14 @@ from backend.desirability.scoring_config import (
 )
 from backend.desirability.set_components import SCORING_VERSION as SET_COMPONENTS_SCORING_VERSION
 
-FINGERPRINT_SCHEMA_VERSION = "collector_appeal_fingerprint_v1"
+# SCHEMA v2. The v1 schema assumed the formula was a function of D and P only:
+# it carried one `lambda` and one `formula_expression` describing
+# ``CA7 = D + lambda * P * (1 - D)``. The canonical formula now also consumes the
+# Desirable Outcome Frequency F, with its own weights, its own version and its
+# own coverage policy - none of which v1 had a slot for. Bumping the schema is
+# what makes every row computed under the old shape identifiably stale rather
+# than merely differently-hashed.
+FINGERPRINT_SCHEMA_VERSION = "collector_appeal_fingerprint_v2_d_f_p"
 FINGERPRINT_HASH_ALGORITHM = "sha256"
 
 # Fingerprint status codes.
@@ -131,16 +149,45 @@ def collect_assumptions() -> Dict[str, Any]:
     """
     return {
         "schema_version": FINGERPRINT_SCHEMA_VERSION,
-        "formula": CA7_FORMULA,
-        "formula_expression": "CA7 = D + lambda * P * (1 - D)",
-        "formula_version": CA7_FORMULA_VERSION,
-        "lambda": CA7_PRODUCTION_LAMBDA,
+        # The CANONICAL formula, not the legacy one. A fingerprint that still
+        # named CA7 while the service computed D/F/P would certify the wrong
+        # mathematics, and nothing downstream could detect the discrepancy.
+        "formula": "COLLECTOR_APPEAL_V2",
+        "formula_expression": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+        "formula_version": COLLECTOR_APPEAL_V2_FORMULA_VERSION,
+        "collector_appeal_version": COLLECTOR_APPEAL_V2_VERSION,
+        # Every constant capable of moving the final score.
+        "frequency_weight": COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
+        "dual_path_weight": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
+        "headroom_gain": COLLECTOR_APPEAL_HEADROOM_GAIN,
+        # The superseded CA7 identity, recorded so a stored row written under it
+        # remains identifiable. It no longer describes what is computed.
+        "legacy_ca7": {
+            "version": COLLECTOR_APPEAL_CA7_VERSION,
+            "formula_version": CA7_FORMULA_VERSION,
+            "formula_expression": "CA7 = D + lambda * P * (1 - D)",
+            "lambda": CA7_PRODUCTION_LAMBDA,
+            "status": "superseded_by_collector_appeal_v2",
+        },
         "dependencies": {
-            # --- the two constructs -------------------------------------
+            # --- the three constructs ------------------------------------
             "desirability_version": UNIVERSAL_SET_DESIRABILITY_VERSION,
+            # F is a new scoring input, so every rule that can move it belongs
+            # in the hash: the union math, the eligibility it inherits, and the
+            # coverage floor that decides whether F exists at all.
+            "desirable_outcome_frequency_version": DESIRABLE_OUTCOME_FREQUENCY_VERSION,
+            "desirable_outcome_frequency_coverage_policy_version": (
+                DESIRABLE_OUTCOME_FREQUENCY_COVERAGE_POLICY_VERSION
+            ),
+            "desirable_outcome_frequency_minimum_covered_demand_share": (
+                MINIMUM_COVERED_DEMAND_SHARE
+            ),
             "desirability_eligibility_version": UNIVERSAL_ELIGIBILITY_POLICY_VERSION,
             "dual_path_version": DUAL_PATH_DEPTH_VERSION,
-            "collector_appeal_module_version": COLLECTOR_APPEAL_VERSION,
+            "collector_appeal_module_version": COLLECTOR_APPEAL_V2_VERSION,
+            # The slot-aware union is F's core arithmetic: whether probabilities
+            # add within a slot or multiply across slots changes every F.
+            "slot_aware_union_version": SUBJECT_CONSTRUCTION_VERSION,
             # --- transforms + their anchor constants ---------------------
             # Both the transform SHAPE and the anchor VALUES are included: a
             # recalibrated anchor changes every score without changing any
@@ -245,10 +292,19 @@ def build_collector_appeal_identity(
         # the hash (see the module docstring).
         "metric_name": COLLECTOR_APPEAL_METRIC_NAME,
         "product_status": COLLECTOR_APPEAL_PRODUCT_STATUS,
+        "diagnostics_key": COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY,
         "formula": resolved["formula"],
-        "lambda": resolved["lambda"],
         "formula_version": resolved["formula_version"],
         "formula_expression": resolved.get("formula_expression"),
+        # The structural constants, surfaced next to the formula so an operator
+        # reading the identity block does not have to open the source to know
+        # what weighting produced the number.
+        "frequency_weight": resolved.get("frequency_weight"),
+        "dual_path_weight": resolved.get("dual_path_weight"),
+        "headroom_gain": resolved.get("headroom_gain"),
+        # Superseded. Present so a CA7-era row remains identifiable; a reader
+        # must never mistake it for the formula in force.
+        "legacy_ca7": resolved.get("legacy_ca7"),
         "fingerprint": fingerprint_assumptions(resolved),
         "fingerprint_algorithm": FINGERPRINT_HASH_ALGORITHM,
         "fingerprint_schema_version": resolved["schema_version"],
@@ -275,22 +331,29 @@ def current_fingerprint() -> str:
 def read_row_fingerprint(row: Mapping[str, Any]) -> Optional[str]:
     """Pull a stored fingerprint out of a component row's diagnostics.
 
-    Reads ``diagnostics_json.collector_appeal_ca7.fingerprint`` - the namespaced
-    key, NOT the generic ``collector_appeal``, which is reserved for the existing
-    public metric (Pure/Universal Desirability). Reading the generic key would
-    make this function answer a question about a different construct.
+    Reads ``diagnostics_json.collector_appeal_v2.fingerprint`` first - the
+    CANONICAL namespaced key - and falls back to the legacy
+    ``collector_appeal_ca7`` block so a row stored before the D/F/P refinement is
+    still found and correctly classified as STALE (its fingerprint predates the
+    schema v2 bump, so it cannot match the current one).
 
-    Returns None when absent - which is every production row today, since CA7 has
-    never been persisted.
+    Neither key is the generic ``collector_appeal``, which is reserved for the
+    existing public metric (Pure/Universal Desirability). Reading the generic key
+    would make this function answer a question about a different construct.
+
+    Returns None when absent.
     """
     diagnostics = row.get("diagnostics_json")
     if not isinstance(diagnostics, Mapping):
         return None
-    block = diagnostics.get(COLLECTOR_APPEAL_DIAGNOSTICS_KEY)
-    if not isinstance(block, Mapping):
-        return None
-    stored = block.get("fingerprint")
-    return str(stored) if isinstance(stored, str) and stored else None
+    for key in (COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY, COLLECTOR_APPEAL_DIAGNOSTICS_KEY):
+        block = diagnostics.get(key)
+        if not isinstance(block, Mapping):
+            continue
+        stored = block.get("fingerprint")
+        if isinstance(stored, str) and stored:
+            return str(stored)
+    return None
 
 
 def fingerprint_status(row: Mapping[str, Any], *, expected: Optional[str] = None) -> str:

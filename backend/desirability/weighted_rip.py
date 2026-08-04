@@ -45,6 +45,9 @@ from backend.desirability.scoring_config import (
     FINANCIAL_RIP_WEIGHTS,
     OVERALL_RIP_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_V6_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V6_VERSION,
+    OVERALL_RIP_V6_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
@@ -609,6 +612,98 @@ def compute_overall_rip_v5(
         },
         "weights": dict(OVERALL_RIP_V5_WEIGHTS),
         "formula": "0.90 * financial_rip_v3 + 0.10 * opening_desirability_ca7",
+        "rankable": True,
+    }
+
+
+def compute_overall_rip_v6(
+    financial_rip_v3_score: Any,
+    collector_appeal_score: Any,
+) -> Dict[str, Any]:
+    """Overall RIP V6 = 0.80 * Financial RIP V3 + 0.20 * Collector Appeal.
+
+    THE CANONICAL OVERALL SCORE. Two things changed from V5, and only two: the
+    split moved 90/10 -> 80/20, and the appeal input moved from legacy CA7 to
+    the canonical D/F/P Collector Appeal. The financial input is the SAME
+    absolute fixed-anchor Financial RIP V3 score V5 used.
+
+    ``collector_appeal_score`` must be the canonical Collector Appeal on the
+    0-100 scale - the number ``collector_appeal_service`` publishes under
+    ``collectorAppeal.score``. Passing legacy CA7 here would compute a number
+    that is neither V5 nor V6.
+
+    NO SUBSTITUTIONS, IN EITHER DIRECTION
+    -------------------------------------
+    Requires BOTH inputs. When either is missing, V6 is unavailable with a
+    precise reason and is not rankable. It never falls back to V5, v4, V2, legacy
+    CA7, or Universal Set Desirability:
+
+      * a V5/v4 score is a different blend of different inputs,
+      * legacy CA7 is a different formula, and
+      * Universal Set Desirability already enters V6 exactly once, as Collector
+        Appeal's D base - substituting it for the whole Collector Appeal term
+        would both double-count it and mix two constructs in one column.
+
+    Financial RIP V3 and Universal Set Desirability remain independently visible
+    to a caller even when this returns unavailable.
+
+    DESIRABILITY ENTERS ONCE
+    ------------------------
+    D reaches Overall RIP only through Collector Appeal. Chase Appeal (D x M) is
+    deliberately NOT a term here; adding it would apply desirability a second
+    time, and its financial consequence is already measured by Financial RIP
+    V3's upper-tail components.
+    """
+    financial_score = _as_float(financial_rip_v3_score)
+    appeal_score = _as_float(collector_appeal_score)
+
+    w_financial = OVERALL_RIP_V6_WEIGHTS["financial_rip"]
+    w_appeal = OVERALL_RIP_V6_WEIGHTS["collector_appeal"]
+
+    if financial_score is None or appeal_score is None:
+        missing: List[str] = []
+        if financial_score is None:
+            missing.append("financial_rip_v3")
+        if appeal_score is None:
+            missing.append("collector_appeal")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V6_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP V6 needs a valid Financial RIP V3 and a valid "
+                "Collector Appeal score. Missing: " + ", ".join(missing) + ". "
+                "There is no fallback to Overall RIP V5, v4 or V2, to legacy CA7, "
+                "or to Universal Set Desirability."
+            ),
+            "missingInputs": missing,
+            "components": {},
+            "weights": dict(OVERALL_RIP_V6_WEIGHTS),
+            "rankable": False,
+        }
+
+    financial_contribution = w_financial * financial_score
+    appeal_contribution = w_appeal * appeal_score
+    score = max(0.0, min(100.0, financial_contribution + appeal_contribution))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V6_VERSION,
+        "status": "ready",
+        "components": {
+            "financialRipV3": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "collectorAppeal": {
+                "score": round(appeal_score, 4),
+                "weight": round(w_appeal, 6),
+                "contribution": round(appeal_contribution, 4),
+            },
+        },
+        "weights": dict(OVERALL_RIP_V6_WEIGHTS),
+        "effectiveWeights": dict(OVERALL_RIP_V6_EFFECTIVE_WEIGHTS),
+        "formula": "0.80 * financial_rip_v3 + 0.20 * collector_appeal",
         "rankable": True,
     }
 

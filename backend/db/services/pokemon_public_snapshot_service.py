@@ -6177,6 +6177,8 @@ def _empty_insights_critical_payload(
         "financialRipV3": {},
         "overallRipV5": {},
         "publicRipContractV5": {},
+        "overallRipV6": {},
+        "publicRipContractV6": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
         "publicAnalyticsStatus": None,
@@ -6276,6 +6278,19 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV5"), dict)
         else {}
     )
+    # Canonical after the 80/20 cutover. `overallRipV5` above stays published as
+    # the superseded 90/10 blend the comparison surfaces read; these two are the
+    # current Overall RIP and the D/F/P Collector Appeal contract.
+    overall_rip_v6 = (
+        payload_json.get("overallRipV6")
+        if isinstance(payload_json.get("overallRipV6"), dict)
+        else {}
+    )
+    public_rip_contract_v6 = (
+        payload_json.get("publicRipContractV6")
+        if isinstance(payload_json.get("publicRipContractV6"), dict)
+        else {}
+    )
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)
@@ -6322,6 +6337,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "financialRipV3": financial_rip_v3,
         "overallRipV5": overall_rip_v5,
         "publicRipContractV5": public_rip_contract_v5,
+        "overallRipV6": overall_rip_v6,
+        "publicRipContractV6": public_rip_contract_v6,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),
