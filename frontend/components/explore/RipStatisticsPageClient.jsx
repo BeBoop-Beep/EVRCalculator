@@ -77,6 +77,8 @@ import {
 } from "./cardAppealSampleDiagnostics.mjs";
 import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
+import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
+import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
@@ -504,6 +506,14 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     set: normalized?.set || null,
     summary: dualKeyCase(normalized?.summary || {}),
     interpretation: normalized?.interpretation || {},
+    // Canonical Financial RIP V3 / Overall RIP V5, carried through verbatim.
+    // Without these the set page would render the V3 breakdown as permanently
+    // unavailable even when the snapshot carries a complete V3 result.
+    financialRipV3: normalized?.financialRipV3 || null,
+    overallRipV5: normalized?.overallRipV5 || null,
+    publicRipContractV5: normalized?.publicRipContractV5 || null,
+    overallRipV6: normalized?.overallRipV6 || null,
+    publicRipContractV6: normalized?.publicRipContractV6 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -528,6 +538,15 @@ function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
     set: critical?.set || null,
     summary: dualKeyCase(critical?.summary || {}),
     interpretation: critical?.interpretation || {},
+    // The RIP Score Breakdown is a priority-1 surface, so the canonical V3/V5
+    // objects have to arrive in the CRITICAL slice - deferring them to the
+    // secondary fetch would leave the breakdown showing an unavailable state
+    // until the second request settled.
+    financialRipV3: critical?.financialRipV3 || null,
+    overallRipV5: critical?.overallRipV5 || null,
+    publicRipContractV5: critical?.publicRipContractV5 || null,
+    overallRipV6: critical?.overallRipV6 || null,
+    publicRipContractV6: critical?.publicRipContractV6 || null,
   };
 }
 
@@ -1002,7 +1021,7 @@ const SIMPLE_PILLAR_INFO_COPY = {
   "Set Desirability":
     "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and does not receive a separate RIP Score weight of its own.",
   "Collector Appeal":
-    "Collector Appeal (CA7) combines the set's roster desirability with how obtainable its desirable subjects are and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices. It contributes 10% to RIP Score, alongside RIP Core at 90%.",
+    "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices. It contributes 20% to Overall RIP, alongside Financial RIP at 80%.",
   // Legacy key kept only for stale render paths.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
@@ -6680,18 +6699,23 @@ function CompactPillarSignalTile({
 // contract and in the openingExperienceSelector breakdown model, which keeps its
 // own tests for research and diagnostics use.
 
-// The two-level composition under the RIP Score.
+// The two-level composition under the LEGACY Overall RIP v4.
 //
-// RIP Score is NOT a flat four-way blend. It is
+// LEGACY SURFACE. The canonical Overall RIP is now
 //
-//     RIP Score = 90% x RIP Core + 10% x Collector Appeal (CA7)
-//     RIP Core  = 60% Profit + 25% Safety + 15% Stability
+//     Overall RIP = 80% Financial RIP V3 + 20% Collector Appeal
 //
-// so showing Profit 60 / Safety 25 / Stability 15 / Collector Appeal 10 as four
-// peers would total 110% and describe arithmetic no backend performs. The
-// grouping below is that nesting made visible: the three financial pillars sit
-// INSIDE the 90% RIP Core group, and Collector Appeal is a single sibling term
-// at 10%. Every score, weight, rank and contribution is a backend field.
+// and it is rendered by CollectorAppealBreakdown. This block continues to
+// describe the retired v4 model, whose meaning is deliberately unchanged:
+//
+//     Overall RIP v4 = 90% x RIP Core + 10% x legacy CA7
+//     RIP Core       = 60% Profit + 25% Safety + 15% Stability
+//
+// It is kept because v4 is still computed and still published as a legacy
+// comparison. Showing Profit 60 / Safety 25 / Stability 15 / Collector Appeal 10
+// as four peers would total 110% and describe arithmetic no backend performs,
+// so the grouping below keeps that nesting visible. Every score, weight, rank
+// and contribution is a backend field.
 function RipCompositionGroup({ eyebrow, weightLabel, caption, children, tone = "core" }) {
   return (
     <section
@@ -7234,6 +7258,20 @@ function RipScoreBreakdownModule({
   coreWeightLabel = null,
   coreWeightsCaption = null,
   collectorAppeal = null,
+  // Financial RIP V3 (canonical) and the legacy V2 object it is compared
+  // against. Both are passed in from the one resolution the page already
+  // performs, so this module never re-resolves a payload and cannot end up
+  // showing a V3 score from one run beside a V2 score from another.
+  financialRipV3 = null,
+  legacyRip = null,
+  breakdownTrends = {},
+  requestTimeout = false,
+  // The canonical v6 objects: Overall RIP V6 (80/20) and the D/F/P Collector
+  // Appeal. Passed in from the page's single resolution so this module never
+  // re-resolves a payload.
+  publicRipContractV6 = null,
+  overallRipV6 = null,
+  collectorAppealOpeningExperience = null,
 }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   // The one shared RIP tier presentation — the same helper the title-card
@@ -7369,6 +7407,42 @@ function RipScoreBreakdownModule({
           />
         </div>
 
+        {/* The canonical Financial RIP breakdown: six V3 component cards by
+            default, with the retired three-pillar model available as an
+            explicitly-labelled Legacy V2 view.
+
+            Placed ABOVE the composition, not below it. The composition is the
+            last thing in each mode arm by design — it is the 10% Collector
+            Appeal term that closes the Overall RIP story — so appending
+            anything after it would break that reading order. The financial
+            model's own breakdown belongs between the outlook and the
+            composition instead.
+
+            Spacing follows the section's existing rhythm (`mt-4`, no divider):
+            the header/outlook block deliberately dropped its oversized gaps and
+            its border-top, and this must not reintroduce either. */}
+        {/* The canonical Overall RIP composition (80% Financial RIP + 20%
+            Collector Appeal) and the Collector Appeal D/F/P breakdown. Placed
+            ABOVE the six financial component cards because it is the level
+            above them: it says what Overall RIP is made of, and the cards below
+            then open up the financial 80%. */}
+        <div className="mt-4 min-w-0">
+          <CollectorAppealBreakdown
+            publicRipContractV6={publicRipContractV6}
+            overallRipV6={overallRipV6}
+            openingExperience={collectorAppealOpeningExperience}
+          />
+        </div>
+
+        <div className="mt-4 min-w-0">
+          <FinancialRipV3Breakdown
+            financialRipV3={financialRipV3}
+            legacyRip={legacyRip}
+            trends={breakdownTrends}
+            requestTimeout={requestTimeout}
+          />
+        </div>
+
         {showsCollectorAppeal ? (
           // 1200px+ only: the desktop composition is unchanged. Below desktop
           // the compact feed above is the entire presentation, so exactly one
@@ -7461,6 +7535,7 @@ function RipScoreBreakdownModule({
             </div>
           </div>
         )}
+
       </article>
     </section>
   );
@@ -7759,7 +7834,7 @@ function CollectorProfileMobileSummary({ desirability, collectorAppeal }) {
       </div>
       <div className="space-y-1.5 border-t border-[var(--border-subtle)] px-3 py-3 sm:px-4">
         <p className="text-sm font-medium text-[var(--text-primary)]">Set desirability informs Collector Appeal</p>
-        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">Overall RIP = 90% RIP Core + 10% Collector Appeal</p>
+        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">Overall RIP = 80% Financial RIP + 20% Collector Appeal</p>
       </div>
     </div>
   );
@@ -8411,9 +8486,9 @@ function CollectorProfileSection({
             <CollectorProfileArrow />
             <CollectorProfileStage
               label="RIP Score Contribution"
-              value={ripContribution?.weightLabel || "10%"}
+              value={ripContribution?.weightLabel || "20%"}
               meta={ripContribution?.contributionPointsLabel || null}
-              note="RIP Core supplies the other 90%."
+              note="Financial RIP supplies the other 80%."
               muted={!ripContribution?.contributionPointsLabel}
             />
           </div>
@@ -11554,6 +11629,45 @@ export default function RipStatisticsPageClient({
   // `selectRipHeroScoreMode` above resolves it from payload -> target -> summary
   // itself. The local mirror of that read was only ever consumed by the retired
   // RIP construction strip, so it is gone with it.
+  // The canonical Financial RIP V3 contract, resolved with the SAME
+  // payload -> target -> summary precedence as `rip`, so the V3 breakdown and
+  // the legacy V2 comparison can never be reading two different simulation
+  // runs. It is deliberately not defaulted to `ripCore`: an absent V3 renders
+  // as an explicit unavailable state, never as V2 wearing the V3 label.
+  const canonicalFinancialRipV3 = useMemo(
+    () =>
+      explorePayload?.financialRipV3 ||
+      selectedTarget?.financialRipV3 ||
+      summary?.financialRipV3 ||
+      null,
+    [explorePayload?.financialRipV3, selectedTarget?.financialRipV3, summary?.financialRipV3]
+  );
+  // The canonical v6 objects, resolved with the SAME payload -> target ->
+  // summary precedence as `rip` and `financialRipV3`, so the Overall RIP
+  // composition and the Collector Appeal breakdown can never be reading a
+  // different set's bundle. Neither defaults to a legacy object: an absent V6
+  // renders as an explicit unavailable state, never as V5/v4 or legacy CA7
+  // wearing the canonical label.
+  const canonicalOverallRipV6 = useMemo(
+    () =>
+      explorePayload?.overallRipV6 ||
+      selectedTarget?.overallRipV6 ||
+      summary?.overallRipV6 ||
+      null,
+    [explorePayload?.overallRipV6, selectedTarget?.overallRipV6, summary?.overallRipV6]
+  );
+  const canonicalPublicRipContractV6 = useMemo(
+    () =>
+      explorePayload?.publicRipContractV6 ||
+      selectedTarget?.publicRipContractV6 ||
+      summary?.publicRipContractV6 ||
+      null,
+    [
+      explorePayload?.publicRipContractV6,
+      selectedTarget?.publicRipContractV6,
+      summary?.publicRipContractV6,
+    ]
+  );
   const canonicalUniversalSetDesirability = useMemo(
     () =>
       explorePayload?.universalSetDesirability ||
@@ -13065,7 +13179,7 @@ export default function RipStatisticsPageClient({
   // listed the three pillars and desirability in one flat sentence, which
   // invited the 60+25+15+10 = 110% reading; these are not four peers.
   const ripBreakdownInfo = [
-    "RIP Score = 90% RIP Core + 10% Collector Appeal. RIP Core is the financial opening profile: 60% Profit, 25% Safety, 15% Stability.",
+    "Overall RIP = 80% Financial RIP + 20% Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution; Collector Appeal is how desirable the modeled cards are and how often the pack delivers them.",
     "Expanded across the whole score that is Profit 54%, Safety 22.5%, Stability 13.5% and Collector Appeal 10%.",
     ripWeightsText,
   ]
@@ -13124,9 +13238,9 @@ export default function RipStatisticsPageClient({
       metrics: stabilityPillarMetrics,
       infoText: getFormattedTooltip("Stability"),
     },
-    // No fourth pillar. Financial RIP is 60/25/15 over these three. Opening
-    // Desirability (CA7) enters OVERALL RIP as the 10% term (Overall = 90%
-    // Financial + 10% CA7) and keeps its own section - it is not a weighted
+    // No fourth pillar. These three are the LEGACY Financial RIP V2 (60/25/15).
+    // Collector Appeal enters OVERALL RIP as its own term - 20% of the
+    // canonical 80/20 blend - and keeps its own section; it is not a weighted
     // pillar OF Financial RIP. A fourth financial tile here would state a blend
     // the backend does not compute.
   ];
@@ -15904,6 +16018,13 @@ export default function RipStatisticsPageClient({
                     coreWeightLabel={ripCoreWeightLabel}
                     coreWeightsCaption={ripCoreWeightsCaption}
                     collectorAppeal={ripCollectorAppealTerm}
+                    financialRipV3={canonicalFinancialRipV3}
+                    legacyRip={canonicalRip}
+                    breakdownTrends={trendByMetricKey}
+                    requestTimeout={isTimeoutFallbackPayload}
+                    publicRipContractV6={canonicalPublicRipContractV6}
+                    overallRipV6={canonicalOverallRipV6}
+                    collectorAppealOpeningExperience={canonicalOpeningExperience}
                   />
                 </SectionErrorBoundary>
                 </div>

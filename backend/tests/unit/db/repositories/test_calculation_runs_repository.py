@@ -24,6 +24,25 @@ _NULL_DESIRABILITY_FIELDS = {
 }
 
 
+def _expected_insert_payload(run_id, **overrides):
+    """The full expected insert payload: every declared column, NULL by default.
+
+    Derived from DERIVED_METRIC_FIELDS rather than spelled out. These tests used
+    to assert against a hand-written literal of ~44 keys, which was a THIRD copy
+    of the column contract (after the writer's literal and the field list) - and
+    because it matched the writer's incomplete literal exactly, it passed while
+    `top2_ev_share` and all 30 Financial RIP V3 columns were being dropped from
+    every insert. A test that restates the same omission cannot detect it.
+
+    Building the expectation from the authoritative list means a newly declared
+    column is automatically expected here, so the omission has nowhere to hide.
+    """
+    expected = {field: None for field in DERIVED_METRIC_FIELDS}
+    expected["calculation_run_id"] = run_id
+    expected.update(overrides)
+    return expected
+
+
 @pytest.mark.parametrize(
     "label,expected",
     [
@@ -118,44 +137,21 @@ def test_create_simulation_derived_metrics_persists_placeholder_with_null_scores
 
     assert rows == [{"id": "derived-1"}]
     inserted_payload = mock_insert_required_payload.call_args.args[1]
-    assert inserted_payload == {
-        "calculation_run_id": "run-1",
-        "simulated_set_value": None,
-        "simulated_set_value_card_count": None,
-        "average_hit_value": None,
-        "hit_ev_per_pack": None,
-        "hit_pull_rate": None,
-        "hit_cards_pulled": None,
-        "hit_ev": 6.16,
-        "non_hit_ev": 1.02,
-        "hit_ev_share": 0.858,
-        "hit_cards_tracked": 208,
-        "cards_tracked": 600,
-        "total_card_ev": 7.18,
-        "top1_ev_share": 0.22,
-        "top3_ev_share": 0.47,
-        "top5_ev_share": 0.63,
-        "hhi_ev_concentration": None,
-        "effective_chase_count": None,
-        "pack_score": None,
-        "profit_score": None,
-        "safety_score": None,
-        **_NULL_DESIRABILITY_FIELDS,
-        "stability_score": None,
-        "p95_value_to_cost_ratio": None,
-        "p99_value_to_cost_ratio": None,
-        "mean_value_to_cost_ratio": None,
-        "expected_loss_when_losing_fraction": None,
-        "p05_shortfall_to_cost": None,
-        "score_version": "pack_score_v1_singleton_placeholder",
-        "normalization_mode": "singleton_placeholder",
-        "pack_score_is_placeholder": True,
-        "chase_potential_score": None,
-        "experience_score": None,
-        "chase_potential_tier": None,
-        "experience_tier": None,
-        "derived_metric_version": None,
-    }
+    assert inserted_payload == _expected_insert_payload(
+        "run-1",
+        hit_ev=6.16,
+        non_hit_ev=1.02,
+        hit_ev_share=0.858,
+        hit_cards_tracked=208,
+        cards_tracked=600,
+        total_card_ev=7.18,
+        top1_ev_share=0.22,
+        top3_ev_share=0.47,
+        top5_ev_share=0.63,
+        score_version="pack_score_v1_singleton_placeholder",
+        normalization_mode="singleton_placeholder",
+        pack_score_is_placeholder=True,
+    )
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -166,44 +162,9 @@ def test_create_simulation_derived_metrics_allows_missing_composite_fields(mock_
 
     assert rows == [{"id": "derived-1"}]
     inserted_payload = mock_insert_required_payload.call_args.args[1]
-    assert inserted_payload == {
-        "calculation_run_id": "run-1",
-        "simulated_set_value": None,
-        "simulated_set_value_card_count": None,
-        "average_hit_value": None,
-        "hit_ev_per_pack": None,
-        "hit_pull_rate": None,
-        "hit_cards_pulled": None,
-        "hit_ev": None,
-        "non_hit_ev": None,
-        "hit_ev_share": None,
-        "hit_cards_tracked": None,
-        "cards_tracked": None,
-        "total_card_ev": None,
-        "top1_ev_share": None,
-        "top3_ev_share": None,
-        "top5_ev_share": None,
-        "hhi_ev_concentration": None,
-        "effective_chase_count": None,
-        "pack_score": None,
-        "profit_score": None,
-        "safety_score": None,
-        **_NULL_DESIRABILITY_FIELDS,
-        "stability_score": None,
-        "p95_value_to_cost_ratio": None,
-        "p99_value_to_cost_ratio": None,
-        "mean_value_to_cost_ratio": None,
-        "expected_loss_when_losing_fraction": None,
-        "p05_shortfall_to_cost": None,
-        "score_version": None,
-        "normalization_mode": None,
-        "pack_score_is_placeholder": None,
-        "chase_potential_score": None,
-        "experience_score": None,
-        "chase_potential_tier": None,
-        "experience_tier": None,
-        "derived_metric_version": None,
-    }
+    # An empty derived payload writes every declared column as NULL - including
+    # the V3 block, which is the correct behaviour for a legacy caller.
+    assert inserted_payload == _expected_insert_payload("run-1")
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -297,50 +258,32 @@ def test_create_simulation_derived_metrics_persists_real_scores_when_present(moc
 
     assert rows == [{"id": "derived-1"}]
     inserted_payload = mock_insert_required_payload.call_args.args[1]
-    assert inserted_payload == {
-        "calculation_run_id": "run-1",
-        "simulated_set_value": None,
-        "simulated_set_value_card_count": None,
-        "average_hit_value": None,
-        "hit_ev_per_pack": None,
-        "hit_pull_rate": None,
-        "hit_cards_pulled": None,
-        "hit_ev": 6.16,
-        "non_hit_ev": 1.02,
-        "hit_ev_share": 0.858,
-        "hit_cards_tracked": 208,
-        "cards_tracked": 600,
-        "total_card_ev": 7.18,
-        "top1_ev_share": 0.22,
-        "top3_ev_share": 0.47,
-        "top5_ev_share": 0.63,
-        "hhi_ev_concentration": None,
-        "effective_chase_count": None,
-        "pack_score": 72.4,
-        "profit_score": 71.0,
-        "safety_score": 37.0,
-        "desirability_score": 88.5,
-        "desirability_scoring_version": "pokemon_set_hit_desirability_v1",
-        "desirability_source_summary_id": "11111111-1111-1111-1111-111111111111",
-        "desirability_source_table": "pokemon_set_hit_desirability_summaries",
-        "desirability_source_metric": "weighted_average_hit_desirability_score",
-        "desirability_is_fallback": False,
-        "desirability_fallback_reason": None,
-        "stability_score": 65.0,
-        "p95_value_to_cost_ratio": 1.91,
-        "p99_value_to_cost_ratio": None,
-        "mean_value_to_cost_ratio": None,
-        "expected_loss_when_losing_fraction": None,
-        "p05_shortfall_to_cost": None,
-        "score_version": "pack_score_v1",
-        "normalization_mode": "cross_set_minmax",
-        "pack_score_is_placeholder": False,
-        "chase_potential_score": None,
-        "experience_score": None,
-        "chase_potential_tier": None,
-        "experience_tier": None,
-        "derived_metric_version": None,
-    }
+    assert inserted_payload == _expected_insert_payload(
+        "run-1",
+        hit_ev=6.16,
+        non_hit_ev=1.02,
+        hit_ev_share=0.858,
+        hit_cards_tracked=208,
+        cards_tracked=600,
+        total_card_ev=7.18,
+        top1_ev_share=0.22,
+        top3_ev_share=0.47,
+        top5_ev_share=0.63,
+        pack_score=72.4,
+        profit_score=71.0,
+        safety_score=37.0,
+        desirability_score=88.5,
+        desirability_scoring_version="pokemon_set_hit_desirability_v1",
+        desirability_source_summary_id="11111111-1111-1111-1111-111111111111",
+        desirability_source_table="pokemon_set_hit_desirability_summaries",
+        desirability_source_metric="weighted_average_hit_desirability_score",
+        desirability_is_fallback=False,
+        stability_score=65.0,
+        p95_value_to_cost_ratio=1.91,
+        score_version="pack_score_v1",
+        normalization_mode="cross_set_minmax",
+        pack_score_is_placeholder=False,
+    )
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")
@@ -372,44 +315,19 @@ def test_create_simulation_derived_metrics_persists_only_composite_stage1_fields
 
     assert rows == [{"id": "derived-1"}]
     inserted_payload = mock_insert_required_payload.call_args.args[1]
-    assert inserted_payload == {
-        "calculation_run_id": "run-1",
-        "simulated_set_value": None,
-        "simulated_set_value_card_count": None,
-        "average_hit_value": None,
-        "hit_ev_per_pack": None,
-        "hit_pull_rate": None,
-        "hit_cards_pulled": None,
-        "hit_ev": None,
-        "non_hit_ev": None,
-        "hit_ev_share": None,
-        "hit_cards_tracked": None,
-        "cards_tracked": None,
-        "total_card_ev": None,
-        "top1_ev_share": None,
-        "top3_ev_share": None,
-        "top5_ev_share": None,
-        "hhi_ev_concentration": None,
-        "effective_chase_count": None,
-        "pack_score": 72.4,
-        "profit_score": 71.0,
-        "safety_score": 37.0,
-        **_NULL_DESIRABILITY_FIELDS,
-        "stability_score": 65.0,
-        "p95_value_to_cost_ratio": 1.91,
-        "p99_value_to_cost_ratio": None,
-        "mean_value_to_cost_ratio": None,
-        "expected_loss_when_losing_fraction": None,
-        "p05_shortfall_to_cost": None,
-        "score_version": None,
-        "normalization_mode": None,
-        "pack_score_is_placeholder": None,
-        "chase_potential_score": 64.0,
-        "experience_score": 59.0,
-        "chase_potential_tier": None,
-        "experience_tier": None,
-        "derived_metric_version": "derived_intelligence_v1",
-    }
+    # Stage-1 composite inputs (pack_affordability_score, big_hit_*, chase_depth,
+    # relative_*) are NOT columns on this table and must not reach the insert.
+    assert inserted_payload == _expected_insert_payload(
+        "run-1",
+        pack_score=72.4,
+        profit_score=71.0,
+        safety_score=37.0,
+        stability_score=65.0,
+        p95_value_to_cost_ratio=1.91,
+        chase_potential_score=64.0,
+        experience_score=59.0,
+        derived_metric_version="derived_intelligence_v1",
+    )
 
 
 @patch("backend.db.repositories.calculation_runs_repository._insert_required_payload")

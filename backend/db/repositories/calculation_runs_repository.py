@@ -9,6 +9,50 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.db.clients.supabase_client import supabase
 
 
+# Financial RIP V3 columns on `simulation_derived_metrics` (migration 060).
+#
+# Declared as ONE list that both the insert payload builder and the select
+# contract read, so the two cannot drift: a column added here is written and read
+# in the same change. The scalar columns are a projection of
+# `financial_rip_v3_payload`; that JSONB document remains the source of truth for
+# anything not listed here (sub-scores, normalization records, tail selection).
+#
+# Deliberately separate from the V2 block below: nothing in this list overwrites,
+# renames or changes the meaning of a V2 field.
+FINANCIAL_RIP_V3_METRIC_FIELDS: List[str] = [
+    "financial_rip_v3_score",
+    "financial_rip_v3_score_version",
+    "financial_rip_v3_normalization_version",
+    "financial_rip_v3_status",
+    "financial_rip_v3_rankable",
+    "financial_rip_v3_simulation_count",
+    "financial_rip_v3_true_win_frequency_score",
+    "financial_rip_v3_typical_retention_score",
+    "financial_rip_v3_loss_resilience_score",
+    "financial_rip_v3_realistic_upside_score",
+    "financial_rip_v3_jackpot_upside_score",
+    "financial_rip_v3_base_economic_efficiency_score",
+    "financial_rip_v3_true_win_probability",
+    "financial_rip_v3_typical_pack_value",
+    "financial_rip_v3_typical_retention_ratio",
+    "financial_rip_v3_average_retention_given_loss",
+    "financial_rip_v3_soft_loss_share_given_loss",
+    "financial_rip_v3_hard_loss_probability",
+    "financial_rip_v3_p95_threshold_value",
+    "financial_rip_v3_p95_threshold_ratio",
+    "financial_rip_v3_realistic_tail_mean_value",
+    "financial_rip_v3_realistic_tail_mean_ratio",
+    "financial_rip_v3_p99_threshold_value",
+    "financial_rip_v3_p99_threshold_ratio",
+    "financial_rip_v3_jackpot_tail_mean_value",
+    "financial_rip_v3_jackpot_tail_mean_ratio",
+    "financial_rip_v3_total_rtp_ratio",
+    "financial_rip_v3_base_rtp_excluding_top_1pct",
+    "financial_rip_v3_jackpot_value_share",
+    "financial_rip_v3_payload",
+]
+
+
 DERIVED_METRIC_FIELDS: List[str] = [
     "simulated_set_value",
     "simulated_set_value_card_count",
@@ -23,6 +67,9 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "cards_tracked",
     "total_card_ev",
     "top1_ev_share",
+    # Additive: Depth and Robustness needs the top-2 share to distinguish a
+    # one-card set from a two-card set. Unweighted diagnostic only.
+    "top2_ev_share",
     "top3_ev_share",
     "top5_ev_share",
     "hhi_ev_concentration",
@@ -51,6 +98,7 @@ DERIVED_METRIC_FIELDS: List[str] = [
     "chase_potential_tier",
     "experience_tier",
     "derived_metric_version",
+    *FINANCIAL_RIP_V3_METRIC_FIELDS,
 ]
 
 COMPARISON_METRIC_FIELDS: List[str] = [
@@ -70,6 +118,205 @@ ETB_COMPARISON_METRIC_FIELDS = {
     "simulated_median_etb_value_vs_etb_cost",
     "calculated_expected_etb_value_vs_etb_cost",
 }
+
+
+# Scalar coercers. Defined here, above the coercion table that references them,
+# because that table is evaluated at import time.
+
+
+def _coerce_optional_float(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_optional_int(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_optional_bool(value: Any) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    return None
+
+
+def _coerce_optional_str(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text if text else None
+
+
+# Per-column coercion for the `simulation_derived_metrics` insert.
+#
+# WHY A TABLE INSTEAD OF A DICT LITERAL IN THE WRITER
+# ---------------------------------------------------
+# The writer used to spell out its own payload, which made it a SECOND field
+# contract alongside DERIVED_METRIC_FIELDS - and the two silently diverged. The
+# writer's literal omitted `top2_ev_share` and all 30 Financial RIP V3 columns,
+# so every insert succeeded while those columns stayed NULL. Postgres does not
+# complain about an unmentioned nullable column, so nothing surfaced the loss.
+#
+# Here the FIELD LIST and the COERCION RULES are separate concerns joined by an
+# exhaustiveness check (`_audit_derived_metric_coercions`, run at import). The
+# writer iterates DERIVED_METRIC_FIELDS and can no longer hold an opinion about
+# which fields exist.
+#
+# Types mirror migration 060 and the V2 columns that preceded it. They are
+# deliberately explicit rather than inferred from the incoming value: inferring
+# would let a stringified number land in a NUMERIC column, or a JSON string in a
+# JSONB one, depending on what an upstream caller happened to pass.
+_FLOAT_DERIVED_FIELDS = frozenset(
+    {
+        "simulated_set_value", "average_hit_value", "hit_ev_per_pack", "hit_pull_rate",
+        "hit_ev", "non_hit_ev", "hit_ev_share", "total_card_ev",
+        "top1_ev_share", "top2_ev_share", "top3_ev_share", "top5_ev_share",
+        "hhi_ev_concentration", "effective_chase_count",
+        "pack_score", "profit_score", "safety_score", "desirability_score",
+        "stability_score",
+        "p95_value_to_cost_ratio", "p99_value_to_cost_ratio", "mean_value_to_cost_ratio",
+        "expected_loss_when_losing_fraction", "p05_shortfall_to_cost",
+        "chase_potential_score", "experience_score",
+        # --- Financial RIP V3 numerics (migration 060) ---
+        "financial_rip_v3_score",
+        "financial_rip_v3_true_win_frequency_score",
+        "financial_rip_v3_typical_retention_score",
+        "financial_rip_v3_loss_resilience_score",
+        "financial_rip_v3_realistic_upside_score",
+        "financial_rip_v3_jackpot_upside_score",
+        "financial_rip_v3_base_economic_efficiency_score",
+        "financial_rip_v3_true_win_probability",
+        "financial_rip_v3_typical_pack_value",
+        "financial_rip_v3_typical_retention_ratio",
+        "financial_rip_v3_average_retention_given_loss",
+        "financial_rip_v3_soft_loss_share_given_loss",
+        "financial_rip_v3_hard_loss_probability",
+        "financial_rip_v3_p95_threshold_value",
+        "financial_rip_v3_p95_threshold_ratio",
+        "financial_rip_v3_realistic_tail_mean_value",
+        "financial_rip_v3_realistic_tail_mean_ratio",
+        "financial_rip_v3_p99_threshold_value",
+        "financial_rip_v3_p99_threshold_ratio",
+        "financial_rip_v3_jackpot_tail_mean_value",
+        "financial_rip_v3_jackpot_tail_mean_ratio",
+        "financial_rip_v3_total_rtp_ratio",
+        "financial_rip_v3_base_rtp_excluding_top_1pct",
+        "financial_rip_v3_jackpot_value_share",
+    }
+)
+
+_INT_DERIVED_FIELDS = frozenset(
+    {
+        "simulated_set_value_card_count", "hit_cards_pulled", "hit_cards_tracked",
+        "cards_tracked",
+        "financial_rip_v3_simulation_count",
+    }
+)
+
+_BOOL_DERIVED_FIELDS = frozenset(
+    {
+        "desirability_is_fallback", "pack_score_is_placeholder",
+        "financial_rip_v3_rankable",
+    }
+)
+
+# JSONB. Passed through as a mapping so the client serializes it as JSON.
+# `_coerce_optional_str` would stringify it into a TEXT-looking value and the
+# column would hold a JSON *string* rather than a JSON *document*, breaking every
+# `->>` read against it.
+_JSONB_DERIVED_FIELDS = frozenset({"financial_rip_v3_payload"})
+
+
+def _coerce_optional_jsonb(value: Any) -> Optional[Any]:
+    """Preserve a JSONB document as a mapping/list. Never stringify it.
+
+    Returns None for an empty document as well as a missing one: an empty JSONB
+    object would claim "a V3 payload was recorded and it was empty", which is a
+    different and false statement about a run that produced no V3 result.
+    """
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        return dict(value) if value else None
+    if isinstance(value, (list, tuple)):
+        return list(value) if value else None
+    # A caller that already serialized the document hands us a JSON string.
+    # Parse it back so the column receives a document either way; if it is not
+    # valid JSON it is not a JSONB value and storing it would corrupt the column.
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+_DERIVED_METRIC_COERCIONS: Dict[str, Any] = {
+    **{field: _coerce_optional_float for field in _FLOAT_DERIVED_FIELDS},
+    **{field: _coerce_optional_int for field in _INT_DERIVED_FIELDS},
+    **{field: _coerce_optional_bool for field in _BOOL_DERIVED_FIELDS},
+    **{field: _coerce_optional_jsonb for field in _JSONB_DERIVED_FIELDS},
+    # Everything else on this table is text.
+    **{
+        field: _coerce_optional_str
+        for field in (
+            "desirability_scoring_version", "desirability_source_summary_id",
+            "desirability_source_table", "desirability_source_metric",
+            "desirability_fallback_reason", "score_version", "normalization_mode",
+            "chase_potential_tier", "experience_tier", "derived_metric_version",
+            "financial_rip_v3_score_version",
+            "financial_rip_v3_normalization_version",
+            "financial_rip_v3_status",
+        )
+    },
+}
+
+
+def _audit_derived_metric_coercions() -> None:
+    """Every declared column must have exactly one coercion rule.
+
+    This is the guard that makes the field list authoritative. Adding a column to
+    DERIVED_METRIC_FIELDS (or to FINANCIAL_RIP_V3_METRIC_FIELDS, which it splats)
+    without a coercion rule raises HERE, at import, instead of producing inserts
+    that quietly omit it - which is exactly how 30 V3 columns stayed NULL.
+
+    The reverse direction is checked too: a coercion rule for a column that is not
+    in the list means the list lost a field, or the rule names a column that does
+    not exist. Both are drift, and drift in either direction is the defect.
+    """
+    declared = set(DERIVED_METRIC_FIELDS)
+    covered = set(_DERIVED_METRIC_COERCIONS)
+
+    missing = declared - covered
+    if missing:
+        raise ValueError(
+            "Columns in DERIVED_METRIC_FIELDS have no insert coercion rule and "
+            "would be silently omitted from every insert: " + ", ".join(sorted(missing))
+        )
+
+    extra = covered - declared
+    if extra:
+        raise ValueError(
+            "Insert coercion rules exist for columns absent from "
+            "DERIVED_METRIC_FIELDS: " + ", ".join(sorted(extra))
+        )
+
+    if len(DERIVED_METRIC_FIELDS) != len(declared):
+        raise ValueError("DERIVED_METRIC_FIELDS contains duplicate column names.")
+
+
+_audit_derived_metric_coercions()
 
 
 def _to_jsonable(value: Any) -> Any:
@@ -371,30 +618,6 @@ def create_calculation_price_snapshot(
     return inserted
 
 
-def _coerce_optional_float(value: Any) -> Optional[float]:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_optional_int(value: Any) -> Optional[int]:
-    if value is None or value == "":
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _coerce_optional_bool(value: Any) -> Optional[bool]:
-    if isinstance(value, bool):
-        return value
-    return None
-
-
 def _parse_percentile_rank(label: str) -> Optional[float]:
     normalized = (label or "").strip().lower()
     if not normalized:
@@ -690,56 +913,40 @@ def create_simulation_value_threshold_bins(
 
 
 def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """Persist one derived-metrics row per run."""
+    """Persist one derived-metrics row per run.
+
+    The insert payload is built by iterating :data:`DERIVED_METRIC_FIELDS` - the
+    SAME list the select contract reads - rather than from a hand-written dict
+    literal.
+
+    WHY THIS IS NOT A LITERAL ANY MORE
+    ----------------------------------
+    It used to be one, and the literal silently omitted ``top2_ev_share`` and
+    every column in :data:`FINANCIAL_RIP_V3_METRIC_FIELDS`. Because Postgres
+    accepts an insert that simply does not mention a nullable column, the write
+    SUCCEEDED and left 30 Financial RIP V3 columns NULL on every row - a failure
+    with no error, no log line, and no failing test, discovered only by querying
+    the table. Migration 060 was applied, the engine computed V3 correctly, and
+    the service projected it correctly; the payload was dropped at the last step.
+
+    A second, incomplete field contract is what made that possible, so the fix is
+    not "add the missing keys" - that would restore the same hazard with a longer
+    list. Fields now come from one authoritative source, and
+    :data:`_DERIVED_METRIC_COERCIONS` must cover it exhaustively (asserted at
+    import). Adding a column to ``DERIVED_METRIC_FIELDS`` without giving it a
+    coercion rule fails at import time instead of writing NULL forever.
+
+    A field absent from *derived* is written as NULL, which is how a legacy
+    caller that never computed V3 still persists correctly.
+    """
     if not isinstance(derived, Mapping):
         raise ValueError("Missing required field: derived")
 
-    payload = {
+    payload: Dict[str, Any] = {
         "calculation_run_id": _require_present(run_id, "calculation_run_id"),
-        "simulated_set_value": _coerce_optional_float(derived.get("simulated_set_value")),
-        "simulated_set_value_card_count": _coerce_optional_int(derived.get("simulated_set_value_card_count")),
-        "average_hit_value": _coerce_optional_float(derived.get("average_hit_value")),
-        "hit_ev_per_pack": _coerce_optional_float(derived.get("hit_ev_per_pack")),
-        "hit_pull_rate": _coerce_optional_float(derived.get("hit_pull_rate")),
-        "hit_cards_pulled": _coerce_optional_int(derived.get("hit_cards_pulled")),
-        "hit_ev": _coerce_optional_float(derived.get("hit_ev")),
-        "non_hit_ev": _coerce_optional_float(derived.get("non_hit_ev")),
-        "hit_ev_share": _coerce_optional_float(derived.get("hit_ev_share")),
-        "hit_cards_tracked": _coerce_optional_int(derived.get("hit_cards_tracked")),
-        "cards_tracked": _coerce_optional_int(derived.get("cards_tracked")),
-        "total_card_ev": _coerce_optional_float(derived.get("total_card_ev")),
-        "top1_ev_share": _coerce_optional_float(derived.get("top1_ev_share")),
-        "top3_ev_share": _coerce_optional_float(derived.get("top3_ev_share")),
-        "top5_ev_share": _coerce_optional_float(derived.get("top5_ev_share")),
-        "hhi_ev_concentration": _coerce_optional_float(derived.get("hhi_ev_concentration")),
-        "effective_chase_count": _coerce_optional_float(derived.get("effective_chase_count")),
-        "pack_score": _coerce_optional_float(derived.get("pack_score")),
-        "profit_score": _coerce_optional_float(derived.get("profit_score")),
-        "safety_score": _coerce_optional_float(derived.get("safety_score")),
-        "desirability_score": _coerce_optional_float(derived.get("desirability_score")),
-        "stability_score": _coerce_optional_float(derived.get("stability_score")),
-        "desirability_scoring_version": _coerce_optional_str(derived.get("desirability_scoring_version")),
-        "desirability_source_summary_id": _coerce_optional_str(derived.get("desirability_source_summary_id")),
-        "desirability_source_table": _coerce_optional_str(derived.get("desirability_source_table")),
-        "desirability_source_metric": _coerce_optional_str(derived.get("desirability_source_metric")),
-        "desirability_is_fallback": _coerce_optional_bool(derived.get("desirability_is_fallback")),
-        "desirability_fallback_reason": _coerce_optional_str(derived.get("desirability_fallback_reason")),
-        "p95_value_to_cost_ratio": _coerce_optional_float(derived.get("p95_value_to_cost_ratio")),
-        "p99_value_to_cost_ratio": _coerce_optional_float(derived.get("p99_value_to_cost_ratio")),
-        "mean_value_to_cost_ratio": _coerce_optional_float(derived.get("mean_value_to_cost_ratio")),
-        "expected_loss_when_losing_fraction": _coerce_optional_float(
-            derived.get("expected_loss_when_losing_fraction")
-        ),
-        "p05_shortfall_to_cost": _coerce_optional_float(derived.get("p05_shortfall_to_cost")),
-        "score_version": _coerce_optional_str(derived.get("score_version")),
-        "normalization_mode": _coerce_optional_str(derived.get("normalization_mode")),
-        "pack_score_is_placeholder": _coerce_optional_bool(derived.get("pack_score_is_placeholder")),
-        "chase_potential_score": _coerce_optional_float(derived.get("chase_potential_score")),
-        "experience_score": _coerce_optional_float(derived.get("experience_score")),
-        "chase_potential_tier": _coerce_optional_str(derived.get("chase_potential_tier")),
-        "experience_tier": _coerce_optional_str(derived.get("experience_tier")),
-        "derived_metric_version": _coerce_optional_str(derived.get("derived_metric_version")),
     }
+    for field in DERIVED_METRIC_FIELDS:
+        payload[field] = _DERIVED_METRIC_COERCIONS[field](derived.get(field))
 
     inserted = _insert_required_payload(
         "simulation_derived_metrics",
@@ -747,13 +954,6 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "Simulation derived metrics insert",
     )
     return [inserted]
-
-
-def _coerce_optional_str(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text if text else None
 
 
 def map_simulation_input_cards_rows(run_id: Any, input_cards_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

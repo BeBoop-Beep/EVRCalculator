@@ -30,9 +30,17 @@ from backend.desirability.public_analytics_policy import (
     HIDDEN_PENDING_VALIDATION,
     SWORD_AND_SHIELD_ERA_ID,
 )
+from backend.calculations.evr.financial_rip_v3_config import (
+    FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+    FINANCIAL_RIP_V3_VERSION,
+    FINANCIAL_RIP_V3_WEIGHTS,
+)
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
 from backend.desirability.scoring_config import (
     FINANCIAL_RIP_WEIGHTS,
     OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_V7_VERSION,
+    OVERALL_RIP_V7_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
 )
 
@@ -74,17 +82,71 @@ HIDDEN = [
 ]
 
 
-def _collector_payload(name, ca7_x100):
+def _collector_payload(name, appeal_x100):
+    """The Collector Appeal service's per-set shape, on the CANONICAL version.
+
+    ``legacyCollectorAppealCA7`` is carried alongside, exactly as the service
+    emits it, because the superseded v4/V5 blends read it and the mismatch audit
+    resolves versions from it.
+    """
     return {
         "setId": name,
         "setName": name,
         "status": "available",
         "asOf": "2026-07-16T00:00:00Z",
         "dualPathDepth": {"rawValue": 0.27143, "displayPercent": 27.1, "version": "dual_path_depth_v1"},
-        "collectorAppeal": {"score": ca7_x100, "rawValue": ca7_x100 / 100.0, "version": "collector_appeal_ca7_v1"},
+        "desirableOutcomeFrequency": {"rawValue": 0.31, "displayPercent": 31.0},
+        "collectorAppeal": {
+            "score": appeal_x100,
+            "rawValue": appeal_x100 / 100.0,
+            "version": COLLECTOR_APPEAL_V3_VERSION,
+            "factors": {
+                "rosterDesirability": appeal_x100 / 100.0,
+                "desirableOutcomeFrequency": 0.31,
+                "dualPathDepth": 0.27143,
+            },
+            "missingInputs": [],
+        },
+        "legacyCollectorAppealV2": {
+            "score": appeal_x100,
+            "rawValue": appeal_x100 / 100.0,
+            "version": "collector_appeal_v2_desirable_frequency_dual_path",
+        },
+        "legacyCollectorAppealCA7": {
+            "score": appeal_x100,
+            "rawValue": appeal_x100 / 100.0,
+            "version": "collector_appeal_ca7_v1",
+        },
         "chaseAppeal": {"score": 70.0, "rawValue": 0.70, "version": "chase_appeal_ca2_v1"},
         "topSubjects": [],
         "coverage": {"status": "available", "reasons": []},
+    }
+
+
+def _financial_v3_payload(score):
+    """A minimal VALID persisted Financial RIP V3 payload scoring ``score``.
+
+    Every component carries the same score, so the weighted sum is exactly
+    ``score`` and the contributions reconstruct it. Built through the real
+    weights table rather than hand-written numbers, so the payload cannot drift
+    out of validity if a weight ever moves.
+    """
+    return {
+        "scoreVersion": FINANCIAL_RIP_V3_VERSION,
+        "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+        "status": "ready",
+        "rankable": True,
+        "score": score,
+        "components": {
+            key: {
+                "score": score,
+                "weight": weight,
+                "contribution": score * weight,
+                "available": True,
+                "raw": {"stub_metric": 1.0},
+            }
+            for key, weight in FINANCIAL_RIP_V3_WEIGHTS.items()
+        },
     }
 
 
@@ -135,6 +197,11 @@ def _build_scenario():
                 "profit_score": profit,
                 "safety_score": safety,
                 "stability_score": stability,
+                # The canonical financial input. Without it there is no Overall
+                # RIP V7, and the cohort audit correctly reports the set out of
+                # the Overall denominator.
+                "financial_rip_v3_payload": _financial_v3_payload(profit),
+                "calculation_run_id": f"run-{name}",
                 "universalSetDesirability": _universal(usd),
                 # Legacy fields present, and deliberately inconsistent with the
                 # canonical ones so a test can prove nothing reads them.
@@ -440,19 +507,50 @@ def test_overall_and_financial_carry_distinct_absolute_and_relative_scores(targe
     assert ascended["ripCore"]["score"] != ascended["ripCore"]["relativeScore"]
 
 
-def test_overall_ranked_cohort_is_ca7_complete_when_all_21_have_ca7(targets):
+def test_overall_ranked_cohort_is_complete_when_all_21_have_collector_appeal(targets):
+    """The audit keys on the CANONICAL Overall RIP V7, not on the legacy v4 object.
+
+    Auditing v4 would certify the cohort of a model nobody publishes any more: a
+    set can hold a v4 score off the V2 pillars and legacy CA7 while carrying no
+    canonical V7 score at all, and the denominator would count it.
+    """
     cohort, warnings = _attach(targets)
     audit = cohort["overallRanked"]
     assert audit["status"] == "overall_ranked_ok"
     assert audit["rankedSetCount"] == 21
-    assert audit["missingCa7Count"] == 0
-    assert audit["ca7Version"] == "collector_appeal_ca7_v1"
+    assert audit["missingAppealCount"] == 0
+    assert audit["appealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert audit["expectedAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert audit["appealVersionMatchesCanonical"] is True
+    assert audit["expectedOverallRipVersion"] == OVERALL_RIP_V7_VERSION
     assert audit["publishable"] is True
 
 
-def test_eligible_set_without_ca7_is_flagged_out_of_overall_ranking(monkeypatch):
+def test_overall_rip_v7_is_financial_v3_90_plus_collector_appeal_10(targets):
+    _attach(targets)
+    row = _row(targets, "Ascended Heroes")
+    v7 = row["overallRipV7"]
+    expected = (
+        OVERALL_RIP_V7_WEIGHTS["financial_rip"] * 90.0
+        + OVERALL_RIP_V7_WEIGHTS["collector_appeal"] * 96.0942
+    )
+    assert v7["score"] == pytest.approx(expected, abs=1e-3)
+    assert v7["version"] == OVERALL_RIP_V7_VERSION
+    assert v7["rank"] is not None
+    assert v7["cohortSize"] == 21
+    assert v7["components"]["financialRipV3"]["weight"] == pytest.approx(0.90)
+    assert v7["components"]["collectorAppeal"]["weight"] == pytest.approx(0.10)
+
+
+def test_v7_ranks_run_1_to_21_with_no_gaps(targets):
+    _attach(targets)
+    ranks = sorted(row["overallRipV7"]["rank"] for row in targets if row["name"] in READY)
+    assert ranks == list(range(1, 22))
+
+
+def test_eligible_set_without_collector_appeal_is_flagged_out_of_overall_ranking(monkeypatch):
     rows, payloads = _build_scenario()
-    # Chaos Rising is analytics_ready but loses its pull model -> no CA7.
+    # Chaos Rising is analytics_ready but loses its pull model -> no appeal.
     payloads["Chaos Rising"] = _unavailable_payload("Chaos Rising")
     monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
 
@@ -460,28 +558,76 @@ def test_eligible_set_without_ca7_is_flagged_out_of_overall_ranking(monkeypatch)
     audit = cohort["overallRanked"]
     assert audit["status"] == "overall_ranked_incomplete_missing_ca7"
     assert audit["rankedSetCount"] == 20
-    assert "Chaos Rising" in audit["missingCa7SetIds"]
+    assert "Chaos Rising" in audit["missingAppealSetIds"]
     assert any("excluded from the Overall RIP ranking" in w for w in warnings)
 
     chaos = _row(rows, "Chaos Rising")
-    # No Overall RIP, but Financial RIP and Universal Set Desirability survive.
-    assert chaos["rip"]["score"] is None
+    # No Overall RIP - and crucially the appeal is NOT treated as zero, which
+    # would have ranked the set last on a construct it was never measured on.
+    assert chaos["overallRipV7"]["score"] is None
+    assert "collector_appeal_v3" in chaos["overallRipV7"]["missingInputs"]
+    # Financial RIP and Universal Set Desirability survive.
+    assert chaos["financialRipV3"]["score"] is not None
     assert chaos["ripCore"]["score"] is not None
     assert (chaos["universalSetDesirability"] or {}).get("score") is not None
 
 
-def test_mixed_ca7_versions_fail_closed(monkeypatch):
+def test_a_superseded_collector_appeal_version_is_never_fed_into_v7(monkeypatch):
+    """A cached pre-cutover bundle must not reach Overall RIP V7 under a V7 label.
+
+    The 6-hour in-process appeal cache makes this a real first-request-after-
+    deploy scenario, not a hypothetical one, which is why the resolver checks the
+    DECLARED version instead of reading the score positionally.
+    """
     rows, payloads = _build_scenario()
-    # One ranked set computed under a different CA7 formula version.
+    for name in READY:
+        payloads[name]["collectorAppeal"]["version"] = (
+            "collector_appeal_v2_desirable_frequency_dual_path"
+        )
+    monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
+
+    cohort, warnings = _attach(rows)
+    assert cohort["overallRanked"]["rankedSetCount"] == 0
+    for row in (r for r in rows if r["name"] in READY):
+        assert row["overallRipV7"]["score"] is None
+        # ...while the SUPERSEDED V6 blend still computes from that same V2 score,
+        # so a rollback comparison keeps working.
+        assert row["overallRipV6"]["score"] is not None
+
+
+def test_mixed_collector_appeal_versions_fail_closed(monkeypatch):
+    rows, payloads = _build_scenario()
+    # One ranked set computed under a different Collector Appeal formula version.
+    # It must still resolve as canonical for V7 to exist, so this pins the audit
+    # rather than the resolver: two sets, two declared versions, one cohort.
     payloads["Black Bolt"]["collectorAppeal"]["version"] = "collector_appeal_ca8_v1"
     monkeypatch.setattr(service, "get_collector_appeal_bundle", lambda **_: {"payloads": payloads})
 
     cohort, warnings = _attach(rows)
     audit = cohort["overallRanked"]
-    assert audit["status"] == "overall_ranked_ca7_version_mismatch"
-    assert audit["publishable"] is False
-    assert cohort["status"] == "integrity_error"
-    assert any("mixes multiple CA7 versions" in w for w in warnings)
+    # Black Bolt no longer resolves as canonical, so it drops OUT of the ranked
+    # cohort rather than contaminating it - which is the fail-closed outcome.
+    assert audit["rankedSetCount"] == 20
+    assert "Black Bolt" in audit["missingAppealSetIds"]
+    assert audit["appealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert cohort["status"] != "integrity_error"
+
+
+def test_the_version_resolver_is_the_single_guard_on_the_ranked_cohort(targets):
+    """Whatever is ranked is on the canonical appeal version, by construction.
+
+    ``_resolve_canonical_collector_appeal_score`` returns None for any payload
+    that does not DECLARE the canonical version, so a non-canonical set has no
+    V7 score and cannot enter the denominator. The audit publishes the observed
+    version beside the expected one so this property is ASSERTED downstream
+    rather than trusted - a future change that loosened the resolver would show
+    up here instead of silently shipping a mixed cohort.
+    """
+    cohort, _ = _attach(targets)
+    audit = cohort["overallRanked"]
+    assert audit["appealVersions"] == [COLLECTOR_APPEAL_V3_VERSION]
+    assert audit["appealVersionMatchesCanonical"] is True
+    assert audit["rankedSetCount"] > 0
 
 
 def test_cohort_integrity_keys_on_universal_desirability_not_ca7(targets, monkeypatch):

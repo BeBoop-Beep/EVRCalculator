@@ -59,8 +59,14 @@ def test_the_new_metric_declares_itself_an_internal_candidate():
 
 
 def test_the_new_metric_version_is_a_production_candidate_not_a_study():
+    # COLLECTOR_APPEAL_VERSION remains CA7's identity (a back-compat alias);
+    # the canonical formula carries its own, distinct version.
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V2_VERSION
+
     assert COLLECTOR_APPEAL_VERSION == "collector_appeal_ca7_v1"
     assert "research" not in COLLECTOR_APPEAL_VERSION
+    assert "research" not in COLLECTOR_APPEAL_V2_VERSION
+    assert COLLECTOR_APPEAL_V2_VERSION != COLLECTOR_APPEAL_VERSION
 
 
 def test_the_stored_block_states_metric_formula_and_status_together():
@@ -69,7 +75,10 @@ def test_the_stored_block_states_metric_formula_and_status_together():
     identity = build_collector_appeal_identity()
     assert identity["metric_name"] == "collector_appeal_ca7"
     assert identity["product_status"] == "internal_candidate"
-    assert identity["formula"] == "CA7"
+    # The formula is the canonical one, and the stored block is namespaced away
+    # from the legacy CA7 key so a block's name and its value cannot disagree.
+    assert identity["formula"] == "COLLECTOR_APPEAL_V3"
+    assert identity["diagnostics_key"] == "collector_appeal_v3"
 
 
 # ---------------------------------------------------------------------------

@@ -722,6 +722,118 @@ def _latest_for_desirability_validation(client: Any) -> Tuple[Optional[str], Lis
     return _max_datetime_text(*timestamps), checks
 
 
+def _latest_published_leaderboard(client: Any) -> Tuple[Optional[Dict[str, Any]], List[str]]:
+    """The newest COMPLETE published RIP leaderboard snapshot row, if any."""
+    rows, error = _execute_query(
+        "pokemon_public_rip_leaderboard_snapshots.latest",
+        client.table("pokemon_public_rip_leaderboard_snapshots")
+        .select(
+            "id,market_date,published_at,publication_status,eligible_cohort_count,"
+            "cohort_version,cohort_fingerprint,overall_rip_version,financial_rip_version,"
+            "ca7_version,diagnostics_json"
+        )
+        .eq("publication_status", "complete")
+        .order("market_date", desc=True)
+        .order("published_at", desc=True)
+        .limit(1),
+    )
+    checks = [
+        "pokemon_public_rip_leaderboard_snapshots: "
+        + (f"error {error}" if error else f"{len(rows)} row(s)")
+    ]
+    return (rows[0] if rows else None), checks
+
+
+def _published_leaderboard_rows(client: Any, snapshot_id: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+    rows, error = _execute_query(
+        "pokemon_public_rip_leaderboard_rows.by_snapshot",
+        client.table("pokemon_public_rip_leaderboard_rows")
+        .select("set_id,set_canonical_key,overall_rip_rank,simulation_calculation_run_id")
+        .eq("snapshot_id", snapshot_id),
+    )
+    checks = [
+        "pokemon_public_rip_leaderboard_rows: "
+        + (f"error {error}" if error else f"{len(rows)} row(s)")
+    ]
+    return rows, checks
+
+
+def _latest_eligible_run_id_by_set(client: Any) -> Tuple[Dict[str, Optional[str]], List[str]]:
+    """The latest accepted simulation run per set, keyed by set id.
+
+    Read from ``explore_rip_statistics_latest`` - the same view the ranking
+    service builds targets from - so "the latest eligible run" means the same
+    thing to the freshness check and to the payload it is judging.
+    """
+    rows, error = _execute_query(
+        "explore_rip_statistics_latest.run_ids",
+        client.table("explore_rip_statistics_latest").select(
+            "set_id,calculation_run_id,financial_rip_v3_score_version"
+        ),
+    )
+    checks = [
+        "explore_rip_statistics_latest.run_ids: "
+        + (f"error {error}" if error else f"{len(rows)} row(s)")
+    ]
+    by_set: Dict[str, Optional[str]] = {}
+    for row in rows:
+        set_id = _to_text(row.get("set_id"))
+        if set_id:
+            by_set[set_id] = _to_text(row.get("calculation_run_id"))
+    return by_set, checks
+
+
+def _leaderboard_contract_staleness(client: Any) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Version/cohort/source-run staleness of the published RIP leaderboard.
+
+    THE GAP THIS CLOSES. Every other check in this file compares TIMESTAMPS. A
+    scoring-version change moves no timestamp, so a leaderboard published under
+    an obsolete Financial RIP / Collector Appeal / Overall RIP / public contract
+    version stayed classified "fresh" indefinitely - and a matching market date
+    read as proof of currency. The verdict comes from the shared evaluator in
+    ``public_rip_publication_contract`` so the refresher, the publisher and the
+    audit cannot disagree about what "current" means.
+    """
+    from backend.db.services.public_rip_publication_contract import (
+        evaluate_leaderboard_staleness,
+        supported_cohort_fingerprint,
+    )
+
+    checks: List[str] = []
+    snapshot, snapshot_checks = _latest_published_leaderboard(client)
+    checks.extend(snapshot_checks)
+    if not snapshot:
+        return evaluate_leaderboard_staleness(None), checks
+
+    published_rows, row_checks = _published_leaderboard_rows(client, str(snapshot.get("id")))
+    checks.extend(row_checks)
+    latest_runs, run_checks = _latest_eligible_run_id_by_set(client)
+    checks.extend(run_checks)
+
+    published_run_by_set = {
+        _to_text(row.get("set_id")): _to_text(row.get("simulation_calculation_run_id"))
+        for row in published_rows
+        if _to_text(row.get("set_id"))
+    }
+    # Compared only over the sets the leaderboard actually carries. A supported
+    # set missing from the leaderboard is already reported by the row-count
+    # reason; reporting it a second time as a superseded run would name the same
+    # defect twice under two different fixes.
+    scoped_latest = {
+        set_id: run_id
+        for set_id, run_id in latest_runs.items()
+        if set_id in published_run_by_set
+    }
+    reasons = evaluate_leaderboard_staleness(
+        snapshot,
+        ranked_row_count=len(published_rows),
+        latest_eligible_run_id_by_set=scoped_latest,
+        published_run_id_by_set=published_run_by_set,
+        cohort=supported_cohort_fingerprint(),
+    )
+    return reasons, checks
+
+
 def _latest_run_id_for_set(client: Any, set_id: str) -> Optional[str]:
     rows, _error = _execute_query(
         "explore_rip_statistics_latest.latest_run",
@@ -1060,6 +1172,20 @@ def _global_snapshot_staleness(client: Any, *, family: str) -> FreshnessResult:
         )
         if not publication or publication.get("publication_status") != "complete":
             return FreshnessResult(family, True, "canonical publication row missing or incomplete", snapshot_updated_at, dependency_updated_at, checks)
+        # SCORING-CONTRACT staleness, checked BEFORE the timestamp comparison
+        # below. A version cutover moves no timestamp, so reaching the timestamp
+        # check first is exactly how an obsolete contract stayed "fresh" while 22
+        # fresh Financial RIP V3 simulations sat underneath it.
+        contract_reasons, contract_checks = _leaderboard_contract_staleness(client)
+        checks.extend(contract_checks)
+        if contract_reasons:
+            detail = "; ".join(str(reason.get("detail")) for reason in contract_reasons[:4])
+            if len(contract_reasons) > 4:
+                detail += f" (+{len(contract_reasons) - 4} more)"
+            return FreshnessResult(
+                family, True, f"published scoring contract is not canonical: {detail}",
+                snapshot_updated_at, dependency_updated_at, checks,
+            )
     if _is_newer(dependency_updated_at, snapshot_updated_at):
         return FreshnessResult(family, True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     return FreshnessResult(family, False, "fresh", snapshot_updated_at, dependency_updated_at, checks)

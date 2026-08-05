@@ -88,8 +88,11 @@ test("the composition never states four peer weights that total 110%", () => {
   ]) {
     assert.ok(!source.includes(forbidden), `"${forbidden}" states a flat four-way blend`);
   }
-  // The nesting is stated instead.
-  assert.ok(source.includes("RIP Score = 90% RIP Core + 10% Collector Appeal"));
+  // The nesting is stated instead. After the 80/20 cutover the CANONICAL
+  // statement is the one the page renders; the retired 90/10 wording is gone
+  // from the UI and survives only as a comment marking the legacy v4 block.
+  assert.ok(source.includes("Overall RIP = 80% Financial RIP + 20% Collector Appeal"));
+  assert.ok(!source.includes("RIP Score = 90% RIP Core + 10% Collector Appeal"));
 });
 
 test("the breakdown branches on score mode, and only on the canonical mode contract", () => {

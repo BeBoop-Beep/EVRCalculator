@@ -57,12 +57,20 @@ def test_checkout_mode_defaults_to_local(script_text):
 
 def test_dispatch_sends_only_production_down_the_strict_path(script_text):
     assert 'case "$EVR_PUBLICATION_CHECKOUT_MODE" in' in script_text
-    assert "  production)\n    verify_production_checkout\n    ;;" in script_text
+    # `|| exit $?` is explicit rather than leaning on `set -e` to notice a
+    # nonzero return from a function call.
+    assert "  production)\n" in script_text
+    assert "    verify_production_checkout || exit $?\n" in script_text
     assert "  *)\n    log_local_checkout\n    ;;" in script_text
 
 
 def test_checkout_step_still_runs_before_any_work(script_text):
-    assert 'esac\n\nnotify_slack "🚀 Simulation job started' in script_text
+    """Only environment provenance logging sits between the gate and the work."""
+    checkout_end = script_text.index("esac\n")
+    job_start = script_text.index('notify_slack "🚀 Simulation job started')
+    between = script_text[checkout_end:job_start]
+    assert "[publication-environment]" in between
+    assert "python" not in between.replace("python=$(command -v python)", "")
 
 
 def test_only_an_invalid_repo_path_can_fail_the_checkout_step_locally(script_text):
@@ -267,6 +275,7 @@ def test_wrapper_includes_operator_action_and_log_path(script_text):
 
 def test_final_exit_gate_is_unchanged(script_text):
     assert (
-        'if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] '
-        '|| [ "$AUDIT_EXIT" -ne 0 ]; then\n  exit 1\nfi' in script_text
+        'if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] \\\n'
+        '   || [ "$AUDIT_EXIT" -ne 0 ] || [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then\n'
+        "  exit 1\nfi" in script_text
     )

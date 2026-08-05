@@ -7,6 +7,17 @@ export PYTHONIOENCODING=utf-8
 # scheduler (for example /d/EVRCalculator-production). The compatibility default
 # remains the historical path until the scheduled task is migrated.
 REPO_DIR="${EVR_PRODUCTION_REPO_DIR:-/d/EVRCalculator}"
+
+# Checked BEFORE `cd`, and before anything is sourced. Under `set -e` a failing
+# `cd` would abort with no message at all, and the Task Scheduler log would show
+# an empty run - the least diagnosable possible failure for an unattended job
+# whose whole purpose is to be trustworthy when nobody is watching.
+if [ ! -d "$REPO_DIR" ]; then
+  echo "[publication-checkout] REFUSED: repository directory does not exist: $REPO_DIR" >&2
+  echo "  Create the production worktree first, or unset EVR_PRODUCTION_REPO_DIR to run" >&2
+  echo "  against the development checkout in local mode." >&2
+  exit 2
+fi
 cd "$REPO_DIR"
 
 if [ -f backend/.env ]; then
@@ -15,6 +26,12 @@ if [ -f backend/.env ]; then
   set +a
 fi
 
+if [ ! -f .venv/Scripts/activate ]; then
+  mkdir -p logs
+  echo "[publication-checkout] REFUSED: no virtual environment at $REPO_DIR/.venv" \
+    | tee -a logs/run_simulations.log >&2
+  exit 2
+fi
 source .venv/Scripts/activate
 mkdir -p logs
 
@@ -156,12 +173,23 @@ fi
 
 case "$EVR_PUBLICATION_CHECKOUT_MODE" in
   production)
-    verify_production_checkout
+    # Explicit `|| exit`: production mode is fail-closed, and relying on `set -e`
+    # to notice a nonzero return from a function call is exactly the kind of
+    # implicit behaviour an unattended publication job should not depend on.
+    verify_production_checkout || exit $?
     ;;
   *)
     log_local_checkout
     ;;
 esac
+
+# Environment provenance, logged on every run. The Supabase PROJECT REF is an
+# identifier, not a secret - it is in every request URL. No key, token or
+# connection string is ever echoed.
+SUPABASE_PROJECT_REF="$(printf '%s' "${SUPABASE_URL:-}" | sed -n 's#^https\?://\([^.]*\)\..*#\1#p')"
+echo "[publication-environment] repo=$REPO_DIR python=$(command -v python) \
+supabase_project=${SUPABASE_PROJECT_REF:-unknown} mode=$EVR_PUBLICATION_CHECKOUT_MODE" \
+  | tee -a logs/run_simulations.log
 
 notify_slack "🚀 Simulation job started
 Host: $HOSTNAME_VALUE
@@ -278,14 +306,57 @@ Action: Opening Profit vs Cost and/or Top Chase windows are behind for at least 
 Log: logs/opening_analytics_audit.log"
 fi
 
-# The ONLY success notification. It requires publication exit 0 AND a passing
-# final audit, so "completed" means the published market-dashboard rows actually
-# reached the promoted market date — not merely that the commands ran. Deferred
-# (⏸️) and failure (❌) notifications above remain distinct events and are never
-# replaced by this one.
-if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ]; then
+# ── Canonical public RIP leaderboard audit ──────────────────────────────────
+# A SEPARATE tripwire from the opening-analytics audit above, gated on its own
+# exit variable, because the two answer different questions and either can be
+# green while the other is red:
+#
+#   audit_opening_analytics_publication  - did Opening Profit vs Cost and the Top
+#     Chase movement windows reach the promoted market date?
+#   audit_public_rip_leaderboard_publication - is the PUBLISHED leaderboard on
+#     the canonical contract (Financial RIP V3, Collector Appeal V3, Overall RIP
+#     V7, public contract v7) over the full authoritative supported cohort?
+#
+# The second is what would have caught the leaderboard that reported
+# `overall_rip_v4_90_financial_10_ca7` while 22 fresh V3 simulations sat under
+# it. A scoring-version regression moves no timestamp and changes no market
+# date, so the opening-analytics audit passes straight through it.
+PUBLIC_RIP_AUDIT_EXIT=0
+python -m backend.scripts.audit_public_rip_leaderboard_publication --json \
+  >> logs/public_rip_audit.log 2>&1 || PUBLIC_RIP_AUDIT_EXIT=$?
+
+if [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then
+  PUBLIC_RIP_AUDIT_LINE=$(tail -n 1 logs/public_rip_audit.log || true)
+
+  notify_slack "❌ Canonical public RIP leaderboard audit FAILED
+Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
+Commit: $(git rev-parse HEAD)
+Script: backend/scripts/audit_public_rip_leaderboard_publication.py
+Exit: $PUBLIC_RIP_AUDIT_EXIT
+Canonical versions expected:
+  Financial RIP  : financial_rip_v3_outcome_profile_25_20_15_25_10_5
+  Collector Appeal: collector_appeal_v3_balanced_d40_h35_p25
+  Overall RIP    : overall_rip_v7_90_financial_v3_10_collector_appeal_v3
+  Public contract: public_rip_contract_v7
+Details: ${PUBLIC_RIP_AUDIT_LINE:-see log}
+Action: the published leaderboard is not on the canonical contract, or does not cover the full supported cohort. Rebuild and republish; do NOT treat the Explore RIP leaderboard as current.
+Log: logs/public_rip_audit.log"
+fi
+
+# The ONLY success notification. It requires publication exit 0 AND BOTH final
+# audits, so "completed" means the published rows actually reached the promoted
+# market date AND the leaderboard is on the canonical contract — not merely that
+# the commands ran. Deferred (⏸️) and failure (❌) notifications above remain
+# distinct events and are never replaced by this one.
+#
+# A passing opening-analytics audit can NEVER produce this message on its own:
+# the two audits certify different properties, and one standing in for the other
+# is how a green Slack message accompanied a leaderboard published under a
+# superseded scoring contract.
+if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
   AUDIT_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
-  notify_slack "✅ Simulation + publication completed (final audit passed)
+  notify_slack "✅ Simulation + publication completed (both final audits passed)
 Host: $HOSTNAME_VALUE
 Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
 Commit: $(git rev-parse HEAD)
@@ -293,13 +364,15 @@ Script: backend/scripts/run_daily_opening_publication.py
 Started: $PUBLICATION_START_TIME
 Published: $PUBLICATION_END_TIME
 Audited: $AUDIT_END_TIME
+Public RIP audit: passed
 Log: logs/run_simulations.log"
 fi
 
-# A deferred publication, a hard failure and a failed audit are distinct events
-# (distinct Slack messages), but none of them is a successful publication: the
-# scheduled task must stay visibly non-successful so an operator acts before the
-# next run.
-if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] || [ "$AUDIT_EXIT" -ne 0 ]; then
+# A deferred publication, a hard failure and EITHER failed audit are distinct
+# events (distinct Slack messages), but none of them is a successful
+# publication: the scheduled task must stay visibly non-successful so an
+# operator acts before the next run.
+if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] \
+   || [ "$AUDIT_EXIT" -ne 0 ] || [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then
   exit 1
 fi

@@ -66,6 +66,11 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from backend.calculations.evr.financial_rip_v3 import build_financial_rip_v3
+from backend.calculations.evr.financial_rip_v3_config import (
+    FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
+)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -305,6 +310,7 @@ def compute_chase_dependency_metrics(
             "total_ev": 0.0,
             "total_card_ev": 0.0,
             "top1_ev_share": None,
+            "top2_ev_share": None,
             "top3_ev_share": None,
             "top5_ev_share": None,
             "hhi_ev_concentration": None,
@@ -332,6 +338,7 @@ def compute_chase_dependency_metrics(
     if total_ev <= 0:
         shares: Dict[str, Optional[float]] = {
             "top1_ev_share": None,
+            "top2_ev_share": None,
             "top3_ev_share": None,
             "top5_ev_share": None,
         }
@@ -341,6 +348,10 @@ def compute_chase_dependency_metrics(
 
         shares = {
             "top1_ev_share": _share(1),
+            # Additive: Financial RIP V3's Depth and Robustness diagnostic reads
+            # the top-2 share to separate a true one-card set from a two-card
+            # set, which top-1 and top-3 alone cannot distinguish.
+            "top2_ev_share": _share(min(2, n_cards)),
             "top3_ev_share": _share(min(3, n_cards)),
             "top5_ev_share": _share(min(5, n_cards)),
         }
@@ -1682,6 +1693,7 @@ def compute_all_derived_metrics(
     hit_value_metrics: Optional[Dict[str, Any]] = None,
     set_value_metrics: Optional[Dict[str, Any]] = None,
     set_desirability_metrics: Optional[Dict[str, Any]] = None,
+    financial_rip_v3_min_simulation_count: int = FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
 ) -> Dict[str, Any]:
     """Compute the full derived metrics suite from simulation outputs.
 
@@ -1728,7 +1740,12 @@ def compute_all_derived_metrics(
         ev_composition_metrics (None if total_pack_ev not provided),
         session_metrics (None if session_data not provided),
         packs_to_hit_metrics (None if packs_to_hit_data not provided),
-        pack_score.
+        pack_score,
+        financial_rip_v3.
+
+    ``pack_score`` (the legacy V2 runtime payload) and ``financial_rip_v3`` are
+    both always present and are computed from the SAME ``values`` / ``pack_cost``
+    inputs. V3 never overwrites, reinterprets or renames any V2 field.
     """
     pack_metrics = compute_pack_decision_metrics(
         values,
@@ -1772,6 +1789,19 @@ def compute_all_derived_metrics(
         set_desirability_metrics=set_desirability_metrics,
     )
 
+    # Financial RIP V3 is built HERE, from the same outcome vector and the same
+    # pack cost the V2 payload above used, so the two scores can never describe
+    # different runs. The engine itself lives in financial_rip_v3.py; this is
+    # orchestration only, and V2 is computed and persisted unchanged alongside it
+    # (Phase A dual calculation).
+    financial_rip_v3 = build_financial_rip_v3(
+        values,
+        pack_cost,
+        chase_metrics=chase_metrics,
+        session_data=session_data,
+        min_simulation_count=financial_rip_v3_min_simulation_count,
+    )
+
     return {
         "pack_decision_metrics": pack_metrics,
         "chase_dependency_metrics": chase_metrics,
@@ -1782,6 +1812,7 @@ def compute_all_derived_metrics(
         "session_metrics": sess_metrics,
         "packs_to_hit_metrics": pth_metrics,
         "pack_score": pack_score_payload,
+        "financial_rip_v3": financial_rip_v3,
     }
 
 
