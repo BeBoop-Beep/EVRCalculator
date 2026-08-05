@@ -184,6 +184,68 @@ _SIMULATION_UNAVAILABLE_SOURCE_VALUES = frozenset(
 # DB-heavy snapshot generation).
 _REBUILD_MAX_ATTEMPTS = 3
 
+# --- planning observability -------------------------------------------------
+# The full-catalog planner issues hundreds of reads before it writes anything.
+# Without progress output a healthy-but-slow plan and a blocked network request
+# look identical (exactly the state that made a daily run appear hung).
+#
+# CADENCE, and why it is 3 and not 10.
+# Planning measures at roughly 4 seconds per set over the 209-set catalog. At an
+# interval of 10 that is ~40 seconds of INFO silence between heartbeats, so the
+# previous operational statement — "silence beyond ~10s means a blocked request"
+# — was simply wrong, and a healthy run looked hung. At an interval of 3 the
+# expected heartbeat is ~12 seconds under that same measured baseline.
+#
+# NO STRICT MAXIMUM IS CLAIMED. Network latency varies, and a single PostgREST
+# call may legitimately stay silent until the service-role client's finite
+# timeout (SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS, default 60s — see
+# backend.db.clients.supabase_client). THAT timeout, not this interval, is the
+# real upper bound on one blocked request.
+PLANNING_PROGRESS_INTERVAL = 3    # INFO heartbeat every N sets (~10-20s observed)
+SLOW_PLANNING_SET_SECONDS = 10.0  # always log a set slower than this
+SLOW_QUERY_SECONDS = 5.0          # always log a single SELECT slower than this
+
+# Server-side JSON path projection: PostgREST evaluates the path and returns ONE
+# scalar, so the cards snapshot's (large) payload_json never crosses the wire.
+CARDS_GENERATION_ID_PROJECTION = "generation_id:payload_json->meta->snapshot->>generationId"
+
+# HEAVY READS IN THE READ-ONLY PLANNING PHASE — why each large JSON column is
+# fetched, audited because the planner scans the whole published catalog and one
+# needless blob per set is hundreds of megabytes across a run.
+#
+#   pokemon_set_cards_snapshot_latest.cards_json + .payload_json
+#       (_cards_snapshot_staleness) REQUIRED. Priced-card coverage and 7D
+#       movement-contract coverage are per-card counts; no aggregate column
+#       carries them. Fetched ONCE per set, in one request.
+#   pokemon_set_cards_snapshot_latest.payload_json
+#       (_market_snapshot_staleness) REMOVED. It fetched the whole document a
+#       SECOND time per set to compare one generation-ID string; that string is
+#       now projected server-side (CARDS_GENERATION_ID_PROJECTION above). This
+#       was the read the interrupt stack landed in.
+#   pokemon_set_market_dashboard_snapshot_latest.payload_json,
+#   .set_value_histories_json, .top_chase_card_histories_json,
+#   .performance_vs_cost_history_json
+#       (_market_snapshot_staleness) REQUIRED, and all four arrive in ONE
+#       request for the row. Each history's END DATE is the invariant under
+#       test, and the snapshot stores no end-date columns: meta's
+#       setValueHistoryLatestDateByScope is only present on newer rows, so the
+#       raw histories remain the fallback, and OPvC additionally needs the
+#       per-point isCarriedForward flag to find the last REAL simulation date.
+#   pokemon_set_page_snapshot_latest.payload_json
+#       (_set_page_snapshot_staleness) REQUIRED for the completeness marker and
+#       the rank-field check. One request per set. (_verify_set_page reads it
+#       again — deliberately, AFTER the rebuild phase, where the point is to see
+#       the newly written row.)
+#   pokemon_explore_rankings_snapshot_latest.ranking_payload_json /
+#   pokemon_desirability_validation_snapshot_latest.payload_json
+#       (_global_snapshot_staleness) REQUIRED for cohort/target/publication
+#       markers. TWO reads per run in total, not per set.
+#   every _latest_for_* helper selects a single timestamp column, ordered and
+#       limited to one row. Nothing to trim.
+#
+# Duplicate REQUESTS (not columns) removed: _latest_run_id_for_set was issued
+# twice per set during planning — see _PLANNING_RUN_ID_CACHE below.
+
 
 def _rebuild_with_bounded_retry(operation, *, operation_name: str, set_id: str, client: Any):
     """Run a rebuild with bounded, transient-only retries against one client.
@@ -404,12 +466,63 @@ def _first_row(result: Any) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
-def _execute_query(label: str, query: Any) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+def _is_timeout_error(exc: BaseException) -> bool:
+    """Is this failure the client's finite PostgREST timeout firing?
+
+    Classified by TYPE NAME rather than by importing httpx, so the diagnostic
+    stays correct whichever transport the installed client uses. Used only to
+    label the log line; a timeout is a failure either way and is never converted
+    into a result.
+    """
+    return "timeout" in type(exc).__name__.lower()
+
+
+def _execute_query(
+    label: str, query: Any, *, set_id: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """Run one planning SELECT, timed, with a slow-query diagnostic.
+
+    ``except Exception`` on purpose: KeyboardInterrupt is a BaseException and
+    must propagate immediately so Ctrl+C during the read-only planning phase
+    aborts the run rather than being classified as a transient query failure.
+    Every request is bounded by the client's configured PostgREST HTTP timeout
+    (SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS, see
+    backend.db.clients.supabase_client) — this wrapper adds observability, not a
+    second client stack or a second timeout. That timeout is the upper bound on
+    how long one blocked call can stay silent.
+
+    A TIMED-OUT query is reported at WARNING with the query LABEL, the SET ID,
+    the elapsed time and the exception TYPE — that is the failure an operator
+    watching a silent run needs to see, and it is what distinguishes a blocked
+    call from a merely slow one. Its exception MESSAGE stays at DEBUG on
+    purpose: it can carry a PostgREST response body, which must never reach the
+    scheduler log.
+
+    Every OTHER failure stays at DEBUG, unchanged. `_latest_timestamp`
+    deliberately probes timestamp columns that may not exist on a given table
+    and falls through to the next one, so ordinary planning produces hundreds of
+    expected, handled query errors per run. Promoting those to WARNING would
+    bury the timeout line this diagnostic exists to surface.
+    """
+    started = time.monotonic()
     try:
         result = query.execute()
     except Exception as exc:
-        logger.debug("source freshness query failed label=%s error=%s", label, exc)
+        elapsed = time.monotonic() - started
+        if _is_timeout_error(exc):
+            logger.warning(
+                "[refresh-query] timeout label=%s set_id=%s elapsed=%.2fs error_type=%s",
+                label, set_id, elapsed, type(exc).__name__,
+            )
+        logger.debug(
+            "source freshness query failed label=%s set_id=%s elapsed=%.2fs error=%s",
+            label, set_id, elapsed, exc,
+        )
         return [], str(exc)
+    elapsed = time.monotonic() - started
+    if elapsed >= SLOW_QUERY_SECONDS:
+        # Label + set id only. Never response bodies, headers or credentials.
+        logger.warning("[refresh-query] slow label=%s set_id=%s elapsed=%.2fs", label, set_id, elapsed)
     return list(result.data or []), None
 
 
@@ -456,6 +569,50 @@ def _read_snapshot_row(client: Any, table: str, select_fields: str, filters: Seq
         query = query.eq(field, value)
     rows, _error = _execute_query(f"{table}.snapshot", query.limit(1))
     return rows[0] if rows else None
+
+
+@dataclass(frozen=True)
+class CardsGenerationRead:
+    """Outcome of the narrow cards-snapshot generation-marker read.
+
+    Three outcomes are kept DISTINCT on purpose. ``generation_id is None`` alone
+    cannot be trusted: an unreadable query and a snapshot row that genuinely has
+    no marker are different defects, and neither may ever be silently compared
+    equal to the market dashboard's generation ID.
+    """
+
+    generation_id: Optional[str]
+    row_found: bool
+    error: Optional[str]
+    checks: List[str]
+
+    @property
+    def readable(self) -> bool:
+        return self.error is None
+
+
+def _read_cards_snapshot_generation_id(client: Any, set_id: str) -> CardsGenerationRead:
+    """Read ONLY ``payload_json.meta.snapshot.generationId`` for one set.
+
+    The previous implementation selected the whole ``payload_json`` document and
+    reached into it in Python — a multi-megabyte download, parsed by pydantic,
+    once per set, purely to compare one string. The projection below makes
+    PostgREST do the extraction server-side.
+    """
+    label = "pokemon_set_cards_snapshot_latest.generation_id"
+    rows, error = _execute_query(
+        label,
+        client.table("pokemon_set_cards_snapshot_latest")
+        .select(CARDS_GENERATION_ID_PROJECTION)
+        .eq("set_id", set_id)
+        .limit(1),
+        set_id=set_id,
+    )
+    if error:
+        return CardsGenerationRead(None, False, error, [f"{label}: error {error}"])
+    if not rows:
+        return CardsGenerationRead(None, False, None, [f"{label}: no row"])
+    return CardsGenerationRead(_to_text(rows[0].get("generation_id")), True, None, [f"{label}: ok"])
 
 
 def _legacy_card_ids(client: Any, set_id: str) -> List[str]:
@@ -834,7 +991,26 @@ def _leaderboard_contract_staleness(client: Any) -> Tuple[List[Dict[str, Any]], 
     return reasons, checks
 
 
+# Per-invocation planning memo. `_latest_run_id_for_set` is called twice per set
+# during planning (once by `_latest_for_set_page`, once by
+# `_source_rows_exist_for_set_page`) and answers identically both times.
+# Installed and TORN DOWN by `_build_plan` in a finally block, so it is scoped to
+# exactly one planning pass and can never carry stale data across runs — nor
+# across the later write/rebuild phase, where a run id may legitimately change.
+_PLANNING_RUN_ID_CACHE: Optional[Dict[str, Optional[str]]] = None
+
+
 def _latest_run_id_for_set(client: Any, set_id: str) -> Optional[str]:
+    cache = _PLANNING_RUN_ID_CACHE
+    if cache is not None and set_id in cache:
+        return cache[set_id]
+    run_id = _latest_run_id_for_set_uncached(client, set_id)
+    if cache is not None:
+        cache[set_id] = run_id
+    return run_id
+
+
+def _latest_run_id_for_set_uncached(client: Any, set_id: str) -> Optional[str]:
     rows, _error = _execute_query(
         "explore_rip_statistics_latest.latest_run",
         client.table("explore_rip_statistics_latest")
@@ -1065,15 +1241,32 @@ def _market_snapshot_staleness(client: Any, set_id: str, window: str) -> Freshne
         return FreshnessResult("market_dashboard", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks)
     if movement_marker_missing:
         return FreshnessResult("market_dashboard", True, "movement generation marker missing", snapshot_updated_at, dependency_updated_at, checks)
-    cards_row = _read_snapshot_row(
-        client,
-        "pokemon_set_cards_snapshot_latest",
-        "set_id,payload_json",
-        (("set_id", set_id),),
-    )
-    cards_payload = (cards_row or {}).get("payload_json") if isinstance((cards_row or {}).get("payload_json"), dict) else {}
-    cards_snapshot_meta = (cards_payload.get("meta") or {}).get("snapshot") or {}
-    if cards_snapshot_meta.get("generationId") != snapshot_meta.get("generationId"):
+    # Cards-vs-dashboard generation parity. This needs exactly ONE string from
+    # the cards snapshot, so it reads exactly that string (server-side JSON
+    # projection) instead of downloading the whole cards payload_json.
+    cards_generation = _read_cards_snapshot_generation_id(client, set_id)
+    checks.extend(cards_generation.checks)
+    if not cards_generation.readable:
+        # Fail closed: an unreadable cards snapshot is never evidence of a
+        # matching generation ID.
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            f"cards snapshot generation ID unreadable: {cards_generation.error}",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
+    if not cards_generation.row_found:
+        return FreshnessResult(
+            "market_dashboard",
+            True,
+            "cards snapshot row missing for generation comparison",
+            snapshot_updated_at,
+            dependency_updated_at,
+            checks,
+        )
+    if cards_generation.generation_id != _to_text(snapshot_meta.get("generationId")):
         return FreshnessResult(
             "market_dashboard",
             True,
@@ -1198,18 +1391,58 @@ def _resolve_sets(client: Any, *, set_id: Optional[str]) -> List[Dict[str, Any]]
 
 
 def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> Tuple[List[SetRefreshPlan], FreshnessResult, FreshnessResult, int]:
+    """READ-ONLY classification of every snapshot family. Writes nothing.
+
+    Progress is logged deterministically because this phase is long, silent and
+    indistinguishable from a hang: every set at DEBUG, a heartbeat every
+    PLANNING_PROGRESS_INTERVAL sets at INFO, and ALWAYS any set slower than
+    SLOW_PLANNING_SET_SECONDS regardless of where it falls in the interval.
+
+    OPERATIONAL EXPECTATION. Under the measured current workload (~4s per set,
+    209 sets, interval 3) normal INFO heartbeats arrive roughly every 10-20
+    seconds. That is an expectation, NOT a guarantee: network latency varies,
+    and a single request may remain silent until its finite service-role
+    PostgREST timeout. That timeout — not this interval — is the actual upper
+    bound for one blocked PostgREST call. A `[refresh-query] timeout` line names
+    the query label and set id when it fires.
+    """
+    global _PLANNING_RUN_ID_CACHE
+
     plans: List[SetRefreshPlan] = []
     source_checks = 0
-    for set_row in set_rows:
-        set_id = str(set_row["id"])
-        cards = _cards_snapshot_staleness(client, set_id)
-        market = _market_snapshot_staleness(client, set_id, window)
-        page = _set_page_snapshot_staleness(client, set_id)
-        source_checks += len(cards.dependency_checks) + len(market.dependency_checks) + len(page.dependency_checks)
-        plans.append(SetRefreshPlan(set_row=set_row, cards=cards, market_dashboard=market, set_page=page))
-    rankings = _global_snapshot_staleness(client, family="explore_rankings")
-    validation = _global_snapshot_staleness(client, family="desirability_validation")
+    total = len(set_rows)
+    plan_started = time.monotonic()
+    logger.info("[refresh-plan] starting sets=%s", total)
+    _PLANNING_RUN_ID_CACHE = {}
+    try:
+        for index, set_row in enumerate(set_rows, start=1):
+            set_id = str(set_row["id"])
+            canonical_key = str(set_row.get("canonical_key") or set_id)
+            logger.debug(
+                "[refresh-plan] checking %s/%s key=%s id=%s", index, total, canonical_key, set_id
+            )
+            set_started = time.monotonic()
+            cards = _cards_snapshot_staleness(client, set_id)
+            market = _market_snapshot_staleness(client, set_id, window)
+            page = _set_page_snapshot_staleness(client, set_id)
+            elapsed = time.monotonic() - set_started
+            source_checks += len(cards.dependency_checks) + len(market.dependency_checks) + len(page.dependency_checks)
+            plans.append(SetRefreshPlan(set_row=set_row, cards=cards, market_dashboard=market, set_page=page))
+            checked = "[refresh-plan] checked %s/%s key=%s elapsed=%.2fs"
+            if elapsed >= SLOW_PLANNING_SET_SECONDS or index % PLANNING_PROGRESS_INTERVAL == 0 or index == total:
+                logger.info(checked, index, total, canonical_key, elapsed)
+            else:
+                logger.debug(checked, index, total, canonical_key, elapsed)
+        logger.info("[refresh-plan] checking global families (explore_rankings, desirability_validation)")
+        rankings = _global_snapshot_staleness(client, family="explore_rankings")
+        validation = _global_snapshot_staleness(client, family="desirability_validation")
+    finally:
+        # Dropped on success, on failure and on KeyboardInterrupt alike.
+        _PLANNING_RUN_ID_CACHE = None
     source_checks += len(rankings.dependency_checks) + len(validation.dependency_checks)
+    logger.info(
+        "[refresh-plan] complete sets=%s elapsed=%.2fs", total, time.monotonic() - plan_started
+    )
     return plans, rankings, validation, source_checks
 
 
@@ -1893,7 +2126,15 @@ def main() -> None:
         print(f"publication gate OVERRIDDEN (manual recovery) [{gate.reason_code}]: {gate.reason}")
 
     set_rows = _resolve_sets(client, set_id=args.set_id)
+    # PLAN BEFORE WRITE. Nothing below this call writes until _build_plan has
+    # classified EVERY set; an interruption or failure during planning therefore
+    # leaves production untouched.
     plans, rankings, validation, source_checks = _build_plan(client, set_rows=set_rows, window=args.window)
+    logger.info(
+        "[refresh-phase] planning complete; entering %s phase sets=%s",
+        "rebuild/write" if commit else "dry-run report",
+        len(plans),
+    )
 
     summary = RefreshSummary(source_checks_performed=source_checks)
     for plan in plans:

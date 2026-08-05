@@ -1273,3 +1273,526 @@ def test_main_exits_nonzero_when_the_sealed_market_family_fails(monkeypatch):
     with pytest.raises(SystemExit) as excinfo:
         refresh.main()
     assert excinfo.value.code == 1
+
+
+# ---------------------------------------------------------------------------
+# Planning-phase read cost, observability, and plan-before-write safety
+# ---------------------------------------------------------------------------
+
+
+class _RecordingQuery:
+    def __init__(self, recorder, table, rows):
+        self._recorder = recorder
+        self._table = table
+        self._rows = rows
+
+    def select(self, columns):
+        self._recorder.append((self._table, columns))
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def limit(self, *_args, **_kwargs):
+        return self
+
+    def execute(self):
+        rows = self._rows
+
+        class _Result:
+            data = rows
+
+        return _Result()
+
+
+class _RecordingClient:
+    def __init__(self, rows_by_table):
+        self.selects = []
+        self._rows_by_table = rows_by_table
+
+    def table(self, name):
+        return _RecordingQuery(self.selects, name, self._rows_by_table.get(name, []))
+
+
+def _full_marker_market_row(generation_id="gen-1", **kwargs):
+    row = _market_row(**kwargs)
+    row["payload_json"]["meta"]["snapshot"] = {
+        "type": "pokemon_set_market_dashboard",
+        "movementContractVersion": "v1",
+        "generationId": generation_id,
+        "windowConvention": "trailing",
+        "movementAsOfDate": "2026-06-20",
+        "builtAt": "2026-06-21T00:00:00+00:00",
+    }
+    return row
+
+
+def _patch_market_dependencies(monkeypatch, row):
+    monkeypatch.setattr(refresh, "_latest_for_market_dashboard", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_simulation_history_date", lambda _client, _set_id: (None, []))
+    monkeypatch.setattr(refresh, "_latest_set_value_history_by_scope", _no_set_value_history)
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: row)
+
+
+def test_market_staleness_never_downloads_the_cards_payload_for_generation_comparison(monkeypatch):
+    """THE read-cost regression: one string, not a multi-megabyte document."""
+    _patch_market_dependencies(monkeypatch, _full_marker_market_row())
+    client = _RecordingClient(
+        {"pokemon_set_cards_snapshot_latest": [{"generation_id": "gen-1"}]}
+    )
+
+    result = refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    cards_selects = [
+        columns for table, columns in client.selects
+        if table == "pokemon_set_cards_snapshot_latest"
+    ]
+    assert cards_selects, "the cards generation marker must still be read"
+    for columns in cards_selects:
+        requested = [column.strip() for column in columns.split(",")]
+        assert "payload_json" not in requested
+    assert result.stale is False
+
+
+def test_cards_generation_read_uses_a_narrow_server_side_json_projection():
+    client = _RecordingClient(
+        {"pokemon_set_cards_snapshot_latest": [{"generation_id": "gen-9"}]}
+    )
+
+    read = refresh._read_cards_snapshot_generation_id(client, "set-1")
+
+    assert client.selects == [
+        ("pokemon_set_cards_snapshot_latest", refresh.CARDS_GENERATION_ID_PROJECTION)
+    ]
+    assert refresh.CARDS_GENERATION_ID_PROJECTION == (
+        "generation_id:payload_json->meta->snapshot->>generationId"
+    )
+    assert read.generation_id == "gen-9"
+    assert read.row_found is True
+    assert read.readable is True
+    assert read.checks == ["pokemon_set_cards_snapshot_latest.generation_id: ok"]
+
+
+def test_missing_cards_snapshot_generation_id_is_reported_explicitly():
+    client = _RecordingClient({"pokemon_set_cards_snapshot_latest": []})
+
+    read = refresh._read_cards_snapshot_generation_id(client, "set-1")
+
+    assert read.row_found is False
+    assert read.readable is True  # a missing row is not an unreadable query
+    assert read.generation_id is None
+    assert read.checks == ["pokemon_set_cards_snapshot_latest.generation_id: no row"]
+
+
+def test_a_cards_generation_query_failure_is_never_a_matching_generation(monkeypatch):
+    """Fail-closed: an unreadable cards snapshot must mark the dashboard stale."""
+    _patch_market_dependencies(monkeypatch, _full_marker_market_row())
+    monkeypatch.setattr(
+        refresh, "_read_cards_snapshot_generation_id",
+        lambda _client, _set_id: refresh.CardsGenerationRead(
+            None, False, "connection reset",
+            ["pokemon_set_cards_snapshot_latest.generation_id: error connection reset"],
+        ),
+    )
+
+    result = refresh._market_snapshot_staleness(None, "set-1", "365d")
+
+    assert result.stale is True
+    assert "cards snapshot generation ID unreadable" in result.reason
+    assert "connection reset" in result.reason
+
+
+def test_cards_market_generation_mismatch_still_marks_the_dashboard_stale(monkeypatch):
+    _patch_market_dependencies(monkeypatch, _full_marker_market_row(generation_id="gen-1"))
+    client = _RecordingClient(
+        {"pokemon_set_cards_snapshot_latest": [{"generation_id": "gen-2"}]}
+    )
+
+    result = refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    assert result.stale is True
+    assert result.reason == "cards and market dashboard generation IDs differ"
+
+
+def test_matching_generation_ids_allow_the_remaining_freshness_checks(monkeypatch):
+    _patch_market_dependencies(monkeypatch, _full_marker_market_row(generation_id="gen-1"))
+    client = _RecordingClient(
+        {"pokemon_set_cards_snapshot_latest": [{"generation_id": "gen-1"}]}
+    )
+
+    result = refresh._market_snapshot_staleness(client, "set-1", "365d")
+
+    assert result.stale is False
+    assert result.reason == "fresh"
+
+
+def test_a_slow_planning_query_emits_a_bounded_diagnostic(monkeypatch, caplog):
+    clock = iter([0.0, refresh.SLOW_QUERY_SECONDS + 1.0])
+    monkeypatch.setattr(refresh.time, "monotonic", lambda: next(clock))
+    client = _RecordingClient({"pokemon_set_cards_snapshot_latest": [{"generation_id": "g"}]})
+
+    with caplog.at_level("WARNING", logger=refresh.logger.name):
+        refresh._read_cards_snapshot_generation_id(client, "set-1")
+
+    slow = [
+        record.getMessage() for record in caplog.records
+        if "[refresh-query] slow" in record.getMessage()
+    ]
+    assert len(slow) == 1
+    assert "label=pokemon_set_cards_snapshot_latest.generation_id" in slow[0]
+    assert "set_id=set-1" in slow[0]
+
+
+def test_keyboard_interrupt_during_a_planning_query_propagates():
+    """Ctrl+C is a BaseException and must never be classified as a query error."""
+
+    class _Interrupting:
+        def execute(self):
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        refresh._execute_query("any.label", _Interrupting())
+
+
+def _stub_per_set_staleness(monkeypatch):
+    monkeypatch.setattr(refresh, "_cards_snapshot_staleness", lambda _c, _s: refresh.FreshnessResult("cards", False, "fresh"))
+    monkeypatch.setattr(refresh, "_market_snapshot_staleness", lambda _c, _s, _w: refresh.FreshnessResult("market_dashboard", False, "fresh"))
+    monkeypatch.setattr(refresh, "_set_page_snapshot_staleness", lambda _c, _s: refresh.FreshnessResult("set_page", False, "fresh"))
+    monkeypatch.setattr(refresh, "_global_snapshot_staleness", lambda _c, *, family: refresh.FreshnessResult(family, False, "fresh"))
+
+
+def test_build_plan_logs_bounded_progress(monkeypatch, caplog):
+    _stub_per_set_staleness(monkeypatch)
+    set_rows = [{"id": "set-%s" % index, "canonical_key": "key%s" % index} for index in range(1, 26)]
+
+    with caplog.at_level("INFO", logger=refresh.logger.name):
+        refresh._build_plan(None, set_rows=set_rows, window="365d")
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(message.startswith("[refresh-plan] starting sets=25") for message in messages)
+    assert any(message.startswith("[refresh-plan] complete sets=25") for message in messages)
+    checked = [message for message in messages if message.startswith("[refresh-plan] checked")]
+    # Bounded: a heartbeat every PLANNING_PROGRESS_INTERVAL sets plus the last
+    # one - never one INFO line per set.
+    assert len(checked) == 25 // refresh.PLANNING_PROGRESS_INTERVAL + 1
+    assert "key25" in checked[-1]
+
+
+def test_build_plan_always_logs_a_slow_set(monkeypatch, caplog):
+    _stub_per_set_staleness(monkeypatch)
+    # set-1 takes longer than the slow threshold; set-2 is instant.
+    ticks = iter([0.0, 0.0, refresh.SLOW_PLANNING_SET_SECONDS + 1.0, 1000.0, 1000.0, 1000.0])
+    monkeypatch.setattr(refresh.time, "monotonic", lambda: next(ticks))
+
+    with caplog.at_level("INFO", logger=refresh.logger.name):
+        refresh._build_plan(
+            None,
+            set_rows=[
+                {"id": "set-1", "canonical_key": "slowKey"},
+                {"id": "set-2", "canonical_key": "fastKey"},
+            ],
+            window="365d",
+        )
+
+    checked = [
+        message for message in (record.getMessage() for record in caplog.records)
+        if message.startswith("[refresh-plan] checked")
+    ]
+    assert any("key=slowKey" in message for message in checked)
+
+
+def test_planning_run_id_cache_is_scoped_to_one_invocation(monkeypatch):
+    calls = []
+
+    def _uncached(_client, set_id):
+        calls.append(set_id)
+        return "run-%s" % set_id
+
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set_uncached", _uncached)
+
+    def _cards(_client, set_id):
+        # Two lookups inside one planning pass; one uncached read.
+        assert refresh._latest_run_id_for_set(None, set_id) == "run-%s" % set_id
+        assert refresh._latest_run_id_for_set(None, set_id) == "run-%s" % set_id
+        return refresh.FreshnessResult("cards", False, "fresh")
+
+    monkeypatch.setattr(refresh, "_cards_snapshot_staleness", _cards)
+    monkeypatch.setattr(refresh, "_market_snapshot_staleness", lambda _c, _s, _w: refresh.FreshnessResult("market_dashboard", False, "fresh"))
+    monkeypatch.setattr(refresh, "_set_page_snapshot_staleness", lambda _c, _s: refresh.FreshnessResult("set_page", False, "fresh"))
+    monkeypatch.setattr(refresh, "_global_snapshot_staleness", lambda _c, *, family: refresh.FreshnessResult(family, False, "fresh"))
+
+    refresh._build_plan(None, set_rows=[{"id": "set-1"}], window="365d")
+    assert calls == ["set-1"]
+    # Torn down: the cache never survives the planning pass.
+    assert refresh._PLANNING_RUN_ID_CACHE is None
+    refresh._latest_run_id_for_set(None, "set-1")
+    assert calls == ["set-1", "set-1"]
+
+
+def test_planning_cache_is_torn_down_even_when_planning_raises(monkeypatch):
+    def _boom(_client, _set_id):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(refresh, "_cards_snapshot_staleness", _boom)
+    with pytest.raises(RuntimeError):
+        refresh._build_plan(None, set_rows=[{"id": "set-1"}], window="365d")
+    assert refresh._PLANNING_RUN_ID_CACHE is None
+
+
+def _patch_writes_as_recorders(monkeypatch, planning_error):
+    """main() with a planner that fails; every write path becomes a recorder."""
+    writes = []
+    _patch_main_pipeline(monkeypatch)
+    monkeypatch.setattr(refresh, "upsert_row", lambda *_a, **_k: writes.append("upsert_row"))
+    monkeypatch.setattr(refresh, "upsert_rows", lambda *_a, **_k: writes.append("upsert_rows"))
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_a, **_k: writes.append("publish_explore_rip_rankings_snapshot"),
+    )
+    monkeypatch.setattr(
+        refresh, "_maybe_rebuild_coordinated_market",
+        lambda *_a, **_k: writes.append("_maybe_rebuild_coordinated_market"),
+    )
+    monkeypatch.setattr(
+        refresh, "_maybe_rebuild_set_page", lambda *_a, **_k: writes.append("_maybe_rebuild_set_page")
+    )
+    monkeypatch.setattr(
+        refresh, "_maybe_rebuild_rankings", lambda *_a, **_k: writes.append("_maybe_rebuild_rankings")
+    )
+    monkeypatch.setattr(
+        refresh, "_build_validation_snapshot", lambda *_a, **_k: writes.append("_build_validation_snapshot")
+    )
+
+    def _planner(*_args, **_kwargs):
+        raise planning_error
+
+    monkeypatch.setattr(refresh, "_build_plan", _planner)
+    monkeypatch.setattr("sys.argv", ["refresh", "--commit"])
+    return writes
+
+
+def test_no_write_runs_when_planning_is_interrupted(monkeypatch):
+    """Ctrl+C during planning leaves production unchanged, and propagates."""
+    writes = _patch_writes_as_recorders(monkeypatch, KeyboardInterrupt())
+
+    with pytest.raises(KeyboardInterrupt):
+        refresh.main()
+    assert writes == []
+
+
+def test_no_write_runs_when_planning_raises(monkeypatch):
+    writes = _patch_writes_as_recorders(monkeypatch, RuntimeError("planning blew up"))
+
+    with pytest.raises(RuntimeError):
+        refresh.main()
+    assert writes == []
+
+
+# ---------------------------------------------------------------------------
+# Heartbeat cadence.
+#
+# Planning measures at ~4s per set over 209 sets. At the previous interval of 10
+# that is ~40s of INFO silence, which made a healthy run indistinguishable from a
+# blocked one and made the "silence beyond ~10s means blocked" runbook line
+# false. The interval is 3, for a ~10-20s expected heartbeat.
+# ---------------------------------------------------------------------------
+
+
+def _checked_heartbeats(caplog):
+    return [
+        message
+        for message in (record.getMessage() for record in caplog.records)
+        if message.startswith("[refresh-plan] checked")
+    ]
+
+
+def test_the_planning_interval_is_three_sets():
+    assert refresh.PLANNING_PROGRESS_INTERVAL == 3
+
+
+def test_an_info_heartbeat_lands_on_set_three_and_set_six(monkeypatch, caplog):
+    _stub_per_set_staleness(monkeypatch)
+    set_rows = [{"id": "set-%s" % index, "canonical_key": "key%s" % index} for index in range(1, 8)]
+
+    with caplog.at_level("INFO", logger=refresh.logger.name):
+        refresh._build_plan(None, set_rows=set_rows, window="365d")
+
+    heartbeats = _checked_heartbeats(caplog)
+    assert any("checked 3/7" in message for message in heartbeats), "no heartbeat at set 3"
+    assert any("checked 6/7" in message for message in heartbeats), "no heartbeat at set 6"
+    # Sets 1, 2, 4 and 5 stay at DEBUG — the interval must still bound the volume.
+    assert not any("checked 1/7" in message for message in heartbeats)
+    assert not any("checked 4/7" in message for message in heartbeats)
+
+
+def test_completion_is_always_logged_even_off_the_interval(monkeypatch, caplog):
+    _stub_per_set_staleness(monkeypatch)
+    # 7 is not a multiple of 3: the final set must still report.
+    set_rows = [{"id": "set-%s" % index, "canonical_key": "key%s" % index} for index in range(1, 8)]
+
+    with caplog.at_level("INFO", logger=refresh.logger.name):
+        refresh._build_plan(None, set_rows=set_rows, window="365d")
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("checked 7/7" in message for message in _checked_heartbeats(caplog))
+    assert any(message.startswith("[refresh-plan] complete sets=7") for message in messages)
+
+
+def test_a_slow_set_logs_immediately_even_off_the_interval(monkeypatch, caplog):
+    _stub_per_set_staleness(monkeypatch)
+    # Set 1 is slow (never on the interval); set 2 is instant.
+    ticks = iter([0.0, 0.0, refresh.SLOW_PLANNING_SET_SECONDS + 1.0, 5.0, 5.0, 5.0])
+    monkeypatch.setattr(refresh.time, "monotonic", lambda: next(ticks))
+
+    with caplog.at_level("INFO", logger=refresh.logger.name):
+        refresh._build_plan(
+            None,
+            set_rows=[
+                {"id": "set-1", "canonical_key": "slowKey"},
+                {"id": "set-2", "canonical_key": "fastKey"},
+            ],
+            window="365d",
+        )
+
+    heartbeats = _checked_heartbeats(caplog)
+    assert any("key=slowKey" in message for message in heartbeats), (
+        "a set slower than the threshold must report regardless of the interval"
+    )
+
+
+def test_a_timed_out_query_names_the_label_and_the_set_id(caplog):
+    """A blocked PostgREST call is bounded by the client's finite timeout.
+
+    The diagnostic must identify WHICH query and WHICH set, and must not print
+    the exception message (a PostgREST response body must never reach the log).
+    """
+
+    class ReadTimeout(Exception):
+        pass
+
+    class _TimingOut:
+        def execute(self):
+            raise ReadTimeout("secret-bearing response body")
+
+    with caplog.at_level("WARNING", logger=refresh.logger.name):
+        rows, error = refresh._execute_query(
+            "pokemon_set_cards_snapshot_latest.generation_id", _TimingOut(), set_id="set-1"
+        )
+
+    assert rows == []
+    assert error is not None, "a timeout is a failure, never an empty-but-fine result"
+    timeouts = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelname == "WARNING" and "[refresh-query] timeout" in record.getMessage()
+    ]
+    assert len(timeouts) == 1
+    assert "label=pokemon_set_cards_snapshot_latest.generation_id" in timeouts[0]
+    assert "set_id=set-1" in timeouts[0]
+    assert "error_type=ReadTimeout" in timeouts[0]
+    assert "secret-bearing response body" not in timeouts[0]
+
+
+def test_an_ordinary_query_failure_stays_at_debug_and_is_never_called_a_timeout(caplog):
+    """`_latest_timestamp` probes columns that may not exist, by design.
+
+    Those handled failures must not be promoted to WARNING — hundreds of them
+    per run would bury the one timeout line that matters.
+    """
+
+    class _Broken:
+        def execute(self):
+            raise RuntimeError("connection reset")
+
+    with caplog.at_level("DEBUG", logger=refresh.logger.name):
+        rows, error = refresh._execute_query("some.label", _Broken(), set_id="set-9")
+
+    assert (rows, error) == ([], "connection reset")
+    assert not any(
+        record.levelname == "WARNING" and "[refresh-query]" in record.getMessage()
+        for record in caplog.records
+    )
+    assert any(
+        record.levelname == "DEBUG" and "label=some.label" in record.getMessage()
+        for record in caplog.records
+    ), "the failure must still be diagnosable at DEBUG"
+
+
+def test_changing_the_heartbeat_interval_changes_no_freshness_decision(monkeypatch):
+    """Cadence is observability only: same plan, same verdicts, no writes."""
+    writes = []
+    monkeypatch.setattr(refresh, "upsert_row", lambda *_a, **_k: writes.append("upsert_row"))
+    monkeypatch.setattr(refresh, "upsert_rows", lambda *_a, **_k: writes.append("upsert_rows"))
+    monkeypatch.setattr(
+        refresh, "publish_explore_rip_rankings_snapshot",
+        lambda *_a, **_k: writes.append("publish"),
+    )
+
+    def _verdicts(interval):
+        monkeypatch.setattr(refresh, "PLANNING_PROGRESS_INTERVAL", interval)
+        monkeypatch.setattr(
+            refresh, "_cards_snapshot_staleness",
+            lambda _c, set_id: refresh.FreshnessResult("cards", set_id.endswith("2"), "reason-%s" % set_id),
+        )
+        monkeypatch.setattr(
+            refresh, "_market_snapshot_staleness",
+            lambda _c, set_id, _w: refresh.FreshnessResult("market_dashboard", False, "fresh"),
+        )
+        monkeypatch.setattr(
+            refresh, "_set_page_snapshot_staleness",
+            lambda _c, set_id: refresh.FreshnessResult("set_page", set_id.endswith("5"), "page-%s" % set_id),
+        )
+        monkeypatch.setattr(
+            refresh, "_global_snapshot_staleness",
+            lambda _c, *, family: refresh.FreshnessResult(family, False, "fresh"),
+        )
+        set_rows = [{"id": "set-%s" % index, "canonical_key": "key%s" % index} for index in range(1, 8)]
+        plans, rankings, validation, checks = refresh._build_plan(
+            None, set_rows=set_rows, window="365d"
+        )
+        return [
+            (plan.set_row["id"], plan.cards.stale, plan.cards.reason,
+             plan.market_dashboard.stale, plan.set_page.stale, plan.set_page.reason)
+            for plan in plans
+        ], rankings.stale, validation.stale, checks
+
+    assert _verdicts(3) == _verdicts(10)
+    assert writes == [], "planning is read-only at every cadence"
+
+
+# ---------------------------------------------------------------------------
+# Safety invariants that must not regress alongside the cadence change.
+# ---------------------------------------------------------------------------
+
+
+def test_the_refresh_planner_selects_exactly_the_rip_contract_columns():
+    """Same three columns as the audit, and never `set_canonical_key`.
+
+    `explore_rip_statistics_latest` exposes `canonical_key`; asking for
+    `set_canonical_key` makes PostgREST reject the whole SELECT.
+    """
+    client = _RecordingClient({"explore_rip_statistics_latest": []})
+
+    refresh._latest_eligible_run_id_by_set(client)
+
+    assert client.selects == [
+        ("explore_rip_statistics_latest", "set_id,calculation_run_id,financial_rip_v3_score_version")
+    ]
+    columns = client.selects[0][1]
+    assert "set_canonical_key" not in columns
+
+
+def test_the_generation_comparison_never_downloads_the_cards_payload():
+    """One scalar, projected server-side — not the multi-megabyte document."""
+    client = _RecordingClient(
+        {"pokemon_set_cards_snapshot_latest": [{"generation_id": "gen-1"}]}
+    )
+
+    refresh._read_cards_snapshot_generation_id(client, "set-1")
+
+    columns = client.selects[0][1]
+    assert columns == refresh.CARDS_GENERATION_ID_PROJECTION
+    assert columns.startswith("generation_id:payload_json->")
+    # The bare column would be the whole document.
+    assert "payload_json," not in columns
+    assert columns != "payload_json"
