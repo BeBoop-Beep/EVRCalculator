@@ -188,7 +188,20 @@ _REBUILD_MAX_ATTEMPTS = 3
 # The full-catalog planner issues hundreds of reads before it writes anything.
 # Without progress output a healthy-but-slow plan and a blocked network request
 # look identical (exactly the state that made a daily run appear hung).
-PLANNING_PROGRESS_INTERVAL = 10   # INFO heartbeat every N sets
+#
+# CADENCE, and why it is 3 and not 10.
+# Planning measures at roughly 4 seconds per set over the 209-set catalog. At an
+# interval of 10 that is ~40 seconds of INFO silence between heartbeats, so the
+# previous operational statement — "silence beyond ~10s means a blocked request"
+# — was simply wrong, and a healthy run looked hung. At an interval of 3 the
+# expected heartbeat is ~12 seconds under that same measured baseline.
+#
+# NO STRICT MAXIMUM IS CLAIMED. Network latency varies, and a single PostgREST
+# call may legitimately stay silent until the service-role client's finite
+# timeout (SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS, default 60s — see
+# backend.db.clients.supabase_client). THAT timeout, not this interval, is the
+# real upper bound on one blocked request.
+PLANNING_PROGRESS_INTERVAL = 3    # INFO heartbeat every N sets (~10-20s observed)
 SLOW_PLANNING_SET_SECONDS = 10.0  # always log a set slower than this
 SLOW_QUERY_SECONDS = 5.0          # always log a single SELECT slower than this
 
@@ -453,6 +466,17 @@ def _first_row(result: Any) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
+def _is_timeout_error(exc: BaseException) -> bool:
+    """Is this failure the client's finite PostgREST timeout firing?
+
+    Classified by TYPE NAME rather than by importing httpx, so the diagnostic
+    stays correct whichever transport the installed client uses. Used only to
+    label the log line; a timeout is a failure either way and is never converted
+    into a result.
+    """
+    return "timeout" in type(exc).__name__.lower()
+
+
 def _execute_query(
     label: str, query: Any, *, set_id: Optional[str] = None
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
@@ -462,14 +486,34 @@ def _execute_query(
     must propagate immediately so Ctrl+C during the read-only planning phase
     aborts the run rather than being classified as a transient query failure.
     Every request is bounded by the client's configured PostgREST HTTP timeout
-    (see backend.db.clients.supabase_client) — this wrapper adds observability,
-    not a second client stack or a second timeout.
+    (SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS, see
+    backend.db.clients.supabase_client) — this wrapper adds observability, not a
+    second client stack or a second timeout. That timeout is the upper bound on
+    how long one blocked call can stay silent.
+
+    A TIMED-OUT query is reported at WARNING with the query LABEL, the SET ID,
+    the elapsed time and the exception TYPE — that is the failure an operator
+    watching a silent run needs to see, and it is what distinguishes a blocked
+    call from a merely slow one. Its exception MESSAGE stays at DEBUG on
+    purpose: it can carry a PostgREST response body, which must never reach the
+    scheduler log.
+
+    Every OTHER failure stays at DEBUG, unchanged. `_latest_timestamp`
+    deliberately probes timestamp columns that may not exist on a given table
+    and falls through to the next one, so ordinary planning produces hundreds of
+    expected, handled query errors per run. Promoting those to WARNING would
+    bury the timeout line this diagnostic exists to surface.
     """
     started = time.monotonic()
     try:
         result = query.execute()
     except Exception as exc:
         elapsed = time.monotonic() - started
+        if _is_timeout_error(exc):
+            logger.warning(
+                "[refresh-query] timeout label=%s set_id=%s elapsed=%.2fs error_type=%s",
+                label, set_id, elapsed, type(exc).__name__,
+            )
         logger.debug(
             "source freshness query failed label=%s set_id=%s elapsed=%.2fs error=%s",
             label, set_id, elapsed, exc,
@@ -1352,7 +1396,15 @@ def _build_plan(client: Any, *, set_rows: List[Dict[str, Any]], window: str) -> 
     Progress is logged deterministically because this phase is long, silent and
     indistinguishable from a hang: every set at DEBUG, a heartbeat every
     PLANNING_PROGRESS_INTERVAL sets at INFO, and ALWAYS any set slower than
-    SLOW_PLANNING_SET_SECONDS.
+    SLOW_PLANNING_SET_SECONDS regardless of where it falls in the interval.
+
+    OPERATIONAL EXPECTATION. Under the measured current workload (~4s per set,
+    209 sets, interval 3) normal INFO heartbeats arrive roughly every 10-20
+    seconds. That is an expectation, NOT a guarantee: network latency varies,
+    and a single request may remain silent until its finite service-role
+    PostgREST timeout. That timeout — not this interval — is the actual upper
+    bound for one blocked PostgREST call. A `[refresh-query] timeout` line names
+    the query label and set id when it fires.
     """
     global _PLANNING_RUN_ID_CACHE
 

@@ -5,6 +5,8 @@ and are VERIFIED before the run may describe Opening Profit vs Cost as current.
 No subprocess is ever launched — the command runners are injected.
 """
 
+import copy
+
 import pytest
 
 from backend.scripts import run_daily_opening_publication as orchestrator
@@ -16,9 +18,97 @@ from backend.scripts.run_daily_opening_publication import (
     orchestrate,
 )
 from backend.db.services.publication_gate import GATE_DEFERRED_EXIT_CODE
+from backend.db.services.public_rip_publication_contract import (
+    DIAGNOSTICS_COHORT_FINGERPRINT_KEY,
+    DIAGNOSTICS_COLLECTOR_APPEAL_VERSION_KEY,
+    DIAGNOSTICS_CONTRACT_VERSION_KEY,
+    canonical_publication_identity,
+    supported_cohort_fingerprint,
+)
 
 MARKET_DATE = "2026-08-01"
+PRIOR_DATE = "2026-07-31"
 STALE_DATE = "2026-07-27"
+
+SET_ID = "id-a"
+SET_KEY = "alpha"
+RUN_ID = "run-a"
+
+
+# ===========================================================================
+# The query fake.
+#
+# It used to accept only select/eq/in_/order/limit and IGNORE every filter, so
+# `_load_value_histories`'s real `.gte(...)` raised AttributeError and the whole
+# market-publication audit collapsed into `publication surface read failed`
+# before a single assertion ran. Five orchestrator tests "passed through" that
+# hole for months.
+#
+# Two rules keep the replacement honest:
+#
+#   * NO `__getattr__`. Every fluent method is written out. A production query
+#     that starts using a method this fake does not implement must fail loudly
+#     with AttributeError, exactly as it did — silently absorbing unknown
+#     methods is how the hole would come back.
+#   * Filters, ordering, limits and projections are REALLY APPLIED against the
+#     fixtures, and an unknown column raises the way PostgREST rejects one.
+#     A fake that returns every row regardless of `.eq(...)` cannot distinguish
+#     an audit that filtered correctly from one that did not.
+# ===========================================================================
+class UnknownColumn(Exception):
+    """PostgREST rejects a SELECT naming a column the relation does not have."""
+
+
+# The columns each fixture relation actually exposes. Declared rather than
+# inferred from the fixture rows so that a column which is real-but-null still
+# selects, and a column that does not exist still fails.
+TABLE_COLUMNS = {
+    "sets": {
+        "id", "name", "canonical_key", "catalog_only", "supports_opening_simulation",
+        "has_sealed_details_url", "ready_for_daily_scrape",
+    },
+    "calculation_history_trend": {
+        "target_type", "target_id", "snapshot_date", "calculation_run_id",
+        "simulated_mean_pack_value_vs_pack_cost",
+        "simulated_median_pack_value_vs_pack_cost",
+    },
+    "simulation_run_summary": {"calculation_run_id"},
+    "pokemon_scrape_batches": {"market_date", "promoted_at", "status"},
+    "pokemon_set_market_dashboard_snapshot_latest": {
+        "set_id", "window_key", "latest_market_date", "top_chase_cards_json",
+        "top_chase_card_histories_json", "performance_vs_cost_history_json",
+    },
+    "pokemon_set_sealed_market_snapshot_latest": {"set_id", "market_date", "product_count"},
+    "pokemon_set_cards_snapshot_latest": {
+        "set_id", "payload_json", "cards_json", "card_count", "updated_at",
+    },
+    "pokemon_set_page_snapshot_latest": {
+        "set_id", "payload_json", "title_card_json", "market_summary_json", "as_of", "updated_at",
+    },
+    "pokemon_set_value_daily_history": {"set_id", "snapshot_date", "set_value", "value_scope"},
+    "sealed_products": {"id", "set_id", "name"},
+    "sealed_product_price_observations": {"sealed_product_id", "captured_at"},
+    "pokemon_explore_rankings_snapshot_latest": {
+        "tcg", "scope", "ranking_payload_json", "updated_at",
+    },
+    "pokemon_public_rip_leaderboard_snapshots": {
+        "id", "market_date", "built_at", "published_at", "publication_status",
+        "eligible_cohort_count", "cohort_version", "cohort_fingerprint",
+        "overall_rip_version", "financial_rip_version", "ca7_version", "diagnostics_json",
+    },
+    "pokemon_public_rip_leaderboard_rows": {
+        "snapshot_id", "set_id", "set_canonical_key", "overall_rip_score", "overall_rip_rank",
+        "financial_rip_score", "financial_rip_rank", "overall_ranked_cohort_count",
+        "simulation_calculation_run_id",
+    },
+    # Deliberately WITHOUT `set_canonical_key`: the live view exposes
+    # `canonical_key`, and requesting `set_canonical_key` made PostgREST reject
+    # the whole SELECT so the public RIP audit could not run at all. This fake
+    # reproduces that rejection.
+    "explore_rip_statistics_latest": {
+        "set_id", "calculation_run_id", "financial_rip_v3_score_version", "canonical_key", "run_at",
+    },
+}
 
 
 class _Result:
@@ -26,53 +116,128 @@ class _Result:
         self.data = data
 
 
+class _Not:
+    """The `.not_` namespace. Only the operators production uses exist."""
+
+    def __init__(self, query):
+        self._query = query
+
+    def is_(self, column, value):
+        self._query._require_column(column)
+        self._query._ops.append(("not.is", column, value))
+        if str(value).lower() == "null":
+            self._query._predicates.append(lambda row: row.get(column) is not None)
+        else:  # pragma: no cover - production only ever asks for null
+            raise AssertionError(f"unsupported not.is value {value!r}")
+        return self._query
+
+
 class _Query:
-    def __init__(self, rows):
+    """A fluent PostgREST query that really filters, orders, limits and projects."""
+
+    def __init__(self, table, rows, ops_log):
+        self._table = table
         self._rows = rows
+        self._ops = ops_log
+        self._predicates = []
+        self._columns = None
+        self._order = []
+        self._limit = None
 
-    def select(self, *_a, **_k):
+    # -- column contract ---------------------------------------------------
+    def _require_column(self, column):
+        known = TABLE_COLUMNS.get(self._table)
+        if known is not None and column not in known:
+            raise UnknownColumn(
+                f'column "{column}" does not exist on relation "{self._table}"'
+            )
+
+    # -- fluent surface (explicit; no __getattr__) --------------------------
+    def select(self, columns="*", **_k):
+        self._ops.append(("select", self._table, columns))
+        if columns and columns != "*":
+            requested = [c.strip() for c in str(columns).split(",") if c.strip()]
+            for column in requested:
+                self._require_column(column)
+            self._columns = requested
         return self
 
-    def eq(self, *_a, **_k):
+    def eq(self, column, value):
+        self._require_column(column)
+        self._ops.append(("eq", column, value))
+        self._predicates.append(lambda row, c=column, v=value: row.get(c) == v)
         return self
 
-    def in_(self, *_a, **_k):
+    def in_(self, column, values):
+        self._require_column(column)
+        wanted = list(values)
+        self._ops.append(("in", column, wanted))
+        self._predicates.append(lambda row, c=column, w=wanted: row.get(c) in w)
         return self
 
-    def order(self, *_a, **_k):
+    def gte(self, column, value):
+        """Present because `_load_value_histories` and
+        `_load_sealed_source_latest_dates` both use it. Its absence is what made
+        the whole market audit unreachable."""
+        self._require_column(column)
+        self._ops.append(("gte", column, value))
+        self._predicates.append(
+            lambda row, c=column, v=value: row.get(c) is not None and str(row.get(c)) >= str(v)
+        )
         return self
 
-    def limit(self, *_a, **_k):
+    def order(self, column, desc=False, **_k):
+        self._require_column(column)
+        self._ops.append(("order", column, desc))
+        self._order.append((column, bool(desc)))
         return self
 
+    def limit(self, count, **_k):
+        self._ops.append(("limit", count))
+        self._limit = int(count)
+        return self
+
+    @property
+    def not_(self):
+        return _Not(self)
+
+    # -- execution ---------------------------------------------------------
     def execute(self):
-        return _Result(self._rows)
+        rows = [row for row in self._rows if all(p(row) for p in self._predicates)]
+        # Applied last-key-first so the first `.order(...)` wins, as PostgREST does.
+        for column, desc in reversed(self._order):
+            rows = sorted(rows, key=lambda row: (row.get(column) is None, row.get(column)), reverse=desc)
+        if self._limit is not None:
+            rows = rows[: self._limit]
+        if self._columns is not None:
+            rows = [{c: row.get(c) for c in self._columns} for row in rows]
+        else:
+            rows = [dict(row) for row in rows]
+        self._ops.append(("execute", self._table, len(rows)))
+        return _Result(copy.deepcopy(rows))
 
 
-class _Client:
-    """Replays table rows; ``history_pages`` lets a run change between reads."""
+# ---------------------------------------------------------------------------
+# Production-shaped fixtures for one publication-required set on MARKET_DATE.
+# Every value below is the value the corresponding audit section actually reads.
+# ---------------------------------------------------------------------------
+SET_VALUE = 123.45
 
-    def __init__(self, *, sets_rows, history_pages, summary_rows):
-        self._sets = sets_rows
-        self._history_pages = list(history_pages)
-        self._summary = summary_rows
-        self.history_reads = 0
-
-    def table(self, name):
-        if name == "sets":
-            return _Query(self._sets)
-        if name == "simulation_run_summary":
-            return _Query(self._summary)
-        if name == "calculation_history_trend":
-            index = min(self.history_reads, len(self._history_pages) - 1)
-            self.history_reads += 1
-            return _Query(self._history_pages[index])
-        return _Query([])
+SET_ROW = {
+    "id": SET_ID,
+    "name": "Alpha",
+    "canonical_key": SET_KEY,
+    "catalog_only": False,
+    "supports_opening_simulation": True,
+    "has_sealed_details_url": True,
+    "ready_for_daily_scrape": True,
+}
 
 
-def _history(date, run_id="run-a", set_id="id-a"):
+def _history(date, run_id=RUN_ID, set_id=SET_ID):
     return [
         {
+            "target_type": "set",
             "target_id": set_id,
             "snapshot_date": date,
             "calculation_run_id": run_id,
@@ -80,6 +245,167 @@ def _history(date, run_id="run-a", set_id="id-a"):
             "simulated_median_pack_value_vs_pack_cost": 0.14,
         }
     ]
+
+
+def _market_fixtures(market_date=MARKET_DATE):
+    """Every market surface CURRENT for ``market_date`` — the passing baseline."""
+    cohort = supported_cohort_fingerprint([SET_KEY])
+    identity = canonical_publication_identity()
+    return {
+        "pokemon_scrape_batches": [
+            {"market_date": market_date, "promoted_at": f"{market_date}T12:00:00+00:00", "status": "promoted"}
+        ],
+        "pokemon_set_market_dashboard_snapshot_latest": [
+            {
+                "set_id": SET_ID,
+                "window_key": "365d",
+                "latest_market_date": market_date,
+                "top_chase_cards_json": [
+                    {"cardVariantId": "cv-a", "setId": SET_ID, "marketPrice": 12.0}
+                ],
+                "top_chase_card_histories_json": {
+                    "cv-a": [
+                        {"date": PRIOR_DATE, "marketPrice": 11.0},
+                        {"date": market_date, "marketPrice": 12.0},
+                    ]
+                },
+                "performance_vs_cost_history_json": [
+                    {"date": PRIOR_DATE, "simulatedMeanPackValueVsPackCost": 0.49},
+                    {"date": market_date, "simulatedMeanPackValueVsPackCost": 0.51},
+                ],
+            }
+        ],
+        "pokemon_set_sealed_market_snapshot_latest": [
+            {"set_id": SET_ID, "market_date": market_date, "product_count": 1}
+        ],
+        "pokemon_set_cards_snapshot_latest": [
+            {
+                "set_id": SET_ID,
+                "payload_json": {"meta": {"pricingContract": {"latestMarketDate": market_date}}},
+                "cards_json": [{"id": "card-1", "marketPrice": 3.5}],
+                "card_count": 1,
+                "updated_at": f"{market_date}T12:00:00+00:00",
+            }
+        ],
+        "pokemon_set_page_snapshot_latest": [
+            {
+                "set_id": SET_ID,
+                "payload_json": {"meta": {"snapshot": {"marketAsOfDate": market_date}}},
+                "title_card_json": {},
+                "market_summary_json": {"setValue": SET_VALUE},
+                "as_of": market_date,
+                "updated_at": f"{market_date}T12:00:00+00:00",
+            }
+        ],
+        "pokemon_set_value_daily_history": [
+            {"set_id": SET_ID, "snapshot_date": PRIOR_DATE, "set_value": 120.0, "value_scope": "standard"},
+            {"set_id": SET_ID, "snapshot_date": market_date, "set_value": SET_VALUE, "value_scope": "standard"},
+            # A different scope, and an out-of-window date, both of which the
+            # real query filters out. If the fake ignored .eq/.gte these would
+            # corrupt the canonical set value and the section would fail.
+            {"set_id": SET_ID, "snapshot_date": market_date, "set_value": 999.0, "value_scope": "hits"},
+        ],
+        "sealed_products": [{"id": "sp-1", "set_id": SET_ID, "name": "Alpha Booster Box"}],
+        "sealed_product_price_observations": [
+            {"sealed_product_id": "sp-1", "captured_at": f"{market_date}T09:00:00+00:00"},
+            {"sealed_product_id": "sp-1", "captured_at": f"{STALE_DATE}T09:00:00+00:00"},
+        ],
+        "pokemon_explore_rankings_snapshot_latest": [
+            {
+                "tcg": "pokemon",
+                "scope": "rip-statistics",
+                "ranking_payload_json": {
+                    "meta": {"snapshot": {"marketDate": market_date}},
+                    "targets": [
+                        {
+                            "set_id": SET_ID,
+                            "canonical_key": SET_KEY,
+                            "checklistSetValue": SET_VALUE,
+                            "checklistSetValueAsOf": market_date,
+                        }
+                    ],
+                },
+                "updated_at": f"{market_date}T12:00:00+00:00",
+            }
+        ],
+        "pokemon_public_rip_leaderboard_snapshots": [
+            {
+                "id": "snap-1",
+                "market_date": market_date,
+                "built_at": f"{market_date}T12:00:00+00:00",
+                "published_at": f"{market_date}T12:05:00+00:00",
+                "publication_status": "complete",
+                "eligible_cohort_count": 1,
+                "cohort_version": cohort["version"],
+                "cohort_fingerprint": cohort["fingerprint"],
+                "overall_rip_version": identity["overallRipVersion"],
+                "financial_rip_version": identity["financialRipVersion"],
+                "ca7_version": identity["collectorAppealVersion"],
+                "diagnostics_json": {
+                    DIAGNOSTICS_CONTRACT_VERSION_KEY: identity["publicRipContractVersion"],
+                    DIAGNOSTICS_COLLECTOR_APPEAL_VERSION_KEY: identity["collectorAppealVersion"],
+                    DIAGNOSTICS_COHORT_FINGERPRINT_KEY: cohort["fingerprint"],
+                },
+            }
+        ],
+        "pokemon_public_rip_leaderboard_rows": [
+            {
+                "snapshot_id": "snap-1",
+                "set_id": SET_ID,
+                "set_canonical_key": SET_KEY,
+                "overall_rip_score": 71.2,
+                "overall_rip_rank": 1,
+                "financial_rip_score": 68.4,
+                "financial_rip_rank": 1,
+                "overall_ranked_cohort_count": 1,
+                "simulation_calculation_run_id": RUN_ID,
+            }
+        ],
+        "explore_rip_statistics_latest": [
+            {
+                "set_id": SET_ID,
+                "canonical_key": SET_KEY,
+                "calculation_run_id": RUN_ID,
+                "financial_rip_v3_score_version": identity["financialRipVersion"],
+                "run_at": f"{market_date}T11:00:00+00:00",
+            }
+        ],
+    }
+
+
+class _Client:
+    """Replays table rows; ``history_pages`` lets a run change between reads.
+
+    ``tables`` carries the market/leaderboard fixtures the two later audits read;
+    it defaults to the fully-current baseline so a test only states the surface
+    it is actually about. ``raise_on`` makes one relation unreadable.
+    """
+
+    def __init__(self, *, sets_rows, history_pages, summary_rows, tables=None, raise_on=None):
+        self._sets = sets_rows
+        self._history_pages = list(history_pages)
+        self._summary = summary_rows
+        self._tables = _market_fixtures() if tables is None else dict(tables)
+        self._raise_on = dict(raise_on or {})
+        self.history_reads = 0
+        self.ops = []
+
+    @property
+    def tables_read(self):
+        return [table for op in self.ops if op[0] == "execute" for table in (op[1],)]
+
+    def table(self, name):
+        if name in self._raise_on:
+            raise self._raise_on[name]
+        if name == "sets":
+            return _Query(name, self._sets, self.ops)
+        if name == "simulation_run_summary":
+            return _Query(name, self._summary, self.ops)
+        if name == "calculation_history_trend":
+            index = min(self.history_reads, len(self._history_pages) - 1)
+            self.history_reads += 1
+            return _Query(name, self._history_pages[index], self.ops)
+        return _Query(name, self._tables.get(name, []), self.ops)
 
 
 @pytest.fixture
@@ -124,11 +450,12 @@ def patched(monkeypatch):
     return calls
 
 
-def _client(history_pages):
+def _client(history_pages, **kwargs):
     return _Client(
-        sets_rows=[{"id": "id-a", "name": "Alpha", "canonical_key": "alpha"}],
+        sets_rows=[dict(SET_ROW)],
         history_pages=history_pages,
-        summary_rows=[{"calculation_run_id": "run-a"}],
+        summary_rows=[{"calculation_run_id": RUN_ID}],
+        **kwargs,
     )
 
 
@@ -209,7 +536,7 @@ def test_verification_failure_alone_fails_even_when_simulations_reported_success
 
 def test_a_missing_summary_join_blocks_publication(patched):
     client = _Client(
-        sets_rows=[{"id": "id-a", "name": "Alpha", "canonical_key": "alpha"}],
+        sets_rows=[dict(SET_ROW)],
         history_pages=[_history(MARKET_DATE), _history(MARKET_DATE)],
         summary_rows=[],  # the join target is absent
     )
@@ -354,6 +681,11 @@ def test_a_passing_audit_allows_exit_zero(patched):
     assert summary.exit_code == EXIT_OK
     assert summary.publication_audit_status == "passed"
     assert summary.publication_audit_failed_sets == []
+    # Exit 0 requires ALL THREE audits, not just the opening one. Asserting the
+    # opening audit alone is what let the market audit sit unreachable behind a
+    # missing `.gte(...)` while this test still read as green.
+    assert summary.market_audit_status == "passed"
+    assert summary.rip_contract_audit_status == "passed"
 
 
 def test_an_unreadable_audit_is_not_reported_as_success(monkeypatch, patched):
@@ -391,3 +723,240 @@ def test_summary_reports_the_publication_audit_verdict(monkeypatch, patched):
 
     assert "publication_audit_status=failed" in text
     assert "publication_audit_failed_sets=alpha" in text
+
+
+# ===========================================================================
+# The market-publication audit and the public RIP contract audit must ACTUALLY
+# EXECUTE — and each must independently be able to stop exit 0.
+#
+# Before the fake implemented `.gte(...)`, `_load_value_histories` raised
+# AttributeError, `run_market_publication_audit` caught it as
+# "publication surface read failed", and the run failed for a reason that had
+# nothing to do with the data. Nothing below can pass unless the real query
+# path runs end to end.
+# ===========================================================================
+
+
+def _fixtures_with(table, rows):
+    tables = _market_fixtures()
+    tables[table] = rows
+    return tables
+
+
+def test_the_orchestrator_reaches_all_three_audits_before_exiting_zero(patched):
+    client = _client([_history(MARKET_DATE)])
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_OK
+    assert (summary.publication_audit_status, summary.market_audit_status,
+            summary.rip_contract_audit_status) == ("passed", "passed", "passed")
+
+    read = client.tables_read
+    # The market audit's own sources.
+    for table in (
+        "pokemon_set_market_dashboard_snapshot_latest",
+        "pokemon_set_sealed_market_snapshot_latest",
+        "pokemon_set_cards_snapshot_latest",
+        "pokemon_set_page_snapshot_latest",
+        "pokemon_set_value_daily_history",
+        "sealed_products",
+        "sealed_product_price_observations",
+        "pokemon_explore_rankings_snapshot_latest",
+    ):
+        assert table in read, f"market audit never read {table}"
+    # The public RIP contract audit's own sources.
+    for table in (
+        "pokemon_public_rip_leaderboard_snapshots",
+        "pokemon_public_rip_leaderboard_rows",
+        "explore_rip_statistics_latest",
+    ):
+        assert table in read, f"RIP contract audit never read {table}"
+
+
+def test_the_market_audit_really_issues_a_gte_filtered_history_read(patched):
+    client = _client([_history(MARKET_DATE)])
+
+    _orchestrate(client)
+
+    gte_ops = [op for op in client.ops if op[0] == "gte"]
+    assert ("gte", "snapshot_date", MARKET_DATE) in gte_ops, (
+        "the value-history read must be bounded by the promoted market date"
+    )
+    assert any(op[1] == "captured_at" for op in gte_ops), (
+        "the sealed source read must be bounded by the promoted market date"
+    )
+    # And the filters really applied: the out-of-scope `hits` row (set_value
+    # 999.0) never reached the audit, so the Explore/page comparison agreed.
+    assert ("eq", "value_scope", "standard") in client.ops
+
+
+def test_a_market_audit_failure_prevents_success(patched):
+    """A dashboard whose OPvC never reached the promoted date must fail the run."""
+    stale = _market_fixtures()
+    stale["pokemon_set_market_dashboard_snapshot_latest"][0][
+        "performance_vs_cost_history_json"
+    ] = [{"date": STALE_DATE, "simulatedMeanPackValueVsPackCost": 0.4}]
+    client = _client([_history(MARKET_DATE)], tables=stale)
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.market_audit_status == "failed"
+    assert summary.market_audit_failed_sets == [SET_KEY]
+    assert summary.rip_contract_audit_status == "not_attempted", (
+        "a failed market audit must short-circuit before claiming success"
+    )
+
+
+def test_a_stale_explore_set_value_prevents_success(patched):
+    """The Explore surface is audited independently of the set page."""
+    stale = _market_fixtures()
+    stale["pokemon_explore_rankings_snapshot_latest"][0]["ranking_payload_json"]["targets"][0][
+        "checklistSetValue"
+    ] = 999.99
+    client = _client([_history(MARKET_DATE)], tables=stale)
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.market_audit_status == "failed"
+
+
+def test_a_public_rip_audit_failure_prevents_success(patched):
+    """An obsolete published scoring version moves no timestamp — and must still fail."""
+    stale = _market_fixtures()
+    stale["pokemon_public_rip_leaderboard_snapshots"][0][
+        "financial_rip_version"
+    ] = "financial_rip_v2_60_25_15"
+    client = _client([_history(MARKET_DATE)], tables=stale)
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.market_audit_status == "passed", "the market surfaces are genuinely current"
+    assert summary.rip_contract_audit_status == "failed"
+    assert any("financial_rip_is_v3" in failure for failure in summary.rip_contract_audit_failures)
+    assert "canonical scoring contract" in (summary.error or "")
+
+
+def test_a_superseded_source_run_prevents_success(patched):
+    """A re-run after a fix must reach the public page, or the run fails."""
+    stale = _market_fixtures()
+    stale["explore_rip_statistics_latest"][0]["calculation_run_id"] = "run-b"
+    client = _client([_history(MARKET_DATE)], tables=stale)
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.rip_contract_audit_status == "failed"
+    assert any(
+        "every_row_from_latest_eligible_run" in failure
+        for failure in summary.rip_contract_audit_failures
+    )
+
+
+def test_a_query_exception_during_the_market_audit_prevents_success(patched):
+    client = _client(
+        [_history(MARKET_DATE)],
+        raise_on={"pokemon_set_cards_snapshot_latest": RuntimeError("connection reset")},
+    )
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.market_audit_status.startswith("error:")
+    assert "publication surface read failed" in summary.market_audit_status
+    assert summary.rip_contract_audit_status == "not_attempted"
+
+
+def test_a_service_role_timeout_during_the_market_audit_prevents_success(patched):
+    """A timeout is a failure. It is never a pass, a fresh result, or a skip."""
+
+    class ReadTimeout(Exception):
+        pass
+
+    client = _client(
+        [_history(MARKET_DATE)],
+        raise_on={"pokemon_set_value_daily_history": ReadTimeout("timed out")},
+    )
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.market_audit_status.startswith("error:")
+    assert summary.market_audit_status != "skipped"
+    assert summary.rip_contract_audit_status == "not_attempted"
+
+
+def test_a_service_role_timeout_during_the_rip_audit_prevents_success(patched):
+    class ReadTimeout(Exception):
+        pass
+
+    client = _client(
+        [_history(MARKET_DATE)],
+        raise_on={"pokemon_public_rip_leaderboard_snapshots": ReadTimeout("timed out")},
+    )
+
+    summary = _orchestrate(client)
+
+    assert summary.exit_code == EXIT_FAILED
+    assert summary.rip_contract_audit_status.startswith("error:")
+
+
+def test_every_audit_failure_exits_the_process_nonzero(monkeypatch, patched):
+    """main() propagates the verdict as the process exit code."""
+    stale = _market_fixtures()
+    stale["pokemon_public_rip_leaderboard_snapshots"][0]["publication_status"] = "failed"
+    client = _client([_history(MARKET_DATE)], tables=stale)
+
+    monkeypatch.setattr(
+        "backend.scripts.pokemon_snapshot_builders.get_client", lambda: client
+    )
+    import backend.db.services.opening_simulation_gate as gate
+
+    original = gate.supported_opening_set_keys
+    gate.supported_opening_set_keys = lambda: (SET_KEY,)
+    try:
+        code = orchestrator.main([])
+    finally:
+        gate.supported_opening_set_keys = original
+
+    assert code != EXIT_OK
+    assert code == EXIT_FAILED
+
+
+# ---------------------------------------------------------------------------
+# The fake must stay honest.
+# ---------------------------------------------------------------------------
+def test_the_fake_rejects_an_unimplemented_query_method():
+    """No __getattr__: a production query using a new method must fail loudly."""
+    query = _Query("sets", [dict(SET_ROW)], [])
+    with pytest.raises(AttributeError):
+        query.lte("id", "z")
+    with pytest.raises(AttributeError):
+        query.range(0, 99)
+
+
+def test_the_fake_rejects_an_unknown_column_the_way_postgrest_does():
+    query = _Query("sets", [dict(SET_ROW)], [])
+    with pytest.raises(UnknownColumn):
+        query.select("id,not_a_real_column")
+
+
+def test_the_rip_view_still_refuses_set_canonical_key():
+    """`explore_rip_statistics_latest` exposes `canonical_key`, never
+    `set_canonical_key`. Requesting the latter made PostgREST reject the whole
+    SELECT, so the public RIP audit could not run at all."""
+    query = _Query("explore_rip_statistics_latest", [], [])
+    with pytest.raises(UnknownColumn):
+        query.select("set_id,set_canonical_key")
+
+
+def test_the_public_rip_audit_selects_exactly_the_three_contract_columns(patched):
+    client = _client([_history(MARKET_DATE)])
+
+    _orchestrate(client)
+
+    selects = [op[2] for op in client.ops if op[0] == "select" and op[1] == "explore_rip_statistics_latest"]
+    assert selects == ["set_id,calculation_run_id,financial_rip_v3_score_version"]
