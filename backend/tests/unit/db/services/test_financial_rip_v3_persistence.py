@@ -258,3 +258,63 @@ def test_run_identity_and_v3_payload_reach_the_repository_together(mock_create):
         derived["financial_rip_v3"]["estimationDiagnostics"]["simulationCount"]
     )
     assert payload["financial_rip_v3_payload"]["score"] == payload["financial_rip_v3_score"]
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: builder -> projection -> ACTUAL insert payload
+# ---------------------------------------------------------------------------
+# The test above mocks `create_simulation_derived_metrics`, which is exactly the
+# function that used to discard the V3 block. Mocking it proves the projection is
+# correct and proves nothing about what is written. This test carries a ready V3
+# result all the way to the argument handed to Supabase, so the writer is inside
+# the assertion rather than outside it.
+
+def test_ready_v3_survives_builder_projection_and_repository_insert():
+    """A ready V3 result must reach the database payload intact, end to end."""
+    from backend.db.repositories import calculation_runs_repository as repo
+
+    derived = make_derived()
+    assert derived["financial_rip_v3"]["status"] == "ready"
+
+    with patch.object(repo, "_insert_required_payload") as mock_insert:
+        mock_insert.return_value = {"id": "row-e2e"}
+        persist_simulation_derived_metrics(run_id="run-e2e", derived=derived)
+        mock_insert.assert_called_once()
+        table_name, insert_payload, _context = mock_insert.call_args[0]
+
+    assert table_name == "simulation_derived_metrics"
+    assert insert_payload["calculation_run_id"] == "run-e2e"
+
+    # Every declared V3 column is present AND carries a real value - the exact
+    # condition that was false in production while the insert still succeeded.
+    authoritative = derived["financial_rip_v3"]
+    for field in FINANCIAL_RIP_V3_METRIC_FIELDS:
+        assert field in insert_payload, f"{field} never reached the insert"
+        assert insert_payload[field] is not None, f"{field} reached the insert as NULL"
+
+    assert insert_payload["financial_rip_v3_score"] == authoritative["score"]
+    assert insert_payload["financial_rip_v3_score_version"] == FINANCIAL_RIP_V3_VERSION
+    assert insert_payload["financial_rip_v3_status"] == "ready"
+    assert insert_payload["financial_rip_v3_rankable"] is True
+
+    # The JSONB document arrives as a document, and is the same score the scalar
+    # column carries - so the projection and the audit payload cannot disagree.
+    document = insert_payload["financial_rip_v3_payload"]
+    assert isinstance(document, dict)
+    assert document["score"] == insert_payload["financial_rip_v3_score"]
+    json.dumps(document)
+
+    # The additive Depth-and-Robustness diagnostic travels with it.
+    assert insert_payload["top2_ev_share"] is not None
+
+
+def test_end_to_end_insert_payload_matches_the_declared_column_contract():
+    """No declared column missing, no undeclared column invented."""
+    from backend.db.repositories import calculation_runs_repository as repo
+
+    with patch.object(repo, "_insert_required_payload") as mock_insert:
+        mock_insert.return_value = {"id": "row-e2e-2"}
+        persist_simulation_derived_metrics(run_id="run-e2e-2", derived=make_derived())
+        _table, insert_payload, _context = mock_insert.call_args[0]
+
+    assert set(insert_payload) == set(DERIVED_METRIC_FIELDS) | {"calculation_run_id"}
