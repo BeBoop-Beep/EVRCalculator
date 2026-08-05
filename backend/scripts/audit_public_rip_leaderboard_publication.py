@@ -175,9 +175,15 @@ def run_audit(client: Any) -> AuditReport:
             .eq("snapshot_id", report.snapshot_id)
             .execute()
         )
+        # Only the three columns this audit actually consumes. The live view
+        # exposes `canonical_key`, NOT `set_canonical_key`; requesting the latter
+        # made PostgREST reject the whole SELECT, so the audit could not run at
+        # all. The canonical key used below comes from
+        # pokemon_public_rip_leaderboard_rows.set_canonical_key (a real column on
+        # that table), so nothing here needs a key from this view.
         latest_rows = _rows(
             client.table("explore_rip_statistics_latest")
-            .select("set_id,set_canonical_key,calculation_run_id,financial_rip_v3_score_version")
+            .select("set_id,calculation_run_id,financial_rip_v3_score_version")
             .execute()
         )
     except Exception as exc:  # noqa: BLE001
