@@ -182,26 +182,11 @@ test("chart interaction still cannot navigate", () => {
 // MobileOverviewRefinementPass.contract.test.mjs; what stays pinned here is
 // that the desktop row keeps its four-column grid and all of its fields.
 
-test("the desktop decision signal row keeps its four-column grid", () => {
-  assert.ok(signalRow.includes("desk:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem]"));
-  assert.ok(!signalRow.includes("sm:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem]"), "the sm-scoped grid is gone");
-});
+// Decision Signals assertions were removed: the Overview Decision Signals card
+// scored Profit, Safety, Stability, Opening Experience and Chase Potential, none
+// of which are terms of the current model, and the card no longer exists.
 
-test("every score, tier, rank and interpretation still renders", () => {
-  for (const token of ["signal.label", "signal.scoreText", "signal.rankTier", "RankBadge", "summaryText", "parsedRank"]) {
-    assert.ok(signalRow.includes(token), `${token} must remain`);
-  }
-  assert.ok(signalRow.includes("TrendIndicator"), "the score trend indicator survives");
-});
 
-test("below desktop Decision Signals is the compact structured list", () => {
-  const card = client.slice(
-    client.indexOf("function DecisionSignalsCard("),
-    client.indexOf("// A Profit / Safety / Stability card.")
-  );
-  assert.ok(card.includes('<div className="desk:hidden">\n        <DecisionSignalsCompactList'));
-  assert.ok(card.includes('<div className="hidden desk:block">'), "the row stack is desktop-only");
-});
 
 // --- 9 / 10. Containers and parity ----------------------------------------
 

@@ -216,7 +216,7 @@ export function getCalloutAccentStyle({ label, rankTier, severity } = {}) {
  * The shared RIP tier presentation — the Opening Outlook rail/wash and the
  * title-card tier / rank / verdict pills, all derived from the SAME accent this
  * module already resolves for RankBadge and InterpretationBadge. Every RIP
- * surface reads this one helper so a tier change (RIP Score B -> RIP Core C,
+ * surface reads this one helper so a tier change (RIP Score B -> RIP Score C,
  * say) repaints all of them together. See ripTierPresentation.mjs.
  */
 export function getRipTierPresentation({ label, rankTier, severity } = {}) {

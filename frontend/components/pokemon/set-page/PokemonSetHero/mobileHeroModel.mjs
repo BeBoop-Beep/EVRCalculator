@@ -61,8 +61,9 @@ export function selectMobileHeroModel(input = {}) {
   const score = toFiniteNumber(rip.score);
   const tierText = formatTier(rip.tier);
   const rank = toFiniteNumber(rip.rank);
-  const verdict = cleanText(rip.verdict);
-  const hasRip = score !== null || tierText !== null || rank !== null || verdict !== null;
+  // No `verdict`. It carried the retired interpretation engine's label, which
+  // describes neither Financial RIP V3 nor Collector Appeal V3.
+  const hasRip = score !== null || tierText !== null || rank !== null;
 
   return {
     identity: {
@@ -84,7 +85,6 @@ export function selectMobileHeroModel(input = {}) {
       tierText,
       rankText: rank === null ? null : `Rank #${Math.round(rank)}`,
       cohortSize: toFiniteNumber(rip.cohortSize),
-      verdict,
       // Only offer a tap target when there is something to navigate to.
       isActionable: hasRip,
     },

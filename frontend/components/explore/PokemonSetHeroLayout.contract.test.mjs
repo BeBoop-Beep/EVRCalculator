@@ -51,7 +51,9 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
   assert.ok(shell.includes("displayedTopScore"));
   assert.ok(shell.includes("setContextRipTier"));
   assert.ok(shell.includes("setContextRipRank"));
-  assert.ok(shell.includes("recommendationBadge"));
+  // The verdict pill is gone; a neutral helper line holds that slot.
+  assert.ok(!shell.includes("recommendationBadge"));
+  assert.ok(shell.includes("data-set-context-rip-helper"));
   // All three derive from the same `heroScoreSelection` the Insights breakdown
   // renders, so the card cannot show a different mode's tier or rank.
   for (const derivation of [
@@ -66,17 +68,19 @@ test("context row uses the 46/27/27 identity, value, and Opening RIP structure",
 test("the title-card RIP summary shares the detailed breakdown's tier presentation", () => {
   const shell = shellSource();
 
-  // Tier and verdict are outlined pills in the same shape language as the
-  // breakdown's RankBadge / InterpretationBadge (rounded-full, 1px border).
-  // The RANK is not: it is a position rather than a judgement, and a third
-  // outlined chip made the compact card read as three competing badges.
-  for (const marker of ["data-set-context-rip-tier", "data-set-context-rip-rank", "data-set-context-rip-verdict"]) {
+  // The TIER is an outlined pill in the same shape language as the breakdown's
+  // RankBadge. The RANK is not: it is a position rather than a judgement. The
+  // verdict pill is gone entirely — it rendered the retired interpretation
+  // engine's label, which describes neither Financial RIP V3 nor Collector
+  // Appeal V3.
+  for (const marker of ["data-set-context-rip-tier", "data-set-context-rip-rank"]) {
     assert.equal((shell.match(new RegExp(marker, "g")) || []).length, 1, `${marker} must render once`);
   }
+  assert.equal((shell.match(/data-set-context-rip-verdict/g) || []).length, 0);
   assert.ok(shell.includes("style={setContextRipPresentation.tierPill}"));
-  assert.ok(shell.includes("style={setContextRipPresentation.verdictPill}"));
+  assert.ok(!shell.includes("style={setContextRipPresentation.verdictPill}"));
   assert.ok(!shell.includes("style={setContextRipPresentation.rankPill}"), "the rank must not carry a pill style");
-  assert.equal((shell.match(/rounded-full border px-2 py-0\.5/g) || []).length, 2, "only the tier and verdict are pills");
+  assert.equal((shell.match(/rounded-full border px-2 py-0\.5/g) || []).length, 1, "only the tier is a pill");
 
   // The rank element itself carries no bubble: no border, no rounding, no fill.
   const rankStart = shell.indexOf("data-set-context-rip-rank");
@@ -128,7 +132,8 @@ test("persistent shell contains only concise context and deep-link actions", () 
   assert.ok(shell.includes("onClick={handleViewSetValueTrend}"));
   assert.ok(shell.includes("View trend"));
   assert.ok(shell.includes('tab: "insights", section: "rip-score", targetId: "set-detail-rip-score"'));
-  assert.ok(shell.includes("View verdict"));
+  assert.ok(shell.includes("View analysis"), "the CTA is renamed and keeps its target");
+  assert.ok(!shell.includes("View verdict"));
   assert.equal((shell.match(/set-context-action/g) || []).length, 2);
   assert.ok(!shell.includes("<CompactSparkline"));
   assert.ok(!shell.includes("headerDecisionMetrics"));
@@ -213,7 +218,9 @@ test("set-page content uses shared standard and dense glass surfaces without cha
   assert.ok(globals.includes("--set-glass-inner-bg: rgba(8, 17, 31, 0.14);"));
   assert.ok(globals.includes("--set-glass-inner-bg-dense: rgba(8, 17, 31, 0.20);"));
   assert.ok(source.includes("set-glass-inner overflow-visible rounded-xl"));
-  assert.ok(source.includes("set-glass-inner flex h-full flex-col"));
+  // The second inner-glass user was the Profit/Safety/Stability pillar tile,
+  // removed with the legacy composition. StatTile is the remaining one.
+  assert.ok(source.includes('<div className="set-glass-inner rounded-xl border border-[var(--border-subtle)] p-4">'));
   assert.match(
     globals,
     /\.set-detail-glass-scope \.set-glass-surface,[\s\S]+-webkit-backdrop-filter: blur\(var\(--set-glass-blur\)\);[\s\S]+backdrop-filter: blur\(var\(--set-glass-blur\)\);/
@@ -347,21 +354,11 @@ test("opening economics live in Overview Opening Profit vs Cost", () => {
   assert.ok(overview.includes("grid-cols-[minmax(0,1fr)_auto]"), "label and value share one line below desktop");
 });
 
-test("Insights verdict owns the score mode and complete static Opening Outlook", () => {
-  const start = source.indexOf("function RipScoreBreakdownModule");
-  const end = source.indexOf("function StatTile", start);
-  const verdict = source.slice(start, end);
-  assert.ok(verdict.includes("<RipScoreModeToggle"));
-  assert.ok(verdict.includes("data-insights-opening-outlook"));
-  assert.ok(verdict.includes("openingOutlook ||"));
-  // The disclaimer body is a shared constant now: the below-desktop tree shows
-  // the same outlook in its shared detail region and quotes the same sentence
-  // rather than a retyped near-copy. Still canonical, still one definition.
-  assert.ok(verdict.includes("<InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />"));
-  assert.ok(source.includes("It does not evaluate sealed-product appreciation"));
-  assert.ok(!verdict.includes("<details"));
-  assert.ok(!verdict.includes("Read full outlook"));
-});
+// The "Insights verdict owns the score mode and complete static Opening Outlook"
+// test stood here. Both things it locked are gone: the RIP Score / RIP Core mode
+// toggle (RIP Core is Financial RIP V2, not a current alternative) and the
+// Opening Outlook paragraph (retired interpretation engine). The canonical RIP
+// Score header is asserted in canonicalRipV7.contract.test.mjs.
 
 test("canonical hero selectors and premium chart treatment remain unchanged", () => {
   const metricsStart = source.indexOf("const headerDecisionMetrics = [");

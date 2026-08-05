@@ -2,16 +2,20 @@
 // Insights tab.
 //
 // It replaced two sibling sections ("Set Desirability" and "Simulation Opening
-// Experience") that left the reader to guess how they related. They are not
-// alternatives and not duplicates: Set Desirability is the roster base CA7
-// consumes, CA7 is the term RIP Score weights at 10%, and Set Desirability
-// itself carries no RIP weight. The section shows that chain.
+// Experience") that left the reader to guess how they related.
+//
+// This section used to open with a three-stage flow — Set Desirability ->
+// Collector Appeal -> RIP Score Contribution — drawn with arrows. That flow has
+// been removed: it claimed a sequential pipeline the model does not have, and
+// its final stage published a composition weight and a contribution in model
+// points. Collector Appeal's score and its three canonical V3 factors are now
+// presented once, under RIP Score. What remains here is the EVIDENCE behind
+// them: Roster Appeal and Opening Paths.
 //
 // Two things this file exists to protect:
 //
-//   1. the RELATIONSHIP is stated, not implied — one direction, three stages,
-//      never a toggle between two measurements of the same thing; and
-//   2. the two scores keep SEPARATE availability, because they fail for
+//   1. no sequential chain and no published weight returns to this section; and
+//   2. the two panels keep SEPARATE availability, because they fail for
 //      different reasons (a checklist vs. a modeled pull structure). Merging
 //      the presentation must not merge the gating.
 //
@@ -28,7 +32,6 @@ import { fileURLToPath } from "node:url";
 
 import {
   selectOpeningExperiencePresentation,
-  selectRipDesirabilityBreakdown,
   selectSetDesirabilityPresentation,
 } from "../pokemon/set-page/Insights/openingExperienceSelector.mjs";
 
@@ -40,14 +43,6 @@ function collectorProfileSection() {
   const end = source.indexOf("\nconst TOP_CARD_IMAGE_CONTAINER_CLASS", start);
   assert.ok(start >= 0 && end > start, "CollectorProfileSection must exist");
   return source.slice(start, end);
-}
-
-function summaryFlow() {
-  const section = collectorProfileSection();
-  const start = section.indexOf("data-collector-profile-flow");
-  const end = section.indexOf("<SectionViewTabs", start);
-  assert.ok(start >= 0 && end > start, "the summary flow must precede the detail tabs");
-  return section.slice(start, end);
 }
 
 // The bullet arrays behind the three information tooltips, read out of the
@@ -70,40 +65,28 @@ const COLLECTOR_APPEAL_BULLETS = bulletList("COLLECTOR_APPEAL_INFO_BULLETS");
 // The relationship
 // ---------------------------------------------------------------------------
 
-test("the summary states one directed chain: Set Desirability -> Collector Appeal -> 10%", () => {
-  const flow = summaryFlow();
-
-  const desirability = flow.indexOf('label="Set Desirability"');
-  const appeal = flow.indexOf('label="Collector Appeal"');
-  const contribution = flow.indexOf('label="RIP Score Contribution"');
-  assert.ok(desirability >= 0 && appeal > desirability, "Collector Appeal follows Set Desirability");
-  assert.ok(contribution > appeal, "the weighted term is the end of the chain");
-
-  // Two connectors, so the direction is drawn and not merely implied by order.
-  assert.equal((flow.match(/<CollectorProfileArrow \/>/g) || []).length, 2);
+test("the sequential Set Desirability -> Collector Appeal -> contribution flow is gone", () => {
+  // It claimed Roster Desirability is a first STAGE feeding Collector Appeal.
+  // The three Collector Appeal V3 factors are parallel inputs to one weighted
+  // combination, and the final stage published a weight and a contribution in
+  // model points - both internal to the model.
+  const section = collectorProfileSection();
+  assert.ok(!section.includes("data-collector-profile-flow"));
+  assert.ok(!section.includes('label="RIP Score Contribution"'));
+  assert.ok(!section.includes("<CollectorProfileArrow"));
+  assert.ok(!section.includes("<CollectorProfileStage"));
+  assert.ok(!section.includes("ripContribution"));
+  const sectionCode = section
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//") && !line.trimStart().startsWith("*"))
+    .join("\n");
+  assert.ok(!/\d+%/.test(sectionCode), "no weight percentage may sit in this section");
+  // The components themselves are gone from the page, not merely unused.
+  assert.ok(!source.includes("function CollectorProfileArrow("));
+  assert.ok(!source.includes("function CollectorProfileStage("));
 });
 
-test("the two scores are stages of a chain, never options of a toggle", () => {
-  const flow = summaryFlow();
-
-  // A radio/segmented control here would say "pick one of these two views of
-  // the same thing", which is the exact misreading the section fixes.
-  assert.ok(!flow.includes("SegmentedControl"), "the flow must not be a control");
-  assert.ok(!flow.includes("<SectionViewTabs"), "the flow must not be a control");
-  assert.ok(!/role="radio"/.test(flow));
-  assert.ok(!flow.includes("onChange"), "the stages are not selectable alternatives");
-});
-
-test("Set Desirability is labelled as supporting context, not a separate RIP weight", () => {
-  const flow = summaryFlow();
-  const stage = flow.slice(flow.indexOf('label="Set Desirability"'), flow.indexOf('label="Collector Appeal"'));
-
-  assert.ok(stage.includes("Supporting input — no RIP Score weight of its own."));
-  // Only the Collector Appeal stage carries a weight; Set Desirability has none.
-  assert.ok(!stage.includes("weightLabel"));
-  assert.ok(!/\d+%/.test(stage), "no percentage may sit on the Set Desirability stage");
-
-  // And the tooltip states the same thing, at length.
+test("Set Desirability is still labelled as supporting context, not a RIP weight", () => {
   assert.ok(
     SET_DESIRABILITY_BULLETS.includes(
       "Supports Collector Appeal but does not receive its own RIP Score weight."
@@ -111,14 +94,17 @@ test("Set Desirability is labelled as supporting context, not a separate RIP wei
   );
 });
 
-test("the contribution stage shows the backend weight and model points, not a recomputation", () => {
-  const flow = summaryFlow();
-  const stage = flow.slice(flow.indexOf('label="RIP Score Contribution"'));
-
-  assert.ok(stage.includes('ripContribution?.weightLabel || "10%"'));
-  assert.ok(stage.includes("ripContribution?.contributionPointsLabel"));
-  assert.ok(stage.includes("RIP Core supplies the other 90%"), "the other 90% is named so 10% is not read as the whole");
-  assert.ok(!/\*\s*0\.1\b/.test(flow), "the weight must never be applied in the markup");
+test("no tooltip publishes a composition weight", () => {
+  for (const [name, bullets] of [
+    ["COLLECTOR_PROFILE_INFO_BULLETS", COLLECTOR_PROFILE_BULLETS],
+    ["COLLECTOR_APPEAL_INFO_BULLETS", COLLECTOR_APPEAL_BULLETS],
+    ["SET_DESIRABILITY_INFO_BULLETS", SET_DESIRABILITY_BULLETS],
+  ]) {
+    for (const bullet of bullets) {
+      assert.ok(!/\d+%/.test(bullet), name + ' must not state a weight: ' + bullet);
+      assert.ok(!/contributes \d/i.test(bullet), name + ' must not state a contribution: ' + bullet);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -168,37 +154,14 @@ test("an unavailable Collector Appeal scopes its message to the pull model", () 
   assert.ok(!/>\s*0\s*</.test(panel));
 });
 
-test("a missing CA7 explains RIP Score's absence in user-facing names, without a fake zero", () => {
-  const model = selectRipDesirabilityBreakdown(
-    // The backend shape for a set with a financial score but no CA7.
-    { score: null, statusReason: "unavailable_missing_input", components: { financialRip: { score: 14.9575, weight: 0.9 } } },
-    { score: 14.9575, relativeScore: 41.2, rank: 30, tier: "D", cohortSize: 33 },
-    { score: 92.4, rank: 23, rankedSetCount: 135, coverage: { status: "full" } },
-    { status: "unavailable" }
-  );
-
-  assert.equal(model.openingDesirability.score, null);
-  assert.equal(model.openingDesirability.scoreLabel, null, "a missing term has no score label, not '0.0'");
-  assert.equal(model.openingDesirability.contribution, null, "and no contribution, not 0");
-  assert.equal(
-    model.openingDesirability.unavailableReason,
-    "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."
-  );
-
-  // The reason names the metrics the user can actually see. "Overall RIP" and
-  // "Financial RIP" are internal names for RIP Score and RIP Core; printing
-  // them here read as a third, unseen metric.
-  assert.ok(!model.openingDesirability.unavailableReason.includes("Overall RIP"));
-  assert.ok(!model.openingDesirability.unavailableReason.includes("Financial RIP"));
-
-  // RIP Core and Set Desirability stay usable, and RIP Core is NOT promoted
-  // into RIP Score's place.
-  assert.equal(model.financialRip.relativeScore, 41.2);
-  assert.equal(model.setDesirability.scoreLabel, "92.4");
-  assert.equal(model.overallRip.score, null);
-  assert.equal(model.overallRip.relativeScore, null);
-  assert.notEqual(model.overallRip.score, model.financialRip.score);
-});
+// The following were removed with selectRipDesirabilityBreakdown and the
+// Overall RIP v4 construction strip it fed:
+//   * the "missing CA7 explains RIP Score's absence" copy test, whose
+//     asserted sentence named "CA7" and "RIP Core" on a public surface;
+//   * the three-stage flow value test and the effective 54/22.5/13.5/10
+//     weight test, both of which published composition weights.
+// A missing Collector Appeal now renders the backend status reason on the
+// canonical V3 surface; see CollectorAppealBreakdown.contract.test.mjs.
 
 // ---------------------------------------------------------------------------
 // Diagnostics vs. weighted terms
@@ -232,9 +195,11 @@ test("the stale 'neither is a pillar' copy is gone and the current model is stat
   assert.ok(!source.includes("A separate diagnostic — it is not added to the RIP Score."));
   assert.ok(!source.includes("Chase Appeal is a separate desirability × scarcity diagnostic and is not added to the RIP Score."));
 
-  // All four facts survive, one per bullet, across the tooltips that own them.
-  assert.ok(COLLECTOR_PROFILE_BULLETS.includes("Collector Appeal contributes 10% to RIP Score."));
-  assert.ok(COLLECTOR_APPEAL_BULLETS.includes("Contributes 10% to RIP Score."));
+  // The surviving facts, one per bullet. The two that stated a 10% weight are
+  // deliberately absent: no public tooltip publishes a composition weight.
+  assert.ok(
+    COLLECTOR_APPEAL_BULLETS.includes("One of the two halves of RIP Score, alongside Financial RIP.")
+  );
   assert.ok(
     COLLECTOR_APPEAL_BULLETS.includes("Chase Appeal helps explain the quality of the available chase.")
   );
@@ -281,7 +246,7 @@ test("the three information tooltips are bullet lists, not paragraph walls", () 
     ["Set Desirability", SET_DESIRABILITY_BULLETS],
     ["Collector Appeal", COLLECTOR_APPEAL_BULLETS],
   ]) {
-    assert.ok(bullets.length >= 6, `${name} must be at least six bullets`);
+    assert.ok(bullets.length >= 5, `${name} must be at least five bullets`);
     for (const bullet of bullets) {
       // One idea per bullet: no bullet may itself be a two-sentence paragraph.
       assert.ok(bullet.length <= 120, `${name} bullet is too long: ${bullet}`);
@@ -289,11 +254,8 @@ test("the three information tooltips are bullet lists, not paragraph walls", () 
     }
   }
 
-  // And the flow's stage tooltips read those arrays, not a prose string.
-  const flow = summaryFlow();
-  assert.ok(flow.includes("infoBullets={SET_DESIRABILITY_INFO_BULLETS}"));
-  assert.ok(flow.includes("infoBullets={COLLECTOR_APPEAL_INFO_BULLETS}"));
-  assert.ok(!/infoText=/.test(flow), "no stage may take a prose tooltip");
+  // The section heading still reads its array rather than a prose string.
+  assert.ok(source.includes("titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}"));
 });
 
 test("each detail view is ONE bordered surface with internal bands", () => {
@@ -374,75 +336,3 @@ test("the detail views do not repeat the headline scores already in the summary"
   assert.ok(paths.includes('title="Pull paths for top subjects"'));
 });
 
-// ---------------------------------------------------------------------------
-// The values behind the flow
-// ---------------------------------------------------------------------------
-
-test("the flow's three stages read canonical backend values", () => {
-  const rip = {
-    score: 28.6777,
-    relativeScore: 64.11,
-    rank: 11,
-    tier: "C",
-    cohortSize: 21,
-    components: {
-      financialRip: { score: 21.187, weight: 0.9, contribution: 19.0683 },
-      openingDesirability: { score: 96.0942, weight: 0.1, contribution: 9.6094 },
-    },
-  };
-  const ripCore = { score: 21.187, relativeScore: 60.45, rank: 12, tier: "D", cohortSize: 21 };
-  const universal = { score: 95.4809, rank: 1, rankedSetCount: 135, coverage: { status: "full" } };
-  const opening = {
-    status: "available",
-    collectorAppeal: { score: 96.0942, rank: 1, tier: "S", cohortSize: 21 },
-  };
-
-  const model = selectRipDesirabilityBreakdown(rip, ripCore, universal, opening);
-
-  assert.equal(model.setDesirability.scoreLabel, "95.5");
-  assert.equal(model.setDesirability.rankLabel, "#1 of 135");
-  assert.equal(model.setDesirability.note, "Supporting input to Opening Desirability (CA7); not a separate Overall RIP weight.");
-
-  assert.equal(model.openingDesirability.scoreLabel, "96.1");
-  assert.equal(model.openingDesirability.rankLabel, "#1 of 21");
-  assert.equal(model.openingDesirability.weightLabel, "10%");
-  assert.equal(model.openingDesirability.contribution, 9.6094);
-
-  // The 10% is applied to the ABSOLUTE model score (96.0942 x 0.1 = 9.60942),
-  // never to the public cohort-relative presentation.
-  assert.equal(Number((rip.components.openingDesirability.score * 0.1).toFixed(4)), 9.6094);
-  assert.notEqual(model.openingDesirability.contribution, Number((64.11 * 0.1).toFixed(4)));
-
-  // RIP Core supplies the other 90%.
-  assert.equal(model.financialRip.weightLabel, "90%");
-  assert.equal(model.financialRip.contribution, 19.0683);
-});
-
-test("effective expanded weights stay 54 / 22.5 / 13.5 / 10", () => {
-  const model = selectRipDesirabilityBreakdown(
-    {
-      score: 30,
-      components: {
-        financialRip: { score: 20, weight: 0.9, contribution: 18 },
-        openingDesirability: { score: 90, weight: 0.1, contribution: 9 },
-      },
-      effectiveWeights: { profit: 0.54, safety: 0.225, stability: 0.135, opening_desirability: 0.1 },
-    },
-    { score: 20 },
-    { score: 80 },
-    { status: "available", collectorAppeal: { score: 90 } }
-  );
-
-  assert.deepEqual(
-    model.effectiveWeights.map((row) => [row.label, row.valueLabel]),
-    [
-      ["Profit", "54.0%"],
-      ["Safety", "22.5%"],
-      ["Stability", "13.5%"],
-      ["Opening Desirability", "10.0%"],
-    ]
-  );
-  // They total 100%, unlike the 60/25/15/10 misstatement.
-  const total = model.effectiveWeights.reduce((sum, row) => sum + row.value, 0);
-  assert.equal(Number(total.toFixed(4)), 1);
-});

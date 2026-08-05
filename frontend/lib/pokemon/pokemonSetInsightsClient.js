@@ -51,9 +51,14 @@ export function normalizePokemonSetInsightsPayload(payload) {
     financialRipV3: toPlainObject(payload?.financialRipV3),
     overallRipV5: toPlainObject(payload?.overallRipV5),
     publicRipContractV5: toPlainObject(payload?.publicRipContractV5),
-    // Canonical after the 80/20 cutover; V5 above is the superseded 90/10 blend.
+    // Superseded 80/20 blend over Collector Appeal V2. Transport-only: kept for
+    // audit/comparison consumers, never read by a current public surface.
     overallRipV6: toPlainObject(payload?.overallRipV6),
     publicRipContractV6: toPlainObject(payload?.publicRipContractV6),
+    // CANONICAL: Overall RIP V7 and the v7 public contract (Overall + Financial
+    // RIP V3 + Collector Appeal V3). Pass-through only, backend-computed.
+    overallRipV7: toPlainObject(payload?.overallRipV7),
+    publicRipContractV7: toPlainObject(payload?.publicRipContractV7),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

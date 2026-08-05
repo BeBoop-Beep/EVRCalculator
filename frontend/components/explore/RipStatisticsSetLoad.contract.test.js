@@ -469,19 +469,6 @@ test("Simulation Drivers selector renders stale preserved top_hits and exposes f
   assert.equal(selected.diagnostics.lastSuccessfulAt, "2026-06-24T12:00:00+00:00");
 });
 
-test("Decision Signals selector returns stable rows from summary pillars while market is loading", async () => {
-  const { selectDecisionSignals } = await import(pathToFileURL(decisionSignalsSelectorPath).href);
-  const selected = selectDecisionSignals({
-    pillarSignals: [
-      { title: "Profit", score: 71, rankTier: "B", rankValue: 12, highlight: "Playable return profile" },
-      { title: "Safety", score: 65, rankTier: "B", rankValue: 20, highlight: "Manageable downside" },
-    ],
-  });
-
-  assert.equal(selected.rows.length, 2);
-  assert.equal(selected.rows[0].label, "Profit");
-  assert.equal(selected.sourceUsed, "summary+pillarSignals");
-});
 
 test("Trend Scores selector handles missing previous points without crashing", async () => {
   const { selectTrendScores } = await import(pathToFileURL(trendScoresSelectorPath).href);
@@ -1323,14 +1310,14 @@ test("the Overall RIP construction strip is fully retired from the verdict secti
   assert.ok(!source.includes("How Overall RIP Is Built"));
   assert.ok(!source.includes("ripDesirabilityBreakdown={ripDesirabilityBreakdown}"));
 
-  // The view model IS read again — but for the score's two-level COMPOSITION
-  // (a 90% RIP Core group over the pillars plus a 10% Collector Appeal term),
-  // not for the retired flat formula table. What matters is that the numbers
-  // still come from the backend contract: the page reads the selector's
-  // weight/contribution fields and performs no blend arithmetic of its own.
-  assert.ok(source.includes("selectRipDesirabilityBreakdown("));
-  assert.ok(source.includes("ripComposition.openingDesirability.contributionLabel"));
-  assert.ok(source.includes("ripComposition?.financialRip?.weightLabel"));
+  // The view model is no longer read AT ALL. The two-level composition it fed
+  // (a 90% RIP Core group over the Profit/Safety/Stability pillars plus a 10%
+  // Collector Appeal term) described Overall RIP v4, and no public surface
+  // publishes composition weights or contributions any more.
+  assert.ok(!source.includes("selectRipDesirabilityBreakdown("));
+  assert.ok(!source.includes("ripComposition"));
+  assert.ok(!source.includes("function RipCompositionGroup"));
+  assert.ok(!source.includes("function RipCompositionJoin"));
   assert.ok(
     !/rip(Core|Composition)[^\n]*\*\s*0\.9|\*\s*0\.1\b/.test(source),
     "the page must never apply the 90/10 weights itself"
@@ -1720,12 +1707,9 @@ test("Set Desirability and Collector Appeal share one section but keep separate 
     "the old copy gated desirability on a pull model"
   );
 
-  // Set Desirability is supporting context, not a weight of its own — stated
-  // in one short note on the stage, and in full in its information tooltip.
-  assert.ok(
-    source.includes("Supporting input — no RIP Score weight of its own."),
-    "Set Desirability must be labelled as supporting context"
-  );
+  // Set Desirability is supporting context, not a weight of its own. The short
+  // note that said so lived on the retired flow's first stage; the statement
+  // survives in full in its information tooltip.
   assert.ok(source.includes("Supports Collector Appeal but does not receive its own RIP Score weight."));
 
   // Every anchor either section used before still resolves after the merge.
@@ -2358,7 +2342,10 @@ test("title/header card keeps stable Set Value data while its score follows the 
   assert.ok(heroSource.includes("displayedTopScore"), "header score must come from the selected hero score contract");
   assert.ok(heroSource.includes("setContextRipTier"), "header tier must come from the selected hero score contract");
   assert.ok(heroSource.includes("setContextRipRank"), "header rank must come from the selected hero score contract");
-  assert.ok(heroSource.includes("recommendationBadge"), "header badge must follow the selected hero score mode");
+  // No verdict badge: it rendered the retired interpretation engine's label. A
+  // neutral helper line naming the two canonical inputs holds that slot.
+  assert.ok(!heroSource.includes("recommendationBadge"));
+  assert.ok(heroSource.includes("data-set-context-rip-helper"), "the neutral helper line renders");
   assert.ok(!heroSource.includes("recommendationSummary"), "full recommendation text must stay out of the persistent header");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.current"), "header set value must come from setHeaderSummary");
   assert.ok(heroSource.includes("setHeaderSummary.setValue.delta30dAmount"), "header set value delta must come from setHeaderSummary");
@@ -4008,62 +3995,12 @@ test("Phase 10: entering a cards section applies its preset and routes through t
   assert.ok(source.includes("sortDirection: cardsRequest.sortDirection,"), "the shared fetch must carry the selected movement direction");
 });
 
-test("Decision Signals has one fixed compact presentation and only renders tracked lens scores", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const cardStart = source.indexOf("function DecisionSignalsCard(");
-  const cardEnd = source.indexOf("function CompactPillarSignalTile(", cardStart);
-  const cardSource = source.slice(cardStart, cardEnd);
 
-  assert.ok(cardStart >= 0 && cardEnd > cardStart, "DecisionSignalsCard must exist");
-  assert.ok(!cardSource.includes("SectionViewTabs"));
-  assert.ok(!cardSource.includes("displayMode"));
-  assert.ok(!cardSource.includes("usedRawFallback"));
-  assert.ok(cardSource.includes("const hasScore = toNumber(resolvedScore.score) !== null"));
-});
-
-test("Decision Signals Overall RIP interpretation reuses the same canonical verdict source as Insights", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
-
-  const trackedStart = source.indexOf("const overviewDecisionTrackedSignals = useMemo(() => {");
-  const trackedEnd = source.indexOf("return rows;", trackedStart);
-  assert.ok(trackedStart >= 0 && trackedEnd > trackedStart, "overviewDecisionTrackedSignals block must exist");
-  const trackedSource = source.slice(trackedStart, trackedEnd);
-
-  // Insights RIP Score Breakdown consumes `recommendationBadge` as the short
-  // verdict text; in RIP Score mode that resolves from packScoreMeta.label.
-  assert.ok(
-    source.includes("verdict={recommendationBadge}") &&
-      source.includes("openingOutlook={recommendationSummary}"),
-    "Insights breakdown must keep its canonical verdict/opening-outlook props"
-  );
-  assert.ok(
-    source.includes("const recommendationBadge =") &&
-      source.includes(": packScoreMeta?.label || null;"),
-    "RIP Score mode verdict must continue to resolve from packScoreMeta.label"
-  );
-
-  assert.ok(
-    trackedSource.includes(
-      "packScoreMeta?.label || overallRip?.interpretation?.label || overallRip?.interpretation?.summary"
-    ),
-    "Decision Signals Overall RIP must prefer the same canonical short verdict source used by Insights"
-  );
-  assert.ok(
-    trackedSource.includes("detailSummary:") &&
-      trackedSource.includes("canonicalOverallInterpretation ||"),
-    "row detail must reuse the same canonical overall interpretation when available"
-  );
-  assert.ok(
-    trackedSource.includes('"Overall opening profile combining financial performance and collector appeal."'),
-    "a safe generic fallback remains for genuinely missing interpretation cases"
-  );
-  assert.ok(
-    trackedSource.includes("score: toNumber(overallRip.score)") &&
-      trackedSource.includes("tier: overallRip.tier || null") &&
-      trackedSource.includes("rank: toNumber(overallRip.rank)"),
-    "Overall RIP score/tier/rank data fields remain unchanged"
-  );
-});
+// Three Decision Signals tests stood here (its canonical verdict source, its
+// compact presentation, and its selector). The Overview Decision Signals card
+// and decisionSignalsSelector.mjs were removed: the card scored Profit, Safety,
+// Stability, Opening Experience and Chase Potential, none of which are terms of
+// the current model, and the selector had no other consumer.
 
 test("Market Movers destination is URL-backed and reloads into the paginated Cards preset", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");

@@ -79,7 +79,6 @@ test("every later analytical section keeps the ordinary luminous marker", () => 
     ["Opening Profit vs Cost", 'sectionName="overview-performance-vs-cost"'],
     ["Top Chase Cards", 'sectionName="overview-top-chase"'],
     ["Sealed Market", 'sectionName="overview-sealed-market"'],
-    ["Decision Signals", 'sectionName="overview-market-signals"'],
     ["RIP Score Breakdown", 'sectionName="insights-rip-score"'],
     ["Collector Profile", 'sectionName="insights-collector-profile"'],
     ["Simulation Results", 'sectionName="insights-opening-outcomes"'],
@@ -94,8 +93,8 @@ test("every later analytical section keeps the ordinary luminous marker", () => 
     assert.doesNotMatch(wrapper, /after-movers/, `${label} must keep the ordinary luminous divider`);
   }
 
-  // The marker count is unchanged by this pass — no section gained or lost one.
-  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 8);
+  // 7 after the Overview Decision Signals wrapper was removed with its card.
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
 });
 

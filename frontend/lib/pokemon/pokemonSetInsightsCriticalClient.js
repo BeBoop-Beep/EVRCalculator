@@ -52,11 +52,21 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     financialRipV3: toPlainObject(payload?.financialRipV3),
     overallRipV5: toPlainObject(payload?.overallRipV5),
     publicRipContractV5: toPlainObject(payload?.publicRipContractV5),
-    // Canonical after the 80/20 cutover: Overall RIP V6 and the v6 contract
-    // carrying the D/F/P Collector Appeal. V5 above is the superseded 90/10
-    // blend, kept for the comparison surfaces.
+    // Superseded 80/20 blend over Collector Appeal V2. Retained in the
+    // transport shape for the audit/comparison consumers only - no current
+    // public surface reads it, and none may (see canonicalRipV7.mjs).
     overallRipV6: toPlainObject(payload?.overallRipV6),
     publicRipContractV6: toPlainObject(payload?.publicRipContractV6),
+    // CANONICAL. Overall RIP V7 (0.90 * Financial RIP V3 + 0.10 * Collector
+    // Appeal V3) and the v7 public contract that packages Overall, Financial
+    // and Collector Appeal V3 together. The backend has served both since the
+    // 90/10 cutover; this normalizer dropped them, which is why every public
+    // surface was still rendering the legacy `rip` (Overall RIP v4) object
+    // under the "RIP Score" label. Pass-through only - like every block above,
+    // each score, rank, tier and denominator is backend-computed and nothing
+    // here derives one.
+    overallRipV7: toPlainObject(payload?.overallRipV7),
+    publicRipContractV7: toPlainObject(payload?.publicRipContractV7),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

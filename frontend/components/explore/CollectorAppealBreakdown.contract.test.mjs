@@ -1,13 +1,21 @@
-// Collector Appeal (D / F / P) and the 80/20 Overall RIP composition —
-// frontend contract tests.
+// Collector Appeal V3 — frontend contract tests.
 //
-// The claims under test:
-//   * the Overall breakdown shows 80% and 20%,
-//   * Collector Appeal shows D, F and P,
+// WHAT CHANGED IN THIS FILE
+// -------------------------
+// It used to assert an 80/20 Overall RIP composition read from
+// `publicRipContractV6`, with per-term weight pills, contribution points, and a
+// `Current V3 / Legacy V2` toggle beside it. All of that described Collector
+// Appeal **V2** under the current product name. The canonical model is
+// Collector Appeal V3, read from `publicRipContractV7`, explained by three
+// PARALLEL factors, with no weights and no contributions published at all.
+//
+// The claims under test now:
+//   * the selector reads the V7 contract and V6 cannot feed it,
+//   * Collector Appeal shows exactly D, F and P, as parallel factors,
+//   * no weight, contribution or composition arithmetic is rendered,
 //   * Desirable Outcome Frequency is never labelled a financial win,
 //   * Financial RIP still shows exactly six components and gains no seventh,
-//   * a missing F renders as an em dash, never as 0%,
-//   * Legacy V2 remains explicitly labelled,
+//   * a missing factor renders as an em dash, never as 0%,
 //   * mobile and desktop layout contracts are preserved.
 
 import assert from "node:assert/strict";
@@ -21,12 +29,9 @@ import {
   FINANCIAL_VS_COLLECTOR_NOTE,
   formatApproximateOdds,
   formatPercentFromUnit,
-  formatWeightPercent,
   selectCollectorAppealBreakdown,
-  selectOverallRipComposition,
 } from "./collectorAppealBreakdownSelector.mjs";
 import { selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
-import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Mixed CRLF/LF lives in this directory; normalize before any source assertion.
@@ -37,29 +42,41 @@ const componentSource = readSource("CollectorAppealBreakdown.jsx");
 const selectorSource = readSource("collectorAppealBreakdownSelector.mjs");
 const pageSource = readSource("RipStatisticsPageClient.jsx");
 
-// --- Fixture: the shaped publicRipContractV6 block --------------------------
+const stripComments = (source) =>
+  source
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
 
-const V6_FIXTURE = {
-  contractVersion: "public_rip_contract_v6",
+// --- Fixture: the shaped publicRipContractV7 block --------------------------
+// Shaped after backend/desirability/public_rip_contract_v7.py. Note what it
+// does NOT carry: no weights, no per-factor contribution, no formula. The
+// backend withholds them (`weightsDisclosed: false`) and the frontend must not
+// reconstruct them.
+
+const V7_FIXTURE = {
+  contractVersion: "public_rip_contract_v7",
   overallRip: {
     score: 57.75,
+    absoluteScore: 57.75,
+    relativeScore: 73.4,
     rank: 4,
     rankedSetCount: 21,
     tier: "A",
-    version: "overall_rip_v6_80_financial_v3_20_collector_appeal_v2",
-    components: {
-      financialRipV3: { score: 55.7665, weight: 0.8, contribution: 44.6132 },
-      collectorAppeal: { score: 65.6858, weight: 0.2, contribution: 13.1372 },
-    },
+    version: "overall_rip_v7",
   },
   collectorAppeal: {
     score: 65.6858,
+    absoluteScore: 65.6858,
+    relativeScore: 70.1,
     rank: 3,
     rankedSetCount: 21,
     tier: "A",
-    version: "collector_appeal_v2_desirable_frequency_dual_path",
-    structuralOpeningAppeal: 0.193991,
-    headroomBonus: 0.036858,
+    version: "collector_appeal_v3",
+    weightsDisclosed: false,
     components: {
       rosterDesirability: { score: 62.0, rawValue: 0.62, version: "universal_set_desirability_v3" },
       desirableOutcomeFrequency: {
@@ -75,48 +92,18 @@ const V6_FIXTURE = {
       },
       dualPathDepth: { rawValue: 0.4385, displayPercent: 43.8, subjectsWithMultiplePaths: 5 },
     },
+    subjectScope: {
+      modeled: ["Pokémon"],
+      notYetModeled: ["Trainer", "Artist"],
+      note: "Trainer and artist desirability are not yet modeled. They are omitted from this metric rather than scored as zero.",
+    },
   },
 };
 
-// --- Overall RIP composition ------------------------------------------------
-
-test("the Overall RIP breakdown shows 80% and 20%", () => {
-  const composition = selectOverallRipComposition({ publicRipContractV6: V6_FIXTURE });
-  assert.equal(composition.available, true);
-  assert.deepEqual(
-    composition.rows.map((row) => row.title),
-    ["Financial RIP", "Collector Appeal"]
-  );
-  assert.equal(composition.rows[0].weight, 0.8);
-  assert.equal(composition.rows[1].weight, 0.2);
-  assert.equal(formatWeightPercent(composition.rows[0].weight), "80%");
-  assert.equal(formatWeightPercent(composition.rows[1].weight), "20%");
-  // Rendered, not merely selected.
-  assert.match(componentSource, /Overall RIP = 80% Financial RIP \+ 20% Collector Appeal/);
-});
-
-test("both source scores and both contributions are shown so the split is checkable", () => {
-  const composition = selectOverallRipComposition({ publicRipContractV6: V6_FIXTURE });
-  const [financial, appeal] = composition.rows;
-  assert.equal(financial.score, 55.7665);
-  assert.equal(appeal.score, 65.6858);
-  assert.ok(
-    Math.abs(financial.contribution + appeal.contribution - composition.score) < 0.01,
-    "the two contributions must reconstruct the Overall RIP score"
-  );
-});
-
-test("the page no longer states the retired 90/10 split", () => {
-  assert.doesNotMatch(pageSource, /90% RIP Core \+ 10% Collector Appeal/);
-  assert.doesNotMatch(pageSource, /RIP Score = 90%/);
-  assert.doesNotMatch(pageSource, /RIP Core supplies the other 90%/);
-  assert.match(pageSource, /80% Financial RIP \+ 20% Collector Appeal/);
-});
-
-// --- Collector Appeal D / F / P ---------------------------------------------
+// --- The three parallel factors ---------------------------------------------
 
 test("Collector Appeal shows Roster Desirability, Desirable Outcome Frequency and Dual-Path Depth", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   assert.equal(appeal.available, true);
   assert.deepEqual(
     appeal.rows.map((row) => row.key),
@@ -128,8 +115,27 @@ test("Collector Appeal shows Roster Desirability, Desirable Outcome Frequency an
   );
 });
 
+test("the score, rank, tier and denominator are the backend's own", () => {
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
+  assert.equal(appeal.score, 65.6858);
+  assert.equal(appeal.scoreLabel, "65.7");
+  assert.equal(appeal.rank, 3);
+  assert.equal(appeal.rankedSetCount, 21);
+  assert.equal(appeal.tier, "A");
+});
+
+test("the three factors are presented in parallel, not as a sequential chain", () => {
+  // A grid of three peers. No arrows, no numbered stages, no connector.
+  assert.match(componentSource, /desk:grid-cols-3/);
+  assert.doesNotMatch(componentSource, /CollectorProfileArrow|data-collector-profile-flow/);
+  // ...and the page no longer renders the old flow anywhere either.
+  assert.doesNotMatch(pageSource, /function CollectorProfileArrow\(/);
+  assert.doesNotMatch(pageSource, /function CollectorProfileStage\(/);
+  assert.doesNotMatch(pageSource, /label="RIP Score Contribution"/);
+});
+
 test("the frequency card shows probability, approximate odds, counts and coverage", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
   assert.equal(frequency.value, "3.1%");
   const labels = frequency.metrics.map((metric) => metric.label);
@@ -152,7 +158,7 @@ test("modeled odds are worded as approximate, never as a guarantee", () => {
   // Checked against RENDERED STRINGS, not raw source: the selector's own
   // comments legitimately explain why a guarantee must never be implied, and a
   // source-wide search cannot tell that rule from a violation of it.
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   const rendered = appeal.rows
     .flatMap((row) => [row.title, row.interpretation, row.disclaimer, row.value, ...row.metrics.map((m) => m.value)])
     .filter(Boolean)
@@ -162,10 +168,36 @@ test("modeled odds are worded as approximate, never as a guarantee", () => {
   assert.match(rendered, /approximately 1 in/);
 });
 
+// --- No internal weights, no contributions, no composition arithmetic -------
+
+test("no factor weight or contribution is selected or rendered", () => {
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
+  const serialized = JSON.stringify(appeal);
+  for (const forbidden of [/weight/i, /contribut/i, /formula/i]) {
+    assert.doesNotMatch(serialized, forbidden, `view model must not carry ${forbidden}`);
+  }
+  // Against CODE, not comments: the component's header comment legitimately
+  // names the removed strings while explaining why they were removed.
+  const code = stripComments(componentSource);
+  assert.doesNotMatch(code, /formatWeightPercent/);
+  assert.doesNotMatch(code, /Contributes /);
+  assert.doesNotMatch(code, /data-overall-composition-term/);
+  // The selector no longer exports a composition at all.
+  assert.doesNotMatch(selectorSource, /export function selectOverallRipComposition/);
+  assert.doesNotMatch(selectorSource, /export function formatWeightPercent/);
+});
+
+test("no composition percentage or formula is stated in the rendered copy", () => {
+  const code = stripComments(componentSource);
+  assert.doesNotMatch(code, /How Overall RIP is built/);
+  assert.doesNotMatch(code, /80%|20%|90%|10%/);
+  assert.doesNotMatch(code, /Overall RIP =/);
+});
+
 // --- The vocabulary rule ----------------------------------------------------
 
 test("Desirable Outcome Frequency is never labelled a financial win", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
 
   const surfaces = [
@@ -189,7 +221,7 @@ test("Desirable Outcome Frequency is never labelled a financial win", () => {
 });
 
 test("the frequency card carries the loss disclaimer next to the number", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
   assert.equal(frequency.disclaimer, DESIRABLE_OUTCOME_DISCLAIMER);
   assert.match(frequency.disclaimer, /can still be worth less than the pack price/);
@@ -207,7 +239,7 @@ test("the financial vs collector distinction is stated on the surface", () => {
 });
 
 test("Trainer and Artist are omitted, never rendered as zero or 'not desirable'", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
   assert.ok(!appeal.rows.some((row) => /trainer|artist/i.test(row.title)));
   assert.deepEqual(appeal.subjectScope.notYetModeled, ["Trainer", "Artist"]);
   assert.match(appeal.subjectScope.note, /not yet modeled/i);
@@ -245,36 +277,23 @@ test("the Collector Appeal surface does not inject a component into the financia
   assert.doesNotMatch(selectorSource, /trueWinFrequency|realisticUpside|jackpotUpside/);
 });
 
-test("Legacy V2 remains explicitly labelled", () => {
-  const financialSource = readSource("FinancialRipV3Breakdown.jsx");
-  assert.match(financialSource, /"Legacy Financial RIP V2"/);
-  assert.match(financialSource, /label:\s*"Legacy V2"/);
-  assert.match(financialSource, /label:\s*"Current V3"/);
-  // And the legacy selector still returns its three pillars.
-  const legacy = selectRipScoreBreakdown(
-    {
-      financialRip: {
-        components: {
-          profit: { score: 61.1, rank: 2, cohortSize: 21 },
-          safety: { score: 22.6, rank: 14, cohortSize: 21 },
-          stability: { score: 26.5, rank: 11, cohortSize: 21 },
-        },
-      },
-    },
-    {}
-  );
-  assert.deepEqual(legacy.rows.map((row) => row.title), ["Profit", "Safety", "Stability"]);
+test("no Legacy V2 comparison remains on the public Financial RIP surface", () => {
+  const code = stripComments(readSource("FinancialRipV3Breakdown.jsx"));
+  assert.doesNotMatch(code, /"Legacy Financial RIP V2"/);
+  assert.doesNotMatch(code, /label:\s*"Legacy V2"/);
+  assert.doesNotMatch(code, /label:\s*"Current V3"/);
+  assert.doesNotMatch(code, /Profit|Safety|Stability/);
 });
 
 // --- Missing data -----------------------------------------------------------
 
 test("a missing F renders as an em dash, never as 0%", () => {
   const missing = {
-    ...V6_FIXTURE,
+    ...V7_FIXTURE,
     collectorAppeal: {
-      ...V6_FIXTURE.collectorAppeal,
+      ...V7_FIXTURE.collectorAppeal,
       components: {
-        ...V6_FIXTURE.collectorAppeal.components,
+        ...V7_FIXTURE.collectorAppeal.components,
         desirableOutcomeFrequency: {
           rawValue: null,
           status: "unavailable",
@@ -283,7 +302,7 @@ test("a missing F renders as an em dash, never as 0%", () => {
       },
     },
   };
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: missing });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: missing });
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
   assert.equal(frequency.value, "—");
   assert.equal(frequency.available, false);
@@ -293,86 +312,101 @@ test("a missing F renders as an em dash, never as 0%", () => {
     assert.notEqual(metric.value, "0%", `${metric.label} must not render as 0%`);
   }
   assert.equal(frequency.statusReason, "desirable_outcome_frequency_unavailable_insufficient_coverage");
+  // The other two factors are unaffected: availability is per-factor.
+  assert.equal(appeal.rows[0].available, true);
+  assert.equal(appeal.rows[2].available, true);
 });
 
 test("a genuine zero still renders as zero", () => {
   assert.equal(formatPercentFromUnit(0), "0.0%");
   assert.equal(formatPercentFromUnit(null), "—");
-  assert.equal(formatWeightPercent(0.2), "20%");
 });
 
-test("an unavailable Overall RIP does not render a fabricated score", () => {
-  const composition = selectOverallRipComposition({
-    publicRipContractV6: {
-      overallRip: {
+test("an unavailable Collector Appeal does not render a fabricated score", () => {
+  const appeal = selectCollectorAppealBreakdown({
+    publicRipContractV7: {
+      collectorAppeal: {
         score: null,
-        statusReason: "Overall RIP V6 needs a valid Financial RIP V3 and a valid Collector Appeal.",
-        missingInputs: ["collector_appeal"],
+        statusReason: "Collector Appeal V3 needs all three of D, F and P.",
         components: {},
       },
     },
   });
-  assert.equal(composition.available, false);
-  assert.equal(composition.score, null);
-  assert.equal(composition.scoreLabel, "—");
-  assert.deepEqual(composition.missingInputs, ["collector_appeal"]);
+  assert.equal(appeal.available, false);
+  assert.equal(appeal.score, null);
+  assert.equal(appeal.scoreLabel, "—");
+  assert.match(appeal.statusReason, /needs all three/);
+  assert.match(componentSource, /data-collector-appeal-unavailable/);
 });
 
 test("the selector never falls back to a legacy model", () => {
-  const code = selectorSource
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//"))
-    .join("\n");
-  assert.doesNotMatch(code, /overallRipV5/);
-  assert.doesNotMatch(code, /overallRipV4/);
-  assert.doesNotMatch(code, /legacyCollectorAppealCA7/);
-  assert.doesNotMatch(code, /ripCore/);
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV6: V6_FIXTURE });
-  assert.equal(appeal.fallbackUsed, false);
+  const code = stripComments(selectorSource.replace(/\/\*[\s\S]*?\*\//g, ""));
+  for (const legacy of [
+    /publicRipContractV6/,
+    /overallRipV6/,
+    /overallRipV5/,
+    /legacyCollectorAppealCA7/,
+    /collectorAppealV2/,
+    /ripCore/,
+    /openingExperience/,
+    /universalSetDesirability/,
+  ]) {
+    assert.doesNotMatch(code, legacy, `the V3 selector must not read ${legacy}`);
+  }
 });
 
 // --- Wiring and layout ------------------------------------------------------
 
-test("the breakdown is mounted and fed the canonical v6 objects", () => {
+test("the breakdown is mounted and fed the canonical V7 objects", () => {
   assert.match(pageSource, /import CollectorAppealBreakdown from "\.\/CollectorAppealBreakdown\.jsx";/);
   const start = pageSource.indexOf("function RipScoreBreakdownModule");
   const end = pageSource.indexOf("function StatTile", start);
   assert.ok(start >= 0 && end > start);
   const module = pageSource.slice(start, end);
   assert.match(module, /<CollectorAppealBreakdown/);
-  assert.match(module, /publicRipContractV6=\{publicRipContractV6\}/);
-  assert.match(module, /overallRipV6=\{overallRipV6\}/);
+  assert.match(module, /publicRipContractV7=\{publicRipContractV7\}/);
+  assert.match(module, /overallRipV7=\{overallRipV7\}/);
+  assert.doesNotMatch(module, /publicRipContractV6|overallRipV6/);
 });
 
-test("overallRipV6 survives every allow-listing layer between API and page", async () => {
-  const { normalizePokemonSetInsightsCriticalPayload } = await import(
-    "../../lib/pokemon/pokemonSetInsightsCriticalClient.js"
-  );
-  const normalized = normalizePokemonSetInsightsCriticalPayload({
-    set: { id: "s1", name: "Test", slug: "test" },
-    overallRipV6: { score: 57.75 },
-    publicRipContractV6: V6_FIXTURE,
-    meta: { warnings: [] },
-  });
-  assert.equal(normalized.overallRipV6.score, 57.75);
-  assert.equal(normalized.publicRipContractV6.contractVersion, "public_rip_contract_v6");
+test("publicRipContractV7 survives every allow-listing layer between API and page", () => {
+  // The insights clients are ESM-syntax `.js` files this runner cannot import
+  // by name, so they are asserted by source inspection, as elsewhere here.
+  const criticalClient = fs
+    .readFileSync(path.resolve(here, "../../lib/pokemon/pokemonSetInsightsCriticalClient.js"), "utf8")
+    .replace(/\r\n/g, "\n");
+  assert.match(criticalClient, /publicRipContractV7: toPlainObject\(payload\?\.publicRipContractV7\)/);
+  assert.match(criticalClient, /overallRipV7: toPlainObject\(payload\?\.overallRipV7\)/);
 
   const criticalAdapter = pageSource.slice(
     pageSource.indexOf("function adaptPokemonSetInsightsCriticalPayloadToExplorePayload"),
     pageSource.indexOf("function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload")
   );
-  assert.match(criticalAdapter, /overallRipV6: critical\?\.overallRipV6/);
-  assert.match(criticalAdapter, /publicRipContractV6: critical\?\.publicRipContractV6/);
+  assert.match(criticalAdapter, /overallRipV7: critical\?\.overallRipV7/);
+  assert.match(criticalAdapter, /publicRipContractV7: critical\?\.publicRipContractV7/);
 });
 
-test("the page resolves the v6 objects without defaulting to a legacy model", () => {
-  const start = pageSource.indexOf("const canonicalOverallRipV6 = useMemo(");
-  assert.ok(start >= 0, "the page must resolve canonicalOverallRipV6");
-  const block = pageSource.slice(start, start + 700);
-  assert.match(block, /explorePayload\?\.overallRipV6/);
+test("the page resolves the V7 objects without defaulting to a legacy model", () => {
+  const start = pageSource.indexOf("const canonicalPublicRipContractV7 = useMemo(");
+  assert.ok(start >= 0, "the page must resolve canonicalPublicRipContractV7");
+  const block = pageSource.slice(start, start + 900);
+  assert.match(block, /explorePayload\?\.publicRipContractV7/);
+  assert.doesNotMatch(block, /overallRipV6/);
   assert.doesNotMatch(block, /overallRipV5/);
   assert.doesNotMatch(block, /ripCore/);
+});
+
+test("Collector Appeal is presented exactly once on Insights", () => {
+  const module = pageSource.slice(
+    pageSource.indexOf("function RipScoreBreakdownModule"),
+    pageSource.indexOf("function StatTile")
+  );
+  assert.equal((module.match(/<CollectorAppealBreakdown/g) || []).length, 1);
+  assert.equal(
+    (pageSource.match(/<CollectorAppealBreakdown/g) || []).length,
+    1,
+    "the component is mounted exactly once in the whole page"
+  );
 });
 
 test("mobile and desktop layout contracts are preserved", () => {
@@ -382,7 +416,6 @@ test("mobile and desktop layout contracts are preserved", () => {
     assert.match(grid, /min-w-0|gap-/, `grid must be constrained: ${grid}`);
   }
   // Responsive, not a fixed multi-column row.
-  assert.match(componentSource, /desk:grid-cols-2/);
   assert.match(componentSource, /desk:grid-cols-3/);
   // Same mobile-feed treatment as the surrounding sections.
   assert.match(componentSource, /max-desk:rounded-none max-desk:border-0/);

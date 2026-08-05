@@ -14,7 +14,9 @@ function makeTarget(overrides = {}) {
     name: "Set One",
     era: "Scarlet & Violet",
     logo_image_url: "https://images.example/set-1-logo.png",
-    rip: { score: 71.2, relativeScore: 82.4, rank: 1, tier: "A", cohortSize: 41 },
+    overallRipV7: { score: 71.2, relativeScore: 82.4, rank: 1, tier: "A", cohortSize: 41 },
+    // Overall RIP v4, still served for audit consumers and never read here.
+    rip: { score: 12.3, relativeScore: 4.5, rank: 40, tier: "F", cohortSize: 41 },
     checklistSetValue: 1248.62,
     currentChecklistSetValueDate: "2026-07-27",
     ...overrides,
@@ -55,7 +57,7 @@ test("a set carrying only the legacy cohort fields is never promoted to the hero
 test("the absolute model score is never substituted when the relative score is missing", () => {
   const absoluteOnly = makeTarget({
     target_id: "absolute-only",
-    rip: { score: 64.8, relativeScore: null, rank: 2, tier: "B", cohortSize: 41 },
+    overallRipV7: { score: 64.8, relativeScore: null, rank: 2, tier: "B", cohortSize: 41 },
   });
 
   assert.equal(selectLandingHeroSpotlight([absoluteOnly]), null);
@@ -63,9 +65,9 @@ test("the absolute model score is never substituted when the relative score is m
 
 test("the top-ranked set wins, and an unranked scored set sorts behind every ranked one", () => {
   const spotlight = selectLandingHeroSpotlight([
-    makeTarget({ target_id: "b", name: "B", rip: { relativeScore: 90, rank: 3, tier: "A" } }),
-    makeTarget({ target_id: "c", name: "C", rip: { relativeScore: 99, rank: null, tier: "S" } }),
-    makeTarget({ target_id: "a", name: "A", rip: { relativeScore: 70, rank: 1, tier: "A" } }),
+    makeTarget({ target_id: "b", name: "B", overallRipV7: { relativeScore: 90, rank: 3, tier: "A" } }),
+    makeTarget({ target_id: "c", name: "C", overallRipV7: { relativeScore: 99, rank: null, tier: "S" } }),
+    makeTarget({ target_id: "a", name: "A", overallRipV7: { relativeScore: 70, rank: 1, tier: "A" } }),
   ]);
 
   assert.equal(spotlight.targetId, "a");
@@ -85,7 +87,7 @@ test("the ranked strip continues the ranking after the spotlight instead of repe
     makeTarget({
       target_id: `set-${rank}`,
       name: `Set ${rank}`,
-      rip: { relativeScore: 100 - rank, rank, tier: "A", cohortSize: 41 },
+      overallRipV7: { relativeScore: 100 - rank, rank, tier: "A", cohortSize: 41 },
     }),
   );
 

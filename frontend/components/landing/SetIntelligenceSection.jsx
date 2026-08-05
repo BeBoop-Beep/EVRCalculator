@@ -23,7 +23,10 @@ export default function SetIntelligenceSection({ set, chaseCards = [] }) {
   const economics = selectOpeningEconomics(set);
   const probability = formatProbability(set?.probProfit);
   const asOf = formatAsOf(set?.setValueAsOf);
-  const quickRead = set?.decisionLabel || set?.interpretationLabel || null;
+  // The backend's own leaderboard copy only. The retired interpretation
+  // engine's verdict (`interpretationLabel`/`interpretationSummary`) described
+  // the superseded Profit/Safety/Stability model and is no longer selected.
+  const quickRead = set?.decisionLabel || null;
 
   return (
     <section className={`${styles.section} ${styles.sectionRaised}`} aria-labelledby="landing-set-heading">
@@ -42,9 +45,6 @@ export default function SetIntelligenceSection({ set, chaseCards = [] }) {
               <div className={styles.quickRead}>
                 <p className={styles.quickReadLabel}>Quick read</p>
                 <p className={styles.quickReadText}>{quickRead}</p>
-                {set?.interpretationSummary ? (
-                  <p className={styles.quickReadNote}>{set.interpretationSummary}</p>
-                ) : null}
               </div>
             ) : null}
 

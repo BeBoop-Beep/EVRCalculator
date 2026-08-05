@@ -43,6 +43,17 @@ const componentSource = readSource("FinancialRipV3Breakdown.jsx");
 const selectorSource = readSource("financialRipV3Selector.mjs");
 const pageSource = readSource("RipStatisticsPageClient.jsx");
 
+// Prose in these files legitimately NAMES the removed toggle and its labels
+// while explaining why they were removed, so removal checks run against code.
+const stripComments = (source) =>
+  source
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
+
 // --- Fixture ---------------------------------------------------------------
 // Shaped exactly like the backend `financialRipV3` object.
 
@@ -194,12 +205,20 @@ test("the legacy V2 view still renders exactly three pillars", () => {
   );
 });
 
-test("the model toggle defaults to Current V3 and labels V2 as legacy", () => {
-  assert.match(componentSource, /label:\s*"Current V3"/);
-  assert.match(componentSource, /label:\s*"Legacy V2"/);
-  assert.match(componentSource, /defaultMode = FINANCIAL_RIP_MODEL_MODES\.V3/);
-  // After promotion V2 must never be called simply "Financial RIP".
-  assert.match(componentSource, /"Legacy Financial RIP V2"/);
+test("there is no model toggle: Financial RIP means V3 and nothing else", () => {
+  // The public Current V3 / Legacy V2 switch is gone. Legacy V2 is still
+  // computed and persisted on the backend for audit and rollback; it is simply
+  // not a public presentation any more, so there is nothing to toggle between.
+  const code = stripComments(componentSource);
+  assert.doesNotMatch(code, /label:\s*"Current V3"/);
+  assert.doesNotMatch(code, /label:\s*"Legacy V2"/);
+  assert.doesNotMatch(code, /FINANCIAL_RIP_MODEL_MODES/);
+  assert.doesNotMatch(code, /function ModelToggle/);
+  assert.doesNotMatch(code, /function LegacyV2Cards/);
+  assert.doesNotMatch(code, /"Legacy Financial RIP V2"/);
+  // One heading, carrying the canonical name with no model version number.
+  assert.match(code, />Financial RIP</);
+  assert.doesNotMatch(code, /Financial RIP V3</);
 });
 
 // --- No visible weights -----------------------------------------------------
@@ -218,10 +237,13 @@ test("no V3 weight percentage is shown on any card", () => {
   }
   // And the card renderer has no weight expression at all.
   const cardStart = componentSource.indexOf("function V3ComponentCard");
-  const cardEnd = componentSource.indexOf("function LegacyV2Cards");
+  const cardEnd = componentSource.indexOf("function DepthAndRobustnessPanel");
   const card = componentSource.slice(cardStart, cardEnd);
   assert.ok(cardStart >= 0 && cardEnd > cardStart);
   assert.doesNotMatch(card, /weight/i);
+  // And no composition percentage: the section never states what share of the
+  // RIP Score it is.
+  assert.doesNotMatch(stripComments(componentSource), /of Overall RIP/);
 });
 
 // --- Value formatting -------------------------------------------------------
@@ -273,13 +295,15 @@ test("a genuine zero still renders as zero", () => {
   assert.equal(formatDollars(undefined), "—");
 });
 
-test("the unavailable state never renders V2 numbers under the V3 heading", () => {
+test("the unavailable state never renders V2 numbers under the Financial RIP heading", () => {
   const start = componentSource.indexOf("data-v3-unavailable");
   assert.ok(start >= 0, "an explicit unavailable block must exist");
   const block = componentSource.slice(start, start + 1400);
-  assert.match(block, /not shown\s*\n?\s*here in its place/);
-  // The unavailable branch must not read the legacy selector's rows.
+  assert.match(block, /is not available for this set yet/);
+  // There is no legacy selector left to read, and no offer to switch to one.
   assert.doesNotMatch(block, /v2\.rows\.map/);
+  assert.doesNotMatch(block, /Legacy V2/);
+  assert.doesNotMatch(stripComments(componentSource), /selectRipScoreBreakdown/);
 });
 
 test("the V3 selector has no fallback to V2 fields", () => {
@@ -407,7 +431,10 @@ test("the breakdown is mounted inside the RIP Score Breakdown module", () => {
   const module = pageSource.slice(start, end);
   assert.match(module, /<FinancialRipV3Breakdown/);
   assert.match(module, /financialRipV3=\{financialRipV3\}/);
-  assert.match(module, /legacyRip=\{legacyRip\}/);
+  // The canonical contract is passed too, and the component prefers it.
+  assert.match(module, /publicRipContractV7=\{publicRipContractV7\}/);
+  // No legacy object reaches the component at all.
+  assert.doesNotMatch(module, /legacyRip=/);
 });
 
 test("the page resolves financialRipV3 without defaulting to ripCore", () => {

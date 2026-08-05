@@ -22,7 +22,9 @@ test("the Overview tells the brief's story in order", () => {
     "set-detail-set-value-trend",
     "Opening Profit vs Cost",
     "set-detail-top-market-cards",
-    "set-detail-set-intelligence",
+    // "set-detail-set-intelligence" (Decision Signals) used to close the feed.
+    // It was removed with the card it anchored, so the story now ends on Top
+    // Chase Cards beside Sealed Market.
   ];
   let cursor = -1;
   for (const marker of order) {

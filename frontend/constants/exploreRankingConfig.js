@@ -1,26 +1,37 @@
 /**
  * Configuration for Explore page ranking mode dropdown.
  *
- * RIP-contract modes read the CANONICAL backend objects — `rip` (Overall RIP),
- * `rip.financialRip.components.*` (the three Financial RIP pillars), and
- * `universalSetDesirability` — actual scores with ranks/tiers computed against
- * the backend-authorized public cohort. The legacy relative/pack score fields
- * are a cohort min-max presentation over the old 33-set population and must not
- * power public ranking again. Fields are dot-paths resolved by getFieldValue.
+ * The two CANONICAL product modes read the current models:
+ *   - `overall` ("RIP SCORE")   -> `overallRipV7` — the canonical Overall RIP.
+ *   - `financial` ("FINANCIAL RIP") -> `financialRipV3` — the canonical
+ *     Financial RIP.
+ * Both previously read superseded objects under those exact public names:
+ * `overall` read `rip` (Overall RIP **v4** = 90% RIP Core + 10% legacy CA7) and
+ * `financial` read `ripCore` (Financial RIP **V2**, the 60/25/15
+ * Profit/Safety/Stability blend). Neither may be read under a canonical label
+ * again, and there is no fallback to them: a target without a V7/V3 score sorts
+ * as unscored rather than borrowing a legacy number.
  *
- * The pillars live on `rip.financialRip.components.*`. Overall RIP is
- * `0.90 * Financial RIP + 0.10 * CA7 Opening Desirability`; the desirability
- * lens reads `universalSetDesirability`, the authoritative simulation-independent
- * score (all-set rank of 135), NOT CA7, which needs a pull model.
+ * The remaining modes are named RANKING LENSES, not presentations of the
+ * canonical models. `profit`/`safety`/`stability` are the legacy V2 pillar
+ * lenses and stay labelled as their own metrics — they are NOT presented as the
+ * components of Financial RIP, which has its own six V3 components on the set
+ * page. The desirability lens reads `universalSetDesirability`, the
+ * authoritative simulation-independent score (all-set rank of 135).
+ *
+ * Fields are dot-paths resolved by getFieldValue. The legacy relative/pack
+ * score fields are a cohort min-max presentation over the old 33-set population
+ * and must not power public ranking again.
  *
  * ABSOLUTE vs RELATIVE
  * --------------------
  * Every score-bearing mode exposes two numbers where both exist:
- *   - `absoluteScoreField` — the direct 0-100 formula result (`rip.score`,
- *     `ripCore.score`, a pillar `.score`). It does not move when the cohort does.
+ *   - `absoluteScoreField` — the direct 0-100 formula result
+ *     (`overallRipV7.score`, `financialRipV3.score`, a pillar `.score`). It does
+ *     not move when the cohort does.
  *   - `relativeScoreField` — the backend cohort-relative 0-100 position
- *     (`rip.relativeScore`, `ripCore.relativeScore`), computed over the same
- *     fixed public cohort the `rankField` is quoted against.
+ *     (`overallRipV7.relativeScore`, `financialRipV3.relativeScore`), computed
+ *     over the same fixed public cohort the `rankField` is quoted against.
  * `scoreField` is retained as the absolute field for backward compatibility.
  * Ratio-only modes (EV/P99 to cost) have no relative score and expose neither.
  */
@@ -56,35 +67,35 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by the strongest overall opening profile.",
     scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
-    scoreField: "rip.score",
-    absoluteScoreField: "rip.score",
-    relativeScoreField: "rip.relativeScore",
+    scoreField: "overallRipV7.score",
+    absoluteScoreField: "overallRipV7.score",
+    relativeScoreField: "overallRipV7.relativeScore",
     absoluteScoreLabel: "Absolute",
     relativeScoreLabel: "Relative",
-    rankField: "rip.rank",
-    rankedSetCountField: "rip.cohortSize",
-    tierField: "rip.tier",
+    rankField: "overallRipV7.rank",
+    rankedSetCountField: "overallRipV7.cohortSize",
+    tierField: "overallRipV7.tier",
     scoreFormat: "decimal",
-    description: "Overall RIP = 90% Financial RIP + 10% Opening Desirability (CA7).",
+    description: "RIP Score combines financial opening performance with collector appeal.",
   },
   financial: {
     id: "financial",
     label: "Financial RIP",
     title: "Strongest Financial Opening",
-    subtitle: "Sets ranked by Financial RIP alone (Profit, Safety, Stability), before Opening Desirability.",
-    tooltip: "Financial RIP = 60% Profit + 25% Safety + 15% Stability. It excludes Opening Desirability.",
+    subtitle: "Sets ranked by the monetary side of opening alone, without collector appeal.",
+    tooltip: "Financial RIP measures monetary pack outcomes against pack cost. It excludes collector appeal.",
     scoreLabel: "FINANCIAL RIP",
     tierLabel: "TIER",
-    scoreField: "ripCore.score",
-    absoluteScoreField: "ripCore.score",
-    relativeScoreField: "ripCore.relativeScore",
+    scoreField: "financialRipV3.score",
+    absoluteScoreField: "financialRipV3.score",
+    relativeScoreField: "financialRipV3.relativeScore",
     absoluteScoreLabel: "Absolute",
     relativeScoreLabel: "Relative",
-    rankField: "ripCore.rank",
-    rankedSetCountField: "ripCore.cohortSize",
-    tierField: "ripCore.tier",
+    rankField: "financialRipV3.rank",
+    rankedSetCountField: "financialRipV3.cohortSize",
+    tierField: "financialRipV3.tier",
     scoreFormat: "decimal",
-    description: "Financial RIP is the financial-only opening quality: 60/25/15 Profit/Safety/Stability.",
+    description: "Financial RIP is the financial-only opening quality, built from the simulated pack-value distribution and the pack price.",
   },
   profit: {
     id: "profit",
@@ -246,7 +257,7 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "rip.tier";
+  return getModeConfig(modeId).tierField || "overallRipV7.tier";
 }
 
 export function getScoreForMode(target, modeId) {

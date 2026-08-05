@@ -464,7 +464,9 @@ test("one selected/idle treatment is shared by all three compact lists", () => {
   assert.ok(idleClass.includes("border-l-transparent"), "selection changes a colour, never a position");
 
   // All three lists use it — no list may invent its own selected style.
-  for (const list of ["RipBreakdownCompactRow", "SimulationDriversCompactList", "SimulationMetricsCompactList"]) {
+  // RipBreakdownCompactRow is gone with the RIP Score Breakdown compact feed;
+  // the two surviving compact lists still share one treatment.
+  for (const list of ["SimulationDriversCompactList", "SimulationMetricsCompactList"]) {
     const start = source.indexOf(`function ${list}(`);
     assert.ok(start >= 0, `${list} must exist`);
     const tree = source.slice(start, start + 6000);

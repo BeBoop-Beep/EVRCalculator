@@ -1,127 +1,68 @@
 // The RIP hero selector: which score/rank/tier the big number shows.
 //
-// CANONICAL CONTRACT ONLY. The hero reads the backend's versioned `rip` and
-// `ripCore` objects — actual weighted scores, ranks and tiers computed against
-// the backend-authorized public cohort. It deliberately does NOT fall back to
-// the legacy fields (`pack_score`, `relative_pack_score`, `pack_rank`,
-// `relative_rip_core_score`): those are a cohort min-max presentation of a
-// superseded blend, and silently serving one when the canonical object is
-// missing would put a number on screen that is not the RIP Score while
-// labeling it as one. A missing contract renders as unavailable instead —
-// see ripHeroScoreMode.test.mjs, which fails if a legacy read reappears.
+// CANONICAL V7 ONLY. The hero reads Overall RIP V7 through the one shared
+// resolver in canonicalRipV7.mjs — the current model, 0.90 * Financial RIP V3 +
+// 0.10 * Collector Appeal V3 — and nothing else.
+//
+// WHAT THIS USED TO DO, AND WHY IT WAS WRONG
+// ------------------------------------------
+// It read the backend's `rip` object. `rip` is **Overall RIP v4**
+// (`compute_overall_rip(pillars, ca7_score)` = 90% RIP Core + 10% legacy CA7),
+// so every surface calling this selector — the set hero, the Insights headline,
+// the landing spotlight — published a superseded blend under the name "RIP
+// Score". It also carried a "RIP Core" mode, a second public presentation of
+// the retired Financial RIP V2 model. Both are gone: `rip`, `ripCore`, V6, V5,
+// the legacy `pack_score`/`relative_pack_score`/`pack_rank` fields and the
+// interpretation-engine verdict fields are not read here in any code path, not
+// even as a fallback. A missing canonical contract renders as unavailable.
+//
+// NO INTERPRETATION
+// -----------------
+// This selector no longer returns an interpretation label/summary/severity.
+// Those came from the retired Profit/Safety/Stability interpretation engine and
+// described a model the site no longer publishes. The backend still emits them
+// for compatibility; no current public surface consumes them.
 
-export const RIP_SCORE_MODE = "rip-score";
-export const RIP_CORE_MODE = "rip-core";
+import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
-export const RIP_SCORE_HELPER =
-  "Complete opening profile — financial performance plus Collector Appeal.";
-export const RIP_CORE_HELPER =
-  "Financial opening profile only — Profit, Safety and Stability, without Collector Appeal.";
+export const RIP_SCORE_LABEL = "RIP Score";
 
-function toNumber(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function firstContract(sources, keys) {
-  for (const source of sources) {
-    if (!source || typeof source !== "object") continue;
-    for (const key of keys) {
-      const candidate = source[key];
-      if (candidate && typeof candidate === "object") return candidate;
-    }
-  }
-  return null;
-}
-
-function interpretationOf(contract, sources, snakePrefix, camelPrefix) {
-  const embedded = toObject(contract?.interpretation);
-  const fromFields = (suffix, camelSuffix) => {
-    for (const source of sources) {
-      if (!source || typeof source !== "object") continue;
-      const value = source[`${snakePrefix}_${suffix}`] ?? source[`${camelPrefix}${camelSuffix}`];
-      if (value !== null && value !== undefined) return value;
-    }
-    return null;
-  };
-  return {
-    label: embedded.label ?? fromFields("interpretation_label", "InterpretationLabel"),
-    summary: embedded.summary ?? fromFields("interpretation_summary", "InterpretationSummary"),
-    severity: embedded.severity ?? fromFields("interpretation_severity", "InterpretationSeverity"),
-  };
-}
+// Neutral and factual. It names the two canonical inputs without stating a
+// weight, an arithmetic relationship, or a judgement about the set.
+export const RIP_SCORE_HELPER = "Financial performance + collector appeal";
 
 export function hasCanonicalRipContract(...sources) {
-  const rip = firstContract(sources, ["rip"]);
-  return toNumber(rip?.score) !== null;
+  return readCanonicalBlock(resolveCanonicalRipV7(...sources).overall).available;
 }
 
-export function hasRipCorePresentationContract(...sources) {
-  const core = firstContract(sources, ["ripCore", "rip_core"]);
-  return toNumber(core?.score) !== null;
-}
+export function selectRipHeroScoreMode({ summary = {}, target = {}, payload = {} } = {}) {
+  // Source order: the set-page snapshot payload (set detail), then the rankings
+  // target (Explore/landing), then the merged summary. All three carry the SAME
+  // backend objects — one bundle powers every surface — so order only matters
+  // when a stale cache and a fresh one briefly coexist.
+  const resolved = resolveCanonicalRipV7(payload, target, summary);
+  const overall = readCanonicalBlock(resolved.overall);
 
-export function selectRipHeroScoreMode({ mode = RIP_SCORE_MODE, summary = {}, target = {}, payload = {} } = {}) {
-  // Source order: the set-page snapshot payload (set detail), then the
-  // rankings target (Explore), then the merged summary. All three carry the
-  // SAME backend objects — one bundle powers both surfaces — so order only
-  // matters when a stale cache and a fresh one briefly coexist.
-  const sources = [payload, target, summary];
-  const rip = toObject(firstContract(sources, ["rip"]));
-  const ripCore = toObject(firstContract(sources, ["ripCore", "rip_core"]));
-  const coreAvailable = toNumber(ripCore.score) !== null;
-  const resolvedMode = mode === RIP_CORE_MODE && coreAvailable ? RIP_CORE_MODE : RIP_SCORE_MODE;
-
-  if (resolvedMode === RIP_CORE_MODE) {
-    // `score` is the PUBLIC cohort-relative 0-100 score (the production scoring
-    // language). The raw 60/25/15 formula output is the model/absolute score,
-    // surfaced separately and never promoted to the primary number. When the
-    // relative score is missing we render unavailable rather than silently
-    // showing the absolute in its place.
-    const coreRelative = toNumber(ripCore.relativeScore);
-    return {
-      mode: RIP_CORE_MODE,
-      label: "RIP Core",
-      helper: RIP_CORE_HELPER,
-      score: coreRelative,
-      relativeScore: coreRelative,
-      absoluteScore: toNumber(ripCore.score),
-      rank: toNumber(ripCore.rank),
-      tier: ripCore.tier ?? null,
-      cohortSize: toNumber(ripCore.cohortSize),
-      available: coreRelative !== null,
-      status: ripCore.status ?? null,
-      interpretation: interpretationOf(ripCore, sources, "rip_core", "ripCore"),
-      coreAvailable,
-    };
-  }
-
-  // `score` is the PUBLIC cohort-relative 0-100 Overall RIP; the raw 90/10 blend
-  // is the model/absolute score. Availability is keyed on the relative score so
-  // a stale payload carrying only the absolute renders unavailable rather than
-  // silently promoting the model score to the public number.
-  const relative = toNumber(rip.relativeScore);
   return {
-    mode: RIP_SCORE_MODE,
-    label: "RIP Score",
+    label: RIP_SCORE_LABEL,
     helper: RIP_SCORE_HELPER,
-    score: relative,
-    relativeScore: relative,
-    absoluteScore: toNumber(rip.score),
-    rank: toNumber(rip.rank),
-    tier: rip.tier ?? null,
-    cohortSize: toNumber(rip.cohortSize),
-    available: relative !== null,
-    // When the canonical RIP is unavailable the backend says why
-    // (e.g. incomplete_missing_desirability); the UI renders that state
-    // rather than substituting a legacy score.
-    status: rip.status ?? null,
-    interpretation: interpretationOf(rip, sources, "rip_score", "ripScore"),
-    coreAvailable,
+    // The PUBLIC number is the cohort-relative 0-100 Overall RIP V7. The raw
+    // 90/10 blend is the model/absolute score and is never promoted into
+    // `score`: a payload carrying only the absolute renders unavailable rather
+    // than putting a differently-scaled number under the public label.
+    score: overall.score,
+    relativeScore: overall.relativeScore,
+    absoluteScore: overall.absoluteScore,
+    rank: overall.rank,
+    tier: overall.tier,
+    cohortSize: overall.cohortSize,
+    available: overall.available,
+    // When the canonical RIP is unavailable the backend says why; the UI
+    // renders that state rather than substituting a legacy score.
+    status: overall.status,
+    statusReason: overall.statusReason,
+    // Which canonical shape answered — "publicRipContractV7", "topLevelV7", or
+    // null. Diagnostic only; both shapes are the same model.
+    sourceShape: resolved.shape,
   };
 }

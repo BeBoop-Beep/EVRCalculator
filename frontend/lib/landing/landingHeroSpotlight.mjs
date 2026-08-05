@@ -1,13 +1,15 @@
 // Which set the landing hero's Live Set Intelligence panel shows, and the small
 // ranked strip beneath the hero.
 //
-// CANONICAL CONTRACT ONLY. Both selectors read the backend's versioned `rip`
-// object through selectRipHeroScoreMode — the same reader the RIP Statistics
-// hero uses — so the marketing surface can never show a different number than
-// the product surface for the same set. The legacy cohort min-max fields
-// (`pack_score`, `relative_pack_score`, `pack_rank`) are deliberately NOT read:
-// a landing page is the worst place to publish a superseded blend under the
-// name "RIP Score". A set without a canonical score is skipped, not patched.
+// CANONICAL CONTRACT ONLY. Both selectors read Overall RIP V7 through
+// selectRipHeroScoreMode — the same reader the RIP Statistics hero uses — so
+// the marketing surface can never show a different number than the product
+// surface for the same set. That shared reader previously resolved the legacy
+// `rip` (Overall RIP v4) object, which made this page publish a superseded
+// blend under the name "RIP Score"; it now resolves the canonical V7 contract
+// and nothing else. The legacy cohort min-max fields (`pack_score`,
+// `relative_pack_score`, `pack_rank`) are likewise not read. A set without a
+// canonical V7 score is skipped, not patched.
 //
 // Dependency-free apart from the score reader so landingHeroSpotlight.test.mjs
 // can run it directly under `node --test` / `tsx --test`, which cannot resolve
@@ -66,8 +68,9 @@ function readSetValueStatus7d(target) {
  * The published set-level desirability figures, read straight through.
  *
  * `universalSetDesirability` is the authoritative Set Desirability lens Explore
- * ships; `collector_appeal_score` is CA7, still published and still 10% of
- * Overall RIP. `desirability_is_fallback` is carried alongside them because a
+ * ships; `collector_appeal_score` is the published Collector Appeal score.
+ * Neither is a substitute for the other, and neither substitutes for the
+ * canonical RIP Score. `desirability_is_fallback` is carried alongside them because a
  * substituted desirability must not be treated as a measured one — see
  * readDesirability in landingSpotlights.mjs, which does the trusting.
  */
@@ -149,8 +152,11 @@ function toEntry(target) {
       toOptionalString(target?.leaderboard_label) ??
       toOptionalString(target?.canonical_recommendation_header),
     decisionSeverity: toOptionalString(target?.recommendation_severity),
-    interpretationLabel: toOptionalString(hero.interpretation?.label),
-    interpretationSummary: toOptionalString(hero.interpretation?.summary),
+    // `interpretationLabel` / `interpretationSummary` are deliberately absent.
+    // They carried the retired Profit/Safety/Stability interpretation engine's
+    // verdict ("Elite but swingy" and friends), which describes neither
+    // Financial RIP V3 nor Collector Appeal V3. Consumers fall back to
+    // `decisionLabel`, the backend's own leaderboard copy.
     ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };

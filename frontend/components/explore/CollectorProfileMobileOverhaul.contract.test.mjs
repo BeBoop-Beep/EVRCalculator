@@ -26,20 +26,17 @@ test("Collector Profile uses one desktop branch and one mobile branch at the sha
 
   assert.ok(section.includes('const isDesktopCollectorProfile = useMediaQuery("(min-width: 1200px)", true);'));
   assert.ok(section.includes("isDesktopCollectorProfile ? ("));
-  assert.ok(section.includes("<CollectorProfileMobileSummary desirability={desirability} collectorAppeal={opening} />"));
+  // The mobile summary block went with the sequential flow; both widths now
+  // open straight on the view tabs and their panels.
+  assert.ok(!section.includes("<CollectorProfileMobileSummary"));
   assert.ok(section.includes("<CollectorRosterAppealPanel presentation={desirability}"));
   assert.ok(section.includes("<CollectorOpeningPathsPanel presentation={opening}"));
 });
 
-test("mobile summary replaces the stacked contribution block with two score cells and explicit relationship lines", () => {
-  const summary = between(pageSource, "function CollectorProfileMobileSummary", "function CollectorProfileMobilePathRow");
-
-  assert.ok(summary.includes("grid grid-cols-2 divide-x divide-[var(--border-subtle)]"));
-  assert.ok(summary.includes("Set desirability informs Collector Appeal"));
-  assert.ok(summary.includes("Overall RIP = 90% RIP Core + 10% Collector Appeal"));
-  assert.ok(!summary.includes("RIP Score Contribution"));
-  assert.ok(!summary.includes("9.6 model points"));
-});
+// The CollectorProfileMobileSummary test stood here. That summary printed
+// "Overall RIP = 90% RIP Core + 10% Collector Appeal" - a superseded model and a
+// published composition weight - and it was the mobile half of the sequential
+// Set Desirability -> Collector Appeal -> contribution flow. Both are removed.
 
 test("mobile Collector Profile switcher is one shared full-width equal-segment control", () => {
   const section = between(pageSource, "function CollectorProfileSection", "const TOP_CARD_IMAGE_CONTAINER_CLASS");
@@ -64,7 +61,7 @@ test("mobile roster view keeps all six metrics in shared three-column strips and
 
 test("Collector metric strips stay three columns below desktop with shrink-safe cells", () => {
   const row = between(pageSource, "function CollectorMetricRow", "function CollectorMetricCell");
-  const cell = between(pageSource, "function CollectorMetricCell", "function CollectorProfileMobileSummaryCell");
+  const cell = between(pageSource, "function CollectorMetricCell", "function CollectorProfileMobileRosterPanel");
 
   assert.ok(row.includes('columns === 2 ? "grid-cols-2" : "grid-cols-3"'));
   assert.ok(cell.includes("min-w-0"));
@@ -93,15 +90,16 @@ test("shared segmented control supports equal-width segments and full-width mobi
   assert.ok(segmentedSource.includes('"ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"'));
 });
 
-test("Set/Top 10, RIP Score/RIP Core, and Collector Profile all opt into the shared equal-width control foundation", () => {
+test("Set/Top 10 and Collector Profile opt into the shared equal-width control foundation", () => {
+  // The RIP score-mode control is gone: RIP Core is Financial RIP V2 and is not
+  // a current alternative to the RIP Score, so there is one headline and no
+  // toggle to size.
   assert.ok(pageSource.includes('ariaLabel="Set scope"'));
-  assert.ok(pageSource.includes('ariaLabel="RIP score mode"'));
+  assert.ok(!pageSource.includes('ariaLabel="RIP score mode"'));
   assert.ok(pageSource.includes('ariaLabel="Collector Profile view"'));
 
   const setScope = between(pageSource, "function SetValueScopeSelector", "function formatAxisCurrency");
-  const ripMode = between(pageSource, "function RipScoreModeToggle", "function HeroScoreBadges");
   assert.ok(setScope.includes("equalWidth"));
-  assert.ok(ripMode.includes("equalWidth"));
 });
 
 test("time range source of truth renders LT everywhere while keeping Lifetime as the accessible name", () => {
@@ -117,7 +115,10 @@ test("return-to-top visibility is derived directly from the shared mobile set-co
   assert.ok(pageSource.includes("revealMobileSetContext();\n                      window.scrollTo({ top: 0, behavior: \"smooth\" });"));
 });
 
-test("existing Collector Profile contract file is still present to guard desktop chain semantics", () => {
-  assert.ok(collectorContract.includes("the summary states one directed chain"));
-  assert.ok(collectorContract.includes("the two scores are stages of a chain, never options of a toggle"));
+test("the Collector Profile contract file guards the RETIRED chain semantics", () => {
+  // It now asserts the flow is GONE rather than that it is drawn correctly.
+  assert.ok(
+    collectorContract.includes("the sequential Set Desirability -> Collector Appeal -> contribution flow is gone")
+  );
+  assert.ok(collectorContract.includes("no tooltip publishes a composition weight"));
 });

@@ -7,9 +7,9 @@
  * Every score-bearing cell reads AUTHORITATIVE backend fields only (never a
  * frontend-derived score): the absolute 0-100 formula result, the cohort
  * relative 0-100 position, and the rank within its ranked-set cohort. The
- * default "Best Sets to Rip Right Now" mode surfaces BOTH Overall RIP and
+ * default "Best Sets to Rip Right Now" mode surfaces BOTH RIP Score and
  * Financial RIP columns on desktop; every other mode shows a single
- * mode-scoped score cell. Mobile always shows both Overall and Financial score
+ * mode-scoped score cell. Mobile always shows both RIP Score and Financial score
  * families so Financial RIP is never hidden on small screens. Missing values
  * render an explicit "Unavailable" state — never a fabricated zero.
  *
@@ -197,7 +197,7 @@ function readModeScore(target, modeId) {
  * The mode whose rank the table's leading "#" column already shows. A score
  * cell for that same mode omits its own "#rank" line, because the two would
  * always print the same number on the same row. Every other column keeps its
- * rank — Financial RIP genuinely ranks a set differently from Overall RIP.
+ * rank — Financial RIP genuinely ranks a set differently from RIP Score.
  */
 const RankColumnModeContext = createContext(null);
 
@@ -395,7 +395,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     "Sets ranked by the strongest overall opening profile."
   } ${RELATIVE_SCORE_TOOLTIP}`;
 
-  // The default Overall mode surfaces Overall RIP AND Financial RIP side by
+  // The default Overall mode surfaces RIP Score AND Financial RIP side by
   // side; every other mode collapses to a single mode-scoped score column.
   const isOverallMode = selectedMode === DEFAULT_MODE;
 
@@ -429,8 +429,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
   const sortNote = RANKING_MODE_PICKER_ENABLED
-    ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
-    : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
+    ? `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
+    : `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first.`;
   const visibleMobileTargets =
     showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
       ? sortedTargets
@@ -557,7 +557,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   {isOverallMode ? (
                     <>
                       <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
-                        <span>Overall RIP</span>
+                        <span>RIP Score</span>
                       </th>
                       <th scope="col" className={styles.numeric}>
                         <span>Financial RIP</span>
