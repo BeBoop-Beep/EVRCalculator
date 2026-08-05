@@ -33,11 +33,10 @@ REM ============================================================================
 
 setlocal
 
-set "EVR_PRODUCTION_WINDOWS_DIR=D:\EVRCalculator-production"
-set "EVR_PRODUCTION_REPO_DIR=/d/EVRCalculator-production"
-set "EVR_PUBLICATION_CHECKOUT_MODE=production"
-set "EXPECTED_PUBLICATION_BRANCH=main"
-set "PUBLICATION_FETCH_ORIGIN=1"
+set "EVR_PRODUCTION_WINDOWS_DIR=D:\EVRCalculator"
+set "EVR_PRODUCTION_REPO_DIR=/d/EVRCalculator"
+set "EVR_PUBLICATION_CHECKOUT_MODE=local"
+set "PUBLICATION_FETCH_ORIGIN=0"
 
 REM Logs live with the production checkout, not with the development tree, so a
 REM scheduled failure is never diagnosed against the wrong repository.
