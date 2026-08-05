@@ -121,9 +121,35 @@ REQUIRED_SIMULATION_COMMANDS = (
 # Cohort loading
 # ---------------------------------------------------------------------------
 
+def resolve_supported_set_keys() -> Tuple[str, ...]:
+    """The canonical keys explicitly supported for opening simulation.
+
+    Delegates to ``opening_simulation_gate.supported_opening_set_keys()``, which
+    that module documents as THE single definition of "simulation-supported" -
+    shared by the metadata sync, the migration/backfill generator, the
+    publication gate and the publication audit. It resolves over the FULL set
+    registry using ``pokemon_set_lifecycle_flags.supports_opening_simulation``,
+    whose order is: explicit ``SUPPORTS_OPENING_SIMULATION`` declaration, else
+    ``USE_MONTE_CARLO_V2``, else false, with ``catalog_only`` always false.
+
+    Deliberately NOT reimplemented here, and deliberately NOT a list of set names
+    in this file. A second definition of "supported" is how a set silently
+    becomes invisible to one caller and visible to another.
+    """
+    from backend.db.services.opening_simulation_gate import supported_opening_set_keys
+
+    return supported_opening_set_keys()
+
+
+def _target_key(target: Mapping[str, Any]) -> str:
+    return str(target.get("canonical_key") or target.get("canonicalKey") or "")
+
+
 def load_cohort(
-    *, set_ids: Optional[Sequence[str]] = None
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+    *,
+    set_ids: Optional[Sequence[str]] = None,
+    all_supported: bool = False,
+) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, Any]]:
     """The published RIP targets, read through the publication path.
 
     Reads ``get_rip_statistics_targets_payload`` rather than querying tables, so
@@ -131,6 +157,22 @@ def load_cohort(
     Collector Appeal bundle, the same Financial RIP V3 payload, the same ranks -
     instead of a parallel reconstruction that could disagree with production
     while looking authoritative.
+
+    ``all_supported`` restricts the cohort to sets EXPLICITLY supported for
+    opening simulation.
+
+    SUPPORT IS DECLARED, NEVER INFERRED FROM DATA
+    ---------------------------------------------
+    Filtering is keyed on the declared support marker alone. It is emphatically
+    NOT ``financialRipV3 is not None``: that would define the cohort as "sets
+    that happen to have a score", so a supported set whose simulation genuinely
+    failed would be silently dropped from the study instead of failing the
+    readiness gate. The gate's entire purpose is to catch that case, and an
+    availability-based filter would delete the evidence it exists.
+
+    Returns ``(targets, warnings, support_record)``. The support record carries
+    every excluded set with its status and reason, so the manifest can state what
+    was left out rather than only what was kept.
     """
     warnings: List[str] = []
     from backend.db.services.explore_rip_statistics_service import (
@@ -139,6 +181,59 @@ def load_cohort(
 
     payload = get_rip_statistics_targets_payload()
     targets = list(payload.get("targets") or [])
+    total_targets = len(targets)
+
+    support_record: Dict[str, Any] = {
+        "mode": "all_supported" if all_supported else ("set_ids" if set_ids else "all_targets"),
+        "supportSource": (
+            "backend.db.services.opening_simulation_gate.supported_opening_set_keys()"
+        ),
+        "supportCriterion": (
+            "pokemon_set_lifecycle_flags.supports_opening_simulation: explicit "
+            "SUPPORTS_OPENING_SIMULATION declaration, else USE_MONTE_CARLO_V2, "
+            "else false; catalog_only is always false."
+        ),
+        "publishedTargetCount": total_targets,
+        "excludedSets": [],
+        "supportedKeysMissingFromTargets": [],
+    }
+
+    if all_supported:
+        supported = set(resolve_supported_set_keys())
+        support_record["supportedKeyCount"] = len(supported)
+
+        kept: List[Dict[str, Any]] = []
+        for target in targets:
+            key = _target_key(target)
+            if key in supported:
+                kept.append(target)
+                continue
+            support_record["excludedSets"].append(
+                {
+                    "setName": target.get("name"),
+                    "canonicalKey": key or None,
+                    "targetId": str(target.get("target_id") or "") or None,
+                    "supportsOpeningSimulation": False,
+                    "reason": (
+                        "not declared as supported for opening simulation "
+                        "(no usable pull model), so no Financial RIP V3 is expected"
+                    ),
+                }
+            )
+
+        # A supported set absent from the published targets is a real defect and
+        # must surface, not vanish because the intersection happened to be empty
+        # for it. Recorded here and reported as missing by the readiness gate.
+        present = {_target_key(t) for t in kept}
+        for key in sorted(supported - present):
+            support_record["supportedKeysMissingFromTargets"].append(key)
+            warnings.append(
+                f"set '{key}' is declared simulation-supported but is absent from "
+                "the published RIP targets payload"
+            )
+
+        targets = kept
+
     if set_ids:
         wanted = {str(s) for s in set_ids}
         filtered = [t for t in targets if str(t.get("target_id")) in wanted]
@@ -146,7 +241,10 @@ def load_cohort(
         if missing:
             warnings.append(f"requested set ids not present in cohort: {sorted(missing)}")
         targets = filtered
-    return targets, warnings
+
+    support_record["includedSetCount"] = len(targets)
+    support_record["excludedSetCount"] = len(support_record["excludedSets"])
+    return targets, warnings, support_record
 
 
 def build_rows(targets: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -612,13 +710,20 @@ def build_manifest(
     rows: Sequence[Mapping[str, Any]],
     readiness: Mapping[str, Any],
     warnings: Sequence[str],
+    support_record: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Everything needed to reproduce this run exactly.
 
     A result that cannot be traced to its inputs is an anecdote. This records
     the commit, the cohort, the seeds, the draw counts, every formula version
     and the literal command line.
+
+    ``support_record`` makes the EXCLUSIONS auditable. A cohort statement that
+    lists only what was included cannot be checked: a reader cannot tell a
+    deliberately unsupported set from one that was dropped by accident. Every
+    excluded set is therefore named with its support status and reason.
     """
+    support = dict(support_record or {})
     return {
         "researchVersion": RESEARCH_VERSION,
         "gitCommit": _git("rev-parse", "HEAD"),
@@ -629,14 +734,30 @@ def build_manifest(
         "cliInvocation": " ".join([Path(sys.argv[0]).name, *sys.argv[1:]]),
         "cohort": {
             "definition": (
-                "Targets published by explore_rip_statistics_service - the "
+                "Sets explicitly supported for opening simulation, intersected "
+                "with the targets published by explore_rip_statistics_service."
+                if args.all_supported
+                else "Targets published by explore_rip_statistics_service - the "
                 "simulated, RIP-eligible cohort."
             ),
             "requestedSetIds": list(args.set_id or []),
             "allSupported": bool(args.all_supported),
+            "supportSource": support.get("supportSource"),
+            "supportCriterion": support.get("supportCriterion"),
+            "publishedTargetCount": support.get("publishedTargetCount"),
+            "supportedKeyCount": support.get("supportedKeyCount"),
             "includedSets": [row["setName"] for row in rows],
-            "excludedSets": readiness.get("collectorAppealMissing"),
             "size": len(rows),
+            # Named, with a status and a reason each - not a bare count.
+            "excludedSets": support.get("excludedSets", []),
+            "excludedSetCount": support.get("excludedSetCount", 0),
+            "supportedKeysMissingFromTargets": support.get(
+                "supportedKeysMissingFromTargets", []
+            ),
+            # Kept distinct from support-based exclusion: a set can be IN the
+            # cohort and still lack Collector Appeal inputs, which is a data gap
+            # rather than a scope decision.
+            "inCohortMissingCollectorAppealInputs": readiness.get("collectorAppealMissing"),
         },
         "seeds": {
             "master": args.seed,
@@ -777,7 +898,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--market-date", default=None, help="Price snapshot date (YYYY-MM-DD).")
     parser.add_argument("--set-id", action="append", default=None, help="Repeatable set id filter.")
-    parser.add_argument("--all-supported", action="store_true", help="Use the full supported cohort.")
+    parser.add_argument(
+        "--all-supported",
+        action="store_true",
+        help=(
+            "Restrict the cohort to sets explicitly supported for opening "
+            "simulation, per opening_simulation_gate.supported_opening_set_keys()."
+        ),
+    )
     parser.add_argument("--bootstrap-draws", type=int, default=1000)
     parser.add_argument("--uncertainty-draws", type=int, default=500)
     parser.add_argument("--seed", type=int, default=20260804)
@@ -794,17 +922,37 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # Mutually exclusive: one names a cohort by policy, the other by hand. Silently
+    # intersecting them would let `--all-supported` appear to have been honoured
+    # while an explicit id list did the real filtering - and a cohort that is not
+    # what the flag says it is invalidates every readiness count derived from it.
+    if args.all_supported and args.set_id:
+        parser.error(
+            "--all-supported and --set-id are mutually exclusive: the first selects "
+            "the declared simulation-supported cohort, the second selects sets by "
+            "hand. Pass one or the other."
+        )
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     try:
-        targets, warnings = load_cohort(set_ids=args.set_id)
+        targets, warnings, support_record = load_cohort(
+            set_ids=args.set_id, all_supported=args.all_supported
+        )
     except Exception as exc:  # noqa: BLE001 - a read failure is reported, never masked
         print(f"FAILED to load the RIP targets payload: {exc}", file=sys.stderr)
         return 2
 
     rows = build_rows(targets)
     readiness = assess_readiness(rows)
-    manifest = build_manifest(args=args, rows=rows, readiness=readiness, warnings=warnings)
+    manifest = build_manifest(
+        args=args,
+        rows=rows,
+        readiness=readiness,
+        warnings=warnings,
+        support_record=support_record,
+    )
+    _print_cohort_scope(support_record)
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -859,6 +1007,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     _write_analysis_csvs(output_dir, analysis)
     print(f"\nWrote validation artifacts to {output_dir}")
+
+    # A set declared simulation-supported but absent from the published targets
+    # never reaches `financialV3Missing` - it has no row to be missing a score on.
+    # Under --strict that silence would read as success, so it fails here.
+    orphans = list((support_record or {}).get("supportedKeysMissingFromTargets") or [])
+    if orphans and args.strict:
+        print(
+            "\n--strict: exiting nonzero because these declared simulation-supported "
+            "sets are absent from the published RIP targets payload: "
+            + ", ".join(orphans)
+        )
+        return 1
     return 0
 
 
@@ -948,6 +1108,30 @@ def _write_analysis_csvs(output_dir: Path, analysis: Mapping[str, Any]) -> None:
          "dispersionShareAppeal", "appealContributionMean",
          "correlationFinancialAppeal"],
     )
+
+
+def _print_cohort_scope(support_record: Mapping[str, Any]) -> None:
+    """State what the cohort is and what it deliberately left out."""
+    mode = support_record.get("mode")
+    print("=" * 100)
+    print("COHORT SCOPE")
+    print("=" * 100)
+    print(f"Mode                            : {mode}")
+    print(f"Published targets               : {support_record.get('publishedTargetCount')}")
+    if mode == "all_supported":
+        print(f"Declared simulation-supported   : {support_record.get('supportedKeyCount')}")
+        print(f"Support source                  : {support_record.get('supportSource')}")
+    print(f"Included in cohort              : {support_record.get('includedSetCount')}")
+    excluded = list(support_record.get("excludedSets") or [])
+    print(f"Excluded (unsupported)          : {len(excluded)}")
+    for entry in excluded:
+        print(f"  - {entry.get('setName')} [{entry.get('canonicalKey')}]: {entry.get('reason')}")
+    orphans = list(support_record.get("supportedKeysMissingFromTargets") or [])
+    if orphans:
+        print(f"\nDECLARED SUPPORTED BUT ABSENT FROM TARGETS ({len(orphans)}):")
+        for key in orphans:
+            print(f"  - {key}")
+    print()
 
 
 def _print_readiness(readiness: Mapping[str, Any]) -> None:
