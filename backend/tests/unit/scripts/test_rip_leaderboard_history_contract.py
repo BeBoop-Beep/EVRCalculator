@@ -62,6 +62,46 @@ def _set_supported_keys(keys):
     _SUPPORTED_KEYS[:] = list(keys)
 
 
+def _score_block(index, *, fingerprint=True):
+    """One canonical pillar block: BOTH score layers, plus its cohort identity.
+
+    ``score`` and ``absoluteScore`` are the same absolute formula output;
+    ``relativeScore`` is the cohort-relative display score. The publisher refuses
+    to publish a set missing either layer rather than dropping it, so the fixture
+    has to carry both for the happy path to be a happy path.
+    """
+    block = {
+        "score": 80 - index,
+        "absoluteScore": 80 - index,
+        "relativeScore": 90 - index,
+        "rank": index + 1,
+        "tier": "A",
+        "rankedSetCount": 1,
+    }
+    if fingerprint:
+        block["cohortFingerprint"] = "stub-fingerprint"
+    return block
+
+
+def _contract_v7(index, contract_version):
+    """The canonical public contract the publisher validates before publishing."""
+    return {
+        "contractVersion": contract_version,
+        "overallRip": _score_block(index),
+        "financialRip": {
+            **_score_block(index),
+            "components": {
+                component: _score_block(index, fingerprint=False)
+                for component in (
+                    "trueWinFrequency", "typicalRetention", "lossResilience",
+                    "realisticUpside", "jackpotUpside", "baseEconomicEfficiency",
+                )
+            },
+        },
+        "collectorAppeal": _score_block(index),
+    }
+
+
 def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
          overall_version=CANONICAL["overallRipVersion"],
          financial_version=CANONICAL["financialRipVersion"],
@@ -78,6 +118,8 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "rip": {"score": 78 - index, "rank": index + 1},
         "ripCore": {"score": 70 - index, "rank": index + 1},
         "openingExperience": {"collectorAppeal": {"version": appeal_version}},
+        "publicRipContractV7": _contract_v7(index, contract_version),
+        "cohortFingerprint": "stub-fingerprint",
         "calculation_run_id": f"run-{index}",
         "pack_cost": 5,
     } for index in range(target_count)]
@@ -197,6 +239,57 @@ def test_a_v7_cohort_that_diverges_from_the_rpc_predicate_fails_closed():
         command.publication_contract(payload)
 
 
+@pytest.mark.parametrize(
+    ("mutate", "expected"),
+    [
+        (lambda t: t["publicRipContractV7"]["overallRip"].pop("relativeScore"),
+         "overallRip.relativeScore is missing"),
+        (lambda t: t["publicRipContractV7"]["overallRip"].pop("absoluteScore"),
+         "overallRip.absoluteScore is missing"),
+        (lambda t: t["publicRipContractV7"]["overallRip"].pop("cohortFingerprint"),
+         "overallRip.cohortFingerprint is missing"),
+        (lambda t: t["publicRipContractV7"]["financialRip"].pop("relativeScore"),
+         "financialRip.relativeScore is missing"),
+        (lambda t: t["publicRipContractV7"]["collectorAppeal"].pop("relativeScore"),
+         "collectorAppeal.relativeScore is missing"),
+        (lambda t: t["publicRipContractV7"]["collectorAppeal"].pop("rankedSetCount"),
+         "collectorAppeal.rankedSetCount is missing"),
+        (lambda t: t["publicRipContractV7"]["financialRip"]["components"]["jackpotUpside"]
+         .pop("relativeScore"),
+         r"components\.jackpotUpside\.relativeScore is missing"),
+        (lambda t: t.pop("publicRipContractV7"), "publicRipContractV7 is missing"),
+    ],
+)
+def test_a_supported_set_missing_a_canonical_score_fails_publication(mutate, expected):
+    """It FAILS; it does not quietly leave the cohort.
+
+    Dropping the set would shrink every denominator and shift every relative
+    score, with nothing downstream recording that the population moved - which
+    is indistinguishable from the set never having existed.
+    """
+    payload = _row(target_count=2)
+    mutate(payload["ranking_payload_json"]["targets"][1])
+    with pytest.raises(RuntimeError, match=expected):
+        command.publication_contract(payload)
+
+
+def test_a_complete_cohort_reports_no_score_contract_problems():
+    payload = _row(target_count=2)
+    for target in payload["ranking_payload_json"]["targets"]:
+        assert command._score_contract_problems(target) == []
+
+
+def test_a_zero_relative_score_is_not_treated_as_missing():
+    """The bottom-ranked set's relative score IS 0.0, and 0.0 is a value."""
+    payload = _row(target_count=2)
+    payload["ranking_payload_json"]["targets"][1]["publicRipContractV7"]["overallRip"][
+        "relativeScore"
+    ] = 0.0
+    assert command._score_contract_problems(
+        payload["ranking_payload_json"]["targets"][1]
+    ) == []
+
+
 def test_atomic_rpc_is_idempotent_and_promotes_latest_after_history_rows():
     migration = (
         Path(__file__).resolve().parents[3]
@@ -227,6 +320,10 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             "049_add_pokemon_public_rip_leaderboard_history.sql",
             "053_harden_pokemon_public_rip_leaderboard_publication.sql",
             "054_fix_pokemon_public_rip_ranked_target_contract.sql",
+            # The canonical V7 revision. It replaces 054's legacy `{rip,rank}`
+            # ranked-target predicate with `{overallRipV7,rank}`; it is the same
+            # single authoritative writer, not a second one.
+            "061_update_public_rip_rpc_to_v7.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))

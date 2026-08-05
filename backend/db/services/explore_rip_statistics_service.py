@@ -1085,6 +1085,35 @@ def _rank_within_cohort(cohort_rows: List[Dict[str, Any]], *, cohort_size: int) 
             entry = ranked.get(str(row.get("target_id"))) or {}
             _apply_rank(row, contract_key, entry, cohort_size=cohort_size)
     _attach_relative_scores(cohort_rows)
+    _attach_cohort_fingerprint(cohort_rows)
+
+
+def _attach_cohort_fingerprint(cohort_rows: List[Dict[str, Any]]) -> None:
+    """Stamp every ranked row with the fingerprint of the cohort it was ranked in.
+
+    A rank, a relative score and a denominator are all statements ABOUT a
+    population, and a consumer that holds one without being able to identify that
+    population cannot tell whether two numbers are comparable. The fingerprint is
+    computed with the SAME helper the publication contract uses
+    (``supported_cohort_fingerprint``), so the value published on a target block
+    and the value recorded in the snapshot's diagnostics are the same kind of
+    thing and can be compared directly.
+
+    The cohort keys are passed in explicitly rather than letting the helper
+    resolve the registry: this is the cohort that was actually ranked, and a
+    fingerprint of some other population would be worse than none.
+    """
+    from backend.db.services.public_rip_publication_contract import (
+        supported_cohort_fingerprint,
+    )
+
+    keys = [
+        str(row.get("canonical_key") or row.get("target_id") or "").strip()
+        for row in cohort_rows
+    ]
+    fingerprint = supported_cohort_fingerprint([key for key in keys if key])
+    for row in cohort_rows:
+        row["cohortFingerprint"] = fingerprint["fingerprint"]
 
 
 def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
@@ -1124,6 +1153,45 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
+
+    # Collector Appeal V3 is a canonical published pillar in its own right, so it
+    # gets the same absolute/relative pair. Its ABSOLUTE score is what the 90/10
+    # Overall blend consumes; this relative number is presentation only and is
+    # never fed back into a formula (see the module note on _rank_overall_rip_v7).
+    appeal_scratch = [
+        {"target_id": row.get("target_id"), "_score": _rank_collector_appeal(row)}
+        for row in cohort_rows
+    ]
+    appeal_relatives = _compute_relative_scores(appeal_scratch, "_score")
+    for row in cohort_rows:
+        appeal = (row.get("openingExperience") or {}).get("collectorAppeal")
+        if isinstance(appeal, dict):
+            relative = appeal_relatives.get(str(row.get("target_id")))
+            appeal["relativeScore"] = round(relative, 2) if relative is not None else None
+
+    # Every WEIGHTED Financial RIP V3 component carries its own relative score,
+    # computed INDEPENDENTLY from its own absolute component score across the
+    # same cohort. Deliberately not derived from the parent's relative score and
+    # deliberately not fed back into the parent: Financial RIP V3 is the weighted
+    # sum of the ABSOLUTE components, and computing it from relative ones would
+    # make a set's financial score depend on which other sets exist.
+    #
+    # Depth and Robustness is excluded for the same reason it has no rank: it is
+    # an unweighted diagnostic, and giving it the full ranked/relative treatment
+    # would present it as a seventh weighted component.
+    for component_key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
+        extractor = globals()[f"_rank_v3_{component_key}"]
+        scratch = [
+            {"target_id": row.get("target_id"), "_score": extractor(row)}
+            for row in cohort_rows
+        ]
+        relatives = _compute_relative_scores(scratch, "_score")
+        for row in cohort_rows:
+            components = (row.get("financialRipV3") or {}).get("components") or {}
+            component = components.get(component_key)
+            if isinstance(component, dict):
+                relative = relatives.get(str(row.get("target_id")))
+                component["relativeScore"] = round(relative, 2) if relative is not None else None
 
     # The three Financial RIP pillars also carry a cohort-relative public score,
     # restoring main's `relative_profit_score`/`relative_safety_score`/

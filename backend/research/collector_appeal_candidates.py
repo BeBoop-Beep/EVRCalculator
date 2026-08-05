@@ -72,7 +72,9 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
     COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
     COLLECTOR_APPEAL_HEADROOM_GAIN,
+    COLLECTOR_APPEAL_V3_FORMULA_VERSION,
     COLLECTOR_APPEAL_V3_INPUT_ORDER,
+    COLLECTOR_APPEAL_V3_VERSION,
     COLLECTOR_APPEAL_V3_WEIGHTS,
 )
 
@@ -270,9 +272,61 @@ def candidate_registry() -> Dict[str, Any]:
             "headroomGain": COLLECTOR_APPEAL_HEADROOM_GAIN,
         },
         "canonicalProductionKey": CANONICAL_PRODUCTION_KEY,
+        # The first-class production candidate the canonical verdict selects on.
+        "productionCandidate": production_candidate_identity(),
         "overallWeightGrid": list(OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID),
         "canonicalOverallWeight": canonical_overall_weight(),
     }
+
+
+def production_candidate_identity() -> Dict[str, Any]:
+    """Exactly which formula the canonical guardrail verdict is evaluating.
+
+    Published into the manifest and into the validation output so a reader never
+    has to infer it from a column name. ``productionFormulaMatch`` is computed by
+    probing the candidate against the production entry point rather than by
+    comparing constants: matching weights in a family production no longer uses
+    would report True, which is the false reassurance this whole block exists to
+    remove.
+    """
+    from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
+
+    return {
+        "candidateKey": PRODUCTION_CANDIDATE_KEY,
+        "collectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
+        "formulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+        "overallRipVersion": CANONICAL_OVERALL_RIP_VERSION,
+        "productionWeight": canonical_overall_weight(),
+        "weights": dict(COLLECTOR_APPEAL_V3_WEIGHTS),
+        "formula": "CA = 0.40*D + 0.35*H + 0.25*P",
+        "productionFormulaMatch": production_candidate_matches_production(),
+        "note": (
+            "The candidate is named by the canonical Collector Appeal VERSION, "
+            "not by a family nickname, so a cutover that renames the shipping "
+            "formula renames this candidate and every artifact that cites it."
+        ),
+    }
+
+
+def production_candidate_matches_production() -> bool:
+    """Does the production candidate reproduce the shipping formula exactly?
+
+    Unlike :func:`primary_matches_production` this is expected to be True, and
+    ``--strict`` treats False as a hard failure: it means the guardrail verdict
+    would be evaluating something other than what ships.
+    """
+    from backend.desirability.collector_appeal import compute_collector_appeal_v3
+
+    for d in (0.0, 0.25, 0.5, 0.75, 1.0):
+        for h in (0.0, 0.5, 1.0):
+            for p in (0.0, 0.5, 1.0):
+                candidate = compute_comparisons(d=d, h=h, p=p).get(PRODUCTION_CANDIDATE_KEY)
+                canonical = compute_collector_appeal_v3(d, h, p)
+                if candidate is None or canonical is None:
+                    return False
+                if abs(candidate - canonical) > 1e-12:
+                    return False
+    return True
 
 
 def primary_matches_production() -> bool:
@@ -332,6 +386,12 @@ COMPARISON_KEYS: Tuple[str, ...] = (
     "collector_appeal_v2_bounded_headroom",
     "collector_appeal_v3_balanced",
     "chase_appeal_D_times_M",
+    # Same formula as `collector_appeal_v3_balanced`, published under the exact
+    # canonical VERSION string. Both columns are emitted because the nickname is
+    # what previous artifacts used and the version is what the guardrail verdict
+    # is now required to select on; a test asserts the two columns are equal
+    # value for value, so the duplication cannot become a divergence.
+    COLLECTOR_APPEAL_V3_VERSION,
 )
 
 # The CANONICAL production formula's key inside this study. Named so a reader of
@@ -339,6 +399,17 @@ COMPARISON_KEYS: Tuple[str, ...] = (
 # are the things it is being compared against.
 CANONICAL_PRODUCTION_KEY = "collector_appeal_v3_balanced"
 SUPERSEDED_V2_KEY = "collector_appeal_v2_bounded_headroom"
+
+# THE PRODUCTION CANDIDATE, named by the exact canonical Collector Appeal
+# VERSION rather than by a family nickname.
+#
+# `CANONICAL_PRODUCTION_KEY` above is a readable label, and a label can go on
+# describing the wrong formula after a cutover without anything noticing - which
+# is precisely how the canonical guardrail verdict came to be evaluated against
+# the CA8 bounded-headroom primary while production shipped the V3 balanced sum.
+# This key is the version string itself, so a rename of the shipping formula
+# renames this candidate and every artifact that mentions it.
+PRODUCTION_CANDIDATE_KEY = COLLECTOR_APPEAL_V3_VERSION
 PURE_D_KEY = "pure_D"
 LEGACY_CA7_KEY = "CA7_legacy_bounded_bonus_50"
 
@@ -368,7 +439,9 @@ def compute_comparisons(
 
     d_value = _as_float(d)
     utility = dual_path_utility(p)
+    production = compute_collector_appeal_v3(d_value, h, p)
     return {
+        PRODUCTION_CANDIDATE_KEY: production,
         "pure_D": d_value,
         "CA6_dual_path_utility": (
             None if (d_value is None or utility is None) else _clamp(d_value * utility)
@@ -377,7 +450,7 @@ def compute_comparisons(
             d_value, p, lam=CA7_PRODUCTION_LAMBDA
         ),
         SUPERSEDED_V2_KEY: compute_collector_appeal_v2(d_value, h, p),
-        CANONICAL_PRODUCTION_KEY: compute_collector_appeal_v3(d_value, h, p),
+        CANONICAL_PRODUCTION_KEY: production,
         "chase_appeal_D_times_M": compute_chase_appeal(d_value, m),
     }
 

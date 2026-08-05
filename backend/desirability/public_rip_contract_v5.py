@@ -81,9 +81,19 @@ def _v3_component(block: Mapping[str, Any]) -> Dict[str, Any]:
     this block: the six cards show no weighting percentage, and a weight the
     frontend does not render is a field that can only drift. Weights live in the
     ``audit`` block instead, where they stay checkable.
+
+    ``score`` and ``absoluteScore`` are the SAME absolute component score, on the
+    component's own fixed-anchor scale. ``relativeScore`` is that component's
+    min-max position across the ranked cohort, computed independently from this
+    component's own absolute score - not derived from the parent's relative
+    score, and never fed back into Financial RIP V3, which is the weighted sum of
+    the ABSOLUTE components.
     """
+    absolute = _num(block.get("score"))
     return {
-        "score": _num(block.get("score")),
+        "score": absolute,
+        "absoluteScore": absolute,
+        "relativeScore": _num(block.get("relativeScore")),
         "rank": _int(block.get("rank")),
         "rankedSetCount": _int(block.get("cohortSize")),
         "tier": block.get("tier"),

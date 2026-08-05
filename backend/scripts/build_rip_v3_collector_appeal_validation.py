@@ -82,6 +82,7 @@ from backend.research.collector_appeal_candidates import (
     LEGACY_CA7_KEY,
     OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID,
     PRIMARY_CANDIDATE_KEY,
+    PRODUCTION_CANDIDATE_KEY,
     PURE_D_KEY,
     SUPERSEDED_V2_KEY,
     candidate_registry,
@@ -92,6 +93,7 @@ from backend.research.collector_appeal_candidates import (
     compute_comparisons,
     compute_overall,
     compute_v3_without_input,
+    production_candidate_identity,
 )
 from backend.research.validation_uncertainty import scenario_registry
 
@@ -683,6 +685,11 @@ def overall_weight_sensitivity(
         # the cells report.
         "canonicalConfigurationVerdict": {
             "appealKey": appeal_key,
+            # A per-candidate cell's verdict is only THE canonical verdict when
+            # the candidate is the production formula. The authoritative verdict
+            # is `analysis.productionConfiguration`, which selects this cell by
+            # PRODUCTION_CANDIDATE_KEY and by nothing else.
+            "isProductionFormula": appeal_key == PRODUCTION_CANDIDATE_KEY,
             "weight": canonical_weight,
             "passed": canonical_gate.get("passed"),
             "failedChecks": canonical_gate.get("failedChecks"),
@@ -1111,6 +1118,16 @@ def build_manifest(
             # because the version and the weights move together.
             "collectorAppealWeightsDisclosed": False,
         },
+        # THE formula the canonical guardrail verdict evaluates, stated at the
+        # top level of the manifest rather than left to be inferred from a column
+        # name inside the candidate registry. The registry's CA8 grid is a
+        # historical research comparison; this is what ships.
+        #
+        # The 0.40/0.35/0.25 weights ARE disclosed here, unlike in the public
+        # contract: this artifact exists to prove which formula was gated, and a
+        # verdict that cannot name its own formula is the defect being fixed.
+        # `assert_private_output_dir` keeps these artifacts out of tracked paths.
+        "productionCandidate": production_candidate_identity(),
         "candidateRegistry": candidate_registry(),
         "uncertaintyScenarios": scenario_registry(),
         "stabilityGuardrails": {
@@ -1213,6 +1230,8 @@ def run_analysis(
         "overallWeightSensitivity": {
             key: overall_weight_sensitivity(rows, key)
             for key in (
+                # FIRST, and the only one the canonical verdict may read.
+                PRODUCTION_CANDIDATE_KEY,
                 CANONICAL_PRODUCTION_KEY,
                 SUPERSEDED_V2_KEY,
                 LEGACY_CA7_KEY,
@@ -1223,10 +1242,129 @@ def run_analysis(
         "collectorAppealInputInfluence": collector_appeal_input_influence(rows),
     }
 
+    # THE canonical guardrail verdict. Computed after the sensitivity grid and
+    # read out of it by PRODUCTION_CANDIDATE_KEY, so it cannot be the verdict of
+    # some other candidate that happens to sit in the same table.
+    analysis["productionConfiguration"] = production_configuration_verdict(analysis)
+
     # The core research questions, answered directly from the matrix so the
     # summary cannot drift from the numbers behind it.
     analysis["coreQuestions"] = _answer_core_questions(rows, analysis)
     return analysis
+
+
+def production_configuration_verdict(analysis: Mapping[str, Any]) -> Dict[str, Any]:
+    """Does the SHIPPING configuration - 0.40D+0.35H+0.25P at 90/10 - pass?
+
+    THE DEFECT THIS REPLACES
+    ------------------------
+    The previous artifact reported ``primary_matches_production() == False`` and
+    still presented a ``canonicalConfigurationVerdict``. Those two statements
+    together mean "here is the verdict on a formula we do not ship", and nothing
+    in the output said so. The old CA8 primary is the bounded-headroom family;
+    production is the Collector Appeal V3 balanced sum.
+
+    This function selects the candidate by ``PRODUCTION_CANDIDATE_KEY`` - the
+    exact canonical Collector Appeal VERSION - and by nothing else. It does not
+    read ``PRIMARY_CANDIDATE_KEY``, and it does not fall back to a nickname key
+    if the version key is absent: an absent production candidate is a failure to
+    report, not a cue to evaluate the nearest available thing.
+    """
+    identity = production_candidate_identity()
+    cell = (analysis.get("overallWeightSensitivity") or {}).get(PRODUCTION_CANDIDATE_KEY)
+    weight = identity["productionWeight"]
+
+    verdict: Dict[str, Any] = {
+        **identity,
+        "productionBlend": (
+            f"Overall RIP = {1 - weight:.2f} * Financial RIP V3 + {weight:.2f} * "
+            "Collector Appeal V3"
+        ),
+        "guardrailThresholds": dict(STABILITY_GUARDRAILS),
+        "guardrailNote": GUARDRAIL_NOTE,
+        "selectionNote": (
+            "Selected by the canonical Collector Appeal version, never by "
+            "PRIMARY_CANDIDATE_KEY. The CA8 bounded-headroom grid is retained "
+            "as a historical research comparison only."
+        ),
+    }
+
+    if not cell or not cell.get("available"):
+        verdict.update({
+            "available": False,
+            "passed": None,
+            "reason": (
+                cell.get("reason")
+                if isinstance(cell, Mapping)
+                else "the production candidate is absent from the sensitivity grid"
+            ),
+        })
+        return verdict
+
+    gate = ((cell.get("weights") or {}).get(f"{weight:.2f}") or {}).get(
+        "productionGuardrails"
+    ) or {}
+    verdict.update({
+        "available": True,
+        "n": cell.get("n"),
+        "passed": gate.get("passed"),
+        "failedChecks": gate.get("failedChecks"),
+        "unmeasuredChecks": gate.get("unmeasuredChecks"),
+        "measured": gate.get("measured"),
+        "comparedAgainst": gate.get("comparedAgainst"),
+        "policy": (
+            "If the production configuration fails any guardrail the correct "
+            "response is to leave the prior canonical configuration intact and "
+            "report the failing metric. Weakening a guardrail or re-tuning "
+            "weights to engineer a pass would make this a fitting exercise "
+            "rather than a gate."
+        ),
+    })
+    return verdict
+
+
+def production_verdict_strict_failures(
+    analysis: Mapping[str, Any],
+) -> List[str]:
+    """Every reason ``--strict`` must refuse to bless this run. Empty means pass.
+
+    Each condition is a way the guardrail verdict could be reported against
+    something other than the shipping model, plus the substantive one: the
+    shipping model failing its own predeclared gate.
+    """
+    verdict = (analysis.get("productionConfiguration") or {})
+    canonical = production_candidate_identity()
+    failures: List[str] = []
+
+    if verdict.get("candidateKey") != PRODUCTION_CANDIDATE_KEY:
+        failures.append(
+            f"the production candidate {PRODUCTION_CANDIDATE_KEY!r} is absent from the "
+            f"validation output (found {verdict.get('candidateKey')!r})"
+        )
+    if verdict.get("formulaVersion") != canonical["formulaVersion"]:
+        failures.append(
+            f"the evaluated formula version {verdict.get('formulaVersion')!r} differs "
+            f"from the canonical configuration {canonical['formulaVersion']!r}"
+        )
+    if not verdict.get("productionFormulaMatch"):
+        failures.append(
+            "the evaluated candidate does not reproduce the production Collector "
+            "Appeal V3 entry point"
+        )
+    if not verdict.get("available"):
+        failures.append(
+            "the production candidate's result is unavailable: "
+            f"{verdict.get('reason') or 'no reason reported'}"
+        )
+    elif verdict.get("passed") is not True:
+        failures.append(
+            f"the {1 - canonical['productionWeight']:.0%}/"
+            f"{canonical['productionWeight']:.0%} production blend did not pass every "
+            f"predeclared guardrail (passed={verdict.get('passed')}, "
+            f"failed={verdict.get('failedChecks')}, "
+            f"unmeasured={verdict.get('unmeasuredChecks')})"
+        )
+    return failures
 
 
 def _answer_core_questions(
@@ -1407,6 +1545,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _write_analysis_csvs(output_dir, analysis)
     print(f"\nWrote validation artifacts to {output_dir}")
 
+    _print_production_configuration(analysis.get("productionConfiguration") or {})
+    production_failures = production_verdict_strict_failures(analysis)
+    if production_failures:
+        print("\nPRODUCTION CONFIGURATION PROBLEMS:")
+        for failure in production_failures:
+            print(f"  - {failure}")
+        if args.strict:
+            print(
+                "\n--strict: exiting nonzero. The canonical guardrail verdict must be "
+                "the verdict on the formula that ships."
+            )
+            return 1
+
     # A set declared simulation-supported but absent from the published targets
     # never reaches `financialV3Missing` - it has no row to be missing a score on.
     # Under --strict that silence would read as success, so it fails here.
@@ -1554,6 +1705,32 @@ def _write_analysis_csvs(output_dir: Path, analysis: Mapping[str, Any]) -> None:
          "meanAbsoluteScoreContribution", "shareOfScoreVariance",
          "shareOfAppealDispersion", "inputRange"],
     )
+
+
+def _print_production_configuration(verdict: Mapping[str, Any]) -> None:
+    """State, unambiguously, WHICH formula the verdict is about."""
+    print()
+    print("=" * 100)
+    print("PRODUCTION CONFIGURATION VERDICT (the formula that ships)")
+    print("=" * 100)
+    print(f"Candidate key                   : {verdict.get('candidateKey')}")
+    print(f"Collector Appeal version        : {verdict.get('collectorAppealVersion')}")
+    print(f"Formula version                 : {verdict.get('formulaVersion')}")
+    print(f"Formula                         : {verdict.get('formula')}")
+    print(f"Overall RIP version             : {verdict.get('overallRipVersion')}")
+    print(f"Production weight               : {verdict.get('productionWeight')}")
+    print(f"Production blend                : {verdict.get('productionBlend')}")
+    print(f"productionFormulaMatch          : {verdict.get('productionFormulaMatch')}")
+    print(f"Guardrails passed               : {verdict.get('passed')}")
+    if verdict.get("failedChecks"):
+        print(f"Failed checks                   : {', '.join(verdict['failedChecks'])}")
+    if verdict.get("unmeasuredChecks"):
+        print(f"Unmeasured checks               : {', '.join(verdict['unmeasuredChecks'])}")
+    measured = verdict.get("measured") or {}
+    if measured:
+        print("Measured vs financial-only ranking:")
+        for name in ("spearman", "top5Overlap", "meanAbsRankDelta", "pctMoving5Plus"):
+            print(f"  {name:<28}: {measured.get(name)}")
 
 
 def _print_cohort_scope(support_record: Mapping[str, Any]) -> None:

@@ -51,6 +51,54 @@ def _ranked(target: Dict[str, Any], key: str) -> bool:
     return (target.get(key) or {}).get("rank") is not None
 
 
+# The canonical score contract every ranked target must satisfy. Both layers are
+# required, on every pillar and every weighted component:
+#
+#   ABSOLUTE - the formula output. Cohort independent; what the blend consumes
+#              and what historical comparisons are made against.
+#   RELATIVE - min-max position within the ranked cohort. The primary public
+#              display score, and never an input to any formula.
+#
+# A supported set missing either layer FAILS publication rather than being
+# dropped from the cohort. Dropping it would shrink every denominator and change
+# every relative score without anything recording that the population moved -
+# which is indistinguishable, downstream, from the set genuinely not existing.
+REQUIRED_SCORE_FIELDS = (
+    "score", "absoluteScore", "relativeScore", "rank", "tier", "rankedSetCount",
+)
+REQUIRED_PILLAR_FIELDS = REQUIRED_SCORE_FIELDS + ("cohortFingerprint",)
+CANONICAL_PILLARS = ("overallRip", "financialRip", "collectorAppeal")
+
+
+def _score_contract_problems(target: Dict[str, Any]) -> list:
+    """Every missing canonical absolute/relative value on ONE ranked target.
+
+    A LIST, not a boolean, and never the first failure only: a set missing four
+    component relative scores and a set missing one are different situations, and
+    reporting one of them sends an operator back for a second run to discover the
+    rest.
+    """
+    label = target.get("canonical_key") or target.get("set_id") or target.get("target_id")
+    contract = target.get("publicRipContractV7") or {}
+    problems = []
+    if not contract:
+        return [f"{label}: publicRipContractV7 is missing"]
+    for pillar in CANONICAL_PILLARS:
+        block = contract.get(pillar) or {}
+        for field in REQUIRED_PILLAR_FIELDS:
+            if block.get(field) is None:
+                problems.append(f"{label}: {pillar}.{field} is missing")
+    components = (contract.get("financialRip") or {}).get("components") or {}
+    for name, component in sorted(components.items()):
+        if not isinstance(component, dict):
+            problems.append(f"{label}: financialRip.components.{name} is malformed")
+            continue
+        for field in REQUIRED_SCORE_FIELDS:
+            if component.get(field) is None:
+                problems.append(f"{label}: financialRip.components.{name}.{field} is missing")
+    return problems
+
+
 def publication_contract(row):
     payload = row["ranking_payload_json"]
     meta = payload.get("meta") or {}
@@ -114,10 +162,17 @@ def publication_contract(row):
             f"ranked cohort size {len(targets)} does not match the authoritative supported "
             f"cohort of {supported['count']} sets"
         )
-    # The publish RPC (migration 054) counts ranked targets by `rip.rank`, so its
-    # predicate must select the same rows this publisher does. Checked HERE so a
-    # divergence surfaces as a named precondition rather than an opaque Postgres
-    # exception thrown from inside a transaction.
+    # TRANSITIONAL, and deliberately retained until migration 061 is applied to
+    # production. Migration 054's RPC counts ranked targets by the LEGACY
+    # `rip.rank` (Overall RIP v4), so until 061 lands its predicate must select
+    # the same rows this publisher does. Checked HERE so a divergence surfaces as
+    # a named precondition rather than an opaque Postgres exception thrown from
+    # inside a transaction.
+    #
+    # Migration 061 repoints the RPC at `overallRipV7.rank`, after which this
+    # check is redundant - but it is also harmless (the two cohorts coincide
+    # today), and removing it BEFORE 061 is applied would remove the only thing
+    # standing between a legitimate v4/v7 divergence and that opaque failure.
     legacy_ranked_ids = {
         str(target.get("set_id") or target.get("target_id"))
         for target in all_targets
@@ -133,6 +188,15 @@ def publication_contract(row):
             f"v4_only={sorted(legacy_ranked_ids - canonical_ranked_ids)}); the publish "
             "RPC counts ranked targets by rip.rank and would reject this payload"
         )
+    # Both score layers, on every pillar and every weighted component, for every
+    # supported set. Reported in full rather than as a count so one rerun fixes
+    # everything that is wrong.
+    score_problems = [
+        problem for target in targets for problem in _score_contract_problems(target)
+    ]
+    problems.extend(score_problems[:40])
+    if len(score_problems) > 40:
+        problems.append(f"...and {len(score_problems) - 40} further missing canonical score values")
     if problems:
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: " + "; ".join(problems))
 

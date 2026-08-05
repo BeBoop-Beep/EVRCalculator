@@ -115,7 +115,9 @@ def _obj(value: Any) -> Dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
-def _build_overall_v7(overall_v7: Mapping[str, Any]) -> Dict[str, Any]:
+def _build_overall_v7(
+    overall_v7: Mapping[str, Any], cohort_fingerprint: Optional[str] = None
+) -> Dict[str, Any]:
     """The canonical Overall RIP block: 90% Financial RIP V3 + 10% Collector Appeal."""
     components_source = _obj(overall_v7.get("components"))
     absolute = _num(overall_v7.get("score"))
@@ -129,6 +131,10 @@ def _build_overall_v7(overall_v7: Mapping[str, Any]) -> Dict[str, Any]:
         "rank": _int(overall_v7.get("rank")),
         "rankedSetCount": _int(overall_v7.get("cohortSize")),
         "tier": overall_v7.get("tier"),
+        # Identifies the population the rank, the tier, the denominator and the
+        # relative score all describe. Without it a consumer holding two ranks
+        # cannot tell whether they were computed over the same cohort.
+        "cohortFingerprint": cohort_fingerprint,
         "version": overall_v7.get("version") or OVERALL_RIP_V7_VERSION,
         "normalizationMode": "fixed_absolute_anchors",
         "components": {
@@ -165,6 +171,7 @@ def _build_overall_v7(overall_v7: Mapping[str, Any]) -> Dict[str, Any]:
 def _build_collector_appeal_v3(
     collector: Mapping[str, Any],
     universal: Mapping[str, Any],
+    cohort_fingerprint: Optional[str] = None,
 ) -> Dict[str, Any]:
     """The canonical Collector Appeal block: score, rank, and its D/H/P factors.
 
@@ -191,9 +198,14 @@ def _build_collector_appeal_v3(
     block: Dict[str, Any] = {
         "score": absolute,
         "absoluteScore": absolute,
+        # Presentation only. The 90/10 Overall blend consumes `absoluteScore`;
+        # feeding a cohort-relative appeal into the formula would make a set's
+        # Overall RIP depend on which other sets exist.
+        "relativeScore": _num(appeal.get("relativeScore")),
         "rank": _int(appeal.get("rank")),
         "rankedSetCount": _int(appeal.get("cohortSize")),
         "tier": appeal.get("tier"),
+        "cohortFingerprint": cohort_fingerprint,
         "version": appeal.get("version") or COLLECTOR_APPEAL_V3_VERSION,
         "formulaVersion": appeal.get("formulaVersion") or COLLECTOR_APPEAL_V3_FORMULA_VERSION,
         # High-level labels only. `weightsDisclosed: False` is carried on the
@@ -336,18 +348,30 @@ def build_public_rip_contract_v7(target: Mapping[str, Any]) -> Dict[str, Any]:
     """
     v6_contract = build_public_rip_contract_v6(target)
     collector = _obj(target.get("openingExperience"))
+    # Stamped on the target by the ranking layer (_attach_cohort_fingerprint).
+    # Absent for an unranked target, which is correct: an unranked target has no
+    # cohort, and a fabricated fingerprint would claim otherwise.
+    cohort_fingerprint = target.get("cohortFingerprint")
+    cohort_fingerprint = str(cohort_fingerprint) if cohort_fingerprint else None
+
+    financial = dict(v6_contract["financialRip"])
+    financial["cohortFingerprint"] = cohort_fingerprint
 
     return {
         "contractVersion": CONTRACT_VERSION,
         "canonicalFinancialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
         "canonicalOverallRipVersion": OVERALL_RIP_V7_VERSION,
         "canonicalCollectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
-        "overallRip": _build_overall_v7(_obj(target.get("overallRipV7"))),
-        # Unchanged by this task: the same six-component Financial RIP V3 block
-        # v5 and v6 publish, lifted verbatim.
-        "financialRip": v6_contract["financialRip"],
+        "overallRip": _build_overall_v7(
+            _obj(target.get("overallRipV7")), cohort_fingerprint
+        ),
+        # The same six-component Financial RIP V3 block v5 and v6 publish, lifted
+        # verbatim and stamped with the cohort its rank/relative score describe.
+        # Every one of the six components carries its own absolute, relative,
+        # rank, tier and denominator (see public_rip_contract_v5._v3_component).
+        "financialRip": financial,
         "collectorAppeal": _build_collector_appeal_v3(
-            collector, _obj(target.get("universalSetDesirability"))
+            collector, _obj(target.get("universalSetDesirability")), cohort_fingerprint
         ),
         "universalSetDesirability": v6_contract["universalSetDesirability"],
         "legacy": _build_legacy(target, v6_contract),
