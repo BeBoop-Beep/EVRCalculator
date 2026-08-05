@@ -111,8 +111,12 @@ COLLECTOR_APPEAL_VERSION = COLLECTOR_APPEAL_CA7_VERSION
 DUAL_PATH_DEPTH_VERSION = "dual_path_depth_v1"
 
 # ---------------------------------------------------------------------------
-# THE CANONICAL COLLECTOR APPEAL (D / F / P)
+# COLLECTOR APPEAL V2 (D / F / P, bounded headroom) — SUPERSEDED BY V3
 # ---------------------------------------------------------------------------
+# Retained, computable and identifiable so stored V2 rows keep their exact
+# meaning and the V2-vs-V3 research comparison has an honest number to name. It
+# is NO LONGER canonical - see COLLECTOR_APPEAL_V3_VERSION below.
+#
 # The PUBLIC PRODUCT NAME IS UNCHANGED: "Collector Appeal". There is deliberately
 # no second visible card called CA8, Collector Appeal V2 or Enhanced Collector
 # Appeal - a product does not get a version number in its name because its
@@ -150,6 +154,9 @@ DUAL_PATH_DEPTH_VERSION = "dual_path_depth_v1"
 # things, and the service reports their rank correlation as a diagnostic so the
 # relationship stays visible rather than assumed.
 
+# SUPERSEDED by Collector Appeal V3 (see below). Retained, computable and
+# identifiable so stored V2 rows keep their exact meaning and the V2-vs-V3
+# research comparison has a real number to name.
 COLLECTOR_APPEAL_V2_VERSION = "collector_appeal_v2_desirable_frequency_dual_path"
 COLLECTOR_APPEAL_V2_FORMULA_VERSION = "collector_appeal_bounded_headroom_d_f_p_v1"
 COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION = "CA = D + 0.50 * (0.60F + 0.40P) * (1 - D)"
@@ -165,10 +172,96 @@ COLLECTOR_APPEAL_V2_STRUCTURAL_WEIGHTS: Dict[str, float] = {
     "dual_path_depth": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
 }
 
-# The canonical diagnostics namespace. Deliberately NOT the CA7 key: leaving a
+# The V2 diagnostics namespace. Deliberately NOT the CA7 key: leaving a
 # `collector_appeal_ca7` block carrying a different formula would make the
 # stored identity a lie that nothing could detect.
 COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY = "collector_appeal_v2"
+
+
+# ---------------------------------------------------------------------------
+# THE CANONICAL COLLECTOR APPEAL: V3, a balanced weighted sum of D, H and P
+# ---------------------------------------------------------------------------
+# The PUBLIC PRODUCT NAME REMAINS "Collector Appeal". As with V2, the version
+# lives here, in the code, and never in the product name.
+#
+#     unit_score   = 0.40*D + 0.35*H + 0.25*P
+#     public_score = 100 * unit_score
+#
+# WHY V2's SHAPE HAD TO GO
+# ------------------------
+# V2 was ``D + 0.50 * (0.60H + 0.40P) * (1 - D)``: bounded, construct-sound, and
+# effectively a restatement of D. The completed 22-set validation measured
+# Spearman(V2, D) ~ 0.991 and Spearman(V2, legacy CA7) ~ 0.997. H and P carry
+# genuinely distinct information, but the ``(1 - D)`` headroom factor scales
+# their entire contribution by a set's remaining headroom, which for a desirable
+# roster is small - so the structural terms could barely move the ordering. A
+# metric that consumes three inputs and reproduces one of them is publishing a
+# claim about structure it is not actually making.
+#
+# V3 removes the headroom factor. Each input now carries a fixed share of the
+# score, so a change in H or P moves the result by the same amount regardless of
+# where D happens to sit.
+#
+# WHY 40 / 35 / 25
+# ----------------
+# A CONSTRUCT allocation, not a fitted one. D stays nominally most important
+# because a roster nobody cares about cannot be rescued by pack structure; H is
+# placed close behind it because how often the pack actually delivers a desirable
+# card is the opening experience itself; P is materially weighted but lowest
+# because dual-path structure is a quality OF the delivery rather than the
+# delivery. These weights were NOT selected to produce preferred set rankings,
+# to correlate with price, or to pass a rank-movement threshold - the validation
+# tool reports what the cohort does under them and does not choose them.
+#
+# WHAT IS UNCHANGED FROM V2
+# -------------------------
+#   * D, H and P are the same three constructs, computed by the same modules.
+#   * Desirability enters EXACTLY ONCE, as D. H's eligibility uses desirability
+#     but never multiplies its magnitude in.
+#   * No price, EV, pack cost, profitability or market proxy is read.
+#   * A missing input makes the score unavailable, never 0 and never D.
+
+COLLECTOR_APPEAL_V3_VERSION = "collector_appeal_v3_balanced_d40_h35_p25"
+COLLECTOR_APPEAL_V3_FORMULA_VERSION = "collector_appeal_weighted_sum_d_h_p_v1"
+
+# Authoritative constants. Nothing in the calculation, persistence, publication,
+# audit or test path is permitted to restate these literals, and nothing in the
+# PUBLIC payload is permitted to disclose them - see
+# ``collector_appeal_v3_public_identity``.
+COLLECTOR_APPEAL_V3_DESIRABILITY_WEIGHT = 0.40
+COLLECTOR_APPEAL_V3_FREQUENCY_WEIGHT = 0.35
+COLLECTOR_APPEAL_V3_DUAL_PATH_WEIGHT = 0.25
+
+# Keyed by the production input names. ``desirable_outcome_frequency`` is the
+# quantity the validation brief calls H; there is one implementation of it, in
+# ``backend.desirability.desirable_outcome_frequency``.
+COLLECTOR_APPEAL_V3_WEIGHTS: Dict[str, float] = {
+    "roster_desirability": COLLECTOR_APPEAL_V3_DESIRABILITY_WEIGHT,
+    "desirable_outcome_frequency": COLLECTOR_APPEAL_V3_FREQUENCY_WEIGHT,
+    "dual_path_depth": COLLECTOR_APPEAL_V3_DUAL_PATH_WEIGHT,
+}
+
+COLLECTOR_APPEAL_V3_INPUT_ORDER: Tuple[str, ...] = (
+    "roster_desirability",
+    "desirable_outcome_frequency",
+    "dual_path_depth",
+)
+
+# snake_case input key -> the camelCase label a public surface may show. The
+# LABEL is publishable; the weight beside it is not.
+COLLECTOR_APPEAL_V3_PUBLIC_INPUT_KEYS: Dict[str, str] = {
+    "roster_desirability": "rosterDesirability",
+    "desirable_outcome_frequency": "desirableOutcomeFrequency",
+    "dual_path_depth": "dualPathDepth",
+}
+
+# The canonical diagnostics namespace for V3. A new key, for the same reason V2
+# took one: leaving a `collector_appeal_v2` block carrying a different formula
+# would make the stored identity a lie that nothing could detect.
+COLLECTOR_APPEAL_V3_DIAGNOSTICS_KEY = "collector_appeal_v3"
+
+# Reconstruction tolerance for the contribution-sum invariant.
+COLLECTOR_APPEAL_V3_RECONSTRUCTION_TOLERANCE = 1e-9
 
 # Chase Appeal (D x M) ships as its own visible metric and is NOT a RIP pillar.
 # Intentionally absent from ``collector_appeal_fingerprint.collect_assumptions``:
@@ -327,7 +420,42 @@ def _audit_collector_appeal_v2_weights() -> None:
         raise ValueError("COLLECTOR_APPEAL_HEADROOM_GAIN must be in [0, 1].")
 
 
+def _audit_collector_appeal_v3_weights() -> None:
+    """Weights that do not sum to 1.0 put Collector Appeal off the 0-1 scale.
+
+    V3 is a plain weighted sum with no bounding factor, so the weights ARE the
+    scale. If they summed to 0.95 the metric would silently top out at 95 and
+    every published "out of 100" statement would be false. That must fail at
+    import, not at publication.
+    """
+    total = sum(COLLECTOR_APPEAL_V3_WEIGHTS.values())
+    if abs(total - 1.0) > 1e-12:
+        raise ValueError(
+            f"COLLECTOR_APPEAL_V3_WEIGHTS must sum to exactly 1.0; got {total!r}."
+        )
+    if tuple(COLLECTOR_APPEAL_V3_WEIGHTS) != COLLECTOR_APPEAL_V3_INPUT_ORDER:
+        raise ValueError("COLLECTOR_APPEAL_V3_INPUT_ORDER must cover the weights in order.")
+    if set(COLLECTOR_APPEAL_V3_PUBLIC_INPUT_KEYS) != set(COLLECTOR_APPEAL_V3_WEIGHTS):
+        raise ValueError("Every Collector Appeal V3 input needs exactly one public key.")
+    for key, weight in COLLECTOR_APPEAL_V3_WEIGHTS.items():
+        if not 0.0 < weight < 1.0:
+            raise ValueError(f"Collector Appeal V3 weight for '{key}' must be in (0, 1).")
+    # The construct ordering is part of the model's identity: D nominally first,
+    # H close behind, P material. Reversing it would be a different metric
+    # wearing the same version string.
+    if not (
+        COLLECTOR_APPEAL_V3_DESIRABILITY_WEIGHT
+        > COLLECTOR_APPEAL_V3_FREQUENCY_WEIGHT
+        > COLLECTOR_APPEAL_V3_DUAL_PATH_WEIGHT
+    ):
+        raise ValueError(
+            "Collector Appeal V3 requires D > H > P by nominal coefficient; got "
+            f"{COLLECTOR_APPEAL_V3_WEIGHTS!r}."
+        )
+
+
 _audit_collector_appeal_v2_weights()
+_audit_collector_appeal_v3_weights()
 
 
 def _as_float(value: Any) -> Optional[float]:
@@ -556,9 +684,16 @@ def structural_opening_appeal(f: Any, p: Any) -> Optional[float]:
 
 
 def compute_collector_appeal_v2(d: Any, f: Any, p: Any) -> Optional[float]:
-    """THE canonical Collector Appeal: ``D + 0.50 * (0.60F + 0.40P) * (1 - D)``.
+    """SUPERSEDED Collector Appeal V2: ``D + 0.50 * (0.60F + 0.40P) * (1 - D)``.
 
-    One entry point, so every surface computes the same number.
+    No longer canonical - see :func:`compute_collector_appeal_v3`. Retained so a
+    stored V2 row can be reproduced exactly and the V2-vs-V3 comparison has a
+    real number. It is never used as a fallback when V3 is unavailable.
+
+    The 22-set validation is why it moved: the ``(1 - D)`` headroom factor scales
+    the whole structural term by a set's remaining headroom, which compressed F
+    and P so severely that V2 tracked D at Spearman ~0.991 and legacy CA7 at
+    ~0.997 - three inputs, one input's ordering.
 
     Properties, all exact and all asserted in the unit tests:
       * ``F = 0, P = 0``      -> ``CA = D``      (no structure costs nothing)
@@ -609,6 +744,187 @@ def collector_appeal_v2_decomposition(d: Any, f: Any, p: Any) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Collector Appeal V3 — THE canonical calculation
+# ---------------------------------------------------------------------------
+
+def _unit_input(value: Any) -> Optional[float]:
+    """Coerce one V3 input onto [0, 1], or None.
+
+    Rejects rather than clamps a value outside a small tolerance of [0, 1]. D, H
+    and P are all defined on the unit interval by their own modules, so a 1.4 or
+    a -0.2 arriving here is not an extreme set - it is a units error or a
+    corrupted payload, and clamping it would silently publish a score built from
+    a number nobody intended. A hair outside the interval IS clamped: that is
+    floating-point residue from a union or a renormalization, not a units error.
+    """
+    parsed = _as_float(value)
+    if parsed is None:
+        return None
+    if parsed < -1e-9 or parsed > 1.0 + 1e-9:
+        return None
+    return _clamp(parsed)
+
+
+def compute_collector_appeal_v3(d: Any, h: Any, p: Any) -> Optional[float]:
+    """THE canonical Collector Appeal, on [0, 1]: ``0.40D + 0.35H + 0.25P``.
+
+    ONE entry point, so every surface computes the same number.
+
+    ``h`` is the Desirable Outcome Frequency - the quantity production names F
+    and the validation brief names H. They are the same number:
+    ``P(a modeled pack contains at least one card tied to an eligible desirable
+    Pokemon subject)``. It is NOT a financial win rate; a desirable hit may still
+    be a financial loss.
+
+    Properties, all exact and all asserted in the unit tests:
+      * ``0 <= CA <= 1`` for every admissible input (the weights sum to 1)
+      * ``dCA/dD = 0.40 > 0``, ``dCA/dH = 0.35 > 0``, ``dCA/dP = 0.25 > 0``
+        (strictly increasing in each input, independently of the other two)
+      * ``D = H = P = v`` -> ``CA = v`` (the weights are a partition of unity)
+      * the three contributions sum EXACTLY to the score
+
+    Returns None - never 0.0, never 0.5, never D, never legacy CA7 - when any of
+    D, H or P is missing or malformed. A structural input defaulted to zero would
+    be a positive claim that the set has no desirable outcomes, which absent data
+    does not support; defaulting to D would republish desirability under a name
+    that promises three constructs.
+    """
+    d_value = _unit_input(d)
+    h_value = _unit_input(h)
+    p_value = _unit_input(p)
+    if d_value is None or h_value is None or p_value is None:
+        return None
+    return _clamp(
+        COLLECTOR_APPEAL_V3_DESIRABILITY_WEIGHT * d_value
+        + COLLECTOR_APPEAL_V3_FREQUENCY_WEIGHT * h_value
+        + COLLECTOR_APPEAL_V3_DUAL_PATH_WEIGHT * p_value
+    )
+
+
+def collector_appeal_v3_missing_inputs(d: Any, h: Any, p: Any) -> List[str]:
+    """Which of D/H/P are unavailable, in canonical input order.
+
+    Named individually rather than reported as one "inputs missing" flag: "no
+    desirability coverage", "no pull model" and "no dual-path data" call for
+    three different fixes, and collapsing them sends an operator to the wrong one.
+    """
+    values = {
+        "roster_desirability": _unit_input(d),
+        "desirable_outcome_frequency": _unit_input(h),
+        "dual_path_depth": _unit_input(p),
+    }
+    return [key for key in COLLECTOR_APPEAL_V3_INPUT_ORDER if values[key] is None]
+
+
+def collector_appeal_v3_decomposition(d: Any, h: Any, p: Any) -> Dict[str, Any]:
+    """INTERNAL breakdown of the V3 score: inputs, contributions, and the check.
+
+    Derived from the SAME arithmetic the score uses, so the decomposition can
+    never drift from the number it explains.
+
+    NOT FOR THE PUBLIC PAYLOAD. A contribution divided by its input recovers the
+    weight exactly, so publishing contributions would publish the weights this
+    model deliberately keeps internal. The public projection carries the score,
+    the status, the factor VALUES and the version - see
+    :func:`collector_appeal_v3_public_identity`.
+
+    ``contributionsReconcile`` is the invariant that the three contributions sum
+    to the unit score. It is computed, not assumed: a weight table edited without
+    updating the audit would otherwise produce a decomposition that quietly does
+    not add up.
+    """
+    score = compute_collector_appeal_v3(d, h, p)
+    missing = collector_appeal_v3_missing_inputs(d, h, p)
+    d_value = _unit_input(d)
+    h_value = _unit_input(h)
+    p_value = _unit_input(p)
+
+    contributions: Dict[str, Optional[float]] = {
+        "dContribution": (
+            None if d_value is None else COLLECTOR_APPEAL_V3_DESIRABILITY_WEIGHT * d_value
+        ),
+        "hContribution": (
+            None if h_value is None else COLLECTOR_APPEAL_V3_FREQUENCY_WEIGHT * h_value
+        ),
+        "pContribution": (
+            None if p_value is None else COLLECTOR_APPEAL_V3_DUAL_PATH_WEIGHT * p_value
+        ),
+    }
+    reconciles: Optional[bool] = None
+    if score is not None and all(value is not None for value in contributions.values()):
+        total = sum(float(value) for value in contributions.values())
+        reconciles = abs(total - score) <= COLLECTOR_APPEAL_V3_RECONSTRUCTION_TOLERANCE
+
+    return {
+        "version": COLLECTOR_APPEAL_V3_VERSION,
+        "formulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+        "unitScore": score,
+        "publicScore": None if score is None else score * 100.0,
+        "inputs": {
+            "d": d_value,
+            "h": h_value,
+            "p": p_value,
+        },
+        **contributions,
+        "contributionsReconcile": reconciles,
+        "missingInputs": missing,
+    }
+
+
+def collector_appeal_v3_public_identity() -> Dict[str, Any]:
+    """What a PUBLIC surface may say about the V3 model.
+
+    Version identifiers and high-level factor labels only. Deliberately absent:
+    the weights, an executable formula string, the internal thresholds, and any
+    validation statistic or candidate-grid metadata. A published weight vector is
+    a published formula - the arithmetic is a one-liner - and this model's
+    weighting is internal by decision, not by oversight.
+    """
+    return {
+        "version": COLLECTOR_APPEAL_V3_VERSION,
+        "formulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+        "factors": [
+            {
+                "key": COLLECTOR_APPEAL_V3_PUBLIC_INPUT_KEYS[key],
+                "label": label,
+                "interpretation": interpretation,
+            }
+            for key, label, interpretation in (
+                (
+                    "roster_desirability",
+                    "Roster Desirability",
+                    "How desirable this set's Pokemon are, before pull difficulty.",
+                ),
+                (
+                    "desirable_outcome_frequency",
+                    "Desirable Outcome Frequency",
+                    "How often a modeled pack delivers a card tied to a desirable Pokemon.",
+                ),
+                (
+                    "dual_path_depth",
+                    "Dual-Path Depth",
+                    "Whether desirable Pokemon offer both an attainable printing and an elite chase.",
+                ),
+            )
+        ],
+        "excludedInputs": [
+            "market_price",
+            "expected_value",
+            "pack_cost",
+            "profitability",
+            "financial_score",
+            "market_rank_proxy",
+            "scarcity_price_proxy",
+        ],
+        "subjectScope": {
+            "modeled": ["pokemon"],
+            "notYetModeled": ["trainer", "artist"],
+        },
+        "weightsDisclosed": False,
+    }
+
+
 def compute_chase_appeal(d: Any, m_star: Any) -> Optional[float]:
     """THE production Chase Appeal: ``D * M`` on [0, 1]. Algebraically CA2.
 
@@ -622,7 +938,7 @@ def compute_chase_appeal(d: Any, m_star: Any) -> Optional[float]:
 
     It is deliberately NOT added to RIP, and the canonical Collector Appeal
     formula does not contain it. Overall RIP is exactly
-    ``0.80 * Financial RIP V3 + 0.20 * Collector Appeal``, and D already enters
+    ``0.90 * Financial RIP V3 + 0.10 * Collector Appeal``, and D already enters
     through Collector Appeal; adding D x M as a separate term would apply
     desirability to Overall RIP a second time. M's financial consequence - the
     upper tail of pack value - is already measured, on the money side, by

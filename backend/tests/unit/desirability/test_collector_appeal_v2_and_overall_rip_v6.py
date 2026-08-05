@@ -1,4 +1,15 @@
-"""Collector Appeal (D/F/P) and Overall RIP V6 (80/20) — contract tests.
+"""Collector Appeal V2 (D/F/P) and Overall RIP V6 (80/20) — contract tests.
+
+BOTH MODELS ARE NOW SUPERSEDED, and this file's job changed accordingly: it is
+the BACKWARD-COMPATIBILITY suite. Collector Appeal V3 (the balanced 0.40D +
+0.35H + 0.25P sum) and Overall RIP V7 (90/10) are canonical, and their contract
+lives in ``test_collector_appeal_v3_and_overall_rip_v7.py``.
+
+Every assertion below still runs, unchanged, because that is the point: a
+superseded model must keep computing exactly what it always computed, or a
+stored row written under its version string stops meaning what it says. The only
+thing that moved is the canonical-status test at the bottom, which now asserts
+V2/V6 are NOT selected.
 
 Organized around the claims the models make. The largest group is the
 no-double-counting group, because the whole point of this architecture is that
@@ -47,12 +58,15 @@ from backend.desirability.desirable_outcome_frequency import (
 )
 from backend.desirability.opening_appeal import build_subjects
 from backend.desirability.scoring_config import (
+    CANONICAL_OVERALL_RIP_VERSION,
     OVERALL_RIP_V6_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V6_WEIGHTS,
+    OVERALL_RIP_V7_VERSION,
     canonical_collector_appeal_version,
-    canonical_overall_rip_is_v6,
+    canonical_overall_rip_is_v7,
     canonical_scoring_selection,
+    legacy_collector_appeal_v2_version,
 )
 from backend.desirability.weighted_rip import (
     compute_overall_rip_v5,
@@ -509,10 +523,34 @@ def test_the_version_says_eighty_twenty_and_never_ninety_ten():
     )
 
 
-def test_canonical_resolution_selects_v6_and_the_new_collector_appeal():
-    assert canonical_overall_rip_is_v6() is True
-    assert canonical_collector_appeal_version() == COLLECTOR_APPEAL_V2_VERSION
+def test_v6_and_collector_appeal_v2_are_preserved_but_no_longer_canonical():
+    """The backward-compatibility contract, stated as an assertion.
+
+    V6 and Collector Appeal V2 must stay COMPUTABLE and IDENTIFIABLE - a stored
+    row under either version string has to keep meaning what it said - while
+    being definitively OUT of the canonical selection. Both halves matter: a
+    superseded model that stopped computing would orphan its rows, and one that
+    stayed canonical would publish the model the validation rejected.
+    """
+    assert canonical_overall_rip_is_v7() is True
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V7_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V6_VERSION
+    assert canonical_collector_appeal_version() != COLLECTOR_APPEAL_V2_VERSION
+
     selection = canonical_scoring_selection()
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V6_VERSION
+    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V7_VERSION
+    # Every superseded identifier is still readable from the canonical selection,
+    # so an operator interpreting an old row never has to guess.
     assert selection["legacyOverallRipV5Version"] == OVERALL_RIP_V5_VERSION
+    assert selection["legacyOverallRipV6Version"] == OVERALL_RIP_V6_VERSION
+    assert selection["legacyCollectorAppealV2Version"] == COLLECTOR_APPEAL_V2_VERSION
     assert selection["legacyCollectorAppealVersion"] == COLLECTOR_APPEAL_CA7_VERSION
+    assert legacy_collector_appeal_v2_version() == COLLECTOR_APPEAL_V2_VERSION
+
+    # And both still compute exactly what they always did.
+    assert compute_collector_appeal_v2(0.40, 0.60, 0.50) == pytest.approx(
+        0.40 + 0.50 * (0.60 * 0.60 + 0.40 * 0.50) * (1.0 - 0.40), abs=1e-12
+    )
+    assert compute_overall_rip_v6(50.0, 70.0)["score"] == pytest.approx(
+        0.80 * 50.0 + 0.20 * 70.0, abs=1e-9
+    )

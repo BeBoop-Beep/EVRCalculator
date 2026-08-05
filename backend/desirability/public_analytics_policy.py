@@ -202,7 +202,15 @@ def build_public_cohort(sets: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
 
 
 # Overall-ranked cohort status codes. The Overall RIP ranking is a stricter
-# population than the eligible cohort: it needs a valid CA7 under ONE version.
+# population than the eligible cohort: it needs a valid Collector Appeal under
+# ONE version.
+#
+# The ``_CA7_`` spellings are HISTORICAL. They were coined when the appeal input
+# was legacy CA7 and are kept verbatim because they are a stored, published
+# contract - snapshot payloads, the publication guard and the frontend all match
+# on these exact strings, so renaming them would silently stop matching rows
+# written yesterday. What the codes MEAN is "the canonical Collector Appeal",
+# whichever version that currently is.
 OVERALL_RANKED_OK = "overall_ranked_ok"
 OVERALL_RANKED_INCOMPLETE_MISSING_CA7 = "overall_ranked_incomplete_missing_ca7"
 OVERALL_RANKED_CA7_VERSION_MISMATCH = "overall_ranked_ca7_version_mismatch"
@@ -211,51 +219,64 @@ OVERALL_RANKED_CA7_VERSION_MISMATCH = "overall_ranked_ca7_version_mismatch"
 def audit_overall_ranked_cohort(
     eligible_set_ids: Iterable[str],
     overall_available_by_set: Mapping[str, bool],
-    ca7_version_by_set: Mapping[str, Optional[str]],
+    appeal_version_by_set: Mapping[str, Optional[str]],
 ) -> Dict[str, Any]:
     """Which eligible sets may enter the Overall RIP ranking, and is it coherent?
 
-    Overall RIP = 0.90 Financial + 0.10 CA7, so a set joins the Overall ranking
-    only with a valid CA7 (``overall_available_by_set[set_id]`` True). A set
-    without CA7 is FLAGGED, never dropped silently and never given a fabricated
-    Overall RIP: it keeps its Financial RIP and Universal Set Desirability on the
-    page but is not counted in the Overall denominator.
+    Overall RIP = 0.90 Financial RIP V3 + 0.10 Collector Appeal V3, so a set
+    joins the Overall ranking only with a valid Collector Appeal
+    (``overall_available_by_set[set_id]`` True). A set without one is FLAGGED,
+    never dropped silently and never given a fabricated Overall RIP: it keeps its
+    Financial RIP and Universal Set Desirability on the page but is not counted
+    in the Overall denominator.
 
-    Mixed CA7 versions among ranked sets FAIL CLOSED
+    Mixed appeal versions among ranked sets FAIL CLOSED
     (``OVERALL_RANKED_CA7_VERSION_MISMATCH``): two Overall RIPs computed under
-    different CA7 formulas are not comparable, so a leaderboard mixing them is
-    self-inconsistent. This is the fail-closed condition a publication guard must
-    refuse on.
+    different Collector Appeal formulas are not comparable, so a leaderboard
+    mixing them is self-inconsistent. This is the fail-closed condition a
+    publication guard must refuse on.
+
+    The ``ca7*`` / ``missingCa7*`` output keys are historical spellings for the
+    canonical appeal - see the status-code note above. ``appealVersion*`` and
+    ``missingAppeal*`` aliases carry the same values under names that stay true
+    as the formula versions move; both are emitted so an existing consumer keeps
+    working and a new one need not learn the historical name.
     """
     ranked: List[str] = []
-    missing_ca7: List[str] = []
+    missing_appeal: List[str] = []
     versions: Dict[str, int] = {}
     for set_id in eligible_set_ids:
         set_id = str(set_id)
         if overall_available_by_set.get(set_id):
             ranked.append(set_id)
-            version = ca7_version_by_set.get(set_id)
+            version = appeal_version_by_set.get(set_id)
             if version is not None:
                 versions[str(version)] = versions.get(str(version), 0) + 1
         else:
-            missing_ca7.append(set_id)
+            missing_appeal.append(set_id)
 
     distinct_versions = sorted(versions)
     if len(distinct_versions) > 1:
         status = OVERALL_RANKED_CA7_VERSION_MISMATCH
-    elif missing_ca7:
+    elif missing_appeal:
         status = OVERALL_RANKED_INCOMPLETE_MISSING_CA7
     else:
         status = OVERALL_RANKED_OK
 
+    single_version = distinct_versions[0] if len(distinct_versions) == 1 else None
     return {
         "status": status,
         "rankedSetIds": sorted(ranked),
         "rankedSetCount": len(ranked),
-        "missingCa7SetIds": sorted(missing_ca7),
-        "missingCa7Count": len(missing_ca7),
-        "ca7Version": distinct_versions[0] if len(distinct_versions) == 1 else None,
+        "missingCa7SetIds": sorted(missing_appeal),
+        "missingCa7Count": len(missing_appeal),
+        "ca7Version": single_version,
         "ca7Versions": distinct_versions,
+        # Version-neutral aliases. Same values, honest names.
+        "missingAppealSetIds": sorted(missing_appeal),
+        "missingAppealCount": len(missing_appeal),
+        "appealVersion": single_version,
+        "appealVersions": distinct_versions,
         "publishable": status != OVERALL_RANKED_CA7_VERSION_MISMATCH,
     }
 

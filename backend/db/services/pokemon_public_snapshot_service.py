@@ -6179,6 +6179,8 @@ def _empty_insights_critical_payload(
         "publicRipContractV5": {},
         "overallRipV6": {},
         "publicRipContractV6": {},
+        "overallRipV7": {},
+        "publicRipContractV7": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
         "publicAnalyticsStatus": None,
@@ -6278,9 +6280,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV5"), dict)
         else {}
     )
-    # Canonical after the 80/20 cutover. `overallRipV5` above stays published as
-    # the superseded 90/10 blend the comparison surfaces read; these two are the
-    # current Overall RIP and the D/F/P Collector Appeal contract.
+    # Superseded 80/20 blend over Collector Appeal V2, still served so the
+    # comparison surfaces have both numbers.
     overall_rip_v6 = (
         payload_json.get("overallRipV6")
         if isinstance(payload_json.get("overallRipV6"), dict)
@@ -6289,6 +6290,21 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
     public_rip_contract_v6 = (
         payload_json.get("publicRipContractV6")
         if isinstance(payload_json.get("publicRipContractV6"), dict)
+        else {}
+    )
+    # CANONICAL after the 90/10 V3 cutover. `overallRipV5`/`overallRipV6` above
+    # stay published as the superseded blends the comparison surfaces read;
+    # these two are the current Overall RIP and the Collector Appeal V3 contract.
+    # A missing V7 block renders as an explicit unavailable state on the client;
+    # it is never back-filled from V6 or V5, which are different models.
+    overall_rip_v7 = (
+        payload_json.get("overallRipV7")
+        if isinstance(payload_json.get("overallRipV7"), dict)
+        else {}
+    )
+    public_rip_contract_v7 = (
+        payload_json.get("publicRipContractV7")
+        if isinstance(payload_json.get("publicRipContractV7"), dict)
         else {}
     )
     opening_experience = (
@@ -6339,6 +6355,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "publicRipContractV5": public_rip_contract_v5,
         "overallRipV6": overall_rip_v6,
         "publicRipContractV6": public_rip_contract_v6,
+        "overallRipV7": overall_rip_v7,
+        "publicRipContractV7": public_rip_contract_v7,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

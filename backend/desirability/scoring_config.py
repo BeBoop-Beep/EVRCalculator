@@ -142,8 +142,9 @@ OVERALL_RIP_WEIGHTS: Dict[str, float] = {
 # versions into a single ranked cohort, and nothing downstream would notice.
 #
 # After the cutover:
-#   canonical Financial RIP  = Financial RIP V3 (six-component outcome profile)
-#   canonical Overall RIP    = 0.90 * Financial RIP V3 + 0.10 * CA7
+#   canonical Financial RIP    = Financial RIP V3 (six-component outcome profile)
+#   canonical Collector Appeal = Collector Appeal V3 (0.40D + 0.35H + 0.25P)
+#   canonical Overall RIP      = 0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3
 #
 # Financial RIP V2 and Overall RIP v4 remain COMPUTED and PUBLISHED, under
 # explicitly legacy labels, for historical comparison, the V2-vs-V3 audit,
@@ -151,18 +152,22 @@ OVERALL_RIP_WEIGHTS: Dict[str, float] = {
 # score or the canonical ranking.
 
 # ---------------------------------------------------------------------------
-# Overall RIP V6: 80% Financial RIP V3 + 20% Collector Appeal
+# Overall RIP V6: 80% Financial RIP V3 + 20% Collector Appeal V2 — SUPERSEDED
 # ---------------------------------------------------------------------------
-# The financial input is UNCHANGED from V5 (Financial RIP V3). Two things move:
+# HISTORICAL / RESEARCH ONLY. Retained so a stored V6 row keeps its exact meaning
+# and the V6-vs-V7 comparison has an honest number to name. It is no longer on
+# any canonical path - see OVERALL_RIP_V7_VERSION below.
 #
-#   1. the split, from 90/10 to 80/20, and
-#   2. the appeal input, from legacy CA7 to the canonical D/F/P Collector Appeal.
+# V6 moved two things off V5: the split (90/10 -> 80/20) and the appeal input
+# (legacy CA7 -> the D/F/P Collector Appeal V2).
 #
-# V5's version string literally reads `..._90_financial_v3_10_ca7`, and its
-# published contract documents that split. Repointing it at 80/20 would make a
-# stored or cached V5 row mean two different things depending on when it was
-# written, with nothing in the row to say which. So V6 is a NEW identifier and
-# V5 keeps its exact prior meaning.
+# WHY THE 80/20 SPLIT WAS REVERSED
+# --------------------------------
+# The 22-set validation measured 80/20 against Financial-only at Spearman ~0.869,
+# mean absolute rank movement ~1.82, Top-5 overlap 60% and a maximum movement of
+# 12 ranks - through the owner-defined guardrails (Spearman >= 0.95, Top-5 >= 0.80,
+# mean movement <= 1.5) rather than near them. A 20% weight on a non-financial
+# construct was reordering the leaderboard's financial claim.
 
 OVERALL_RIP_V6_VERSION = "overall_rip_v6_80_financial_v3_20_collector_appeal_v2"
 
@@ -192,21 +197,126 @@ OVERALL_RIP_V6_EFFECTIVE_WEIGHTS: Dict[str, float] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Overall RIP V7: 90% Financial RIP V3 + 10% Collector Appeal V3 — CANONICAL
+# ---------------------------------------------------------------------------
+#     Overall RIP = 0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3
+#
+# The financial input is UNCHANGED from V5 and V6: the same absolute
+# fixed-anchor six-component Financial RIP V3, with the same weights. Two things
+# move relative to V6:
+#
+#   1. the split, back from 80/20 to 90/10, and
+#   2. the appeal input, from Collector Appeal V2 (bounded headroom) to
+#      Collector Appeal V3 (the balanced 0.40D + 0.35H + 0.25P sum).
+#
+# V7 IS A NEW IDENTIFIER, NOT A REPOINTED V5
+# ------------------------------------------
+# V5's version string reads `..._90_financial_v3_10_ca7` and V6's reads
+# `..._80_financial_v3_20_collector_appeal_v2`; both are accurate about
+# themselves. V7 shares V5's 90/10 SPLIT but not V5's appeal input, so reusing
+# V5 would make a stored row mean two different things depending on when it was
+# written, with nothing in the row to say which. Every prior identifier keeps its
+# exact prior meaning.
+#
+# WHY 90/10 AND NOT 86/14
+# -----------------------
+# 14% already falls below the owner-defined 0.95 Spearman guardrail against
+# Financial-only under the existing formula. 13% remains a research sensitivity
+# candidate and is registered as such in
+# OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS below - it is NOT production
+# configuration, and nothing on a canonical path reads that tuple.
+
+OVERALL_RIP_V7_VERSION = "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
+
+OVERALL_RIP_V7_WEIGHTS: Dict[str, float] = {
+    "financial_rip": 0.90,
+    "collector_appeal": 0.10,
+}
+
+# The effective per-input weights after expanding Financial RIP V3's six
+# components across its 0.90 share. Held here so presentation surfaces read one
+# authoritative source rather than each re-deriving 0.90 * 0.25 = 0.225.
+#
+#   True Win Frequency        0.90 * 0.25 = 0.225
+#   Typical Retention         0.90 * 0.20 = 0.180
+#   Loss Resilience           0.90 * 0.15 = 0.135
+#   Realistic Upside          0.90 * 0.25 = 0.225
+#   Jackpot Upside            0.90 * 0.10 = 0.090
+#   Base Economic Efficiency  0.90 * 0.05 = 0.045
+#   Collector Appeal                        0.100
+#                                     total 1.000
+OVERALL_RIP_V7_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V7_WEIGHTS["financial_rip"] * weight
+        for component, weight in FINANCIAL_RIP_V3_WEIGHTS.items()
+    },
+    "collector_appeal": OVERALL_RIP_V7_WEIGHTS["collector_appeal"],
+}
+
+# ---------------------------------------------------------------------------
+# Overall RIP sensitivity weights (RESEARCH ONLY - never production)
+# ---------------------------------------------------------------------------
+# The Collector Appeal shares the read-only validation tool reports against the
+# Financial-only baseline. 0.10 is the canonical production weight and appears
+# here only so the sensitivity table contains its own reference column.
+#
+# NOTHING ON A CANONICAL PATH READS THIS TUPLE. It exists so a sensitivity study
+# has a pre-registered grid instead of an ad-hoc one, and so 0.13 has a declared
+# home as a research candidate rather than drifting toward production by sitting
+# in the same dict as the shipping weight.
+OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS: tuple = (
+    0.00, 0.10, 0.13, 0.14, 0.15, 0.20,
+)
+
+# The predeclared production guardrails, versus a Financial-only ranking. Held
+# as config so the validation tool cannot quietly report against a weaker bar
+# than the one that was agreed. Raising any of these to make a configuration
+# pass is a change to THIS constant, in review, not a change inside a script.
+OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
+    "min_spearman_vs_financial_only": 0.95,
+    "min_top5_overlap": 0.80,
+    "max_mean_absolute_rank_movement": 1.5,
+    "max_share_moving_5_plus_ranks": 0.10,
+}
+
+
 CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-# Promoted from V5 to V6. This single constant is the cutover; no publication
+# Promoted from V6 to V7. This single constant is the cutover; no publication
 # surface decides for itself which Overall model it serves.
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V6_VERSION
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V7_VERSION
+CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V7_WEIGHTS)
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
 LEGACY_OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION
+LEGACY_OVERALL_RIP_V6_VERSION = OVERALL_RIP_V6_VERSION
 
 
 def canonical_collector_appeal_version() -> str:
-    """The canonical Collector Appeal formula version (D/F/P).
+    """The canonical Collector Appeal formula version (the balanced D/H/P sum).
 
     Lazily imported to break the `collector_appeal` -> `factorized_opening_appeal`
     -> `scoring_config` cycle. The string is defined once, in `collector_appeal`.
     """
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+
+    return COLLECTOR_APPEAL_V3_VERSION
+
+
+def canonical_collector_appeal_formula_version() -> str:
+    """The canonical Collector Appeal FORMULA version.
+
+    Distinct from the score version on purpose: the score version names the
+    model, the formula version names its arithmetic shape. A future change that
+    keeps the shape but moves an input would move one and not the other.
+    """
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_FORMULA_VERSION
+
+    return COLLECTOR_APPEAL_V3_FORMULA_VERSION
+
+
+def legacy_collector_appeal_v2_version() -> str:
+    """Collector Appeal V2's version. Superseded; comparison and rollback only."""
     from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V2_VERSION
 
     return COLLECTOR_APPEAL_V2_VERSION
@@ -219,14 +329,28 @@ def legacy_collector_appeal_version() -> str:
     return COLLECTOR_APPEAL_CA7_VERSION
 
 
+def canonical_public_rip_contract_version() -> str:
+    """The canonical public RIP contract version.
+
+    Lazily imported: `public_rip_contract_v7` imports this module, so a
+    module-scope import would be a cycle. The string is defined once, in the
+    contract module that implements it.
+    """
+    from backend.desirability.public_rip_contract_v7 import (
+        PUBLIC_RIP_CONTRACT_V7_VERSION,
+    )
+
+    return PUBLIC_RIP_CONTRACT_V7_VERSION
+
+
 def canonical_financial_rip_is_v3() -> bool:
     """True when Financial RIP V3 is the canonical financial score."""
     return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
 
 
-def canonical_overall_rip_is_v6() -> bool:
-    """True when Overall RIP V6 (80/20) is the canonical overall score."""
-    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V6_VERSION
+def canonical_overall_rip_is_v7() -> bool:
+    """True when Overall RIP V7 (90/10 over Collector Appeal V3) is canonical."""
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V7_VERSION
 
 
 def canonical_scoring_selection() -> Dict[str, object]:
@@ -235,33 +359,61 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "canonicalFinancialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
         "canonicalOverallRipVersion": CANONICAL_OVERALL_RIP_VERSION,
         "canonicalCollectorAppealVersion": canonical_collector_appeal_version(),
+        "canonicalCollectorAppealFormulaVersion": (
+            canonical_collector_appeal_formula_version()
+        ),
+        "canonicalPublicRipContractVersion": canonical_public_rip_contract_version(),
         "legacyFinancialRipVersion": LEGACY_FINANCIAL_RIP_VERSION,
         "legacyOverallRipVersion": LEGACY_OVERALL_RIP_VERSION,
         "legacyOverallRipV5Version": LEGACY_OVERALL_RIP_V5_VERSION,
+        "legacyOverallRipV6Version": LEGACY_OVERALL_RIP_V6_VERSION,
+        "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
-        "overallRipWeights": dict(OVERALL_RIP_V6_WEIGHTS),
-        "overallRipEffectiveWeights": dict(OVERALL_RIP_V6_EFFECTIVE_WEIGHTS),
+        "overallRipWeights": dict(OVERALL_RIP_V7_WEIGHTS),
+        "overallRipEffectiveWeights": dict(OVERALL_RIP_V7_EFFECTIVE_WEIGHTS),
         "note": (
-            "Overall RIP is 80% Financial RIP V3 + 20% Collector Appeal. "
-            "Financial RIP V2, Overall RIP v4/V5 and legacy CA7 remain published "
-            "under explicitly legacy labels and are never selected by fallback."
+            "Overall RIP is 90% Financial RIP V3 + 10% Collector Appeal V3. "
+            "Financial RIP V2, Overall RIP v4/V5/V6, Collector Appeal V2 and "
+            "legacy CA7 remain identifiable under explicitly legacy labels and "
+            "are never selected by fallback."
         ),
     }
 
 
-def _audit_overall_rip_v6_weights() -> None:
+def _audit_overall_rip_weights() -> None:
     """Weights that do not sum to 1.0 put Overall RIP off the 0-100 scale."""
-    total = sum(OVERALL_RIP_V6_WEIGHTS.values())
-    if abs(total - 1.0) > 1e-12:
-        raise ValueError(f"OVERALL_RIP_V6_WEIGHTS must sum to 1.0; got {total!r}.")
-    effective_total = sum(OVERALL_RIP_V6_EFFECTIVE_WEIGHTS.values())
-    if abs(effective_total - 1.0) > 1e-12:
+    for name, table in (
+        ("OVERALL_RIP_V6_WEIGHTS", OVERALL_RIP_V6_WEIGHTS),
+        ("OVERALL_RIP_V6_EFFECTIVE_WEIGHTS", OVERALL_RIP_V6_EFFECTIVE_WEIGHTS),
+        ("OVERALL_RIP_V7_WEIGHTS", OVERALL_RIP_V7_WEIGHTS),
+        ("OVERALL_RIP_V7_EFFECTIVE_WEIGHTS", OVERALL_RIP_V7_EFFECTIVE_WEIGHTS),
+    ):
+        total = sum(table.values())
+        if abs(total - 1.0) > 1e-12:
+            raise ValueError(f"{name} must sum to 1.0; got {total!r}.")
+    # The canonical selection must be internally consistent: a CANONICAL_* switch
+    # pointing at V7 while the weights table still reads 80/20 would be two
+    # cutovers disagreeing, and every caller would get whichever it imported.
+    if CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V7_VERSION:
+        if CANONICAL_OVERALL_RIP_WEIGHTS != OVERALL_RIP_V7_WEIGHTS:
+            raise ValueError(
+                "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V7_WEIGHTS "
+                "while V7 is the canonical Overall RIP."
+            )
+    if OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS[0] != 0.0:
         raise ValueError(
-            f"OVERALL_RIP_V6_EFFECTIVE_WEIGHTS must sum to 1.0; got {effective_total!r}."
+            "The sensitivity grid must start at 0.00 so every comparison has an "
+            "explicit Financial-only reference column rather than an implied one."
+        )
+    canonical_weight = OVERALL_RIP_V7_WEIGHTS["collector_appeal"]
+    if canonical_weight not in OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS:
+        raise ValueError(
+            "The canonical Collector Appeal weight must appear in the sensitivity "
+            "grid, or the study cannot report the shipping configuration."
         )
 
 
-_audit_overall_rip_v6_weights()
+_audit_overall_rip_weights()
 
 # The effective per-input weights after expanding Financial RIP's 60/25/15. Held
 # here so presentation surfaces read one authoritative source rather than each

@@ -61,6 +61,8 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_CA7_VERSION,
     COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
     COLLECTOR_APPEAL_V2_VERSION,
+    COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V3_VERSION,
     DUAL_PATH_DEPTH_VERSION,
 )
 from backend.desirability.desirable_outcome_frequency import (
@@ -69,18 +71,27 @@ from backend.desirability.desirable_outcome_frequency import (
 )
 from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
-    OVERALL_RIP_V6_WEIGHTS,
+    OVERALL_RIP_PRODUCTION_GUARDRAILS,
+    OVERALL_RIP_V7_WEIGHTS,
 )
 from backend.research import validation_stats as stats
 from backend.research.collector_appeal_candidates import (
     CANDIDATE_KEYS,
+    CANONICAL_PRODUCTION_KEY,
     COMPARISON_KEYS,
+    LEGACY_CA7_KEY,
     OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID,
     PRIMARY_CANDIDATE_KEY,
+    PURE_D_KEY,
+    SUPERSEDED_V2_KEY,
     candidate_registry,
+    canonical_overall_weight,
+    collector_appeal_v3_contributions,
+    collector_appeal_v3_weight,
     compute_all_candidates,
     compute_comparisons,
     compute_overall,
+    compute_v3_without_input,
 )
 from backend.research.validation_uncertainty import scenario_registry
 
@@ -88,7 +99,21 @@ logger = logging.getLogger(__name__)
 
 RESEARCH_VERSION = "rip_v3_collector_appeal_validation_v1"
 
-DEFAULT_OUTPUT_DIR = Path("docs/research/collector_appeal_v2_validation")
+# The output directory is CALLER-SUPPLIED and must be private. The default sits
+# under `private_artifacts/`, which `.gitignore` excludes, so an artifact set
+# containing per-set scores and full rank tables cannot reach the repository by
+# forgetting a flag.
+#
+# There is deliberately no default under `docs/research/`. That path is tracked,
+# and the previous default wrote there - so every run produced committable
+# artifacts by default and the "keep validation output private" rule depended on
+# whoever ran it remembering a flag.
+DEFAULT_OUTPUT_DIR = Path("private_artifacts/collector_appeal_v3_validation")
+
+# Directory prefixes considered private. A caller may point `--output-dir`
+# anywhere outside the repository (an absolute path on a local disk); what is
+# refused is a path INSIDE the repository that git would track.
+PRIVATE_OUTPUT_PREFIXES = ("private_artifacts",)
 
 # Reported in a dedicated section because they exercise different corners of the
 # model. NOTHING is asserted about them and no direction is hardcoded; the
@@ -97,11 +122,16 @@ HIGHLIGHT_SETS = ("Perfect Order", "Journey Together", "Ascended Heroes", "Phant
 
 # Owner-defined PRODUCT decision rules, not statistical thresholds. Reported
 # against, never used to auto-select or auto-reject a model.
+#
+# READ from `scoring_config.OVERALL_RIP_PRODUCTION_GUARDRAILS`, not restated. A
+# guardrail that lives in a script is a guardrail a script can weaken; keeping
+# the numbers in reviewed config is what makes "do not silently weaken the
+# guardrail" enforceable rather than aspirational.
 STABILITY_GUARDRAILS = {
-    "minAdjacentSpearman": 0.95,
-    "minTop5Overlap": 0.80,
-    "maxMeanAbsRankDelta": 1.5,
-    "maxShareMoving5Plus": 0.10,
+    "minAdjacentSpearman": OVERALL_RIP_PRODUCTION_GUARDRAILS["min_spearman_vs_financial_only"],
+    "minTop5Overlap": OVERALL_RIP_PRODUCTION_GUARDRAILS["min_top5_overlap"],
+    "maxMeanAbsRankDelta": OVERALL_RIP_PRODUCTION_GUARDRAILS["max_mean_absolute_rank_movement"],
+    "maxShareMoving5Plus": OVERALL_RIP_PRODUCTION_GUARDRAILS["max_share_moving_5_plus_ranks"],
 }
 GUARDRAIL_NOTE = (
     "These are owner-defined product decision rules, NOT statistical truths and "
@@ -109,6 +139,13 @@ GUARDRAIL_NOTE = (
     "not rejected because it misses one. They exist so the report states its "
     "stability expectations in advance rather than rationalising whatever the "
     "data turns out to show."
+)
+BASELINE_GUARDRAIL_NOTE = (
+    "The PRODUCTION guardrails are evaluated against the FINANCIAL-ONLY ranking, "
+    "not against the adjacent weight. Adjacent-weight comparisons answer 'are "
+    "13% and 14% distinguishable?', which is a different question and a much "
+    "easier bar: every adjacent pair looks stable while the cumulative movement "
+    "away from the financial ranking grows without any single step failing."
 )
 
 REQUIRED_SIMULATION_COMMANDS = (
@@ -257,17 +294,21 @@ def build_rows(targets: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     for target in targets:
         opening = target.get("openingExperience") or {}
         appeal = opening.get("collectorAppeal") or {}
-        inputs = appeal.get("inputs") or {}
+        # `factors` is the V3 shape; `inputs` is the superseded V2 shape. Both
+        # are read so a payload built before the cutover still yields a D rather
+        # than silently dropping every set out of the analysis.
+        factors = appeal.get("factors") or appeal.get("inputs") or {}
         frequency = opening.get("desirableOutcomeFrequency") or {}
         dual_path = opening.get("dualPathDepth") or {}
         legacy = opening.get("legacyCollectorAppealCA7") or {}
+        legacy_v2 = opening.get("legacyCollectorAppealV2") or {}
         chase = opening.get("chaseAppeal") or {}
         coverage = opening.get("coverage") or {}
 
         financial_v3 = target.get("financialRipV3") or {}
         components = financial_v3.get("components") or {}
 
-        d = stats._finite(inputs.get("rosterDesirability"))
+        d = stats._finite(factors.get("rosterDesirability"))
         h = stats._finite(frequency.get("rawValue"))
         p = stats._finite(dual_path.get("rawValue"))
         m = stats._finite(chase.get("eliteScarcity"))
@@ -283,6 +324,8 @@ def build_rows(targets: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
             "m": m,
             # --- shipped scores, on the 0-100 scale --------------------------
             "collectorAppealShipped": stats._finite(appeal.get("score")),
+            "collectorAppealShippedVersion": appeal.get("version"),
+            "legacyCollectorAppealV2Published": stats._finite(legacy_v2.get("score")),
             "legacyCa7": stats._finite(legacy.get("score")),
             "chaseAppeal": stats._finite(chase.get("score")),
             "financialRipV3": stats._finite(financial_v3.get("score")),
@@ -309,12 +352,29 @@ def build_rows(targets: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
         candidates = compute_all_candidates(d, h, p)
         for key, value in candidates.items():
             row[key] = None if value is None else value * 100.0
-        comparisons = compute_comparisons(d=d, p=p, m=m)
+        comparisons = compute_comparisons(d=d, p=p, h=h, m=m)
         for key, value in comparisons.items():
             row[key] = None if value is None else value * 100.0
 
+        # The two Collector Appeal V3 ablation families, both on 0-100. Computed
+        # here, once, so every influence section reads the same numbers.
+        for study_key in ("d", "h", "p"):
+            row[f"v3_drop_{study_key}_raw"] = _scale(
+                compute_v3_without_input(d, h, p, dropped=study_key, renormalize=False)
+            )
+            row[f"v3_drop_{study_key}_renorm"] = _scale(
+                compute_v3_without_input(d, h, p, dropped=study_key, renormalize=True)
+            )
+        for study_key, contribution in collector_appeal_v3_contributions(d, h, p).items():
+            row[f"v3_contribution_{study_key}"] = _scale(contribution)
+
         rows.append(row)
     return rows
+
+
+def _scale(unit_value: Optional[float]) -> Optional[float]:
+    """Unit scale -> 0-100. The single conversion, done once, in one place."""
+    return None if unit_value is None else float(unit_value) * 100.0
 
 
 # ---------------------------------------------------------------------------
@@ -519,10 +579,16 @@ def overall_weight_sensitivity(
 ) -> Dict[str, Any]:
     """Overall RIP across the pre-registered weight grid for ONE appeal candidate.
 
-    Reports each weight against the financial-only baseline AND against its
-    adjacent weight. The adjacent comparison is what answers "are 15% and 20%
-    practically distinguishable?"; a comparison against the baseline alone
-    cannot, because both differ from the baseline in the same direction.
+    Reports each weight against the FINANCIAL-ONLY baseline and, separately,
+    against its adjacent weight. Both, and never only the second: the adjacent
+    comparison answers "are 13% and 14% practically distinguishable?", which is
+    a much easier bar than "how far has the leaderboard moved from its financial
+    ranking?" - every adjacent step can look stable while the cumulative
+    movement grows past every guardrail.
+
+    The PRODUCTION guardrails are therefore evaluated against the baseline. The
+    adjacent-weight guardrail block is retained beside them, explicitly labelled,
+    as a distinguishability diagnostic.
     """
     usable = [
         row
@@ -537,6 +603,7 @@ def overall_weight_sensitivity(
             "n": len(usable),
         }
 
+    canonical_weight = canonical_overall_weight()
     financial = {row["setId"]: row["financialRipV3"] for row in usable}
     by_weight: Dict[float, Dict[str, Optional[float]]] = {}
     for weight in OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID:
@@ -559,10 +626,16 @@ def overall_weight_sensitivity(
             [row[appeal_key] for row in usable],
             weight,
         )
-        guardrails = None
+        adjacent_guardrails = None
         if vs_adjacent is not None:
-            guardrails = {
+            adjacent_guardrails = {
                 "adjacentWeight": previous,
+                "isProductionGate": False,
+                "note": (
+                    "Distinguishability diagnostic only. The production gate is "
+                    "`productionGuardrails`, which is measured against the "
+                    "financial-only ranking."
+                ),
                 "spearmanOk": _at_least(vs_adjacent["spearman"], STABILITY_GUARDRAILS["minAdjacentSpearman"]),
                 "top5OverlapOk": _at_least(vs_adjacent.get("top5Overlap"), STABILITY_GUARDRAILS["minTop5Overlap"]),
                 "meanRankMovementOk": _at_most(vs_adjacent["meanAbsRankDelta"], STABILITY_GUARDRAILS["maxMeanAbsRankDelta"]),
@@ -571,6 +644,7 @@ def overall_weight_sensitivity(
 
         weights_payload[f"{weight:.2f}"] = {
             "weight": weight,
+            "isCanonicalProductionWeight": abs(weight - canonical_weight) < 1e-12,
             "scores": {names[k]: v for k, v in scores.items()},
             "ranks": {
                 names[k]: v for k, v in stats.dense_ranks(scores).items()
@@ -578,7 +652,10 @@ def overall_weight_sensitivity(
             "vsFinancialOnly": vs_financial,
             "vsAdjacentWeight": vs_adjacent,
             "varianceDecomposition": decomposition,
-            "guardrails": guardrails,
+            # THE GATE. Measured against Financial-only, per the predeclared
+            # production guardrails.
+            "productionGuardrails": _evaluate_production_guardrails(vs_financial),
+            "guardrails": adjacent_guardrails,
             "highlightSets": {
                 row["setName"]: {
                     "overall": scores.get(row["setId"]),
@@ -590,17 +667,87 @@ def overall_weight_sensitivity(
         }
         previous = weight
 
+    canonical_cell = weights_payload.get(f"{canonical_weight:.2f}") or {}
+    canonical_gate = canonical_cell.get("productionGuardrails") or {}
     return {
         "available": True,
         "appealKey": appeal_key,
+        "isCanonicalAppealFormula": appeal_key == CANONICAL_PRODUCTION_KEY,
         "n": len(usable),
         "weightGrid": list(OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID),
+        "canonicalProductionWeight": canonical_weight,
         "weights": weights_payload,
+        # The single verdict a reviewer needs: does the SHIPPING configuration
+        # pass the predeclared gate? Surfaced at the top level so it cannot be
+        # missed among the sensitivity cells, and computed from the same numbers
+        # the cells report.
+        "canonicalConfigurationVerdict": {
+            "appealKey": appeal_key,
+            "weight": canonical_weight,
+            "passed": canonical_gate.get("passed"),
+            "failedChecks": canonical_gate.get("failedChecks"),
+            "measured": canonical_gate.get("measured"),
+            "policy": (
+                "If the canonical configuration fails any guardrail the correct "
+                "response is to leave the prior canonical configuration intact and "
+                "report the failing metric. Weakening a guardrail or re-tuning "
+                "weights to engineer a pass would make this a fitting exercise "
+                "rather than a gate."
+            ),
+        },
         "guardrailNote": GUARDRAIL_NOTE,
+        "baselineGuardrailNote": BASELINE_GUARDRAIL_NOTE,
         "highlightNote": (
             "Highlight sets are reported, never asserted. No direction of "
             "movement is expected or preferred for any of them."
         ),
+    }
+
+
+def _evaluate_production_guardrails(vs_financial: Mapping[str, Any]) -> Dict[str, Any]:
+    """The four predeclared production guardrails, versus the financial-only rank.
+
+    ``passed`` is None - not False - when a guardrail cannot be measured. An
+    unmeasurable guardrail is missing evidence, and reporting missing evidence as
+    a failure is as wrong as reporting it as a pass.
+    """
+    checks = {
+        "spearmanOk": _at_least(
+            vs_financial.get("spearman"), STABILITY_GUARDRAILS["minAdjacentSpearman"]
+        ),
+        "top5OverlapOk": _at_least(
+            vs_financial.get("top5Overlap"), STABILITY_GUARDRAILS["minTop5Overlap"]
+        ),
+        "meanRankMovementOk": _at_most(
+            vs_financial.get("meanAbsRankDelta"), STABILITY_GUARDRAILS["maxMeanAbsRankDelta"]
+        ),
+        "share5PlusOk": _at_most(
+            vs_financial.get("pctMoving5Plus"), STABILITY_GUARDRAILS["maxShareMoving5Plus"]
+        ),
+    }
+    unmeasured = [name for name, value in checks.items() if value is None]
+    failed = [name for name, value in checks.items() if value is False]
+    return {
+        "isProductionGate": True,
+        "comparedAgainst": "financial_only",
+        "thresholds": dict(STABILITY_GUARDRAILS),
+        "measured": {
+            "spearman": vs_financial.get("spearman"),
+            "kendallTauB": vs_financial.get("kendallTauB"),
+            "top3Overlap": vs_financial.get("top3Overlap"),
+            "top5Overlap": vs_financial.get("top5Overlap"),
+            "top10Overlap": vs_financial.get("top10Overlap"),
+            "meanAbsRankDelta": vs_financial.get("meanAbsRankDelta"),
+            "medianAbsRankDelta": vs_financial.get("medianAbsRankDelta"),
+            "maxAbsRankDelta": vs_financial.get("maxAbsRankDelta"),
+            "pctMoving1Plus": vs_financial.get("pctMoving1Plus"),
+            "pctMoving3Plus": vs_financial.get("pctMoving3Plus"),
+            "pctMoving5Plus": vs_financial.get("pctMoving5Plus"),
+        },
+        **checks,
+        "failedChecks": failed,
+        "unmeasuredChecks": unmeasured,
+        "passed": None if unmeasured else not failed,
     }
 
 
@@ -610,6 +757,178 @@ def _at_least(value: Optional[float], threshold: float) -> Optional[bool]:
 
 def _at_most(value: Optional[float], threshold: float) -> Optional[bool]:
     return None if value is None else bool(value <= threshold)
+
+
+# ---------------------------------------------------------------------------
+# Collector Appeal V3 input influence: what D, H and P ACTUALLY do
+# ---------------------------------------------------------------------------
+
+INFLUENCE_NOTE = (
+    "Nominal coefficients (0.40 / 0.35 / 0.25) describe the FORMULA. Effective "
+    "influence describes the COHORT, and the two routinely disagree: an input "
+    "with a large coefficient and almost no spread across 22 sets moves nothing, "
+    "while an input with a smaller coefficient and a wide spread can dominate "
+    "the ordering. No claim of 'comparable effective influence' is made from the "
+    "coefficients here; every number below is measured."
+)
+
+
+def collector_appeal_input_influence(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Six independent readings of how much D, H and P each move Collector Appeal.
+
+    They are reported together because each one is answerable and misleading on
+    its own:
+
+      1. contribution removal WITHOUT renormalization - how much of the score
+         this input supplies. Ranks only; the score leaves the 0-100 scale.
+      2. drop-and-renormalize - the counterfactual metric built without this
+         input, still on 0-100 and still comparable set to set.
+      3. mean absolute score contribution - the size of the term in points.
+      4. mean and maximum rank movement under (1) and (2).
+      5. variance/covariance contribution - how much of the score's variance the
+         term accounts for, INCLUDING its covariance with the others, which is
+         where a "small" input can turn out to be carrying the ordering.
+      6. share of Collector Appeal dispersion associated with each input.
+    """
+    usable = [
+        row for row in rows if all(row.get(key) is not None for key in ("d", "h", "p"))
+    ]
+    if len(usable) < 3:
+        return {
+            "available": False,
+            "reason": "fewer than 3 sets carry all three of D, H and P",
+            "n": len(usable),
+            "note": INFLUENCE_NOTE,
+        }
+
+    baseline = {row["setId"]: row[CANONICAL_PRODUCTION_KEY] for row in usable}
+    baseline_values = [row[CANONICAL_PRODUCTION_KEY] for row in usable]
+    baseline_variance = stats._population_variance(
+        [value for value in baseline_values if value is not None]
+    )
+
+    per_input: Dict[str, Any] = {}
+    for study_key in ("d", "h", "p"):
+        weight = collector_appeal_v3_weight(study_key)
+        raw_scores = {row["setId"]: row[f"v3_drop_{study_key}_raw"] for row in usable}
+        renorm_scores = {row["setId"]: row[f"v3_drop_{study_key}_renorm"] for row in usable}
+        contributions = [
+            row[f"v3_contribution_{study_key}"]
+            for row in usable
+            if row.get(f"v3_contribution_{study_key}") is not None
+        ]
+        input_values = [row[study_key] for row in usable]
+        term_values = [value * weight * 100.0 for value in input_values]
+
+        removal = stats.rank_comparison(baseline, raw_scores)
+        renormalized = stats.rank_comparison(baseline, renorm_scores)
+
+        # Variance/covariance: Var(w*X) + 2*Cov(w*X, rest). The covariance term
+        # is what stops this being a restatement of the weight - two inputs that
+        # move together share credit, and the split shows it.
+        rest_values = [
+            (baseline_values[index] or 0.0) - term_values[index]
+            for index in range(len(usable))
+        ]
+        own_variance = stats._population_variance(term_values)
+        cross_covariance = stats._population_covariance(term_values, rest_values)
+        variance_share = (
+            (own_variance + cross_covariance) / baseline_variance
+            if baseline_variance > 0
+            else None
+        )
+
+        # Dispersion (mean absolute deviation of the weighted term) rather than
+        # variance alone: variance squares the outliers, so a single extreme set
+        # can make an input look decisive when it is not.
+        term_mean = sum(term_values) / len(term_values)
+        dispersion = sum(abs(value - term_mean) for value in term_values) / len(term_values)
+
+        per_input[study_key] = {
+            "nominalWeight": weight,
+            "inputSpread": {
+                "min": min(input_values),
+                "max": max(input_values),
+                "range": max(input_values) - min(input_values),
+                "populationVariance": round(stats._population_variance(input_values), 8),
+            },
+            # (1) + (4)
+            "removalWithoutRenormalization": {
+                "spearmanVsFull": removal.get("spearman"),
+                "kendallTauBVsFull": removal.get("kendallTauB"),
+                "meanAbsRankDelta": removal.get("meanAbsRankDelta"),
+                "maxAbsRankDelta": removal.get("maxAbsRankDelta"),
+                "pctMoving1Plus": removal.get("pctMoving1Plus"),
+                "pctMoving3Plus": removal.get("pctMoving3Plus"),
+                "top5Overlap": removal.get("top5Overlap"),
+                "note": (
+                    "Scores are off the 0-100 scale by construction (the surviving "
+                    "weights sum to less than 1). Only the RANKS are interpretable."
+                ),
+            },
+            # (2) + (4)
+            "dropAndRenormalize": {
+                "spearmanVsFull": renormalized.get("spearman"),
+                "kendallTauBVsFull": renormalized.get("kendallTauB"),
+                "meanAbsRankDelta": renormalized.get("meanAbsRankDelta"),
+                "maxAbsRankDelta": renormalized.get("maxAbsRankDelta"),
+                "meanAbsScoreDelta": renormalized.get("meanAbsScoreDelta"),
+                "pctMoving1Plus": renormalized.get("pctMoving1Plus"),
+                "pctMoving3Plus": renormalized.get("pctMoving3Plus"),
+                "top5Overlap": renormalized.get("top5Overlap"),
+            },
+            # (3)
+            "meanAbsoluteScoreContribution": (
+                round(sum(abs(value) for value in contributions) / len(contributions), 6)
+                if contributions
+                else None
+            ),
+            # (5)
+            "varianceContribution": {
+                "ownVariance": round(own_variance, 8),
+                "covarianceWithOtherTerms": round(cross_covariance, 8),
+                "shareOfScoreVariance": (
+                    round(variance_share, 6) if variance_share is not None else None
+                ),
+                "note": (
+                    "Own variance plus covariance with the remaining terms, over the "
+                    "score's total variance. The three shares sum to 1 by "
+                    "construction; a NEGATIVE share means the term moves against the "
+                    "rest of the score and damps its spread."
+                ),
+            },
+            # (6)
+            "dispersion": {
+                "meanAbsoluteDeviationOfTerm": round(dispersion, 6),
+            },
+        }
+
+    total_dispersion = sum(
+        entry["dispersion"]["meanAbsoluteDeviationOfTerm"] for entry in per_input.values()
+    )
+    for entry in per_input.values():
+        entry["dispersion"]["shareOfAppealDispersion"] = (
+            round(entry["dispersion"]["meanAbsoluteDeviationOfTerm"] / total_dispersion, 6)
+            if total_dispersion > 0
+            else None
+        )
+
+    return {
+        "available": True,
+        "n": len(usable),
+        "appealKey": CANONICAL_PRODUCTION_KEY,
+        "collectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
+        "byInput": per_input,
+        "note": INFLUENCE_NOTE,
+        "methodsReported": [
+            "contribution_removal_without_renormalization",
+            "drop_and_renormalize",
+            "mean_absolute_score_contribution",
+            "mean_and_max_rank_movement",
+            "variance_covariance_contribution",
+            "share_of_appeal_dispersion",
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -773,8 +1092,10 @@ def build_manifest(
         "formulaVersions": {
             "financialRipV3": FINANCIAL_RIP_V3_VERSION,
             "financialRipV3Normalization": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
-            "collectorAppealShipped": COLLECTOR_APPEAL_V2_VERSION,
-            "collectorAppealFormula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
+            "collectorAppealShipped": COLLECTOR_APPEAL_V3_VERSION,
+            "collectorAppealShippedFormulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+            "supersededCollectorAppealV2": COLLECTOR_APPEAL_V2_VERSION,
+            "supersededCollectorAppealV2Formula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
             "legacyCa7": COLLECTOR_APPEAL_CA7_VERSION,
             "desirableOutcomeFrequency": DESIRABLE_OUTCOME_FREQUENCY_VERSION,
             "desirableOutcomeFrequencyCoveragePolicy": (
@@ -782,11 +1103,22 @@ def build_manifest(
             ),
             "dualPathDepth": DUAL_PATH_DEPTH_VERSION,
             "canonicalOverallRip": CANONICAL_OVERALL_RIP_VERSION,
-            "canonicalOverallRipWeights": dict(OVERALL_RIP_V6_WEIGHTS),
+            "canonicalOverallRipWeights": dict(OVERALL_RIP_V7_WEIGHTS),
+            # The V3 weights are deliberately NOT recorded here. This manifest is
+            # written to a caller-supplied directory that may be shared, and the
+            # weights are internal to the model - see public_rip_contract_v7's
+            # header. The version identifier is sufficient to reproduce a run,
+            # because the version and the weights move together.
+            "collectorAppealWeightsDisclosed": False,
         },
         "candidateRegistry": candidate_registry(),
         "uncertaintyScenarios": scenario_registry(),
-        "stabilityGuardrails": {**STABILITY_GUARDRAILS, "note": GUARDRAIL_NOTE},
+        "stabilityGuardrails": {
+            **STABILITY_GUARDRAILS,
+            "note": GUARDRAIL_NOTE,
+            "baselineNote": BASELINE_GUARDRAIL_NOTE,
+            "source": "backend.desirability.scoring_config.OVERALL_RIP_PRODUCTION_GUARDRAILS",
+        },
         "readiness": readiness,
         "warnings": list(warnings),
         "writePolicy": (
@@ -795,6 +1127,32 @@ def build_manifest(
             "version."
         ),
     }
+
+
+def assert_private_output_dir(output_dir: Path) -> None:
+    """Refuse to write analytical artifacts into a tracked repository path.
+
+    The artifacts contain per-set scores, full rank tables and every candidate
+    formula's output. Writing them somewhere git tracks turns "keep validation
+    output private" into a rule enforced by whoever remembers a flag.
+
+    A path OUTSIDE the repository is allowed without restriction: pointing at a
+    local scratch disk is a legitimate caller choice, and this function's job is
+    to stop an accidental commit, not to dictate where a researcher keeps files.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    resolved = Path(output_dir).expanduser().resolve()
+    try:
+        relative = resolved.relative_to(repo_root)
+    except ValueError:
+        return  # outside the repository: nothing git could track
+    head = relative.parts[0] if relative.parts else ""
+    if head not in PRIVATE_OUTPUT_PREFIXES:
+        raise SystemExit(
+            f"Refusing to write validation artifacts to {relative.as_posix()!r}: paths "
+            f"inside the repository must live under one of {PRIVATE_OUTPUT_PREFIXES} "
+            "(git-ignored). Pass --output-dir with a private or out-of-repo path."
+        )
 
 
 def write_csv(path: Path, rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> None:
@@ -826,10 +1184,16 @@ def run_analysis(
     than an empty result that reads like a null finding.
     """
     financial_keys = [f"v3_{k}" for k in FINANCIAL_RIP_V3_COMPONENT_ORDER]
+    # Every formula the brief requires the study to compare: pure D, legacy CA7,
+    # the superseded V2 bounded-headroom formula, the canonical V3 balanced
+    # formula, and Financial RIP V3.
     collector_keys = [
         "d", "h", "p",
+        PURE_D_KEY,
         "CA6_dual_path_utility",
-        "CA7_legacy_bounded_bonus_50",
+        LEGACY_CA7_KEY,
+        SUPERSEDED_V2_KEY,
+        CANONICAL_PRODUCTION_KEY,
         "chase_appeal_D_times_M",
         *CANDIDATE_KEYS,
         "financialRipV3",
@@ -843,10 +1207,20 @@ def run_analysis(
             rows, collector_keys, bootstrap_draws=args.bootstrap_draws, seed=args.seed
         ),
         "leaveOneComponentOut": leave_one_component_out(rows),
+        # The canonical formula FIRST, then the formulas it replaced. Each one
+        # gets the full weight grid so a reviewer can see whether a guardrail
+        # outcome is a property of the weight or of the appeal formula.
         "overallWeightSensitivity": {
             key: overall_weight_sensitivity(rows, key)
-            for key in (PRIMARY_CANDIDATE_KEY, "CA7_legacy_bounded_bonus_50")
+            for key in (
+                CANONICAL_PRODUCTION_KEY,
+                SUPERSEDED_V2_KEY,
+                LEGACY_CA7_KEY,
+                PURE_D_KEY,
+                PRIMARY_CANDIDATE_KEY,
+            )
         },
+        "collectorAppealInputInfluence": collector_appeal_input_influence(rows),
     }
 
     # The core research questions, answered directly from the matrix so the
@@ -865,7 +1239,7 @@ def _answer_core_questions(
         value = stats.spearman(xs, ys)
         return round(value, 6) if value is not None else None
 
-    primary = PRIMARY_CANDIDATE_KEY
+    canonical = CANONICAL_PRODUCTION_KEY
     return {
         "doesHAddInformationBeyondD": {
             "spearmanHvsD": rho("h", "d"),
@@ -873,23 +1247,34 @@ def _answer_core_questions(
         },
         "doesHAddInformationBeyondP": {
             "spearmanHvsP": rho("h", "p"),
-            "interpretation": "|rho| near 1 would mean the 0.60/0.40 blend measures one axis twice.",
+            "interpretation": "|rho| near 1 would mean H and P measure one axis twice.",
         },
-        "doesCandidateCollapseIntoD": {
-            "spearmanCandidateVsD": rho(primary, "d"),
-            "interpretation": "|rho| near 1 would mean the structural term changes nothing.",
+        "doesCanonicalCollapseIntoD": {
+            "spearmanCanonicalVsD": rho(canonical, "d"),
+            "spearmanSupersededV2VsD": rho(SUPERSEDED_V2_KEY, "d"),
+            "interpretation": (
+                "|rho| near 1 would mean the structural terms change nothing. The V2 "
+                "figure is reported beside it because collapsing into D at ~0.99 is "
+                "the finding that motivated the balanced formula; the comparison is "
+                "the point, not the absolute value."
+            ),
         },
-        "isCandidateAFinancialProxy": {
-            "spearmanCandidateVsFinancialRipV3": rho(primary, "financialRipV3"),
+        "isCanonicalAFinancialProxy": {
+            "spearmanCanonicalVsFinancialRipV3": rho(canonical, "financialRipV3"),
             "interpretation": "A high value would mean the appeal pillar re-weights a financial signal.",
         },
-        "isCandidateAChaseProxy": {
-            "spearmanCandidateVsChaseAppeal": rho(primary, "chase_appeal_D_times_M"),
-            "interpretation": "A high value would mean the candidate is a scarcity/price proxy.",
+        "isCanonicalAChaseProxy": {
+            "spearmanCanonicalVsChaseAppeal": rho(canonical, "chase_appeal_D_times_M"),
+            "interpretation": "A high value would mean the formula is a scarcity/price proxy.",
         },
-        "doesCandidateAddVariance": {
-            "spearmanCandidateVsLegacyCa7": rho(primary, "CA7_legacy_bounded_bonus_50"),
-            "interpretation": "rho near 1 would mean the revision reorders nothing versus CA7.",
+        "doesCanonicalReorderVersusItsPredecessors": {
+            "spearmanCanonicalVsLegacyCa7": rho(canonical, LEGACY_CA7_KEY),
+            "spearmanCanonicalVsSupersededV2": rho(canonical, SUPERSEDED_V2_KEY),
+            "spearmanSupersededV2VsLegacyCa7": rho(SUPERSEDED_V2_KEY, LEGACY_CA7_KEY),
+            "interpretation": (
+                "rho near 1 would mean the revision reorders nothing. The "
+                "V2-vs-CA7 figure is the baseline it has to beat."
+            ),
         },
     }
 
@@ -909,7 +1294,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--bootstrap-draws", type=int, default=1000)
     parser.add_argument("--uncertainty-draws", type=int, default=500)
     parser.add_argument("--seed", type=int, default=20260804)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help=(
+            "Where to write the artifacts. Must be outside the repository or under "
+            f"{'/'.join(PRIVATE_OUTPUT_PREFIXES)}/ (git-ignored). Defaults to "
+            f"{DEFAULT_OUTPUT_DIR.as_posix()}."
+        ),
+    )
     parser.add_argument(
         "--strict",
         action="store_true",
@@ -934,6 +1328,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    # Checked BEFORE any read or computation, so a misdirected --output-dir costs
+    # a message rather than a full run whose artifacts then have to be deleted
+    # from a tracked path.
+    assert_private_output_dir(args.output_dir)
 
     try:
         targets, warnings, support_record = load_cohort(
@@ -1076,19 +1475,25 @@ def _write_analysis_csvs(output_dir: Path, analysis: Mapping[str, Any]) -> None:
             vs_financial = block.get("vsFinancialOnly") or {}
             adjacent = block.get("vsAdjacentWeight") or {}
             decomposition = block.get("varianceDecomposition") or {}
+            gate = block.get("productionGuardrails") or {}
             weight_rows.append(
                 {
                     "candidate": candidate,
                     "weight": block.get("weight"),
+                    "isCanonicalProductionWeight": block.get("isCanonicalProductionWeight"),
                     "spearmanVsFinancialOnly": vs_financial.get("spearman"),
                     "kendallVsFinancialOnly": vs_financial.get("kendallTauB"),
                     "meanAbsRankDelta": vs_financial.get("meanAbsRankDelta"),
+                    "medianAbsRankDelta": vs_financial.get("medianAbsRankDelta"),
                     "maxAbsRankDelta": vs_financial.get("maxAbsRankDelta"),
                     "top3Overlap": vs_financial.get("top3Overlap"),
                     "top5Overlap": vs_financial.get("top5Overlap"),
                     "top10Overlap": vs_financial.get("top10Overlap"),
+                    "pctMoving1Plus": vs_financial.get("pctMoving1Plus"),
                     "pctMoving3Plus": vs_financial.get("pctMoving3Plus"),
                     "pctMoving5Plus": vs_financial.get("pctMoving5Plus"),
+                    "productionGuardrailsPassed": gate.get("passed"),
+                    "productionGuardrailsFailed": ";".join(gate.get("failedChecks") or []),
                     "spearmanVsAdjacent": adjacent.get("spearman"),
                     "varFinancialTerm": decomposition.get("termFinancial"),
                     "varAppealTerm": decomposition.get("termAppeal"),
@@ -1101,12 +1506,53 @@ def _write_analysis_csvs(output_dir: Path, analysis: Mapping[str, Any]) -> None:
     write_csv(
         output_dir / "overall_weight_sensitivity.csv",
         weight_rows,
-        ["candidate", "weight", "spearmanVsFinancialOnly", "kendallVsFinancialOnly",
-         "meanAbsRankDelta", "maxAbsRankDelta", "top3Overlap", "top5Overlap",
-         "top10Overlap", "pctMoving3Plus", "pctMoving5Plus", "spearmanVsAdjacent",
-         "varFinancialTerm", "varAppealTerm", "varCrossTerm",
+        ["candidate", "weight", "isCanonicalProductionWeight",
+         "spearmanVsFinancialOnly", "kendallVsFinancialOnly",
+         "meanAbsRankDelta", "medianAbsRankDelta", "maxAbsRankDelta",
+         "top3Overlap", "top5Overlap", "top10Overlap",
+         "pctMoving1Plus", "pctMoving3Plus", "pctMoving5Plus",
+         "productionGuardrailsPassed", "productionGuardrailsFailed",
+         "spearmanVsAdjacent", "varFinancialTerm", "varAppealTerm", "varCrossTerm",
          "dispersionShareAppeal", "appealContributionMean",
          "correlationFinancialAppeal"],
+    )
+
+    # The D/H/P influence table: one row per input per method, so a reader can
+    # sort by observed influence instead of reading the nominal coefficients.
+    influence = analysis.get("collectorAppealInputInfluence") or {}
+    influence_rows: List[Dict[str, Any]] = []
+    for study_key, payload in (influence.get("byInput") or {}).items():
+        for method, block in (
+            ("removal_without_renormalization", payload.get("removalWithoutRenormalization") or {}),
+            ("drop_and_renormalize", payload.get("dropAndRenormalize") or {}),
+        ):
+            influence_rows.append(
+                {
+                    "input": study_key,
+                    "nominalWeight": payload.get("nominalWeight"),
+                    "method": method,
+                    "spearmanVsFull": block.get("spearmanVsFull"),
+                    "kendallTauBVsFull": block.get("kendallTauBVsFull"),
+                    "meanAbsRankDelta": block.get("meanAbsRankDelta"),
+                    "maxAbsRankDelta": block.get("maxAbsRankDelta"),
+                    "top5Overlap": block.get("top5Overlap"),
+                    "meanAbsoluteScoreContribution": payload.get("meanAbsoluteScoreContribution"),
+                    "shareOfScoreVariance": (
+                        (payload.get("varianceContribution") or {}).get("shareOfScoreVariance")
+                    ),
+                    "shareOfAppealDispersion": (
+                        (payload.get("dispersion") or {}).get("shareOfAppealDispersion")
+                    ),
+                    "inputRange": (payload.get("inputSpread") or {}).get("range"),
+                }
+            )
+    write_csv(
+        output_dir / "collector_appeal_input_influence.csv",
+        influence_rows,
+        ["input", "nominalWeight", "method", "spearmanVsFull", "kendallTauBVsFull",
+         "meanAbsRankDelta", "maxAbsRankDelta", "top5Overlap",
+         "meanAbsoluteScoreContribution", "shareOfScoreVariance",
+         "shareOfAppealDispersion", "inputRange"],
     )
 
 

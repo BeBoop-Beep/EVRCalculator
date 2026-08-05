@@ -1,3 +1,30 @@
+"""Build, validate and atomically publish the canonical Explore RIP leaderboard.
+
+WHAT THIS PUBLISHES, AND WHAT IT USED TO
+----------------------------------------
+It publishes the CANONICAL models:
+
+    overall_rip_score  <- target['overallRipV7']  (0.90 V3 + 0.10 Collector Appeal V3)
+    financial_rip_score<- target['financialRipV3'] (six-component, fixed anchors)
+
+It previously read ``target['rip']`` (Overall RIP v4, off the Financial RIP V2
+pillars and legacy CA7) and ``target['ripCore']`` (Financial RIP V2), and was
+never repointed when the V3, V5, V6 or V7 cutovers landed. That is why the newest
+published leaderboard reported ``overall_rip_v4_90_financial_10_ca7`` and
+``financial_rip_v2_60_25_15`` while 22 fresh Financial RIP V3 simulations sat
+underneath it - the publisher was faithfully publishing the legacy objects, and
+the version strings it copied alongside them were accurate about that, so nothing
+downstream contradicted it.
+
+THE VERSIONS ARE VERIFIED, NOT JUST COPIED
+------------------------------------------
+``meta.ripWeightsConfig`` is still the source of the version strings written into
+the snapshot row, but they are now CHECKED against the one canonical selection in
+``scoring_config`` before anything is written. A payload built by an older worker,
+or a metadata block left behind by the next cutover, refuses to publish instead of
+quietly minting a snapshot under a superseded contract.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -6,6 +33,11 @@ from datetime import date, timedelta
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
+from backend.db.services.public_rip_publication_contract import (
+    build_publication_diagnostics,
+    canonical_publication_identity,
+    supported_cohort_fingerprint,
+)
 from backend.scripts.pokemon_snapshot_builders import (
     DEFAULT_RANKINGS_LIMIT,
     attach_daily_rip_rank_movements,
@@ -15,59 +47,124 @@ from backend.scripts.pokemon_snapshot_builders import (
 logger = logging.getLogger(__name__)
 
 
+def _ranked(target: Dict[str, Any], key: str) -> bool:
+    return (target.get(key) or {}).get("rank") is not None
+
+
 def publication_contract(row):
     payload = row["ranking_payload_json"]
     meta = payload.get("meta") or {}
     cohort = meta.get("publicAnalyticsCohort") or {}
     versions = meta.get("ripWeightsConfig") or {}
+    canonical = canonical_publication_identity()
     market_date = str((meta.get("comparisonSnapshots") or {}).get("currentMarketDate") or "")[:10]
-    ranked_count = int((cohort.get("overallRanked") or {}).get("rankedSetCount") or 0)
+    overall_ranked = cohort.get("overallRanked") or {}
+    ranked_count = int(overall_ranked.get("rankedSetCount") or 0)
     financial_count = int(cohort.get("eligibleSetCount") or 0)
-    targets = [target for target in payload.get("targets") or [] if (target.get("rip") or {}).get("rank") is not None]
-    ca7_versions = sorted({
+
+    all_targets = list(payload.get("targets") or [])
+    # The canonical ranked cohort: targets carrying an Overall RIP V7 rank.
+    targets = [target for target in all_targets if _ranked(target, "overallRipV7")]
+    appeal_versions = sorted({
         str(((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version"))
         for target in targets
         if ((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version")
     })
     overall_version = (versions.get("overallRip") or {}).get("version")
     financial_version = (versions.get("financialRip") or {}).get("version")
+    contract_version = (versions.get("publicContract") or {}).get("version")
     cohort_version = cohort.get("version")
     built_at = (meta.get("snapshot") or {}).get("builtAt")
+    supported = supported_cohort_fingerprint()
+
     problems = []
     if not market_date:
         problems.append("missing market date")
     if not built_at:
         problems.append("missing built timestamp")
     if ranked_count <= 0 or len(targets) != ranked_count:
-        problems.append(f"incomplete Overall RIP cohort expected={ranked_count} actual={len(targets)}")
+        problems.append(
+            f"incomplete Overall RIP V7 cohort expected={ranked_count} actual={len(targets)}"
+        )
     if financial_count <= 0:
         problems.append("missing Financial RIP cohort count")
-    if len(ca7_versions) != 1:
-        problems.append(f"incompatible CA7 versions={ca7_versions}")
-    if any((target.get("ripCore") or {}).get("rank") is None for target in targets):
-        problems.append("missing Financial RIP rank")
-    if not overall_version or not financial_version:
-        problems.append("missing RIP scoring version")
+    if len(appeal_versions) != 1:
+        problems.append(f"incompatible Collector Appeal versions={appeal_versions}")
+    elif appeal_versions[0] != canonical["collectorAppealVersion"]:
+        problems.append(
+            f"Collector Appeal version {appeal_versions[0]!r} is not the canonical "
+            f"{canonical['collectorAppealVersion']!r}"
+        )
+    if any(not _ranked(target, "financialRipV3") for target in targets):
+        problems.append("missing Financial RIP V3 rank")
+    # Versions are VERIFIED against the canonical selection, never merely copied.
+    for label, observed, expected in (
+        ("Overall RIP", overall_version, canonical["overallRipVersion"]),
+        ("Financial RIP", financial_version, canonical["financialRipVersion"]),
+        ("public RIP contract", contract_version, canonical["publicRipContractVersion"]),
+    ):
+        if not observed:
+            problems.append(f"missing {label} version")
+        elif observed != expected:
+            problems.append(f"{label} version {observed!r} is not the canonical {expected!r}")
     if not cohort_version:
         problems.append("missing cohort version")
+    if supported["count"] and len(targets) != supported["count"]:
+        problems.append(
+            f"ranked cohort size {len(targets)} does not match the authoritative supported "
+            f"cohort of {supported['count']} sets"
+        )
+    # The publish RPC (migration 054) counts ranked targets by `rip.rank`, so its
+    # predicate must select the same rows this publisher does. Checked HERE so a
+    # divergence surfaces as a named precondition rather than an opaque Postgres
+    # exception thrown from inside a transaction.
+    legacy_ranked_ids = {
+        str(target.get("set_id") or target.get("target_id"))
+        for target in all_targets
+        if _ranked(target, "rip")
+    }
+    canonical_ranked_ids = {
+        str(target.get("set_id") or target.get("target_id")) for target in targets
+    }
+    if legacy_ranked_ids != canonical_ranked_ids:
+        problems.append(
+            "the Overall RIP V7 ranked cohort and the legacy v4 ranked cohort differ "
+            f"(v7_only={sorted(canonical_ranked_ids - legacy_ranked_ids)}, "
+            f"v4_only={sorted(legacy_ranked_ids - canonical_ranked_ids)}); the publish "
+            "RPC counts ranked targets by rip.rank and would reject this payload"
+        )
     if problems:
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: " + "; ".join(problems))
+
     ids = sorted(str(target.get("set_id") or target.get("target_id")) for target in targets)
+    source_run_ids = {
+        str(target.get("canonical_key") or target.get("set_id") or target.get("target_id")):
+            target.get("calculation_run_id")
+        for target in targets
+    }
     snapshot = {
         "id": str(uuid4()), "market_date": market_date,
         "built_at": built_at,
         "eligible_cohort_count": ranked_count, "cohort_version": cohort_version,
         "cohort_fingerprint": hashlib.sha256("\n".join(ids).encode()).hexdigest(),
         "overall_rip_version": overall_version, "financial_rip_version": financial_version,
-        "ca7_version": ca7_versions[0], "diagnostics": {"set_ids": ids},
+        # HISTORICAL COLUMN NAME. `ca7_version` dates from when the appeal input
+        # was legacy CA7; it carries the canonical Collector Appeal version. The
+        # column is part of the snapshot table's uniqueness key, so renaming it
+        # would be a migration for no behavioural gain - the diagnostics block
+        # below records the same value under an unambiguous key.
+        "ca7_version": appeal_versions[0],
+        "diagnostics": build_publication_diagnostics(
+            set_ids=ids, cohort=supported, source_run_ids=source_run_ids
+        ),
     }
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
         "set_canonical_key": target.get("canonical_key") or target.get("slug"),
-        "overall_rip_score": (target.get("rip") or {}).get("score"),
-        "overall_rip_rank": (target.get("rip") or {}).get("rank"),
-        "financial_rip_score": (target.get("ripCore") or {}).get("score"),
-        "financial_rip_rank": (target.get("ripCore") or {}).get("rank"),
+        "overall_rip_score": (target.get("overallRipV7") or {}).get("score"),
+        "overall_rip_rank": (target.get("overallRipV7") or {}).get("rank"),
+        "financial_rip_score": (target.get("financialRipV3") or {}).get("score"),
+        "financial_rip_rank": (target.get("financialRipV3") or {}).get("rank"),
         "overall_ranked_cohort_count": ranked_count,
         "financial_ranked_cohort_count": financial_count,
         "simulation_calculation_run_id": target.get("calculation_run_id"),
@@ -116,7 +213,7 @@ def validate_publication_payload(
     expected = int(snapshot.get("eligible_cohort_count") or 0)
     ranked_targets = [
         target for target in targets
-        if isinstance(target, dict) and (target.get("rip") or {}).get("rank") is not None
+        if isinstance(target, dict) and (target.get("overallRipV7") or {}).get("rank") is not None
     ]
     if expected <= 0 or len(ranked_targets) != expected:
         raise RuntimeError(

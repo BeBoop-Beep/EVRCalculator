@@ -1,19 +1,88 @@
+"""The Explore RIP leaderboard publication contract.
+
+WHAT CHANGED, AND WHY THE FIXTURE MOVED
+---------------------------------------
+The publisher used to build its rows from ``target['rip']`` (Overall RIP v4, off
+the Financial RIP V2 pillars and legacy CA7) and ``target['ripCore']`` (Financial
+RIP V2), and copied whatever version strings ``meta.ripWeightsConfig`` happened
+to carry. That is why the newest published leaderboard reported
+``overall_rip_v4_90_financial_10_ca7`` / ``financial_rip_v2_60_25_15`` while 22
+fresh Financial RIP V3 simulations sat underneath it.
+
+It now publishes ``overallRipV7`` and ``financialRipV3``, and VERIFIES the
+version strings against the one canonical selection in ``scoring_config`` before
+writing anything. So the fixture below carries the canonical objects and the
+canonical versions - a fixture on the legacy shape would now be testing that the
+publisher refuses to publish, which several tests here do deliberately.
+"""
+
 from pathlib import Path
 
 import pytest
 
+from backend.db.services.public_rip_publication_contract import (
+    canonical_publication_identity,
+)
 from backend.scripts import pokemon_explore_rankings_publisher as command
 
+CANONICAL = canonical_publication_identity()
 
-def _row(*, target_count=1, ca7_version="ca7-v1"):
+
+# The supported-cohort keys the stubbed authority reports. `_row()` keeps this in
+# step with whatever cohort it just built, so every test except the dedicated
+# mismatch one sees an authority that agrees with its own fixture.
+_SUPPORTED_KEYS: list = ["set-0"]
+
+
+@pytest.fixture(autouse=True)
+def _fixed_supported_cohort(monkeypatch):
+    """Pin the authoritative supported cohort to the fixture's size.
+
+    The publisher checks the ranked cohort against
+    ``opening_simulation_gate.supported_opening_set_keys()``, which resolves the
+    REAL set registry (22 sets). A unit test builds one or two synthetic sets, so
+    without this the cohort-size assertion would fail for a reason that has
+    nothing to do with what each test is exercising - and the suite would break
+    every time a set is onboarded.
+    """
+    def _stub(keys=None):
+        return {
+            "version": "supported_opening_cohort_fingerprint_v1",
+            "fingerprint": "stub-fingerprint",
+            "keys": list(_SUPPORTED_KEYS),
+            "count": len(_SUPPORTED_KEYS),
+        }
+
+    monkeypatch.setattr(command, "supported_cohort_fingerprint", _stub)
+    return _stub
+
+
+def _set_supported_keys(keys):
+    """Point the stubbed authority at an explicit key list."""
+    _SUPPORTED_KEYS[:] = list(keys)
+
+
+def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
+         overall_version=CANONICAL["overallRipVersion"],
+         financial_version=CANONICAL["financialRipVersion"],
+         contract_version=CANONICAL["publicRipContractVersion"],
+         ranked_count=None):
     targets = [{
         "set_id": f"00000000-0000-0000-0000-{index:012d}",
         "canonical_key": f"set-{index}",
-        "rip": {"score": 80 - index, "rank": index + 1},
-        "ripCore": {"score": 75 - index, "rank": index + 1},
-        "openingExperience": {"collectorAppeal": {"version": ca7_version}},
+        # The CANONICAL objects the publisher now reads.
+        "overallRipV7": {"score": 80 - index, "rank": index + 1},
+        "financialRipV3": {"score": 75 - index, "rank": index + 1},
+        # The legacy objects, still present. The publish RPC counts ranked
+        # targets by `rip.rank`, so they must select the same rows.
+        "rip": {"score": 78 - index, "rank": index + 1},
+        "ripCore": {"score": 70 - index, "rank": index + 1},
+        "openingExperience": {"collectorAppeal": {"version": appeal_version}},
+        "calculation_run_id": f"run-{index}",
         "pack_cost": 5,
     } for index in range(target_count)]
+    # Keep the stubbed authority in step with the cohort just built.
+    _set_supported_keys(f"set-{index}" for index in range(target_count))
     return {"ranking_payload_json": {
         "targets": targets,
         "meta": {
@@ -22,11 +91,15 @@ def _row(*, target_count=1, ca7_version="ca7-v1"):
             "publicAnalyticsCohort": {
                 "version": "cohort-v1",
                 "eligibleSetCount": target_count,
-                "overallRanked": {"rankedSetCount": 1},
+                "overallRanked": {
+                    "rankedSetCount": target_count if ranked_count is None else ranked_count
+                },
             },
             "ripWeightsConfig": {
-                "overallRip": {"version": "overall-v4"},
-                "financialRip": {"version": "financial-v2"},
+                "overallRip": {"version": overall_version},
+                "financialRip": {"version": financial_version},
+                "collectorAppeal": {"version": appeal_version},
+                "publicContract": {"version": contract_version},
             },
         },
     }}
@@ -39,14 +112,89 @@ def test_complete_cohort_builds_history_publication_contract():
     assert len(rows) == 1
 
 
+def test_published_rows_carry_the_canonical_scores_not_the_legacy_ones():
+    """THE regression this file exists for.
+
+    The fixture gives the canonical and legacy objects deliberately DIFFERENT
+    scores, so a publisher that read `rip`/`ripCore` would produce 78/70 here
+    instead of 80/75 and this assertion would catch it.
+    """
+    snapshot, rows = command.publication_contract(_row())
+    assert rows[0]["overall_rip_score"] == 80
+    assert rows[0]["financial_rip_score"] == 75
+    assert snapshot["overall_rip_version"] == CANONICAL["overallRipVersion"]
+    assert snapshot["financial_rip_version"] == CANONICAL["financialRipVersion"]
+    # `ca7_version` is the historical COLUMN name; it carries the canonical
+    # Collector Appeal version, and the diagnostics block records the same value
+    # under an unambiguous key.
+    assert snapshot["ca7_version"] == CANONICAL["collectorAppealVersion"]
+    assert snapshot["diagnostics"]["collector_appeal_version"] == (
+        CANONICAL["collectorAppealVersion"]
+    )
+    assert snapshot["diagnostics"]["public_rip_contract_version"] == (
+        CANONICAL["publicRipContractVersion"]
+    )
+    assert snapshot["diagnostics"]["supported_cohort_fingerprint"] == "stub-fingerprint"
+    assert snapshot["diagnostics"]["source_calculation_run_ids"] == {"set-0": "run-0"}
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        ({"overall_version": "overall_rip_v6_80_financial_v3_20_collector_appeal_v2"},
+         "Overall RIP version .* is not the canonical"),
+        ({"financial_version": "financial_rip_v2_60_25_15"},
+         "Financial RIP version .* is not the canonical"),
+        ({"contract_version": "public_rip_contract_v6"},
+         "public RIP contract version .* is not the canonical"),
+        ({"appeal_version": "collector_appeal_v2_desirable_frequency_dual_path"},
+         "Collector Appeal version .* is not the canonical"),
+    ],
+)
+def test_a_superseded_version_refuses_to_publish(kwargs, expected):
+    """Versions are VERIFIED, not merely copied.
+
+    A payload built by an older worker, or a metadata block left behind by the
+    next cutover, must refuse rather than mint a snapshot under a superseded
+    contract that then reads as authoritative.
+    """
+    with pytest.raises(RuntimeError, match=expected):
+        command.publication_contract(_row(**kwargs))
+
+
 def test_incomplete_cohort_fails_closed():
-    with pytest.raises(RuntimeError, match="incomplete Overall RIP cohort"):
-        command.publication_contract(_row(target_count=2))
+    with pytest.raises(RuntimeError, match="incomplete Overall RIP V7 cohort"):
+        command.publication_contract(_row(target_count=2, ranked_count=1))
 
 
-def test_missing_or_mixed_ca7_version_fails_closed():
-    with pytest.raises(RuntimeError, match="incompatible CA7 versions"):
-        command.publication_contract(_row(ca7_version=None))
+def test_missing_or_mixed_appeal_version_fails_closed():
+    with pytest.raises(RuntimeError, match="incompatible Collector Appeal versions"):
+        command.publication_contract(_row(appeal_version=None))
+
+
+def test_a_cohort_that_does_not_match_the_supported_set_list_fails_closed():
+    """Support comes from the authoritative set list, never from "a score exists".
+
+    A set whose simulation failed would otherwise leave the cohort silently and
+    shrink every denominator with nothing recording that the population changed.
+    """
+    payload = _row()
+    _set_supported_keys(["set-0", "set-1", "set-2"])
+    with pytest.raises(RuntimeError, match="does not match the authoritative supported cohort"):
+        command.publication_contract(payload)
+
+
+def test_a_v7_cohort_that_diverges_from_the_rpc_predicate_fails_closed():
+    """The publish RPC counts ranked targets by ``rip.rank``.
+
+    Its predicate must select the same rows this publisher does, or the RPC
+    rejects the payload from inside a transaction with an opaque message. Caught
+    here instead, as a named precondition.
+    """
+    payload = _row()
+    payload["ranking_payload_json"]["targets"][0]["rip"] = {"score": 78, "rank": None}
+    with pytest.raises(RuntimeError, match="the publish RPC counts ranked targets by rip.rank"):
+        command.publication_contract(payload)
 
 
 def test_atomic_rpc_is_idempotent_and_promotes_latest_after_history_rows():
@@ -226,8 +374,15 @@ def test_application_preflight_rejects_malformed_contract(mutation, message):
 
 
 def test_application_preflight_rejects_ranked_count_mismatch():
+    """The preflight counts the CANONICAL rank, matching what the publisher wrote.
+
+    It used to count ``rip.rank`` (Overall RIP v4). Leaving it there after the
+    publisher moved to ``overallRipV7`` would have made the preflight validate a
+    different cohort from the one being published - the two could disagree and
+    nothing would notice.
+    """
     row, snapshot, history = _publication_parameters()
-    row["ranking_payload_json"]["targets"][0]["rip"]["rank"] = None
+    row["ranking_payload_json"]["targets"][0]["overallRipV7"]["rank"] = None
     with pytest.raises(RuntimeError, match="ranked target count"):
         command.validate_publication_payload(row, snapshot, history)
 

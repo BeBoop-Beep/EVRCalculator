@@ -1,10 +1,10 @@
-"""THE production Collector Appeal service: one place that computes CA7.
+"""THE production Collector Appeal service: one place that computes the score.
 
 WHAT THIS OWNS
 --------------
-D, P, CA7, Chase Appeal, the specific printings behind each subject's two paths,
-and a truthful account of what is unavailable and why - for every set, in one
-batch, cached.
+D, H, P, the canonical Collector Appeal V3 score, Chase Appeal, the specific
+printings behind each subject's two paths, and a truthful account of what is
+unavailable and why - for every set, in one batch, cached.
 
 WHAT THIS DOES NOT OWN
 ----------------------
@@ -26,8 +26,10 @@ Every number here comes from the module that defines it:
   * D            <- ``universal_set_desirability_service`` (the SAME bundle the
                     public Universal Desirability reader serves, so the two can
                     never disagree about a set's desirability)
+  * H (= F)      <- ``desirable_outcome_frequency.compute_desirable_outcome_frequency``
   * P            <- ``collector_appeal.compute_dual_path_depth``
-  * CA7          <- ``collector_appeal.compute_collector_appeal`` (frozen)
+  * Collector
+    Appeal V3    <- ``collector_appeal.compute_collector_appeal_v3``
   * Chase Appeal <- ``collector_appeal.compute_chase_appeal``
   * M*           <- ``factorized_opening_appeal.compute_m_star_m1``
   * subjects     <- ``collector_appeal_inputs.build_subject_index``
@@ -38,11 +40,11 @@ appears here that is not read from one of the above, that is a bug.
 
 NO FALLBACK
 -----------
-When CA7 is unavailable this service reports it unavailable, with a reason. It
-never substitutes Universal Desirability. The two are different constructs that
-share a product name, and silently serving one as the other is precisely the
-confusion ``collector_appeal``'s header documents. A caller that wants D can ask
-for D.
+When Collector Appeal is unavailable this service reports it unavailable, with a
+reason. It never substitutes Universal Desirability, Collector Appeal V2 or
+legacy CA7. They are different constructs and different formulas, and silently
+serving one as another is precisely the confusion ``collector_appeal``'s header
+documents. A caller that wants D can ask for D.
 """
 
 from __future__ import annotations
@@ -59,17 +61,15 @@ from backend.db.services.universal_set_desirability_service import (
 from backend.desirability.collector_appeal import (
     CHASE_APPEAL_VERSION,
     COLLECTOR_APPEAL_CA7_VERSION,
-    COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
-    COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
-    COLLECTOR_APPEAL_HEADROOM_GAIN,
-    COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
-    COLLECTOR_APPEAL_V2_FORMULA_VERSION,
     COLLECTOR_APPEAL_V2_VERSION,
+    COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V3_VERSION,
     DUAL_PATH_DEPTH_VERSION,
-    collector_appeal_v2_decomposition,
+    collector_appeal_v3_missing_inputs,
     compute_chase_appeal,
     compute_collector_appeal_ca7,
     compute_collector_appeal_v2,
+    compute_collector_appeal_v3,
     compute_dual_path_depth,
 )
 from backend.desirability.desirable_outcome_frequency import (
@@ -196,12 +196,15 @@ def _build_set_payload(
     magnetism = compute_m_star_m1(subjects) if subjects else None
     m_value = (magnetism or {}).get("value")
 
-    # CANONICAL: D + 0.50 * (0.60F + 0.40P) * (1 - D).
-    collector_appeal = compute_collector_appeal_v2(d_unit, f_value, p_value)
-    decomposition = collector_appeal_v2_decomposition(d_unit, f_value, p_value)
-    # LEGACY CA7, computed alongside for the comparison audit and regression
-    # tests only. It is NOT the published Collector Appeal and is never used as
-    # a fallback when the canonical formula is unavailable.
+    # CANONICAL: the balanced weighted sum of D, H and P. H is the SAME quantity
+    # this file already computed as `f_value`; production names it F and the
+    # validation brief names it H, and there is one implementation of it.
+    collector_appeal = compute_collector_appeal_v3(d_unit, f_value, p_value)
+    missing_inputs = collector_appeal_v3_missing_inputs(d_unit, f_value, p_value)
+    # SUPERSEDED, computed alongside for the comparison audit and regression
+    # tests only. Neither is the published Collector Appeal and neither is ever
+    # used as a fallback when the canonical formula is unavailable.
+    legacy_v2 = compute_collector_appeal_v2(d_unit, f_value, p_value)
     legacy_ca7 = compute_collector_appeal_ca7(d_unit, p_value)
     chase_appeal = compute_chase_appeal(d_unit, m_value)
 
@@ -223,7 +226,8 @@ def _build_set_payload(
     available = collector_appeal is not None
     if available and reason is not None:  # pragma: no cover - defensive
         logger.error(
-            "[collector-appeal] %s: CA7 computed but a reason was recorded (%s)", set_id, reason
+            "[collector-appeal] %s: a score was computed but a reason was recorded (%s)",
+            set_id, reason,
         )
 
     return {
@@ -253,23 +257,44 @@ def _build_set_payload(
         "collectorAppeal": {
             "score": round(collector_appeal * 100.0, 4) if collector_appeal is not None else None,
             "rawValue": collector_appeal,
-            "version": COLLECTOR_APPEAL_V2_VERSION,
-            "formulaVersion": COLLECTOR_APPEAL_V2_FORMULA_VERSION,
-            "formula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
-            # The published breakdown, derived from the same call as the score.
-            # Weights are NOT repeated here - they live once, in the bundle's
-            # `identity` block.
-            **decomposition,
+            "version": COLLECTOR_APPEAL_V3_VERSION,
+            "formulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+            # The three factor VALUES the score consumed, so a reader can see
+            # what drove it. Deliberately NOT the weights, the per-factor
+            # contributions or a formula string: the arithmetic is a one-line
+            # weighted sum, so any of those would disclose the model. The
+            # internal decomposition lives in
+            # `collector_appeal.collector_appeal_v3_decomposition` and is used by
+            # the audits and tests, never by a payload.
+            "factors": {
+                "rosterDesirability": d_unit,
+                "desirableOutcomeFrequency": f_value,
+                "dualPathDepth": p_value,
+            },
+            # Named individually rather than as one flag: "no desirability
+            # coverage", "no pull model" and "no dual-path data" call for three
+            # different fixes.
+            "missingInputs": missing_inputs,
         },
-        # Superseded. Published so the V2-vs-CA7 comparison has a real number to
-        # report and a rollback has something to compare against. It is never
-        # read as a fallback: an unavailable canonical Collector Appeal stays
-        # unavailable rather than quietly serving this.
+        # Superseded. Published so the V3-vs-V2 and V3-vs-CA7 comparisons have
+        # real numbers and a rollback has something to compare against. Neither
+        # is ever read as a fallback: an unavailable canonical Collector Appeal
+        # stays unavailable rather than quietly serving one of these.
+        "legacyCollectorAppealV2": {
+            "score": round(legacy_v2 * 100.0, 4) if legacy_v2 is not None else None,
+            "rawValue": legacy_v2,
+            "version": COLLECTOR_APPEAL_V2_VERSION,
+            "status": "superseded_by_collector_appeal_v3",
+            "note": (
+                "Collector Appeal V2 (bounded headroom over D). Retained for "
+                "comparison and rollback only; not the published Collector Appeal."
+            ),
+        },
         "legacyCollectorAppealCA7": {
             "score": round(legacy_ca7 * 100.0, 4) if legacy_ca7 is not None else None,
             "rawValue": legacy_ca7,
             "version": COLLECTOR_APPEAL_CA7_VERSION,
-            "status": "superseded_by_collector_appeal_v2",
+            "status": "superseded_by_collector_appeal_v3",
             "note": (
                 "Legacy CA7 (D + 0.50 * P * (1 - D)). Retained for comparison and "
                 "rollback only; not the published Collector Appeal."
@@ -305,11 +330,11 @@ def _build_set_payload(
 
 
 def _structural_correlation_diagnostics(built: Mapping[str, Any]) -> Dict[str, Any]:
-    """Spearman between D, F and P across the sets that have all three.
+    """Spearman between D, H and P across the sets that have all three.
 
-    REPORT ONLY. F and P both describe opening structure, so a near-perfect rank
-    correlation between them would mean the 0.60/0.40 blend is measuring one
-    axis twice - a finding worth surfacing. It is deliberately NOT wired to the
+    REPORT ONLY. H and P both describe opening structure, so a near-perfect rank
+    correlation between them would mean the balanced sum is measuring one axis
+    twice - a finding worth surfacing. It is deliberately NOT wired to the
     weights: tuning a construct decision on its own correlation is how a
     measurement becomes a fit.
     """
@@ -326,7 +351,7 @@ def _structural_correlation_diagnostics(built: Mapping[str, Any]) -> Dict[str, A
 
     d_values, f_values, p_values = [], [], []
     for row in rows:
-        d = ((row.get("collectorAppeal") or {}).get("inputs") or {}).get("rosterDesirability")
+        d = ((row.get("collectorAppeal") or {}).get("factors") or {}).get("rosterDesirability")
         f = (row.get("desirableOutcomeFrequency") or {}).get("rawValue")
         p = (row.get("dualPathDepth") or {}).get("rawValue")
         if d is None or f is None or p is None:
@@ -412,7 +437,7 @@ def _build_bundle() -> Dict[str, Any]:
     available = [row for row in built.values() if row["status"] == STATUS_AVAILABLE]
     elapsed_ms = (time.perf_counter() - started) * 1000
     logger.info(
-        "[collector-appeal] built %s sets (%s with CA7) in %.0fms",
+        "[collector-appeal] built %s sets (%s with a Collector Appeal score) in %.0fms",
         len(built), len(available), elapsed_ms,
     )
 
@@ -432,23 +457,24 @@ def _build_bundle() -> Dict[str, Any]:
         # repeated on every set payload: a weight restated per set is a weight
         # that can disagree with itself across a bundle.
         "identity": {
-            "collectorAppealVersion": COLLECTOR_APPEAL_V2_VERSION,
-            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V2_FORMULA_VERSION,
-            "collectorAppealFormula": COLLECTOR_APPEAL_V2_FORMULA_EXPRESSION,
-            "collectorAppealWeights": {
-                "desirableOutcomeFrequency": COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
-                "dualPathDepth": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
-                "headroomGain": COLLECTOR_APPEAL_HEADROOM_GAIN,
-            },
+            "collectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
+            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+            # Weights and the formula expression are deliberately ABSENT. They
+            # are internal to the model, and this bundle travels to callers that
+            # project it outward. The full weighted identity is available to
+            # operators through the fingerprint identity block, which is stored
+            # in `diagnostics_json` and never projected into a public contract.
+            "weightsDisclosed": False,
             "desirableOutcomeFrequencyVersion": DESIRABLE_OUTCOME_FREQUENCY_VERSION,
             "dualPathDepthVersion": DUAL_PATH_DEPTH_VERSION,
             "chaseAppealVersion": CHASE_APPEAL_VERSION,
+            "legacyCollectorAppealV2Version": COLLECTOR_APPEAL_V2_VERSION,
             "legacyCollectorAppealCA7Version": COLLECTOR_APPEAL_CA7_VERSION,
             "formulaFingerprint": current_fingerprint(),
         },
-        # Descriptive only. F and P are related structural measurements, so their
+        # Descriptive only. H and P are related structural measurements, so their
         # rank correlation is reported to keep the relationship visible - but it
-        # never tunes the 0.60/0.40 split, which is a construct decision.
+        # never tunes the weights, which are a construct decision.
         "diagnostics": _structural_correlation_diagnostics(built),
         "buildMs": round(elapsed_ms, 1),
     }

@@ -94,6 +94,9 @@ class PublicationSummary:
     market_audit_status: str = "not_attempted"
     market_audit_failed_sets: List[str] = field(default_factory=list)
     market_audit_report: Optional[Dict[str, Any]] = None
+    rip_contract_audit_status: str = "not_attempted"
+    rip_contract_audit_failures: List[str] = field(default_factory=list)
+    rip_contract_audit_report: Optional[Dict[str, Any]] = None
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -123,6 +126,9 @@ class PublicationSummary:
             out.append(
                 f"{TAG} market_audit_failed_sets={','.join(self.market_audit_failed_sets)}"
             )
+        out.append(f"{TAG} rip_contract_audit_status={self.rip_contract_audit_status}")
+        for failure in self.rip_contract_audit_failures:
+            out.append(f"{TAG}   rip_contract_audit_failed={failure}")
         if self.market_audit_report:
             failed_by_section = self.market_audit_report.get("failed_by_section") or {}
             for section, sets in sorted(failed_by_section.items()):
@@ -365,8 +371,66 @@ def orchestrate(
             )
         return summary
 
+    # ---- Step 8: the published leaderboard must be on the CANONICAL contract --
+    # Steps 6 and 7 both check FRESHNESS - did the data reach the promoted market
+    # date. Neither asks which formula scored it, and a scoring-version change
+    # moves no timestamp. That is how a leaderboard published under Financial RIP
+    # V2 / Overall RIP v4 stayed classified current while 22 Financial RIP V3
+    # simulations sat underneath it. This step asserts the versions, the
+    # authoritative cohort, contiguous ranks and the source runs.
+    summary.rip_contract_audit_status = _run_rip_contract_audit(
+        client, summary, dry_run=dry_run, skip_snapshots=skip_snapshots
+    )
+    if summary.rip_contract_audit_status not in {"passed", "skipped"}:
+        summary.exit_code = EXIT_FAILED
+        if not summary.error:
+            detail = "; ".join(summary.rip_contract_audit_failures[:5]) or (
+                summary.rip_contract_audit_status
+            )
+            summary.error = (
+                "the published RIP leaderboard is not on the canonical scoring contract; "
+                f"refusing to report success ({detail})"
+            )
+        return summary
+
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _run_rip_contract_audit(
+    client: Any,
+    summary: PublicationSummary,
+    *,
+    dry_run: bool,
+    skip_snapshots: bool,
+) -> str:
+    """Assert the published leaderboard is on the canonical scoring contract.
+
+    Returns ``passed``, ``skipped``, ``failed`` or ``error:<reason>``. An
+    unreadable audit is never a pass - the previous last-known-good public data
+    stays visible, which is the correct fail-closed outcome.
+    """
+    if dry_run or skip_snapshots:
+        return "skipped"
+
+    from backend.scripts.audit_public_rip_leaderboard_publication import run_audit
+
+    try:
+        report = run_audit(client)
+    except Exception as exc:  # noqa: BLE001 - an unreadable audit must not read as success
+        logger.warning("%s RIP contract audit raised", TAG, exc_info=True)
+        return f"error:{exc}"
+
+    if report.error:
+        return f"error:{report.error}"
+
+    summary.rip_contract_audit_failures = [
+        f"{assertion.name}: {assertion.detail}" for assertion in report.failures
+    ]
+    summary.rip_contract_audit_report = report.to_dict()
+    for line in report.lines():
+        print(line)
+    return "passed" if report.passed else "failed"
 
 
 def _run_market_publication_audit(

@@ -46,7 +46,7 @@ def test_grids_are_exactly_the_pre_registered_values():
     """Pinned literally. A new cell must fail here before it can reach a report."""
     assert COLLECTOR_APPEAL_FREQUENCY_WEIGHT_GRID == (0.50, 0.60, 0.70)
     assert COLLECTOR_APPEAL_HEADROOM_GAIN_GRID == (0.25, 0.50, 0.75)
-    assert OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID == (0.00, 0.10, 0.15, 0.20, 0.25)
+    assert OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID == (0.00, 0.10, 0.13, 0.14, 0.15, 0.20)
     assert len(CANDIDATE_GRID) == 9
     assert len(CANDIDATE_KEYS) == 9
     assert len(set(CANDIDATE_KEYS)) == 9
@@ -63,21 +63,79 @@ def test_candidate_keys_use_the_required_identifier_format():
     assert candidate_key(0.70, 0.50) == "CA8_D_H70_P30_L50"
 
 
-def test_primary_candidate_reproduces_the_shipping_production_formula():
-    """The grid's primary cell must BE the formula production computes.
+def test_primary_candidate_still_reproduces_the_superseded_collector_appeal_v2():
+    """The grid's primary cell IS Collector Appeal V2, exactly.
 
-    If production's constants move and this module's do not, the study would
-    silently be validating a formula nobody ships.
+    That is what keeps the V2-vs-V3 comparison honest: the study's "primary"
+    column has to be the formula V3 actually replaced, not an approximation of
+    it.
     """
     from backend.desirability.collector_appeal import compute_collector_appeal_v2
 
-    assert primary_matches_production() is True
     for d in GRID:
         for h in GRID:
             for p in GRID:
                 assert compute_primary(d, h, p) == pytest.approx(
                     compute_collector_appeal_v2(d, h, p), abs=1e-12
                 )
+
+
+def test_the_grid_no_longer_describes_the_canonical_production_formula():
+    """``primary_matches_production()`` must now report False.
+
+    Production ships the Collector Appeal V3 balanced weighted sum, which is not
+    in this bounded-headroom family at all. Reporting True would tell a reader
+    the study is validating the shipping model when it is validating the model
+    the shipping one replaced.
+    """
+    from backend.desirability.collector_appeal import compute_collector_appeal_v3
+
+    assert primary_matches_production() is False
+    registry = module.candidate_registry()
+    assert registry["matchesProductionFormula"] is False
+    assert registry["canonicalProductionKey"] == "collector_appeal_v3_balanced"
+    # And the two really do differ wherever H and P are not both extreme.
+    assert compute_primary(0.80, 0.20, 0.40) != pytest.approx(
+        compute_collector_appeal_v3(0.80, 0.20, 0.40), abs=1e-9
+    )
+
+
+def test_the_canonical_formula_is_available_as_a_comparison_column():
+    """The study must be able to compare V3 against everything it replaced."""
+    from backend.desirability.collector_appeal import compute_collector_appeal_v3
+
+    comparisons = module.compute_comparisons(d=0.80, h=0.20, p=0.40, m=0.50)
+    for key in module.COMPARISON_KEYS:
+        assert key in comparisons
+    assert comparisons["collector_appeal_v3_balanced"] == pytest.approx(
+        compute_collector_appeal_v3(0.80, 0.20, 0.40), abs=1e-12
+    )
+    assert comparisons["pure_D"] == pytest.approx(0.80, abs=1e-12)
+    assert comparisons["collector_appeal_v2_bounded_headroom"] is not None
+
+
+@pytest.mark.parametrize("dropped", ["d", "h", "p"])
+def test_ablations_require_every_input_and_treat_renormalization_distinctly(dropped):
+    """Both ablation families, and the property that separates them.
+
+    Renormalized weights sum to 1 so the result stays on [0, 1]; contribution
+    removal keeps the original weights so it cannot exceed ``1 - w(dropped)``.
+    If the renormalize branch failed to renormalize, the two would silently
+    become one column reported twice under two different questions.
+    """
+    raw = module.compute_v3_without_input(1.0, 1.0, 1.0, dropped=dropped, renormalize=False)
+    renormalized = module.compute_v3_without_input(
+        1.0, 1.0, 1.0, dropped=dropped, renormalize=True
+    )
+    weight = module.collector_appeal_v3_weight(dropped)
+    assert raw == pytest.approx(1.0 - weight, abs=1e-12)
+    assert renormalized == pytest.approx(1.0, abs=1e-12)
+    # The DROPPED input is still required to be present, so the ablation cohort
+    # and the full cohort are the same sets - otherwise a coverage difference
+    # would be attributed to the dropped input.
+    assert module.compute_v3_without_input(
+        None, 1.0, 1.0, dropped=dropped, renormalize=True
+    ) is None
 
 
 def test_module_contains_no_optimizer_or_search_over_the_grid():

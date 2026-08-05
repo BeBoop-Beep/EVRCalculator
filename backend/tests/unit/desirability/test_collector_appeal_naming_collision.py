@@ -77,8 +77,8 @@ def test_the_stored_block_states_metric_formula_and_status_together():
     assert identity["product_status"] == "internal_candidate"
     # The formula is the canonical one, and the stored block is namespaced away
     # from the legacy CA7 key so a block's name and its value cannot disagree.
-    assert identity["formula"] == "COLLECTOR_APPEAL_V2"
-    assert identity["diagnostics_key"] == "collector_appeal_v2"
+    assert identity["formula"] == "COLLECTOR_APPEAL_V3"
+    assert identity["diagnostics_key"] == "collector_appeal_v3"
 
 
 # ---------------------------------------------------------------------------

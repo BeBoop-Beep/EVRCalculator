@@ -72,6 +72,8 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
     COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
     COLLECTOR_APPEAL_HEADROOM_GAIN,
+    COLLECTOR_APPEAL_V3_INPUT_ORDER,
+    COLLECTOR_APPEAL_V3_WEIGHTS,
 )
 
 CANDIDATE_FAMILY_VERSION = "collector_appeal_ca8_pre_registered_grid_v1"
@@ -254,27 +256,65 @@ def candidate_registry() -> Dict[str, Any]:
         "selectionRule": SELECTION_RULE,
         "aliasNote": ALIAS_NOTE,
         "matchesProductionFormula": primary_matches_production(),
-        "productionConstants": {
+        "matchesProductionFormulaNote": (
+            "FALSE is the expected value now. This CA8 grid is the bounded-headroom "
+            "family, and production has moved to the Collector Appeal V3 balanced "
+            "weighted sum (0.40D + 0.35H + 0.25P). The grid is retained as the "
+            "family the shipping formula is compared AGAINST - the primary cell "
+            "still reproduces the superseded Collector Appeal V2 exactly, which is "
+            "what makes the V2-vs-V3 comparison honest."
+        ),
+        "supersededFamilyConstants": {
             "frequencyWeight": COLLECTOR_APPEAL_FREQUENCY_WEIGHT,
             "dualPathWeight": COLLECTOR_APPEAL_DUAL_PATH_WEIGHT,
             "headroomGain": COLLECTOR_APPEAL_HEADROOM_GAIN,
         },
+        "canonicalProductionKey": CANONICAL_PRODUCTION_KEY,
+        "overallWeightGrid": list(OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID),
+        "canonicalOverallWeight": canonical_overall_weight(),
     }
 
 
 def primary_matches_production() -> bool:
-    """Does the pre-registered primary still describe the shipping formula?
+    """Does the pre-registered CA8 primary still describe the shipping formula?
 
     Reported rather than asserted at import time, because a mismatch is a
-    FINDING for the validation report - "production moved away from the
-    candidate this study evaluates" - not a reason to crash a research script
-    that is otherwise still able to describe both.
+    FINDING for the validation report - "production moved away from the candidate
+    this grid evaluates" - not a reason to crash a research script that is
+    otherwise still able to describe both.
+
+    It now returns False, and that is the correct answer: production ships the
+    Collector Appeal V3 balanced sum, which is not in this bounded-headroom
+    family at all. The grid's primary cell still reproduces Collector Appeal V2
+    exactly, so the comparison it supports remains valid.
     """
     return (
         abs(PRIMARY_FREQUENCY_WEIGHT - COLLECTOR_APPEAL_FREQUENCY_WEIGHT) < 1e-12
         and abs((1.0 - PRIMARY_FREQUENCY_WEIGHT) - COLLECTOR_APPEAL_DUAL_PATH_WEIGHT) < 1e-12
         and abs(PRIMARY_HEADROOM_GAIN - COLLECTOR_APPEAL_HEADROOM_GAIN) < 1e-12
+        and _primary_matches_canonical_entry_point()
     )
+
+
+def _primary_matches_canonical_entry_point() -> bool:
+    """Does the grid's primary agree with the CANONICAL production entry point?
+
+    Checked on a dense probe rather than on constants alone: matching weights in
+    a family production no longer uses would still report True, which is exactly
+    the false reassurance this function exists to avoid.
+    """
+    from backend.desirability.collector_appeal import compute_collector_appeal_v3
+
+    for d in (0.0, 0.25, 0.5, 0.75, 1.0):
+        for h in (0.0, 0.5, 1.0):
+            for p in (0.0, 0.5, 1.0):
+                primary = compute_primary(d, h, p)
+                canonical = compute_collector_appeal_v3(d, h, p)
+                if primary is None or canonical is None:
+                    return False
+                if abs(primary - canonical) > 1e-12:
+                    return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -289,22 +329,40 @@ COMPARISON_KEYS: Tuple[str, ...] = (
     "pure_D",
     "CA6_dual_path_utility",
     "CA7_legacy_bounded_bonus_50",
+    "collector_appeal_v2_bounded_headroom",
+    "collector_appeal_v3_balanced",
     "chase_appeal_D_times_M",
 )
 
+# The CANONICAL production formula's key inside this study. Named so a reader of
+# a CSV column can tell at a glance which column is the shipping model and which
+# are the things it is being compared against.
+CANONICAL_PRODUCTION_KEY = "collector_appeal_v3_balanced"
+SUPERSEDED_V2_KEY = "collector_appeal_v2_bounded_headroom"
+PURE_D_KEY = "pure_D"
+LEGACY_CA7_KEY = "CA7_legacy_bounded_bonus_50"
+
 
 def compute_comparisons(
-    *, d: Any, p: Any, m: Any = None
+    *, d: Any, p: Any, h: Any = None, m: Any = None
 ) -> Dict[str, Optional[float]]:
-    """Pure D, CA6, legacy CA7 and Chase Appeal on the same [0,1] scale.
+    """Every formula the study compares, on the same [0,1] scale.
 
-    Imported from production where an entry point exists, so the comparison
-    baselines cannot drift from the formulas they claim to be.
+    Pure D, CA6, legacy CA7, the superseded Collector Appeal V2 bounded-headroom
+    formula, the canonical Collector Appeal V3 balanced formula, and Chase
+    Appeal.
+
+    Every one is IMPORTED from production rather than re-expressed here, so a
+    comparison baseline cannot drift from the formula it claims to be. ``h`` is
+    optional only so an older caller that predates the V2/V3 columns still runs;
+    without it those two columns report unavailable rather than a wrong number.
     """
     from backend.desirability.collector_appeal import (
         CA7_PRODUCTION_LAMBDA,
         compute_chase_appeal,
         compute_collector_appeal_ca7,
+        compute_collector_appeal_v2,
+        compute_collector_appeal_v3,
         dual_path_utility,
     )
 
@@ -318,18 +376,123 @@ def compute_comparisons(
         "CA7_legacy_bounded_bonus_50": compute_collector_appeal_ca7(
             d_value, p, lam=CA7_PRODUCTION_LAMBDA
         ),
+        SUPERSEDED_V2_KEY: compute_collector_appeal_v2(d_value, h, p),
+        CANONICAL_PRODUCTION_KEY: compute_collector_appeal_v3(d_value, h, p),
         "chase_appeal_D_times_M": compute_chase_appeal(d_value, m),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Collector Appeal V3 input-influence probes (RESEARCH ONLY)
+# ---------------------------------------------------------------------------
+# Two ways to "remove" an input from a weighted sum, and they answer different
+# questions. Both are reported, because reporting only one invites the reader to
+# assume the other would agree.
+#
+#   removal WITHOUT renormalization : drop the term, keep the other weights.
+#       Answers "how much of the score does this input contribute?" The result
+#       is not on the 0-100 scale any more, which is fine for a RANK comparison
+#       and is why the score itself is not reported as a score.
+#
+#   drop AND renormalize            : drop the term, rescale the survivors to
+#       sum to 1. Answers "what would the metric look like if it had been built
+#       without this input?" - the counterfactual model, still on 0-100.
+#
+# Neither is a candidate. Neither is ever promoted. They exist to measure what
+# the observed cohort does under the shipping weights.
+
+COLLECTOR_APPEAL_V3_INPUT_KEYS: Tuple[str, ...] = tuple(COLLECTOR_APPEAL_V3_INPUT_ORDER)
+
+# study-facing name -> production weight key. The study speaks D/H/P.
+COLLECTOR_APPEAL_V3_STUDY_KEYS: Dict[str, str] = {
+    "d": "roster_desirability",
+    "h": "desirable_outcome_frequency",
+    "p": "dual_path_depth",
+}
+
+
+def collector_appeal_v3_weight(study_key: str) -> float:
+    """The production weight for one study-facing input name."""
+    return float(COLLECTOR_APPEAL_V3_WEIGHTS[COLLECTOR_APPEAL_V3_STUDY_KEYS[study_key]])
+
+
+def compute_v3_without_input(
+    d: Any, h: Any, p: Any, *, dropped: str, renormalize: bool
+) -> Optional[float]:
+    """Collector Appeal V3 with one input removed, on [0, 1].
+
+    ``dropped`` is one of ``"d"``, ``"h"``, ``"p"``. With ``renormalize=False``
+    the surviving weights are unchanged, so the result is bounded above by
+    ``1 - weight(dropped)``. With ``renormalize=True`` the survivors are scaled
+    to sum to 1 and the result is back on [0, 1].
+
+    Every input is still REQUIRED to be present, including the dropped one. That
+    is deliberate: comparing a two-input score computed over 22 sets against a
+    three-input score computed over 19 would attribute a coverage difference to
+    the dropped input.
+    """
+    if dropped not in COLLECTOR_APPEAL_V3_STUDY_KEYS:
+        raise KeyError(f"Unknown Collector Appeal input {dropped!r}")
+    values = {"d": _as_float(d), "h": _as_float(h), "p": _as_float(p)}
+    if any(value is None for value in values.values()):
+        return None
+    kept = {key: value for key, value in values.items() if key != dropped}
+    weights = {key: collector_appeal_v3_weight(key) for key in kept}
+    total = sum(weights.values())
+    if renormalize:
+        if total <= 0:
+            return None
+        weights = {key: weight / total for key, weight in weights.items()}
+    return _clamp(sum(_clamp(kept[key]) * weights[key] for key in kept))
+
+
+def collector_appeal_v3_contributions(d: Any, h: Any, p: Any) -> Dict[str, Optional[float]]:
+    """Per-input contribution to the unit score, for the influence report.
+
+    Delegates to the production decomposition so the study cannot report a
+    contribution the shipping formula did not compute.
+    """
+    from backend.desirability.collector_appeal import collector_appeal_v3_decomposition
+
+    decomposition = collector_appeal_v3_decomposition(d, h, p)
+    return {
+        "d": decomposition.get("dContribution"),
+        "h": decomposition.get("hContribution"),
+        "p": decomposition.get("pContribution"),
     }
 
 
 # ---------------------------------------------------------------------------
 # Overall RIP weight grid (research)
 # ---------------------------------------------------------------------------
-# Pre-registered. 0.00 is the financial-only baseline and is included so every
-# comparison has a "what if appeal carried no weight at all" reference column
-# rather than an implied one.
+# Pre-registered, and READ from the config that owns it
+# (``scoring_config.OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS``) rather
+# than restated, so the study and production cannot disagree about which weights
+# are candidates and which one ships.
+#
+# 0.00 is the financial-only baseline and is included so every comparison has a
+# "what if appeal carried no weight at all" reference column rather than an
+# implied one. 0.13 and 0.14 are RESEARCH sensitivity points only: 0.14 already
+# falls below the 0.95 Spearman guardrail under the existing formula, and 0.10 is
+# the canonical production weight.
 
-OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID: Tuple[float, ...] = (0.00, 0.10, 0.15, 0.20, 0.25)
+
+def _overall_weight_grid() -> Tuple[float, ...]:
+    from backend.desirability.scoring_config import (
+        OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS,
+    )
+
+    return tuple(OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS)
+
+
+OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID: Tuple[float, ...] = _overall_weight_grid()
+
+
+def canonical_overall_weight() -> float:
+    """The production Collector Appeal weight in Overall RIP, read from config."""
+    from backend.desirability.scoring_config import OVERALL_RIP_V7_WEIGHTS
+
+    return float(OVERALL_RIP_V7_WEIGHTS["collector_appeal"])
 
 
 def compute_overall(financial_rip_v3: Any, collector_appeal: Any, weight: float) -> Optional[float]:

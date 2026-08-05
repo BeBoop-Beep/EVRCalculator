@@ -69,8 +69,8 @@ from backend.desirability.collector_appeal import (
     # actually computes; writing the D/F/P score under the legacy
     # `collector_appeal_ca7` key would leave a stored block whose name asserts
     # one formula and whose value came from another.
-    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
-    compute_collector_appeal_v2,
+    COLLECTOR_APPEAL_V3_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    compute_collector_appeal_v3,
     compute_dual_path_depth,
 )
 from backend.desirability.desirable_outcome_frequency import (
@@ -441,7 +441,7 @@ def _plan_row(
     f_value = frequency.get("rawValue")
 
     d_unit = (d_raw / 100.0) if d_raw is not None else None
-    collector_appeal = compute_collector_appeal_v2(d_unit, f_value, p_value)
+    collector_appeal = compute_collector_appeal_v3(d_unit, f_value, p_value)
 
     unavailable_reason = None
     if not support["supported"]:
@@ -476,7 +476,7 @@ def _plan_row(
     appeal_block: Dict[str, Any] = {
         "metric_name": COLLECTOR_APPEAL_METRIC_NAME,
         "product_status": COLLECTOR_APPEAL_PRODUCT_STATUS,
-        "formula": "COLLECTOR_APPEAL_V2",
+        "formula": "COLLECTOR_APPEAL_V3",
         "not_the_public_collector_appeal_score": (
             "The public collector_appeal_score field is Pure/Universal "
             "Desirability, a different construct. This block is an internal "

@@ -24,7 +24,8 @@ import pytest
 # canonical namespace. Imported under the old local name so the many call
 # sites below stay unchanged - only WHICH key they resolve to moved.
 from backend.desirability.collector_appeal import (
-    COLLECTOR_APPEAL_V2_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_V3_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    COLLECTOR_APPEAL_V3_WEIGHTS,
 )
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.component_source import (
@@ -409,13 +410,13 @@ def test_the_block_is_namespaced_and_declares_what_it_is():
     plan = build_update_plan(state)
     block = plan["rows"][0]["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
     # The rollout now proposes the CANONICAL formula, so it writes under the
-    # canonical namespace. A D/F/P score stored under `collector_appeal_ca7`
-    # would be a block whose key asserts one formula and whose value came from
-    # another.
-    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_v2"
+    # canonical namespace. A balanced-sum score stored under
+    # `collector_appeal_v2` or `collector_appeal_ca7` would be a block whose key
+    # asserts one formula and whose value came from another.
+    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_v3"
     assert block["metric_name"] == "collector_appeal_ca7"
     assert block["product_status"] == "internal_candidate"
-    assert block["formula"] == "COLLECTOR_APPEAL_V2"
+    assert block["formula"] == "COLLECTOR_APPEAL_V3"
 
 
 def test_no_payload_introduces_a_generic_collector_appeal_key():
@@ -717,8 +718,13 @@ def test_every_proposed_diagnostics_carries_the_current_fingerprint():
     for row in plan["rows"]:
         block = row["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
         assert block["fingerprint"] == current_fingerprint()
-        assert block["headroom_gain"] == 0.50
-        assert block["formula"] == "COLLECTOR_APPEAL_V2"
+        assert block["formula"] == "COLLECTOR_APPEAL_V3"
+        # The canonical weights travel with the stored block, so an operator
+        # reading a row in `diagnostics_json` can tell what produced it. This is
+        # an INTERNAL diagnostics block, not a public contract - the public v7
+        # projection deliberately discloses no weight.
+        assert block["weights"] == COLLECTOR_APPEAL_V3_WEIGHTS
+        assert sum(block["weights"].values()) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_rows_without_a_stored_fingerprint_are_reported_missing_and_updated():
@@ -989,10 +995,19 @@ def test_collector_appeal_is_computed_when_dual_path_is_available():
     d = inputs["roster_desirability_d"] / 100.0
     f = inputs["desirable_outcome_frequency_f"]
     p = inputs["dual_path_depth_p"]
-    # The CANONICAL formula: structure is now a 0.60/0.40 blend of F and P, not
-    # P alone. All three inputs are read from the block the rollout proposed, so
-    # this checks the arithmetic rather than restating a fixture's numbers.
-    expected = d + 0.50 * (0.60 * f + 0.40 * p) * (1 - d)
+    # The CANONICAL formula: a balanced weighted sum of D, H(=F) and P, with no
+    # headroom factor. All three inputs are read from the block the rollout
+    # proposed, so this checks the arithmetic rather than restating a fixture's
+    # numbers, and the weights come from the authoritative table rather than
+    # being retyped here.
+    expected = (
+        COLLECTOR_APPEAL_V3_WEIGHTS["roster_desirability"] * d
+        + COLLECTOR_APPEAL_V3_WEIGHTS["desirable_outcome_frequency"] * f
+        + COLLECTOR_APPEAL_V3_WEIGHTS["dual_path_depth"] * p
+    )
     assert row["collector_appeal_value"] == pytest.approx(expected, abs=1e-6)
-    # And it is genuinely different from what CA7 would have produced here.
+    # And it is genuinely different from what CA7 and V2 would have produced.
     assert row["collector_appeal_value"] != pytest.approx(d + 0.50 * p * (1 - d), abs=1e-6)
+    assert row["collector_appeal_value"] != pytest.approx(
+        d + 0.50 * (0.60 * f + 0.40 * p) * (1 - d), abs=1e-6
+    )

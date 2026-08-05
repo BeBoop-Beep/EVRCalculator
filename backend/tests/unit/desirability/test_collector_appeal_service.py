@@ -26,6 +26,7 @@ from backend.desirability.collector_appeal import (
     compute_chase_appeal,
     compute_collector_appeal,
     compute_collector_appeal_candidates,
+    compute_collector_appeal_v3,
 )
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.collector_appeal_inputs import (
@@ -73,7 +74,32 @@ from backend.desirability.universal_set_desirability import COVERAGE_FULL
 #
 # The GOLDEN CA7 values below are UNCHANGED and still pass, which is the
 # evidence that the legacy calculation was preserved rather than perturbed.
-FROZEN_FINGERPRINT = "543c7a5b96be409c395bd08506a6ec57ca3f13f6d84060a139b95d50c4fe9dfa"
+#
+# v4 (fingerprint schema collector_appeal_fingerprint_v3_balanced_d_h_p). The
+# canonical formula changed again, from the bounded-headroom V2 blend to the
+# balanced weighted sum:
+#
+#     V2  = D + 0.50 * (0.60H + 0.40P) * (1 - D)
+#     V3  = 0.40*D + 0.35*H + 0.25*P
+#
+# The 22-set validation found V2 tracked D at Spearman ~0.991 and legacy CA7 at
+# ~0.997 - three inputs producing one input's ordering. Removing the (1 - D)
+# headroom factor is what makes H and P materially affect the result.
+#
+# This is a FORMULA change, so the fingerprint is required to move. The schema
+# version moved with it, because the v2 schema had no slot for a desirability
+# WEIGHT (V2's D was the base of the formula, not a weighted term).
+#
+# The GOLDEN CA7 values below are STILL UNCHANGED and still pass, which is the
+# evidence that both legacy calculations survived this change intact.
+FROZEN_FINGERPRINT = "6d13be79004c432fe281afc8c77b6d87d8fffecea1f6fe17c9b40a393ff15593"
+
+# The identity the D/F/P (Collector Appeal V2) artifacts were produced under.
+# Kept named so a V2-era row can still be recognised as V2-era rather than
+# merely "not current".
+COLLECTOR_APPEAL_V2_FINGERPRINT = (
+    "543c7a5b96be409c395bd08506a6ec57ca3f13f6d84060a139b95d50c4fe9dfa"
+)
 
 # The identity every pre-v2 artifact was produced under. Kept named so the
 # historical dry run can be checked against its own run rather than rewritten.
@@ -96,6 +122,10 @@ ARTIFACT = Path("docs/research/collector_appeal_production_dry_run.json")
 
 def test_formula_fingerprint_is_unchanged():
     assert current_fingerprint() == FROZEN_FINGERPRINT
+    # Every superseded identity stays DISTINCT, so a stored row written under one
+    # of them is classified stale rather than silently accepted as current.
+    assert FROZEN_FINGERPRINT != COLLECTOR_APPEAL_V2_FINGERPRINT
+    assert FROZEN_FINGERPRINT != PRE_LIVE_FALLBACK_FINGERPRINT
 
 
 def test_lambda_is_frozen_at_the_selected_value():
@@ -195,12 +225,13 @@ def test_golden_set_ca7_through_the_service_payload(name):
 
 @pytest.mark.parametrize("name", sorted(GOLDEN))
 def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(name):
-    """The canonical block is the D/F/P formula, not CA7.
+    """The canonical block is the V3 balanced sum, not CA7 and not V2.
 
-    With a real F the two formulas must produce DIFFERENT numbers - if they
-    agreed, the refinement would not have been applied. The canonical score is
-    also bounded by CA7 from below only when F >= P, so the assertion is on
-    distinctness and on the published version, not on a direction.
+    With a real H the three formulas must produce DIFFERENT numbers - if any two
+    agreed, the change would not have been applied. No DIRECTION is asserted:
+    V3 removes the headroom factor, so whether it lands above or below CA7
+    depends on where D, H and P sit, and pinning a direction here would be
+    encoding one cohort's accident as a contract.
     """
     case = GOLDEN[name]
     payload = service._build_set_payload(
@@ -215,13 +246,32 @@ def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(na
         pull_modeled=True,
     )
     canonical = payload["collectorAppeal"]
-    assert canonical["version"] == "collector_appeal_v2_desirable_frequency_dual_path"
+    assert canonical["version"] == "collector_appeal_v3_balanced_d40_h35_p25"
     assert canonical["rawValue"] is not None
     assert 0.0 <= canonical["rawValue"] <= 1.0
-    # The decomposition must reconstruct the published score exactly.
-    assert canonical["inputs"]["rosterDesirability"] + canonical["headroomBonus"] == (
-        pytest.approx(canonical["rawValue"], abs=1e-6)
+    # The published factors are the exact numbers the formula consumed, so the
+    # score can be reconstructed from the payload alone.
+    factors = canonical["factors"]
+    assert compute_collector_appeal_v3(
+        factors["rosterDesirability"],
+        factors["desirableOutcomeFrequency"],
+        factors["dualPathDepth"],
+    ) == pytest.approx(canonical["rawValue"], abs=1e-9)
+    # Distinct from BOTH superseded formulas, and both remain published for
+    # comparison under their own version strings.
+    assert payload["legacyCollectorAppealCA7"]["version"] == "collector_appeal_ca7_v1"
+    assert payload["legacyCollectorAppealV2"]["version"] == (
+        "collector_appeal_v2_desirable_frequency_dual_path"
     )
+    assert canonical["rawValue"] != pytest.approx(
+        payload["legacyCollectorAppealCA7"]["rawValue"], abs=1e-6
+    )
+    assert canonical["rawValue"] != pytest.approx(
+        payload["legacyCollectorAppealV2"]["rawValue"], abs=1e-6
+    )
+    # The PUBLIC payload discloses no weight and no executable formula string.
+    for withheld in ("weights", "formula", "dContribution", "hContribution", "pContribution"):
+        assert withheld not in canonical
 
 
 def test_golden_values_still_match_the_dry_run_artifact():

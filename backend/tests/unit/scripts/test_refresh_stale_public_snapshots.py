@@ -50,9 +50,8 @@ def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
     assert result.reason == "canonical publication metadata missing"
 
 
-def test_canonical_rankings_shape_is_fresh(monkeypatch):
-    monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
-    payload = {
+def _canonical_rankings_payload():
+    return {
         "targets": [{"overallRipRankComparisonStatus1d": "unavailable"}],
         "meta": {
             "snapshot": {
@@ -62,13 +61,74 @@ def test_canonical_rankings_shape_is_fresh(monkeypatch):
             "publicAnalyticsCohort": {"overallRanked": {"rankedSetCount": 1}},
         },
     }
+
+
+def _stub_structural_reads(monkeypatch):
+    monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
+    payload = _canonical_rankings_payload()
+
     def read(_client, table, *_args, **_kwargs):
         if table == "pokemon_explore_rankings_snapshot_latest":
             return {"updated_at": "2026-08-01T08:00:00Z", "ranking_payload_json": payload}
         return {"id": "publication-1", "publication_status": "complete"}
+
     monkeypatch.setattr(refresh, "_read_snapshot_row", read)
+    return payload
+
+
+def test_canonical_rankings_shape_is_fresh(monkeypatch):
+    """Structurally complete AND on the canonical scoring contract."""
+    _stub_structural_reads(monkeypatch)
+    monkeypatch.setattr(
+        refresh, "_leaderboard_contract_staleness", lambda _client: ([], [])
+    )
     result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
     assert result.stale is False
+
+
+def test_a_structurally_perfect_snapshot_on_an_obsolete_contract_is_stale(monkeypatch):
+    """THE gap this closes.
+
+    Every structural marker is present, the publication row is complete, and no
+    dependency timestamp is newer - the exact state a leaderboard published under
+    Financial RIP V2 / Overall RIP v4 was in while 22 Financial RIP V3
+    simulations sat underneath it. A scoring-version change moves NO timestamp,
+    so the timestamp comparison could never have caught it.
+    """
+    _stub_structural_reads(monkeypatch)
+    monkeypatch.setattr(
+        refresh,
+        "_leaderboard_contract_staleness",
+        lambda _client: (
+            [{
+                "code": "financial_rip_version_not_canonical",
+                "detail": "Published Financial RIP version is 'financial_rip_v2_60_25_15'.",
+            }],
+            [],
+        ),
+    )
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+    assert result.stale is True
+    assert "published scoring contract is not canonical" in result.reason
+    assert "financial_rip_v2_60_25_15" in result.reason
+
+
+def test_a_matching_market_date_alone_never_establishes_freshness(monkeypatch):
+    """Market date says when the PRICES were promoted, not which formula scored them."""
+    _stub_structural_reads(monkeypatch)
+    reasons = [
+        {"code": "overall_rip_version_not_canonical", "detail": "Overall RIP is v4."},
+        {"code": "public_rip_contract_version_not_canonical", "detail": "Contract is v6."},
+    ]
+    monkeypatch.setattr(
+        refresh, "_leaderboard_contract_staleness", lambda _client: (reasons, [])
+    )
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+    assert result.stale is True
+    # Every reason is reported, not just the first: one rebuild resolves all of
+    # them, and naming only one sends an operator to a partial fix.
+    assert "Overall RIP is v4." in result.reason
+    assert "Contract is v6." in result.reason
 
 
 def _iso(dt):

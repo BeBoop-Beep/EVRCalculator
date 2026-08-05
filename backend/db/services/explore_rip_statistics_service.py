@@ -18,6 +18,7 @@ from backend.db.services.universal_set_desirability_service import (
     public_payload as universal_public_payload,
 )
 from backend.desirability.public_analytics_policy import (
+    OVERALL_RANKED_CA7_VERSION_MISMATCH,
     PublicCohortIntegrityError,
     assert_cohort_integrity,
     audit_overall_ranked_cohort,
@@ -25,12 +26,19 @@ from backend.desirability.public_analytics_policy import (
     public_analytics_status,
 )
 from backend.desirability.scoring_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION,
     FINANCIAL_RIP_V2_VERSION,
     FINANCIAL_RIP_WEIGHTS,
     OVERALL_RIP_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_V6_VERSION,
+    OVERALL_RIP_V7_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V7_VERSION,
+    OVERALL_RIP_V7_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     WEIGHTS_DISCLOSURE,
+    canonical_public_rip_contract_version,
 )
 from backend.desirability.public_rip_contract_v4 import (
     PUBLIC_RIP_CONTRACT_V4_KEY,
@@ -44,9 +52,14 @@ from backend.desirability.public_rip_contract_v6 import (
     PUBLIC_RIP_CONTRACT_V6_KEY,
     build_public_rip_contract_v6,
 )
+from backend.desirability.public_rip_contract_v7 import (
+    PUBLIC_RIP_CONTRACT_V7_KEY,
+    build_public_rip_contract_v7,
+)
 from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_CA7_VERSION,
     COLLECTOR_APPEAL_V2_VERSION,
+    COLLECTOR_APPEAL_V3_VERSION,
 )
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
@@ -60,6 +73,7 @@ from backend.desirability.weighted_rip import (
     compute_overall_rip,
     compute_overall_rip_v5,
     compute_overall_rip_v6,
+    compute_overall_rip_v7,
 )
 from backend.interpretation.rips import build_rip_interpretation
 
@@ -617,8 +631,10 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     # whose whole contract is cohort independence.
     ("_rank_financial_rip_v3", "financialRipV3"),
     ("_rank_overall_rip_v5", "overallRipV5"),
-    # The CANONICAL Overall rank, from the absolute 80/20 V6 score.
+    # Superseded, still ranked so the V6-vs-V7 comparison has both orderings.
     ("_rank_overall_rip_v6", "overallRipV6"),
+    # The CANONICAL Overall rank, from the absolute 90/10 V7 score.
+    ("_rank_overall_rip_v7", "overallRipV7"),
     *(
         (f"_rank_v3_{component}", f"financialRipV3.{component}")
         for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
@@ -734,13 +750,18 @@ def _rank_overall_rip_v5(row: Mapping[str, Any]) -> Optional[float]:
 
 
 def _rank_overall_rip_v6(row: Mapping[str, Any]) -> Optional[float]:
-    """The canonical Overall rank, from the ABSOLUTE 80/20 score.
+    """The superseded 80/20 Overall rank, kept for the V6-vs-V7 comparison."""
+    return _to_optional_float((row.get("overallRipV6") or {}).get("score"))
+
+
+def _rank_overall_rip_v7(row: Mapping[str, Any]) -> Optional[float]:
+    """The canonical Overall rank, from the ABSOLUTE 90/10 score.
 
     Never from a cohort min-max transformation of it: min-maxing would not
     change the order, but it would put a cohort-dependent number under a field
     whose contract is that adding a set cannot change it.
     """
-    return _to_optional_float((row.get("overallRipV6") or {}).get("score"))
+    return _to_optional_float((row.get("overallRipV7") or {}).get("score"))
 
 
 def _make_v3_component_extractor(component: str):
@@ -760,22 +781,51 @@ for _v3_component_key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
     globals()[f"_rank_v3_{_v3_component_key}"] = _make_v3_component_extractor(_v3_component_key)
 
 
+# Appeal versions that are definitively NOT legacy CA7. Everything else found in
+# a `collectorAppeal` block is CA7-era and is surfaced to the mismatch audit
+# rather than dropped.
+_POST_CA7_APPEAL_VERSIONS = frozenset(
+    {COLLECTOR_APPEAL_V2_VERSION, COLLECTOR_APPEAL_V3_VERSION}
+)
+
+
 def _resolve_canonical_collector_appeal_score(collector: Mapping[str, Any]) -> Optional[float]:
-    """The canonical D/F/P Collector Appeal, identified BY ITS DECLARED VERSION.
+    """The canonical Collector Appeal V3, identified BY ITS DECLARED VERSION.
 
     ``collectorAppeal.score`` is a positional read, and the object at that
-    position changed meaning at the cutover: before it was CA7, after it is the
-    D/F/P formula. Reading it positionally would let a bundle built by the old
-    code path feed a CA7 number into Overall RIP V6 under a V6 label - the exact
-    silent-substitution failure V6's contract forbids.
+    position has changed meaning twice now: it was CA7, then the V2 bounded
+    headroom formula, and it is now the V3 balanced sum. Reading it positionally
+    would let a bundle built or CACHED by an older code path feed a V2 number
+    into Overall RIP V7 under a V7 label - the exact silent-substitution failure
+    V7's contract forbids, and the one a 6-hour in-process cache makes a real
+    possibility on the first request after a deploy.
 
     So the version is checked. A payload that does not declare the canonical
-    version yields None, and Overall RIP V6 reports unavailable with a reason.
+    version yields None, and Overall RIP V7 reports unavailable with a reason.
     """
     appeal = collector.get("collectorAppeal") or {}
-    if appeal.get("version") != COLLECTOR_APPEAL_V2_VERSION:
+    if appeal.get("version") != COLLECTOR_APPEAL_V3_VERSION:
         return None
     return appeal.get("score")
+
+
+def _resolve_legacy_collector_appeal_v2_score(collector: Mapping[str, Any]) -> Optional[float]:
+    """Collector Appeal V2, for the superseded V6 blend only.
+
+    Two payload shapes carry it, and both are read: post-cutover under
+    ``legacyCollectorAppealV2``, and pre-cutover under ``collectorAppeal``
+    itself - because before the balanced-sum change that block WAS V2, as its
+    own ``version`` string attests. The second branch is guarded by that version
+    string rather than assumed, so a canonical V3 score can never be mistaken for
+    V2 and quietly change what Overall RIP V6 means.
+    """
+    legacy = collector.get("legacyCollectorAppealV2") or {}
+    if legacy.get("score") is not None:
+        return legacy.get("score")
+    appeal = collector.get("collectorAppeal") or {}
+    if appeal.get("version") == COLLECTOR_APPEAL_V2_VERSION:
+        return appeal.get("score")
+    return None
 
 
 def _resolve_legacy_ca7_score(collector: Mapping[str, Any]) -> Optional[float]:
@@ -797,13 +847,13 @@ def _resolve_legacy_ca7_score(collector: Mapping[str, Any]) -> Optional[float]:
     if legacy.get("score") is not None:
         return legacy.get("score")
     appeal = collector.get("collectorAppeal") or {}
-    # Anything that is NOT the canonical D/F/P formula is, by definition, the
-    # legacy appeal number this payload carries. Guarding on "not canonical"
-    # rather than "== CA7" keeps a payload written under some other legacy
-    # version visible to the mismatch audit below, which is what fails the
-    # cohort closed. Silently dropping it would turn a version conflict into a
-    # quiet absence.
-    if appeal.get("version") != COLLECTOR_APPEAL_V2_VERSION:
+    # Anything that is neither the canonical V3 formula nor the superseded V2 is,
+    # by definition, the CA7-era appeal number this payload carries. Guarding on
+    # "not a known post-CA7 version" rather than "== CA7" keeps a payload written
+    # under some other legacy version visible to the mismatch audit below, which
+    # is what fails the cohort closed. Silently dropping it would turn a version
+    # conflict into a quiet absence.
+    if appeal.get("version") not in _POST_CA7_APPEAL_VERSIONS:
         return appeal.get("score")
     return None
 
@@ -819,7 +869,7 @@ def _resolve_legacy_ca7_version(collector: Mapping[str, Any]) -> Optional[str]:
         return legacy.get("version")
     appeal = collector.get("collectorAppeal") or {}
     version = appeal.get("version")
-    return version if version != COLLECTOR_APPEAL_V2_VERSION else None
+    return version if version not in _POST_CA7_APPEAL_VERSIONS else None
 
 
 def _attach_public_rip_contract(
@@ -873,9 +923,9 @@ def _attach_public_rip_contract(
     cohort_ids = set(cohort["eligibleSetIds"])
 
     # 2. Every row's scores. The CANONICAL Overall RIP is
-    #    0.80 * Financial RIP V3 + 0.20 * Collector Appeal. Collector Appeal is
-    #    the sole desirability input, and it already consumes Universal Set
-    #    Desirability as its D base - so the universal score is NEVER blended in
+    #    0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3. Collector Appeal
+    #    is the sole desirability input, and it already consumes Universal Set
+    #    Desirability as its D input - so the universal score is NEVER blended in
     #    a second time here, and Chase Appeal is never added as a separate term.
     for target in targets:
         collector = _resolve_collector_payload(target, collector_payloads)
@@ -884,10 +934,11 @@ def _attach_public_rip_contract(
             "safety": target.get("safety_score"),
             "stability": target.get("stability_score"),
         }
-        # The two appeal inputs, each resolved by the version the payload
+        # The three appeal inputs, each resolved by the version the payload
         # DECLARES rather than by field position - see the helpers for why a
         # positional read is unsafe across a formula change.
         collector_appeal_score = _resolve_canonical_collector_appeal_score(collector)
+        collector_appeal_v2_score = _resolve_legacy_collector_appeal_v2_score(collector)
         ca7_score = _resolve_legacy_ca7_score(collector)
 
         target["openingExperience"] = _build_opening_experience(target, collector, cohort)
@@ -905,10 +956,17 @@ def _attach_public_rip_contract(
         # so the V5-vs-V6 comparison has a real number and a rollback has a
         # reference. It is not the canonical Overall RIP.
         target["overallRipV5"] = compute_overall_rip_v5(financial_v3.get("score"), ca7_score)
-        # CANONICAL: 0.80 * Financial RIP V3 + 0.20 * the new D/F/P Collector
-        # Appeal. `collector_appeal_score` is the score the Collector Appeal
-        # service publishes; legacy CA7 is deliberately NOT used here.
+        # SUPERSEDED but still computed: the 80/20 blend over Collector Appeal
+        # V2, kept so the V6-vs-V7 comparison has a real number and a rollback
+        # has a reference. It is not the canonical Overall RIP.
         target["overallRipV6"] = compute_overall_rip_v6(
+            financial_v3.get("score"), collector_appeal_v2_score
+        )
+        # CANONICAL: 0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3.
+        # `collector_appeal_score` is the score the Collector Appeal service
+        # publishes under the canonical version; V2 and legacy CA7 are
+        # deliberately NOT used here, in either direction.
+        target["overallRipV7"] = compute_overall_rip_v7(
             financial_v3.get("score"), collector_appeal_score
         )
         target["publicAnalyticsStatus"] = public_analytics_status(
@@ -940,53 +998,76 @@ def _attach_public_rip_contract(
     cohort_rows = [target for target in targets if str(target.get("target_id")) in cohort_ids]
     _rank_within_cohort(cohort_rows, cohort_size=len(cohort_ids))
 
-    # 5. Overall-ranked cohort audit. Overall RIP needs a valid CA7, so the
-    #    Overall ranking is a stricter population than the eligible cohort: an
-    #    eligible set without CA7 keeps Financial RIP + Universal Set Desirability
-    #    but is flagged out of the Overall denominator (never dropped silently,
-    #    never given a fabricated Overall RIP). Mixed CA7 versions fail closed.
+    # 5. Overall-ranked cohort audit, against the CANONICAL Overall RIP.
+    #    Overall RIP V7 needs a valid Collector Appeal V3, so the Overall ranking
+    #    is a stricter population than the eligible cohort: an eligible set
+    #    without one keeps Financial RIP + Universal Set Desirability but is
+    #    flagged out of the Overall denominator (never dropped silently, never
+    #    given a fabricated Overall RIP). Mixed appeal versions fail closed.
+    #
+    #    Audited on `overallRipV7`, NOT on the legacy `rip` (v4) object. Auditing
+    #    v4 would certify the cohort of a model nobody publishes any more: a set
+    #    could hold a v4 score off the V2 pillars and legacy CA7 while having no
+    #    canonical V7 score at all, and the denominator would count it.
     overall_available = {
-        str(target.get("target_id")): (target.get("rip") or {}).get("score") is not None
+        str(target.get("target_id")): (target.get("overallRipV7") or {}).get("score") is not None
         for target in cohort_rows
     }
-    # The version OF THE NUMBER that fed the v4/V5 Overall blends, resolved
-    # through the same helper those blends used. Reading `collectorAppeal.version`
-    # directly would now report the canonical D/F/P version for a legacy
-    # ranking, and the mismatch check would compare the wrong thing.
-    ca7_version_by_set = {
-        str(target.get("target_id")): _resolve_legacy_ca7_version(
-            target.get("openingExperience") or {}
-        )
+    # The version OF THE NUMBER that fed the canonical blend, read from the
+    # appeal block the V7 resolver accepted. A set whose appeal declares some
+    # other version contributes that version here, so the mismatch check sees it
+    # rather than a quiet absence.
+    appeal_version_by_set = {
+        str(target.get("target_id")): (
+            (target.get("openingExperience") or {}).get("collectorAppeal") or {}
+        ).get("version")
         for target in cohort_rows
+        if (target.get("overallRipV7") or {}).get("score") is not None
     }
     overall_audit = audit_overall_ranked_cohort(
-        cohort.get("eligibleSetIds") or [], overall_available, ca7_version_by_set
+        cohort.get("eligibleSetIds") or [], overall_available, appeal_version_by_set
+    )
+    # The canonical version this cohort MUST be on, carried beside the observed
+    # one so a publication guard compares two explicit values rather than
+    # inferring the expectation.
+    #
+    # `appealVersionMatchesCanonical` is expected to be True whenever anything is
+    # ranked at all, because `_resolve_canonical_collector_appeal_score` is the
+    # single guard: a payload declaring any other version yields None and the set
+    # simply has no V7 score. It is published rather than assumed so a publication
+    # audit can assert the property instead of trusting it, and so a future change
+    # that loosens the resolver shows up here rather than silently.
+    overall_audit["expectedAppealVersion"] = COLLECTOR_APPEAL_V3_VERSION
+    overall_audit["expectedOverallRipVersion"] = OVERALL_RIP_V7_VERSION
+    overall_audit["appealVersionMatchesCanonical"] = (
+        overall_audit["appealVersion"] == COLLECTOR_APPEAL_V3_VERSION
     )
     cohort["overallRanked"] = overall_audit
-    if overall_audit["status"] == "overall_ranked_ca7_version_mismatch":
-        # Fail closed: two Overall RIPs under different CA7 formulas are not
-        # comparable, so this leaderboard is not fit to publish as one cohort.
+    if overall_audit["status"] == OVERALL_RANKED_CA7_VERSION_MISMATCH:
+        # Fail closed: two Overall RIPs under different Collector Appeal formulas
+        # are not comparable, so this leaderboard is not fit to publish as one
+        # cohort.
         logger.error(
-            "[rip-statistics-targets] Overall RIP cohort mixes CA7 versions %s; "
-            "not publishable as one ranking.",
-            overall_audit["ca7Versions"],
+            "[rip-statistics-targets] Overall RIP cohort mixes Collector Appeal "
+            "versions %s; not publishable as one ranking.",
+            overall_audit["appealVersions"],
         )
         warnings.append(
-            "Overall RIP ranking mixes multiple CA7 versions "
-            f"({', '.join(overall_audit['ca7Versions'])}); the cohort is not comparable."
+            "Overall RIP ranking mixes multiple Collector Appeal versions "
+            f"({', '.join(overall_audit['appealVersions'])}); the cohort is not comparable."
         )
         cohort["status"] = "integrity_error"
-    elif overall_audit["missingCa7Count"]:
+    elif overall_audit["missingAppealCount"]:
         logger.warning(
             "[rip-statistics-targets] %s eligible set(s) excluded from the Overall "
-            "RIP ranking for missing CA7: %s",
-            overall_audit["missingCa7Count"],
-            overall_audit["missingCa7SetIds"],
+            "RIP ranking for missing Collector Appeal: %s",
+            overall_audit["missingAppealCount"],
+            overall_audit["missingAppealSetIds"],
         )
         warnings.append(
-            f"{overall_audit['missingCa7Count']} eligible set(s) have no CA7 and are "
-            "excluded from the Overall RIP ranking (Financial RIP and Universal Set "
-            "Desirability remain available)."
+            f"{overall_audit['missingAppealCount']} eligible set(s) have no Collector "
+            "Appeal and are excluded from the Overall RIP ranking (Financial RIP and "
+            "Universal Set Desirability remain available)."
         )
     return cohort
 
@@ -1030,6 +1111,7 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
         (_rank_financial_rip_v3, "financialRipV3"),
         (_rank_overall_rip_v5, "overallRipV5"),
         (_rank_overall_rip_v6, "overallRipV6"),
+        (_rank_overall_rip_v7, "overallRipV7"),
     ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1083,7 +1165,9 @@ def _apply_rank(
     it was computed against is the ambiguity this phase is removing, so the two
     always travel together.
     """
-    if contract_key in ("rip", "ripCore", "financialRipV3", "overallRipV5", "overallRipV6"):
+    if contract_key in (
+        "rip", "ripCore", "financialRipV3", "overallRipV5", "overallRipV6", "overallRipV7",
+    ):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
         target["tier"] = entry.get("tier")
@@ -1207,19 +1291,21 @@ def _build_opening_experience(
         "status": collector.get("status"),
         "version": (collector.get("collectorAppeal") or {}).get("version"),
         "asOf": collector.get("asOf"),
-        # F and P: two of the three inputs to the canonical Collector Appeal. F
-        # is new; it is a nonfinancial frequency and is NOT a win rate.
+        # H and P: two of the three inputs to the canonical Collector Appeal. H
+        # (published as `desirableOutcomeFrequency`) is a nonfinancial frequency
+        # and is NOT a win rate.
         #
         # D is deliberately NOT re-published here. Roster desirability lives on
         # `universalSetDesirability`, which every set with full coverage carries
         # - routing it through this block, which goes `unavailable` whenever a
         # pack model is missing, is what previously hid it. The exact D the
         # Collector Appeal formula consumed is still available, on the appeal
-        # object itself, under `collectorAppeal.inputs.rosterDesirability`.
+        # object itself, under `collectorAppeal.factors.rosterDesirability`.
         "desirableOutcomeFrequency": dict(collector.get("desirableOutcomeFrequency") or {}),
         "dualPathDepth": dict(collector.get("dualPathDepth") or {}),
         "collectorAppeal": dict(collector.get("collectorAppeal") or {}),
         # Superseded, carried for the comparison surfaces and the audit only.
+        "legacyCollectorAppealV2": dict(collector.get("legacyCollectorAppealV2") or {}),
         "legacyCollectorAppealCA7": dict(collector.get("legacyCollectorAppealCA7") or {}),
         # Still a separate diagnostic. Deliberately NOT a term of Collector
         # Appeal and NOT a term of Overall RIP - adding D x M alongside a
@@ -1769,10 +1855,13 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         # V2/v4 preserved under an explicit `legacy` namespace. Additive: the v4
         # key above is byte-for-byte what it always was.
         target[PUBLIC_RIP_CONTRACT_V5_KEY] = build_public_rip_contract_v5(target)
-        # The CANONICAL v6 projection: Overall RIP V6 (80/20) and the D/F/P
-        # Collector Appeal as a first-class block, with V2/v4/V5/CA7 preserved
-        # under `legacy`. Additive: the v4 and v5 keys above are unchanged.
+        # Superseded projection: Overall RIP V6 (80/20) over Collector Appeal V2.
+        # Additive and unchanged; kept for the V6-vs-V7 comparison.
         target[PUBLIC_RIP_CONTRACT_V6_KEY] = build_public_rip_contract_v6(target)
+        # The CANONICAL v7 projection: Overall RIP V7 (90/10) and Collector
+        # Appeal V3 as a first-class block, with V2/v4/V5/V6/CA7 preserved under
+        # `legacy`. Additive: the v4, v5 and v6 keys above are unchanged.
+        target[PUBLIC_RIP_CONTRACT_V7_KEY] = build_public_rip_contract_v7(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
@@ -1793,19 +1882,54 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
             "rip_desirability_comparison": comparison_diagnostics,
             "setValueAssociation": set_value_association,
             "desirabilityBundleStatus": universal_status,
-            # The Financial RIP weights, which sum to 1.00 and are applied as
-            # published - no renormalization step, unlike the retired four-pillar
-            # blend whose displayed weights were never the applied ones.
+            # THE SCORING IDENTITY OF THIS PAYLOAD.
+            #
+            # This block is not documentation. The leaderboard publisher reads
+            # `overallRip.version` and `financialRip.version` straight out of it
+            # and writes them into `pokemon_public_rip_leaderboard_snapshots`, so
+            # whatever is stated here IS what production reports it published.
+            #
+            # It previously stated Financial RIP V2 and Overall RIP v4 - the
+            # models this service had already stopped treating as canonical -
+            # which is why the newest published leaderboard reported
+            # `financial_rip_v2_60_25_15` / `overall_rip_v4_90_financial_10_ca7`
+            # while 22 fresh Financial RIP V3 simulations sat underneath it. The
+            # versions are now read from the ONE canonical selection in
+            # `scoring_config`, so a future cutover cannot leave this behind.
             "ripWeightsConfig": {
                 "financialRip": {
-                    "weights": dict(FINANCIAL_RIP_WEIGHTS),
-                    "version": FINANCIAL_RIP_V2_VERSION,
+                    "version": CANONICAL_FINANCIAL_RIP_VERSION,
                 },
                 "overallRip": {
-                    "formula": "0.90 * financial_rip + 0.10 * opening_desirability_ca7",
-                    "weights": dict(OVERALL_RIP_WEIGHTS),
-                    "effectiveWeights": dict(OVERALL_RIP_EFFECTIVE_WEIGHTS),
-                    "version": OVERALL_RIP_V4_VERSION,
+                    "weights": dict(OVERALL_RIP_V7_WEIGHTS),
+                    "effectiveWeights": dict(OVERALL_RIP_V7_EFFECTIVE_WEIGHTS),
+                    "version": CANONICAL_OVERALL_RIP_VERSION,
+                },
+                "collectorAppeal": {
+                    # Version only. Collector Appeal's internal weights are not
+                    # disclosed - see public_rip_contract_v7's header.
+                    "version": COLLECTOR_APPEAL_V3_VERSION,
+                    "weightsDisclosed": False,
+                },
+                "publicContract": {
+                    "version": canonical_public_rip_contract_version(),
+                },
+                # Superseded models, under an explicitly legacy namespace so
+                # nothing selects one by fallback and the comparison surfaces
+                # still have the numbers they need.
+                "legacy": {
+                    "financialRipV2": {
+                        "weights": dict(FINANCIAL_RIP_WEIGHTS),
+                        "version": FINANCIAL_RIP_V2_VERSION,
+                    },
+                    "overallRipV4": {
+                        "weights": dict(OVERALL_RIP_WEIGHTS),
+                        "effectiveWeights": dict(OVERALL_RIP_EFFECTIVE_WEIGHTS),
+                        "version": OVERALL_RIP_V4_VERSION,
+                    },
+                    "overallRipV6": {"version": OVERALL_RIP_V6_VERSION},
+                    "collectorAppealV2": {"version": COLLECTOR_APPEAL_V2_VERSION},
+                    "collectorAppealCA7": {"version": COLLECTOR_APPEAL_CA7_VERSION},
                 },
                 "weightsLabel": WEIGHTS_DISCLOSURE,
                 "configVersion": "scoring_config_v1",
