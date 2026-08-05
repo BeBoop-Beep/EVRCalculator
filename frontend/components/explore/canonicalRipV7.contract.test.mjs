@@ -429,10 +429,15 @@ test("the public breakdown renders no weights, contributions or opening outlook"
   assert.equal(/of RIP Core/.test(section), false);
   assert.equal(/Contribution to/.test(section), false);
   assert.equal(/coreWeightLabel|coreWeightsCaption/.test(section), false);
-  // The two canonical halves, and nothing between them.
-  assert.ok(section.includes("<CollectorAppealBreakdown"));
+  // The two explanatory lenses, and nothing between them. They are NOT halves:
+  // no copy here may state or imply an equal split.
   assert.ok(section.includes("<FinancialRipV3Breakdown"));
-  assert.ok(section.includes("publicRipContractV7={publicRipContractV7}"));
+  assert.ok(section.includes("<CollectorAppealBreakdown"));
+  assert.equal(/two canonical halves|equal halves|one of the two halves/.test(section), false);
+  // Both lenses are fed the SAME resolved bundle, so neither can resolve its
+  // own source and disagree with the score rendered above them.
+  assert.ok(section.includes("<FinancialRipV3Breakdown canonical={canonical}"));
+  assert.ok(section.includes("<CollectorAppealBreakdown canonical={canonical}"));
 });
 
 test("Decision Signals no longer render on Overview", () => {
@@ -473,4 +478,129 @@ test("the hero selector reads no legacy field in any code path", () => {
       assert.equal(source.includes(legacy), false, `${name} must not read ${legacy}`);
     }
   }
+});
+
+// --- One resolved bundle, shared by every surface ---------------------------
+//
+// The defect these cover: the set page used to resolve each canonical object
+// with its own `explorePayload?.x || selectedTarget?.x || summary?.x` chain.
+// A normalized-but-empty `{}` is TRUTHY, so an empty object in the first source
+// won its chain and blocked populated canonical data in a later one. Because
+// the three chains were independent, they could also settle on three different
+// sources and split the hero from the sections that explain it.
+
+// The shape the page actually passes, with the first source normalized to empty
+// objects — exactly what a set-page payload looks like before its snapshot
+// lands, and what the old truthiness chains choked on.
+const EMPTY_FIRST_SOURCE = {
+  publicRipContractV7: {},
+  overallRipV7: {},
+  financialRipV3: {},
+};
+
+const POPULATED_CONTRACT = {
+  publicRipContractV7: {
+    overallRip: { relativeScore: 71.5, rank: 12, tier: "A", rankedSetCount: 240 },
+    financialRip: {
+      status: "ready",
+      score: 68.25,
+      rank: 15,
+      tier: "A",
+      rankedSetCount: 240,
+      components: {
+        true_win_frequency: { score: 61.1, rank: 30, tier: "B", raw: { trueWinProbability: 0.21 } },
+      },
+    },
+    collectorAppeal: {
+      score: 82.4,
+      rank: 5,
+      tier: "S",
+      rankedSetCount: 240,
+      components: {
+        rosterDesirability: { score: 88.1 },
+        desirableOutcomeFrequency: { rawValue: 0.34, impliedOddsOneInN: 2.9 },
+        dualPathDepth: { rawValue: 0.62, subjectsWithMultiplePaths: 9 },
+      },
+    },
+  },
+};
+
+test("an empty V7 object in the first source does not block a valid later contract", () => {
+  const resolved = resolveCanonicalRipV7(EMPTY_FIRST_SOURCE, POPULATED_CONTRACT, {});
+
+  assert.equal(resolved.shape, "publicRipContractV7");
+  // Not blocked, and not partially blocked: all three blocks come through.
+  assert.equal(readCanonicalBlock(resolved.overall).score, 71.5);
+  assert.equal(readCanonicalBlock(resolved.financialRip).score, null);
+  assert.equal(resolved.financialRip.score, 68.25);
+  assert.equal(resolved.collectorAppeal.score, 82.4);
+});
+
+test("the hero, Financial RIP and Collector Appeal all read the one resolved bundle", () => {
+  // Resolved ONCE, the way the page does it, then handed to all three surfaces.
+  const canonical = resolveCanonicalRipV7(EMPTY_FIRST_SOURCE, POPULATED_CONTRACT, {});
+
+  const hero = selectRipHeroScoreMode({ canonical });
+  const financial = selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical));
+  const appeal = selectCollectorAppealBreakdown(canonical);
+
+  // Every surface renders the selected target's canonical data. Before the
+  // single-bundle change each of these resolved independently and every one of
+  // them landed on the empty first source instead.
+  assert.equal(hero.available, true);
+  assert.equal(hero.score, 71.5);
+  assert.equal(hero.tier, "A");
+  assert.equal(hero.rank, 12);
+
+  assert.equal(financial.score, 68.25);
+  assert.equal(financial.diagnostics.status, "ready");
+  assert.equal(financial.rows.length, 6);
+
+  assert.equal(appeal.available, true);
+  assert.equal(appeal.score, 82.4);
+  assert.equal(appeal.rows.length, 3);
+
+  // ...and all three agree on WHICH source answered.
+  assert.equal(hero.sourceShape, "publicRipContractV7");
+  assert.equal(appeal.sourceShape, "publicRipContractV7");
+});
+
+test("a populated contract in the first source wins over conflicting later top-level data", () => {
+  const conflictingLater = {
+    overallRipV7: { relativeScore: 11.1, rank: 999, tier: "F", cohortSize: 240 },
+    financialRipV3: { status: "ready", score: 9.9, components: { true_win_frequency: { score: 1 } } },
+  };
+
+  const canonical = resolveCanonicalRipV7(POPULATED_CONTRACT, conflictingLater, {});
+  const hero = selectRipHeroScoreMode({ canonical });
+
+  // Contract-over-top-level precedence, unchanged by the single-bundle work.
+  assert.equal(canonical.shape, "publicRipContractV7");
+  assert.equal(hero.score, 71.5);
+  assert.equal(hero.tier, "A");
+  assert.equal(selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)).score, 68.25);
+});
+
+test("resolving an already-resolved bundle returns it unchanged", () => {
+  // The page resolves once and passes the bundle down; selectors still call the
+  // resolver. If a bundle were treated as a raw source it would be searched for
+  // a `publicRipContractV7` key it does not have, resolve to unavailable, and
+  // blank every downstream surface.
+  const canonical = resolveCanonicalRipV7(POPULATED_CONTRACT);
+
+  assert.equal(resolveCanonicalRipV7(canonical), canonical);
+  // ...and it wins over later raw sources, because it IS the resolution.
+  assert.equal(resolveCanonicalRipV7(canonical, { publicRipContractV7: { overallRip: { relativeScore: 3 } } }), canonical);
+  assert.equal(selectRipHeroScoreMode({ canonical }).score, 71.5);
+});
+
+test("a bundle with no canonical data renders unavailable, never zero", () => {
+  const canonical = resolveCanonicalRipV7(EMPTY_FIRST_SOURCE, {}, {});
+
+  assert.equal(canonical.shape, null);
+  const hero = selectRipHeroScoreMode({ canonical });
+  assert.equal(hero.available, false);
+  assert.equal(hero.score, null);
+  assert.equal(selectCollectorAppealBreakdown(canonical).available, false);
+  assert.equal(selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)).diagnostics.status, "unavailable");
 });

@@ -35,12 +35,18 @@ export function hasCanonicalRipContract(...sources) {
   return readCanonicalBlock(resolveCanonicalRipV7(...sources).overall).available;
 }
 
-export function selectRipHeroScoreMode({ summary = {}, target = {}, payload = {} } = {}) {
-  // Source order: the set-page snapshot payload (set detail), then the rankings
-  // target (Explore/landing), then the merged summary. All three carry the SAME
-  // backend objects — one bundle powers every surface — so order only matters
-  // when a stale cache and a fresh one briefly coexist.
-  const resolved = resolveCanonicalRipV7(payload, target, summary);
+export function selectRipHeroScoreMode({ canonical = null, summary = {}, target = {}, payload = {} } = {}) {
+  // `canonical` is the caller's already-resolved bundle. The set page resolves
+  // once and passes it here so the hero cannot settle on a different source
+  // than the Overview summary, Financial RIP or Collector Appeal did. Callers
+  // without a bundle (Explore rows, the landing spotlight) still pass raw
+  // sources and get the same resolution in the same order: the set-page
+  // snapshot payload, then the rankings target, then the merged summary. All
+  // three carry the SAME backend objects, so order only matters when a stale
+  // cache and a fresh one briefly coexist.
+  const resolved = canonical
+    ? resolveCanonicalRipV7(canonical)
+    : resolveCanonicalRipV7(payload, target, summary);
   const overall = readCanonicalBlock(resolved.overall);
 
   return {

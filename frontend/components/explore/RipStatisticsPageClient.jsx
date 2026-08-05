@@ -108,6 +108,7 @@ import { buildSetValueContract, selectSetValueTrendFromContract } from "./setVal
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
+import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 import {
   selectOpeningExperiencePresentation,
@@ -6223,9 +6224,9 @@ function RipScoreBreakdownModule({
   rankValue,
   cohortSize = null,
   titleInfoText,
-  publicRipContractV7 = null,
-  overallRipV7 = null,
-  financialRipV3 = null,
+  // The page's single resolved canonical bundle, forwarded verbatim to both
+  // breakdowns so all three surfaces read one source.
+  canonical = null,
   requestTimeout = false,
 }) {
   return (
@@ -6260,22 +6261,17 @@ function RipScoreBreakdownModule({
           Financial opening performance with collector appeal.
         </p>
 
-        {/* The two canonical halves, each rendering its own components and its
-            own independent unavailable state. */}
+        {/* The two lenses that explain the score — Financial RIP first, then
+            Collector Appeal. They are explanatory views of one model, and
+            nothing here states or implies an even split between them. Each
+            renders its own components and its own independent unavailable
+            state, and both read the same resolved bundle as the score above. */}
         <div className="mt-4 min-w-0">
-          <CollectorAppealBreakdown
-            publicRipContractV7={publicRipContractV7}
-            overallRipV7={overallRipV7}
-          />
+          <FinancialRipV3Breakdown canonical={canonical} requestTimeout={requestTimeout} />
         </div>
 
         <div className="mt-4 min-w-0">
-          <FinancialRipV3Breakdown
-            publicRipContractV7={publicRipContractV7}
-            overallRipV7={overallRipV7}
-            financialRipV3={financialRipV3}
-            requestTimeout={requestTimeout}
-          />
+          <CollectorAppealBreakdown canonical={canonical} />
         </div>
       </article>
     </section>
@@ -10171,11 +10167,35 @@ export default function RipStatisticsPageClient({
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
-  const heroScoreSelection = selectRipHeroScoreMode({
-    summary,
-    target: selectedTarget,
-    payload: explorePayload,
-  });
+  // THE canonical RIP resolution for this page. Resolved ONCE, here, and shared
+  // by the sticky hero, the Overview RIP Summary, the Insights headline,
+  // Financial RIP and Collector Appeal. Every one of those surfaces reads this
+  // object, so they cannot disagree about which source answered.
+  //
+  // WHY ONE CALL AND NOT THREE `||` CHAINS
+  // --------------------------------------
+  // This replaced three independent `explorePayload?.x || selectedTarget?.x ||
+  // summary?.x` memos, one per canonical object. Those were unsafe for two
+  // reasons. First, a normalized-but-empty `{}` is TRUTHY, so an empty
+  // `explorePayload.publicRipContractV7` won the chain and blocked a populated
+  // contract on `selectedTarget` — the page then rendered "unavailable" while
+  // holding perfectly good canonical data. Second, three chains can settle on
+  // three different sources, so the hero could show one snapshot's RIP Score
+  // while Financial RIP showed another's components.
+  //
+  // `resolveCanonicalRipV7` fixes both: it tests for CONTENT rather than
+  // truthiness, and it returns Overall RIP, Financial RIP and Collector Appeal
+  // as one bundle from one source. It never defaults to a legacy object — an
+  // absent V7 renders as an explicit unavailable state, never as V6, V5,
+  // Overall RIP v4, Collector Appeal V2 or legacy CA7 wearing the canonical
+  // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
+  // the payload for audit consumers and are read by no public surface here.
+  const canonicalRip = useMemo(
+    () => resolveCanonicalRipV7(explorePayload, selectedTarget, summary),
+    [explorePayload, selectedTarget, summary]
+  );
+
+  const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
   // The PUBLIC hero number is the cohort-relative 0-100 Overall RIP V7. The raw
   // 90/10 formula output is the model score, shown small beneath as a
   // transparent diagnostic — never competing with the public score.
@@ -10206,46 +10226,6 @@ export default function RipStatisticsPageClient({
   const displayedProfitScore = toNumber(legacyExpertRipComponents.profit?.score);
   const displayedSafetyScore = toNumber(legacyExpertRipComponents.safety?.score);
   const displayedStabilityScore = toNumber(legacyExpertRipComponents.stability?.score);
-  // The canonical Financial RIP V3 contract, resolved with the SAME
-  // payload -> target -> summary precedence as the V7 objects below so the two
-  // can never be reading different simulation runs. It is deliberately not
-  // defaulted to `ripCore`: an absent V3 renders as an explicit unavailable
-  // state, never as Financial RIP V2 wearing the V3 label.
-  const canonicalFinancialRipV3 = useMemo(
-    () =>
-      explorePayload?.financialRipV3 ||
-      selectedTarget?.financialRipV3 ||
-      summary?.financialRipV3 ||
-      null,
-    [explorePayload?.financialRipV3, selectedTarget?.financialRipV3, summary?.financialRipV3]
-  );
-  // The CANONICAL V7 objects. `publicRipContractV7` is preferred because it
-  // packages Overall RIP, Financial RIP and Collector Appeal from one bundle;
-  // `overallRipV7` is the same model at top level. Neither defaults to a legacy
-  // object: an absent V7 renders as an explicit unavailable state, never as V6,
-  // V5, Overall RIP v4, Collector Appeal V2 or legacy CA7 wearing the canonical
-  // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
-  // the payload for audit consumers and are read by no public surface here.
-  const canonicalPublicRipContractV7 = useMemo(
-    () =>
-      explorePayload?.publicRipContractV7 ||
-      selectedTarget?.publicRipContractV7 ||
-      summary?.publicRipContractV7 ||
-      null,
-    [
-      explorePayload?.publicRipContractV7,
-      selectedTarget?.publicRipContractV7,
-      summary?.publicRipContractV7,
-    ]
-  );
-  const canonicalOverallRipV7 = useMemo(
-    () =>
-      explorePayload?.overallRipV7 ||
-      selectedTarget?.overallRipV7 ||
-      summary?.overallRipV7 ||
-      null,
-    [explorePayload?.overallRipV7, selectedTarget?.overallRipV7, summary?.overallRipV7]
-  );
   const canonicalUniversalSetDesirability = useMemo(
     () =>
       explorePayload?.universalSetDesirability ||
@@ -14424,9 +14404,7 @@ export default function RipStatisticsPageClient({
                     rankValue={heroScoreSelection.rank}
                     cohortSize={heroScoreSelection.cohortSize}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                    publicRipContractV7={canonicalPublicRipContractV7}
-                    overallRipV7={canonicalOverallRipV7}
-                    financialRipV3={canonicalFinancialRipV3}
+                    canonical={canonicalRip}
                     requestTimeout={isTimeoutFallbackPayload}
                   />
                 </SectionErrorBoundary>

@@ -41,6 +41,25 @@
 // (`rankedSetCount` on the contract, `cohortSize` at top level) — a rename the
 // backend already performs on itself, not arithmetic.
 
+// Marks an object as the OUTPUT of resolveCanonicalRipV7 rather than one of its
+// raw inputs. A resolved bundle is accepted anywhere a source is, and resolving
+// it again returns it unchanged — see the idempotence note on the resolver.
+const CANONICAL_BUNDLE = Symbol.for("evr.canonicalRipV7.bundle");
+
+export function isCanonicalRipBundle(value) {
+  return Boolean(value && typeof value === "object" && value[CANONICAL_BUNDLE] === true);
+}
+
+function bundle(shape, overall, financialRip, collectorAppeal) {
+  return {
+    [CANONICAL_BUNDLE]: true,
+    shape,
+    overall,
+    financialRip,
+    collectorAppeal,
+  };
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -62,18 +81,33 @@ function hasContent(value) {
  * target -> merged summary). All three carry the SAME backend objects — one
  * bundle powers every surface — so order only matters while a stale cache and a
  * fresh one briefly coexist.
+ *
+ * IDEMPOTENCE — WHY A BUNDLE IS A VALID SOURCE
+ * --------------------------------------------
+ * The set page resolves ONCE and hands the result down, so the hero, the
+ * Overview summary, the Insights headline, Financial RIP and Collector Appeal
+ * all read the same bundle and cannot land on different sources. Selectors
+ * still call this function, so passing them the already-resolved bundle must
+ * return that same bundle rather than searching it for a raw `publicRipContractV7`
+ * key it does not have (which would resolve to "unavailable" and blank every
+ * downstream surface). A bundle short-circuits, and it wins over any later
+ * source, because it IS the decision those sources were consulted to make.
  */
 export function resolveCanonicalRipV7(...sources) {
+  for (const source of sources) {
+    if (isCanonicalRipBundle(source)) return source;
+  }
+
   for (const source of sources) {
     const safeSource = toObject(source);
     const contract = toObject(safeSource.publicRipContractV7);
     if (hasContent(contract)) {
-      return {
-        shape: "publicRipContractV7",
-        overall: toObject(contract.overallRip),
-        financialRip: toObject(contract.financialRip),
-        collectorAppeal: toObject(contract.collectorAppeal),
-      };
+      return bundle(
+        "publicRipContractV7",
+        toObject(contract.overallRip),
+        toObject(contract.financialRip),
+        toObject(contract.collectorAppeal)
+      );
     }
   }
 
@@ -82,19 +116,14 @@ export function resolveCanonicalRipV7(...sources) {
     const overall = toObject(safeSource.overallRipV7);
     const financial = toObject(safeSource.financialRipV3);
     if (hasContent(overall) || hasContent(financial)) {
-      return {
-        shape: "topLevelV7",
-        overall,
-        financialRip: financial,
-        // Not derivable from any top-level object. See the module note: an
-        // absent Collector Appeal renders unavailable rather than being rebuilt
-        // from the service payload or borrowed from V6/V2/CA7.
-        collectorAppeal: {},
-      };
+      // Not derivable from any top-level object. See the module note: an
+      // absent Collector Appeal renders unavailable rather than being rebuilt
+      // from the service payload or borrowed from V6/V2/CA7.
+      return bundle("topLevelV7", overall, financial, {});
     }
   }
 
-  return { shape: null, overall: {}, financialRip: {}, collectorAppeal: {} };
+  return bundle(null, {}, {}, {});
 }
 
 /**

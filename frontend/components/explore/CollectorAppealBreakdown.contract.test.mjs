@@ -357,16 +357,23 @@ test("the selector never falls back to a legacy model", () => {
 
 // --- Wiring and layout ------------------------------------------------------
 
-test("the breakdown is mounted and fed the canonical V7 objects", () => {
+test("the breakdown is mounted and fed the one resolved canonical bundle", () => {
   assert.match(pageSource, /import CollectorAppealBreakdown from "\.\/CollectorAppealBreakdown\.jsx";/);
   const start = pageSource.indexOf("function RipScoreBreakdownModule");
   const end = pageSource.indexOf("function StatTile", start);
   assert.ok(start >= 0 && end > start);
   const module = pageSource.slice(start, end);
   assert.match(module, /<CollectorAppealBreakdown/);
-  assert.match(module, /publicRipContractV7=\{publicRipContractV7\}/);
-  assert.match(module, /overallRipV7=\{overallRipV7\}/);
+  // One prop: the bundle the hero and Financial RIP also read. Passing raw
+  // sources here is what previously let this surface resolve independently and
+  // land on a different source than the score above it.
+  assert.match(module, /<CollectorAppealBreakdown canonical=\{canonical\}/);
   assert.doesNotMatch(module, /publicRipContractV6|overallRipV6/);
+  assert.doesNotMatch(
+    module,
+    /<CollectorAppealBreakdown[^>]*publicRipContractV7=/,
+    "the breakdown must take the resolved bundle, not a raw canonical source"
+  );
 });
 
 test("publicRipContractV7 survives every allow-listing layer between API and page", () => {
@@ -386,14 +393,29 @@ test("publicRipContractV7 survives every allow-listing layer between API and pag
   assert.match(criticalAdapter, /publicRipContractV7: critical\?\.publicRipContractV7/);
 });
 
-test("the page resolves the V7 objects without defaulting to a legacy model", () => {
-  const start = pageSource.indexOf("const canonicalPublicRipContractV7 = useMemo(");
-  assert.ok(start >= 0, "the page must resolve canonicalPublicRipContractV7");
-  const block = pageSource.slice(start, start + 900);
-  assert.match(block, /explorePayload\?\.publicRipContractV7/);
+test("the page resolves the canonical bundle once, without defaulting to a legacy model", () => {
+  const start = pageSource.indexOf("const canonicalRip = useMemo(");
+  assert.ok(start >= 0, "the page must resolve one canonical bundle");
+  const block = pageSource.slice(start, start + 400);
+  assert.match(block, /resolveCanonicalRipV7\(explorePayload, selectedTarget, summary\)/);
   assert.doesNotMatch(block, /overallRipV6/);
   assert.doesNotMatch(block, /overallRipV5/);
   assert.doesNotMatch(block, /ripCore/);
+
+  // The defect this pass removed: three separate truthiness chains, one per
+  // canonical object, each able to settle on a different source and each able
+  // to be blocked by a normalized-but-truthy `{}`.
+  for (const retired of [
+    "const canonicalPublicRipContractV7 = useMemo(",
+    "const canonicalOverallRipV7 = useMemo(",
+    "const canonicalFinancialRipV3 = useMemo(",
+  ]) {
+    assert.equal(
+      pageSource.includes(retired),
+      false,
+      `${retired} is a parallel resolution path and must not return`
+    );
+  }
 });
 
 test("Collector Appeal is presented exactly once on Insights", () => {

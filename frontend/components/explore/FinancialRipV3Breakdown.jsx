@@ -121,18 +121,19 @@ function DepthAndRobustnessPanel({ diagnostic }) {
   );
 }
 
-export default function FinancialRipV3Breakdown({ publicRipContractV7, overallRipV7, financialRipV3, requestTimeout = false }) {
-  // One canonical resolution, shared with every other V7 surface. The caller
-  // may pass the packaged contract, the top-level V3 object, or both.
-  const canonical = useMemo(
-    () => resolveCanonicalFinancialRip({ publicRipContractV7, overallRipV7, financialRipV3 }),
-    [financialRipV3, overallRipV7, publicRipContractV7]
-  );
+// `canonical` is the ALREADY-RESOLVED bundle from resolveCanonicalRipV7, owned
+// by the set page and shared with the hero, the Overview summary and Collector
+// Appeal. This component deliberately takes no raw sources: when it resolved
+// its own `publicRipContractV7`/`overallRipV7`/`financialRipV3` props it could
+// land on a different source than the hero did, which is the exact split this
+// pass removes.
+export default function FinancialRipV3Breakdown({ canonical, requestTimeout = false }) {
+  const financialRip = useMemo(() => resolveCanonicalFinancialRip(canonical), [canonical]);
   const v3 = useMemo(
-    () => selectFinancialRipV3Breakdown(canonical, { requestTimeout }),
-    [canonical, requestTimeout]
+    () => selectFinancialRipV3Breakdown(financialRip, { requestTimeout }),
+    [financialRip, requestTimeout]
   );
-  const depth = useMemo(() => selectDepthAndRobustness(canonical), [canonical]);
+  const depth = useMemo(() => selectDepthAndRobustness(financialRip), [financialRip]);
 
   return (
     <section data-financial-rip-breakdown="v3" className="min-w-0">

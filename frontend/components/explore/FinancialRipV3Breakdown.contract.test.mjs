@@ -430,19 +430,18 @@ test("the breakdown is mounted inside the RIP Score Breakdown module", () => {
   assert.ok(start >= 0 && end > start);
   const module = pageSource.slice(start, end);
   assert.match(module, /<FinancialRipV3Breakdown/);
-  assert.match(module, /financialRipV3=\{financialRipV3\}/);
-  // The canonical contract is passed too, and the component prefers it.
-  assert.match(module, /publicRipContractV7=\{publicRipContractV7\}/);
-  // No legacy object reaches the component at all.
+  // One prop: the same resolved bundle the hero and Collector Appeal read.
+  assert.match(module, /<FinancialRipV3Breakdown canonical=\{canonical\}/);
+  // No raw canonical source and no legacy object reaches the component at all.
+  assert.doesNotMatch(module, /<FinancialRipV3Breakdown[^>]*financialRipV3=/);
   assert.doesNotMatch(module, /legacyRip=/);
 });
 
-test("the page resolves financialRipV3 without defaulting to ripCore", () => {
-  const start = pageSource.indexOf("const canonicalFinancialRipV3 = useMemo(");
-  assert.ok(start >= 0, "the page must resolve canonicalFinancialRipV3");
-  const block = pageSource.slice(start, start + 600);
-  assert.match(block, /explorePayload\?\.financialRipV3/);
-  assert.match(block, /selectedTarget\?\.financialRipV3/);
+test("the page resolves the canonical bundle once, without defaulting to ripCore", () => {
+  const start = pageSource.indexOf("const canonicalRip = useMemo(");
+  assert.ok(start >= 0, "the page must resolve one canonical bundle");
+  const block = pageSource.slice(start, start + 400);
+  assert.match(block, /resolveCanonicalRipV7\(explorePayload, selectedTarget, summary\)/);
   assert.doesNotMatch(block, /ripCore/);
 });
 
