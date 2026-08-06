@@ -21,42 +21,16 @@ test("Set Value and Opening Profit vs Cost use the requested user-facing copy", 
   assert.ok(!source.includes(">Opening Performance vs Cost<"));
 });
 
-test("hero exposes one accessible RIP mode control defaulting to RIP Score", () => {
+// The RIP Score / RIP Core mode control test stood here. There is one canonical
+// headline now: RIP Core is Financial RIP V2 and is not a current alternative to
+// the RIP Score, so there is nothing to switch between.
+test("the hero labels its one canonical score and offers no mode switch", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
-  const segmentedSource = fs.readFileSync(segmentedControlPath, "utf8");
-  const toggleSource = source.slice(source.indexOf("function RipScoreModeToggle"), source.indexOf("function HeroScoreBadges"));
-
-  assert.ok(source.includes('function RipScoreModeToggle({ value, onChange, coreAvailable })'));
-  assert.ok(source.includes('ariaLabel="RIP score mode"'));
-  assert.ok(source.includes("<SegmentedControl"));
-
-  // Two short canonical labels, in this order, and nothing else.
-  assert.ok(toggleSource.includes('{ value: RIP_SCORE_MODE, label: "RIP Score", disabled: false }'));
-  assert.ok(toggleSource.includes('{ value: RIP_CORE_MODE, label: "RIP Core", disabled: !coreAvailable }'));
-  assert.ok(toggleSource.indexOf("RIP_SCORE_MODE") < toggleSource.indexOf("RIP_CORE_MODE"), "RIP Score comes first");
-
-  // Accessible segmented-control semantics + visible focus, from the shared
-  // control rather than re-implemented here.
-  assert.ok(segmentedSource.includes('role="radiogroup"'));
-  assert.ok(segmentedSource.includes('aria-checked={isActive}'));
-  assert.ok(segmentedSource.includes("focus-visible:ring-2"));
-  assert.ok(segmentedSource.includes('"ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"'));
-
-  // RIP Score is the default, and the mode is held in ONE state so the hero
-  // and the breakdown can never diverge — and it survives while the user
-  // stays on the set.
-  assert.ok(source.includes("const [heroScoreMode, setHeroScoreMode] = useState(RIP_SCORE_MODE);"));
-  assert.equal(
-    (source.match(/useState\(RIP_(SCORE|CORE)_MODE\)/g) || []).length,
-    1,
-    "a second mode state would let the hero and the breakdown disagree"
-  );
-  assert.ok(source.includes("scoreMode={heroScoreSelection.mode}"), "the breakdown reads the shared selection");
-  assert.ok(source.includes("onScoreModeChange={setHeroScoreMode}"), "the breakdown writes the shared state");
-
-  assert.ok(toggleSource.includes("onChange={onChange}"));
-  assert.ok(!toggleSource.includes("fetch("));
-  assert.ok(!toggleSource.includes("getPokemonSet"), "mode switching must remain local and never request set data");
+  assert.ok(!source.includes("function RipScoreModeToggle"));
+  assert.ok(!source.includes("<RipScoreModeToggle"));
+  assert.ok(!source.includes('ariaLabel="RIP score mode"'));
+  assert.ok(source.includes("{heroScoreSelection.label}"), "the selector owns the name");
+  assert.ok(source.includes("InfoPopover text={heroScoreSelection.helper}"));
 });
 
 test('no surface labels the canonical RIP Score as "Opening RIP"', () => {
@@ -72,19 +46,20 @@ test('no surface labels the canonical RIP Score as "Opening RIP"', () => {
   );
 });
 
-test("score metadata is tier bubble + plain rank + interpretation bubble", () => {
+test("score metadata is a tier bubble and a plain rank, and nothing else", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
   const pillSource = source.slice(source.indexOf("function HeroScoreBadges"), source.indexOf("function formatLensScore"));
 
-  // The tier and the interpretation are judgements and keep their bubbles. The
-  // rank is a position, so it is plain inline text — three outlined chips in a
-  // row read as three equally-weighted verdicts.
+  // The tier is a judgement and keeps its bubble. The rank is a position, so it
+  // is plain inline text. The interpretation pill is GONE: it rendered the
+  // retired Profit/Safety/Stability interpretation engine's verdict, which
+  // describes neither Financial RIP V3 nor Collector Appeal V3.
   assert.ok(pillSource.includes('<RankBadge rank={normalizedTier} format="tier"'), "the tier keeps its bubble");
   assert.ok(pillSource.includes("data-rip-score-rank"), "the rank is its own plain element");
   assert.equal(
     (pillSource.match(/data-rip-summary-pill/g) || []).length,
-    1,
-    "exactly one interpretation pill may remain in the metadata block"
+    0,
+    "no interpretation pill may remain in the metadata block"
   );
 
   // The retired multi-segment pill and its dividers stay gone.
@@ -97,26 +72,30 @@ test("score metadata is tier bubble + plain rank + interpretation bubble", () =>
   const rankTag = pillSource.slice(rankStart, pillSource.indexOf(">", pillSource.indexOf("title=", rankStart)));
   assert.ok(!/rounded|\bborder|\bbg-/.test(rankTag), "the rank must not gain a bubble");
 
-  // The one pill carries the interpretation and nothing else.
-  const pill = pillSource.slice(pillSource.indexOf("data-rip-summary-pill"));
-  assert.ok(pill.includes("color: tone.badgeTextColor"), "the pill keeps the semantic tier colour");
-  assert.ok(pill.includes("{interpretationLabel}"));
-  assert.ok(!pill.includes("normalizedTier"), "the tier must not be inside the interpretation pill");
-  assert.ok(!pill.includes("roundedRank"), "the rank must not be inside the interpretation pill");
+  // No interpretation pill and no interpretation tone: the badges component no
+  // longer takes an `interpretation` prop at all, so a verdict cannot be piped
+  // back into this block by a caller.
+  assert.ok(!pillSource.includes("interpretationLabel"));
+  assert.ok(!pillSource.includes("getInterpretationTone"));
+  assert.ok(
+    pillSource.includes('function HeroScoreBadges({ rank, tier, cohortSize = null, size = "supporting" })'),
+    "the badges take score metadata only"
+  );
 
   // Compact rows show "Rank #N" only; the cohort lives in the tooltip.
   assert.ok(pillSource.includes("Rank #{roundedRank}"));
   assert.ok(!/>\s*Rank #\{roundedRank\} of /.test(pillSource), 'no "of N" in the rendered rank');
 
   // Shared by the Overview hero and the Insights breakdown, so both surfaces
-  // present the same hierarchy in both score modes.
+  // present the same hierarchy from the same canonical selection.
   assert.equal(
     (source.match(/<HeroScoreBadges/g) || []).length,
     2,
     "the hero and the breakdown must share one metadata component"
   );
   assert.ok(source.includes("cohortSize={heroScoreSelection.cohortSize}"), "the cohort still reaches the tooltip");
-  assert.ok(source.includes("heroScoreSelection.interpretation.summary"));
+  // The selector no longer exposes an interpretation, so no surface can read one.
+  assert.ok(!source.includes("heroScoreSelection.interpretation"));
 });
 
 test("every RIP tier bubble comes from the one shared tier palette", () => {
@@ -129,13 +108,14 @@ test("every RIP tier bubble comes from the one shared tier palette", () => {
   assert.ok(rankBadgeSource.includes('import { RANK_CONFIG } from "@/constants/rankConfig"'));
   assert.ok(rankBadgeSource.includes('const rankDisplay = format === "tier" && rank ? `${rank} Tier` : rank;'));
 
-  // The hero metadata, the three pillar cards and Collector Appeal all route
-  // their tier through it.
+  // Every surface that renders a tier bubble routes it through RankBadge. The
+  // Collector Appeal tier badge moved out of this file with the retired
+  // composition group: Collector Appeal V3 prints its tier as plain metadata
+  // beside its score in CollectorAppealBreakdown.jsx.
   const tierBadges = source.match(/<RankBadge rank=\{[^}]+\} format="tier"/g) || [];
-  assert.ok(tierBadges.length >= 3, `expected the hero, pillar and appeal tier badges (found ${tierBadges.length})`);
+  assert.ok(tierBadges.length >= 2, `expected at least the hero and pillar tier badges (found ${tierBadges.length})`);
   assert.ok(source.includes('<RankBadge rank={normalizedTier} format="tier"'), "hero metadata");
   assert.ok(source.includes('<RankBadge rank={rankTier} format="tier" size="supporting" subtle'), "pillar cards");
-  assert.ok(source.includes('<RankBadge rank={collectorAppeal.tier} format="tier" />'), "Collector Appeal");
 
   // No surface may transcribe a tier colour instead.
   assert.ok(!/rgba\(\s*253,\s*224,\s*71/.test(source), "C's colour must not be hard-coded");
@@ -641,33 +621,31 @@ test("the authoritative desirability pillar is Set Desirability, not Collector A
   assert.ok(!source.includes('<OpeningDesirabilityCard'));
 });
 
-test("the CA7 diagnostics keep their labels inside the Collector Profile's Opening Paths view", () => {
+test("the public Collector Profile section no longer renders", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The standalone "03 · Simulation Opening Experience" section was merged into
-  // the Collector Profile, so Collector Appeal now appears as a stage of that
-  // section's flow and as the Opening Paths view beneath it. The diagnostics
-  // themselves are unchanged and still sit below the summary.
-  assert.ok(source.includes('title="Collector Profile"'));
-  assert.ok(source.includes('eyebrow="02 · Collector Profile"'));
-  assert.ok(!source.includes('eyebrow="03 · Simulation Opening Experience"'), "the merged section must not render twice");
-  assert.ok(source.includes('label="Collector Appeal"'), "Collector Appeal is a stage of the flow");
-  assert.ok(source.includes('label="Chase Appeal"'));
-  assert.ok(source.includes('label="Dual-Path Depth"'));
-  assert.ok(source.includes('"Needs chase data"'));
+  // The section is REMOVED, not renamed and not merged into something else.
+  // None of its shell, its view tabs or its panels may render.
+  for (const marker of [
+    'title="Collector Profile"',
+    'eyebrow="02 · Collector Profile"',
+    'eyebrow="03 · Simulation Opening Experience"',
+    "<CollectorProfileSection",
+    "function CollectorRosterAppealPanel",
+    "function CollectorOpeningPathsPanel",
+    "data-collector-profile-flow",
+    'COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal"',
+    'sectionName="insights-collector-profile"',
+  ]) {
+    assert.ok(!source.includes(marker), `${marker} belongs to the removed Collector Profile`);
+  }
+
+  // What SURVIVES: the Top Desirability Drivers rows, which are read by the
+  // Set Desirability pillar card and were never exclusive to the removed
+  // section, so they are not collateral damage.
   assert.ok(source.includes("function CollectorAppealDriverRow"));
   assert.ok(source.includes("<CollectorAppealDriverRow"));
-
-  // Summary first, detail below — the diagnostics live in the Opening Paths
-  // panel, not repeated in the flow.
-  const flow = source.indexOf("data-collector-profile-flow");
-  const tabs = source.indexOf("COLLECTOR_PROFILE_ROSTER_VIEW, label: \"Roster Appeal\"");
-  const paths = source.indexOf("function CollectorOpeningPathsPanel");
-  assert.ok(flow >= 0 && tabs > flow, "the tabs follow the summary flow");
-  assert.ok(paths >= 0, "the Opening Paths panel exists");
-  const flowBlock = source.slice(flow, tabs);
-  assert.ok(!flowBlock.includes('label="Chase Appeal"'), "diagnostics must not be duplicated into the summary");
-  assert.ok(!flowBlock.includes('label="Dual-Path Depth"'), "diagnostics must not be duplicated into the summary");
+  assert.ok(source.includes("function TopDesirabilityDrivers"));
 });
 
 test("legacy desirability labels are renamed to the Set Desirability vocabulary", () => {

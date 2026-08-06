@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import {
   SET_DESIRABILITY_EXPLANATION,
   selectOpeningExperiencePresentation,
-  selectRipDesirabilityBreakdown,
   selectSetDesirabilityPresentation,
 } from "./openingExperienceSelector.mjs";
 
@@ -221,108 +220,14 @@ test("unavailable reasons pass through from backend coverage", () => {
   assert.deepEqual(model.unavailableReasons, ["dual_path_depth_unavailable_no_pull_model"]);
 });
 
-// ---------------------------------------------------------------------------
-// RIP breakdown: Financial RIP, Opening Desirability (CA7), Overall RIP
-// Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 (no cap, no adjustment).
-// ---------------------------------------------------------------------------
-
-const RIP_CORE = { score: 22.3155, relativeScore: 83.7, rank: 4, cohortSize: 21, tier: "A" };
-const RIP_OPENING_EXPERIENCE = {
-  collectorAppeal: { score: 89.8659, rank: 3, cohortSize: 21, tier: "A" },
-};
-const RIP = {
-  score: 29.0705, // 0.9*22.3155 + 0.1*89.8659
-  relativeScore: 98.4,
-  rank: 2,
-  cohortSize: 21,
-  tier: "S",
-  version: "overall_rip_v4_90_financial_10_ca7",
-  financialRip: { score: 22.3155 },
-  openingDesirability: { score: 89.8659, weight: 0.1, contribution: 8.98659 },
-  components: {
-    financialRip: { score: 22.3155, weight: 0.9, contribution: 20.08395 },
-    openingDesirability: { score: 89.8659, weight: 0.1, contribution: 8.98659 },
-  },
-  effectiveWeights: { profit: 0.54, safety: 0.225, stability: 0.135, opening_desirability: 0.1 },
-};
-
-test("breakdown shows Financial RIP, Opening Desirability and Overall RIP", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-
-  assert.equal(model.financialRip.scoreLabel, "22.3");
-  assert.equal(model.openingDesirability.scoreLabel, "89.9");
-  assert.equal(model.openingDesirability.rankLabel, "#3 of 21");
-  assert.equal(model.setDesirability.scoreLabel, "95.5");
-  assert.equal(model.setDesirability.rankLabel, "#1 of 135");
-  assert.equal(model.overallRip.scoreLabel, "29.1");
-});
-
-test("breakdown states the 60/25/15 financial weights", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-  assert.equal(model.financialRip.weightsLabel, "Profit 60% · Safety 25% · Stability 15%");
-});
-
-test("Overall RIP is 90% Financial + 10% CA7, contributions read from the backend", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-  assert.equal(model.financialRip.weightLabel, "90%");
-  assert.equal(model.openingDesirability.weightLabel, "10%");
-  assert.ok(model.financialRip.contributionLabel.includes("20.1"));
-  assert.ok(model.openingDesirability.contributionLabel.includes("9.0"));
-  // No cap and no additive adjustment anywhere in the model.
-  assert.ok(!("desirabilityAdjustment" in model));
-});
-
-test("breakdown exposes the effective final weights", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-  const byLabel = Object.fromEntries(model.effectiveWeights.map((w) => [w.label, w.valueLabel]));
-  assert.equal(byLabel.Profit, "54.0%");
-  assert.equal(byLabel.Safety, "22.5%");
-  assert.equal(byLabel.Stability, "13.5%");
-  assert.equal(byLabel["Opening Desirability"], "10.0%");
-});
-
-test("missing CA7 makes Overall RIP unavailable but keeps Financial + Set Desirability", () => {
-  const model = selectRipDesirabilityBreakdown(
-    { score: null, financialRip: { score: 22.3155 }, statusReason: "no ca7" },
-    RIP_CORE,
-    UNIVERSAL,
-    { collectorAppeal: { score: null } }
-  );
-  assert.equal(model.overallRip.scoreLabel, null);
-  assert.equal(model.openingDesirability.scoreLabel, null);
-  assert.ok(model.openingDesirability.unavailableReason);
-  assert.equal(model.financialRip.scoreLabel, "22.3");
-  assert.equal(model.setDesirability.scoreLabel, "95.5");
-});
-
-test("contribution math uses ABSOLUTE scores; relative is a separate standardization step", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-
-  // Contribution math is on the absolute (model) scores, never the relatives.
-  assert.equal(model.financialRip.score, 22.3155);
-  assert.equal(model.overallRip.score, 29.0705);
-  assert.ok(model.financialRip.contributionLabel.includes("20.1")); // 22.3155 * 0.9
-  // The public relative scores are exposed as a distinct standardization result.
-  assert.equal(model.financialRip.relativeScore, 83.7);
-  assert.equal(model.financialRip.relativeScoreLabel, "83.7");
-  assert.equal(model.overallRip.relativeScore, 98.4);
-  assert.equal(model.overallRip.relativeScoreLabel, "98.4");
-  assert.ok(model.overallRip.standardizationNote.includes("98.4"));
-  assert.ok(model.overallRip.standardizationNote.toLowerCase().includes("standardized"));
-  // The relative public score is NOT the contribution sum (proves no blending).
-  assert.notEqual(model.overallRip.relativeScore, model.overallRip.score);
-});
-
-test("breakdown never presents Set Desirability as a weighted RIP pillar", () => {
-  const model = selectRipDesirabilityBreakdown(RIP, RIP_CORE, UNIVERSAL, RIP_OPENING_EXPERIENCE);
-  assert.ok(!("weight" in model.setDesirability), "Set Desirability is a supporting input, not a weight");
-  assert.ok(!("contribution" in model.setDesirability));
-});
-
-test("breakdown is null when nothing carries a score", () => {
-  assert.equal(selectRipDesirabilityBreakdown({}, {}, {}), null);
-  assert.equal(selectRipDesirabilityBreakdown(null, undefined, null), null);
-});
+// The Overall RIP v4 construction-strip tests lived here: the 60/25/15
+// financial weights, the 90/10 Financial+CA7 blend, its per-input
+// contributions in model points and the effective final weights. They tested
+// selectRipDesirabilityBreakdown, which has been removed along with the
+// surface it fed - no public page publishes composition weights or
+// contributions any more, and the canonical Overall RIP is V7. The remaining
+// exports in this module (Set Desirability and the Opening Paths evidence)
+// are unchanged and still covered above.
 
 // ---------------------------------------------------------------------------
 // Source guards

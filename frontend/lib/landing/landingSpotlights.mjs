@@ -88,16 +88,26 @@ export function selectOpeningSpotlight(entries) {
 
 /**
  * The set-level data the large Set Intelligence section needs before it can be
- * built around a set: a value to trend, an opening comparison to draw, and a
- * published read to lead with.
+ * built around a set: a canonical RIP Score to lead with, a value to trend, and
+ * an opening comparison to draw.
+ *
+ * ELIGIBILITY IS CANONICAL, NOT EDITORIAL. This used to additionally require
+ * `decisionLabel || interpretationLabel` — i.e. a set could not be featured
+ * unless the retired Profit/Safety/Stability interpretation engine had written
+ * a verdict for it. That made a superseded model the gatekeeper for a section
+ * that no longer renders its copy, and it silently dropped sets that have a
+ * perfectly good canonical score. The requirement is now the canonical Overall
+ * RIP V7 the section actually shows. Interpretation fields are not read here in
+ * any form, so changing one cannot move a set in or out of the section, nor
+ * reorder it — the ordering below reads desirability, value and rank only.
  */
 function hasSetIntelligenceData(entry) {
   return Boolean(
     isRenderable(entry) &&
+      entry.hasCanonicalOverallRipV7 === true &&
       toFiniteNumber(entry.setValue) !== null &&
       toFiniteNumber(entry.packCost) !== null &&
-      toFiniteNumber(entry.meanValue) !== null &&
-      (entry.decisionLabel || entry.interpretationLabel)
+      toFiniteNumber(entry.meanValue) !== null
   );
 }
 

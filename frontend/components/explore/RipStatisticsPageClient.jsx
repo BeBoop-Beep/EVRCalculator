@@ -75,10 +75,11 @@ import {
   hasUsableCardAppealCorrelation,
   resolvePreferredCardAppealCorrelation,
 } from "./cardAppealSampleDiagnostics.mjs";
-import { selectDecisionSignals } from "./decisionSignalsSelector.mjs";
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
+import OverviewRipSummary from "./OverviewRipSummary.jsx";
+import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
@@ -109,23 +110,18 @@ import { buildSetValueContract, selectSetValueTrendFromContract } from "./setVal
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
-import {
-  RIP_CORE_MODE,
-  RIP_SCORE_MODE,
-  hasRipCorePresentationContract,
-  selectRipHeroScoreMode,
-} from "./ripHeroScoreMode.mjs";
-import {
-  selectOpeningExperiencePresentation,
-  selectRipDesirabilityBreakdown,
-  selectSetDesirabilityPresentation,
-} from "@/components/pokemon/set-page/Insights/openingExperienceSelector.mjs";
+import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
+// `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
+// were imported from Insights/openingExperienceSelector.mjs for the removed
+// public Collector Profile. This page has no other consumer of either, so the
+// import is gone; the selector module itself is left in place for its remaining
+// callers rather than deleted from under them.
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
   NEGATIVE_VALUE_COLOR,
   POSITIVE_VALUE_COLOR,
-  getCalloutAccentStyle,
   getDangerValueStyle,
   getInterpretationTone,
   getRipTierPresentation,
@@ -239,7 +235,6 @@ const SET_VALUE_SCOPE_OPTIONS = [
   { key: "hits", label: "Hits" },
   { key: "top10", label: "Top 10" },
 ];
-const OVERALL_RIP_SIGNAL_LABEL = "Overall RIP";
 // Hits stays in the backend/data contract but is temporarily hidden from the
 // user-facing selector while hit-eligibility membership is under audit.
 const VISIBLE_SET_VALUE_SCOPE_OPTIONS = SET_VALUE_SCOPE_OPTIONS.filter((entry) => entry.key !== "hits");
@@ -281,16 +276,43 @@ const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
   market: "overview",
 };
+// The ONE preferred DOM id for the canonical Collector Appeal block.
+const COLLECTOR_APPEAL_SECTION_ID = "set-detail-collector-appeal";
+
+// The ids the removed public Collector Profile and its predecessors owned.
+// They are rendered as invisible anchors on the canonical Collector Appeal
+// block so every existing bookmark, internal link and indexed URL still lands
+// on real content. They are compatibility only — nothing links to them by
+// choice, and `set-detail-collector-appeal` is what new links use.
+const LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS = [
+  "set-detail-collector-profile",
+  "set-detail-set-desirability",
+  "set-detail-desirability-evidence",
+  "set-detail-desirability-proof",
+  "set-detail-desirability-validation",
+  "set-detail-card-desirability-price",
+  "set-detail-opening-experience",
+];
+
 const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
-  // Legacy desirability-evidence deep links resolve to the Opening Experience
-  // section that replaced it. `opening-experience` is the preferred alias.
-  "opening-experience": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "desirability-proof": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "desirability-validation": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "card-desirability-price": { tab: "insights", targetId: "set-detail-opening-experience" },
+  // COLLECTOR APPEAL — one destination, many legacy names.
+  //
+  // `collector-appeal` is the preferred alias. Every other key here addressed
+  // the removed public Collector Profile or one of the standalone desirability
+  // sections that preceded it, and each now resolves to the SAME canonical
+  // Collector Appeal block. They point at surviving content, not at a deleted
+  // section: a legacy link scrolls to the three Collector Appeal V3 factors.
+  "collector-appeal": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "collector-profile": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "set-desirability": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-evidence": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "opening-experience": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-proof": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-validation": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "card-desirability-price": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
   // Simulation Results card (formerly "Opening Outcomes"). `opening-outcomes`
   // stays for backwards-compatible deep links; `simulation-results` is the
   // preferred alias for the same card/default sub-view.
@@ -514,6 +536,9 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     publicRipContractV5: normalized?.publicRipContractV5 || null,
     overallRipV6: normalized?.overallRipV6 || null,
     publicRipContractV6: normalized?.publicRipContractV6 || null,
+    // CANONICAL: what every current public surface reads (see canonicalRipV7).
+    overallRipV7: normalized?.overallRipV7 || null,
+    publicRipContractV7: normalized?.publicRipContractV7 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -538,15 +563,17 @@ function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
     set: critical?.set || null,
     summary: dualKeyCase(critical?.summary || {}),
     interpretation: critical?.interpretation || {},
-    // The RIP Score Breakdown is a priority-1 surface, so the canonical V3/V5
-    // objects have to arrive in the CRITICAL slice - deferring them to the
-    // secondary fetch would leave the breakdown showing an unavailable state
-    // until the second request settled.
+    // The RIP Score hero and Breakdown are priority-1 surfaces, so the canonical
+    // V7 objects have to arrive in the CRITICAL slice - deferring them to the
+    // secondary fetch would leave the headline score unavailable until the
+    // second request settled.
     financialRipV3: critical?.financialRipV3 || null,
     overallRipV5: critical?.overallRipV5 || null,
     publicRipContractV5: critical?.publicRipContractV5 || null,
     overallRipV6: critical?.overallRipV6 || null,
     publicRipContractV6: critical?.publicRipContractV6 || null,
+    overallRipV7: critical?.overallRipV7 || null,
+    publicRipContractV7: critical?.publicRipContractV7 || null,
   };
 }
 
@@ -1020,8 +1047,13 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
     "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and does not receive a separate RIP Score weight of its own.",
+  // The trailing sentence used to read "It contributes 20% to Overall RIP,
+  // alongside Financial RIP at 80%." That published a composition weight — and
+  // published the WRONG one, since the canonical blend is 0.90 Financial RIP +
+  // 0.10 Collector Appeal. No public surface states a weight, a contribution
+  // or a split, so the claim is removed rather than corrected to 90/10.
   "Collector Appeal":
-    "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices. It contributes 20% to Overall RIP, alongside Financial RIP at 80%.",
+    "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices.",
   // Legacy key kept only for stale render paths.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
@@ -3610,7 +3642,17 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, ariaLabel = "Section view" }) {
+// `mobileEmphasisValue` is OPT-IN and SCOPED, and it is used by exactly one
+// caller: the set-detail tab bar, which passes "insights".
+//
+// What it does: when that option is the ACTIVE one, it adds `max-desk:`-only
+// utilities that deepen the existing teal/green filled treatment below 1200px.
+// What it deliberately does not do: touch desktop (every added utility is
+// max-desk-scoped, so at 1200px+ the tab bar renders byte-identical CSS to
+// before), touch the inactive tabs, touch tab order, routing, aria-pressed or
+// hit area, or leak into any other segmented control on the site — a control
+// that does not pass the prop cannot receive the treatment.
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, mobileEmphasisValue = null, ariaLabel = "Section view" }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3625,6 +3667,12 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
         >
           {tabOptions.map((option) => {
             const isActive = value === option.value;
+            // Mobile-only, active-only, and only for the one option the caller
+            // named. Every utility here is `max-desk:`-scoped.
+            const mobileEmphasisClass =
+              isActive && mobileEmphasisValue && option.value === mobileEmphasisValue
+                ? "max-desk:bg-[linear-gradient(135deg,rgba(16,185,129,0.98),rgba(20,184,166,0.9))] max-desk:text-white max-desk:shadow-[0_6px_16px_rgba(20,184,166,0.26),inset_0_1px_0_rgba(255,255,255,0.2)]"
+                : "";
 
             return (
               <button
@@ -3636,7 +3684,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                   isActive
                     ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]"
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
-                }`}
+                } ${mobileEmphasisClass}`}
               >
                 <span className="block truncate">{option.label}</span>
               </button>
@@ -5236,13 +5284,6 @@ function MetricViewToggle({ metricView, onChange, detailsLabel = "Score Details"
   );
 }
 
-function RecommendationBadge({ label, rankTier }) {
-  if (!label) {
-    return null;
-  }
-
-  return <InterpretationBadge label={label} rankTier={rankTier} className="px-3 py-1 text-[12px] tracking-[0.08em]" />;
-}
 
 function MobileMetricAccordion({
   title,
@@ -5458,39 +5499,25 @@ function resolveLensScore(lens, summary) {
   };
 }
 
-function RipScoreModeToggle({ value, onChange, coreAvailable }) {
-  return (
-    <SegmentedControl
-      className="inline-flex w-max flex-none shrink-0 whitespace-nowrap"
-      ariaLabel="RIP score mode"
-      options={[
-        { value: RIP_SCORE_MODE, label: "RIP Score", disabled: false },
-        { value: RIP_CORE_MODE, label: "RIP Core", disabled: !coreAvailable },
-      ]}
-      value={value}
-      onChange={onChange}
-      equalWidth
-    />
-  );
-}
-
 // The metadata directly beside a primary RIP score, in one hierarchy:
 //
 //   1. the score itself (rendered by the caller)
-//   2. the TIER in its tier-coloured bubble — the shared RankBadge, so the
+//   2. the TIER in its tier-coloured bubble - the shared RankBadge, so the
 //      hero, the pillar cards and Collector Appeal all read one palette
-//   3. the RANK as plain inline text — a position, not a judgement
-//   4. the qualitative interpretation in its highlighted bubble
+//   3. the RANK as plain inline text - a position, not a judgement
 //
-// Rank deliberately gets no bubble: three outlined chips in a row read as three
-// equally-weighted judgements, when only the tier and the interpretation are
-// judgements at all. The cohort size stays in the rank's tooltip rather than in
-// the compact row, where "Rank #20 of 21" crowded the line without helping.
-function HeroScoreBadges({ rank, tier, cohortSize = null, interpretation, size = "supporting" }) {
+// Rank deliberately gets no bubble: two outlined chips in a row read as two
+// equally-weighted judgements, when only the tier is a judgement at all. The
+// cohort size stays in the rank's tooltip rather than in the compact row, where
+// "Rank #20 of 21" crowded the line without helping.
+//
+// There is NO interpretation pill. It rendered the retired Profit/Safety/
+// Stability interpretation engine's verdict, which describes neither Financial
+// RIP V3 nor Collector Appeal V3.
+function HeroScoreBadges({ rank, tier, cohortSize = null, size = "supporting" }) {
   const numericRank = toNumber(rank);
   const numericCohort = toNumber(cohortSize);
   const normalizedTier = String(tier || "").trim().replace(/\s+tier$/i, "").toUpperCase();
-  const interpretationLabel = String(interpretation || "").trim();
   const roundedRank = numericRank === null ? null : Math.round(numericRank);
   const rankTooltip =
     roundedRank === null
@@ -5498,9 +5525,8 @@ function HeroScoreBadges({ rank, tier, cohortSize = null, interpretation, size =
       : numericCohort === null
       ? `Rank #${roundedRank}`
       : `Rank #${roundedRank} of ${Math.round(numericCohort)} ranked sets`;
-  const tone = getInterpretationTone({ label: interpretationLabel, rankTier: normalizedTier });
 
-  if (!normalizedTier && roundedRank === null && !interpretationLabel) {
+  if (!normalizedTier && roundedRank === null) {
     return null;
   }
 
@@ -5521,22 +5547,6 @@ function HeroScoreBadges({ rank, tier, cohortSize = null, interpretation, size =
           title={rankTooltip}
         >
           Rank #{roundedRank}
-        </span>
-      ) : null}
-      {interpretationLabel ? (
-        <span
-          data-rip-summary-pill
-          className={`inline-flex min-w-0 max-w-full items-center rounded-full border font-semibold uppercase tracking-[0.06em] whitespace-normal ${
-            size === "hero" ? "px-3.5 py-1.5" : "px-3 py-1"
-          }`}
-          style={{
-            background: tone.badgeBackground,
-            borderColor: tone.badgeBorderColor,
-            color: tone.badgeTextColor,
-            boxShadow: tone.panelShadow,
-          }}
-        >
-          {interpretationLabel}
         </span>
       ) : null}
     </span>
@@ -6016,59 +6026,7 @@ function SimplePillarSummaryCard({
   );
 }
 
-function getPillarStatusLabel({ label, score }) {
-  const normalizedLabel = toDisplayStateLabel(label) || String(label || "").trim();
-  if (normalizedLabel) {
-    return normalizedLabel;
-  }
 
-  const numericScore = toNumber(score);
-  if (numericScore === null) {
-    return "Mixed";
-  }
-  if (numericScore >= 80) return "Strong Support";
-  if (numericScore >= 65) return "Support";
-  if (numericScore >= 45) return "Mixed";
-  if (numericScore >= 30) return "Drag";
-  return "Major Risk";
-}
-
-function getPillarSignalHighlight(title, score) {
-  const numericScore = toNumber(score);
-  const isStrong = numericScore !== null && numericScore >= 80;
-  const isSolid = numericScore !== null && numericScore >= 65;
-  const isWeak = numericScore !== null && numericScore < 45;
-
-  if (title === "Profit") {
-    if (isStrong) return "Strong average, meaningful upside";
-    if (isSolid) return "Playable return profile";
-    if (isWeak) return "Expected Value trails cost";
-    return "Mixed profit profile";
-  }
-
-  if (title === "Safety") {
-    if (isStrong) return "Controlled misses";
-    if (isSolid) return "Manageable downside";
-    if (isWeak) return "Misses can bite";
-    return "Mixed miss protection";
-  }
-
-  if (title === "Desirability") {
-    if (isStrong) return "High opening desirability";
-    if (isSolid) return "Clear collector demand";
-    if (isWeak) return "Demand signal is muted";
-    return "Mixed desirability signal";
-  }
-
-  if (title === "Stability") {
-    if (isStrong) return "Value spread is healthy";
-    if (isSolid) return "Some depth beyond top hits";
-    if (isWeak) return "Fragile value spread";
-    return "Mixed value spread";
-  }
-
-  return "Signal available";
-}
 
 function OverviewPillarSignalTile({ title, score, scoreTrend = null, rankTier, rankValue, highlight, infoText }) {
   const parsedRank = toNumber(rankValue);
@@ -6218,585 +6176,18 @@ function OpeningProfileSignalsCard({ summary, setIntelligenceMeta = [] }) {
   );
 }
 
-// Mobile/tablet Decision Signals (below 1200px).
+// Retained from the removed compact breakdown feed: these two are still the
+// presentation used by the surviving compact detail regions (Simulation
+// Drivers/Metrics and the Top Chase detail block).
 //
-// Design basis — this is the standard "dense analytical list" treatment used by
-// mobile finance/data apps (holdings lists, league tables): a fixed set of
-// right-aligned numeric columns under one column header, thin dividers instead
-// of per-item cards, and progressive disclosure for the prose. The scan fields
-// are Signal / Score / Tier / Rank; the interpretation is secondary and is
-// revealed one at a time in a single shared detail region rather than printed
-// under all seven rows at once (which is what made the old presentation read as
-// seven stacked mini-cards and run several screens tall).
-//
-// Nothing here recomputes anything: every score, tier, rank and interpretation
-// string comes straight off the same view model the desktop rows render.
-function DecisionSignalsCompactList({ overallRows, pillarRows, trackedRows }) {
-  const [selectedLabel, setSelectedLabel] = useState(null);
-  const detailRegionId = useId();
-  const allRows = [...overallRows, ...pillarRows, ...trackedRows];
-  const selectedSignal = allRows.find((signal) => signal.label === selectedLabel) || null;
-
-  const renderRow = (signal) => {
-    const parsedRank = toNumber(signal.rankValue);
-    const rankLabel = parsedRank === null ? null : Math.round(parsedRank);
-    const isSelected = selectedSignal?.label === signal.label;
-
-    // The inset here is padding on both sides. It is deliberately NOT a
-    // negative left margin, which is what this row used to carry.
-    //
-    // The row is `w-full` and border-box, so `width: 100%` already resolves to
-    // the container's content width exactly. A negative left margin on top of
-    // that does not widen the row — it slides the whole box 6px left. Every row
-    // therefore bled 6px into the page gutter on the left (taking its accent
-    // edge with it, since the mobile feed reset zeroes this card's horizontal
-    // padding — see `[data-mobile-feed] .set-glass-surface` in globals.css)
-    // while stopping 6px short of the right edge that the aria-hidden column
-    // header and the shared detail region below both reach. With no trailing
-    // padding, the rank was pinned against that short edge, so a selected row's
-    // wash ended immediately after the rank instead of running out to the list
-    // edge.
-    //
-    // The accent edge is a border every row reserves as transparent, so
-    // selecting a row changes a colour and never a column position.
-    return (
-      <button
-        key={`decision-signal-compact:${signal.label}`}
-        type="button"
-        // Enter and Space come free with a real button; activating the selected
-        // row again collapses the shared detail region.
-        onClick={() => setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))}
-        aria-expanded={isSelected}
-        aria-controls={detailRegionId}
-        data-decision-signal-row
-        data-selected={isSelected ? "true" : undefined}
-        className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1.5 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-          isSelected
-            ? "border-l-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)]"
-            : "border-l-transparent hover:bg-[var(--surface-hover)]"
-        }`}
-      >
-        <span className="truncate text-xs font-medium text-[var(--text-primary)]">{signal.label}</span>
-        <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-          {signal.scoreText || "—"}
-        </span>
-        {/* `compact` + the badge's own whitespace-nowrap keep this reading as
-            one line ("S Tier"), not a two-line "S" over "Tier" — the column is
-            sized from the pill rather than the pill squeezed into the column. */}
-        <span className="flex justify-center">
-          <RankBadge rank={signal.rankTier} format="tier" size="compact" subtle />
-        </span>
-        <span className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]">
-          {rankLabel === null ? (
-            <span aria-label="Rank unavailable">—</span>
-          ) : (
-            <>
-              <span aria-hidden="true">{`#${rankLabel}`}</span>
-              <span className="sr-only">{`Rank ${rankLabel}`}</span>
-            </>
-          )}
-        </span>
-      </button>
-    );
-  };
-
-  const groupLabel = (text) => (
-    <p className="mt-2.5 border-t border-[var(--border-subtle)] px-0 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)] first:mt-0 first:border-t-0 first:pt-0">
-      {text}
-    </p>
-  );
-
-  return (
-    <div data-decision-signals-compact className="min-w-0">
-      {/* One column header for the whole list instead of repeating the field
-          names on every row. It reserves the same transparent 2px left border
-          and the same left/right padding as a row, so the header labels sit
-          over their own columns instead of drifting by the width of the
-          selection edge. */}
-      <div
-        aria-hidden="true"
-        className="grid grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem] items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]"
-      >
-        <span />
-        <span className="text-right">Score</span>
-        <span className="text-center">Tier</span>
-        <span className="text-right">Rank</span>
-      </div>
-
-      {overallRows.length > 0 ? (
-        <>
-          {groupLabel("OVERALL RIP")}
-          <div>{overallRows.map(renderRow)}</div>
-        </>
-      ) : null}
-
-      {pillarRows.length > 0 ? (
-        <>
-          {groupLabel("CORE")}
-          <div>{pillarRows.map(renderRow)}</div>
-        </>
-      ) : null}
-
-      {trackedRows.length > 0 ? (
-        <>
-          {groupLabel("ALSO TRACKED")}
-          <div>{trackedRows.map(renderRow)}</div>
-        </>
-      ) : null}
-
-      {/* One shared detail region: only the selected signal's interpretation is
-          ever on screen, and it is announced politely when it changes. */}
-      <div
-        id={detailRegionId}
-        aria-live="polite"
-        data-decision-signal-detail
-        className="mt-2 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-2"
-      >
-        {selectedSignal ? (
-          <p className="text-xs leading-snug text-[var(--text-primary)]">
-            <span className="font-semibold">{selectedSignal.label}: </span>
-            {selectedSignal.detailSummary || selectedSignal.summary}
-          </p>
-        ) : (
-          <p className="text-xs leading-snug text-[var(--text-secondary)]">
-            Select a signal to see what it means for this set.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DecisionSignalRow({ signal }) {
-  const parsedRank = toNumber(signal.rankValue);
-  const summaryText = signal.summary || signal.detailSummary;
-
-  return (
-    // Below desktop each pillar reads as a divider-separated row rather than as
-    // its own bordered card inside the section card. Every score, tier, rank
-    // and interpretation is unchanged — only the container is.
-    <article className="set-glass-inner min-w-0 rounded-xl border border-[var(--border-subtle)] px-3 py-3 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:border-[var(--border-subtle)] max-desk:bg-transparent max-desk:px-0 max-desk:py-3 max-desk:last:border-b-0 max-desk:[backdrop-filter:none]">
-      {/* Two tight lines below desktop: `Label ........ score` then
-          `interpretation ..... tier #rank`. The desktop four-column grid moved
-          from `sm:` to `desk:` because `max-desk:` utilities are emitted before
-          `sm:` in the stylesheet, so an sm-scoped desktop grid would have won
-          back the 640-1199px band and undone the compaction. Desktop at 1200px+
-          gets the identical four columns it always had. */}
-      <div className="grid min-w-0 gap-2.5 max-desk:grid-cols-[minmax(0,1fr)_auto] max-desk:items-baseline max-desk:gap-x-3 max-desk:gap-y-0.5 desk:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem] desk:items-center">
-        <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] max-desk:order-1 desk:hidden">
-          {signal.label}
-        </p>
-        <div className="min-w-0 max-desk:order-3 max-desk:col-span-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] max-desk:hidden">{signal.label}</p>
-          <p className="line-clamp-2 text-xs leading-snug text-[var(--text-primary)] desk:mt-1">
-            {summaryText}
-          </p>
-        </div>
-        <span className="inline-flex min-w-[4.25rem] items-center justify-start gap-1 text-base font-semibold leading-none text-[var(--text-primary)] tabular-nums max-desk:order-2 max-desk:min-w-0 max-desk:justify-end desk:min-w-0 desk:justify-end">
-          {signal.scoreText || "—"}
-          {signal.scoreTrend ? <TrendIndicator trend={signal.scoreTrend} className="translate-y-px" /> : null}
-        </span>
-        <div className="flex min-w-[5.75rem] justify-start max-desk:order-4 max-desk:col-start-2 max-desk:min-w-0 max-desk:items-center max-desk:justify-end max-desk:gap-2 desk:min-w-0 desk:justify-center">
-          <RankBadge
-            rank={signal.rankTier}
-            format="tier"
-            size="supporting"
-            subtle
-            title={parsedRank === null ? "Rank unavailable" : `Rank #${Math.round(parsedRank)}`}
-          />
-          <span className="text-[10px] leading-none text-[var(--text-secondary)] tabular-nums desk:hidden">
-            {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
-          </span>
-        </div>
-        <span className="min-w-[3.25rem] text-left text-[10px] leading-none text-[var(--text-secondary)] tabular-nums max-desk:hidden desk:min-w-0 desk:text-right">
-          {parsedRank === null ? "Rank --" : `#${Math.round(parsedRank)}`}
-        </span>
-      </div>
-    </article>
-  );
-}
-
-function DecisionSignalsCard({
-  pillarSignals,
-  summary,
-  setIntelligenceMeta = [],
-  trackedSignals = [],
-  requestTimeout = false,
-}) {
-  const backendLensByKey = useMemo(
-    () => normalizeBackendSetIntelligence(setIntelligenceMeta),
-    [setIntelligenceMeta]
-  );
-
-  // Core RIP pillars, Overall RIP, and supplementary opening lenses render as
-  // explicit display groups (grouping only — scores and row behavior are
-  // unchanged).
-  const { overallRows, pillarRows, trackedRows } = useMemo(() => {
-    if (requestTimeout) {
-      return { overallRows: [], pillarRows: [], trackedRows: [] };
-    }
-    const pillarRows = selectDecisionSignals({ pillarSignals, summary, requestTimeout }).rows;
-
-    const rawTrackedRows = trackedSignals
-      .map((signal) => {
-        const score = toNumber(signal?.score);
-        const rank = toNumber(signal?.rank);
-        const rankTier = toOptionalUpper(signal?.tier);
-        const summaryText = String(signal?.summary || "").trim() || null;
-        const detailSummary = String(signal?.detailSummary || summaryText || "").trim() || null;
-        if (score === null && rank === null && !rankTier && !summaryText) {
-          return null;
-        }
-        return {
-          label: signal?.label || null,
-          scoreText: score === null ? null : formatRawScore(score),
-          scoreTrend: null,
-          rankTier,
-          rankValue: rank,
-          summary: summaryText,
-          detailSummary,
-        };
-      })
-      .filter((row) => row?.label);
-
-    const overallRows = [];
-    const supplementaryTrackedRows = [];
-    rawTrackedRows.forEach((row) => {
-      if (String(row.label || "").trim().toLowerCase() === OVERALL_RIP_SIGNAL_LABEL.toLowerCase()) {
-        overallRows.push(row);
-      } else {
-        supplementaryTrackedRows.push(row);
-      }
-    });
-
-    const openingRows = SET_INTELLIGENCE_LENSES.map((lens) => {
-      const backendLens = backendLensByKey.get(lens.key) || null;
-      const resolvedScore = resolveLensScore(lens, summary);
-      const rankTier = toOptionalUpper(backendLens?.tier ?? summary[lens.tierField]);
-      const rankValue = toNumber(summary[lens.rankField]);
-      const hasScore = toNumber(resolvedScore.score) !== null;
-      const summaryText =
-        backendLens?.short_summary ||
-        (hasScore || rankTier || rankValue !== null ? getLensTagline(lens, summary, resolvedScore) : null);
-
-      if (!hasScore && !rankTier && rankValue === null && !summaryText) {
-        return null;
-      }
-
-      return {
-        label: backendLens?.label || lens.label,
-        scoreText: hasScore ? formatLensScore(resolvedScore.score, resolvedScore.format) : null,
-        scoreTrend: null,
-        rankTier,
-        rankValue,
-        // Compact mode shows the same data-driven tagline as expanded mode
-        // (clamped to two lines) — a static per-label catchphrase here read
-        // as per-set insight while contradicting the tier badge next to it
-        // (e.g. "Strong Expected Value" beside an F tier).
-        summary: summaryText || lens.simpleCardSummary || lens.description,
-        detailSummary:
-          backendLens?.long_summary ||
-          backendLens?.summary ||
-          summaryText ||
-          lens.simpleDetailSummary ||
-          lens.description,
-      };
-    }).filter(Boolean);
-
-    const collectorAppealRows = supplementaryTrackedRows.filter(
-      (row) => String(row.label || "").trim().toLowerCase() === "collector appeal"
-    );
-    const nonCollectorTrackedRows = supplementaryTrackedRows.filter(
-      (row) => String(row.label || "").trim().toLowerCase() !== "collector appeal"
-    );
-    const trackedRows = [...collectorAppealRows, ...nonCollectorTrackedRows, ...openingRows];
-
-    return { overallRows, pillarRows, trackedRows };
-  }, [backendLensByKey, pillarSignals, requestTimeout, summary, trackedSignals]);
-
-  const signals = [...overallRows, ...pillarRows, ...trackedRows];
-
-  if (signals.length === 0) {
-    return requestTimeout ? (
-      <SectionCard
-        title="Decision Signals"
-        titleInfoText="Decision signals combining core RIP factors with overall and collector context."
-      >
-        <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 p-4 text-sm text-[var(--text-secondary)]">
-          Decision Signals are taking longer than expected to load. Retrying now…
-        </div>
-      </SectionCard>
-    ) : null;
-  }
-
-  return (
-    <SectionCard
-      title="Decision Signals"
-      titleInfoText="Decision signals combining core RIP factors with overall and collector context."
-    >
-      {/* Below 1200px: one condensed structured list with a single shared
-          interpretation region (see DecisionSignalsCompactList). */}
-      <div className="desk:hidden">
-        <DecisionSignalsCompactList overallRows={overallRows} pillarRows={pillarRows} trackedRows={trackedRows} />
-      </div>
-
-      {/* 1200px+: the desktop presentation is unchanged. It is display:none
-          below desktop, so the compact list above is the only tree assistive
-          technology reaches there. */}
-      <div className="hidden desk:block">
-        {overallRows.length > 0 ? (
-          <>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">OVERALL RIP</span>
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-            </div>
-            <div className="grid gap-2 max-desk:gap-0">
-              {overallRows.map((signal) => (
-                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {pillarRows.length > 0 ? (
-          <>
-            <div className="mt-4 mb-2 flex items-center gap-2">
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">CORE</span>
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-            </div>
-            <div className="grid gap-2 max-desk:gap-0">
-              {pillarRows.map((signal) => (
-                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-              ))}
-            </div>
-          </>
-        ) : null}
-
-        {trackedRows.length > 0 ? (
-          <>
-            <div className="mt-4 mb-2 flex items-center gap-2">
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">ALSO TRACKED</span>
-              <span className="h-px flex-1 bg-[var(--border-subtle)]" aria-hidden="true" />
-            </div>
-            <div className="grid gap-2 max-desk:gap-0">
-              {trackedRows.map((signal) => (
-                <DecisionSignalRow key={`decision-signal:${signal.label}`} signal={signal} />
-              ))}
-            </div>
-          </>
-        ) : null}
-      </div>
-    </SectionCard>
-  );
-}
-
-// A Profit / Safety / Stability card.
-//
-// The standalone up/down arrow that used to sit beside the score is gone. It
-// carried no timeframe and no delta, so it stated a direction the reader could
-// not check or size — and it reserved a gap next to every score whether or not
-// a trend existed. `scoreTrend` stays on the view model (the shared selector
-// still produces it for Explore and the diagnostics rows) but this card no
-// longer renders it.
-//
-// `weight` and `contribution` are the backend's own component fields, not
-// arithmetic performed here: weight is the configured 60/25/15 share of RIP
-// Core and contribution is the backend's score x weight in model points.
-function CompactPillarSignalTile({
-  title,
-  score,
-  rankValue,
-  rankTier,
-  cohortSize = null,
-  weight = null,
-  contribution = null,
-  statusLabel,
-  highlight,
-  metrics = [],
-  infoText,
-  detailsExpanded = false,
-}) {
-  const parsedRank = toNumber(rankValue);
-  const parsedCohort = toNumber(cohortSize);
-  const parsedWeight = toNumber(weight);
-  const parsedContribution = toNumber(contribution);
-  // Compact rows render the bare rank; the cohort denominator stays in the
-  // tooltip, where it is available without crowding the line.
-  const rankTitle =
-    parsedRank === null
-      ? "Rank unavailable"
-      : parsedCohort === null
-      ? `Rank #${Math.round(parsedRank)}`
-      : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohort)} ranked sets`;
-
-  return (
-    <article className="set-glass-inner flex h-full flex-col rounded-xl border border-[var(--border-subtle)] p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</h3>
-            {infoText ? <InfoPopover text={infoText} /> : null}
-          </div>
-          <p className="mt-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">{formatScore(score)}</p>
-        </div>
-        <div className="flex flex-none flex-col items-end gap-1">
-          <RankBadge rank={rankTier} format="tier" size="supporting" subtle title={rankTitle} />
-          {parsedWeight !== null ? (
-            <span data-rip-pillar-weight className="text-[10px] font-semibold tabular-nums text-[var(--text-secondary)]">
-              {`${Math.round(parsedWeight * 100)}% of RIP Core`}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <InterpretationBadge label={statusLabel} rankTier={rankTier} className="px-2 py-0.5 text-[10px] tracking-[0.08em]" />
-        {parsedRank !== null ? (
-          <span data-rip-pillar-rank className="text-[10px] tabular-nums text-[var(--text-secondary)]" title={rankTitle}>
-            Rank #{Math.round(parsedRank)}
-          </span>
-        ) : null}
-      </div>
-
-      {highlight ? (
-        <p className="mt-2 line-clamp-2 text-xs leading-snug text-[var(--text-secondary)]">{highlight}</p>
-      ) : null}
-
-      {detailsExpanded && (metrics.length > 0 || parsedContribution !== null) ? (
-        <div className="mt-3 flex-1 border-t border-[var(--border-subtle)] pt-2">
-          <div className="mt-2 space-y-1.5">
-            {parsedContribution !== null ? (
-              <MetricRow
-                label="Contribution to RIP Core"
-                value={`${parsedContribution.toFixed(1)} pts`}
-                infoText="The backend's own contribution field for this component: its score multiplied by its configured weight, in RIP Core model points."
-              />
-            ) : null}
-            {metrics.map((metric) => (
-              <MetricRow
-                key={`${title}-detail-${metric.label}`}
-                label={metric.label}
-                value={metric.value}
-                trend={metric.trend}
-                infoText={metric.infoText || getMetricTooltip(metric.label)}
-                content={metric.content}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-// The RIP construction strip (per-input contribution points, the blend formula
-// line, and the per-pillar final weights) was retired from this user-facing
-// section: it explained how the number is assembled rather than what the number
-// means. None of that arithmetic changed - it still lives in the backend
-// contract and in the openingExperienceSelector breakdown model, which keeps its
-// own tests for research and diagnostics use.
-
-// The two-level composition under the LEGACY Overall RIP v4.
-//
-// LEGACY SURFACE. The canonical Overall RIP is now
-//
-//     Overall RIP = 80% Financial RIP V3 + 20% Collector Appeal
-//
-// and it is rendered by CollectorAppealBreakdown. This block continues to
-// describe the retired v4 model, whose meaning is deliberately unchanged:
-//
-//     Overall RIP v4 = 90% x RIP Core + 10% x legacy CA7
-//     RIP Core       = 60% Profit + 25% Safety + 15% Stability
-//
-// It is kept because v4 is still computed and still published as a legacy
-// comparison. Showing Profit 60 / Safety 25 / Stability 15 / Collector Appeal 10
-// as four peers would total 110% and describe arithmetic no backend performs,
-// so the grouping below keeps that nesting visible. Every score, weight, rank
-// and contribution is a backend field.
-function RipCompositionGroup({ eyebrow, weightLabel, caption, children, tone = "core" }) {
-  return (
-    <section
-      data-rip-composition-group={tone}
-      className={`min-w-0 rounded-xl border p-3 sm:p-3.5 ${
-        tone === "core"
-          ? "border-[var(--border-subtle)] bg-[var(--surface-page)]/35"
-          : "border-[var(--border-subtle)] bg-[var(--surface-page)]/20"
-      }`}
-    >
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">{eyebrow}</h3>
-        {weightLabel ? (
-          <span
-            data-rip-composition-weight
-            className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]"
-          >
-            {weightLabel}
-          </span>
-        ) : null}
-      </div>
-      {caption ? <p className="mt-0.5 text-xs leading-snug text-[var(--text-secondary)]">{caption}</p> : null}
-      <div className="mt-3 min-w-0">{children}</div>
-    </section>
-  );
-}
-
-// The "+" between the 90% group and the 10% term. Decorative only — the weights
-// beside each group already state the relationship in text.
-function RipCompositionJoin() {
-  return (
-    <p data-rip-composition-join aria-hidden="true" className="my-2 text-center text-sm font-semibold text-[var(--text-secondary)]">
-      +
-    </p>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// The RIP Score Breakdown below 1200px.
-//
-// Desktop presents the composition as nested surfaces: an outer section card, a
-// bordered RIP Core group, three bordered pillar cards inside it, and a bordered
-// Collector Appeal group. That reads correctly at 1200px+, where the three
-// pillars sit side by side and the borders are what separate columns.
-//
-// Below 1200px it is the SAME interaction Overview's Decision Signals uses, for
-// the same reason: compact rows on one column grid, exactly one selected row at
-// a time, and exactly one shared detail region underneath. There is no section
-// card, no per-pillar accordion, and no top-level Details dropdown — the
-// dropdown opened every pillar's secondary block at once, which rebuilt on one
-// screen the density problem it was meant to solve.
-//
-// Nothing here computes anything. Every score, tier, rank, weight, verdict
-// phrase, contribution and metric row is the same backend field the desktop
-// tiles render, read through the same props — the two trees are one data model
-// in two presentations, and only one of them is ever displayed (the other is
-// `display: none`, so assistive technology reaches exactly one).
-// ---------------------------------------------------------------------------
-
-// One column system for the whole compact breakdown: a flexible name track over
-// three fixed numeric tracks, so Overall, Profit, Safety, Stability and
-// Collector Appeal all put their score, tier and rank in the same place. The
-// fixed tracks are sized from their content — 3rem holds a `100.0`, 3.5rem
-// holds the `compact` "S Tier" pill with slack, 2.5rem holds `#100` — and at
-// 320px they still leave the row name ~108px inside the page gutter.
-const RIP_COMPACT_GRID = "grid-cols-[minmax(0,1fr)_3rem_3.5rem_2.5rem]";
-
-const RIP_OVERALL_ROW_KEY = "overall";
-const RIP_APPEAL_ROW_KEY = "collector-appeal";
-
-// The one selected/idle treatment shared by every compact mobile analytical list
-// on this page — the RIP Score Breakdown, Simulation Drivers and Metrics — so
-// the three read as the same interaction instead of three lookalikes.
+// The one selected/idle treatment shared by every compact mobile analytical
+// list on this page, so they read as the same interaction rather than as
+// lookalikes.
 //
 // `bg-[var(--surface-page)]` is the load-bearing part: these lists sit directly
 // above charts and the page wash, and a translucent highlight let that content
 // read through the selected row. The opaque base goes down first and the accent
-// tint plus the rail halo arrive from `.compact-row-selected` in globals.css,
-// which is scoped inside the below-1200px media query and honours
-// prefers-reduced-motion. See that rule for why the halo cannot bloom into a
-// perimeter outline.
+// tint plus the rail halo arrive from `.compact-row-selected` in globals.css.
 const COMPACT_ROW_SELECTED_CLASS =
   "compact-row-selected border-l-[var(--accent)] bg-[var(--surface-page)]";
 const COMPACT_ROW_IDLE_CLASS = "border-l-transparent hover:bg-[var(--surface-hover)]";
@@ -6804,27 +6195,6 @@ const COMPACT_ROW_IDLE_CLASS = "border-l-transparent hover:bg-[var(--surface-hov
 // a second unrelated boundary beside it.
 const COMPACT_DETAIL_CLASS =
   "compact-row-detail border-l-2 border-l-[color:color-mix(in_srgb,var(--accent)_45%,transparent)]";
-
-// Both presentations quote the backend's own contribution field, so the string
-// that explains it lives in one place rather than being retyped per tree.
-const RIP_CONTRIBUTION_INFO_TEXT =
-  "The backend's own contribution field for this component: its score multiplied by its configured weight, in RIP Core model points.";
-const RIP_OUTLOOK_INFO_TEXT =
-  "This outlook evaluates the experience of opening packs. It does not evaluate sealed-product appreciation or provide buy, sell, or hold guidance.";
-
-// The bare rank goes on the row; the cohort denominator stays in the tooltip,
-// where it is available without crowding a 40px column. Same rule as the
-// desktop tiles.
-function ripCompactRankTitle(rankValue, cohortSize) {
-  const parsedRank = toNumber(rankValue);
-  if (parsedRank === null) {
-    return "Rank unavailable";
-  }
-  const parsedCohort = toNumber(cohortSize);
-  return parsedCohort === null
-    ? `Rank #${Math.round(parsedRank)}`
-    : `Rank #${Math.round(parsedRank)} of ${Math.round(parsedCohort)} ranked sets`;
-}
 
 // A metric inside the shared detail region. This is MetricRow's content at
 // MetricRow's semantics — same friendly label, same tooltip, same trend, same
@@ -6863,679 +6233,131 @@ function RipBreakdownDetailMetric({ label, value, trend = null, infoText = null,
   );
 }
 
-// One compact selectable row.
+// The Overview Decision Signals card, the legacy Profit/Safety/Stability
+// pillar tiles, the RIP Core / Collector Appeal composition groups and the
+// whole below-desktop compact breakdown feed were removed here.
 //
-// The four scan fields share one grid with every other row in the section, so
-// each score, tier and rank lines up in the same three columns. The optional
-// second line in the name track is the backend's own short verdict phrase (or,
-// for the 10% term, its weight label) — the part a reader acts on — truncated
-// rather than wrapped so the row keeps one predictable height.
+// All of them presented the SUPERSEDED model as current: Decision Signals
+// scored Profit, Safety, Stability, Opening Experience and Chase Potential;
+// the composition groups drew `Overall RIP v4 = 90% RIP Core + 10% CA7` with
+// its per-pillar weights and contribution points; and the compact feed was a
+// second presentation of the same rows. The canonical model has six Financial
+// RIP V3 components and three Collector Appeal V3 factors, rendered by
+// FinancialRipV3Breakdown and CollectorAppealBreakdown respectively.
 //
-// A real <button> is what makes this keyboard-operable: Enter and Space,
-// focus-visible ring, and a tab stop per row, all without a key handler. The
-// selection edge is a border every row reserves as transparent, so selecting a
-// row changes a colour and never a column position.
-function RipBreakdownCompactRow({ row, isSelected, onSelect, detailRegionId }) {
-  const roundedRank = row.rankValue === null ? null : Math.round(row.rankValue);
+// Nothing was recomputed and no backend field changed - these surfaces simply
+// stopped being read.
 
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(row.key)}
-      aria-expanded={isSelected}
-      aria-controls={detailRegionId}
-      data-rip-breakdown-row
-      data-compact-row
-      data-rip-breakdown-row-key={row.key}
-      data-selected={isSelected ? "true" : undefined}
-      className={`grid min-h-11 w-full ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] py-1 pl-1.5 pr-1.5 text-left transition-colors last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-        isSelected ? COMPACT_ROW_SELECTED_CLASS : COMPACT_ROW_IDLE_CLASS
-      }`}
-    >
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{row.label}</span>
-        {row.secondary ? (
-          <span
-            data-rip-breakdown-row-secondary
-            className="block truncate text-[10px] font-normal leading-tight text-[var(--text-secondary)]"
-          >
-            {row.secondary}
-          </span>
-        ) : null}
-      </span>
-      <span className="text-right text-sm font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-        {row.scoreText}
-      </span>
-      {/* `compact` + the badge's own whitespace-nowrap keep this on one line
-          ("A Tier"), and the track is sized from the pill rather than the pill
-          squeezed into the track. */}
-      <span className="flex justify-center">
-        {row.rankTier ? (
-          <RankBadge rank={row.rankTier} format="tier" size="compact" subtle title={row.rankTitle} />
-        ) : (
-          <span className="text-[10px] leading-none text-[var(--text-secondary)]" aria-label="Tier unavailable">
-            —
-          </span>
-        )}
-      </span>
-      <span
-        className="text-right text-[11px] leading-none tabular-nums text-[var(--text-secondary)]"
-        title={row.rankTitle}
-      >
-        {roundedRank === null ? (
-          <span aria-label="Rank unavailable">—</span>
-        ) : (
-          <>
-            <span aria-hidden="true">{`#${roundedRank}`}</span>
-            <span className="sr-only">{`Rank ${roundedRank}`}</span>
-          </>
-        )}
-      </span>
-    </button>
-  );
-}
-
-// The full below-desktop presentation: compact summary, compact rows, one
-// shared detail region.
+// The canonical RIP Score section: a compact header, then the two things the
+// score is made of.
 //
-// Selection lives here in component state, so an unrelated rerender of the page
-// (a poll settling, a sibling section finishing its fetch) cannot reset it. The
-// score mode CAN remove the Collector Appeal row — it is not a term of RIP Core
-// — so the resolved selection falls back to Overall for render without writing
-// state, which means switching back to RIP Score restores what was selected.
-function RipBreakdownCompactFeed({
-  score,
-  rankTier,
-  rankValue,
-  cohortSize,
-  verdict,
-  explanation,
-  openingOutlook,
-  outlookAccent,
-  pillars,
-  collectorAppeal,
-  showsCollectorAppeal,
-  coreWeightLabel,
-  coreWeightsCaption,
-}) {
-  const [selectedKey, setSelectedKey] = useState(RIP_OVERALL_ROW_KEY);
-  const detailRegionId = useId();
+// WHAT IT SHOWS
+// -------------
+//   RIP Score       - the canonical Overall RIP V7 public score, tier, rank and
+//                     cohort denominator, all backend-computed.
+//   Collector Appeal - its three V3 factors.
+//   Financial RIP    - its six V3 components.
+//
+// WHAT IT DELIBERATELY NO LONGER SHOWS
+// ------------------------------------
+//   - The RIP Score / RIP Core mode toggle. "RIP Core" is Financial RIP V2 and
+//     is not a current alternative to the RIP Score.
+//   - The Opening Outlook paragraph, the interpretation badge and its summary.
+//     They came from the retired Profit/Safety/Stability interpretation engine
+//     and describe neither Financial RIP V3 nor Collector Appeal V3.
+//   - The visible composition weights, the formula expression and the
+//     contribution-point copy.
+//
+// THE COMPACT "Financial RIP · Collector Appeal" TEXT LINE WAS REPLACED HERE.
+//
+// `RipScoreSupportingValues` printed the two supporting canonical values as two
+// runs of inline text under the RIP Score headline. It stated the same three
+// metrics the redesigned Insights Summary now states, in a treatment that read
+// as a caption rather than as the top of the tab. InsightsSummaryModule renders
+// exactly those three metrics — RIP Score, Financial RIP, Collector Appeal — in
+// one grouped surface, from the same resolved canonical bundle, computing
+// nothing and still printing an em dash for anything the backend did not
+// publish. No value, scale or source changed; only the presentation did.
 
-  const overallRank = toNumber(rankValue);
-  const overallRankTitle = ripCompactRankTitle(rankValue, cohortSize);
-
-  const rows = [
-    {
-      key: RIP_OVERALL_ROW_KEY,
-      label: "Overall",
-      scoreText: formatRawScore(score),
-      rankTier: rankTier || null,
-      rankValue: overallRank,
-      rankTitle: overallRankTitle,
-      // The verdict has its own line in the summary directly above; repeating
-      // it here would print the same phrase twice, a few pixels apart.
-      secondary: null,
-    },
-    ...pillars.map((pillar) => ({
-      key: `pillar:${pillar.title}`,
-      label: pillar.title,
-      scoreText: formatScore(pillar.score),
-      rankTier: pillar.rankTier || null,
-      rankValue: toNumber(pillar.rankValue),
-      rankTitle: ripCompactRankTitle(pillar.rankValue, pillar.cohortSize),
-      secondary: pillar.highlight || null,
-      pillar,
-    })),
-    ...(showsCollectorAppeal && collectorAppeal
-      ? [
-          {
-            key: RIP_APPEAL_ROW_KEY,
-            label: "Collector Appeal",
-            scoreText: collectorAppeal.available ? collectorAppeal.scoreLabel : "—",
-            rankTier: collectorAppeal.available ? collectorAppeal.tier || null : null,
-            rankValue: collectorAppeal.available ? toNumber(collectorAppeal.rank) : null,
-            rankTitle: ripCompactRankTitle(collectorAppeal.rank, collectorAppeal.cohortSize),
-            // The 10% term states its contribution on the row itself, as the
-            // brief requires, rather than only inside the detail region.
-            secondary: collectorAppeal.weightLabel ? `${collectorAppeal.weightLabel} of RIP Score` : null,
-          },
-        ]
-      : []),
-  ];
-
-  const selectedRow = rows.find((row) => row.key === selectedKey) || rows[0];
-
-  return (
-    <div data-rip-breakdown-compact className="min-w-0 desk:hidden">
-      {/* One coherent summary line, not five badges. The score is the only
-          large element; tier and rank are quiet metadata beside it; the verdict
-          is plain text behind a thin tier-toned rule rather than a filled pill,
-          so it can wrap on a narrow phone without becoming a block of colour.
-          Every value is the same field the desktop row renders. */}
-      <div
-        data-rip-compact-summary
-        className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
-      >
-        <p className="inline-flex flex-none items-end gap-1 text-3xl font-semibold leading-none text-[var(--text-primary)]">
-          <span className="tabular-nums">{formatRawScore(score)}</span>
-          <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
-        </p>
-        {rankTier ? (
-          <RankBadge rank={rankTier} format="tier" size="compact" subtle title={overallRankTitle} />
-        ) : null}
-        {overallRank === null ? null : (
-          <span
-            data-rip-compact-summary-rank
-            className="flex-none text-[11px] font-medium tabular-nums text-[var(--text-secondary)]"
-            title={overallRankTitle}
-          >
-            Rank #{Math.round(overallRank)}
-          </span>
-        )}
-        {verdict ? (
-          <span
-            data-rip-compact-summary-verdict
-            className="min-w-0 border-l pl-2 text-[11px] font-medium leading-snug"
-            style={{
-              borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
-              color: outlookAccent.verdictPill.color,
-            }}
-          >
-            {verdict}
-          </span>
-        ) : null}
-        {explanation ? <InfoPopover text={explanation} /> : null}
-      </div>
-
-      {/* One column header for the whole list instead of repeating the field
-          names on every row. It reserves the same transparent 2px selection
-          edge and the same left/right padding as a row, so the labels sit over
-          their own columns instead of drifting by the width of that edge. */}
-      <p className="mt-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
-        Core breakdown
-      </p>
-      <div
-        aria-hidden="true"
-        className={`grid ${RIP_COMPACT_GRID} items-center gap-x-1.5 border-b border-l-2 border-[var(--border-subtle)] border-l-transparent pb-1 pl-1.5 pr-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]`}
-      >
-        <span />
-        <span className="text-right">Score</span>
-        <span className="text-center">Tier</span>
-        <span className="text-right">Rank</span>
-      </div>
-
-      <div className="min-w-0">
-        {rows.map((row) => (
-          <RipBreakdownCompactRow
-            key={`rip-breakdown-compact:${row.key}`}
-            row={row}
-            isSelected={row.key === selectedRow.key}
-            onSelect={setSelectedKey}
-            detailRegionId={detailRegionId}
-          />
-        ))}
-      </div>
-
-      {/* ONE shared detail region. Only the selected row's secondary material is
-          ever on screen, it updates in place, and the change is announced
-          politely. Re-activating the selected row keeps it selected, so this
-          region is never empty and the outlook is never one tap away.
-
-          `pr-1.5` matches the rows' own trailing padding, so a right-aligned
-          value in here lands on the same edge as the Rank column above rather
-          than 6px further out. */}
-      <div
-        id={detailRegionId}
-        aria-live="polite"
-        data-rip-breakdown-detail
-        className={`mt-2 min-w-0 pl-2.5 pr-1.5 ${COMPACT_DETAIL_CLASS}`}
-      >
-        <RipBreakdownCompactDetail
-          row={selectedRow}
-          openingOutlook={openingOutlook}
-          outlookAccent={outlookAccent}
-          collectorAppeal={collectorAppeal}
-          showsCollectorAppeal={showsCollectorAppeal}
-          coreWeightLabel={coreWeightLabel}
-          coreWeightsCaption={coreWeightsCaption}
-        />
-      </div>
-    </div>
-  );
-}
-
-// The body of the shared detail region for whichever row is selected. Split out
-// so the feed above reads as structure and this reads as content; it renders
-// exactly one group, never all of them.
-function RipBreakdownCompactDetail({
-  row,
-  openingOutlook,
-  outlookAccent,
-  collectorAppeal,
-  showsCollectorAppeal,
-  coreWeightLabel,
-  coreWeightsCaption,
-}) {
-  if (row.key === RIP_OVERALL_ROW_KEY) {
-    // Opening Outlook in full. It is the default selection, so the complete
-    // canonical text is on screen without a tap — the treatment shrank, the
-    // copy did not. The tier rail is a 2px line on the region itself; no wash,
-    // no rounded box, no accented callout.
-    return (
-      <div data-rip-breakdown-outlook className="min-w-0">
-        <div className="flex items-center gap-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-            Opening Outlook
-          </p>
-          <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
-        </div>
-        <p className="mt-0.5 text-xs font-medium leading-snug text-[var(--text-primary)]">
-          {openingOutlook || "No opening outlook is available for this set yet."}
-        </p>
-        {/* The two-level composition the score actually has. These are the same
-            backend weight labels the desktop group headers carry; the pillar
-            splits stay on each pillar's own detail. */}
-        {coreWeightsCaption || coreWeightLabel || (showsCollectorAppeal && collectorAppeal?.weightLabel) ? (
-          <p
-            data-rip-breakdown-composition
-            className="mt-1.5 text-[10px] leading-snug text-[var(--text-secondary)]"
-          >
-            {[
-              coreWeightLabel ? `RIP Core ${coreWeightLabel}` : null,
-              coreWeightsCaption,
-              showsCollectorAppeal && collectorAppeal?.weightLabel
-                ? `Collector Appeal ${collectorAppeal.weightLabel}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (row.key === RIP_APPEAL_ROW_KEY) {
-    if (!collectorAppeal?.available) {
-      // Never a fake 0 and never a fake tier: the backend says why the term is
-      // missing and that reason is what renders.
-      return (
-        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-          {collectorAppeal?.unavailableReason ||
-            "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
-        </p>
-      );
-    }
-    return (
-      <div data-rip-breakdown-appeal-detail className="min-w-0">
-        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">
-          Roster desirability translated through this set&apos;s modeled opening paths.
-        </p>
-        {/* The weighted model term ("Opening Desirability × 10% = 9.6 pts") is
-            deliberately NOT shown below desktop. It is a term of the internal
-            model, and the two scores printed on this screen — RIP Core and RIP
-            Score — are cohort-relative presentations that do not visibly sum
-            with it, so the line read as arithmetic the user could check and
-            then could not. The weight itself carries the same meaning without
-            the false invitation. Nothing was recomputed and no backend field
-            changed: `contributionLabel` is still produced by the selector and
-            is still rendered at 1200px+. */}
-        <div className="mt-1">
-          {collectorAppeal.weightLabel ? (
-            <RipBreakdownDetailMetric label="Weight in RIP Score" value={collectorAppeal.weightLabel} />
-          ) : null}
-          {collectorAppeal.rankLabel ? (
-            <RipBreakdownDetailMetric label="Collector Appeal rank" value={collectorAppeal.rankLabel} />
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  const pillar = row.pillar;
-  if (!pillar) {
-    return null;
-  }
-  const parsedWeight = toNumber(pillar.weight);
-  const parsedContribution = toNumber(pillar.contribution);
-  const metrics = pillar.metrics || [];
-
-  return (
-    <div data-rip-breakdown-pillar-detail className="min-w-0">
-      {pillar.statusLabel ? (
-        <InterpretationBadge
-          label={pillar.statusLabel}
-          rankTier={pillar.rankTier}
-          className="px-2 py-0.5 text-[10px] tracking-[0.08em]"
-        />
-      ) : null}
-      {pillar.highlight ? (
-        <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{pillar.highlight}</p>
-      ) : null}
-      <div className="mt-1">
-        {parsedWeight === null ? null : (
-          // Label is bare "Weight" because the VALUE already names the whole it
-          // is a share of ("60% of RIP Core") — the desktop tile's exact
-          // string, which must not change. "Weight in RIP Core / 60% of RIP
-          // Core" said RIP Core twice on one line.
-          <RipBreakdownDetailMetric label="Weight" value={`${Math.round(parsedWeight * 100)}% of RIP Core`} />
-        )}
-        {parsedContribution === null ? null : (
-          <RipBreakdownDetailMetric
-            label="Contribution to RIP Core"
-            value={`${parsedContribution.toFixed(1)} pts`}
-            infoText={RIP_CONTRIBUTION_INFO_TEXT}
-          />
-        )}
-        {metrics.map((metric) => (
-          <RipBreakdownDetailMetric
-            key={`${pillar.title}-compact-detail-${metric.label}`}
-            label={metric.label}
-            value={metric.value}
-            trend={metric.trend}
-            infoText={metric.infoText || getMetricTooltip(metric.label)}
-            content={metric.content}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
+// Nothing here computes a score, a rank, a tier or a denominator.
 function RipScoreBreakdownModule({
   score,
   rankTier,
   rankValue,
   cohortSize = null,
-  verdict,
-  explanation,
-  pillars,
   titleInfoText,
-  scoreMode,
-  onScoreModeChange,
-  coreAvailable = false,
-  openingOutlook = null,
-  coreWeightLabel = null,
-  coreWeightsCaption = null,
-  collectorAppeal = null,
-  // Financial RIP V3 (canonical) and the legacy V2 object it is compared
-  // against. Both are passed in from the one resolution the page already
-  // performs, so this module never re-resolves a payload and cannot end up
-  // showing a V3 score from one run beside a V2 score from another.
-  financialRipV3 = null,
-  legacyRip = null,
-  breakdownTrends = {},
+  // The page's single resolved canonical bundle, forwarded verbatim to both
+  // breakdowns so all three surfaces read one source.
+  canonical = null,
   requestTimeout = false,
-  // The canonical v6 objects: Overall RIP V6 (80/20) and the D/F/P Collector
-  // Appeal. Passed in from the page's single resolution so this module never
-  // re-resolves a payload.
-  publicRipContractV6 = null,
-  overallRipV6 = null,
-  collectorAppealOpeningExperience = null,
 }) {
-  const [detailsExpanded, setDetailsExpanded] = useState(false);
-  // The one shared RIP tier presentation — the same helper the title-card
-  // tier / rank / verdict pills read — so the outlook inherits the ACTIVE
-  // score's semantic tone (RIP Score or RIP Core) instead of inventing one.
-  const outlookAccent = getRipTierPresentation({ label: verdict, rankTier });
-  // RIP Core mode shows the financial pillars ONLY. Collector Appeal is not a
-  // term of RIP Core, so it is not rendered at all here — not greyed, not
-  // emptied, not left as a gap. The three cards take the full width instead.
-  const showsCollectorAppeal = scoreMode !== RIP_CORE_MODE;
-
   return (
     <section id="set-detail-rip-score" className="scroll-mt-24 md:scroll-mt-28">
       {/* Below 1200px there is NO context card: the section joins the
           continuous mobile feed and the page gutter is the only inset, so the
-          rows start at the same left edge as every other mobile section. The
-          `max-desk:` utilities are what actually strip it — `important: true`
-          in tailwind.config.js makes `p-4`/`border`/`rounded-2xl` !important,
-          so the non-important `[data-mobile-feed] .set-glass-surface` reset in
-          globals.css cannot beat them on its own. At 1200px+ the card is
-          untouched: same glass, same border, same radius, same p-5 inset. */}
+          rows start at the same left edge as every other mobile section. At
+          1200px+ the card is untouched: same glass, same border, same radius,
+          same p-5 inset. */}
       <article className="set-glass-surface rounded-2xl border p-4 desk:p-5 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]">
-        {/* Header row: the chapter marker and title on the left, the details
-            disclosure on the right so it reads as controlling the whole
-            section rather than the pillar it happens to sit above. */}
-        <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2">
-          <div className="min-w-0">
-            <SectionEyebrow>01 · Verdict</SectionEyebrow>
-            <div className="flex min-w-0 items-center gap-2">
-              <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
-              {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
-            </div>
+        <div className="min-w-0">
+          <SectionEyebrow>01 · RIP Score</SectionEyebrow>
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score</h2>
+            {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
           </div>
-          {/* The desktop progressive-disclosure control. It is DESKTOP ONLY
-              now: below 1200px it opened every pillar's secondary block at
-              once, which is the density problem this section was supposed to
-              lose. There, the compact rows own disclosure instead — one
-              selected row, one shared detail region — so no dropdown of any
-              kind is mounted. */}
-          <button
-            type="button"
-            onClick={() => setDetailsExpanded((current) => !current)}
-            className="inline-flex flex-none items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/55 max-desk:hidden"
-            aria-expanded={detailsExpanded}
-            aria-label={detailsExpanded ? "Hide RIP Score Breakdown details" : "Show RIP Score Breakdown details"}
-          >
-            <span>{detailsExpanded ? "Hide Details" : "Show Details"}</span>
-            <svg
-              viewBox="0 0 20 20"
+        </div>
+
+        {/* THE INSIGHTS SUMMARY. One grouped surface, three cards, stated
+            ONCE: RIP Score, Financial RIP, Collector Appeal. The Overall
+            values are handed down from the page's single hero selection rather
+            than re-resolved, so this surface cannot disagree with the sticky
+            header, and HeroScoreBadges is still the one metadata component both
+            surfaces share.
+
+            SCALES DIFFER ON PURPOSE. The RIP Score card is Overall RIP V7's
+            cohort-RELATIVE score. The other two are Financial RIP V3's and
+            Collector Appeal V3's own fixed-anchor scores, which is the number
+            each of those models is defined to publish. Neither is restated on
+            the Overall relative scale to make the three look alike.
+
+            These three rails are the ONLY elevated, glowing bars on the page;
+            every rail in the two breakdowns below is deliberately quieter. */}
+        <InsightsSummaryModule
+          canonical={canonical}
+          overallScore={score}
+          overallTier={rankTier}
+          overallRank={rankValue}
+          overallCohortSize={cohortSize}
+          overallBadges={<HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} />}
+        />
+
+        {/* The two lenses that explain the score — Financial RIP first, then
+            Collector Appeal. They are explanatory views of one model, and
+            nothing here states or implies an even split between them. Each
+            renders its own components and its own independent unavailable
+            state, and both read the same resolved bundle as the score above. */}
+        <div className="mt-4 min-w-0">
+          <FinancialRipV3Breakdown canonical={canonical} requestTimeout={requestTimeout} />
+        </div>
+
+        {/* THE ONE canonical Collector Appeal surface on the page, and the home
+            of every deep link the removed Collector Profile used to own.
+            `set-detail-collector-appeal` is the PREFERRED id; the rest are
+            invisible compatibility anchors so an existing bookmark, an internal
+            link or an indexed URL still lands on real Collector Appeal content
+            instead of on nothing. They carry the same scroll offset as a real
+            section heading. */}
+        <div id={COLLECTOR_APPEAL_SECTION_ID} className="mt-4 min-w-0 scroll-mt-24 md:scroll-mt-28">
+          {LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS.map((anchorId) => (
+            <span
+              key={anchorId}
+              id={anchorId}
+              className="block scroll-mt-24 md:scroll-mt-28"
               aria-hidden="true"
-              className={`h-3.5 w-3.5 opacity-70 transition-transform duration-200 ${detailsExpanded ? "rotate-180" : ""}`}
-              fill="currentColor"
-            >
-              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.12l3.71-3.89a.75.75 0 1 1 1.08 1.04l-4.25 4.45a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" />
-            </svg>
-          </button>
+            />
+          ))}
+          <CollectorAppealBreakdown canonical={canonical} />
         </div>
-
-        {/* ONE score-mode control, shared by both presentations — a second
-            mounted copy would give the page two radiogroups that can disagree.
-            It is already `compact`; below desktop it only loses vertical
-            breathing room. */}
-        <div className="mt-3 max-desk:mt-2">
-          <RipScoreModeToggle value={scoreMode} onChange={onScoreModeChange} coreAvailable={coreAvailable} />
-        </div>
-
-        {/* 1200px+ only. Score, then metadata, then judgement — one descending
-            hierarchy. Tier and rank are plain text; only the interpretation
-            keeps a bordered treatment, so three pieces of metadata no longer
-            compete as three identical bubbles. Below desktop this is replaced
-            by the compact summary line inside RipBreakdownCompactFeed, which
-            renders the same four values without four competing chips. */}
-        <div className="mt-3 hidden min-w-0 flex-wrap items-center gap-x-3 gap-y-2 desk:flex">
-          <p className="inline-flex items-end gap-1.5 text-4xl font-semibold leading-none text-[var(--text-primary)]">
-            <span>{formatRawScore(score)}</span>
-            <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
-          </p>
-          <HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} interpretation={verdict} />
-          {explanation ? <InfoPopover text={explanation} /> : null}
-        </div>
-
-
-        {/* The plain-language read of the score above, so it is seen before the
-            individual pillars. Text stays canonical (backend-generated); only
-            the treatment changed - a narrow tier-coloured rail with a wash that
-            fades to nothing well before the right edge, so the outlook reads as
-            part of the breakdown rather than as a filled alert banner. The copy
-            keeps the full content width; only the colour stops early.
-
-            1200px+ only. Below desktop this accented callout was the single
-            largest block in the default view, so the SAME canonical text moved
-            into the shared detail region as the Overall row's content, where it
-            is still on screen without a tap because Overall is selected by
-            default. */}
-        <div
-          data-insights-opening-outlook
-          className="rip-outlook-callout relative mt-4 hidden min-w-0 border-l-2 px-3.5 py-2.5 desk:block desk:px-4"
-          style={{
-            borderLeftColor: outlookAccent.outlookRail.borderLeftColor,
-            backgroundImage: outlookAccent.outlookWash,
-            boxShadow: outlookAccent.outlookRail.boxShadow,
-            "--rip-outlook-edge": outlookAccent.outlookEdge,
-          }}
-        >
-          <div className="flex items-center gap-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Opening Outlook</p>
-            <InfoPopover text={RIP_OUTLOOK_INFO_TEXT} />
-          </div>
-          <p className="mt-1 text-sm font-medium leading-relaxed text-[var(--text-primary)]">
-            {openingOutlook || "No opening outlook is available for this set yet."}
-          </p>
-        </div>
-
-        {/* The whole below-desktop presentation, mounted ONCE for both score
-            modes so switching RIP Score <-> RIP Core cannot remount it and drop
-            the selected row. `showsCollectorAppeal` is what removes the 10%
-            term from the list in RIP Core mode. */}
-        <div className="mt-3 min-w-0 desk:hidden">
-          <RipBreakdownCompactFeed
-            score={score}
-            rankTier={rankTier}
-            rankValue={rankValue}
-            cohortSize={cohortSize}
-            verdict={verdict}
-            explanation={explanation}
-            openingOutlook={openingOutlook}
-            outlookAccent={outlookAccent}
-            pillars={pillars}
-            collectorAppeal={collectorAppeal}
-            showsCollectorAppeal={showsCollectorAppeal}
-            coreWeightLabel={coreWeightLabel}
-            coreWeightsCaption={coreWeightsCaption}
-          />
-        </div>
-
-        {/* The canonical Financial RIP breakdown: six V3 component cards by
-            default, with the retired three-pillar model available as an
-            explicitly-labelled Legacy V2 view.
-
-            Placed ABOVE the composition, not below it. The composition is the
-            last thing in each mode arm by design — it is the 10% Collector
-            Appeal term that closes the Overall RIP story — so appending
-            anything after it would break that reading order. The financial
-            model's own breakdown belongs between the outlook and the
-            composition instead.
-
-            Spacing follows the section's existing rhythm (`mt-4`, no divider):
-            the header/outlook block deliberately dropped its oversized gaps and
-            its border-top, and this must not reintroduce either. */}
-        {/* The canonical Overall RIP composition (80% Financial RIP + 20%
-            Collector Appeal) and the Collector Appeal D/F/P breakdown. Placed
-            ABOVE the six financial component cards because it is the level
-            above them: it says what Overall RIP is made of, and the cards below
-            then open up the financial 80%. */}
-        <div className="mt-4 min-w-0">
-          <CollectorAppealBreakdown
-            publicRipContractV6={publicRipContractV6}
-            overallRipV6={overallRipV6}
-            openingExperience={collectorAppealOpeningExperience}
-          />
-        </div>
-
-        <div className="mt-4 min-w-0">
-          <FinancialRipV3Breakdown
-            financialRipV3={financialRipV3}
-            legacyRip={legacyRip}
-            trends={breakdownTrends}
-            requestTimeout={requestTimeout}
-          />
-        </div>
-
-        {showsCollectorAppeal ? (
-          // 1200px+ only: the desktop composition is unchanged. Below desktop
-          // the compact feed above is the entire presentation, so exactly one
-          // tree renders at either width — and no empty wrapper is left behind
-          // here to pay margin for a subtree that draws nothing.
-          <div className="mt-4 hidden min-w-0 desk:block">
-            <div>
-              <RipCompositionGroup
-                eyebrow="RIP Core"
-                weightLabel={coreWeightLabel}
-                caption={coreWeightsCaption}
-              >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {pillars.map((pillar) => (
-                    <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
-                  ))}
-                </div>
-              </RipCompositionGroup>
-
-              <RipCompositionJoin />
-
-              <RipCompositionGroup
-                tone="appeal"
-                eyebrow="Collector Appeal"
-                weightLabel={collectorAppeal?.weightLabel || null}
-                caption="Roster desirability translated through this set's modeled opening paths."
-              >
-                {collectorAppeal?.available ? (
-                  <div className="min-w-0">
-                    {/* Same hierarchy as the primary score row: score, tier
-                        bubble, plain rank. The contribution drops to its own
-                        line as secondary metadata so it stops competing with
-                        the three figures above it. */}
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-                      <p className="inline-flex items-end gap-1 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                        <span>{collectorAppeal.scoreLabel}</span>
-                        <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
-                      </p>
-                      {collectorAppeal.tier ? <RankBadge rank={collectorAppeal.tier} format="tier" /> : null}
-                      {collectorAppeal.rank !== null && collectorAppeal.rank !== undefined ? (
-                        <span
-                          data-rip-collector-appeal-rank
-                          className="text-xs font-medium tabular-nums text-[var(--text-secondary)]"
-                          title={
-                            collectorAppeal.cohortSize === null || collectorAppeal.cohortSize === undefined
-                              ? `Rank #${Math.round(collectorAppeal.rank)}`
-                              : `Rank #${Math.round(collectorAppeal.rank)} of ${Math.round(collectorAppeal.cohortSize)} ranked sets`
-                          }
-                        >
-                          Rank #{Math.round(collectorAppeal.rank)}
-                        </span>
-                      ) : null}
-                    </div>
-                    {collectorAppeal.contributionLabel ? (
-                      <p
-                        data-rip-collector-appeal-contribution
-                        className="mt-1.5 text-[11px] tabular-nums text-[var(--text-secondary)]"
-                      >
-                        {collectorAppeal.contributionLabel}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  // Never a fake 0 and never RIP Core wearing the RIP Score
-                  // label: the backend says why the term is missing and that
-                  // reason is what renders.
-                  <p className="text-xs leading-snug text-[var(--text-secondary)]">
-                    {collectorAppeal?.unavailableReason ||
-                      "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."}
-                  </p>
-                )}
-              </RipCompositionGroup>
-            </div>
-          </div>
-        ) : (
-          // RIP Core mode: the three financial cards only, using the full width.
-          // 1200px+ only: unchanged. Below desktop the compact feed above is the
-          // whole presentation, and it drops the 10% term in this mode by never
-          // building a row for it — not greyed, not emptied, not left as a gap.
-          <div className="mt-4 hidden min-w-0 desk:block">
-            <div>
-              {coreWeightsCaption ? (
-                <p className="mb-2 text-xs text-[var(--text-secondary)]">{coreWeightsCaption}</p>
-              ) : null}
-              <div className="grid gap-3 sm:grid-cols-3">
-                {pillars.map((pillar) => (
-                  <CompactPillarSignalTile key={`rip-pillar:${pillar.title}`} {...pillar} detailsExpanded={detailsExpanded} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
       </article>
     </section>
   );
@@ -7627,908 +6449,34 @@ function SectionCard({
 }
 
 // ---------------------------------------------------------------------------
-// 02 · SET DESIRABILITY and SIMULATION OPENING EXPERIENCE
+// THE PUBLIC COLLECTOR PROFILE WAS REMOVED HERE
 //
-// TWO SECTIONS, TWO AVAILABILITIES
-// --------------------------------
-// Set Desirability is the authoritative desirability score. It is computed from
-// the canonical checklist and Pokémon subject demand, so it needs no simulation,
-// no pull model and no CA7, and it renders for every adequately covered set.
+// `CollectorProfileSection` and everything it exclusively owned - the Roster
+// Appeal / Opening Paths view tabs, the desktop and mobile roster panels, the
+// desktop and mobile opening-path panels, their loading/unavailable wrappers,
+// the CollectorPanel/CollectorBand/CollectorMetric* primitives, the
+// OpeningPathStepArrow and the path presentation helpers, and the whole
+// COLLECTOR_PROFILE_* / SET_DESIRABILITY_* / ROSTER_QUALITY_* /
+// DEMAND_DISTRIBUTION_* / OPENING_PATH_SUMMARY_* info-copy set - are gone.
+// Every one of them had no consumer outside this block.
 //
-// The Simulation Opening Experience needs the modeled pull structure, so it
-// renders only where CA7 loaded. It used to be the ONLY section, with Roster
-// Desirability nested inside it — so a set whose pack model could not be read
-// hid its Set Desirability too, a score the backend had already computed and
-// sent. They are separate now because they fail for different reasons.
+// WHY: the section presented the retired chain
+//     Set Desirability -> Collector Appeal -> RIP Score Contribution
+// as the current model. Collector Appeal V3 has THREE PARALLEL FACTORS, not a
+// sequential pipeline with roster demand as its first stage, and the section's
+// copy stated composition weights and contribution points that are internal to
+// the model. Its info bullets also carried the "one of the two halves of RIP
+// Score" claim, which the canonical 0.90/0.10 blend does not support.
 //
-// All numbers come from the backend contracts via the selectors; nothing here
-// computes a score, a weight or a rank.
+// The canonical Collector Appeal presentation is CollectorAppealBreakdown,
+// rendered exactly once inside the RIP Score section above. Every deep link
+// this section used to own is relocated there as a compatibility anchor - see
+// SET_DETAIL_SECTION_TARGETS and COLLECTOR_APPEAL_SECTION_ID.
+//
+// NO BACKEND DATA WAS REMOVED. `universalSetDesirability` and
+// `openingExperience` are still published and still read elsewhere on the page;
+// this block simply stopped rendering a superseded story about them.
 // ---------------------------------------------------------------------------
-
-// Tooltip bodies are BULLETS, not paragraphs.
-//
-// This section's explanations are all "A relates to B in this specific way"
-// statements, and a paragraph forces the reader to hold three of those in their
-// head before the sentence resolves. One idea per bullet lets them stop reading
-// the moment they have the one they came for. The visible layout carries the
-// hierarchy; these carry the explanation.
-function InfoBullets({ items }) {
-  const rows = (Array.isArray(items) ? items : []).filter(Boolean);
-  if (rows.length === 0) {
-    return null;
-  }
-  return (
-    <ul data-info-bullets className="list-disc space-y-1.5 pl-4 marker:text-[var(--text-secondary)]">
-      {rows.map((row) => (
-        <li key={row} className="leading-snug">
-          {row}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const infoBullets = (items) => <InfoBullets items={items} />;
-
-// The section-level explanation. It is the ONLY place the chain is spelled out
-// in words: the visible layout draws the three stages and their direction, so
-// repeating the sentence under the heading was duplicated education.
-const COLLECTOR_PROFILE_INFO_BULLETS = [
-  "Explains how roster demand becomes the Collector Appeal portion of RIP Score.",
-  "Set Desirability measures the strength and depth of the roster.",
-  "Collector Appeal applies the modeled opening structure to that roster demand.",
-  "Collector Appeal contributes 10% to RIP Score.",
-  "Roster Appeal explains who drives demand.",
-  "Opening Paths explains how those subjects are distributed through accessible and elite pulls.",
-];
-
-const SET_DESIRABILITY_INFO_BULLETS = [
-  "Measures the popularity and depth of Pokémon subjects represented in the set.",
-  "Does not use card prices.",
-  "Does not predict future value.",
-  "Chase Subject Strength measures how desirable the leading subjects are.",
-  "Chase Subject Depth measures how many distinct subjects meaningfully carry demand.",
-  "Favorite Hit Coverage measures how much of the desirable roster appears as hit cards.",
-  "Can be available even when the set has not been simulated.",
-  "Supports Collector Appeal but does not receive its own RIP Score weight.",
-];
-
-const COLLECTOR_APPEAL_INFO_BULLETS = [
-  "Measures how roster desirability is translated through the modeled pull structure.",
-  "Contributes 10% to RIP Score.",
-  "Chase Appeal helps explain the quality of the available chase.",
-  "Dual-Path Depth measures how many desirable subjects have both accessible and elite paths.",
-  "Requires modeled pull-path or simulation data.",
-  "Chase Appeal and Dual-Path Depth are explanatory diagnostics, not separate RIP Score weights.",
-];
-
-const ROSTER_QUALITY_INFO_BULLETS = [
-  "Answers how strong and how deep this set's desirable roster is.",
-  "Chase Subject Strength: how beloved the leading subjects are.",
-  "Chase Subject Depth: how many distinct subjects carry the demand.",
-  "Favorite Hit Coverage: how much of the desirable roster appears as a hit at all.",
-];
-
-const DEMAND_DISTRIBUTION_INFO_BULLETS = [
-  "Answers whether demand is spread across the roster or concentrated in a few subjects.",
-  "Effective Subjects: how many subjects meaningfully carry demand.",
-  "A set resting on one Pokémon scores low here even with a long checklist.",
-  "Top Subject Share: the share held by the single strongest subject.",
-  "Top 3 Share: the share held by the three strongest subjects together.",
-];
-
-const OPENING_PATH_SUMMARY_INFO_BULLETS = [
-  "Dual-Path Depth: how much of the demand collectors care about has both a pullable printing and an elite chase.",
-  "It is a coverage measure, not a 0–100 grade — most sets sit well below 50%.",
-  "Chase Appeal: desirability × elite scarcity, so how strongly the most-wanted subjects concentrate into genuine chase cards.",
-  "Both explain Collector Appeal; neither is added to RIP Score.",
-  "Price is not an input to either.",
-];
-
-// ONE surface per view. Bands inside it, hairlines between.
-//
-// Every metric here used to be its own bordered card, so a reader scanning a tab
-// met six identical boxes and had to infer which ones belonged together. Now
-// each view is a single bordered panel whose internal bands carry the grouping:
-// the reader sees one object with a reading order, not a scatter of tiles. The
-// border count per tab went from six to one.
-function CollectorPanel({ children }) {
-  return (
-    // Below 1200px the panel keeps its DIVIDERS and loses its box: it already
-    // sits inside the (now card-less) Collector Profile section, so its border
-    // and fill were a second surface drawn around content that needed no
-    // second boundary. Desktop keeps the rounded panel exactly.
-    <div
-      data-collector-panel
-      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
-    >
-      {children}
-    </div>
-  );
-}
-
-// One band of the panel: a quiet label, then its content. The band label is the
-// only heading in the view — the detail lives in its tooltip, never beneath it.
-function CollectorBand({ title, infoBullets: bullets = null, children }) {
-  return (
-    <section data-collector-band className="min-w-0">
-      {/* The panel's own horizontal inset goes away below desktop along with
-          its border — the page gutter is the inset now — and the band label
-          keeps only the vertical room it needs to separate two groups. */}
-      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 max-desk:px-0 max-desk:pb-1 max-desk:pt-2.5 sm:px-4">
-        <h4 className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{title}</h4>
-        {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-// The metrics of one band, on a shared baseline. Hairline columns rather than
-// gaps, so the three read as one measurement of one thing.
-function CollectorMetricRow({ columns = 3, children }) {
-  return (
-    <div
-      className={`grid divide-x divide-[var(--border-subtle)] ${
-        columns === 2 ? "grid-cols-2" : "grid-cols-3"
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CollectorMetricCell({ label, value, detail }) {
-  return (
-    <div className="min-w-0 px-3 pb-3.5 pt-0.5 max-desk:px-2.5 max-desk:pb-2.5 sm:px-4">
-      {/* Two lines of room while the labels wrap on a phone, so the values in a
-          band still sit on one line whether or not their label wrapped. */}
-      <p className="min-h-[2.5em] min-w-0 text-[10px] font-medium uppercase leading-tight tracking-[0.06em] text-[var(--text-secondary)] sm:min-h-0">
-        {label}
-      </p>
-      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] max-desk:mt-1 max-desk:text-base sm:text-xl">
-        {value ?? "—"}
-      </p>
-      {detail ? (
-        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] max-desk:mt-1 max-desk:text-[10px]">{detail}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function CollectorProfileMobileSummaryCell({ label, value, meta }) {
-  return (
-    <div className="min-w-0 px-3 py-3.5 sm:px-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
-      <p className="mt-2 text-[1.75rem] font-semibold leading-none tabular-nums text-[var(--text-primary)] sm:text-[1.9rem]">
-        {value || "—"}
-      </p>
-      <p className="mt-2 min-h-[1rem] text-[11px] leading-snug text-[var(--text-secondary)]">{meta || " "}</p>
-    </div>
-  );
-}
-
-function CollectorProfileMobileSummary({ desirability, collectorAppeal }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30">
-      <div className="grid grid-cols-2 divide-x divide-[var(--border-subtle)]">
-        <CollectorProfileMobileSummaryCell
-          label="Set Desirability"
-          value={desirability.available ? desirability.scoreLabel : "—"}
-          meta={desirability.available ? desirability.rankLabel : null}
-        />
-        <CollectorProfileMobileSummaryCell
-          label="Collector Appeal"
-          value={collectorAppeal.available ? collectorAppeal.collectorAppeal.scoreLabel : "—"}
-          meta={
-            collectorAppeal.available
-              ? [
-                  collectorAppeal.collectorAppeal.tier ? `${collectorAppeal.collectorAppeal.tier} Tier` : null,
-                  collectorAppeal.collectorAppeal.rankLabel,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              : null
-          }
-        />
-      </div>
-      <div className="space-y-1.5 border-t border-[var(--border-subtle)] px-3 py-3 sm:px-4">
-        <p className="text-sm font-medium text-[var(--text-primary)]">Set desirability informs Collector Appeal</p>
-        <p className="text-[11px] leading-snug text-[var(--text-secondary)]">Overall RIP = 80% Financial RIP + 20% Collector Appeal</p>
-      </div>
-    </div>
-  );
-}
-
-function CollectorProfileMobilePathRow({ title, subjectName, path }) {
-  if (!path) {
-    return null;
-  }
-
-  const headerLabel = path.cardName || subjectName || "—";
-  const subLabel = [subjectName, path.rarity].filter(Boolean).join(" · ") || "—";
-  const contextLine = [path.cardNumber ? `#${path.cardNumber}` : null, path.impliedOddsLabel]
-    .filter(Boolean)
-    .join(" · ");
-
-  return (
-    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22 px-3 py-3.5">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
-          <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{headerLabel}</p>
-          <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{subLabel}</p>
-        </div>
-        <p className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]">{path.impliedOddsLabel || "—"}</p>
-      </div>
-      {contextLine ? <p className="mt-2 text-[11px] leading-snug text-[var(--text-secondary)]">{contextLine}</p> : null}
-    </div>
-  );
-}
-
-function CollectorProfileMobileRosterPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
-        Pokémon subjects that appear as hits; this product has none.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <section className="space-y-2.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Roster Quality</h3>
-        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
-          <CollectorMetricRow>
-            <CollectorMetricCell label="Chase Strength" value={presentation.components[0]?.scoreLabel} />
-            <CollectorMetricCell label="Chase Depth" value={presentation.components[1]?.scoreLabel} />
-            <CollectorMetricCell label="Hit Coverage" value={presentation.components[2]?.scoreLabel} />
-          </CollectorMetricRow>
-        </div>
-      </section>
-
-      <section className="space-y-2.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Demand Distribution</h3>
-        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
-          <CollectorMetricRow>
-            <CollectorMetricCell
-              label="Effective Subjects"
-              value={presentation.effectiveSubjectCountLabel}
-              detail={
-                presentation.distinctEligibleSubjectCount !== null
-                  ? `of ${presentation.distinctEligibleSubjectCount} eligible`
-                  : null
-              }
-            />
-            <CollectorMetricCell label="Top Subject" value={presentation.top1ShareLabel} />
-            <CollectorMetricCell label="Top 3" value={presentation.top3ShareLabel} />
-          </CollectorMetricRow>
-        </div>
-      </section>
-
-      {presentation.topSubjects.length > 0 ? (
-        <section className="space-y-2.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Top Desirability Drivers</h3>
-          <ol className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18">
-            {presentation.topSubjects.slice(0, 3).map((subject, index) => (
-              <SetDesirabilitySubjectRow
-                key={`set-desirability-mobile-subject:${subject.subjectName}`}
-                subject={subject}
-                position={index + 1}
-              />
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      <DisclosureSection
-        title="Profile details"
-        description="Definitions and methodology"
-        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
-      >
-        <div className="space-y-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-          <div>
-            <p className="font-semibold text-[var(--text-primary)]">Roster Quality</p>
-            <ul className="mt-1 space-y-1">
-              {ROSTER_QUALITY_INFO_BULLETS.map((bullet) => (
-                <li key={`collector-roster-quality:${bullet}`}>{bullet}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-[var(--text-primary)]">Demand Distribution</p>
-            <ul className="mt-1 space-y-1">
-              {DEMAND_DISTRIBUTION_INFO_BULLETS.map((bullet) => (
-                <li key={`collector-demand-distribution:${bullet}`}>{bullet}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </DisclosureSection>
-    </div>
-  );
-}
-
-function CollectorProfileMobileOpeningPathsPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
-        yet. Set Desirability is unaffected — it doesn&apos;t use pull data.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  const accessibleSubject = presentation.topSubjects.find((subject) => subject.accessiblePath) || null;
-  const eliteSubject = presentation.topSubjects.find((subject) => subject.elitePath) || null;
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2.5">
-        <CollectorProfileMobilePathRow
-          title="Access Path"
-          subjectName={accessibleSubject?.subjectName || null}
-          path={accessibleSubject?.accessiblePath || null}
-        />
-        <CollectorProfileMobilePathRow
-          title="Elite Path"
-          subjectName={eliteSubject?.subjectName || null}
-          path={eliteSubject?.elitePath || null}
-        />
-      </div>
-
-      <DisclosureSection
-        title="Path details"
-        description="Supporting diagnostics and additional routes"
-        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
-      >
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
-            <CollectorMetricRow columns={2}>
-              <CollectorMetricCell
-                label="Dual-Path Depth"
-                value={presentation.dualPathDepth.displayLabel}
-                detail={
-                  [
-                    presentation.dualPathDepth.rankLabel,
-                    presentation.dualPathDepth.subjectsWithMultiplePaths !== null
-                      ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null
-                }
-              />
-              <CollectorMetricCell
-                label="Chase Appeal"
-                value={presentation.chaseAppeal.scoreLabel}
-                detail={presentation.chaseAppeal.rankLabel}
-              />
-            </CollectorMetricRow>
-          </div>
-          {presentation.topSubjects.length > 0 ? (
-            <div className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/12">
-              {presentation.topSubjects.map((subject) => (
-                <OpeningExperienceSubjectRow key={`opening-mobile-subject:${subject.subjectName}`} subject={subject} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </DisclosureSection>
-    </div>
-  );
-}
-
-// One route to a subject. Deliberately BORDERLESS: it sits inside the subject
-// row's own border, and giving it a second one produced a box inside a box
-// inside a card for every path on the page.
-function OpeningExperiencePathCard({ kind, path }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  useEffect(() => {
-    setImageFailed(false);
-  }, [path?.imageUrl]);
-  if (!path) {
-    return null;
-  }
-  const showImage = Boolean(path.imageUrl) && !imageFailed;
-  return (
-    // A fixed measure so the two routes sit beside each other and line up
-    // column-for-column down the list, instead of each claiming half the row
-    // and stranding the elite path a screen away from its subject.
-    <div data-opening-path className="flex min-w-0 items-center gap-2.5 sm:w-[19rem] sm:flex-none lg:w-[21rem]">
-      <div className="h-12 w-9 flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={path.imageUrl}
-            alt={path.cardName ? `${path.cardName} card image` : "Card image"}
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageFailed(true)}
-            className="h-full w-full rounded-[4px] object-contain"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{kind}</p>
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-          {path.cardName}
-          {path.cardNumber ? <span className="ml-1 font-normal text-[var(--text-secondary)]">#{path.cardNumber}</span> : null}
-        </p>
-        <p className="truncate text-xs text-[var(--text-secondary)]">
-          {[path.rarity, path.impliedOddsLabel].filter(Boolean).join(" · ") || "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// The step from the accessible route to the elite one: rightward where the two
-// sit side by side, downward once they stack. A short hairline leads into the
-// chevron so the connector reads as a drawn relationship, not a stray glyph.
-function OpeningPathStepArrow() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex flex-none items-center justify-center gap-1 self-center py-0.5 text-[var(--text-secondary)] sm:px-1.5 sm:py-0"
-    >
-      <span className="hidden h-px w-3 bg-[var(--border-subtle)] sm:block" />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 sm:hidden">
-        <path d="M10 14.5a.75.75 0 0 1-.53-.22l-4.5-4.5a.75.75 0 1 1 1.06-1.06L10 12.69l3.97-3.97a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-.53.22Z" />
-      </svg>
-      <svg viewBox="0 0 20 20" fill="currentColor" className="hidden h-4 w-4 sm:block">
-        <path d="M14.5 10a.75.75 0 0 1-.22.53l-4.5 4.5a.75.75 0 0 1-1.06-1.06L12.69 10 8.72 6.03a.75.75 0 0 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 .22.53Z" />
-      </svg>
-    </span>
-  );
-}
-
-// One subject, one story: who it is, how much it matters, the realistic route,
-// then the elite route. The name and its demand share sit on one line so the
-// subject anchors both paths, and the paths below carry NO border of their own —
-// the hairline between subjects is the only separator the row needs.
-function OpeningExperienceSubjectRow({ subject }) {
-  const hasBothPaths = Boolean(subject.accessiblePath) && Boolean(subject.elitePath);
-  return (
-    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 max-desk:px-0 max-desk:py-2.5 sm:px-4">
-      <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)] max-desk:text-xs">
-          {subject.subjectName}
-        </p>
-        {subject.demandShare !== null ? (
-          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)] max-desk:text-[10px]">
-            {`${(subject.demandShare * 100).toFixed(0)}% of roster demand`}
-          </p>
-        ) : null}
-      </div>
-      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 max-desk:mt-1.5 max-desk:gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-        <OpeningExperiencePathCard kind="Accessible Path" path={subject.accessiblePath} />
-        {hasBothPaths ? <OpeningPathStepArrow /> : null}
-        <OpeningExperiencePathCard kind="Elite Chase" path={subject.elitePath} />
-      </div>
-    </div>
-  );
-}
-
-// A ranked row inside the Top Desirability Drivers list. The ordinal makes the
-// ranking explicit instead of leaving it implied by position, and sits in a
-// fixed-width column so the names start on one edge and the scores end on the
-// other — the list scans as a ladder, not as a stack of rows.
-function SetDesirabilitySubjectRow({ subject, position }) {
-  return (
-    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 max-desk:gap-2 max-desk:px-0 max-desk:py-2 sm:px-4">
-      <span className="w-3.5 flex-none text-right text-[11px] font-semibold tabular-nums text-[color:color-mix(in_srgb,var(--text-secondary)_70%,transparent)]">
-        {position}
-      </span>
-      {/* Stacked while the row is narrow, side by side once there is width —
-          so the printing detail fills the middle of a wide row instead of
-          leaving a gap between the name and the score. */}
-      <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-4">
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)] sm:w-44 sm:flex-none">
-          {subject.subjectName}
-        </p>
-        {subject.representativeCardName ? (
-          <p className="mt-0.5 min-w-0 truncate text-[11px] text-[var(--text-secondary)] sm:mt-0 sm:flex-1">
-            {[subject.representativeCardName, subject.cardCount !== null ? `${subject.cardCount} printings` : null]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        ) : null}
-      </div>
-      {subject.subjectDemandLabel ? (
-        <p className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]">{subject.subjectDemandLabel}</p>
-      ) : null}
-    </li>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// COLLECTOR PROFILE
-//
-// One parent section for the two roster-side scores, in the order the model
-// actually chains them:
-//
-//     Set Desirability  ->  Collector Appeal  ->  10% of RIP Score
-//
-// They used to be two sibling sections, which left the reader to guess whether
-// they were alternatives, duplicates, or inputs to each other. They are none of
-// those: Set Desirability is the roster base CA7 consumes, CA7 is the term the
-// score weights, and Set Desirability itself carries no RIP weight.
-//
-// They are NOT merged mathematically and NOT presented as two settings of one
-// toggle. Each keeps its own score, its own cohort, and — critically — its own
-// availability: Set Desirability needs only a checklist, CA7 needs the modeled
-// pull structure, so the Roster Appeal view still renders when Opening Paths
-// cannot.
-// ---------------------------------------------------------------------------
-
-const COLLECTOR_PROFILE_ROSTER_VIEW = "roster-appeal";
-const COLLECTOR_PROFILE_PATHS_VIEW = "opening-paths";
-// The `?section=` values that used to address the standalone Opening Experience
-// section. They now open the Opening Paths view of the Collector Profile.
-const COLLECTOR_PROFILE_PATHS_SECTIONS = new Set([
-  "opening-experience",
-  "desirability-proof",
-  "desirability-validation",
-  "card-desirability-price",
-]);
-
-function CollectorProfileUnavailable({ children }) {
-  return (
-    <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-      {children}
-    </p>
-  );
-}
-
-function CollectorProfileLoading({ loadingTimedOut }) {
-  return (
-    <div aria-busy={!loadingTimedOut}>
-      {loadingTimedOut ? (
-        <CollectorProfileUnavailable>
-          Set insights are taking longer than expected to load. Refresh the page to retry.
-        </CollectorProfileUnavailable>
-      ) : (
-        <InlinePanelSkeleton rows={3} />
-      )}
-    </div>
-  );
-}
-
-// One stage of the Set Desirability -> Collector Appeal -> contribution flow.
-//
-// Four fixed slots — label, score, rank, note — so the three stages line up row
-// for row and the eye can read straight across the chain. `meta` reserves its
-// line even when a stage has no rank, otherwise a missing rank would shunt one
-// stage's note up and break that alignment.
-function CollectorProfileStage({ label, value, meta, note, infoBullets: bullets = null, muted = false }) {
-  return (
-    // At 1200px+ this is unchanged: a fixed-measure block, label over a 28px
-    // score over its meta and note, three of them joined by rules.
-    //
-    // Below desktop the same four fields become one compact grid row — label
-    // and score share the first line, the rank/cohort meta sits under the
-    // label, and the note runs across the foot — so a stage costs roughly a
-    // quarter of the height without dropping a single field. The score steps
-    // down from 1.75rem to text-xl: still the loudest thing in its row, no
-    // longer a headline that needs a line to itself.
-    <div
-      data-collector-profile-stage
-      className="min-w-0 max-desk:grid max-desk:grid-cols-[minmax(0,1fr)_auto] max-desk:items-baseline max-desk:gap-x-3 max-desk:py-1.5 lg:w-[17rem] lg:flex-none"
-    >
-      <div className="flex min-w-0 items-center gap-1.5">
-        <p className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{label}</p>
-        {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
-      </div>
-      <p
-        className={`mt-2 text-[1.75rem] font-semibold leading-none tabular-nums max-desk:mt-0 max-desk:text-xl ${
-          muted ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="mt-2 min-h-[1rem] text-xs tabular-nums text-[var(--text-secondary)] max-desk:mt-0.5 max-desk:min-h-0 max-desk:text-[11px]">
-        {meta || " "}
-      </p>
-      {note ? (
-        <p className="mt-1 text-[11px] leading-snug text-[color:color-mix(in_srgb,var(--text-secondary)_78%,transparent)] max-desk:col-span-2 max-desk:mt-0.5 max-desk:text-[10px]">
-          {note}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-// The connector between stages: a downward chevron when the stages are stacked
-// (mobile) and, once they sit side by side, a rule that spans the whole gap and
-// resolves into a chevron at the next stage. It grows with the gap on purpose —
-// a fixed-size glyph left a void beside each score and read as decoration
-// rather than as the direction the chain actually runs. The top offset parks it
-// on the optical centre of the scores it joins.
-function CollectorProfileArrow() {
-  return (
-    <span
-      aria-hidden="true"
-      // Below desktop the connector shrinks to a 12px chevron with no padding
-      // and sits at the left edge, under the label column, so it reads as the
-      // step between two rows rather than as a centred ornament that costs
-      // 28px of height twice over. The direction it communicates is unchanged.
-      className="flex flex-none items-center justify-center gap-1.5 py-1 text-[var(--text-secondary)] max-desk:justify-start max-desk:py-0 lg:mt-[1.55rem] lg:min-w-[2.5rem] lg:flex-1 lg:py-0"
-    >
-      <span className="hidden h-px flex-1 bg-[var(--border-subtle)] lg:block" />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 max-desk:h-3 max-desk:w-3 lg:hidden">
-        <path d="M10 15.25a.85.85 0 0 1-.6-.25l-5-5a.85.85 0 1 1 1.2-1.2L10 13.2l4.4-4.4a.85.85 0 1 1 1.2 1.2l-5 5a.85.85 0 0 1-.6.25Z" />
-      </svg>
-      <svg viewBox="0 0 20 20" fill="currentColor" className="hidden h-5 w-5 flex-none lg:block">
-        <path d="M15.25 10a.85.85 0 0 1-.25.6l-5 5a.85.85 0 0 1-1.2-1.2L13.2 10 8.8 5.6a.85.85 0 0 1 1.2-1.2l5 5a.85.85 0 0 1 .25.6Z" />
-      </svg>
-    </span>
-  );
-}
-
-function CollectorRosterAppealPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
-        Pokémon subjects that appear as hits; this product has none.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  // Three bands of ONE panel, in the order the questions arrive: how strong the
-  // roster is, how its demand is spread, and who specifically carries it — so
-  // the drivers read as the conclusion of the roster story rather than a table
-  // appended underneath. The headline score is NOT repeated here; it is the
-  // first stage of the summary chain above.
-  return (
-    <CollectorPanel>
-      <CollectorBand title="Roster Quality" infoBullets={ROSTER_QUALITY_INFO_BULLETS}>
-        <CollectorMetricRow>
-          {presentation.components.map((component) => (
-            <CollectorMetricCell
-              key={`set-desirability:${component.key}`}
-              label={component.label}
-              value={component.scoreLabel}
-            />
-          ))}
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      <CollectorBand title="Demand Distribution" infoBullets={DEMAND_DISTRIBUTION_INFO_BULLETS}>
-        <CollectorMetricRow>
-          <CollectorMetricCell
-            label="Effective Subjects"
-            value={presentation.effectiveSubjectCountLabel}
-            detail={
-              presentation.distinctEligibleSubjectCount !== null
-                ? `of ${presentation.distinctEligibleSubjectCount} eligible`
-                : null
-            }
-          />
-          <CollectorMetricCell label="Top Subject Share" value={presentation.top1ShareLabel} />
-          <CollectorMetricCell label="Top 3 Share" value={presentation.top3ShareLabel} />
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      {presentation.topSubjects.length > 0 ? (
-        <CollectorBand title="Top Desirability Drivers">
-          <ol className="divide-y divide-[var(--border-subtle)]">
-            {presentation.topSubjects.map((subject, index) => (
-              <SetDesirabilitySubjectRow
-                key={`set-desirability-subject:${subject.subjectName}`}
-                subject={subject}
-                position={index + 1}
-              />
-            ))}
-          </ol>
-        </CollectorBand>
-      ) : null}
-    </CollectorPanel>
-  );
-}
-
-function CollectorOpeningPathsPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      // Scoped to the pull model ONLY. It must never read as a statement about
-      // Set Desirability, which is computed from the checklist and stays
-      // available in the Roster Appeal view beside it.
-      <CollectorProfileUnavailable>
-        Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
-        yet. Set Desirability is unaffected — it doesn&apos;t use pull data.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  // Two bands of ONE panel: the shape of the modeled opening overall, then the
-  // specific subjects that shape is made of. Collector Appeal's own score is the
-  // second stage of the summary chain above, so this view opens on the two
-  // diagnostics that explain it.
-  return (
-    <CollectorPanel>
-      <CollectorBand title="Opening Structure" infoBullets={OPENING_PATH_SUMMARY_INFO_BULLETS}>
-        <CollectorMetricRow columns={2}>
-          <CollectorMetricCell
-            label="Dual-Path Depth"
-            value={presentation.dualPathDepth.displayLabel}
-            detail={
-              [
-                presentation.dualPathDepth.rankLabel,
-                presentation.dualPathDepth.subjectsWithMultiplePaths !== null
-                  ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || null
-            }
-          />
-          <CollectorMetricCell
-            label="Chase Appeal"
-            value={presentation.chaseAppeal.scoreLabel}
-            detail={presentation.chaseAppeal.rankLabel}
-          />
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      {presentation.topSubjects.length > 0 ? (
-        <CollectorBand title="Pull paths for top subjects">
-          <div className="divide-y divide-[var(--border-subtle)]">
-            {presentation.topSubjects.map((subject) => (
-              <OpeningExperienceSubjectRow key={`opening-subject:${subject.subjectName}`} subject={subject} />
-            ))}
-          </div>
-        </CollectorBand>
-      ) : null}
-    </CollectorPanel>
-  );
-}
-
-function CollectorProfileSection({
-  universalSetDesirability,
-  openingExperience,
-  ripContribution = null,
-  loading = false,
-  loadingTimedOut = false,
-  requestedView = null,
-}) {
-  const [activeView, setActiveView] = useState(COLLECTOR_PROFILE_ROSTER_VIEW);
-  const isDesktopCollectorProfile = useMediaQuery("(min-width: 1200px)", true);
-  // A deep link that used to target the standalone Opening Experience section
-  // (?section=opening-experience and its aliases) must still land on that
-  // material, so the requested view wins over the local default until the user
-  // picks a view themselves.
-  useEffect(() => {
-    if (requestedView === COLLECTOR_PROFILE_PATHS_VIEW || requestedView === COLLECTOR_PROFILE_ROSTER_VIEW) {
-      setActiveView(requestedView);
-    }
-  }, [requestedView]);
-  const desirability = useMemo(
-    () => selectSetDesirabilityPresentation(universalSetDesirability),
-    [universalSetDesirability]
-  );
-  const opening = useMemo(() => selectOpeningExperiencePresentation(openingExperience), [openingExperience]);
-  const collectorAppeal = opening.collectorAppeal;
-
-  return (
-    <section id="set-detail-collector-profile" className="scroll-mt-24 md:scroll-mt-28">
-      {/* Every anchor either section used before still resolves, so existing
-          deep links keep landing on real content after the merge. */}
-      <span id="set-detail-set-desirability" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-evidence" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      {/* Shell cleanup only. Below 1200px the outer context card is gone and
-          the section joins the continuous mobile feed; the flow strip, the
-          Roster Appeal / Opening Paths tabs and every panel inside are
-          untouched at every width. Desktop keeps the card exactly as it was. */}
-      <SectionCard
-        eyebrow="02 · Collector Profile"
-        tone="plain"
-        title="Collector Profile"
-        titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}
-        // The 16px rhythm between the flow, the view control and the active
-        // panel is desktop's; below 1200px those three sit on a page that has
-        // no card around them, so 10px is enough to separate them.
-        bodyClassName="space-y-4 max-desk:space-y-2.5"
-        mobileFlush
-      >
-        {/* The relationship, in order. Three stages, one direction: roster
-            demand -> modeled opening paths -> the weighted term. Stacked on
-            mobile, in a row once there is width for it. Each stage carries at
-            most a six-word note; the rest of the explanation is in the tooltips
-            on the stage labels, so the chain can be read at a glance. */}
-        {/* Below desktop the flow keeps its ORDER and its connectors and loses
-            its box: it sits inside a section that no longer draws a card, so
-            its own border and fill were a second surface around three rows.
-            The chevrons are the separator — a divider on both sides of each one
-            would frame the connector instead of the stages. Desktop keeps the
-            panel exactly. */}
-        {isDesktopCollectorProfile ? (
-          <div
-            data-collector-profile-flow
-            className="flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3.5 max-desk:gap-0 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:px-0 max-desk:py-0 sm:px-5 sm:py-4 lg:flex-row lg:items-start lg:gap-2"
-          >
-            <CollectorProfileStage
-              label="Set Desirability"
-              value={desirability.available ? desirability.scoreLabel : "—"}
-              meta={desirability.available ? desirability.rankLabel : null}
-              note="Supporting input — no RIP Score weight of its own."
-              infoBullets={SET_DESIRABILITY_INFO_BULLETS}
-              muted={!desirability.available}
-            />
-            <CollectorProfileArrow />
-            <CollectorProfileStage
-              label="Collector Appeal"
-              value={opening.available ? collectorAppeal.scoreLabel : "—"}
-              meta={
-                opening.available
-                  ? [collectorAppeal.tier ? `${collectorAppeal.tier} Tier` : null, collectorAppeal.rankLabel]
-                      .filter(Boolean)
-                      .join(" · ")
-                  : null
-              }
-              note="Roster demand through the modeled opening paths."
-              infoBullets={COLLECTOR_APPEAL_INFO_BULLETS}
-              muted={!opening.available}
-            />
-            <CollectorProfileArrow />
-            <CollectorProfileStage
-              label="RIP Score Contribution"
-              value={ripContribution?.weightLabel || "20%"}
-              meta={ripContribution?.contributionPointsLabel || null}
-              note="Financial RIP supplies the other 80%."
-              muted={!ripContribution?.contributionPointsLabel}
-            />
-          </div>
-        ) : (
-          <CollectorProfileMobileSummary desirability={desirability} collectorAppeal={opening} />
-        )}
-
-        <SectionViewTabs
-          value={activeView}
-          onChange={setActiveView}
-          variant="secondary"
-          ariaLabel="Collector Profile view"
-          equalWidth
-          mobileFullWidth
-          options={[
-            { value: COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal" },
-            { value: COLLECTOR_PROFILE_PATHS_VIEW, label: "Opening Paths" },
-          ]}
-        />
-
-        {/* The Opening Paths anchor is rendered unconditionally so a deep link
-            to it always resolves; `requestedView` above is what actually
-            switches the view it points at. */}
-        <span id="set-detail-opening-experience" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-
-        {activeView === COLLECTOR_PROFILE_ROSTER_VIEW ? (
-          isDesktopCollectorProfile ? (
-            <CollectorRosterAppealPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
-          ) : (
-            <CollectorProfileMobileRosterPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
-          )
-        ) : isDesktopCollectorProfile ? (
-          <CollectorOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
-        ) : (
-          <CollectorProfileMobileOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
-        )}
-      </SectionCard>
-    </section>
-  );
-}
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 // ~half-height card art for the Simulation Results → Simulation Drivers panel,
@@ -9660,13 +7608,12 @@ function SetPageNavigationRail({
     activeTab === "overview"
       ? [
           // Nav order mirrors the tab's render order: ticker (not a nav
-          // target), then the chart row, then Top Chase beside Decision
-          // Signals.
+          // target), then the chart row, then Top Chase. There is no Decision
+          // Signals entry - the section it pointed at was removed.
           { id: "performance-vs-cost", label: "Market Snapshot", tab: "overview", section: "performance-vs-cost", graphMode: "historical-trend", targetId: "set-detail-overview-performance", active: activeGraphMode === "historical-trend" },
           ...(showTopMarketCards
             ? [{ id: "top-market-cards", label: "Top Chase Cards", tab: "overview", section: "top-market-cards", targetId: "set-detail-top-market-cards", active: false }]
             : []),
-          { id: "set-signals", label: "Decision Signals", tab: "overview", section: "set-signals", targetId: "set-detail-set-intelligence", active: activeGraphMode !== "historical-trend" },
         ]
       : activeTab === "cards"
       ? [
@@ -9682,7 +7629,10 @@ function SetPageNavigationRail({
         ]
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
-          { id: "opening-experience", label: "Collector Profile", tab: "insights", section: "opening-experience", targetId: "set-detail-collector-profile", active: false },
+          // The "Collector Profile" entry pointed at a section that no longer
+          // exists. It is renamed to what actually renders, and points at the
+          // canonical block rather than at a legacy anchor.
+          { id: "collector-appeal", label: "Collector Appeal", tab: "insights", section: "collector-appeal", targetId: COLLECTOR_APPEAL_SECTION_ID, active: false },
           { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
           { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
@@ -10254,15 +8204,9 @@ export default function RipStatisticsPageClient({
 
   const [graphMode, setGraphMode] = useState("outcome-distribution");
   const [viewMode, setViewMode] = useState("simple");
-  const [heroScoreMode, setHeroScoreMode] = useState(RIP_SCORE_MODE);
-  const previousHeroScoreSetIdRef = useRef(resolvedSetResourceId);
-  useEffect(() => {
-    if (previousHeroScoreSetIdRef.current === resolvedSetResourceId) return;
-    previousHeroScoreSetIdRef.current = resolvedSetResourceId;
-    if (heroScoreMode === RIP_CORE_MODE && !hasRipCorePresentationContract(selectedTarget)) {
-      setHeroScoreMode(RIP_SCORE_MODE);
-    }
-  }, [heroScoreMode, resolvedSetResourceId, selectedTarget]);
+  // There is no hero score mode any more. The retired RIP Core option was a
+  // second public presentation of Financial RIP V2; RIP Score is now the one
+  // canonical headline and it is always Overall RIP V7.
   const [heroMetricView, setHeroMetricView] = useState("overview");
   const [activeValueView, setActiveValueView] = useState("cards");
   const [, setInsightsValueView] = useState("value-structure");
@@ -11592,16 +9536,38 @@ export default function RipStatisticsPageClient({
     { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
   ];
 
-  const heroScoreSelection = selectRipHeroScoreMode({
-    mode: heroScoreMode,
-    summary,
-    target: selectedTarget,
-    payload: explorePayload,
-  });
-  // The PUBLIC hero number is the cohort-relative 0-100 score. The raw formula
-  // output (the 90/10 Overall blend or 60/25/15 Financial blend) is the model
-  // score, shown small beneath as a transparent diagnostic — never competing
-  // with the public score.
+  // THE canonical RIP resolution for this page. Resolved ONCE, here, and shared
+  // by the sticky hero, the Overview RIP Summary, the Insights headline,
+  // Financial RIP and Collector Appeal. Every one of those surfaces reads this
+  // object, so they cannot disagree about which source answered.
+  //
+  // WHY ONE CALL AND NOT THREE `||` CHAINS
+  // --------------------------------------
+  // This replaced three independent `explorePayload?.x || selectedTarget?.x ||
+  // summary?.x` memos, one per canonical object. Those were unsafe for two
+  // reasons. First, a normalized-but-empty `{}` is TRUTHY, so an empty
+  // `explorePayload.publicRipContractV7` won the chain and blocked a populated
+  // contract on `selectedTarget` — the page then rendered "unavailable" while
+  // holding perfectly good canonical data. Second, three chains can settle on
+  // three different sources, so the hero could show one snapshot's RIP Score
+  // while Financial RIP showed another's components.
+  //
+  // `resolveCanonicalRipV7` fixes both: it tests for CONTENT rather than
+  // truthiness, and it returns Overall RIP, Financial RIP and Collector Appeal
+  // as one bundle from one source. It never defaults to a legacy object — an
+  // absent V7 renders as an explicit unavailable state, never as V6, V5,
+  // Overall RIP v4, Collector Appeal V2 or legacy CA7 wearing the canonical
+  // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
+  // the payload for audit consumers and are read by no public surface here.
+  const canonicalRip = useMemo(
+    () => resolveCanonicalRipV7(explorePayload, selectedTarget, summary),
+    [explorePayload, selectedTarget, summary]
+  );
+
+  const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
+  // The PUBLIC hero number is the cohort-relative 0-100 Overall RIP V7. The raw
+  // 90/10 formula output is the model score, shown small beneath as a
+  // transparent diagnostic — never competing with the public score.
   const topScoreRaw = heroScoreSelection.score;
   const displayedTopScore = formatRawScore(topScoreRaw);
   const heroModelScoreRaw = heroScoreSelection.absoluteScore;
@@ -11614,60 +9580,21 @@ export default function RipStatisticsPageClient({
   // in set-detail mode, the rankings target carries it on Explore. The pillar
   // scores below are the ACTUAL component scores from rip.components — the
   // legacy relative_*_score min-max presentations are deliberately never read.
-  const canonicalRip = useMemo(
+  // LEGACY, and read for exactly one surface: the Explore expert-view
+  // ScorePillarCard diagnostics below, which are the Profit / Safety /
+  // Stability lenses in their own right. `rip` is Overall RIP **v4** and
+  // `rip.financialRip` is Financial RIP **V2**. Neither may be read by a
+  // surface that says "RIP Score" or "Financial RIP" - those read the V7
+  // objects below.
+  const legacyExpertRip = useMemo(
     () => explorePayload?.rip || selectedTarget?.rip || summary?.rip || {},
     [explorePayload?.rip, selectedTarget?.rip, summary?.rip]
   );
-  // The pillars live on Financial RIP. Overall RIP carries the same Financial
-  // RIP object under `financialRip`, so both surfaces read one computation.
-  const canonicalRipComponents =
-    canonicalRip?.financialRip?.components || canonicalRip?.components || {};
-  const displayedProfitScore = toNumber(canonicalRipComponents.profit?.score);
-  const displayedSafetyScore = toNumber(canonicalRipComponents.safety?.score);
-  const displayedStabilityScore = toNumber(canonicalRipComponents.stability?.score);
-  // The canonical `ripCore` object is still read for the RIP Core hero mode -
-  // `selectRipHeroScoreMode` above resolves it from payload -> target -> summary
-  // itself. The local mirror of that read was only ever consumed by the retired
-  // RIP construction strip, so it is gone with it.
-  // The canonical Financial RIP V3 contract, resolved with the SAME
-  // payload -> target -> summary precedence as `rip`, so the V3 breakdown and
-  // the legacy V2 comparison can never be reading two different simulation
-  // runs. It is deliberately not defaulted to `ripCore`: an absent V3 renders
-  // as an explicit unavailable state, never as V2 wearing the V3 label.
-  const canonicalFinancialRipV3 = useMemo(
-    () =>
-      explorePayload?.financialRipV3 ||
-      selectedTarget?.financialRipV3 ||
-      summary?.financialRipV3 ||
-      null,
-    [explorePayload?.financialRipV3, selectedTarget?.financialRipV3, summary?.financialRipV3]
-  );
-  // The canonical v6 objects, resolved with the SAME payload -> target ->
-  // summary precedence as `rip` and `financialRipV3`, so the Overall RIP
-  // composition and the Collector Appeal breakdown can never be reading a
-  // different set's bundle. Neither defaults to a legacy object: an absent V6
-  // renders as an explicit unavailable state, never as V5/v4 or legacy CA7
-  // wearing the canonical label.
-  const canonicalOverallRipV6 = useMemo(
-    () =>
-      explorePayload?.overallRipV6 ||
-      selectedTarget?.overallRipV6 ||
-      summary?.overallRipV6 ||
-      null,
-    [explorePayload?.overallRipV6, selectedTarget?.overallRipV6, summary?.overallRipV6]
-  );
-  const canonicalPublicRipContractV6 = useMemo(
-    () =>
-      explorePayload?.publicRipContractV6 ||
-      selectedTarget?.publicRipContractV6 ||
-      summary?.publicRipContractV6 ||
-      null,
-    [
-      explorePayload?.publicRipContractV6,
-      selectedTarget?.publicRipContractV6,
-      summary?.publicRipContractV6,
-    ]
-  );
+  const legacyExpertRipComponents =
+    legacyExpertRip?.financialRip?.components || legacyExpertRip?.components || {};
+  const displayedProfitScore = toNumber(legacyExpertRipComponents.profit?.score);
+  const displayedSafetyScore = toNumber(legacyExpertRipComponents.safety?.score);
+  const displayedStabilityScore = toNumber(legacyExpertRipComponents.stability?.score);
   const canonicalUniversalSetDesirability = useMemo(
     () =>
       explorePayload?.universalSetDesirability ||
@@ -11680,13 +9607,10 @@ export default function RipStatisticsPageClient({
       summary?.universalSetDesirability,
     ]
   );
-  // The canonical CA7 contract, resolved with the same payload -> target
-  // precedence as `rip` so the Collector Profile and the RIP Score composition
-  // can never read two different CA7 objects.
-  const canonicalOpeningExperience = useMemo(
-    () => explorePayload?.openingExperience || selectedTarget?.openingExperience || null,
-    [explorePayload?.openingExperience, selectedTarget?.openingExperience]
-  );
+  // `canonicalOpeningExperience` was resolved here for the removed public
+  // Collector Profile, the only surface that read it. Collector Appeal is now
+  // presented solely from the canonical V7 bundle, so the CA7 service payload
+  // has no frontend consumer on this page and is not resolved.
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
     explorePayload,
@@ -11699,28 +9623,16 @@ export default function RipStatisticsPageClient({
   const ambientSetArtworkUrl =
     selectedTarget?.hero_image_url || selectedTarget?.logo_image_url || selectedTarget?.symbol_image_url || null;
 
-  const recommendationSummary =
-    heroScoreSelection.mode === RIP_CORE_MODE
-      ? heroScoreSelection.interpretation.summary
-      : packScoreMeta?.summary || interpretation?.packScore || null;
-  const recommendationBadge =
-    heroScoreSelection.mode === RIP_CORE_MODE
-      ? heroScoreSelection.interpretation.label
-      : packScoreMeta?.label || null;
-  const recommendationTone = getInterpretationTone({ label: recommendationBadge, rankTier: heroScoreSelection.tier });
-  // The persistent title card is a second presentation of the SAME active score
-  // mode the Insights RIP Score Breakdown toggles (`heroScoreMode` above owns
-  // it for both surfaces), so it reads the same shared tier presentation and
-  // repaints with the breakdown whenever the mode or the tier changes.
+  // `packScoreMeta` (the interpretation engine's label and summary) is NOT read
+  // here any more. It produced the hero's "Elite but swingy"-style verdict pill
+  // and the Opening Outlook paragraph, both of which described the retired
+  // Profit/Safety/Stability model. The backend still emits them for
+  // compatibility; no current public surface renders them.
   const setContextRipPresentation = getRipTierPresentation({
-    label: recommendationBadge,
     rankTier: heroScoreSelection.tier,
   });
-  // Canonical labels only, in BOTH modes: the selector owns the name of the
-  // score it resolved ("RIP Score" or "RIP Core"), so the title card can never
-  // name a metric it is not showing. The legacy eyebrow that hard-coded a
-  // second user-facing name for the canonical RIP Score is gone — it made the
-  // title card and the Insights breakdown look like different metrics.
+  // The selector owns the name of the score it resolved, so the title card can
+  // never name a metric it is not showing.
   const setContextRipLabel = heroScoreSelection.label;
   const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
   const setContextRipRank = toNumber(heroScoreSelection.rank);
@@ -12624,10 +10536,7 @@ export default function RipStatisticsPageClient({
   // self-render their own loading/error states (SetValueTrendCard,
   // MarketMoversModule, TopMarketCardsContent); Performance vs Cost's
   // PackValueHistoryChart does not, so it gets an explicit SectionBoundary
-  // below keyed to overviewPerformanceVsCostStatus. Market Signals
-  // (DecisionSignalsCard) depends only on summary/interpretation, which are
-  // already available from the SSR shell payload on this tab (Overview never
-  // populates explorePayload), so it has no async gate at all.
+  // below keyed to overviewPerformanceVsCostStatus.
   // Core rule: renderable OPvC history beats loading/error presentation.
   // The section-level selector handles empty-seed vs live-loading distinctions
   // so first-load can never show settled unavailability before /overview
@@ -13167,176 +11076,46 @@ export default function RipStatisticsPageClient({
     { label: "Top 3 Share", value: formatPercent(summary.top3_ev_share), trend: trendByMetricKey.top3Share },
     { label: "Top 5 Share", value: formatPercent(summary.top5_ev_share), trend: trendByMetricKey.top5Share },
   ];
-  // Weights read from the backend scoring config via the explore payload —
-  // never hardcoded here — and always labeled a reasoned default.
-  const ripWeightsConfig = explorePayload?.meta?.ripWeightsConfig || null;
-  const ripWeightsText = ripWeightsConfig?.weights
-    ? `Component weighting (${ripWeightsConfig.weightsLabel || "reasoned default weighting"}): ${Object.entries(ripWeightsConfig.weights)
-        .map(([pillar, weight]) => `${pillar} ${Math.round(weight * 100)}%`)
-        .join(" / ")}.`
-    : null;
+  // The backend scoring config's pillar weights were read here and printed
+  // into the section tooltip. They are Financial RIP V2's 60/25/15 split, and
+  // no weight is shown on a public surface any more.
   // Stated as the two-level model the backend actually computes. The old copy
   // listed the three pillars and desirability in one flat sentence, which
   // invited the 60+25+15+10 = 110% reading; these are not four peers.
-  const ripBreakdownInfo = [
-    "Overall RIP = 80% Financial RIP + 20% Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution; Collector Appeal is how desirable the modeled cards are and how often the pack delivers them.",
-    "Expanded across the whole score that is Profit 54%, Safety 22.5%, Stability 13.5% and Collector Appeal 10%.",
-    ripWeightsText,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const ripScoreBreakdown = useMemo(
-    () => selectRipScoreBreakdown(canonicalRip, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
-    [canonicalRip, trendByMetricKey, isTimeoutFallbackPayload]
+  // Neutral and factual: what the two canonical inputs MEASURE, with no
+  // weights, no formula and no contribution arithmetic. They are NOT halves —
+  // the canonical blend is 0.90 Financial RIP + 0.10 Collector Appeal, and
+  // "halves" both misstated that and invited an even-split reading.
+  // The previous copy stated an 80/20
+  // split (the canonical model is not 80/20) and then expanded it into
+  // Profit/Safety/Stability percentages, which are Financial RIP V2's pillars.
+  const ripBreakdownInfo =
+    "RIP Score combines Financial RIP with Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution and the pack price; Collector Appeal is how desirable the modeled cards are and how often the pack can deliver them.";
+  // The Explore expert view's three pillar-lens cards, and nothing else. These
+  // are Financial RIP V2 pillars, presented as their own named lenses on a
+  // diagnostic surface - never as the components of Financial RIP, which has
+  // its own six V3 components in FinancialRipV3Breakdown.
+  const legacyExpertPillarRows = useMemo(
+    () => selectRipScoreBreakdown(legacyExpertRip, trendByMetricKey, { requestTimeout: isTimeoutFallbackPayload }),
+    [legacyExpertRip, trendByMetricKey, isTimeoutFallbackPayload]
   );
-  const ripBreakdownRowByTitle = new Map(ripScoreBreakdown.rows.map((row) => [row.title, row]));
-  // Pillar order and labels follow the canonical contract: Profit | Safety |
-  // Stability | Collector Appeal. Scores/ranks/tiers come from rip.components
-  // only — no `?? summary.*` fallback, because a legacy relative score
-  // rendering under the canonical card's label is the exact defect this
-  // replaced.
-  const ripPillarTiles = [
-    {
-      title: "Profit",
-      score: ripBreakdownRowByTitle.get("Profit")?.score ?? null,
-      scoreTrend: ripBreakdownRowByTitle.get("Profit")?.scoreTrend ?? trendByMetricKey.profitScore,
-      rankValue: ripBreakdownRowByTitle.get("Profit")?.rankValue ?? null,
-      rankTier: ripBreakdownRowByTitle.get("Profit")?.rankTier ?? null,
-      cohortSize: ripBreakdownRowByTitle.get("Profit")?.cohortSize ?? null,
-      weight: ripBreakdownRowByTitle.get("Profit")?.weight ?? null,
-      contribution: ripBreakdownRowByTitle.get("Profit")?.contribution ?? null,
-      statusLabel: getPillarStatusLabel({ label: profitMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Profit]?.state, score: displayedProfitScore }),
-      highlight: getPillarSignalHighlight("Profit", displayedProfitScore),
-      metrics: profitPillarMetrics,
-      infoText: getFormattedTooltip("Profit"),
-    },
-    {
-      title: "Safety",
-      score: ripBreakdownRowByTitle.get("Safety")?.score ?? null,
-      scoreTrend: ripBreakdownRowByTitle.get("Safety")?.scoreTrend ?? trendByMetricKey.safetyScore,
-      rankValue: ripBreakdownRowByTitle.get("Safety")?.rankValue ?? null,
-      rankTier: ripBreakdownRowByTitle.get("Safety")?.rankTier ?? null,
-      cohortSize: ripBreakdownRowByTitle.get("Safety")?.cohortSize ?? null,
-      weight: ripBreakdownRowByTitle.get("Safety")?.weight ?? null,
-      contribution: ripBreakdownRowByTitle.get("Safety")?.contribution ?? null,
-      statusLabel: getPillarStatusLabel({ label: safetyMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Safety]?.state, score: displayedSafetyScore }),
-      highlight: getPillarSignalHighlight("Safety", displayedSafetyScore),
-      metrics: safetyPillarMetrics,
-      infoText: getFormattedTooltip("Safety"),
-    },
-    {
-      title: "Stability",
-      score: ripBreakdownRowByTitle.get("Stability")?.score ?? null,
-      scoreTrend: ripBreakdownRowByTitle.get("Stability")?.scoreTrend ?? trendByMetricKey.stabilityScore,
-      rankValue: ripBreakdownRowByTitle.get("Stability")?.rankValue ?? null,
-      rankTier: ripBreakdownRowByTitle.get("Stability")?.rankTier ?? null,
-      cohortSize: ripBreakdownRowByTitle.get("Stability")?.cohortSize ?? null,
-      weight: ripBreakdownRowByTitle.get("Stability")?.weight ?? null,
-      contribution: ripBreakdownRowByTitle.get("Stability")?.contribution ?? null,
-      statusLabel: getPillarStatusLabel({ label: stabilityMeta?.label || pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]?.state, score: displayedStabilityScore }),
-      highlight: getPillarSignalHighlight("Stability", displayedStabilityScore),
-      metrics: stabilityPillarMetrics,
-      infoText: getFormattedTooltip("Stability"),
-    },
-    // No fourth pillar. These three are the LEGACY Financial RIP V2 (60/25/15).
-    // Collector Appeal enters OVERALL RIP as its own term - 20% of the
-    // canonical 80/20 blend - and keeps its own section; it is not a weighted
-    // pillar OF Financial RIP. A fourth financial tile here would state a blend
-    // the backend does not compute.
-  ];
-  // The two-level composition the verdict section renders in RIP Score mode.
-  //
-  // This is a PRESENTATION of the backend contract, not a second computation:
-  // the 90% / 10% weights, the CA7 score, its rank and its contribution in
-  // model points all come from `rip.components` via the shared selector. The
-  // contribution deliberately uses the ABSOLUTE model scores — multiplying a
-  // cohort-relative 0-100 presentation by a weight would produce a number that
-  // sums to nothing the backend computed.
-  const ripComposition = useMemo(
-    () =>
-      selectRipDesirabilityBreakdown(
-        canonicalRip,
-        explorePayload?.ripCore || selectedTarget?.ripCore || summary?.ripCore || null,
-        canonicalUniversalSetDesirability,
-        canonicalOpeningExperience
-      ),
-    [canonicalRip, explorePayload?.ripCore, selectedTarget?.ripCore, summary?.ripCore, canonicalUniversalSetDesirability, canonicalOpeningExperience]
-  );
-  const ripCoreWeightLabel = ripComposition?.financialRip?.weightLabel || null;
-  // What the group IS, in three words. The 60/25/15 split used to be spelled out
-  // here too, which restated what the three cards inside the group already say
-  // on their own faces ("60% of RIP Core", "25% of RIP Core", "15% of RIP
-  // Core") — the same numbers twice, a few pixels apart.
-  const ripCoreWeightsCaption = "Financial opening performance";
-  const ripCollectorAppealTerm = ripComposition
-    ? {
-        available: ripComposition.openingDesirability.score !== null,
-        scoreLabel: ripComposition.openingDesirability.scoreLabel,
-        rank: ripComposition.openingDesirability.rank,
-        cohortSize: ripComposition.openingDesirability.cohortSize,
-        rankLabel: ripComposition.openingDesirability.rankLabel,
-        tier: ripComposition.openingDesirability.tier,
-        weightLabel: ripComposition.openingDesirability.weightLabel,
-        contributionLabel: ripComposition.openingDesirability.contributionLabel,
-        // The backend's contribution field in model points — the same number
-        // the breakdown states as "Opening Desirability x 10% = N pts", shown
-        // bare as the final stage of the Collector Profile flow.
-        contributionPointsLabel:
-          ripComposition.openingDesirability.contribution === null
-            ? null
-            : `${ripComposition.openingDesirability.contribution.toFixed(1)} model points`,
-        unavailableReason: ripComposition.openingDesirability.unavailableReason,
-      }
-    : null;
-  // Deep links that used to open the standalone Opening Experience section now
-  // select the Opening Paths view inside the Collector Profile.
-  const requestedCollectorProfileView = COLLECTOR_PROFILE_PATHS_SECTIONS.has(activeSection)
-    ? COLLECTOR_PROFILE_PATHS_VIEW
-    : null;
-  const overviewPillarSignals = ripPillarTiles.map(({ metrics, ...signal }) => signal);
-  const overviewDecisionTrackedSignals = useMemo(() => {
-    const overallRip = selectRipHeroScoreMode({
-      mode: RIP_SCORE_MODE,
-      summary,
-      target: selectedTarget,
-      payload: explorePayload,
-    });
-    const openingPresentation = selectOpeningExperiencePresentation(canonicalOpeningExperience);
-    const collectorAppeal = openingPresentation?.collectorAppeal || {};
-    const canonicalOverallInterpretation = String(
-      packScoreMeta?.label || overallRip?.interpretation?.label || overallRip?.interpretation?.summary || ""
-    ).trim();
-
-    const rows = [];
-    if (toNumber(overallRip.score) !== null) {
-      rows.push({
-        label: OVERALL_RIP_SIGNAL_LABEL,
-        score: toNumber(overallRip.score),
-        rank: toNumber(overallRip.rank),
-        tier: overallRip.tier || null,
-        summary:
-          canonicalOverallInterpretation ||
-          "Overall opening profile combining financial performance and collector appeal.",
-        detailSummary:
-          canonicalOverallInterpretation ||
-          "Overall opening profile combining financial performance and collector appeal.",
-      });
-    }
-
-    if (toNumber(collectorAppeal.score) !== null) {
-      rows.push({
-        label: "Collector Appeal",
-        score: toNumber(collectorAppeal.score),
-        rank: toNumber(collectorAppeal.rank),
-        tier: collectorAppeal.tier || null,
-        summary:
-          String(collectorAppeal.interpretation || "").trim() ||
-          "Collector demand signal from modeled opening paths, independent of market price.",
-      });
-    }
-
-    return rows;
-  }, [canonicalOpeningExperience, explorePayload, packScoreMeta?.label, selectedTarget, summary]);
+  const ripBreakdownRowByTitle = new Map(legacyExpertPillarRows.rows.map((row) => [row.title, row]));
+  // The legacy Profit/Safety/Stability pillar tiles, the Overall RIP v4
+  // composition (`selectRipDesirabilityBreakdown`) and the CA7 "10% term" view
+  // model were all built here. Every one of them described a superseded model:
+  // the pillars are Financial RIP V2, the composition is Overall RIP v4, and
+  // the term carried a weight label and a contribution in model points. The
+  // canonical presentation is FinancialRipV3Breakdown plus
+  // CollectorAppealBreakdown, which read the V7 contract directly.
+  // `requestedCollectorProfileView` selected the Roster Appeal / Opening Paths
+  // view of the removed Collector Profile from a legacy `?section=`. There is no
+  // view to select any more: those sections are now plain scroll aliases onto
+  // the canonical Collector Appeal block (SET_DETAIL_SECTION_TARGETS), so no
+  // local state is derived from them.
+  // `overviewPillarSignals` and `overviewDecisionTrackedSignals` were built
+  // here to feed the Overview Decision Signals card. That card is gone (it
+  // scored Profit, Safety, Stability, Opening Experience and Chase Potential),
+  // so the two feeds have no consumer and are not built.
   const initialModuleSetValueHistories =
     initialMarketDashboardPayload?.setValueHistoriesByScope ||
     initialMarketDashboardPayload?.set_value_histories_by_scope ||
@@ -13388,7 +11167,10 @@ export default function RipStatisticsPageClient({
     ["simulation drivers", `${simulationDrivers.rows.length} rows`],
     ["top hits source", simulationDrivers.diagnostics?.source || "missing"],
     ["stale cards cache", getCachedPokemonSetCards(resolvedSetResourceId) ? "available" : "none"],
-    ["rip missing fields", (ripScoreBreakdown.diagnostics?.missingFields || []).join(", ") || "none"],
+    // Diagnostics only. Names WHICH canonical V7 shape answered, so a stale
+    // snapshot (neither shape present) is visible here as "none" rather than
+    // being inferred from an unavailable card.
+    ["canonical rip source", heroScoreSelection.sourceShape || "none"],
   ];
 
   const handleTargetIdChange = (nextTargetId, options = {}) => {
@@ -15020,6 +12802,10 @@ export default function RipStatisticsPageClient({
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
                     variant="primary"
+                    /* Scoped, mobile-only emphasis for the active Insights
+                       segment. Desktop tabs, tab order, routing and
+                       accessibility are untouched. */
+                    mobileEmphasisValue="insights"
                     options={[
                       { value: "overview", label: "Overview" },
                       { value: "cards", label: "Cards" },
@@ -15167,24 +12953,20 @@ export default function RipStatisticsPageClient({
                             </span>
                           ) : null}
                         </div>
-                        {recommendationBadge ? (
-                          <p className="mt-1 flex min-w-0">
-                            <span
-                              data-set-context-rip-verdict
-                              className="inline-flex min-w-0 max-w-full items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight"
-                              style={setContextRipPresentation.verdictPill}
-                              title={recommendationBadge}
-                            >
-                              <span className="truncate">{recommendationBadge}</span>
-                            </span>
-                          </p>
-                        ) : null}
+                        {/* The interpretation verdict pill was here. It rendered
+                            the retired interpretation engine's label, which
+                            describes a model the site no longer publishes. A
+                            neutral line naming the two canonical inputs takes
+                            the slot so the card keeps its shape. */}
+                        <p data-set-context-rip-helper className="mt-1 min-w-0 text-[11px] leading-tight text-[var(--text-secondary)]">
+                          {RIP_SCORE_HELPER}
+                        </p>
                         <button
                           type="button"
                           onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
                           className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                         >
-                          View verdict
+                          View analysis
                         </button>
                     </div>
                   </div>
@@ -15218,11 +13000,37 @@ export default function RipStatisticsPageClient({
                       </SectionErrorBoundary>
                     </div>
 
+                    {/* The compact canonical answer to "how does this set
+                        score", in the position the retired Decision Signals
+                        card used to hold: after the movers strip, before the
+                        charts it introduces. It reads the page's ONE resolved
+                        canonical bundle, so Overview and Insights can never
+                        show different numbers for the same set. It is one
+                        grouped surface rather than three cards, so it does not
+                        take the viewport the way Decision Signals did. */}
+                    {/* First ordinary section under the set-level 7D Movers
+                        ticker, so it takes the quiet 1px divider variant. That
+                        variant moved here from Set Value Trend, which is no
+                        longer the module directly under the ticker; Set Value
+                        now takes the ordinary luminous divider like every other
+                        later analytical section. */}
+                    <div data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0">
+                      <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
+                        <OverviewRipSummary
+                          canonical={canonicalRip}
+                          onViewAnalysis={() =>
+                            handleSetDetailNavSelect({
+                              tab: "insights",
+                              section: "rip-score",
+                              targetId: "set-detail-rip-score",
+                            })
+                          }
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
-                      {/* First ordinary analytical section after the set-level
-                          7D Movers ticker, so it takes the quiet 1px rule
-                          rather than the luminous divider. */}
-                      <div id="set-detail-set-value-trend" data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
+                      <div id="set-detail-set-value-trend" data-mobile-section className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
                             it only needs render-exception isolation here. */}
@@ -15336,9 +13144,13 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    {/* Card-level detail + interpretation share one row: Top Chase
-                        Cards at 2/3 width, Decision Signals at 1/3. Below lg they
-                        stack, Top Chase first. */}
+                    {/* Top Chase Cards at 2/3 width, Sealed Market at 1/3.
+                        Below lg they stack, Top Chase first. The Decision
+                        Signals card shared this right-hand column and was
+                        removed: it scored Profit, Safety, Stability, Opening
+                        Experience and Chase Potential, none of which are terms
+                        of the current model. The grid keeps its shape - Sealed
+                        Market simply owns the 1/3 column alone. */}
                     <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
                       {shouldShowTopMarketCards ? (
                         <div id="set-detail-top-market-cards" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28 lg:col-span-2">
@@ -15363,17 +13175,6 @@ export default function RipStatisticsPageClient({
                           {/* Sealed Market owns an independent prepared-snapshot request. */}
                           <SectionErrorBoundary sectionName="overview-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
                             <SealedMarketTrendCard setId={resolvedSetResourceId} />
-                          </SectionErrorBoundary>
-                        </div>
-                        <div id="set-detail-set-intelligence" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                          <SectionErrorBoundary sectionName="overview-market-signals" resetKeys={[resolvedSetResourceId]} title="Market Signal" minHeightClassName="min-h-[10rem]">
-                            <DecisionSignalsCard
-                              pillarSignals={overviewPillarSignals}
-                              summary={summary}
-                              setIntelligenceMeta={interpretationMeta?.set_intelligence}
-                              trackedSignals={overviewDecisionTrackedSignals}
-                              requestTimeout={isTimeoutFallbackPayload}
-                            />
                           </SectionErrorBoundary>
                         </div>
                       </div>
@@ -15757,13 +13558,14 @@ export default function RipStatisticsPageClient({
                     <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
                   </div>
                   <div className="mt-4 flex w-full flex-col items-center text-center">
+                      {/* The RIP Score / RIP Core toggle stood here. RIP Core is
+                          Financial RIP V2 and is not a current alternative to
+                          the RIP Score, so there is one headline and no mode. */}
                       <div className="mt-1 flex w-full justify-center">
                         <div className="inline-flex items-center gap-2">
-                          <RipScoreModeToggle
-                            value={heroScoreSelection.mode}
-                            onChange={setHeroScoreMode}
-                            coreAvailable={heroScoreSelection.coreAvailable}
-                          />
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                            {heroScoreSelection.label}
+                          </p>
                           <InfoPopover text={heroScoreSelection.helper} />
                         </div>
                       </div>
@@ -15773,9 +13575,7 @@ export default function RipStatisticsPageClient({
                             {displayedTopScore}
                           </span>
                           <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
-                          {heroScoreSelection.mode === RIP_SCORE_MODE ? (
-                            <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
-                          ) : null}
+                          <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">
@@ -15787,23 +13587,18 @@ export default function RipStatisticsPageClient({
                         </p>
                       ) : null}
                       <div className="mt-4 flex w-full justify-center self-center">
-                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} cohortSize={heroScoreSelection.cohortSize} interpretation={recommendationBadge} size="hero" />
+                        <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} cohortSize={heroScoreSelection.cohortSize} size="hero" />
                       </div>
                     </div>
 
-                    <div className="mx-auto mt-6 w-full max-w-2xl">
-                      <div
-                        className="border-l-2 px-4 py-3 text-left sm:px-5"
-                        style={getCalloutAccentStyle({ label: recommendationBadge, rankTier: heroScoreSelection.tier })}
-                      >
-                        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                          <span className="h-1.5 w-1.5 rounded-full" aria-hidden="true" style={{ backgroundColor: recommendationTone.dotColor }} />
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{RIP_COPY.recommendationLabel}</p>
-                          <RecommendationBadge label={recommendationBadge} rankTier={heroScoreSelection.tier} />
-                        </div>
-                        <p className="mt-2 text-sm leading-relaxed text-[var(--text-primary)]">{recommendationSummary || "No interpretation summary is available for this set yet."}</p>
-                      </div>
-                    </div>
+                    {/* The interpretation-engine recommendation callout stood
+                        here. Its badge and summary came from the retired
+                        Profit/Safety/Stability model, so it described neither
+                        Financial RIP V3 nor Collector Appeal V3. One neutral
+                        line naming the canonical inputs replaces it. */}
+                    <p data-rip-hero-helper className="mx-auto mt-5 w-full max-w-2xl text-center text-xs leading-relaxed text-[var(--text-secondary)] sm:text-left">
+                      {RIP_SCORE_HELPER}
+                    </p>
 
                     <div className="mx-auto mt-5 w-full max-w-5xl text-left">
                       {effectiveViewMode === "simple" ? (
@@ -16007,46 +13802,18 @@ export default function RipStatisticsPageClient({
                     rankTier={heroScoreSelection.tier}
                     rankValue={heroScoreSelection.rank}
                     cohortSize={heroScoreSelection.cohortSize}
-                    verdict={recommendationBadge}
-                    explanation={recommendationSummary}
-                    pillars={ripPillarTiles}
                     titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                    scoreMode={heroScoreSelection.mode}
-                    onScoreModeChange={setHeroScoreMode}
-                    coreAvailable={heroScoreSelection.coreAvailable}
-                    openingOutlook={recommendationSummary}
-                    coreWeightLabel={ripCoreWeightLabel}
-                    coreWeightsCaption={ripCoreWeightsCaption}
-                    collectorAppeal={ripCollectorAppealTerm}
-                    financialRipV3={canonicalFinancialRipV3}
-                    legacyRip={canonicalRip}
-                    breakdownTrends={trendByMetricKey}
+                    canonical={canonicalRip}
                     requestTimeout={isTimeoutFallbackPayload}
-                    publicRipContractV6={canonicalPublicRipContractV6}
-                    overallRipV6={canonicalOverallRipV6}
-                    collectorAppealOpeningExperience={canonicalOpeningExperience}
                   />
                 </SectionErrorBoundary>
                 </div>
 
-                {/* Priority 2: the Collector Profile — Set Desirability and
-                    Collector Appeal in one section, in the order the model
-                    chains them. The two still fail independently: Roster Appeal
-                    reads `universalSetDesirability` only (no simulation, no pull
-                    model, no CA7), so it renders for every adequately covered
-                    set even when Opening Paths cannot. */}
-                <div data-mobile-section>
-                <SectionErrorBoundary sectionName="insights-collector-profile" resetKeys={[resolvedSetResourceId]} title="Collector Profile" minHeightClassName="min-h-[14rem]">
-                  <CollectorProfileSection
-                    universalSetDesirability={canonicalUniversalSetDesirability}
-                    openingExperience={canonicalOpeningExperience}
-                    ripContribution={ripCollectorAppealTerm}
-                    requestedView={requestedCollectorProfileView}
-                    loading={insightsSectionsBlocked}
-                    loadingTimedOut={insightsSectionsShowFallbackCopy}
-                  />
-                </SectionErrorBoundary>
-                </div>
+                {/* The public Collector Profile section stood here. It is
+                    removed, not relocated: Collector Appeal is presented once,
+                    by CollectorAppealBreakdown inside the RIP Score section
+                    above, and no empty wrapper or placeholder card is left
+                    behind in its place. Its deep links resolve to that block. */}
 
                 {/* Priority 4: the Simulation Results deep-dive (formerly
                     "Opening Outcomes"). Already internally gated on the

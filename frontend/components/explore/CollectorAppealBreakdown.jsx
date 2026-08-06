@@ -1,23 +1,31 @@
 "use client";
 
-// The canonical Overall RIP composition (80/20) and the Collector Appeal
-// breakdown (D / F / P).
+// The canonical Collector Appeal V3 section: one score, three parallel factors.
 //
 // SCOPE
 // -----
-// Additive. No restyle: this reuses the existing visual language verbatim -
+// No restyle: this reuses the existing visual language verbatim -
 // `set-glass-surface`, the same CSS custom properties, the same radii, the same
 // type scale and the same `max-desk:` mobile-feed treatment as the surrounding
 // sections. It introduces no new colour, radius or font size.
 //
 // WHAT IT SHOWS
 // -------------
-//   Overall RIP = 80% Financial RIP + 20% Collector Appeal
-//   Collector Appeal = Roster Desirability, Desirable Outcome Frequency,
-//                      Dual-Path Depth
+//   Collector Appeal, explained by Roster Desirability, Desirable Outcome
+//   Frequency and Dual-Path Depth — three factors, side by side.
 //
-// Both source scores and both contributions are rendered, because a composition
-// a reader cannot check is decoration.
+// WHAT IT NO LONGER SHOWS, AND WHY
+// --------------------------------
+//   - "How Overall RIP is built" and "Overall RIP = 80% Financial RIP + 20%
+//     Collector Appeal". The split was wrong (the canonical model is 90/10) and
+//     the section was reading Collector Appeal V2 to fill it.
+//   - The per-term weight pills and "Contributes N points". Collector Appeal
+//     V3's arithmetic is a one-line weighted sum, so a published weight vector
+//     or a published contribution IS the formula. The backend withholds both
+//     (`weightsDisclosed: false`) and this surface must not reconstruct them.
+//   - The sequential chain Set Desirability -> Collector Appeal -> RIP Score
+//     Contribution. The three factors combine in one step; arrows claimed a
+//     pipeline the model does not have.
 //
 // THE ONE COPY RULE THIS FILE ENFORCES
 // ------------------------------------
@@ -27,176 +35,107 @@
 // price. Financial RIP's six components are untouched and stay exactly six -
 // F is NOT a seventh financial component.
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 
+import RipMetricDisclosureRow from "./RipMetricDisclosureRow.jsx";
+import useRipDisclosureSection from "./useRipDisclosureSection.js";
 import {
   FINANCIAL_VS_COLLECTOR_NOTE,
-  formatWeightPercent,
   selectCollectorAppealBreakdown,
-  selectOverallRipComposition,
 } from "./collectorAppealBreakdownSelector.mjs";
 
-function MetricRow({ label, value }) {
-  return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3">
-      <dt className="min-w-0 text-xs text-[var(--text-secondary)]">{label}</dt>
-      <dd className="flex-none text-xs font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd>
-    </div>
-  );
-}
-
-function CompositionRow({ row }) {
-  return (
-    <article
-      data-overall-composition-term={row.key}
-      className="set-glass-surface min-w-0 rounded-xl border p-3.5 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:bg-transparent max-desk:px-0 max-desk:shadow-none max-desk:[backdrop-filter:none]"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{row.title}</h4>
-        {/* The weight IS shown here, unlike on the six financial component
-            cards: this block's entire subject is how the two halves combine,
-            so hiding the split would remove the point of the section. */}
-        <span className="flex-none rounded-md bg-[var(--surface-page)]/55 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-[var(--text-secondary)]">
-          {formatWeightPercent(row.weight)}
-        </span>
-      </div>
-      <p className="mt-1.5 inline-flex items-end gap-1 text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-        {row.score === null ? "—" : row.score.toFixed(1)}
-        <span className="pb-0.5 text-[11px] font-medium text-[var(--text-secondary)]">/100</span>
-      </p>
-      <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">
-        Contributes {row.contribution === null ? "—" : row.contribution.toFixed(2)} points
-      </p>
-      <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{row.interpretation}</p>
-    </article>
-  );
-}
-
-function AppealInputCard({ row }) {
-  return (
-    <article
-      data-collector-appeal-input={row.key}
-      className="set-glass-surface min-w-0 rounded-xl border p-3.5 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:bg-transparent max-desk:px-0 max-desk:shadow-none max-desk:[backdrop-filter:none]"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{row.title}</h4>
-        <p className="flex-none text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-          {row.value}
-        </p>
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{row.interpretation}</p>
-      {row.disclaimer ? (
-        // Rendered next to the number, not buried in a tooltip: this is the one
-        // sentence that stops a probability under an appeal heading from being
-        // read as a promise about money.
-        <p
-          data-desirable-outcome-disclaimer
-          className="mt-1.5 text-[11px] italic leading-relaxed text-[var(--text-secondary)]"
-        >
-          {row.disclaimer}
-        </p>
-      ) : null}
-      {row.metrics.length > 0 ? (
-        <dl className="mt-2.5 space-y-1.5 border-t border-[var(--border-subtle)] pt-2.5">
-          {row.metrics.map((metric) => (
-            <MetricRow key={metric.label} label={metric.label} value={metric.value} />
-          ))}
-        </dl>
-      ) : null}
-      {!row.available && row.statusReason ? (
-        <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{row.statusReason}</p>
-      ) : null}
-    </article>
-  );
-}
-
-export default function CollectorAppealBreakdown({
-  publicRipContractV6,
-  overallRipV6,
-  openingExperience,
-}) {
-  const sources = { publicRipContractV6, overallRipV6, openingExperience };
-  const composition = useMemo(() => selectOverallRipComposition(sources), [
-    publicRipContractV6,
-    overallRipV6,
-    openingExperience,
-  ]);
-  const appeal = useMemo(() => selectCollectorAppealBreakdown(sources), [
-    publicRipContractV6,
-    overallRipV6,
-    openingExperience,
-  ]);
+// `canonical` is the ALREADY-RESOLVED bundle from resolveCanonicalRipV7, owned
+// by the set page and shared with the hero, the Overview summary and Financial
+// RIP. This component deliberately takes no raw sources: when it resolved its
+// own `publicRipContractV7`/`overallRipV7` props it could land on a different
+// source than the hero did, which is the exact split this pass removes.
+export default function CollectorAppealBreakdown({ canonical }) {
+  const appeal = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
+  // Collector Appeal's own accordion state, independent of Financial RIP's.
+  const disclosure = useRipDisclosureSection();
 
   return (
-    <section data-overall-rip-composition-v6 className="min-w-0">
+    <section data-collector-appeal-v3 className="min-w-0">
+      {/* Heading only. The Collector Appeal score, tier, rank and cohort are
+          stated ONCE, in the compact supporting line directly under the RIP
+          Score headline above; repeating them here put the same four values on
+          screen twice, a few centimetres apart, in two different treatments.
+          The factors below are what this section adds. */}
       <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">How Overall RIP is built</h3>
-        <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-          Overall RIP = 80% Financial RIP + 20% Collector Appeal
-        </p>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Collector Appeal</h3>
       </div>
+      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+        How desirable the modeled cards are, and how often the pack can deliver one.
+      </p>
 
-      {composition.available ? (
-        <div className="mt-3 grid min-w-0 gap-3 desk:grid-cols-2">
-          {composition.rows.map((row) => (
-            <CompositionRow key={row.key} row={row} />
+      {appeal.available ? (
+        // THREE PEERS. A flat stack of identical rows: no arrows, no numbered
+        // stages, no ordering device that reads as one factor feeding the next.
+        // Every row uses the SAME component as Financial RIP's six, so neither
+        // section's factors look more or less structural than the other's.
+        <div data-collector-appeal-rows className="mt-2 min-w-0">
+          {/* Three PEERS on one row at 1200px+, a stack below it. A grid is a
+              side-by-side arrangement, not a sequence: there are still no
+              arrows, no numbering and no ordering device that reads as one
+              factor feeding the next. `items-start` keeps an expanded factor
+              from stretching the other two, and no cell has a fixed height. */}
+          <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
+          {appeal.rows.map((row) => (
+            <RipMetricDisclosureRow
+              key={row.key}
+              rowKey={row.key}
+              dataAttribute="data-collector-appeal-factor"
+              title={row.title}
+              value={row.value}
+              interpretation={row.interpretation}
+              // The QUIET rail in the purple family — the same restraint as
+              // Financial RIP's six, never the summary glow. `railPercent` is
+              // the selector's presentation-only reading of the value already
+              // printed on the row; an unavailable factor draws an empty track
+              // rather than a zero-length fill that reads as a real zero.
+              railPercent={row.railPercent ?? null}
+              accentFamily="collector"
+              // Visible WITHOUT expanding. This is the sentence that stops a
+              // probability under an appeal heading from reading as a promise
+              // about money, so it can never be behind a disclosure.
+              disclaimer={row.disclaimer || null}
+              metrics={row.metrics}
+              statusNote={!row.available && row.statusReason ? row.statusReason : null}
+              isOpen={disclosure.openKeys.includes(row.key)}
+              onToggle={disclosure.toggle}
+            />
           ))}
+          </div>
         </div>
       ) : (
-        <div className="mt-3 min-w-0 rounded-xl border border-dashed border-[var(--border-subtle)] p-4">
+        // A precise unavailable state. It does NOT render Collector Appeal V2,
+        // legacy CA7 or Roster Desirability in its place, and it does not
+        // render zeros.
+        <div
+          data-collector-appeal-unavailable
+          className="mt-3 min-w-0 rounded-xl border border-dashed border-[var(--border-subtle)] p-4"
+        >
           <p className="text-sm font-medium text-[var(--text-primary)]">
-            Overall RIP is not available for this set yet.
+            Collector Appeal is not available for this set yet.
           </p>
-          {composition.statusReason ? (
+          {appeal.statusReason ? (
             <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-              {composition.statusReason}
+              {appeal.statusReason}
             </p>
           ) : null}
         </div>
       )}
 
-      {/* The distinction, stated once and near both numbers. */}
-      <p data-financial-collector-distinction className="mt-3 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-        {FINANCIAL_VS_COLLECTOR_NOTE}
+      {/* Not rendered as a zero score. An unmodeled subject type is absent
+          from the model, which is a different statement from "not desirable". */}
+      <p data-collector-appeal-subject-scope className="mt-2.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        {appeal.subjectScope.note}
       </p>
 
-      <div className="mt-5 min-w-0">
-        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Collector Appeal</h3>
-          {appeal.available ? (
-            <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-              {appeal.scoreLabel}/100
-              {appeal.rank !== null ? ` · Rank #${appeal.rank}` : ""}
-              {appeal.rankedSetCount ? ` of ${appeal.rankedSetCount}` : ""}
-            </p>
-          ) : null}
-        </div>
-
-        {appeal.available ? (
-          <div className="mt-3 grid min-w-0 gap-3 desk:grid-cols-3">
-            {appeal.rows.map((row) => (
-              <AppealInputCard key={row.key} row={row} />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-3 min-w-0 rounded-xl border border-dashed border-[var(--border-subtle)] p-4">
-            <p className="text-sm font-medium text-[var(--text-primary)]">
-              Collector Appeal is not available for this set yet.
-            </p>
-            {appeal.statusReason ? (
-              <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
-                {appeal.statusReason}
-              </p>
-            ) : null}
-          </div>
-        )}
-
-        {/* Not rendered as a zero score. An unmodeled subject type is absent
-            from the model, which is a different statement from "not desirable". */}
-        <p data-collector-appeal-subject-scope className="mt-2.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-          {appeal.subjectScope.note}
-        </p>
-      </div>
+      {/* The distinction, stated once and near both numbers. */}
+      <p data-financial-collector-distinction className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+        {FINANCIAL_VS_COLLECTOR_NOTE}
+      </p>
     </section>
   );
 }

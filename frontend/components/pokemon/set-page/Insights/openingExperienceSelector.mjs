@@ -10,8 +10,8 @@
 // TWO AVAILABILITIES, NOT ONE
 // ---------------------------
 // Set Desirability (the universal score) needs no simulation, no pull model and
-// no CA7. The Simulation Opening Experience needs all three. They were gated
-// together on CA7, so a set whose pack model could not be read rendered
+// no pull model. The Simulation Opening Experience needs all three. They were
+// gated together on the appeal score, so a set whose pack model could not be read rendered
 // "Collector Appeal isn't available" and hid its Set Desirability too - a score
 // the backend had already computed and sent. They are separated here because
 // they answer different questions and fail for different reasons.
@@ -80,7 +80,7 @@ export const SET_DESIRABILITY_EXPLANATION =
  * Set Desirability, from the backend `universalSetDesirability` contract.
  *
  * Availability depends ONLY on this contract. It deliberately does not consult
- * simulationCoverage, CA7 or Financial RIP: the universal score is computed
+ * simulationCoverage, Collector Appeal or Financial RIP: the universal score is computed
  * from the checklist and subject demand, so none of those can make it wrong or
  * absent, and letting them gate it is what hid an already-computed score.
  */
@@ -149,9 +149,10 @@ export function selectSetDesirabilityPresentation(universalSetDesirability) {
 }
 
 /**
- * The Simulation Opening Experience (CA7, Chase Appeal, Dual-Path Depth).
+ * The Simulation Opening Experience (Collector Appeal, Chase Appeal, Dual-Path
+ * Depth) - the pull-model evidence behind Collector Appeal.
  *
- * This one MAY depend on CA7: every metric in it is derived from the pull
+ * This one MAY depend on the pull model: every metric in it is derived from the pull
  * model, so without one there is genuinely nothing to show. Its unavailability
  * must never hide Set Desirability - see `selectSetDesirabilityPresentation`.
  */
@@ -238,123 +239,10 @@ function signed(value, digits = 1) {
  * `rip.score - ripCore.score`: the two are clamped independently, so at the
  * 0/100 bounds subtraction silently disagrees with the real adjustment.
  */
-// Overall RIP = 0.90 * Financial RIP + 0.10 * CA7 Opening Desirability.
-//
-// A weighted blend, backend-computed, with NO cap and NO additive adjustment.
-// The strip shows each input's contribution (score x weight) and the effective
-// per-pillar weights. Set Desirability (the universal score) is a SUPPORTING
-// input to CA7, shown for context, never a separate Overall RIP weight - so it
-// is not given a weighted row here. Every number is read from the backend `rip`
-// object; nothing is recomputed.
-export function selectRipDesirabilityBreakdown(rip, ripCore, universalSetDesirability, openingExperience) {
-  const safeRip = toObject(rip);
-  const safeCore = toObject(ripCore);
-  const universal = toObject(universalSetDesirability);
-  const opening = toObject(openingExperience);
-  const components = toObject(safeRip.components);
-  const financialComponent = toObject(components.financialRip);
-  const openingComponent = toObject(components.openingDesirability ?? safeRip.openingDesirability);
-  const collectorAppeal = toObject(opening.collectorAppeal);
+// `selectRipDesirabilityBreakdown` was removed. It built the Overall RIP v4
+// construction strip - per-input contributions in model points, the effective
+// per-pillar weights, and an unavailable message naming "CA7" and "RIP Core".
+// The canonical model is Overall RIP V7, no surface publishes composition
+// weights or contributions, and Collector Appeal V3 has its own presentation.
+// The other exports in this module are unchanged and still live.
 
-  const overallScore = toNumber(safeRip.score);
-  // The cohort-relative public scores. Contribution math below uses ONLY the
-  // absolute scores; these are exposed so the UI can show the separate
-  // standardization step (absolute → cohort-relative public score) without ever
-  // blending relatives into the contribution arithmetic.
-  const overallRelativeScore = toNumber(safeRip.relativeScore);
-  const financialRelativeScore = toNumber(safeCore.relativeScore);
-  const financialScore = toNumber(
-    safeCore.score ?? toObject(safeRip.financialRip).score ?? financialComponent.score
-  );
-  const ca7Score = toNumber(openingComponent.score ?? collectorAppeal.score);
-  const desirabilityScore = toNumber(universal.score);
-  if (overallScore === null && financialScore === null && ca7Score === null && desirabilityScore === null) {
-    return null;
-  }
-
-  const financialWeight = toNumber(financialComponent.weight) ?? 0.9;
-  const openingWeight = toNumber(openingComponent.weight) ?? 0.1;
-  const financialContribution =
-    toNumber(financialComponent.contribution) ??
-    (financialScore === null ? null : financialScore * financialWeight);
-  const openingContribution =
-    toNumber(openingComponent.contribution) ??
-    (ca7Score === null ? null : ca7Score * openingWeight);
-
-  const eff = toObject(safeRip.effectiveWeights);
-  const effectiveWeights = [
-    { label: "Profit", value: toNumber(eff.profit) ?? 0.54 },
-    { label: "Safety", value: toNumber(eff.safety) ?? 0.225 },
-    { label: "Stability", value: toNumber(eff.stability) ?? 0.135 },
-    { label: "Opening Desirability", value: toNumber(eff.opening_desirability) ?? 0.1 },
-  ].map((row) => ({ ...row, valueLabel: formatPercent(row.value * 100, 1) }));
-
-  return {
-    financialRip: {
-      score: financialScore,
-      scoreLabel: formatScore(financialScore),
-      relativeScore: financialRelativeScore,
-      relativeScoreLabel: formatScore(financialRelativeScore),
-      rankLabel: formatRank(safeCore.rank, safeCore.cohortSize),
-      tier: safeCore.tier ?? null,
-      weightsLabel: "Profit 60% · Safety 25% · Stability 15%",
-      weight: financialWeight,
-      weightLabel: formatPercent(financialWeight * 100, 0),
-      contribution: financialContribution,
-      contributionLabel:
-        financialContribution === null
-          ? null
-          : `Financial RIP × ${Math.round(financialWeight * 100)}% = ${financialContribution.toFixed(1)} pts`,
-    },
-    openingDesirability: {
-      score: ca7Score,
-      scoreLabel: formatScore(ca7Score),
-      // `rank` is the bare backend rank; `rankLabel` keeps the denominated
-      // "#5 of 21" form for surfaces that have room for it. Compact score rows
-      // render the bare rank and keep the cohort in a tooltip.
-      rank: toNumber(collectorAppeal.rank),
-      cohortSize: toNumber(collectorAppeal.cohortSize),
-      rankLabel: formatRank(collectorAppeal.rank, collectorAppeal.cohortSize),
-      tier: collectorAppeal.tier ?? null,
-      weight: openingWeight,
-      weightLabel: formatPercent(openingWeight * 100, 0),
-      contribution: openingContribution,
-      contributionLabel:
-        openingContribution === null
-          ? null
-          : `Opening Desirability × ${Math.round(openingWeight * 100)}% = ${openingContribution.toFixed(1)} pts`,
-      // User-facing copy uses the user-facing names. "Overall RIP" and
-      // "Financial RIP" are the internal names for the same two scores the UI
-      // calls RIP Score and RIP Core; printing the internal pair here made the
-      // unavailable state read as being about some third, unseen metric.
-      unavailableReason:
-        ca7Score === null
-          ? "Collector Appeal (CA7) is unavailable for this set, so RIP Score cannot be computed. RIP Core and Set Desirability are unaffected."
-          : null,
-    },
-    setDesirability: {
-      score: desirabilityScore,
-      scoreLabel: formatScore(desirabilityScore),
-      rankLabel: formatRank(universal.rank, universal.rankedSetCount),
-      note: "Supporting input to Opening Desirability (CA7); not a separate Overall RIP weight.",
-    },
-    overallRip: {
-      // `score` is the ABSOLUTE model score (the 90/10 blend result) that the
-      // contribution math above sums to. `relativeScore` is the PUBLIC
-      // standardized score derived from it by cohort min-max — shown as the
-      // separate standardization step, never as a contribution input.
-      score: overallScore,
-      scoreLabel: formatScore(overallScore),
-      relativeScore: overallRelativeScore,
-      relativeScoreLabel: formatScore(overallRelativeScore),
-      standardizationNote:
-        overallRelativeScore === null
-          ? null
-          : `Standardized against the eligible Overall cohort → ${overallRelativeScore.toFixed(1)} / 100 public score`,
-      rankLabel: formatRank(safeRip.rank, safeRip.cohortSize),
-      tier: safeRip.tier ?? null,
-    },
-    effectiveWeights,
-    unavailableReason: overallScore === null ? safeRip.statusReason ?? null : null,
-  };
-}

@@ -8,6 +8,9 @@ const base = {
   era: "Mega Evolution",
   logoUrl: "https://images.example/logo.png",
   setValue: { current: 663.14, deltaAmount: -115.78, deltaPercent: -14.9, windowLabel: "30D" },
+  // `verdict` is deliberately still supplied by this fixture: it must be
+  // IGNORED, not merely absent. It carried the retired interpretation engine's
+  // label, which describes neither Financial RIP V3 nor Collector Appeal V3.
   rip: { label: "RIP Score", score: 100, tier: "S", rank: 1, cohortSize: 212, verdict: "Elite, some path risk" },
 };
 
@@ -27,7 +30,8 @@ test("a complete set produces the brief's hero composition", () => {
   assert.equal(model.rip.scoreText, "100");
   assert.equal(model.rip.tierText, "S Tier");
   assert.equal(model.rip.rankText, "Rank #1");
-  assert.equal(model.rip.verdict, "Elite, some path risk");
+  assert.equal("verdict" in model.rip, false, "the interpretation verdict is not part of the model");
+  assert.equal(JSON.stringify(model).includes("Elite, some path risk"), false);
   assert.equal(model.rip.isActionable, true);
 });
 

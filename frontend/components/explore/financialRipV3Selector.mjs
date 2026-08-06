@@ -1,17 +1,16 @@
 // Financial RIP V3 — the six-component breakdown selector.
 //
-// CONTRACT-AWARE, NOT OVERLOADED
-// ------------------------------
-// `ripScoreBreakdownSelector.mjs` still owns the LEGACY V2 contract (three
-// Profit/Safety/Stability pillars) and is untouched. This is a separate
-// selector for the canonical V3 contract, because the two read different
-// backend objects with different shapes, and threading both through one
-// hardcoded three-pillar selector would mean a chain of conditionals inside
-// code whose entire job is to say which field a card reads.
+// "FINANCIAL RIP" MEANS V3, EVERYWHERE
+// ------------------------------------
+// There is no other current public financial model. The legacy three-pillar
+// Profit/Safety/Stability contract (`ripCore`, read by
+// `ripScoreBreakdownSelector.mjs`) is Financial RIP **V2** and is no longer
+// presented on any public surface — not as a comparison, not behind a toggle,
+// not as a fallback.
 //
 // NO FALLBACK, EVER
 // -----------------
-// V3 mode reads V3 fields only. There is deliberately no fallback to the
+// V3 reads V3 fields only. There is deliberately no fallback to the
 // similarly-named V2 fields: `ripCore.components.profit.score` and
 // `financialRipV3.components.true_win_frequency.score` are different models,
 // and rendering one under the other's label would be a silent mis-statement
@@ -32,7 +31,25 @@
 // on a card invites the reader to re-derive the score by hand, and the six
 // weights are not the interesting thing about any of them.
 
+import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+
 const UNAVAILABLE = null;
+
+/**
+ * The canonical Financial RIP block for a set, from the one shared resolver.
+ *
+ * Prefers `publicRipContractV7.financialRip` because that block travels with
+ * the Overall RIP and Collector Appeal it was blended with, so a surface taking
+ * all three cannot mix bundles. Falls back only to the top-level
+ * `financialRipV3` — the SAME model in the shape the ranked target rows carry.
+ * The two differ only in component key casing and in `rankedSetCount` vs
+ * `cohortSize`, both of which the selectors below already read either way.
+ *
+ * `ripCore` is never consulted. It is Financial RIP V2.
+ */
+export function resolveCanonicalFinancialRip(...sources) {
+  return resolveCanonicalRipV7(...sources).financialRip;
+}
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return UNAVAILABLE;
@@ -256,7 +273,9 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       scoreLabel: formatScore(score),
       rankValue: rank,
       rankTier: component.tier ?? UNAVAILABLE,
-      cohortSize: toOptionalNumber(component.cohortSize),
+      // `rankedSetCount` in the packaged contract, `cohortSize` on the runtime
+      // object — one backend denominator under the two names it travels with.
+      cohortSize: toOptionalNumber(component.rankedSetCount ?? component.cohortSize),
       interpretation: card.interpretation,
       metrics: card.metrics(raw),
       available: score !== UNAVAILABLE,

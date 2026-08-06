@@ -29,7 +29,6 @@ const content = between(client, "function TopMarketCardsContent(", "function get
 const chaseModule = between(client, "function TopChaseCardsModule(", "function hasMarketMoverRows(");
 const setValueChart = between(client, "function SetValueLineChart(", "function SetValueTrendCard(");
 const setValueCard = between(client, "function SetValueTrendCard(", "function OverviewMetricTile(");
-const compactList = between(client, "function DecisionSignalsCompactList(", "function DecisionSignalRow(");
 
 const DESKTOP_COLUMNS = "[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)]";
 
@@ -222,21 +221,10 @@ test("Opening Profit vs Cost keeps hover, tap and exact tooltip values", () => {
 // RESPONSIVE / REGRESSION PROTECTION
 // ===========================================================================
 
-test("Decision Signals are untouched by this pass", () => {
-  // The track widths were re-cut by the edge-clipping fix (see
-  // DecisionSignalsEdge.contract.test.mjs); the column SYSTEM — one flexible
-  // name track over three fixed numeric tracks — is what this pass must not
-  // disturb.
-  assert.ok(compactList.includes("grid-cols-[minmax(0,1fr)_3rem_3.75rem_2.5rem]"), "the compact grid is as it was");
-  assert.ok(compactList.includes('size="compact"'), "the tier pill is as it was");
-  assert.ok(compactList.includes("setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))"));
-  assert.ok(compactList.includes("selectedSignal.detailSummary || selectedSignal.summary"));
-  const card = between(client, "function DecisionSignalsCard(", "// A Profit / Safety / Stability card.");
-  assert.ok(card.includes('<div className="hidden desk:block">'), "the desktop cards are still the desktop tree");
-  const desktopRow = between(client, "function DecisionSignalRow(", "function DecisionSignalsCard(");
-  assert.ok(desktopRow.includes("set-glass-inner"), "the desktop card surface is unchanged");
-  assert.ok(desktopRow.includes("desk:grid-cols-[minmax(0,1fr)_4.25rem_5.75rem_3.25rem]"), "its desktop grid is unchanged");
-});
+// Decision Signals assertions were removed from this pass file. The Overview
+// Decision Signals card no longer exists: it scored Profit, Safety, Stability,
+// Opening Experience and Chase Potential, none of which are terms of the
+// current model. Everything else this pass locks is unchanged.
 
 test("no chart is mounted twice and no request path is added", () => {
   assert.equal((client.match(/<CompactSparkline/g) || []).length, 1);

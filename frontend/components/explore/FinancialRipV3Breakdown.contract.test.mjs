@@ -40,8 +40,23 @@ const readSource = (name) =>
   fs.readFileSync(path.join(here, name), "utf8").replace(/\r\n/g, "\n");
 
 const componentSource = readSource("FinancialRipV3Breakdown.jsx");
+// The six components are drawn by the shared disclosure primitive, so some
+// row-level guarantees are asserted against that file. Its rendered behaviour
+// is covered by RipMetricDisclosureRow.test.jsx.
+const rowComponentSource = readSource("RipMetricDisclosureRow.jsx");
 const selectorSource = readSource("financialRipV3Selector.mjs");
 const pageSource = readSource("RipStatisticsPageClient.jsx");
+
+// Prose in these files legitimately NAMES the removed toggle and its labels
+// while explaining why they were removed, so removal checks run against code.
+const stripComments = (source) =>
+  source
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
 
 // --- Fixture ---------------------------------------------------------------
 // Shaped exactly like the backend `financialRipV3` object.
@@ -194,12 +209,20 @@ test("the legacy V2 view still renders exactly three pillars", () => {
   );
 });
 
-test("the model toggle defaults to Current V3 and labels V2 as legacy", () => {
-  assert.match(componentSource, /label:\s*"Current V3"/);
-  assert.match(componentSource, /label:\s*"Legacy V2"/);
-  assert.match(componentSource, /defaultMode = FINANCIAL_RIP_MODEL_MODES\.V3/);
-  // After promotion V2 must never be called simply "Financial RIP".
-  assert.match(componentSource, /"Legacy Financial RIP V2"/);
+test("there is no model toggle: Financial RIP means V3 and nothing else", () => {
+  // The public Current V3 / Legacy V2 switch is gone. Legacy V2 is still
+  // computed and persisted on the backend for audit and rollback; it is simply
+  // not a public presentation any more, so there is nothing to toggle between.
+  const code = stripComments(componentSource);
+  assert.doesNotMatch(code, /label:\s*"Current V3"/);
+  assert.doesNotMatch(code, /label:\s*"Legacy V2"/);
+  assert.doesNotMatch(code, /FINANCIAL_RIP_MODEL_MODES/);
+  assert.doesNotMatch(code, /function ModelToggle/);
+  assert.doesNotMatch(code, /function LegacyV2Cards/);
+  assert.doesNotMatch(code, /"Legacy Financial RIP V2"/);
+  // One heading, carrying the canonical name with no model version number.
+  assert.match(code, />Financial RIP</);
+  assert.doesNotMatch(code, /Financial RIP V3</);
 });
 
 // --- No visible weights -----------------------------------------------------
@@ -216,12 +239,14 @@ test("no V3 weight percentage is shown on any card", () => {
       );
     }
   }
-  // And the card renderer has no weight expression at all.
-  const cardStart = componentSource.indexOf("function V3ComponentCard");
-  const cardEnd = componentSource.indexOf("function LegacyV2Cards");
-  const card = componentSource.slice(cardStart, cardEnd);
-  assert.ok(cardStart >= 0 && cardEnd > cardStart);
-  assert.doesNotMatch(card, /weight/i);
+  // And the row renderer has no weight expression at all. The six components
+  // are drawn by the shared disclosure primitive now, so that is the file that
+  // must be clean; RipMetricDisclosureRow.test.jsx additionally proves by
+  // rendering that no weight, contribution or formula reaches the DOM.
+  assert.doesNotMatch(rowComponentSource, /weight/i);
+  // And no composition percentage: the section never states what share of the
+  // RIP Score it is.
+  assert.doesNotMatch(stripComments(componentSource), /of Overall RIP/);
 });
 
 // --- Value formatting -------------------------------------------------------
@@ -273,13 +298,15 @@ test("a genuine zero still renders as zero", () => {
   assert.equal(formatDollars(undefined), "—");
 });
 
-test("the unavailable state never renders V2 numbers under the V3 heading", () => {
+test("the unavailable state never renders V2 numbers under the Financial RIP heading", () => {
   const start = componentSource.indexOf("data-v3-unavailable");
   assert.ok(start >= 0, "an explicit unavailable block must exist");
   const block = componentSource.slice(start, start + 1400);
-  assert.match(block, /not shown\s*\n?\s*here in its place/);
-  // The unavailable branch must not read the legacy selector's rows.
+  assert.match(block, /is not available for this set yet/);
+  // There is no legacy selector left to read, and no offer to switch to one.
   assert.doesNotMatch(block, /v2\.rows\.map/);
+  assert.doesNotMatch(block, /Legacy V2/);
+  assert.doesNotMatch(stripComments(componentSource), /selectRipScoreBreakdown/);
 });
 
 test("the V3 selector has no fallback to V2 fields", () => {
@@ -365,8 +392,22 @@ test("Depth and Robustness is a separate unweighted diagnostic, not a seventh ca
     depth.rows.map((row) => row.label),
     ["Chase Depth", "Value Concentration", "Jackpot Dependence", "Number of Effective Chases"]
   );
-  // Rendered outside the six-card grid, with the disclaimer visible.
-  assert.match(componentSource, /Context only — not part of the Financial RIP score/);
+  // Rendered BELOW the six scored rows, behind its own collapsed disclosure,
+  // and explicitly marked as context rather than a seventh scored component.
+  assert.match(componentSource, /Additional context — not part of the Financial RIP score\./);
+  assert.match(componentSource, /data-depth-and-robustness-context-only="true"/);
+  // It does not borrow the scored-row component, which would put it in the
+  // same visual class as the six things that ARE scored.
+  const depthPanel = componentSource.slice(
+    componentSource.indexOf("function DepthAndRobustnessPanel"),
+    componentSource.indexOf("// `canonical` is the ALREADY-RESOLVED bundle")
+  );
+  assert.doesNotMatch(depthPanel, /<RipMetricDisclosureRow/);
+  // And it renders after the six rows in the tree, not among them.
+  assert.ok(
+    componentSource.indexOf("data-financial-rip-rows") <
+      componentSource.indexOf("<DepthAndRobustnessPanel")
+  );
 });
 
 test("Depth and Robustness reports unavailable rather than zero", () => {
@@ -406,16 +447,18 @@ test("the breakdown is mounted inside the RIP Score Breakdown module", () => {
   assert.ok(start >= 0 && end > start);
   const module = pageSource.slice(start, end);
   assert.match(module, /<FinancialRipV3Breakdown/);
-  assert.match(module, /financialRipV3=\{financialRipV3\}/);
-  assert.match(module, /legacyRip=\{legacyRip\}/);
+  // One prop: the same resolved bundle the hero and Collector Appeal read.
+  assert.match(module, /<FinancialRipV3Breakdown canonical=\{canonical\}/);
+  // No raw canonical source and no legacy object reaches the component at all.
+  assert.doesNotMatch(module, /<FinancialRipV3Breakdown[^>]*financialRipV3=/);
+  assert.doesNotMatch(module, /legacyRip=/);
 });
 
-test("the page resolves financialRipV3 without defaulting to ripCore", () => {
-  const start = pageSource.indexOf("const canonicalFinancialRipV3 = useMemo(");
-  assert.ok(start >= 0, "the page must resolve canonicalFinancialRipV3");
-  const block = pageSource.slice(start, start + 600);
-  assert.match(block, /explorePayload\?\.financialRipV3/);
-  assert.match(block, /selectedTarget\?\.financialRipV3/);
+test("the page resolves the canonical bundle once, without defaulting to ripCore", () => {
+  const start = pageSource.indexOf("const canonicalRip = useMemo(");
+  assert.ok(start >= 0, "the page must resolve one canonical bundle");
+  const block = pageSource.slice(start, start + 400);
+  assert.match(block, /resolveCanonicalRipV7\(explorePayload, selectedTarget, summary\)/);
   assert.doesNotMatch(block, /ripCore/);
 });
 
@@ -465,17 +508,33 @@ test("financialRipV3 survives every allow-listing layer between API and page", a
 });
 
 test("mobile and desktop layout contracts are preserved", () => {
-  // Every card grid must be min-w-0 so a long value cannot force the page to
+  // Every container must be min-w-0 so a long value cannot force the page to
   // scroll horizontally — the contract the surrounding sections rely on.
-  const grids = componentSource.match(/className="[^"]*grid[^"]*"/g) || [];
-  assert.ok(grids.length > 0);
-  for (const grid of grids) {
-    assert.match(grid, /min-w-0|gap-/, `grid must be constrained: ${grid}`);
+  const containers = componentSource.match(/className="[^"]*(?:grid|flex(?![-\w]))[^"]*"/g) || [];
+  assert.ok(containers.length > 0);
+  for (const container of containers) {
+    assert.match(container, /min-w-0|gap-/, `container must be constrained: ${container}`);
   }
-  // The six cards are responsive rather than a fixed six-column row.
-  assert.match(componentSource, /desk:grid-cols-2 xl:grid-cols-3/);
-  // Cards adopt the same mobile-feed treatment as the surrounding sections.
-  assert.match(componentSource, /max-desk:rounded-none max-desk:border-0/);
-  // Numbers are tabular so columns do not jitter between sets.
-  assert.match(componentSource, /tabular-nums/);
+  // The six components are a stack of rows, not a card grid; the row itself
+  // carries the min-w-0 and tabular-nums contract.
+  assert.match(componentSource, /data-financial-rip-rows className="mt-2 min-w-0"/);
+  assert.match(rowComponentSource, /min-w-0/);
+  assert.match(rowComponentSource, /tabular-nums/);
+});
+
+test("the six components render as six disclosure rows, one per canonical component", () => {
+  const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
+  assert.equal(rows.length, 6, "exactly six scored components");
+
+  // One row element per selector row, keyed by the canonical component key, and
+  // drawn by the SAME component Collector Appeal's factors use.
+  assert.match(componentSource, /\{v3\.rows\.map\(\(row\) => \(/);
+  assert.match(componentSource, /<RipMetricDisclosureRow/);
+  assert.match(componentSource, /rowKey=\{row\.key\}/);
+  assert.match(componentSource, /dataAttribute="data-v3-component"/);
+  // Every supporting metric is handed to the row, so nothing is dropped in
+  // exchange for the shorter default view.
+  assert.match(componentSource, /metrics=\{row\.metrics\}/);
+  // Tier and rank still reach the row, from backend fields only.
+  assert.match(componentSource, /meta=\{formatComponentMeta\(row\)\}/);
 });

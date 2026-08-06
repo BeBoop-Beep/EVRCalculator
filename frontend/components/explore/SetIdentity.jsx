@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+// React is imported explicitly (rather than relying on the bundler's automatic
+// JSX runtime) so this component can be rendered directly under `tsx --test`,
+// which compiles JSX to React.createElement. SetIdentity.test.jsx does exactly
+// that to assert on the rendered tree instead of on the source text.
+import React, { useEffect, useMemo, useState } from "react";
 
-import InterpretationBadge from "@/components/ui/InterpretationBadge";
-import { getInterpretationTone } from "@/lib/explore/interpretationTone";
+// IDENTITY ONLY. This block used to render an interpretation verdict badge next
+// to the set name, fed by the retired Profit/Safety/Stability engine's
+// `leaderboard_label` / `canonical_recommendation_header` and toned by
+// `recommendation_severity`. Those describe a superseded model, so the badge and
+// its tone are gone; tier and rank are shown by the caller's own cells.
 
 function toOptionalImageUrl(value) {
   if (value === null || value === undefined) {
@@ -32,15 +39,10 @@ function getInitials(name) {
 
 export default function SetIdentity({
   target,
-  interpretationLabel = null,
-  tier = null,
-  recommendationSeverity = null,
-  interpretationBadgeClassName = "",
   /**
    * "default" keeps the original roomy identity block. "compact" is the
-   * Explore dense-table variant: a small logo, one title line, and the era +
-   * interpretation collapsed onto a single supporting line as plain text
-   * rather than another pill inside the row.
+   * Explore dense-table variant: a small logo, one title line, and the era on a
+   * single supporting line rather than another pill inside the row.
    */
   variant = "default",
 }) {
@@ -79,10 +81,6 @@ export default function SetIdentity({
   };
 
   if (variant === "compact") {
-    const tone = interpretationLabel
-      ? getInterpretationTone({ label: interpretationLabel, rankTier: tier, severity: recommendationSeverity })
-      : null;
-
     return (
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-md bg-[rgba(255,255,255,0.045)]">
@@ -103,15 +101,9 @@ export default function SetIdentity({
         </div>
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold leading-tight text-[var(--text-primary)]">{name}</p>
-          <p className="mt-0.5 truncate text-[11px] leading-tight text-[var(--text-secondary)]">
-            {target?.era ? <span>{target.era}</span> : null}
-            {target?.era && interpretationLabel ? <span aria-hidden="true"> · </span> : null}
-            {interpretationLabel ? (
-              <span className="font-medium" style={tone ? { color: tone.textColor } : undefined}>
-                {interpretationLabel}
-              </span>
-            ) : null}
-          </p>
+          {target?.era ? (
+            <p className="mt-0.5 truncate text-[11px] leading-tight text-[var(--text-secondary)]">{target.era}</p>
+          ) : null}
         </div>
       </div>
     );
@@ -121,16 +113,6 @@ export default function SetIdentity({
     <div className="min-w-0 flex-1">
       <p className="truncate text-sm font-semibold text-[var(--text-primary)] sm:text-base">{name}</p>
       {target?.era ? <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{target.era}</p> : null}
-      {interpretationLabel ? (
-        <div className="mt-2 min-w-0 max-w-full overflow-hidden">
-          <InterpretationBadge
-            label={interpretationLabel}
-            rankTier={tier}
-            severity={recommendationSeverity}
-            className={interpretationBadgeClassName}
-          />
-        </div>
-      ) : null}
     </div>
   );
 

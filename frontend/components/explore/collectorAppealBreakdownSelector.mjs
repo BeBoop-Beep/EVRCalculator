@@ -1,18 +1,35 @@
-// Collector Appeal (D / F / P) and the canonical Overall RIP composition.
+// Collector Appeal V3, explained through its three parallel factors.
 //
 // WHAT THIS READS
 // ---------------
-// The canonical v6 objects only:
+// The canonical V7 contract's Collector Appeal block, and nothing else — see
+// canonicalRipV7.mjs for the resolver and its precedence rules. This module
+// previously read `publicRipContractV6` / `overallRipV6` / a hand-rebuilt shape
+// off `openingExperience`, which published Collector Appeal **V2** (the bounded
+// headroom formula `D + 0.50 * (0.60F + 0.40P) * (1 - D)`) under the current
+// name. There is now no path here that reads V6, V5, V2, legacy CA7 or
+// Universal/Roster Desirability. A missing canonical block renders unavailable.
 //
-//   overallRipV6      -> 0.80 * Financial RIP V3 + 0.20 * Collector Appeal
-//   collectorAppeal   -> D + 0.50 * (0.60F + 0.40P) * (1 - D)
+// THREE PARALLEL FACTORS, NOT A PIPELINE
+// --------------------------------------
+//   Roster Desirability · Desirable Outcome Frequency · Dual-Path Depth
 //
-// It accepts either the shaped `publicRipContractV6` block or the raw
-// `overallRipV6` + `openingExperience` objects, because the Explore target and
-// the set-page snapshot carry the same numbers in those two shapes. That is a
-// SHAPE fallback within one model, not a fallback to a different model: there is
-// deliberately no path here that reads legacy CA7, Overall RIP V5/v4, or
-// Universal Set Desirability when the canonical values are missing.
+// They are explanatory factors of one score, presented side by side. The old
+// surface drew them as a sequential chain (Set Desirability -> Collector Appeal
+// -> RIP Score Contribution), which claimed Roster Desirability is a first
+// stage feeding the other two. It is not: all three are inputs to a single
+// weighted combination, and the arrows described arithmetic the backend does
+// not perform.
+//
+// WHAT IS DELIBERATELY NOT PUBLISHED
+// ----------------------------------
+// Collector Appeal V3's internal D/H/P weights, any per-factor contribution,
+// and any formula string. The arithmetic is a one-line weighted sum, so
+// publishing the weights would be publishing the formula — and publishing a
+// contribution would be the same thing by division. The backend withholds them
+// from the contract (`weightsDisclosed: false`); this module must not
+// reconstruct them. The Overall RIP composition weights are likewise not shown:
+// there is no composition block here any more.
 //
 // THE VOCABULARY RULE
 // -------------------
@@ -33,8 +50,10 @@
 //
 // NO SCORING IN JAVASCRIPT
 // ------------------------
-// Every score, weight, contribution, probability and rank is lifted from the
-// backend payload. The only arithmetic is presentational unit conversion.
+// Every score, probability and rank is lifted from the backend payload. The
+// only arithmetic is presentational unit conversion.
+
+import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
 const UNAVAILABLE = null;
 
@@ -52,12 +71,6 @@ export function formatPercentFromUnit(value, { decimals = 1 } = {}) {
   const parsed = toOptionalNumber(value);
   if (parsed === UNAVAILABLE) return "—";
   return `${(parsed * 100).toFixed(decimals)}%`;
-}
-
-export function formatWeightPercent(value) {
-  const parsed = toOptionalNumber(value);
-  if (parsed === UNAVAILABLE) return "—";
-  return `${Math.round(parsed * 100)}%`;
 }
 
 export function formatScore(value, { decimals = 1 } = {}) {
@@ -82,100 +95,33 @@ export const FINANCIAL_VS_COLLECTOR_NOTE =
 export const DESIRABLE_OUTCOME_DISCLAIMER =
   "A desirable outcome can still be worth less than the pack price.";
 
-/**
- * Resolve the canonical v6 blocks from whichever shape the caller has.
- */
-function resolveSources({ publicRipContractV6, overallRipV6, openingExperience }) {
-  const contract = toObject(publicRipContractV6);
-  if (Object.keys(contract).length > 0) {
-    return {
-      overall: toObject(contract.overallRip),
-      appeal: toObject(contract.collectorAppeal),
-      appealComponents: toObject(toObject(contract.collectorAppeal).components),
-      fromContract: true,
-    };
-  }
-  const opening = toObject(openingExperience);
-  const appeal = toObject(opening.collectorAppeal);
-  return {
-    overall: toObject(overallRipV6),
-    appeal,
-    appealComponents: {
-      rosterDesirability: {
-        score: toObject(opening.rosterDesirability).score,
-        rawValue: toObject(appeal.inputs).rosterDesirability,
-      },
-      desirableOutcomeFrequency: toObject(opening.desirableOutcomeFrequency),
-      dualPathDepth: toObject(opening.dualPathDepth),
-    },
-    fromContract: false,
-  };
-}
-
-/**
- * The canonical Overall RIP composition: 80% Financial RIP V3 + 20% Collector Appeal.
- *
- * Both source scores and both contributions are returned so a reader can check
- * the arithmetic, which is the point of showing a composition at all.
- */
-export function selectOverallRipComposition(sources = {}) {
-  const { overall } = resolveSources(sources);
-  const components = toObject(overall.components);
-  const financial = toObject(components.financialRipV3);
-  const appeal = toObject(components.collectorAppeal);
-
-  const score = toOptionalNumber(overall.score);
-  const rows = [
-    {
-      key: "financialRipV3",
-      title: "Financial RIP",
-      score: toOptionalNumber(financial.score),
-      weight: toOptionalNumber(financial.weight),
-      contribution: toOptionalNumber(financial.contribution),
-      interpretation: "Monetary outcomes: what the pack is worth against what it costs.",
-    },
-    {
-      key: "collectorAppeal",
-      title: "Collector Appeal",
-      score: toOptionalNumber(appeal.score),
-      weight: toOptionalNumber(appeal.weight),
-      contribution: toOptionalNumber(appeal.contribution),
-      interpretation: "How desirable the modeled cards are, and how often the pack delivers one.",
-    },
-  ];
-
-  return {
-    available: score !== UNAVAILABLE,
-    score,
-    scoreLabel: formatScore(score),
-    rank: toOptionalNumber(overall.rank),
-    rankedSetCount: toOptionalNumber(overall.rankedSetCount ?? overall.cohortSize),
-    tier: overall.tier ?? UNAVAILABLE,
-    version: overall.version ?? UNAVAILABLE,
-    rows,
-    statusReason: overall.statusReason ?? UNAVAILABLE,
-    missingInputs: Array.isArray(overall.missingInputs) ? overall.missingInputs : [],
-    note: FINANCIAL_VS_COLLECTOR_NOTE,
-  };
-}
+const SUBJECT_SCOPE_NOTE =
+  "Trainer and artist desirability are not yet modeled and are not counted.";
 
 /**
  * The Collector Appeal breakdown: Roster Desirability, Desirable Outcome
- * Frequency, Dual-Path Depth.
+ * Frequency, Dual-Path Depth — three parallel factors of one score.
  *
  * Trainer and artist desirability are NOT rendered as zero or as "not
  * desirable": they are not modeled yet, so they are omitted and the omission is
  * stated. Scoring an unmodeled subject type as zero would be a claim about
  * those cards that the model is not entitled to make.
+ *
+ * Each factor carries its OWN availability. One missing factor greys its own
+ * card and never zeroes it, and never suppresses the other two.
  */
-export function selectCollectorAppealBreakdown(sources = {}) {
-  const { appeal, appealComponents } = resolveSources(sources);
-  const roster = toObject(appealComponents.rosterDesirability);
-  const frequency = toObject(appealComponents.desirableOutcomeFrequency);
-  const dualPath = toObject(appealComponents.dualPathDepth);
+export function selectCollectorAppealBreakdown(...sources) {
+  const resolved = resolveCanonicalRipV7(...sources);
+  const appeal = toObject(resolved.collectorAppeal);
+  const components = toObject(appeal.components);
+  const roster = toObject(components.rosterDesirability);
+  const frequency = toObject(components.desirableOutcomeFrequency);
+  const dualPath = toObject(components.dualPathDepth);
 
   const score = toOptionalNumber(appeal.score);
+  const rosterScore = toOptionalNumber(roster.score);
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
+  const dualPathRaw = toOptionalNumber(dualPath.rawValue);
 
   const rows = [
     {
@@ -183,8 +129,13 @@ export function selectCollectorAppealBreakdown(sources = {}) {
       title: "Roster Desirability",
       // D is published 0-100; the other two are 0-1 shares. Each row carries its
       // own formatted value so the surface never rescales one into the other.
-      value: formatScore(toOptionalNumber(roster.score)),
-      available: toOptionalNumber(roster.score) !== UNAVAILABLE,
+      value: formatScore(rosterScore),
+      available: rosterScore !== UNAVAILABLE,
+      // Presentation-only 0-100 reading of the value already on the row, used
+      // to draw the quiet rail. D is published 0-100 so it is passed through
+      // untouched; nothing is rescaled, inferred or invented, and an
+      // unavailable factor carries null rather than 0.
+      railPercent: rosterScore === UNAVAILABLE ? null : rosterScore,
       interpretation:
         "How desirable the Pokémon roster is before pull difficulty is considered.",
       metrics: [],
@@ -194,6 +145,9 @@ export function selectCollectorAppealBreakdown(sources = {}) {
       title: "Desirable Outcome Frequency",
       value: frequencyRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(frequencyRaw),
       available: frequencyRaw !== UNAVAILABLE,
+      // A 0-1 share expressed on the rail's 0-100 track. This is the same
+      // number the row prints as a percentage, not a second measurement.
+      railPercent: frequencyRaw === UNAVAILABLE ? null : frequencyRaw * 100,
       interpretation:
         "How often the modeled pack can deliver at least one card tied to a currently desirable Pokémon.",
       disclaimer: DESIRABLE_OUTCOME_DISCLAIMER,
@@ -234,11 +188,9 @@ export function selectCollectorAppealBreakdown(sources = {}) {
     {
       key: "dualPathDepth",
       title: "Dual-Path Depth",
-      value:
-        toOptionalNumber(dualPath.rawValue) === UNAVAILABLE
-          ? "—"
-          : formatPercentFromUnit(dualPath.rawValue),
-      available: toOptionalNumber(dualPath.rawValue) !== UNAVAILABLE,
+      value: dualPathRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(dualPathRaw),
+      available: dualPathRaw !== UNAVAILABLE,
+      railPercent: dualPathRaw === UNAVAILABLE ? null : dualPathRaw * 100,
       interpretation:
         "Whether desirable Pokémon offer both an attainable printing and a true elite chase.",
       metrics: [
@@ -253,23 +205,25 @@ export function selectCollectorAppealBreakdown(sources = {}) {
     },
   ];
 
+  const scope = toObject(appeal.subjectScope);
   return {
     available: score !== UNAVAILABLE,
     score,
     scoreLabel: formatScore(score),
     rank: toOptionalNumber(appeal.rank),
-    rankedSetCount: toOptionalNumber(appeal.rankedSetCount ?? appeal.cohortSize),
+    rankedSetCount: toOptionalNumber(appeal.rankedSetCount),
     tier: appeal.tier ?? UNAVAILABLE,
-    version: appeal.version ?? UNAVAILABLE,
     rows,
     statusReason: appeal.statusReason ?? UNAVAILABLE,
     // Stated rather than implied. An unmodeled subject type is absent, not zero.
+    // The backend carries the same statement on the contract; its wording wins
+    // when present so the note cannot drift from the model.
     subjectScope: {
-      modeled: ["Pokémon"],
-      notYetModeled: ["Trainer", "Artist"],
-      note: "Trainer and artist desirability are not yet modeled and are not counted.",
+      modeled: Array.isArray(scope.modeled) ? scope.modeled : ["Pokémon"],
+      notYetModeled: Array.isArray(scope.notYetModeled) ? scope.notYetModeled : ["Trainer", "Artist"],
+      note: scope.note || SUBJECT_SCOPE_NOTE,
     },
-    sourceUsed: "collectorAppeal.components",
-    fallbackUsed: false,
+    note: FINANCIAL_VS_COLLECTOR_NOTE,
+    sourceShape: resolved.shape,
   };
 }

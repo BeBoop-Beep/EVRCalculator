@@ -38,7 +38,6 @@ const setValueCard = between(client, "function SetValueTrendCard(", "function Ov
 const chaseModule = between(client, "function TopChaseCardsModule(", "function hasMarketMoverRows(");
 const chaseRow = between(client, "function TopMarketCardRow(", "function InlinePanelSkeleton(");
 const compactSparkline = between(client, "function CompactSparkline(", "function normalizeSetValueHistoryPoints(");
-const compactList = between(client, "function DecisionSignalsCompactList(", "function DecisionSignalRow(");
 const openingEconomics = between(client, "data-overview-opening-economics", "</dl>");
 
 // ===========================================================================
@@ -65,8 +64,6 @@ test("no section re-adds a horizontal inset inside the already-flush feed", () =
   // row also carried, it made the row STOP 6px short of the right edge its own
   // column header reaches, with the rank pinned to that short edge. The row is
   // symmetrically inset now — see DecisionSignalsEdge.contract.test.mjs.
-  assert.ok(compactList.includes("pl-1.5 pr-1.5"), "the Decision Signals rows stay inside the feed edge");
-  assert.ok(!compactList.includes("pr-0"), "the row no longer drops its trailing padding");
 });
 
 test("the feed reset still zeroes the card padding it is responsible for", () => {
@@ -213,56 +210,14 @@ test("a tier pill can never wrap onto two lines", () => {
   assert.ok(rankBadge.includes('format === "tier" && rank ? `${rank} Tier` : rank'), "the pill still reads `S Tier`");
 });
 
-test("the tier column is sized from the pill, not the pill squeezed into the column", () => {
-  // `supporting` (px-3, 12px) needs ~62px for "S Tier" and was being handed a
-  // 44px column, which is what broke "S" over "Tier".
-  assert.ok(rankBadge.includes("compact: {"), "a dense size exists for fixed narrow columns");
-  assert.ok(rankBadge.includes('className: "gap-1 px-2 py-0.5 text-[10px]"'));
-  assert.ok(compactList.includes('size="compact"'), "the compact list uses it");
-  assert.ok(!compactList.includes('size="supporting"'), "the oversized pill is gone from the compact list");
-  const tierTrack = /grid-cols-\[minmax\(0,1fr\)_3rem_(3\.75rem)_2\.5rem\]/.exec(compactList);
-  assert.ok(tierTrack, "the tier track is wider than the pill it holds");
-});
+// Four Decision Signals compact-list tests stood here (tier column sizing, the
+// shared column system, vertical bulk, and the scan/selection behaviour). The
+// Overview Decision Signals card and its compact list were removed - they scored
+// Profit, Safety, Stability, Opening Experience and Chase Potential, none of
+// which are terms of the current model.
 
-test("the header and the rows share one column system", () => {
-  assert.equal(
-    (compactList.match(/grid-cols-\[minmax\(0,1fr\)_3rem_3\.75rem_2\.5rem\]/g) || []).length,
-    2,
-    "the column header and the row grid must not drift apart"
-  );
-  assert.equal((compactList.match(/gap-x-1\.5/g) || []).length, 2);
-});
 
-test("vertical bulk is reduced without losing the touch target", () => {
-  assert.ok(compactList.includes("min-h-14"), "rows remain touch-safe while improving scan legibility");
-  assert.ok(compactList.includes("py-1.5 pl-1.5 pr-1.5"), "row padding remains compact");
-  assert.ok(compactList.includes("mt-2.5 border-t"), "group labels gain stronger separation");
-  assert.ok(
-    compactList.includes('className="mt-2 min-h-[2.75rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-2"'),
-    "the shared detail region is compact"
-  );
-  for (const gone of ["py-1.5 pl-2 pr-1", "pb-1 pt-3", "min-h-[2.5rem]"]) {
-    assert.ok(!compactList.includes(gone), `${gone} is superseded`);
-  }
-});
 
-test("the scan structure, the values and the selection behaviour are untouched", () => {
-  assert.ok(compactList.includes("{signal.label}"));
-  assert.ok(compactList.includes('{signal.scoreText || "—"}'));
-  assert.ok(compactList.includes("rank={signal.rankTier}"));
-  assert.ok(compactList.includes("`#${rankLabel}`"));
-  assert.ok(compactList.includes("toNumber(signal.rankValue)"), "ranks are still read straight off the view model");
-  assert.ok(compactList.includes("Math.round(parsedRank)"));
-  assert.ok(!/score\s*[*+/-]/.test(compactList), "no arithmetic is applied to any score");
-  assert.ok(!compactList.includes("sort("), "row order is not re-sorted");
-  assert.ok(compactList.includes("setSelectedLabel((previous) => (previous === signal.label ? null : signal.label))"));
-  assert.ok(compactList.includes("selectedSignal.detailSummary || selectedSignal.summary"));
-  assert.equal((compactList.match(/data-decision-signal-detail/g) || []).length, 1);
-  assert.ok(compactList.includes("aria-expanded={isSelected}"));
-  assert.ok(compactList.includes('aria-live="polite"'));
-  assert.ok(compactList.includes("focus-visible:ring-2"));
-  assert.ok(compactList.includes("border-l-[var(--accent)]"), "selection is not signalled by colour alone");
-});
 
 // ===========================================================================
 // 6. The pinned set-control block is opaque
@@ -372,10 +327,4 @@ test("every change below 1200px is gated so desktop composition is unchanged", (
   // clears the tab strip (see SetPickerLayeringAndNavigation); what this pass
   // locks is that the row itself stays below-desktop only.
   assert.ok(client.includes('data-set-sticky-picker data-set-picker className="relative z-30 desk:hidden">'), "the sticky picker row is mobile-only");
-  assert.ok(
-    between(client, "function DecisionSignalsCard(", "// A Profit / Safety / Stability card.").includes(
-      '<div className="hidden desk:block">'
-    ),
-    "the desktop Decision Signals tree is still the 1200px+ presentation"
-  );
 });

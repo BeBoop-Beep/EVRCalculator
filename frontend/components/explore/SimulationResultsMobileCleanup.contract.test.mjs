@@ -391,7 +391,6 @@ test("this pass touched no data path, no calculation and no dependency", () => {
   }
   // The sections this pass was told to leave alone keep their compact lists.
   assert.ok(source.includes("function SimulationMetricsCompactList("));
-  assert.ok(source.includes("function CollectorProfileStage("));
   assert.ok(source.includes("const PACK_PATH_DESKTOP_ONLY_EVIDENCE = new Set(["));
 });
 

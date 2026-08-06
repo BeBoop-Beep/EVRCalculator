@@ -14,18 +14,9 @@ test("Top Chase renders one ten-row list and exposes disclosure only below deskt
   assert.doesNotMatch(module, /maxRows=\{showAllChaseCards/);
 });
 
-test("Overview right column stacks Sealed Market then unchanged Decision Signals props", () => {
-  const overview = client.slice(client.indexOf('id="set-detail-overview"'), client.indexOf('{setDetailMode && !isDesktopHeroComposition'));
-  const chase = overview.indexOf("<TopChaseCardsModule");
-  const sealed = overview.indexOf("<SealedMarketTrendCard");
-  const signals = overview.indexOf("<DecisionSignalsCard");
-  assert.ok(chase >= 0 && sealed > chase && signals > sealed);
-  for (const prop of ["pillarSignals", "summary", "setIntelligenceMeta", "trackedSignals", "requestTimeout"]) {
-    assert.match(overview.slice(signals, signals + 600), new RegExp(`${prop}=`));
-  }
-  assert.match(overview, /lg:grid-cols-3/);
-  assert.match(overview, /lg:col-span-2/);
-});
+// Decision Signals assertions were removed: the Overview Decision Signals card
+// scored Profit, Safety, Stability, Opening Experience and Chase Potential, none
+// of which are terms of the current model, and the card no longer exists.
 
 test("shared mobile section treatment is explicit, three pixels, and desktop-free", () => {
   assert.match(css, /--mobile-section-divider-core:/);
@@ -33,7 +24,9 @@ test("shared mobile section treatment is explicit, three pixels, and desktop-fre
   assert.doesNotMatch(css, /\[data-mobile-feed\] > \* \+ \*/);
   // `(?!-)` so the after-movers `data-mobile-section-variant` attribute is not
   // double-counted as a second section marker.
-  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 8);
+  // 7: 6 after the Collector Profile wrapper was removed with its section,
+  // plus the new Overview RIP Summary wrapper.
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
   const moversWrapper = explore.slice(explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);

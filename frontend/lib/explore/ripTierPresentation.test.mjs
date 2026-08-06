@@ -254,8 +254,10 @@ test("the title card and the RIP breakdown read the same helper, and no surface 
   assert.ok(tone.includes("export function getRipTierPresentation("), "one exported entry point");
 
   // Both surfaces call it; neither builds its own mapping.
-  assert.equal((client.match(/getRipTierPresentation\(/g) || []).length, 2);
-  assert.ok(client.includes("getRipTierPresentation({ label: verdict, rankTier })"), "Opening Outlook");
+  // ONE call site now. The Opening Outlook callout that made the second one was
+  // removed with the interpretation engine it rendered.
+  assert.equal((client.match(/getRipTierPresentation\(/g) || []).length, 1);
+  assert.ok(!client.includes("getRipTierPresentation({ label: verdict, rankTier })"), "no Opening Outlook");
   assert.ok(client.includes("const setContextRipPresentation = getRipTierPresentation({"), "title card");
 
   // The RANK_CONFIG tier colours may not be transcribed into either file.

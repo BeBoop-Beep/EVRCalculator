@@ -77,9 +77,12 @@ function RipLevel({ set, sealedProducts }) {
   );
 }
 
+// The "signal" line here was `decisionLabel || interpretationLabel` — retired
+// Profit/Safety/Stability interpretation copy. Neither field is read any more,
+// and no invented verdict replaces them: the card states the set's value and
+// its chase cards, which it can source.
 function SetLevel({ set, chaseCards }) {
   const movement = selectSetValueMovement(set);
-  const signal = set?.decisionLabel || set?.interpretationLabel;
 
   return (
     <div className={`${styles.levelCard} ${styles.levelCardCards}`}>
@@ -97,13 +100,6 @@ function SetLevel({ set, chaseCards }) {
       ) : null}
 
       <ChaseCardRow cards={chaseCards.slice(0, 2)} label="Chase cards" />
-
-      {signal ? (
-        <p className={styles.signal}>
-          <span className={styles.signalDot} aria-hidden="true" />
-          <span className={styles.signalText}>{signal}</span>
-        </p>
-      ) : null}
     </div>
   );
 }

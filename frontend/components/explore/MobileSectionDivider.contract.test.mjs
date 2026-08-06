@@ -56,32 +56,61 @@ test("the 7D Movers tickers are never themselves section-marked", () => {
   );
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);
 
-  // Set-level ticker: the module immediately preceding Set Value Trend.
-  const beforeSetValue = client.slice(
+  // Set-level ticker: the module immediately preceding the RIP Summary, which
+  // is now the first marked section on Overview.
+  const beforeSummary = client.slice(
     client.indexOf("retryMarketMoversModule"),
-    client.indexOf('id="set-detail-set-value-trend"')
+    client.indexOf('sectionName="overview-rip-summary"')
   );
-  assert.doesNotMatch(beforeSetValue, /data-mobile-section/);
+  // Exactly one marker sits in this span, and it is the RIP Summary's own
+  // wrapper, which opens immediately before the boundary. The ticker's wrapper
+  // — everything before that marker — carries none.
+  const markerAt = beforeSummary.indexOf("data-mobile-section");
+  assert.ok(markerAt > 0, "the RIP Summary wrapper must be marked");
+  assert.doesNotMatch(
+    beforeSummary.slice(0, markerAt),
+    /data-mobile-section/,
+    "the movers ticker itself must never be section-marked"
+  );
+  assert.match(
+    beforeSummary.slice(markerAt),
+    /data-mobile-section data-mobile-section-variant="after-movers"/,
+    "the first section under the ticker takes the quiet after-movers rule"
+  );
 });
 
-test("Set Value Trend takes the after-movers variant, and only it", () => {
-  const setValue = client.slice(client.indexOf('id="set-detail-set-value-trend"'), client.indexOf('id="set-detail-set-value-trend"') + 260);
-  assert.match(setValue, /data-mobile-section data-mobile-section-variant="after-movers"/);
-  assert.equal((client.match(/after-movers/g) || []).length, 1);
+test("the RIP Summary takes the after-movers variant, and only it", () => {
+  // The variant moved from Set Value Trend to the RIP Summary, because the RIP
+  // Summary is now the module directly under the movers ticker. Set Value is a
+  // later analytical section and takes the ordinary luminous divider.
+  const summary = client.slice(
+    client.indexOf('sectionName="overview-rip-summary"') - 400,
+    client.indexOf('sectionName="overview-rip-summary"')
+  );
+  assert.match(summary, /data-mobile-section data-mobile-section-variant="after-movers"/);
+
+  const setValue = client.slice(
+    client.indexOf('id="set-detail-set-value-trend"'),
+    client.indexOf('id="set-detail-set-value-trend"') + 260
+  );
+  assert.doesNotMatch(setValue, /after-movers/, "Set Value no longer leads the feed");
+  assert.match(setValue, /data-mobile-section/, "but it is still a marked section");
+
+  assert.equal((client.match(/after-movers/g) || []).length, 1, "exactly one boundary is quiet");
 });
 
 test("every later analytical section keeps the ordinary luminous marker", () => {
-  // Overview: Perf vs Cost, Top Chase, Sealed Market, Decision Signals.
-  // Insights: RIP Score Breakdown, Collector Profile, Simulation Results.
+  // Overview: Perf vs Cost, Top Chase, Sealed Market.
+  // Insights: RIP Score Breakdown, Simulation Results. The Collector Profile
+  // anchor was removed with its section; Collector Appeal is not a section of
+  // its own, it renders inside the RIP Score Breakdown wrapper.
   // Anchored on sectionName, which is unique to each render site (component
   // names also match their import and definition lines).
   const anchors = [
     ["Opening Profit vs Cost", 'sectionName="overview-performance-vs-cost"'],
     ["Top Chase Cards", 'sectionName="overview-top-chase"'],
     ["Sealed Market", 'sectionName="overview-sealed-market"'],
-    ["Decision Signals", 'sectionName="overview-market-signals"'],
     ["RIP Score Breakdown", 'sectionName="insights-rip-score"'],
-    ["Collector Profile", 'sectionName="insights-collector-profile"'],
     ["Simulation Results", 'sectionName="insights-opening-outcomes"'],
   ];
 
@@ -94,8 +123,9 @@ test("every later analytical section keeps the ordinary luminous marker", () => 
     assert.doesNotMatch(wrapper, /after-movers/, `${label} must keep the ordinary luminous divider`);
   }
 
-  // The marker count is unchanged by this pass — no section gained or lost one.
-  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 8);
+  // 7: 6 after the Collector Profile wrapper was removed with its section,
+  // plus the new Overview RIP Summary wrapper.
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
 });
 

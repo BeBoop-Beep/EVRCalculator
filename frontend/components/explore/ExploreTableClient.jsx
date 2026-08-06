@@ -7,9 +7,9 @@
  * Every score-bearing cell reads AUTHORITATIVE backend fields only (never a
  * frontend-derived score): the absolute 0-100 formula result, the cohort
  * relative 0-100 position, and the rank within its ranked-set cohort. The
- * default "Best Sets to Rip Right Now" mode surfaces BOTH Overall RIP and
+ * default "Best Sets to Rip Right Now" mode surfaces BOTH RIP Score and
  * Financial RIP columns on desktop; every other mode shows a single
- * mode-scoped score cell. Mobile always shows both Overall and Financial score
+ * mode-scoped score cell. Mobile always shows both RIP Score and Financial score
  * families so Financial RIP is never hidden on small screens. Missing values
  * render an explicit "Unavailable" state — never a fabricated zero.
  *
@@ -154,31 +154,14 @@ function buildRipLink(target) {
   return buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" });
 }
 
-function getLeaderboardRecommendationLabel(target) {
-  return (
-    target?.leaderboard_label ||
-    shortenCanonicalLabel(target?.canonical_recommendation_header) ||
-    null
-  );
-}
-
-function getExploreRankingBadgeLabel(label) {
-  return String(label || "").replace(/\s+PROFILE$/i, "").trim();
-}
-
-function shortenCanonicalLabel(value) {
-  const text = String(value || "").trim();
-  if (!text) {
-    return null;
-  }
-  for (const separator of [",", " - ", " — "]) {
-    if (text.includes(separator)) {
-      const [head] = text.split(separator, 1);
-      return head.trim() || text;
-    }
-  }
-  return text;
-}
+// NO INTERPRETATION BADGE. The leaderboard row used to carry a verdict pill
+// derived from `leaderboard_label` / `canonical_recommendation_header`, toned by
+// `recommendation_severity`. Those three fields are output of the retired
+// Profit/Safety/Stability interpretation engine, which scores neither Financial
+// RIP V3 nor Collector Appeal V3, so the pill was current-looking copy about a
+// superseded model. It is removed rather than replaced: the row already states
+// tier, rank, RIP Score and Financial RIP, and inventing replacement advice here
+// would be a second, unscored opinion.
 
 /**
  * Read the authoritative absolute / relative / rank / cohort quartet for one
@@ -197,7 +180,7 @@ function readModeScore(target, modeId) {
  * The mode whose rank the table's leading "#" column already shows. A score
  * cell for that same mode omits its own "#rank" line, because the two would
  * always print the same number on the same row. Every other column keeps its
- * rank — Financial RIP genuinely ranks a set differently from Overall RIP.
+ * rank — Financial RIP genuinely ranks a set differently from RIP Score.
  */
 const RankColumnModeContext = createContext(null);
 
@@ -395,7 +378,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     "Sets ranked by the strongest overall opening profile."
   } ${RELATIVE_SCORE_TOOLTIP}`;
 
-  // The default Overall mode surfaces Overall RIP AND Financial RIP side by
+  // The default Overall mode surfaces RIP Score AND Financial RIP side by
   // side; every other mode collapses to a single mode-scoped score column.
   const isOverallMode = selectedMode === DEFAULT_MODE;
 
@@ -429,8 +412,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
   const sortNote = RANKING_MODE_PICKER_ENABLED
-    ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
-    : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
+    ? `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
+    : `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first.`;
   const visibleMobileTargets =
     showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
       ? sortedTargets
@@ -557,7 +540,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   {isOverallMode ? (
                     <>
                       <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
-                        <span>Overall RIP</span>
+                        <span>RIP Score</span>
                       </th>
                       <th scope="col" className={styles.numeric}>
                         <span>Financial RIP</span>
@@ -583,8 +566,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 {sortedTargets.map((target, index) => {
                   const averageLoss = estimateAverageLoss(target);
                   const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-                  const recommendationLabel = getLeaderboardRecommendationLabel(target);
-                  const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
                   const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
@@ -601,13 +582,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
-                          <SetIdentity
-                            variant="compact"
-                            target={target}
-                            interpretationLabel={displayRecommendationLabel}
-                            tier={tier}
-                            recommendationSeverity={target?.recommendation_severity || null}
-                          />
+                          <SetIdentity variant="compact" target={target} />
                         </Link>
                       </td>
                       <td>
@@ -648,8 +623,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const recommendationLabel = getLeaderboardRecommendationLabel(target);
-              const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
               const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
               const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
@@ -667,13 +640,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <SetIdentity
-                        variant="compact"
-                        target={target}
-                        interpretationLabel={displayRecommendationLabel}
-                        tier={tier}
-                        recommendationSeverity={target?.recommendation_severity || null}
-                      />
+                      <SetIdentity variant="compact" target={target} />
                     </div>
                     <RankBadge rank={tier} title={tierLabel} format="tier" />
                   </div>

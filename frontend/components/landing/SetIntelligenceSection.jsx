@@ -12,18 +12,19 @@ import styles from "./landing.module.css";
  * Features a DIFFERENT set from the hero wherever more than one is published,
  * so the page shows breadth rather than describing one set four times.
  *
- * The Quick Read leads. It is the backend's own published decision signal
- * (`leaderboard_label`, falling back to the canonical recommendation header and
- * then the RIP interpretation label) — never invented advice. When no published
- * interpretation exists the block falls back to plain factual labels and no
- * verdict is stated at all.
+ * NO QUICK READ. This section used to lead with a "Quick read" verdict block
+ * whose only content was `decisionLabel` — the retired Profit/Safety/Stability
+ * interpretation engine's copy, reaching the page via `leaderboard_label` /
+ * `canonical_recommendation_header`. With that engine retired the block had no
+ * source left, so it is removed rather than refilled with invented advice. The
+ * section now leads with what it can actually show: the set's value trend,
+ * chase-card movement and opening economics against pack cost.
  */
 export default function SetIntelligenceSection({ set, chaseCards = [] }) {
   const movement = selectSetValueMovement(set);
   const economics = selectOpeningEconomics(set);
   const probability = formatProbability(set?.probProfit);
   const asOf = formatAsOf(set?.setValueAsOf);
-  const quickRead = set?.decisionLabel || set?.interpretationLabel || null;
 
   return (
     <section className={`${styles.section} ${styles.sectionRaised}`} aria-labelledby="landing-set-heading">
@@ -35,18 +36,8 @@ export default function SetIntelligenceSection({ set, chaseCards = [] }) {
             </h2>
             <p className={styles.sectionLede}>
               Follow the complete set through value trends, opening economics, chase-card movement,
-              and decision signals.
+              and opening economics.
             </p>
-
-            {quickRead ? (
-              <div className={styles.quickRead}>
-                <p className={styles.quickReadLabel}>Quick read</p>
-                <p className={styles.quickReadText}>{quickRead}</p>
-                {set?.interpretationSummary ? (
-                  <p className={styles.quickReadNote}>{set.interpretationSummary}</p>
-                ) : null}
-              </div>
-            ) : null}
 
             <div className={styles.featureActions}>
               <Link href={set?.overviewHref || "/Explore"} className={styles.ctaSecondary}>

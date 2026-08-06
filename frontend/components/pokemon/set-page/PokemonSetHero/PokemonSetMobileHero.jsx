@@ -2,7 +2,7 @@
 
 import React from "react";
 
-// Identity only. Set Value and the RIP score/tier/rank/verdict are deliberately
+// Identity only. Set Value and the RIP score/tier/rank are deliberately
 // absent below 1200px: they already appear in their own Overview sections (Set
 // Value Trend and Decision Signals), so rendering them here was a duplicated
 // reading that cost most of a phone viewport before any analysis began. Nothing

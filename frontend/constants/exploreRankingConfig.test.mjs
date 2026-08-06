@@ -14,11 +14,17 @@ import {
 } from "./exploreRankingConfig.js";
 
 const TARGET = {
+  // CANONICAL. The public "RIP SCORE" and "FINANCIAL RIP" columns read these.
+  overallRipV7: { score: 29.07, relativeScore: 82.4, rank: 4, tier: "A", cohortSize: 21 },
+  financialRipV3: { score: 22.32, relativeScore: 61.8, rank: 12, tier: "B", cohortSize: 21 },
+  // LEGACY, still served for audit consumers: Overall RIP v4 and Financial RIP
+  // V2. Deliberately given DIFFERENT numbers so a regression that reads them
+  // under a canonical label fails loudly instead of coincidentally matching.
   rip: {
-    score: 29.07,
-    relativeScore: 82.4,
-    rank: 4,
-    tier: "A",
+    score: 88.8,
+    relativeScore: 12.3,
+    rank: 19,
+    tier: "F",
     cohortSize: 21,
     financialRip: {
       components: {
@@ -26,21 +32,21 @@ const TARGET = {
       },
     },
   },
-  ripCore: { score: 22.32, relativeScore: 61.8, rank: 12, tier: "B", cohortSize: 21 },
+  ripCore: { score: 77.7, relativeScore: 15.5, rank: 18, tier: "F", cohortSize: 21 },
   universalSetDesirability: { score: 95.5, rank: 1, rankedSetCount: 135 },
   mean_value_to_cost_ratio: 1.23,
   mean_value_to_cost_rank: 3,
 };
 
 test("overall mode exposes distinct absolute and relative fields", () => {
-  assert.equal(getAbsoluteScoreField("overall"), "rip.score");
-  assert.equal(getRelativeScoreField("overall"), "rip.relativeScore");
+  assert.equal(getAbsoluteScoreField("overall"), "overallRipV7.score");
+  assert.equal(getRelativeScoreField("overall"), "overallRipV7.relativeScore");
   assert.equal(getAbsoluteScoreForMode(TARGET, "overall"), 29.07);
   assert.equal(getRelativeScoreForMode(TARGET, "overall"), 82.4);
   assert.equal(getRankForMode(TARGET, "overall"), 4);
 });
 
-test("financial mode reads ripCore absolute and relative", () => {
+test("financial mode reads Financial RIP V3, never ripCore (V2)", () => {
   assert.equal(getAbsoluteScoreForMode(TARGET, "financial"), 22.32);
   assert.equal(getRelativeScoreForMode(TARGET, "financial"), 61.8);
   assert.equal(getRankForMode(TARGET, "financial"), 12);
@@ -78,7 +84,7 @@ test("ranked-set count reads each mode's own cohort denominator", () => {
   // Overall/Financial denominators live on the RIP objects as cohortSize; the
   // desirability denominator is the ALL-SET rankedSetCount. They differ on
   // purpose, so a rank and its denominator always describe one population.
-  assert.equal(getRankedSetCountField("overall"), "rip.cohortSize");
+  assert.equal(getRankedSetCountField("overall"), "overallRipV7.cohortSize");
   assert.equal(getRankedSetCountForMode(TARGET, "overall"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "financial"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "profit"), 21);
@@ -103,14 +109,14 @@ test("null-safe getters: missing objects never throw and return null", () => {
 });
 
 test("missing relative but present absolute: relative null, absolute intact", () => {
-  const partial = { rip: { score: 30.0, rank: 2, cohortSize: 21 } };
+  const partial = { overallRipV7: { score: 30.0, rank: 2, cohortSize: 21 } };
   assert.equal(getAbsoluteScoreForMode(partial, "overall"), 30.0);
   assert.equal(getRelativeScoreForMode(partial, "overall"), null);
   assert.equal(getRankForMode(partial, "overall"), 2);
 });
 
 test("missing absolute but present rank: absolute null, rank intact", () => {
-  const partial = { rip: { relativeScore: 55.0, rank: 3, cohortSize: 21 } };
+  const partial = { overallRipV7: { relativeScore: 55.0, rank: 3, cohortSize: 21 } };
   assert.equal(getAbsoluteScoreForMode(partial, "overall"), null);
   assert.equal(getRelativeScoreForMode(partial, "overall"), 55.0);
   assert.equal(getRankForMode(partial, "overall"), 3);

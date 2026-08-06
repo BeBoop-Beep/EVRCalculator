@@ -5,7 +5,6 @@ import { selectTopChaseCards } from "../../../components/pokemon/set-page/Overvi
 import { selectCards } from "../../../components/pokemon/set-page/Cards/cardsSelector.mjs";
 import { selectCompactSetValue } from "../../../components/pokemon/set-page/PokemonSetHero/compactSetValueSelector.mjs";
 import { selectSimulationDrivers } from "../../../components/explore/simulationDriversSelector.mjs";
-import { selectDecisionSignals } from "../../../components/explore/decisionSignalsSelector.mjs";
 
 function toOptionalString(value) {
   const text = String(value || "").trim();
@@ -282,21 +281,9 @@ export function adaptSimulationDrivers(rawPayload = {}) {
   };
 }
 
-export function adaptDecisionSignalRanks(rawPayload = {}, options = {}) {
-  const pillarSignals = Array.isArray(options?.pillarSignals)
-    ? options.pillarSignals
-    : Array.isArray(rawPayload?.pillarSignals)
-    ? rawPayload.pillarSignals
-    : [];
-  return {
-    contractVersion: SET_PAGE_CONTRACT_VERSION,
-    ...selectDecisionSignals({
-      ...rawPayload,
-      pillarSignals,
-      requestTimeout: rawPayload?.meta?.requestTimeout === true,
-    }),
-  };
-}
+// adaptDecisionSignalRanks was removed with the Overview Decision Signals
+// card it fed. It scored Profit, Safety and Stability, none of which are terms
+// of the current model, and it had no other consumer.
 
 export function adaptDesirabilityValidation(rawPayload = {}, options = {}) {
   return {
@@ -386,10 +373,3 @@ export function adaptSimulationDriversFromSources({
   return adaptSimulationDrivers(firstObject([asObject(explorePayload), asObject(fallbackPayload)]));
 }
 
-export function adaptDecisionSignalRanksFromSources({
-  explorePayload = {},
-  fallbackPayload = {},
-  options = {},
-} = {}) {
-  return adaptDecisionSignalRanks(firstObject([asObject(explorePayload), asObject(fallbackPayload)]), options);
-}
