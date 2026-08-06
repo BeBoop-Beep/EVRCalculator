@@ -145,18 +145,20 @@ function toEntry(target) {
     packCost: economics.packCost,
     meanValue: economics.meanValue,
     probProfit: economics.probProfit,
-    // The backend's own one-line read on this set. `leaderboard_label` is the
-    // short form the Explore table shows; the canonical recommendation header
-    // is the long form it shortens. Severity drives tone only.
-    decisionLabel:
-      toOptionalString(target?.leaderboard_label) ??
-      toOptionalString(target?.canonical_recommendation_header),
-    decisionSeverity: toOptionalString(target?.recommendation_severity),
-    // `interpretationLabel` / `interpretationSummary` are deliberately absent.
-    // They carried the retired Profit/Safety/Stability interpretation engine's
-    // verdict ("Elite but swingy" and friends), which describes neither
-    // Financial RIP V3 nor Collector Appeal V3. Consumers fall back to
-    // `decisionLabel`, the backend's own leaderboard copy.
+    // NO INTERPRETATION COPY. `decisionLabel` / `decisionSeverity` (from
+    // `leaderboard_label`, `canonical_recommendation_header` and
+    // `recommendation_severity`) and `interpretationLabel` /
+    // `interpretationSummary` all carried the retired Profit/Safety/Stability
+    // interpretation engine's verdict. That engine describes neither Financial
+    // RIP V3 nor Collector Appeal V3, so none of them are read here in any code
+    // path — including as a fallback or as an eligibility signal.
+    //
+    // What replaces them for the sections that used to gate on a verdict being
+    // present: an explicit statement of what this entry actually has. It is
+    // taken from the canonical hero result above, so it can only be true when a
+    // canonical Overall RIP V7 score really resolved — the presence of any
+    // legacy field cannot turn it on.
+    hasCanonicalOverallRipV7: hero.available === true,
     ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };

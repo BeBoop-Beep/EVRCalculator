@@ -40,7 +40,9 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
   const tierStyle = set.tier ? getInterpretationBadgeStyle({ rankTier: set.tier }) : null;
   const probability = formatProbability(set.probProfit);
   const asOf = formatAsOf(marketDate || set.setValueAsOf);
-  const valueSignal = set.decisionLabel || set.interpretationLabel;
+  // No verdict line. `decisionLabel` / `interpretationLabel` were retired
+  // interpretation-engine copy; the panel states published figures instead of a
+  // sentence about a superseded model.
 
   return (
     <div className={styles.featuredPanel}>
@@ -74,8 +76,6 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
           </span>
         ) : null}
       </p>
-
-      {valueSignal ? <p className={styles.featuredSignal}>{valueSignal}</p> : null}
 
       <div className={styles.featuredStats}>
         {probability ? (

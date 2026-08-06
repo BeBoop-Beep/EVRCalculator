@@ -32,7 +32,13 @@ test("no ancestor of a chart tooltip clips it", () => {
   assert.ok(!chartFrame.includes("overflow-hidden"), "ChartFrame must not clip the tooltip");
   assert.ok(chartFrame.includes('["relative", className]'), "ChartFrame is relative with no z-index, so it makes no stacking context");
 
-  const sectionCard = client.slice(client.indexOf("function SectionCard("), client.indexOf("// 02 · SET DESIRABILITY"));
+  // The slice used to end at the "02 · SET DESIRABILITY" section banner. That
+  // banner belonged to the removed public Collector Profile; the next thing
+  // after SectionCard is now the note recording its removal.
+  const sectionCard = client.slice(
+    client.indexOf("function SectionCard("),
+    client.indexOf("// THE PUBLIC COLLECTOR PROFILE WAS REMOVED HERE")
+  );
   assert.ok(!sectionCard.includes("overflow-hidden"), "SectionCard must not clip the tooltip");
 });
 

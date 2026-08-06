@@ -24,7 +24,8 @@ test("shared mobile section treatment is explicit, three pixels, and desktop-fre
   assert.doesNotMatch(css, /\[data-mobile-feed\] > \* \+ \*/);
   // `(?!-)` so the after-movers `data-mobile-section-variant` attribute is not
   // double-counted as a second section marker.
-  // 7 after the Overview Decision Signals wrapper was removed with its card.
+  // 7: 6 after the Collector Profile wrapper was removed with its section,
+  // plus the new Overview RIP Summary wrapper.
   assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
   const moversWrapper = explore.slice(explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));

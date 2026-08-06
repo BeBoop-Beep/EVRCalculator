@@ -39,6 +39,10 @@ const readSource = (name) =>
   fs.readFileSync(path.join(here, name), "utf8").replace(/\r\n/g, "\n");
 
 const componentSource = readSource("CollectorAppealBreakdown.jsx");
+// The three factor rows are drawn by the shared disclosure primitive, so a few
+// row-level guarantees are asserted against that file rather than this one.
+// Its rendered behaviour is covered by RipMetricDisclosureRow.test.jsx.
+const rowComponentSource = readSource("RipMetricDisclosureRow.jsx");
 const selectorSource = readSource("collectorAppealBreakdownSelector.mjs");
 const pageSource = readSource("RipStatisticsPageClient.jsx");
 
@@ -125,8 +129,20 @@ test("the score, rank, tier and denominator are the backend's own", () => {
 });
 
 test("the three factors are presented in parallel, not as a sequential chain", () => {
-  // A grid of three peers. No arrows, no numbered stages, no connector.
-  assert.match(componentSource, /desk:grid-cols-3/);
+  // A flat stack of three IDENTICAL rows, rendered by the same shared component
+  // Financial RIP's six use. No arrows, no numbered stages, no connector, and
+  // nothing that makes one factor look like the input to the next.
+  assert.match(componentSource, /data-collector-appeal-rows/);
+  assert.match(componentSource, /<RipMetricDisclosureRow/);
+  assert.doesNotMatch(componentSource, /grid-cols-3/, "a 3-column grid is not what makes them peers; identical rows are");
+  // Comments are excluded: the file documents the retired
+  // "Set Desirability -> Collector Appeal -> Contribution" chain in order to
+  // record that it was removed, and that note must not fail this assertion.
+  const componentCode = componentSource
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
+  assert.doesNotMatch(componentCode, /Stage|→|-&gt;/);
   assert.doesNotMatch(componentSource, /CollectorProfileArrow|data-collector-profile-flow/);
   // ...and the page no longer renders the old flow anywhere either.
   assert.doesNotMatch(pageSource, /function CollectorProfileArrow\(/);
@@ -225,8 +241,12 @@ test("the frequency card carries the loss disclaimer next to the number", () => 
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
   assert.equal(frequency.disclaimer, DESIRABLE_OUTCOME_DISCLAIMER);
   assert.match(frequency.disclaimer, /can still be worth less than the pack price/);
-  // Rendered, not merely selected.
-  assert.match(componentSource, /data-desirable-outcome-disclaimer/);
+  // Rendered, not merely selected. The row component owns the element; this
+  // surface's job is to hand the disclaimer to it rather than swallow it.
+  // RipMetricDisclosureRow.test.jsx proves by rendering that the disclaimer
+  // stays visible while the row is COLLAPSED.
+  assert.match(componentSource, /disclaimer=\{row\.disclaimer \|\| null\}/);
+  assert.match(rowComponentSource, /data-desirable-outcome-disclaimer/);
 });
 
 test("the financial vs collector distinction is stated on the surface", () => {
@@ -432,17 +452,19 @@ test("Collector Appeal is presented exactly once on Insights", () => {
 });
 
 test("mobile and desktop layout contracts are preserved", () => {
-  const grids = componentSource.match(/className="[^"]*grid[^"]*"/g) || [];
-  assert.ok(grids.length > 0);
-  for (const grid of grids) {
-    assert.match(grid, /min-w-0|gap-/, `grid must be constrained: ${grid}`);
+  // The factor rows moved into the shared component, so the responsive
+  // contract for a row is asserted against that component. What stays here is
+  // that this surface constrains its own containers.
+  // Every layout container this surface still owns must be min-w-0 so a long
+  // value cannot force the page to scroll horizontally.
+  const containers = componentSource.match(/className="[^"]*(?:grid|flex(?![-\w])|min-w-0)[^"]*"/g) || [];
+  assert.ok(containers.length > 0);
+  for (const container of containers) {
+    assert.match(container, /min-w-0|gap-/, `container must be constrained: ${container}`);
   }
-  // Responsive, not a fixed multi-column row.
-  assert.match(componentSource, /desk:grid-cols-3/);
-  // Same mobile-feed treatment as the surrounding sections.
-  assert.match(componentSource, /max-desk:rounded-none max-desk:border-0/);
+  assert.match(componentSource, /data-collector-appeal-rows className="mt-2 min-w-0"/);
   // Numbers are tabular so columns do not jitter between sets.
-  assert.match(componentSource, /tabular-nums/);
+  assert.match(rowComponentSource, /tabular-nums/);
   // No new colour tokens: every colour utility must resolve to an existing CSS
   // custom property. Arbitrary SIZE values (text-[11px]) are excluded - those
   // are the page's existing type scale, not colours.

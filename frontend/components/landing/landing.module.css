@@ -439,16 +439,6 @@
   color: var(--ink-soft);
 }
 
-/* The published read on the set, in plain language, between the identity and
-   the numbers. */
-.featuredSignal {
-  margin-top: 7px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: #d6f7e8;
-}
-
 .featuredStats {
   display: flex;
   flex-wrap: wrap;
@@ -582,73 +572,6 @@
 
 .barFillCost {
   background: linear-gradient(90deg, rgba(150, 195, 235, 0.28), rgba(150, 195, 235, 0.42));
-}
-
-/* --------------------------------------------------------------- signal --- */
-
-.signal {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 12px;
-  border-radius: 10px;
-  padding: 10px 12px;
-  border: 1px solid rgba(71, 183, 145, 0.22);
-  background: rgba(55, 152, 139, 0.1);
-}
-
-.signalDot {
-  flex: none;
-  margin-top: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--signal);
-}
-
-.signalText {
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  font-weight: 600;
-  color: #d6f7e8;
-}
-
-/*
- * The Quick Read. Published interpretation only — `leaderboard_label`, then the
- * canonical recommendation header, then the RIP interpretation label. When none
- * of those exist the caller renders nothing here rather than writing a verdict.
- */
-.quickRead {
-  margin-top: 22px;
-  padding: 16px 18px;
-  border-radius: 14px;
-  border: 1px solid rgba(71, 183, 145, 0.26);
-  border-left-width: 3px;
-  background: rgba(55, 152, 139, 0.1);
-}
-
-.quickReadLabel {
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(167, 243, 208, 0.78);
-}
-
-.quickReadText {
-  margin-top: 7px;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1.24;
-  letter-spacing: -0.024em;
-  color: #eafaf3;
-}
-
-.quickReadNote {
-  margin-top: 7px;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--ink-soft);
 }
 
 /* ---------------------------------------------------------- rank lists --- */
@@ -1561,15 +1484,6 @@
 
   .stripList {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .quickRead {
-    margin-top: 18px;
-    padding: 14px 15px;
-  }
-
-  .quickReadText {
-    font-size: 1.0625rem;
   }
 
   .steps {

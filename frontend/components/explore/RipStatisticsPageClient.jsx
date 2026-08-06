@@ -78,6 +78,9 @@ import {
 import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
+import OverviewRipSummary from "./OverviewRipSummary.jsx";
+import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
+import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
@@ -110,10 +113,11 @@ import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
-import {
-  selectOpeningExperiencePresentation,
-  selectSetDesirabilityPresentation,
-} from "@/components/pokemon/set-page/Insights/openingExperienceSelector.mjs";
+// `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
+// were imported from Insights/openingExperienceSelector.mjs for the removed
+// public Collector Profile. This page has no other consumer of either, so the
+// import is gone; the selector module itself is left in place for its remaining
+// callers rather than deleted from under them.
 import { RANK_CONFIG } from "@/constants/rankConfig";
 import { getFriendlyMetricLabel, getFormattedTooltip, getMetricTooltip } from "@/constants/interpretabilityConfig";
 import {
@@ -273,16 +277,43 @@ const SET_DETAIL_TAB_ALIASES = {
   analytics: "insights",
   market: "overview",
 };
+// The ONE preferred DOM id for the canonical Collector Appeal block.
+const COLLECTOR_APPEAL_SECTION_ID = "set-detail-collector-appeal";
+
+// The ids the removed public Collector Profile and its predecessors owned.
+// They are rendered as invisible anchors on the canonical Collector Appeal
+// block so every existing bookmark, internal link and indexed URL still lands
+// on real content. They are compatibility only — nothing links to them by
+// choice, and `set-detail-collector-appeal` is what new links use.
+const LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS = [
+  "set-detail-collector-profile",
+  "set-detail-set-desirability",
+  "set-detail-desirability-evidence",
+  "set-detail-desirability-proof",
+  "set-detail-desirability-validation",
+  "set-detail-card-desirability-price",
+  "set-detail-opening-experience",
+];
+
 const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
-  // Legacy desirability-evidence deep links resolve to the Opening Experience
-  // section that replaced it. `opening-experience` is the preferred alias.
-  "opening-experience": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "desirability-proof": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "desirability-validation": { tab: "insights", targetId: "set-detail-opening-experience" },
-  "card-desirability-price": { tab: "insights", targetId: "set-detail-opening-experience" },
+  // COLLECTOR APPEAL — one destination, many legacy names.
+  //
+  // `collector-appeal` is the preferred alias. Every other key here addressed
+  // the removed public Collector Profile or one of the standalone desirability
+  // sections that preceded it, and each now resolves to the SAME canonical
+  // Collector Appeal block. They point at surviving content, not at a deleted
+  // section: a legacy link scrolls to the three Collector Appeal V3 factors.
+  "collector-appeal": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "collector-profile": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "set-desirability": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-evidence": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "opening-experience": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-proof": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "desirability-validation": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "card-desirability-price": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
   // Simulation Results card (formerly "Opening Outcomes"). `opening-outcomes`
   // stays for backwards-compatible deep links; `simulation-results` is the
   // preferred alias for the same card/default sub-view.
@@ -1017,8 +1048,13 @@ const SIMPLE_PILLAR_INFO_COPY = {
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
     "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and does not receive a separate RIP Score weight of its own.",
+  // The trailing sentence used to read "It contributes 20% to Overall RIP,
+  // alongside Financial RIP at 80%." That published a composition weight — and
+  // published the WRONG one, since the canonical blend is 0.90 Financial RIP +
+  // 0.10 Collector Appeal. No public surface states a weight, a contribution
+  // or a split, so the claim is removed rather than corrected to 90/10.
   "Collector Appeal":
-    "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices. It contributes 20% to Overall RIP, alongside Financial RIP at 80%.",
+    "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices.",
   // Legacy key kept only for stale render paths.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
@@ -6217,6 +6253,51 @@ function RipBreakdownDetailMetric({ label, value, trend = null, infoText = null,
 //   - The visible composition weights, the formula expression and the
 //     contribution-point copy.
 //
+/**
+ * The compact Financial RIP / Collector Appeal line under the RIP Score
+ * headline.
+ *
+ * Reads the SAME resolved canonical bundle as everything else in this section.
+ * It computes nothing: each score, tier, rank and denominator is the backend's
+ * own, and a missing one prints an em dash rather than a zero or the other
+ * metric's value.
+ */
+function RipScoreSupportingValues({ canonical }) {
+  const financial = selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical));
+  const collector = selectCollectorAppealBreakdown(canonical);
+
+  const line = (score, tier, rank, cohort) => {
+    const parts = [];
+    parts.push(score === null || score === undefined ? "—" : Number(score).toFixed(1));
+    if (tier && tier !== "—") parts.push(`${tier} Tier`);
+    if (rank !== null && rank !== undefined) {
+      parts.push(cohort ? `Rank #${rank} of ${cohort}` : `Rank #${rank}`);
+    }
+    return parts.join(" · ");
+  };
+
+  return (
+    <div
+      data-rip-score-supporting-values
+      className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1"
+    >
+      <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
+        <span className="font-semibold text-[var(--text-primary)]">Financial RIP</span>{" "}
+        {line(financial.score, financial.tier, financial.rank, financial.rankedSetCount)}
+      </p>
+      <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
+        <span className="font-semibold text-[var(--text-primary)]">Collector Appeal</span>{" "}
+        {line(
+          collector.available ? collector.score : null,
+          collector.tier,
+          collector.rank,
+          collector.rankedSetCount
+        )}
+      </p>
+    </div>
+  );
+}
+
 // Nothing here computes a score, a rank, a tier or a denominator.
 function RipScoreBreakdownModule({
   score,
@@ -6261,6 +6342,19 @@ function RipScoreBreakdownModule({
           Financial opening performance with collector appeal.
         </p>
 
+        {/* The two supporting canonical values, stated ONCE and compactly.
+            They used to be absent here and repeated at full size inside the
+            sections below, so a reader met the same numbers twice in two
+            different treatments. Each section keeps its own components; only
+            its headline figure lives here.
+
+            SCALES DIFFER ON PURPOSE. The big number above is Overall RIP V7's
+            cohort-RELATIVE score. These two are Financial RIP V3's and
+            Collector Appeal V3's own fixed-anchor scores, which is the number
+            each of those models is defined to publish. Neither is restated on
+            the Overall relative scale to make the three look alike. */}
+        <RipScoreSupportingValues canonical={canonical} />
+
         {/* The two lenses that explain the score — Financial RIP first, then
             Collector Appeal. They are explanatory views of one model, and
             nothing here states or implies an even split between them. Each
@@ -6270,7 +6364,22 @@ function RipScoreBreakdownModule({
           <FinancialRipV3Breakdown canonical={canonical} requestTimeout={requestTimeout} />
         </div>
 
-        <div className="mt-4 min-w-0">
+        {/* THE ONE canonical Collector Appeal surface on the page, and the home
+            of every deep link the removed Collector Profile used to own.
+            `set-detail-collector-appeal` is the PREFERRED id; the rest are
+            invisible compatibility anchors so an existing bookmark, an internal
+            link or an indexed URL still lands on real Collector Appeal content
+            instead of on nothing. They carry the same scroll offset as a real
+            section heading. */}
+        <div id={COLLECTOR_APPEAL_SECTION_ID} className="mt-4 min-w-0 scroll-mt-24 md:scroll-mt-28">
+          {LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS.map((anchorId) => (
+            <span
+              key={anchorId}
+              id={anchorId}
+              className="block scroll-mt-24 md:scroll-mt-28"
+              aria-hidden="true"
+            />
+          ))}
           <CollectorAppealBreakdown canonical={canonical} />
         </div>
       </article>
@@ -6364,753 +6473,34 @@ function SectionCard({
 }
 
 // ---------------------------------------------------------------------------
-// 02 · SET DESIRABILITY and SIMULATION OPENING EXPERIENCE
+// THE PUBLIC COLLECTOR PROFILE WAS REMOVED HERE
 //
-// TWO SECTIONS, TWO AVAILABILITIES
-// --------------------------------
-// Set Desirability is the authoritative desirability score. It is computed from
-// the canonical checklist and Pokémon subject demand, so it needs no simulation,
-// no pull model and no CA7, and it renders for every adequately covered set.
+// `CollectorProfileSection` and everything it exclusively owned - the Roster
+// Appeal / Opening Paths view tabs, the desktop and mobile roster panels, the
+// desktop and mobile opening-path panels, their loading/unavailable wrappers,
+// the CollectorPanel/CollectorBand/CollectorMetric* primitives, the
+// OpeningPathStepArrow and the path presentation helpers, and the whole
+// COLLECTOR_PROFILE_* / SET_DESIRABILITY_* / ROSTER_QUALITY_* /
+// DEMAND_DISTRIBUTION_* / OPENING_PATH_SUMMARY_* info-copy set - are gone.
+// Every one of them had no consumer outside this block.
 //
-// The Simulation Opening Experience needs the modeled pull structure, so it
-// renders only where CA7 loaded. It used to be the ONLY section, with Roster
-// Desirability nested inside it — so a set whose pack model could not be read
-// hid its Set Desirability too, a score the backend had already computed and
-// sent. They are separate now because they fail for different reasons.
+// WHY: the section presented the retired chain
+//     Set Desirability -> Collector Appeal -> RIP Score Contribution
+// as the current model. Collector Appeal V3 has THREE PARALLEL FACTORS, not a
+// sequential pipeline with roster demand as its first stage, and the section's
+// copy stated composition weights and contribution points that are internal to
+// the model. Its info bullets also carried the "one of the two halves of RIP
+// Score" claim, which the canonical 0.90/0.10 blend does not support.
 //
-// All numbers come from the backend contracts via the selectors; nothing here
-// computes a score, a weight or a rank.
+// The canonical Collector Appeal presentation is CollectorAppealBreakdown,
+// rendered exactly once inside the RIP Score section above. Every deep link
+// this section used to own is relocated there as a compatibility anchor - see
+// SET_DETAIL_SECTION_TARGETS and COLLECTOR_APPEAL_SECTION_ID.
+//
+// NO BACKEND DATA WAS REMOVED. `universalSetDesirability` and
+// `openingExperience` are still published and still read elsewhere on the page;
+// this block simply stopped rendering a superseded story about them.
 // ---------------------------------------------------------------------------
-
-// Tooltip bodies are BULLETS, not paragraphs.
-//
-// This section's explanations are all "A relates to B in this specific way"
-// statements, and a paragraph forces the reader to hold three of those in their
-// head before the sentence resolves. One idea per bullet lets them stop reading
-// the moment they have the one they came for. The visible layout carries the
-// hierarchy; these carry the explanation.
-function InfoBullets({ items }) {
-  const rows = (Array.isArray(items) ? items : []).filter(Boolean);
-  if (rows.length === 0) {
-    return null;
-  }
-  return (
-    <ul data-info-bullets className="list-disc space-y-1.5 pl-4 marker:text-[var(--text-secondary)]">
-      {rows.map((row) => (
-        <li key={row} className="leading-snug">
-          {row}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const infoBullets = (items) => <InfoBullets items={items} />;
-
-// The section-level explanation. It is the ONLY place the chain is spelled out
-// in words: the visible layout draws the three stages and their direction, so
-// repeating the sentence under the heading was duplicated education.
-const COLLECTOR_PROFILE_INFO_BULLETS = [
-  "Evidence behind Collector Appeal: who drives demand, and how those cards are pulled.",
-  "Set Desirability measures the strength and depth of the roster.",
-  "Collector Appeal applies the modeled opening structure to that roster demand.",
-  "Roster Appeal explains who drives demand.",
-  "Opening Paths explains how those subjects are distributed through accessible and elite pulls.",
-];
-
-const SET_DESIRABILITY_INFO_BULLETS = [
-  "Measures the popularity and depth of Pokémon subjects represented in the set.",
-  "Does not use card prices.",
-  "Does not predict future value.",
-  "Chase Subject Strength measures how desirable the leading subjects are.",
-  "Chase Subject Depth measures how many distinct subjects meaningfully carry demand.",
-  "Favorite Hit Coverage measures how much of the desirable roster appears as hit cards.",
-  "Can be available even when the set has not been simulated.",
-  "Supports Collector Appeal but does not receive its own RIP Score weight.",
-];
-
-const COLLECTOR_APPEAL_INFO_BULLETS = [
-  "Measures how roster desirability is translated through the modeled pull structure.",
-  "One of the two halves of RIP Score, alongside Financial RIP.",
-  "Chase Appeal helps explain the quality of the available chase.",
-  "Dual-Path Depth measures how many desirable subjects have both accessible and elite paths.",
-  "Requires modeled pull-path or simulation data.",
-  "Chase Appeal and Dual-Path Depth are explanatory diagnostics, not separate RIP Score weights.",
-];
-
-const ROSTER_QUALITY_INFO_BULLETS = [
-  "Answers how strong and how deep this set's desirable roster is.",
-  "Chase Subject Strength: how beloved the leading subjects are.",
-  "Chase Subject Depth: how many distinct subjects carry the demand.",
-  "Favorite Hit Coverage: how much of the desirable roster appears as a hit at all.",
-];
-
-const DEMAND_DISTRIBUTION_INFO_BULLETS = [
-  "Answers whether demand is spread across the roster or concentrated in a few subjects.",
-  "Effective Subjects: how many subjects meaningfully carry demand.",
-  "A set resting on one Pokémon scores low here even with a long checklist.",
-  "Top Subject Share: the share held by the single strongest subject.",
-  "Top 3 Share: the share held by the three strongest subjects together.",
-];
-
-const OPENING_PATH_SUMMARY_INFO_BULLETS = [
-  "Dual-Path Depth: how much of the demand collectors care about has both a pullable printing and an elite chase.",
-  "It is a coverage measure, not a 0–100 grade — most sets sit well below 50%.",
-  "Chase Appeal: desirability × elite scarcity, so how strongly the most-wanted subjects concentrate into genuine chase cards.",
-  "Both explain Collector Appeal; neither is added to RIP Score.",
-  "Price is not an input to either.",
-];
-
-// ONE surface per view. Bands inside it, hairlines between.
-//
-// Every metric here used to be its own bordered card, so a reader scanning a tab
-// met six identical boxes and had to infer which ones belonged together. Now
-// each view is a single bordered panel whose internal bands carry the grouping:
-// the reader sees one object with a reading order, not a scatter of tiles. The
-// border count per tab went from six to one.
-function CollectorPanel({ children }) {
-  return (
-    // Below 1200px the panel keeps its DIVIDERS and loses its box: it already
-    // sits inside the (now card-less) Collector Profile section, so its border
-    // and fill were a second surface drawn around content that needed no
-    // second boundary. Desktop keeps the rounded panel exactly.
-    <div
-      data-collector-panel
-      className="min-w-0 divide-y divide-[var(--border-subtle)] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/30 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent"
-    >
-      {children}
-    </div>
-  );
-}
-
-// One band of the panel: a quiet label, then its content. The band label is the
-// only heading in the view — the detail lives in its tooltip, never beneath it.
-function CollectorBand({ title, infoBullets: bullets = null, children }) {
-  return (
-    <section data-collector-band className="min-w-0">
-      {/* The panel's own horizontal inset goes away below desktop along with
-          its border — the page gutter is the inset now — and the band label
-          keeps only the vertical room it needs to separate two groups. */}
-      <header className="flex min-w-0 items-center gap-1.5 px-3 pb-2 pt-3 max-desk:px-0 max-desk:pb-1 max-desk:pt-2.5 sm:px-4">
-        <h4 className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{title}</h4>
-        {bullets ? <InfoPopover text={infoBullets(bullets)} /> : null}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-// The metrics of one band, on a shared baseline. Hairline columns rather than
-// gaps, so the three read as one measurement of one thing.
-function CollectorMetricRow({ columns = 3, children }) {
-  return (
-    <div
-      className={`grid divide-x divide-[var(--border-subtle)] ${
-        columns === 2 ? "grid-cols-2" : "grid-cols-3"
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CollectorMetricCell({ label, value, detail }) {
-  return (
-    <div className="min-w-0 px-3 pb-3.5 pt-0.5 max-desk:px-2.5 max-desk:pb-2.5 sm:px-4">
-      {/* Two lines of room while the labels wrap on a phone, so the values in a
-          band still sit on one line whether or not their label wrapped. */}
-      <p className="min-h-[2.5em] min-w-0 text-[10px] font-medium uppercase leading-tight tracking-[0.06em] text-[var(--text-secondary)] sm:min-h-0">
-        {label}
-      </p>
-      <p className="mt-1.5 text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)] max-desk:mt-1 max-desk:text-base sm:text-xl">
-        {value ?? "—"}
-      </p>
-      {detail ? (
-        <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)] max-desk:mt-1 max-desk:text-[10px]">{detail}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function CollectorProfileMobileRosterPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
-        Pokémon subjects that appear as hits; this product has none.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <section className="space-y-2.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Roster Quality</h3>
-        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
-          <CollectorMetricRow>
-            <CollectorMetricCell label="Chase Strength" value={presentation.components[0]?.scoreLabel} />
-            <CollectorMetricCell label="Chase Depth" value={presentation.components[1]?.scoreLabel} />
-            <CollectorMetricCell label="Hit Coverage" value={presentation.components[2]?.scoreLabel} />
-          </CollectorMetricRow>
-        </div>
-      </section>
-
-      <section className="space-y-2.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Demand Distribution</h3>
-        <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22">
-          <CollectorMetricRow>
-            <CollectorMetricCell
-              label="Effective Subjects"
-              value={presentation.effectiveSubjectCountLabel}
-              detail={
-                presentation.distinctEligibleSubjectCount !== null
-                  ? `of ${presentation.distinctEligibleSubjectCount} eligible`
-                  : null
-              }
-            />
-            <CollectorMetricCell label="Top Subject" value={presentation.top1ShareLabel} />
-            <CollectorMetricCell label="Top 3" value={presentation.top3ShareLabel} />
-          </CollectorMetricRow>
-        </div>
-      </section>
-
-      {presentation.topSubjects.length > 0 ? (
-        <section className="space-y-2.5">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Top Desirability Drivers</h3>
-          <ol className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18">
-            {presentation.topSubjects.slice(0, 3).map((subject, index) => (
-              <SetDesirabilitySubjectRow
-                key={`set-desirability-mobile-subject:${subject.subjectName}`}
-                subject={subject}
-                position={index + 1}
-              />
-            ))}
-          </ol>
-        </section>
-      ) : null}
-
-      <DisclosureSection
-        title="Profile details"
-        description="Definitions and methodology"
-        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
-      >
-        <div className="space-y-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-          <div>
-            <p className="font-semibold text-[var(--text-primary)]">Roster Quality</p>
-            <ul className="mt-1 space-y-1">
-              {ROSTER_QUALITY_INFO_BULLETS.map((bullet) => (
-                <li key={`collector-roster-quality:${bullet}`}>{bullet}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="font-semibold text-[var(--text-primary)]">Demand Distribution</p>
-            <ul className="mt-1 space-y-1">
-              {DEMAND_DISTRIBUTION_INFO_BULLETS.map((bullet) => (
-                <li key={`collector-demand-distribution:${bullet}`}>{bullet}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </DisclosureSection>
-    </div>
-  );
-}
-
-function CollectorProfileMobilePathRow({ title, subjectName, path }) {
-  if (!path) {
-    return null;
-  }
-
-  const headerLabel = path.cardName || subjectName || "—";
-  const subLabel = [subjectName, path.rarity].filter(Boolean).join(" · ") || "—";
-  const contextLine = [path.cardNumber ? `#${path.cardNumber}` : null, path.impliedOddsLabel]
-    .filter(Boolean)
-    .join(" · ");
-
-  return (
-    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/22 px-3 py-3.5">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
-          <p className="mt-1 truncate text-sm font-semibold text-[var(--text-primary)]">{headerLabel}</p>
-          <p className="mt-1 text-[11px] leading-snug text-[var(--text-secondary)]">{subLabel}</p>
-        </div>
-        <p className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]">{path.impliedOddsLabel || "—"}</p>
-      </div>
-      {contextLine ? <p className="mt-2 text-[11px] leading-snug text-[var(--text-secondary)]">{contextLine}</p> : null}
-    </div>
-  );
-}
-
-function CollectorProfileMobileOpeningPathsPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
-        yet. Set Desirability is unaffected — it doesn&apos;t use pull data.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  const accessibleSubject = presentation.topSubjects.find((subject) => subject.accessiblePath) || null;
-  const eliteSubject = presentation.topSubjects.find((subject) => subject.elitePath) || null;
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2.5">
-        <CollectorProfileMobilePathRow
-          title="Access Path"
-          subjectName={accessibleSubject?.subjectName || null}
-          path={accessibleSubject?.accessiblePath || null}
-        />
-        <CollectorProfileMobilePathRow
-          title="Elite Path"
-          subjectName={eliteSubject?.subjectName || null}
-          path={eliteSubject?.elitePath || null}
-        />
-      </div>
-
-      <DisclosureSection
-        title="Path details"
-        description="Supporting diagnostics and additional routes"
-        className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/18 p-3.5"
-      >
-        <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/20">
-            <CollectorMetricRow columns={2}>
-              <CollectorMetricCell
-                label="Dual-Path Depth"
-                value={presentation.dualPathDepth.displayLabel}
-                detail={
-                  [
-                    presentation.dualPathDepth.rankLabel,
-                    presentation.dualPathDepth.subjectsWithMultiplePaths !== null
-                      ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null
-                }
-              />
-              <CollectorMetricCell
-                label="Chase Appeal"
-                value={presentation.chaseAppeal.scoreLabel}
-                detail={presentation.chaseAppeal.rankLabel}
-              />
-            </CollectorMetricRow>
-          </div>
-          {presentation.topSubjects.length > 0 ? (
-            <div className="divide-y divide-[var(--border-subtle)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/12">
-              {presentation.topSubjects.map((subject) => (
-                <OpeningExperienceSubjectRow key={`opening-mobile-subject:${subject.subjectName}`} subject={subject} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </DisclosureSection>
-    </div>
-  );
-}
-
-// One route to a subject. Deliberately BORDERLESS: it sits inside the subject
-// row's own border, and giving it a second one produced a box inside a box
-// inside a card for every path on the page.
-function OpeningExperiencePathCard({ kind, path }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  useEffect(() => {
-    setImageFailed(false);
-  }, [path?.imageUrl]);
-  if (!path) {
-    return null;
-  }
-  const showImage = Boolean(path.imageUrl) && !imageFailed;
-  return (
-    // A fixed measure so the two routes sit beside each other and line up
-    // column-for-column down the list, instead of each claiming half the row
-    // and stranding the elite path a screen away from its subject.
-    <div data-opening-path className="flex min-w-0 items-center gap-2.5 sm:w-[19rem] sm:flex-none lg:w-[21rem]">
-      <div className="h-12 w-9 flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5">
-        {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={path.imageUrl}
-            alt={path.cardName ? `${path.cardName} card image` : "Card image"}
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageFailed(true)}
-            className="h-full w-full rounded-[4px] object-contain"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{kind}</p>
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-          {path.cardName}
-          {path.cardNumber ? <span className="ml-1 font-normal text-[var(--text-secondary)]">#{path.cardNumber}</span> : null}
-        </p>
-        <p className="truncate text-xs text-[var(--text-secondary)]">
-          {[path.rarity, path.impliedOddsLabel].filter(Boolean).join(" · ") || "—"}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// The step from the accessible route to the elite one: rightward where the two
-// sit side by side, downward once they stack. A short hairline leads into the
-// chevron so the connector reads as a drawn relationship, not a stray glyph.
-function OpeningPathStepArrow() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex flex-none items-center justify-center gap-1 self-center py-0.5 text-[var(--text-secondary)] sm:px-1.5 sm:py-0"
-    >
-      <span className="hidden h-px w-3 bg-[var(--border-subtle)] sm:block" />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 sm:hidden">
-        <path d="M10 14.5a.75.75 0 0 1-.53-.22l-4.5-4.5a.75.75 0 1 1 1.06-1.06L10 12.69l3.97-3.97a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-.53.22Z" />
-      </svg>
-      <svg viewBox="0 0 20 20" fill="currentColor" className="hidden h-4 w-4 sm:block">
-        <path d="M14.5 10a.75.75 0 0 1-.22.53l-4.5 4.5a.75.75 0 0 1-1.06-1.06L12.69 10 8.72 6.03a.75.75 0 0 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 .22.53Z" />
-      </svg>
-    </span>
-  );
-}
-
-// One subject, one story: who it is, how much it matters, the realistic route,
-// then the elite route. The name and its demand share sit on one line so the
-// subject anchors both paths, and the paths below carry NO border of their own —
-// the hairline between subjects is the only separator the row needs.
-function OpeningExperienceSubjectRow({ subject }) {
-  const hasBothPaths = Boolean(subject.accessiblePath) && Boolean(subject.elitePath);
-  return (
-    <div data-opening-subject-row className="min-w-0 px-3 py-3.5 max-desk:px-0 max-desk:py-2.5 sm:px-4">
-      <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <p className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.06em] text-[var(--text-primary)] max-desk:text-xs">
-          {subject.subjectName}
-        </p>
-        {subject.demandShare !== null ? (
-          <p className="flex-none text-[11px] tabular-nums text-[var(--text-secondary)] max-desk:text-[10px]">
-            {`${(subject.demandShare * 100).toFixed(0)}% of roster demand`}
-          </p>
-        ) : null}
-      </div>
-      <div className="mt-2.5 flex min-w-0 flex-col gap-2.5 max-desk:mt-1.5 max-desk:gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-        <OpeningExperiencePathCard kind="Accessible Path" path={subject.accessiblePath} />
-        {hasBothPaths ? <OpeningPathStepArrow /> : null}
-        <OpeningExperiencePathCard kind="Elite Chase" path={subject.elitePath} />
-      </div>
-    </div>
-  );
-}
-
-// A ranked row inside the Top Desirability Drivers list. The ordinal makes the
-// ranking explicit instead of leaving it implied by position, and sits in a
-// fixed-width column so the names start on one edge and the scores end on the
-// other — the list scans as a ladder, not as a stack of rows.
-function SetDesirabilitySubjectRow({ subject, position }) {
-  return (
-    <li data-desirability-driver-row className="flex min-w-0 items-baseline gap-3 px-3 py-2.5 max-desk:gap-2 max-desk:px-0 max-desk:py-2 sm:px-4">
-      <span className="w-3.5 flex-none text-right text-[11px] font-semibold tabular-nums text-[color:color-mix(in_srgb,var(--text-secondary)_70%,transparent)]">
-        {position}
-      </span>
-      {/* Stacked while the row is narrow, side by side once there is width —
-          so the printing detail fills the middle of a wide row instead of
-          leaving a gap between the name and the score. */}
-      <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-4">
-        <p className="truncate text-sm font-semibold text-[var(--text-primary)] sm:w-44 sm:flex-none">
-          {subject.subjectName}
-        </p>
-        {subject.representativeCardName ? (
-          <p className="mt-0.5 min-w-0 truncate text-[11px] text-[var(--text-secondary)] sm:mt-0 sm:flex-1">
-            {[subject.representativeCardName, subject.cardCount !== null ? `${subject.cardCount} printings` : null]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        ) : null}
-      </div>
-      {subject.subjectDemandLabel ? (
-        <p className="flex-none text-sm font-semibold tabular-nums text-[var(--text-primary)]">{subject.subjectDemandLabel}</p>
-      ) : null}
-    </li>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// COLLECTOR PROFILE
-//
-// One parent section for the two roster-side scores, in the order the model
-// actually chains them:
-//
-//     Set Desirability  ->  Collector Appeal  ->  10% of RIP Score
-//
-// They used to be two sibling sections, which left the reader to guess whether
-// they were alternatives, duplicates, or inputs to each other. They are none of
-// those: Set Desirability is the roster base CA7 consumes, CA7 is the term the
-// score weights, and Set Desirability itself carries no RIP weight.
-//
-// They are NOT merged mathematically and NOT presented as two settings of one
-// toggle. Each keeps its own score, its own cohort, and — critically — its own
-// availability: Set Desirability needs only a checklist, CA7 needs the modeled
-// pull structure, so the Roster Appeal view still renders when Opening Paths
-// cannot.
-// ---------------------------------------------------------------------------
-
-const COLLECTOR_PROFILE_ROSTER_VIEW = "roster-appeal";
-const COLLECTOR_PROFILE_PATHS_VIEW = "opening-paths";
-// The `?section=` values that used to address the standalone Opening Experience
-// section. They now open the Opening Paths view of the Collector Profile.
-const COLLECTOR_PROFILE_PATHS_SECTIONS = new Set([
-  "opening-experience",
-  "desirability-proof",
-  "desirability-validation",
-  "card-desirability-price",
-]);
-
-function CollectorProfileUnavailable({ children }) {
-  return (
-    <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/40 px-4 py-3 text-sm text-[var(--text-secondary)]">
-      {children}
-    </p>
-  );
-}
-
-function CollectorProfileLoading({ loadingTimedOut }) {
-  return (
-    <div aria-busy={!loadingTimedOut}>
-      {loadingTimedOut ? (
-        <CollectorProfileUnavailable>
-          Set insights are taking longer than expected to load. Refresh the page to retry.
-        </CollectorProfileUnavailable>
-      ) : (
-        <InlinePanelSkeleton rows={3} />
-      )}
-    </div>
-  );
-}
-
-// CollectorProfileStage and CollectorProfileArrow were removed with the
-// Set Desirability -> Collector Appeal -> RIP Score Contribution flow they
-// drew. The three Collector Appeal factors are parallel, not sequential.
-
-function CollectorRosterAppealPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      <CollectorProfileUnavailable>
-        Set Desirability isn&apos;t available for this set. It needs a canonical checklist with
-        Pokémon subjects that appear as hits; this product has none.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  // Three bands of ONE panel, in the order the questions arrive: how strong the
-  // roster is, how its demand is spread, and who specifically carries it — so
-  // the drivers read as the conclusion of the roster story rather than a table
-  // appended underneath. The headline score is NOT repeated here; it is the
-  // first stage of the summary chain above.
-  return (
-    <CollectorPanel>
-      <CollectorBand title="Roster Quality" infoBullets={ROSTER_QUALITY_INFO_BULLETS}>
-        <CollectorMetricRow>
-          {presentation.components.map((component) => (
-            <CollectorMetricCell
-              key={`set-desirability:${component.key}`}
-              label={component.label}
-              value={component.scoreLabel}
-            />
-          ))}
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      <CollectorBand title="Demand Distribution" infoBullets={DEMAND_DISTRIBUTION_INFO_BULLETS}>
-        <CollectorMetricRow>
-          <CollectorMetricCell
-            label="Effective Subjects"
-            value={presentation.effectiveSubjectCountLabel}
-            detail={
-              presentation.distinctEligibleSubjectCount !== null
-                ? `of ${presentation.distinctEligibleSubjectCount} eligible`
-                : null
-            }
-          />
-          <CollectorMetricCell label="Top Subject Share" value={presentation.top1ShareLabel} />
-          <CollectorMetricCell label="Top 3 Share" value={presentation.top3ShareLabel} />
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      {presentation.topSubjects.length > 0 ? (
-        <CollectorBand title="Top Desirability Drivers">
-          <ol className="divide-y divide-[var(--border-subtle)]">
-            {presentation.topSubjects.map((subject, index) => (
-              <SetDesirabilitySubjectRow
-                key={`set-desirability-subject:${subject.subjectName}`}
-                subject={subject}
-                position={index + 1}
-              />
-            ))}
-          </ol>
-        </CollectorBand>
-      ) : null}
-    </CollectorPanel>
-  );
-}
-
-function CollectorOpeningPathsPanel({ presentation, loading, loadingTimedOut }) {
-  if (!presentation.available) {
-    return loading ? (
-      <CollectorProfileLoading loadingTimedOut={loadingTimedOut} />
-    ) : (
-      // Scoped to the pull model ONLY. It must never read as a statement about
-      // Set Desirability, which is computed from the checklist and stays
-      // available in the Roster Appeal view beside it.
-      <CollectorProfileUnavailable>
-        Collector Appeal needs this set&apos;s modeled pull structure, which isn&apos;t available
-        yet. Set Desirability is unaffected — it doesn&apos;t use pull data.
-      </CollectorProfileUnavailable>
-    );
-  }
-
-  // Two bands of ONE panel: the shape of the modeled opening overall, then the
-  // specific subjects that shape is made of. Collector Appeal's own score and
-  // its three canonical factors are presented once, under RIP Score; this view
-  // is the pull-model evidence behind them, not a second scorecard.
-  return (
-    <CollectorPanel>
-      <CollectorBand title="Opening Structure" infoBullets={OPENING_PATH_SUMMARY_INFO_BULLETS}>
-        <CollectorMetricRow columns={2}>
-          <CollectorMetricCell
-            label="Dual-Path Depth"
-            value={presentation.dualPathDepth.displayLabel}
-            detail={
-              [
-                presentation.dualPathDepth.rankLabel,
-                presentation.dualPathDepth.subjectsWithMultiplePaths !== null
-                  ? `${presentation.dualPathDepth.subjectsWithMultiplePaths} subjects with multiple paths`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ") || null
-            }
-          />
-          <CollectorMetricCell
-            label="Chase Appeal"
-            value={presentation.chaseAppeal.scoreLabel}
-            detail={presentation.chaseAppeal.rankLabel}
-          />
-        </CollectorMetricRow>
-      </CollectorBand>
-
-      {presentation.topSubjects.length > 0 ? (
-        <CollectorBand title="Pull paths for top subjects">
-          <div className="divide-y divide-[var(--border-subtle)]">
-            {presentation.topSubjects.map((subject) => (
-              <OpeningExperienceSubjectRow key={`opening-subject:${subject.subjectName}`} subject={subject} />
-            ))}
-          </div>
-        </CollectorBand>
-      ) : null}
-    </CollectorPanel>
-  );
-}
-
-function CollectorProfileSection({
-  universalSetDesirability,
-  openingExperience,
-  loading = false,
-  loadingTimedOut = false,
-  requestedView = null,
-}) {
-  const [activeView, setActiveView] = useState(COLLECTOR_PROFILE_ROSTER_VIEW);
-  const isDesktopCollectorProfile = useMediaQuery("(min-width: 1200px)", true);
-  // A deep link that used to target the standalone Opening Experience section
-  // (?section=opening-experience and its aliases) must still land on that
-  // material, so the requested view wins over the local default until the user
-  // picks a view themselves.
-  useEffect(() => {
-    if (requestedView === COLLECTOR_PROFILE_PATHS_VIEW || requestedView === COLLECTOR_PROFILE_ROSTER_VIEW) {
-      setActiveView(requestedView);
-    }
-  }, [requestedView]);
-  const desirability = useMemo(
-    () => selectSetDesirabilityPresentation(universalSetDesirability),
-    [universalSetDesirability]
-  );
-  const opening = useMemo(() => selectOpeningExperiencePresentation(openingExperience), [openingExperience]);
-  const collectorAppeal = opening.collectorAppeal;
-
-  return (
-    <section id="set-detail-collector-profile" className="scroll-mt-24 md:scroll-mt-28">
-      {/* Every anchor either section used before still resolves, so existing
-          deep links keep landing on real content after the merge. */}
-      <span id="set-detail-set-desirability" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-evidence" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-proof" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-desirability-validation" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      <span id="set-detail-card-desirability-price" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-      {/* Shell cleanup only. Below 1200px the outer context card is gone and
-          the section joins the continuous mobile feed; the flow strip, the
-          Roster Appeal / Opening Paths tabs and every panel inside are
-          untouched at every width. Desktop keeps the card exactly as it was. */}
-      <SectionCard
-        eyebrow="02 · Collector Profile"
-        tone="plain"
-        title="Collector Profile"
-        titleInfoText={infoBullets(COLLECTOR_PROFILE_INFO_BULLETS)}
-        // The 16px rhythm between the flow, the view control and the active
-        // panel is desktop's; below 1200px those three sit on a page that has
-        // no card around them, so 10px is enough to separate them.
-        bodyClassName="space-y-4 max-desk:space-y-2.5"
-        mobileFlush
-      >
-        {/* The three-stage arrow flow stood here:
-                Set Desirability -> Collector Appeal -> RIP Score Contribution
-            It was removed, not reworded. It claimed Roster Desirability is a
-            first stage FEEDING Collector Appeal, when the two are parallel
-            factors of one weighted combination; and its final stage published a
-            composition weight and a contribution in model points, both of which
-            are internal to the model. Collector Appeal is presented once, in
-            the canonical CollectorAppealBreakdown under RIP Score. What remains
-            in this section is the Roster Appeal / Opening Paths evidence, which
-            has no equivalent elsewhere. */}
-        <SectionViewTabs
-          value={activeView}
-          onChange={setActiveView}
-          variant="secondary"
-          ariaLabel="Collector Profile view"
-          equalWidth
-          mobileFullWidth
-          options={[
-            { value: COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal" },
-            { value: COLLECTOR_PROFILE_PATHS_VIEW, label: "Opening Paths" },
-          ]}
-        />
-
-        {/* The Opening Paths anchor is rendered unconditionally so a deep link
-            to it always resolves; `requestedView` above is what actually
-            switches the view it points at. */}
-        <span id="set-detail-opening-experience" className="block scroll-mt-24 md:scroll-mt-28" aria-hidden="true" />
-
-        {activeView === COLLECTOR_PROFILE_ROSTER_VIEW ? (
-          isDesktopCollectorProfile ? (
-            <CollectorRosterAppealPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
-          ) : (
-            <CollectorProfileMobileRosterPanel presentation={desirability} loading={loading} loadingTimedOut={loadingTimedOut} />
-          )
-        ) : isDesktopCollectorProfile ? (
-          <CollectorOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
-        ) : (
-          <CollectorProfileMobileOpeningPathsPanel presentation={opening} loading={loading} loadingTimedOut={loadingTimedOut} />
-        )}
-      </SectionCard>
-    </section>
-  );
-}
 
 const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w-[4.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 // ~half-height card art for the Simulation Results → Simulation Drivers panel,
@@ -8263,7 +7653,10 @@ function SetPageNavigationRail({
         ]
       : [
           { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
-          { id: "opening-experience", label: "Collector Profile", tab: "insights", section: "opening-experience", targetId: "set-detail-collector-profile", active: false },
+          // The "Collector Profile" entry pointed at a section that no longer
+          // exists. It is renamed to what actually renders, and points at the
+          // canonical block rather than at a legacy anchor.
+          { id: "collector-appeal", label: "Collector Appeal", tab: "insights", section: "collector-appeal", targetId: COLLECTOR_APPEAL_SECTION_ID, active: false },
           { id: "simulation-results", label: "Simulation Results", tab: "insights", section: "simulation-results", graphMode: "outcome-distribution", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "outcome-distribution" },
           { id: "opening-performance-cost", label: "Opening Profit vs Cost", tab: "insights", section: "opening-performance-cost", graphMode: "historical-trend", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "historical-trend" },
           { id: "simulation-cards", label: "Simulation Drivers", tab: "insights", section: "simulation-cards", graphMode: "simulation-drivers", targetId: ANALYSIS_SECTION_ID, active: activeGraphMode === "simulation-drivers" },
@@ -10238,13 +9631,10 @@ export default function RipStatisticsPageClient({
       summary?.universalSetDesirability,
     ]
   );
-  // The canonical CA7 contract, resolved with the same payload -> target
-  // precedence as `rip` so the Collector Profile and the RIP Score composition
-  // can never read two different CA7 objects.
-  const canonicalOpeningExperience = useMemo(
-    () => explorePayload?.openingExperience || selectedTarget?.openingExperience || null,
-    [explorePayload?.openingExperience, selectedTarget?.openingExperience]
-  );
+  // `canonicalOpeningExperience` was resolved here for the removed public
+  // Collector Profile, the only surface that read it. Collector Appeal is now
+  // presented solely from the canonical V7 bundle, so the CA7 service payload
+  // has no frontend consumer on this page and is not resolved.
   const desirabilitySummary = getDesirabilitySummary(summary);
   const topDesirabilityCards = getTopCollectorAppealDrivers(
     explorePayload,
@@ -11716,8 +11106,11 @@ export default function RipStatisticsPageClient({
   // Stated as the two-level model the backend actually computes. The old copy
   // listed the three pillars and desirability in one flat sentence, which
   // invited the 60+25+15+10 = 110% reading; these are not four peers.
-  // Neutral and factual: what the two halves MEASURE, with no weights, no
-  // formula and no contribution arithmetic. The previous copy stated an 80/20
+  // Neutral and factual: what the two canonical inputs MEASURE, with no
+  // weights, no formula and no contribution arithmetic. They are NOT halves —
+  // the canonical blend is 0.90 Financial RIP + 0.10 Collector Appeal, and
+  // "halves" both misstated that and invited an even-split reading.
+  // The previous copy stated an 80/20
   // split (the canonical model is not 80/20) and then expanded it into
   // Profit/Safety/Stability percentages, which are Financial RIP V2's pillars.
   const ripBreakdownInfo =
@@ -11738,11 +11131,11 @@ export default function RipStatisticsPageClient({
   // the term carried a weight label and a contribution in model points. The
   // canonical presentation is FinancialRipV3Breakdown plus
   // CollectorAppealBreakdown, which read the V7 contract directly.
-  // Deep links that used to open the standalone Opening Experience section now
-  // select the Opening Paths view inside the Collector Profile.
-  const requestedCollectorProfileView = COLLECTOR_PROFILE_PATHS_SECTIONS.has(activeSection)
-    ? COLLECTOR_PROFILE_PATHS_VIEW
-    : null;
+  // `requestedCollectorProfileView` selected the Roster Appeal / Opening Paths
+  // view of the removed Collector Profile from a legacy `?section=`. There is no
+  // view to select any more: those sections are now plain scroll aliases onto
+  // the canonical Collector Appeal block (SET_DETAIL_SECTION_TARGETS), so no
+  // local state is derived from them.
   // `overviewPillarSignals` and `overviewDecisionTrackedSignals` were built
   // here to feed the Overview Decision Signals card. That card is gone (it
   // scored Profit, Safety, Stability, Opening Experience and Chase Potential),
@@ -13627,11 +13020,37 @@ export default function RipStatisticsPageClient({
                       </SectionErrorBoundary>
                     </div>
 
+                    {/* The compact canonical answer to "how does this set
+                        score", in the position the retired Decision Signals
+                        card used to hold: after the movers strip, before the
+                        charts it introduces. It reads the page's ONE resolved
+                        canonical bundle, so Overview and Insights can never
+                        show different numbers for the same set. It is one
+                        grouped surface rather than three cards, so it does not
+                        take the viewport the way Decision Signals did. */}
+                    {/* First ordinary section under the set-level 7D Movers
+                        ticker, so it takes the quiet 1px divider variant. That
+                        variant moved here from Set Value Trend, which is no
+                        longer the module directly under the ticker; Set Value
+                        now takes the ordinary luminous divider like every other
+                        later analytical section. */}
+                    <div data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0">
+                      <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
+                        <OverviewRipSummary
+                          canonical={canonicalRip}
+                          onViewAnalysis={() =>
+                            handleSetDetailNavSelect({
+                              tab: "insights",
+                              section: "rip-score",
+                              targetId: "set-detail-rip-score",
+                            })
+                          }
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
                     <div id="set-detail-overview-performance" className="scroll-mt-24 grid gap-5 lg:grid-cols-2 lg:items-stretch md:scroll-mt-28">
-                      {/* First ordinary analytical section after the set-level
-                          7D Movers ticker, so it takes the quiet 1px rule
-                          rather than the luminous divider. */}
-                      <div id="set-detail-set-value-trend" data-mobile-section data-mobile-section-variant="after-movers" className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
+                      <div id="set-detail-set-value-trend" data-mobile-section className="min-w-0 scroll-mt-24 lg:h-full md:scroll-mt-28">
                         {/* Priority 2: Set Value. SetValueTrendCard already
                             self-renders loading/error from status/error, so
                             it only needs render-exception isolation here. */}
@@ -14410,23 +13829,11 @@ export default function RipStatisticsPageClient({
                 </SectionErrorBoundary>
                 </div>
 
-                {/* Priority 2: the Collector Profile — Set Desirability and
-                    Collector Appeal in one section, in the order the model
-                    chains them. The two still fail independently: Roster Appeal
-                    reads `universalSetDesirability` only (no simulation, no pull
-                    model, no CA7), so it renders for every adequately covered
-                    set even when Opening Paths cannot. */}
-                <div data-mobile-section>
-                <SectionErrorBoundary sectionName="insights-collector-profile" resetKeys={[resolvedSetResourceId]} title="Collector Profile" minHeightClassName="min-h-[14rem]">
-                  <CollectorProfileSection
-                    universalSetDesirability={canonicalUniversalSetDesirability}
-                    openingExperience={canonicalOpeningExperience}
-                    requestedView={requestedCollectorProfileView}
-                    loading={insightsSectionsBlocked}
-                    loadingTimedOut={insightsSectionsShowFallbackCopy}
-                  />
-                </SectionErrorBoundary>
-                </div>
+                {/* The public Collector Profile section stood here. It is
+                    removed, not relocated: Collector Appeal is presented once,
+                    by CollectorAppealBreakdown inside the RIP Score section
+                    above, and no empty wrapper or placeholder card is left
+                    behind in its place. Its deep links resolve to that block. */}
 
                 {/* Priority 4: the Simulation Results deep-dive (formerly
                     "Opening Outcomes"). Already internally gated on the

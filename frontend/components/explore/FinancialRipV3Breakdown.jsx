@@ -20,8 +20,10 @@
 // persisted on the backend for audit and rollback; it is simply not a public
 // presentation any more. No version number appears in user-facing copy.
 
-import { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 
+import RipMetricDisclosureRow from "./RipMetricDisclosureRow.jsx";
+import useRipDisclosureSection from "./useRipDisclosureSection.js";
 import {
   resolveCanonicalFinancialRip,
   selectDepthAndRobustness,
@@ -40,83 +42,88 @@ function MetricRow({ label, value }) {
   );
 }
 
-function V3ComponentCard({ row }) {
-  return (
-    <article
-      data-v3-component={row.key}
-      className="set-glass-surface min-w-0 rounded-xl border p-3.5 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:bg-transparent max-desk:px-0 max-desk:shadow-none max-desk:[backdrop-filter:none]"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{row.title}</h4>
-        <p className="flex-none items-end text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-          {row.scoreLabel}
-          <span className="pl-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
-        </p>
-      </div>
-
-      {row.rankValue !== null && row.rankValue !== undefined ? (
-        <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">
-          Rank #{row.rankValue}
-          {row.cohortSize ? ` of ${row.cohortSize}` : ""}
-          {row.rankTier ? ` · Tier ${row.rankTier}` : ""}
-        </p>
-      ) : (
-        <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">{row.rankDiagnostic}</p>
-      )}
-
-      <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{row.interpretation}</p>
-
-      <dl className="mt-2.5 space-y-1.5 border-t border-[var(--border-subtle)] pt-2.5">
-        {row.metrics.map((metric) => (
-          <MetricRow key={metric.label} label={metric.label} value={metric.value} />
-        ))}
-      </dl>
-    </article>
-  );
+/**
+ * The rank/tier line, pre-formatted from BACKEND fields only. When the backend
+ * ranked this component the line states the rank, its cohort and the tier; when
+ * it did not, the backend's own diagnostic is printed instead of a blank.
+ */
+function formatComponentMeta(row) {
+  if (row.rankValue === null || row.rankValue === undefined) {
+    return row.rankDiagnostic || null;
+  }
+  return [
+    `Rank #${row.rankValue}`,
+    row.cohortSize ? ` of ${row.cohortSize}` : "",
+    row.rankTier ? ` · Tier ${row.rankTier}` : "",
+  ].join("");
 }
 
+// DEPTH AND ROBUSTNESS — CONTEXT, NEVER A SEVENTH COMPONENT.
+//
+// It sits BELOW the six scored rows, behind its own collapsed disclosure, and
+// says in the UI (not only in this comment) that it is not part of the score.
+// It deliberately does not use RipMetricDisclosureRow: that component renders a
+// scored metric row, and borrowing it here would put this panel in the same
+// visual class as the six things that ARE scored. Its supporting values are
+// unchanged.
 function DepthAndRobustnessPanel({ diagnostic }) {
-  if (!diagnostic.available) {
-    return (
-      <section
-        data-depth-and-robustness
-        className="mt-4 min-w-0 rounded-xl border border-dashed border-[var(--border-subtle)] p-3.5"
-      >
-        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          Depth and Robustness
-        </h3>
-        <p className="mt-1.5 text-xs text-[var(--text-secondary)]">
-          {diagnostic.statusReason || "Not available for this set yet."}
-        </p>
-      </section>
-    );
-  }
+  const [isOpen, setIsOpen] = useState(false);
+  const panelId = "financial-rip-depth-and-robustness-panel";
+  const buttonId = "financial-rip-depth-and-robustness-control";
 
   return (
     <section
       data-depth-and-robustness
-      className="mt-4 min-w-0 rounded-xl border border-[var(--border-subtle)] p-3.5"
+      data-depth-and-robustness-context-only="true"
+      className="mt-3 min-w-0 border-t border-[var(--border-subtle)] pt-2.5"
     >
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          Depth and Robustness
-        </h3>
-        {/* Said in the UI, not only in the code: this panel is a diagnostic, so
-            a reader does not count it as a seventh scored component. */}
-        <p className="text-[11px] text-[var(--text-secondary)]">
-          Context only — not part of the Financial RIP score
-        </p>
-      </div>
-      {diagnostic.concentrationLabel ? (
-        <p className="mt-1.5 text-sm font-semibold text-[var(--text-primary)]">
-          {diagnostic.concentrationLabel}
-        </p>
+      <button
+        type="button"
+        id={buttonId}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={() => setIsOpen((previous) => !previous)}
+        className="flex w-full min-w-0 items-baseline justify-between gap-3 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      >
+        <span className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          Depth and robustness
+        </span>
+        <span className="flex-none text-[11px] font-medium text-[var(--text-secondary)]">
+          {isOpen ? "Hide" : "Show"}
+          <span aria-hidden="true" className="pl-1 text-[9px] leading-none">
+            {isOpen ? "▲" : "▼"}
+          </span>
+        </span>
+      </button>
+
+      {/* Stated where a reader sees it before opening the panel, so nobody
+          counts these values as a seventh scored component. */}
+      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+        Additional context — not part of the Financial RIP score.
+      </p>
+
+      {isOpen ? (
+        <div id={panelId} role="region" aria-labelledby={buttonId} className="mt-2.5 min-w-0">
+          {diagnostic.available ? (
+            <>
+              {diagnostic.concentrationLabel ? (
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  {diagnostic.concentrationLabel}
+                </p>
+              ) : null}
+              <dl className="mt-2 grid gap-x-6 gap-y-1.5 desk:grid-cols-2">
+                {diagnostic.rows.map((row) => (
+                  <MetricRow key={row.key} label={row.label} value={row.value} />
+                ))}
+              </dl>
+            </>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)]">
+              {diagnostic.statusReason || "Not available for this set yet."}
+            </p>
+          )}
+        </div>
       ) : null}
-      <dl className="mt-2.5 grid gap-x-6 gap-y-1.5 desk:grid-cols-2">
-        {diagnostic.rows.map((row) => (
-          <MetricRow key={row.key} label={row.label} value={row.value} />
-        ))}
-      </dl>
     </section>
   );
 }
@@ -134,6 +141,9 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
     [financialRip, requestTimeout]
   );
   const depth = useMemo(() => selectDepthAndRobustness(financialRip), [financialRip]);
+  // Financial RIP's own accordion state. Collector Appeal calls the hook
+  // separately, so expanding a factor there never collapses a component here.
+  const disclosure = useRipDisclosureSection();
 
   return (
     <section data-financial-rip-breakdown="v3" className="min-w-0">
@@ -146,9 +156,24 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
 
       {v3.diagnostics.status === "ready" ? (
         <>
-          <div className="mt-3 grid min-w-0 gap-3 desk:grid-cols-2 xl:grid-cols-3">
+          {/* SIX SCANNABLE ROWS, not six open reports. Every supporting metric
+              the backend publishes is still here, one disclosure away; none was
+              dropped to make the default view shorter. */}
+          <div data-financial-rip-rows className="mt-2 min-w-0">
             {v3.rows.map((row) => (
-              <V3ComponentCard key={row.key} row={row} />
+              <RipMetricDisclosureRow
+                key={row.key}
+                rowKey={row.key}
+                dataAttribute="data-v3-component"
+                title={row.title}
+                value={row.scoreLabel}
+                valueSuffix="/100"
+                meta={formatComponentMeta(row)}
+                interpretation={row.interpretation}
+                metrics={row.metrics}
+                isOpen={disclosure.openKeys.includes(row.key)}
+                onToggle={disclosure.toggle}
+              />
             ))}
           </div>
           <DepthAndRobustnessPanel diagnostic={depth} />

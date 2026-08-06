@@ -327,3 +327,59 @@ test("sort contract is rank -> relative -> absolute -> name", () => {
   assert.ok(absoluteIndex > relativeIndex, "absolute comparison must follow relative");
   assert.ok(nameIndex > absoluteIndex, "name tie-break must be last");
 });
+
+/* ------------------------------------------- no interpretation-engine leak --- */
+
+// The rendered absence of the verdict badge is asserted behaviourally in
+// SetIdentity.test.jsx, which renders the component that used to draw it. What
+// can only be checked here is the other half of the contract: that this table
+// no longer READS the retired engine's fields at all, so no future edit can
+// re-plumb them into a cell. A source check is the right instrument for
+// "this module does not reference these fields"; it is not standing in for a
+// behaviour that could have been rendered.
+
+test("the leaderboard reads no interpretation-engine field", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+
+  for (const field of [
+    "leaderboard_label",
+    "canonical_recommendation_header",
+    "recommendation_severity",
+    "interpretationLabel",
+    "interpretationSummary",
+    "decisionLabel",
+  ]) {
+    // Comments documenting the removal are allowed; code that reads the field
+    // is not. Strip comment lines before matching.
+    const code = source
+      .split(/\r?\n/)
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .join("\n");
+    assert.ok(
+      !code.includes(field),
+      `${field} is retired interpretation-engine output and must not be read here`
+    );
+  }
+});
+
+test("identity, tier, rank, scores and navigation all survive the badge removal", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+
+  assert.ok(source.includes("<SetIdentity variant=\"compact\" target={target} />"), "identity still renders");
+  assert.ok(source.includes("<RankBadge rank={tier}"), "tier still renders");
+  assert.ok(source.includes("<RankMarker rank={modeRank}"), "rank still renders");
+  assert.ok(source.includes('<ScoreCell target={target} modeId="overall" />'), "RIP Score still renders");
+  assert.ok(source.includes('<ScoreCell target={target} modeId="financial" />'), "Financial RIP still renders");
+  assert.ok(source.includes("href={buildRipLink(target)}"), "row navigation still renders");
+  assert.ok(source.includes("getRipMovementForMode"), "rank movement still renders");
+});
+
+test("no interpretation severity tone is applied to a row", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+
+  assert.ok(!source.includes("getInterpretationTone"), "severity tone helper must not be used");
+  assert.ok(!source.includes("getInterpretationBadgeStyle"), "badge styling must not be used");
+  // getTierTone is a DIFFERENT thing and stays: it colours the lead-row edge
+  // from the backend tier, which is canonical, not an interpretation verdict.
+  assert.ok(source.includes("getTierTone"), "tier tone is canonical and must survive");
+});

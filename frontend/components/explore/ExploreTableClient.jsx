@@ -154,31 +154,14 @@ function buildRipLink(target) {
   return buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" });
 }
 
-function getLeaderboardRecommendationLabel(target) {
-  return (
-    target?.leaderboard_label ||
-    shortenCanonicalLabel(target?.canonical_recommendation_header) ||
-    null
-  );
-}
-
-function getExploreRankingBadgeLabel(label) {
-  return String(label || "").replace(/\s+PROFILE$/i, "").trim();
-}
-
-function shortenCanonicalLabel(value) {
-  const text = String(value || "").trim();
-  if (!text) {
-    return null;
-  }
-  for (const separator of [",", " - ", " — "]) {
-    if (text.includes(separator)) {
-      const [head] = text.split(separator, 1);
-      return head.trim() || text;
-    }
-  }
-  return text;
-}
+// NO INTERPRETATION BADGE. The leaderboard row used to carry a verdict pill
+// derived from `leaderboard_label` / `canonical_recommendation_header`, toned by
+// `recommendation_severity`. Those three fields are output of the retired
+// Profit/Safety/Stability interpretation engine, which scores neither Financial
+// RIP V3 nor Collector Appeal V3, so the pill was current-looking copy about a
+// superseded model. It is removed rather than replaced: the row already states
+// tier, rank, RIP Score and Financial RIP, and inventing replacement advice here
+// would be a second, unscored opinion.
 
 /**
  * Read the authoritative absolute / relative / rank / cohort quartet for one
@@ -583,8 +566,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 {sortedTargets.map((target, index) => {
                   const averageLoss = estimateAverageLoss(target);
                   const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-                  const recommendationLabel = getLeaderboardRecommendationLabel(target);
-                  const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
                   const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
@@ -601,13 +582,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
-                          <SetIdentity
-                            variant="compact"
-                            target={target}
-                            interpretationLabel={displayRecommendationLabel}
-                            tier={tier}
-                            recommendationSeverity={target?.recommendation_severity || null}
-                          />
+                          <SetIdentity variant="compact" target={target} />
                         </Link>
                       </td>
                       <td>
@@ -648,8 +623,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const recommendationLabel = getLeaderboardRecommendationLabel(target);
-              const displayRecommendationLabel = getExploreRankingBadgeLabel(recommendationLabel);
               const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
               const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
@@ -667,13 +640,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <SetIdentity
-                        variant="compact"
-                        target={target}
-                        interpretationLabel={displayRecommendationLabel}
-                        tier={tier}
-                        recommendationSeverity={target?.recommendation_severity || null}
-                      />
+                      <SetIdentity variant="compact" target={target} />
                     </div>
                     <RankBadge rank={tier} title={tierLabel} format="tier" />
                   </div>

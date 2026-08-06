@@ -1650,118 +1650,157 @@ test("cards proxy route returns controlled timeout errors", () => {
 
 
 
-test("Set Desirability and Collector Appeal share one section but keep separate availability", () => {
-  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+// ===========================================================================
+// THE PUBLIC COLLECTOR PROFILE IS GONE; COLLECTOR APPEAL IS THE SURVIVOR
+//
+// These replace "Set Desirability and Collector Appeal share one section but
+// keep separate availability" and "old desirability deep links resolve to the
+// Opening Experience section". Both described the removed section. The still
+// valid requirements they carried — that Collector Appeal is presented ONCE,
+// and that every legacy deep link lands on real surviving content — are kept
+// below, retargeted at the canonical block.
+// ===========================================================================
 
-  // They are one section now — the Collector Profile — because the reader
-  // needs to see that they CHAIN (roster demand -> modeled opening paths ->
-  // the 10% term) rather than compete. What must not change is that they are
-  // still two scores with two cohorts and two independent availabilities.
-  assert.ok(source.includes("function CollectorProfileSection"));
-  assert.ok(source.includes('eyebrow="02 · Collector Profile"'));
+test("the public Collector Profile does not render", () => {
+  const raw = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+  // Comment lines are stripped first. The page keeps a note recording WHAT was
+  // removed and why, and that note necessarily names the removed identifiers;
+  // matching against it would make the documentation fail the test it
+  // documents. Code is what must be clean.
+  const source = raw
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
 
-  // Roster Appeal renders from `universalSetDesirability` alone, so it does
-  // not disappear when the pull model is missing.
-  assert.ok(source.includes("function CollectorRosterAppealPanel"));
-  assert.ok(source.includes("selectSetDesirabilityPresentation"));
-  assert.ok(source.includes("universalSetDesirability={canonicalUniversalSetDesirability}"));
-  assert.ok(source.includes('label="Effective Subjects"'));
-  assert.ok(source.includes('label="Top Subject Share"'));
-  assert.ok(source.includes('label="Top 3 Share"'));
-  assert.ok(source.includes("Top Desirability Drivers"));
-
-  // Opening Paths is the CA7 view, scoped to the simulation.
-  assert.ok(source.includes("function CollectorOpeningPathsPanel"));
-  assert.ok(source.includes("selectOpeningExperiencePresentation"));
-  assert.ok(source.includes('label="Dual-Path Depth"'));
-  assert.ok(source.includes('label="Chase Appeal"'));
-  assert.ok(source.includes('kind="Accessible Path"'));
-  assert.ok(source.includes('kind="Elite Chase"'));
-
-  // The two views are labelled and selectable; neither is presented as an
-  // alternative measurement of the other.
-  assert.ok(source.includes('label: "Roster Appeal"'));
-  assert.ok(source.includes('label: "Opening Paths"'));
-
-  // Each panel is driven by its OWN presentation object, so one being
-  // unavailable cannot blank the other.
-  assert.ok(source.includes("<CollectorRosterAppealPanel presentation={desirability}"));
-  assert.ok(source.includes("<CollectorOpeningPathsPanel presentation={opening}"));
-  assert.ok(
-    source.includes("const available = score !== null && coverage.status === \"full\";") ||
-      fs
-        .readFileSync(
-          path.resolve(__dirname, "../pokemon/set-page/Insights/openingExperienceSelector.mjs"),
-          "utf8"
-        )
-        .includes("const available = score !== null && coverage.status === \"full\";"),
-    "Set Desirability availability must not consult CA7"
-  );
-
-  // Its unavailable copy must be about the SIMULATION, and must say so without
-  // implying desirability is affected.
-  assert.ok(source.includes("Collector Appeal needs this set&apos;s modeled pull structure"));
-  assert.ok(source.includes("Set Desirability is unaffected"));
-  assert.ok(
-    !source.includes("It appears once the set has full"),
-    "the old copy gated desirability on a pull model"
-  );
-
-  // Set Desirability is supporting context, not a weight of its own. The short
-  // note that said so lived on the retired flow's first stage; the statement
-  // survives in full in its information tooltip.
-  assert.ok(source.includes("Supports Collector Appeal but does not receive its own RIP Score weight."));
-
-  // Every anchor either section used before still resolves after the merge.
-  for (const anchor of [
-    'id="set-detail-collector-profile"',
-    'id="set-detail-set-desirability"',
-    'id="set-detail-opening-experience"',
-    'id="set-detail-desirability-proof"',
-    'id="set-detail-desirability-validation"',
-    'id="set-detail-card-desirability-price"',
+  // Neither the section, nor its render site, nor any panel it exclusively
+  // owned may survive anywhere in the page.
+  for (const marker of [
+    "function CollectorProfileSection",
+    "<CollectorProfileSection",
+    "function CollectorRosterAppealPanel",
+    "function CollectorOpeningPathsPanel",
+    "function CollectorProfileMobileRosterPanel",
+    "function CollectorProfileMobileOpeningPathsPanel",
+    "function CollectorProfileLoading",
+    "function CollectorProfileUnavailable",
+    "function OpeningPathStepArrow",
+    "function CollectorPanel",
+    "function CollectorBand",
+    'eyebrow="02 · Collector Profile"',
+    'sectionName="insights-collector-profile"',
+    "COLLECTOR_PROFILE_PATHS_SECTIONS",
+    "requestedCollectorProfileView",
+    "COLLECTOR_PROFILE_INFO_BULLETS",
+    "ROSTER_QUALITY_INFO_BULLETS",
+    "OPENING_PATH_SUMMARY_INFO_BULLETS",
   ]) {
-    assert.ok(source.includes(anchor), `${anchor} must still exist for deep links`);
+    assert.ok(!source.includes(marker), `${marker} belongs to the removed Collector Profile`);
   }
-  // A deep link to the old CA7 section opens the Opening Paths view.
-  assert.ok(source.includes("COLLECTOR_PROFILE_PATHS_SECTIONS.has(activeSection)"));
-  assert.ok(source.includes("requestedView={requestedCollectorProfileView}"));
 
-  // Roster Desirability no longer lives inside the CA7 section.
-  assert.ok(!source.includes('label="Roster Desirability"'));
-  assert.ok(!source.includes("Price is not an input to Roster Desirability or Collector Appeal."));
-
-  // The retired section, its toggles, and its charts are gone.
-  assert.ok(!source.includes("function DesirabilityEvidenceCard"));
-  assert.ok(!source.includes('title="Desirability Evidence"'));
-  assert.ok(!source.includes('label: "Set Validation"'));
-  assert.ok(!source.includes('label: "Card Validation"'));
-  assert.ok(!source.includes("Does the market agree"));
-  assert.ok(!source.includes("confirms read"));
-  assert.ok(!source.includes("conflicts with read"));
-  assert.ok(!source.includes("function DesirabilityValidationContent"));
-  assert.ok(!source.includes("function CardDesirabilityMarketValidationContent"));
-  assert.ok(!source.includes("function DesirabilityAgreementContent"));
-  assert.ok(!source.includes('from "./desirabilityAlignment.mjs"'));
+  // And it left no empty shell behind: no error boundary, no wrapper, no
+  // placeholder card standing where the section used to be.
+  assert.ok(!source.includes('title="Collector Profile"'));
+  assert.ok(!/<SectionErrorBoundary[^>]*collector-profile/.test(source));
 });
 
-test("old desirability deep links resolve to the Opening Experience section", () => {
+test("Collector Appeal renders exactly once, inside the RIP Score section", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
 
-  for (const alias of ['"desirability-proof"', '"desirability-validation"', '"card-desirability-price"', '"opening-experience"']) {
-    const aliasIndex = source.indexOf(`  ${alias}: { tab: "insights", targetId: "set-detail-opening-experience" }`);
-    assert.ok(aliasIndex >= 0, `${alias} must target set-detail-opening-experience`);
-  }
-  // The anchors those aliases and any external #fragment links land on.
-  for (const anchor of [
-    'id="set-detail-opening-experience"',
-    'id="set-detail-desirability-evidence"',
-    'id="set-detail-desirability-proof"',
-    'id="set-detail-desirability-validation"',
-    'id="set-detail-card-desirability-price"',
+  assert.equal(
+    (source.match(/<CollectorAppealBreakdown/g) || []).length,
+    1,
+    "exactly one Collector Appeal surface may render"
+  );
+  assert.equal(
+    (source.match(/id=\{COLLECTOR_APPEAL_SECTION_ID\}/g) || []).length,
+    1,
+    "the canonical id may be claimed exactly once"
+  );
+
+  // It sits inside the RIP Score section, after Financial RIP.
+  const ripSection = source.slice(
+    source.indexOf("function RipScoreBreakdownModule"),
+    source.indexOf("function StatTile")
+  );
+  assert.ok(ripSection.includes("<FinancialRipV3Breakdown"), "Financial RIP is in the same section");
+  assert.ok(
+    ripSection.indexOf("<FinancialRipV3Breakdown") < ripSection.indexOf("<CollectorAppealBreakdown"),
+    "Financial RIP precedes Collector Appeal"
+  );
+
+  // It reads the SAME resolved canonical bundle as the headline and Financial
+  // RIP — one bundle, not three resolutions.
+  assert.ok(ripSection.includes("<CollectorAppealBreakdown canonical={canonical} />"));
+});
+
+test("every legacy alias resolves to the surviving Collector Appeal block", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('const COLLECTOR_APPEAL_SECTION_ID = "set-detail-collector-appeal";'),
+    "there is one preferred canonical section id"
+  );
+
+  // Every legacy `?section=` value maps to the canonical target id.
+  for (const alias of [
+    "collector-appeal",
+    "collector-profile",
+    "set-desirability",
+    "desirability-evidence",
+    "opening-experience",
+    "desirability-proof",
+    "desirability-validation",
+    "card-desirability-price",
   ]) {
-    assert.ok(source.includes(anchor), `anchor ${anchor} must exist`);
+    assert.ok(
+      source.includes(`"${alias}": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID }`),
+      `?section=${alias} must resolve to the canonical Collector Appeal block`
+    );
   }
+
+  // No alias may still point at a DOM id that no longer exists.
+  assert.ok(
+    !source.includes('targetId: "set-detail-opening-experience"'),
+    "no alias may target the removed section's own id"
+  );
+  assert.ok(!source.includes('targetId: "set-detail-collector-profile"'));
+
+  // Every legacy #fragment is still rendered as an anchor, and rendered on the
+  // canonical block rather than orphaned somewhere else on the page.
+  const anchorList = source.slice(
+    source.indexOf("const LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS = ["),
+    source.indexOf("const SET_DETAIL_SECTION_TARGETS")
+  );
+  for (const anchor of [
+    "set-detail-collector-profile",
+    "set-detail-set-desirability",
+    "set-detail-desirability-evidence",
+    "set-detail-desirability-proof",
+    "set-detail-desirability-validation",
+    "set-detail-card-desirability-price",
+    "set-detail-opening-experience",
+  ]) {
+    assert.ok(anchorList.includes(`"${anchor}"`), `${anchor} must survive as a compatibility anchor`);
+  }
+
+  // The anchors are rendered from that list, inside the canonical block, and
+  // are invisible.
+  const canonicalBlock = source.slice(
+    source.indexOf("<div id={COLLECTOR_APPEAL_SECTION_ID}"),
+    source.indexOf("<CollectorAppealBreakdown canonical={canonical} />")
+  );
+  assert.ok(canonicalBlock.includes("LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS.map"));
+  assert.ok(canonicalBlock.includes('aria-hidden="true"'), "compatibility anchors are invisible");
+  assert.ok(canonicalBlock.includes("scroll-mt-24"), "they carry the shared scroll offset");
+});
+
+test("the left-nav Insights entry points at Collector Appeal, not at the removed section", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").replace(/\r\n/g, "\n");
+
+  assert.ok(
+    source.includes('{ id: "collector-appeal", label: "Collector Appeal", tab: "insights", section: "collector-appeal", targetId: COLLECTOR_APPEAL_SECTION_ID, active: false }')
+  );
+  assert.ok(!source.includes('label: "Collector Profile"'), "the nav may not name a section that does not render");
 });
 
 test("desirability validation selector uses metric-specific market checks", () => {
@@ -3699,27 +3738,22 @@ test("Phase 11: Insights' critical tier holds its own branded panel (not a whole
     "Simulation Results must remain gated by insightsSectionsBlocked, now driven by the secondary-tier fetch independent of the critical tier"
   );
 
-  // The hero (RipScoreBreakdownModule) and the secondary-tier sections each get
-  // their own SectionErrorBoundary for render-exception isolation. Four now:
-  // Set Desirability and Collector Appeal now share the Collector Profile
-  // section, so the Insights tab has three isolated regions rather than four.
-  // Isolation between the two roster scores no longer comes from separate
-  // error boundaries but from separate presentation objects and separate
-  // availability — see "Set Desirability and Collector Appeal share one
-  // section but keep separate availability".
+  // TWO isolated regions now, down from three. The Collector Profile section
+  // and its error boundary were removed; Collector Appeal is not a region of
+  // its own, it renders inside the RIP Score module and is covered by that
+  // module's boundary. Nothing lost isolation that still renders.
   const insightsRegionEnd = source.indexOf("{effectiveViewMode === \"expert\" && !setDetailMode ? (", insightsSectionStart);
   const insightsRegionSource = source.slice(insightsSectionStart, insightsRegionEnd);
   const insightsErrorBoundaryCount = (insightsRegionSource.match(/<SectionErrorBoundary/g) || []).length;
-  assert.equal(insightsErrorBoundaryCount, 3, `Insights must wrap RIP Score, Collector Profile, and Simulation Results each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
+  assert.equal(insightsErrorBoundaryCount, 2, `Insights must wrap RIP Score and Simulation Results each in their own SectionErrorBoundary (found ${insightsErrorBoundaryCount})`);
   assert.ok(
-    insightsRegionSource.indexOf('sectionName="insights-rip-score"') <
-      insightsRegionSource.indexOf('sectionName="insights-collector-profile"'),
-    "the verdict must render above the Collector Profile"
+    !insightsRegionSource.includes('sectionName="insights-collector-profile"'),
+    "the removed section may not keep a boundary of its own"
   );
   assert.ok(
-    insightsRegionSource.indexOf('sectionName="insights-collector-profile"') <
+    insightsRegionSource.indexOf('sectionName="insights-rip-score"') <
       insightsRegionSource.indexOf('sectionName="insights-opening-outcomes"'),
-    "the Collector Profile must render above the raw simulation evidence"
+    "the RIP Score module (which carries Collector Appeal) renders above the raw simulation evidence"
   );
 });
 

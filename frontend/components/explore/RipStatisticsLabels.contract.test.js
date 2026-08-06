@@ -621,28 +621,31 @@ test("the authoritative desirability pillar is Set Desirability, not Collector A
   assert.ok(!source.includes('<OpeningDesirabilityCard'));
 });
 
-test("the pull-model diagnostics keep their labels inside the Collector Profile's Opening Paths view", () => {
+test("the public Collector Profile section no longer renders", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  // The standalone "03 · Simulation Opening Experience" section was merged into
-  // the Collector Profile. Collector Appeal's own score and its three canonical
-  // factors are presented once, under RIP Score; this section holds the
-  // pull-model EVIDENCE behind them, unchanged.
-  assert.ok(source.includes('title="Collector Profile"'));
-  assert.ok(source.includes('eyebrow="02 · Collector Profile"'));
-  assert.ok(!source.includes('eyebrow="03 · Simulation Opening Experience"'), "the merged section must not render twice");
-  assert.ok(source.includes('label="Chase Appeal"'));
-  assert.ok(source.includes('label="Dual-Path Depth"'));
-  assert.ok(source.includes('"Needs chase data"'));
+  // The section is REMOVED, not renamed and not merged into something else.
+  // None of its shell, its view tabs or its panels may render.
+  for (const marker of [
+    'title="Collector Profile"',
+    'eyebrow="02 · Collector Profile"',
+    'eyebrow="03 · Simulation Opening Experience"',
+    "<CollectorProfileSection",
+    "function CollectorRosterAppealPanel",
+    "function CollectorOpeningPathsPanel",
+    "data-collector-profile-flow",
+    'COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal"',
+    'sectionName="insights-collector-profile"',
+  ]) {
+    assert.ok(!source.includes(marker), `${marker} belongs to the removed Collector Profile`);
+  }
+
+  // What SURVIVES: the Top Desirability Drivers rows, which are read by the
+  // Set Desirability pillar card and were never exclusive to the removed
+  // section, so they are not collateral damage.
   assert.ok(source.includes("function CollectorAppealDriverRow"));
   assert.ok(source.includes("<CollectorAppealDriverRow"));
-
-  // The diagnostics live in the Opening Paths panel. The three-stage summary
-  // flow that used to sit above the tabs is gone, so there is no second place
-  // for them to be duplicated into.
-  assert.ok(!source.includes("data-collector-profile-flow"), "the sequential flow is retired");
-  assert.ok(source.indexOf("function CollectorOpeningPathsPanel") >= 0, "the Opening Paths panel exists");
-  assert.ok(source.indexOf('COLLECTOR_PROFILE_ROSTER_VIEW, label: "Roster Appeal"') >= 0, "the view tabs remain");
+  assert.ok(source.includes("function TopDesirabilityDrivers"));
 });
 
 test("legacy desirability labels are renamed to the Set Desirability vocabulary", () => {

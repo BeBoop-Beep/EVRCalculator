@@ -22,7 +22,10 @@ function makeEntry(overrides = {}) {
     packCost: 4.5,
     meanValue: 5.4,
     probProfit: 0.42,
-    decisionLabel: "Strong value",
+    // Canonical availability is what makes an entry eligible. There is
+    // deliberately no `decisionLabel` in the baseline fixture: eligibility must
+    // not depend on retired interpretation copy.
+    hasCanonicalOverallRipV7: true,
     universalDesirabilityScore: 70,
     collectorAppealScore: 60,
     desirabilityIsFallback: false,
@@ -113,10 +116,9 @@ test("candidates missing the data the section renders are not offered at all", (
     makeEntry({ name: "NoCost", rank: 6, packCost: null, universalDesirabilityScore: 98 }),
     makeEntry({ name: "NoMean", rank: 7, meanValue: null, universalDesirabilityScore: 97 }),
     makeEntry({
-      name: "NoRead",
+      name: "NoCanonicalRip",
       rank: 8,
-      decisionLabel: null,
-      interpretationLabel: null,
+      hasCanonicalOverallRipV7: false,
       universalDesirabilityScore: 96,
     }),
     makeEntry({ name: "NoLogo", rank: 9, logoUrl: null, symbolUrl: null, universalDesirabilityScore: 95 }),
@@ -183,6 +185,77 @@ test("no eligible candidate yields an empty list rather than a substituted set",
   assert.deepEqual(rankSetIntelligenceCandidates(null), []);
   const only = makeEntry({ name: "Only", rank: 1 });
   assert.deepEqual(rankSetIntelligenceCandidates([only], { excludeKey: only.key }), []);
+});
+
+/* ------------------------------- eligibility is canonical, not editorial --- */
+
+test("a set with canonical V7 but no interpretation fields is still eligible", () => {
+  const entry = makeEntry({
+    name: "CanonicalOnly",
+    rank: 4,
+    hasCanonicalOverallRipV7: true,
+    // Every retired interpretation field, explicitly absent.
+    decisionLabel: null,
+    decisionSeverity: null,
+    interpretationLabel: null,
+    interpretationSummary: null,
+    leaderboard_label: null,
+    canonical_recommendation_header: null,
+    recommendation_severity: null,
+  });
+
+  assert.deepEqual(
+    rankSetIntelligenceCandidates([entry]).map((c) => c.name),
+    ["CanonicalOnly"],
+    "the section renders a canonical score, so a canonical score is what it may require"
+  );
+});
+
+test("a set with interpretation fields but no canonical V7 is rejected", () => {
+  const entry = makeEntry({
+    name: "VerdictOnly",
+    rank: 4,
+    hasCanonicalOverallRipV7: false,
+    decisionLabel: "Elite but swingy",
+    interpretationLabel: "Elite but swingy",
+    interpretationSummary: "A retired engine's read.",
+    leaderboard_label: "STRONG VALUE",
+    canonical_recommendation_header: "Strong value, high variance",
+    recommendation_severity: "positive",
+  });
+
+  assert.deepEqual(
+    rankSetIntelligenceCandidates([entry]),
+    [],
+    "a superseded verdict is not a substitute for the score the section shows"
+  );
+});
+
+test("changing interpretation values cannot affect eligibility or ordering", () => {
+  const build = (interpretation) => [
+    makeEntry({ name: "A", rank: 2, universalDesirabilityScore: 90, ...interpretation }),
+    makeEntry({ name: "B", rank: 3, universalDesirabilityScore: 80, ...interpretation }),
+    makeEntry({ name: "C", rank: 4, universalDesirabilityScore: 70, ...interpretation }),
+  ];
+
+  const baseline = rankSetIntelligenceCandidates(build({}));
+
+  const variants = [
+    { decisionLabel: "Strong value", recommendation_severity: "positive" },
+    { decisionLabel: null, interpretationLabel: "Elite but swingy" },
+    { interpretationSummary: "x", leaderboard_label: "AVOID", recommendation_severity: "negative" },
+    { canonical_recommendation_header: "Avoid, weak economics", decisionSeverity: "danger" },
+  ];
+
+  for (const variant of variants) {
+    assert.deepEqual(
+      rankSetIntelligenceCandidates(build(variant)).map((c) => c.name),
+      baseline.map((c) => c.name),
+      `interpretation variant ${JSON.stringify(variant)} must be inert`
+    );
+  }
+
+  assert.deepEqual(baseline.map((c) => c.name), ["A", "B", "C"]);
 });
 
 test("the candidate list is deduplicated across fallback tiers", () => {

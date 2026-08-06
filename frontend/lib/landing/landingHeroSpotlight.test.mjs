@@ -39,6 +39,51 @@ test("spotlight reads the canonical relative RIP score, tier, rank and cohort si
   );
 });
 
+test("the entry carries canonical availability and no interpretation copy", () => {
+  const spotlight = selectLandingHeroSpotlight([
+    makeTarget({
+      // Every retired interpretation-engine field, present and loud.
+      leaderboard_label: "STRONG VALUE PROFILE",
+      canonical_recommendation_header: "Strong value, high variance",
+      recommendation_severity: "positive",
+      interpretationLabel: "Elite but swingy",
+      interpretationSummary: "A verdict from a model the site no longer publishes.",
+    }),
+  ]);
+
+  assert.equal(
+    spotlight.hasCanonicalOverallRipV7,
+    true,
+    "the boolean must come from the canonical hero result"
+  );
+  for (const field of [
+    "decisionLabel",
+    "decisionSeverity",
+    "interpretationLabel",
+    "interpretationSummary",
+  ]) {
+    assert.equal(spotlight[field], undefined, `${field} must not reach the landing page`);
+  }
+});
+
+test("canonical availability tracks the canonical score, not any legacy field", () => {
+  // A target with a full set of interpretation copy but no canonical V7 does
+  // not become an entry at all, so nothing downstream can read a `true` from it.
+  const verdictOnly = {
+    target_type: "pokemon_set",
+    target_id: "verdict-only",
+    name: "Verdict Only",
+    logo_image_url: "https://images.example/logo.png",
+    leaderboard_label: "STRONG VALUE",
+    canonical_recommendation_header: "Strong value",
+    recommendation_severity: "positive",
+    interpretationLabel: "Elite but swingy",
+    rip: { score: 88, relativeScore: 91, rank: 1, tier: "S", cohortSize: 41 },
+  };
+
+  assert.deepEqual(selectLandingHeroEntries([verdictOnly]), []);
+});
+
 test("a set carrying only the legacy cohort fields is never promoted to the hero", () => {
   const legacyOnly = {
     target_type: "pokemon_set",

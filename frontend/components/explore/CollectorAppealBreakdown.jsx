@@ -35,61 +35,14 @@
 // price. Financial RIP's six components are untouched and stay exactly six -
 // F is NOT a seventh financial component.
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 
+import RipMetricDisclosureRow from "./RipMetricDisclosureRow.jsx";
+import useRipDisclosureSection from "./useRipDisclosureSection.js";
 import {
   FINANCIAL_VS_COLLECTOR_NOTE,
   selectCollectorAppealBreakdown,
 } from "./collectorAppealBreakdownSelector.mjs";
-
-function MetricRow({ label, value }) {
-  return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3">
-      <dt className="min-w-0 text-xs text-[var(--text-secondary)]">{label}</dt>
-      <dd className="flex-none text-xs font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd>
-    </div>
-  );
-}
-
-function AppealFactorCard({ row }) {
-  return (
-    <article
-      data-collector-appeal-factor={row.key}
-      className="set-glass-surface min-w-0 rounded-xl border p-3.5 max-desk:rounded-none max-desk:border-0 max-desk:border-b max-desk:bg-transparent max-desk:px-0 max-desk:shadow-none max-desk:[backdrop-filter:none]"
-    >
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{row.title}</h4>
-        {/* Missing data arrives from the selector as an em dash and renders as
-            such — never as 0, and never as another factor's value. */}
-        <p className="flex-none text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">
-          {row.value}
-        </p>
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">{row.interpretation}</p>
-      {row.disclaimer ? (
-        // Rendered next to the number, not buried in a tooltip: this is the one
-        // sentence that stops a probability under an appeal heading from being
-        // read as a promise about money.
-        <p
-          data-desirable-outcome-disclaimer
-          className="mt-1.5 text-[11px] italic leading-relaxed text-[var(--text-secondary)]"
-        >
-          {row.disclaimer}
-        </p>
-      ) : null}
-      {row.metrics.length > 0 ? (
-        <dl className="mt-2.5 space-y-1.5 border-t border-[var(--border-subtle)] pt-2.5">
-          {row.metrics.map((metric) => (
-            <MetricRow key={metric.label} label={metric.label} value={metric.value} />
-          ))}
-        </dl>
-      ) : null}
-      {!row.available && row.statusReason ? (
-        <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{row.statusReason}</p>
-      ) : null}
-    </article>
-  );
-}
 
 // `canonical` is the ALREADY-RESOLVED bundle from resolveCanonicalRipV7, owned
 // by the set page and shared with the hero, the Overview summary and Financial
@@ -98,30 +51,46 @@ function AppealFactorCard({ row }) {
 // source than the hero did, which is the exact split this pass removes.
 export default function CollectorAppealBreakdown({ canonical }) {
   const appeal = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
+  // Collector Appeal's own accordion state, independent of Financial RIP's.
+  const disclosure = useRipDisclosureSection();
 
   return (
     <section data-collector-appeal-v3 className="min-w-0">
-      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+      {/* Heading only. The Collector Appeal score, tier, rank and cohort are
+          stated ONCE, in the compact supporting line directly under the RIP
+          Score headline above; repeating them here put the same four values on
+          screen twice, a few centimetres apart, in two different treatments.
+          The factors below are what this section adds. */}
+      <div className="min-w-0">
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">Collector Appeal</h3>
-        {appeal.available ? (
-          <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-            {appeal.scoreLabel}/100
-            {appeal.tier ? ` · ${appeal.tier} Tier` : ""}
-            {appeal.rank !== null ? ` · Rank #${appeal.rank}` : ""}
-            {appeal.rankedSetCount ? ` of ${appeal.rankedSetCount}` : ""}
-          </p>
-        ) : null}
       </div>
       <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
         How desirable the modeled cards are, and how often the pack can deliver one.
       </p>
 
       {appeal.available ? (
-        // Three parallel factors. A grid, not a flow: no arrows, no numbered
-        // stages, nothing that reads as one factor feeding the next.
-        <div className="mt-3 grid min-w-0 gap-3 desk:grid-cols-3">
+        // THREE PEERS. A flat stack of identical rows: no arrows, no numbered
+        // stages, no ordering device that reads as one factor feeding the next.
+        // Every row uses the SAME component as Financial RIP's six, so neither
+        // section's factors look more or less structural than the other's.
+        <div data-collector-appeal-rows className="mt-2 min-w-0">
           {appeal.rows.map((row) => (
-            <AppealFactorCard key={row.key} row={row} />
+            <RipMetricDisclosureRow
+              key={row.key}
+              rowKey={row.key}
+              dataAttribute="data-collector-appeal-factor"
+              title={row.title}
+              value={row.value}
+              interpretation={row.interpretation}
+              // Visible WITHOUT expanding. This is the sentence that stops a
+              // probability under an appeal heading from reading as a promise
+              // about money, so it can never be behind a disclosure.
+              disclaimer={row.disclaimer || null}
+              metrics={row.metrics}
+              statusNote={!row.available && row.statusReason ? row.statusReason : null}
+              isOpen={disclosure.openKeys.includes(row.key)}
+              onToggle={disclosure.toggle}
+            />
           ))}
         </div>
       ) : (
