@@ -74,6 +74,12 @@ export default function CollectorAppealBreakdown({ canonical }) {
         // Every row uses the SAME component as Financial RIP's six, so neither
         // section's factors look more or less structural than the other's.
         <div data-collector-appeal-rows className="mt-2 min-w-0">
+          {/* Three PEERS on one row at 1200px+, a stack below it. A grid is a
+              side-by-side arrangement, not a sequence: there are still no
+              arrows, no numbering and no ordering device that reads as one
+              factor feeding the next. `items-start` keeps an expanded factor
+              from stretching the other two, and no cell has a fixed height. */}
+          <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
           {appeal.rows.map((row) => (
             <RipMetricDisclosureRow
               key={row.key}
@@ -82,6 +88,13 @@ export default function CollectorAppealBreakdown({ canonical }) {
               title={row.title}
               value={row.value}
               interpretation={row.interpretation}
+              // The QUIET rail in the purple family — the same restraint as
+              // Financial RIP's six, never the summary glow. `railPercent` is
+              // the selector's presentation-only reading of the value already
+              // printed on the row; an unavailable factor draws an empty track
+              // rather than a zero-length fill that reads as a real zero.
+              railPercent={row.railPercent ?? null}
+              accentFamily="collector"
               // Visible WITHOUT expanding. This is the sentence that stops a
               // probability under an appeal heading from reading as a promise
               // about money, so it can never be behind a disclosure.
@@ -92,6 +105,7 @@ export default function CollectorAppealBreakdown({ canonical }) {
               onToggle={disclosure.toggle}
             />
           ))}
+          </div>
         </div>
       ) : (
         // A precise unavailable state. It does NOT render Collector Appeal V2,

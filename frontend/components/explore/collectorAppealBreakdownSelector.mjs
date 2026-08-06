@@ -131,6 +131,11 @@ export function selectCollectorAppealBreakdown(...sources) {
       // own formatted value so the surface never rescales one into the other.
       value: formatScore(rosterScore),
       available: rosterScore !== UNAVAILABLE,
+      // Presentation-only 0-100 reading of the value already on the row, used
+      // to draw the quiet rail. D is published 0-100 so it is passed through
+      // untouched; nothing is rescaled, inferred or invented, and an
+      // unavailable factor carries null rather than 0.
+      railPercent: rosterScore === UNAVAILABLE ? null : rosterScore,
       interpretation:
         "How desirable the Pokémon roster is before pull difficulty is considered.",
       metrics: [],
@@ -140,6 +145,9 @@ export function selectCollectorAppealBreakdown(...sources) {
       title: "Desirable Outcome Frequency",
       value: frequencyRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(frequencyRaw),
       available: frequencyRaw !== UNAVAILABLE,
+      // A 0-1 share expressed on the rail's 0-100 track. This is the same
+      // number the row prints as a percentage, not a second measurement.
+      railPercent: frequencyRaw === UNAVAILABLE ? null : frequencyRaw * 100,
       interpretation:
         "How often the modeled pack can deliver at least one card tied to a currently desirable Pokémon.",
       disclaimer: DESIRABLE_OUTCOME_DISCLAIMER,
@@ -182,6 +190,7 @@ export function selectCollectorAppealBreakdown(...sources) {
       title: "Dual-Path Depth",
       value: dualPathRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(dualPathRaw),
       available: dualPathRaw !== UNAVAILABLE,
+      railPercent: dualPathRaw === UNAVAILABLE ? null : dualPathRaw * 100,
       interpretation:
         "Whether desirable Pokémon offer both an attainable printing and a true elite chase.",
       metrics: [

@@ -134,7 +134,20 @@ test("the three factors are presented in parallel, not as a sequential chain", (
   // nothing that makes one factor look like the input to the next.
   assert.match(componentSource, /data-collector-appeal-rows/);
   assert.match(componentSource, /<RipMetricDisclosureRow/);
-  assert.doesNotMatch(componentSource, /grid-cols-3/, "a 3-column grid is not what makes them peers; identical rows are");
+  // The approved Insights redesign lays the three factors out on a desktop
+  // three-column grid. A grid is a SIDE-BY-SIDE arrangement, so it does not
+  // reintroduce the sequential chain this test guards against — what would is
+  // an arrow, a stage number or a connector, all of which stay forbidden
+  // below. The original claim ("identical rows are what makes them peers") is
+  // asserted directly instead of by banning a layout utility: the grid must be
+  // uniform (no per-factor column span, order or emphasis), and every cell must
+  // be the same shared component Financial RIP's six use.
+  assert.doesNotMatch(componentSource, /col-span-|desk:order-|row-span-/, "no factor may be given a privileged cell");
+  assert.equal(
+    (componentSource.match(/<RipMetricDisclosureRow/g) || []).length,
+    1,
+    "one mapped row element, so all three factors are drawn identically"
+  );
   // Comments are excluded: the file documents the retired
   // "Set Desirability -> Collector Appeal -> Contribution" chain in order to
   // record that it was removed, and that note must not fail this assertion.

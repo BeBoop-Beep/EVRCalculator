@@ -160,21 +160,34 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
               the backend publishes is still here, one disclosure away; none was
               dropped to make the default view shorter. */}
           <div data-financial-rip-rows className="mt-2 min-w-0">
-            {v3.rows.map((row) => (
-              <RipMetricDisclosureRow
-                key={row.key}
-                rowKey={row.key}
-                dataAttribute="data-v3-component"
-                title={row.title}
-                value={row.scoreLabel}
-                valueSuffix="/100"
-                meta={formatComponentMeta(row)}
-                interpretation={row.interpretation}
-                metrics={row.metrics}
-                isOpen={disclosure.openKeys.includes(row.key)}
-                onToggle={disclosure.toggle}
-              />
-            ))}
+            {/* At 1200px+ the six components sit on a three-column grid so the
+                section is scannable in two glances instead of six. Below that
+                they stay a single stacked column of disclosure rows, which is
+                what a phone can actually read. `items-start` lets one expanded
+                card grow without stretching its neighbours, and no cell carries
+                a fixed height, so an expanded panel can never be clipped. */}
+            <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
+              {v3.rows.map((row) => (
+                <RipMetricDisclosureRow
+                  key={row.key}
+                  rowKey={row.key}
+                  dataAttribute="data-v3-component"
+                  title={row.title}
+                  value={row.scoreLabel}
+                  valueSuffix="/100"
+                  meta={formatComponentMeta(row)}
+                  interpretation={row.interpretation}
+                  metrics={row.metrics}
+                  // The QUIET rail, drawn from the component's own backend
+                  // score — the same number printed above it. Never the summary
+                  // treatment, and never a fabricated value.
+                  railPercent={row.available ? row.score : null}
+                  accentFamily="financial"
+                  isOpen={disclosure.openKeys.includes(row.key)}
+                  onToggle={disclosure.toggle}
+                />
+              ))}
+            </div>
           </div>
           <DepthAndRobustnessPanel diagnostic={depth} />
         </>

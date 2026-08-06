@@ -79,8 +79,7 @@ import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
-import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
-import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
+import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
@@ -3643,7 +3642,17 @@ function normalizePullRateAssumptions(explorePayload) {
   };
 }
 
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, ariaLabel = "Section view" }) {
+// `mobileEmphasisValue` is OPT-IN and SCOPED, and it is used by exactly one
+// caller: the set-detail tab bar, which passes "insights".
+//
+// What it does: when that option is the ACTIVE one, it adds `max-desk:`-only
+// utilities that deepen the existing teal/green filled treatment below 1200px.
+// What it deliberately does not do: touch desktop (every added utility is
+// max-desk-scoped, so at 1200px+ the tab bar renders byte-identical CSS to
+// before), touch the inactive tabs, touch tab order, routing, aria-pressed or
+// hit area, or leak into any other segmented control on the site — a control
+// that does not pass the prop cannot receive the treatment.
+function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, mobileEmphasisValue = null, ariaLabel = "Section view" }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3658,6 +3667,12 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
         >
           {tabOptions.map((option) => {
             const isActive = value === option.value;
+            // Mobile-only, active-only, and only for the one option the caller
+            // named. Every utility here is `max-desk:`-scoped.
+            const mobileEmphasisClass =
+              isActive && mobileEmphasisValue && option.value === mobileEmphasisValue
+                ? "max-desk:bg-[linear-gradient(135deg,rgba(16,185,129,0.98),rgba(20,184,166,0.9))] max-desk:text-white max-desk:shadow-[0_6px_16px_rgba(20,184,166,0.26),inset_0_1px_0_rgba(255,255,255,0.2)]"
+                : "";
 
             return (
               <button
@@ -3669,7 +3684,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                   isActive
                     ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]"
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
-                }`}
+                } ${mobileEmphasisClass}`}
               >
                 <span className="block truncate">{option.label}</span>
               </button>
@@ -6253,50 +6268,16 @@ function RipBreakdownDetailMetric({ label, value, trend = null, infoText = null,
 //   - The visible composition weights, the formula expression and the
 //     contribution-point copy.
 //
-/**
- * The compact Financial RIP / Collector Appeal line under the RIP Score
- * headline.
- *
- * Reads the SAME resolved canonical bundle as everything else in this section.
- * It computes nothing: each score, tier, rank and denominator is the backend's
- * own, and a missing one prints an em dash rather than a zero or the other
- * metric's value.
- */
-function RipScoreSupportingValues({ canonical }) {
-  const financial = selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical));
-  const collector = selectCollectorAppealBreakdown(canonical);
-
-  const line = (score, tier, rank, cohort) => {
-    const parts = [];
-    parts.push(score === null || score === undefined ? "—" : Number(score).toFixed(1));
-    if (tier && tier !== "—") parts.push(`${tier} Tier`);
-    if (rank !== null && rank !== undefined) {
-      parts.push(cohort ? `Rank #${rank} of ${cohort}` : `Rank #${rank}`);
-    }
-    return parts.join(" · ");
-  };
-
-  return (
-    <div
-      data-rip-score-supporting-values
-      className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-5 gap-y-1"
-    >
-      <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-        <span className="font-semibold text-[var(--text-primary)]">Financial RIP</span>{" "}
-        {line(financial.score, financial.tier, financial.rank, financial.rankedSetCount)}
-      </p>
-      <p className="text-[11px] tabular-nums text-[var(--text-secondary)]">
-        <span className="font-semibold text-[var(--text-primary)]">Collector Appeal</span>{" "}
-        {line(
-          collector.available ? collector.score : null,
-          collector.tier,
-          collector.rank,
-          collector.rankedSetCount
-        )}
-      </p>
-    </div>
-  );
-}
+// THE COMPACT "Financial RIP · Collector Appeal" TEXT LINE WAS REPLACED HERE.
+//
+// `RipScoreSupportingValues` printed the two supporting canonical values as two
+// runs of inline text under the RIP Score headline. It stated the same three
+// metrics the redesigned Insights Summary now states, in a treatment that read
+// as a caption rather than as the top of the tab. InsightsSummaryModule renders
+// exactly those three metrics — RIP Score, Financial RIP, Collector Appeal — in
+// one grouped surface, from the same resolved canonical bundle, computing
+// nothing and still printing an em dash for anything the backend did not
+// publish. No value, scale or source changed; only the presentation did.
 
 // Nothing here computes a score, a rank, a tier or a denominator.
 function RipScoreBreakdownModule({
@@ -6326,34 +6307,29 @@ function RipScoreBreakdownModule({
           </div>
         </div>
 
-        {/* Score, then metadata. One descending hierarchy, at every width - the
-            below-desktop tree used to be a separate compact feed rendering the
-            same four values a second way. `formatRawScore` renders an em dash
-            when the canonical score is missing; it is never a zero and never a
-            legacy score. */}
-        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-          <p className="inline-flex items-end gap-1.5 text-3xl font-semibold leading-none text-[var(--text-primary)] desk:text-4xl">
-            <span className="tabular-nums">{formatRawScore(score)}</span>
-            <span className="pb-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>
-          </p>
-          <HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} />
-        </div>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-secondary)]">
-          Financial opening performance with collector appeal.
-        </p>
+        {/* THE INSIGHTS SUMMARY. One grouped surface, three cards, stated
+            ONCE: RIP Score, Financial RIP, Collector Appeal. The Overall
+            values are handed down from the page's single hero selection rather
+            than re-resolved, so this surface cannot disagree with the sticky
+            header, and HeroScoreBadges is still the one metadata component both
+            surfaces share.
 
-        {/* The two supporting canonical values, stated ONCE and compactly.
-            They used to be absent here and repeated at full size inside the
-            sections below, so a reader met the same numbers twice in two
-            different treatments. Each section keeps its own components; only
-            its headline figure lives here.
-
-            SCALES DIFFER ON PURPOSE. The big number above is Overall RIP V7's
-            cohort-RELATIVE score. These two are Financial RIP V3's and
+            SCALES DIFFER ON PURPOSE. The RIP Score card is Overall RIP V7's
+            cohort-RELATIVE score. The other two are Financial RIP V3's and
             Collector Appeal V3's own fixed-anchor scores, which is the number
             each of those models is defined to publish. Neither is restated on
-            the Overall relative scale to make the three look alike. */}
-        <RipScoreSupportingValues canonical={canonical} />
+            the Overall relative scale to make the three look alike.
+
+            These three rails are the ONLY elevated, glowing bars on the page;
+            every rail in the two breakdowns below is deliberately quieter. */}
+        <InsightsSummaryModule
+          canonical={canonical}
+          overallScore={score}
+          overallTier={rankTier}
+          overallRank={rankValue}
+          overallCohortSize={cohortSize}
+          overallBadges={<HeroScoreBadges rank={rankValue} tier={rankTier} cohortSize={cohortSize} />}
+        />
 
         {/* The two lenses that explain the score — Financial RIP first, then
             Collector Appeal. They are explanatory views of one model, and
@@ -12826,6 +12802,10 @@ export default function RipStatisticsPageClient({
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
                     variant="primary"
+                    /* Scoped, mobile-only emphasis for the active Insights
+                       segment. Desktop tabs, tab order, routing and
+                       accessibility are untouched. */
+                    mobileEmphasisValue="insights"
                     options={[
                       { value: "overview", label: "Overview" },
                       { value: "cards", label: "Cards" },

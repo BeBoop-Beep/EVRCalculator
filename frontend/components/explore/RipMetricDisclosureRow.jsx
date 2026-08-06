@@ -47,6 +47,51 @@
 
 import React, { useId } from "react";
 
+// THE QUIET RAIL.
+//
+// Deliberately NOT the summary treatment. The three Insights Summary cards own
+// the elevated, glowing rail; these nine rows get a low-contrast fill with no
+// bloom, no end dot and no shadow, so a breakdown reads as supporting evidence
+// rather than as nine competing headlines. Only the accent hue changes between
+// the two sections — blue/cyan for Financial RIP, purple/magenta for Collector
+// Appeal — and both are drawn at the same restraint.
+const RAIL_ACCENTS = {
+  financial: "56,189,248",
+  collector: "192,132,252",
+};
+
+/**
+ * A rail is drawn ONLY from a real, finite value the row is already showing.
+ * There is no fabricated history, no sparkline and no placeholder fill: an
+ * unavailable metric renders the empty track, which reads as "no value" rather
+ * than as zero.
+ */
+function MetricRail({ percent, accentFamily }) {
+  const accent = RAIL_ACCENTS[accentFamily] || RAIL_ACCENTS.financial;
+  const parsed = Number(percent);
+  const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
+  const hasValue = width !== null && width > 0;
+
+  return (
+    <div
+      data-rip-metric-rail
+      data-rail-emphasis="quiet"
+      data-rail-available={hasValue ? "true" : "false"}
+      className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]"
+    >
+      {hasValue ? (
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${width}%`,
+            background: `linear-gradient(90deg, rgba(${accent},0.26) 0%, rgba(${accent},0.5) 100%)`,
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The supporting-metric list. Rendered only when the row is expanded, so the
  * default view carries no hidden-but-present measurement noise.
@@ -95,6 +140,12 @@ export default function RipMetricDisclosureRow({
   // can still be worth less than the pack price" is the only current use.
   disclaimer = null,
   metrics = [],
+  // The quiet rail. `railPercent` is a 0-100 reading of the value already
+  // rendered above it, supplied by the caller from backend numbers only; null
+  // (or a non-finite value) draws the empty track. `accentFamily` selects the
+  // section hue and nothing else — it never changes the rail's emphasis.
+  railPercent = null,
+  accentFamily = null,
   statusNote = null,
   isOpen = false,
   onToggle,
@@ -115,7 +166,12 @@ export default function RipMetricDisclosureRow({
     <div
       {...attributes}
       data-rip-metric-row={rowKey}
-      className="min-w-0 border-b border-[var(--border-subtle)] py-2.5 last:border-b-0"
+      /* Below 1200px the row stays a divider-separated stack: a phone reads a
+         list, not a wall of boxes. At 1200px+ it becomes a compact card so the
+         two sections can lay their rows out on a grid without the dividers
+         running into each other between columns. Nothing about the markup, the
+         controls or the disclosure wiring changes with width. */
+      className="min-w-0 py-2.5 max-desk:border-b max-desk:border-[var(--border-subtle)] max-desk:last:border-b-0 desk:rounded-xl desk:border desk:border-[var(--border-subtle)] desk:p-3.5"
     >
       <div className="flex min-w-0 items-baseline justify-between gap-3">
         <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
@@ -126,6 +182,10 @@ export default function RipMetricDisclosureRow({
           ) : null}
         </p>
       </div>
+
+      {railPercent !== null && railPercent !== undefined ? (
+        <MetricRail percent={railPercent} accentFamily={accentFamily} />
+      ) : null}
 
       {meta ? <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">{meta}</p> : null}
 
