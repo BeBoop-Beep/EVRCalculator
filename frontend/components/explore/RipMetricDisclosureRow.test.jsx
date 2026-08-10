@@ -196,6 +196,18 @@ test("an unavailable value renders exactly what the selector supplied, never a z
   assert.ok(!/\b0\b/.test(text), "a missing value must never become a zero");
 });
 
+test("zero is a valid relative score, not an unavailable rail", () => {
+  const renderer = render({ value: "0.0", railPercent: 0, metrics: [], isOpen: false });
+  const rails = renderer.root.findAll(
+    (node) => node.props?.["data-rip-metric-rail"] !== undefined
+  );
+  assert.equal(rails.length, 1);
+  assert.equal(rails[0].props["data-rail-available"], "true");
+  assert.equal(rails[0].children.length, 1, "zero has a real, zero-width fill rather than an unavailable state");
+  assert.equal(rails[0].children[0].props.style.width, "0%");
+  assert.ok(textOf(renderer.toJSON()).includes("0.0"));
+});
+
 test("the row renders no weight, contribution or formula", () => {
   const text = textOf(render({ isOpen: true }).toJSON());
   for (const banned of ["Weight", "weight", "Contributes", "contribution", "90%", "10%", "×", "="]) {

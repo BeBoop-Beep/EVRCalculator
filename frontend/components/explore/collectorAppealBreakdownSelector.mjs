@@ -51,7 +51,9 @@
 // NO SCORING IN JAVASCRIPT
 // ------------------------
 // Every score, probability and rank is lifted from the backend payload. The
-// only arithmetic is presentational unit conversion.
+// only arithmetic is presentational unit conversion. `score` remains the
+// fixed-anchor model output for internal/audit consumers; `publicScore` is the
+// backend cohort-relative score and is the only value intended for `/100` UI.
 
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
@@ -65,6 +67,18 @@ function toOptionalNumber(value) {
 
 function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function readScoreLayers(block = {}) {
+  const safe = toObject(block);
+  const absoluteScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
+  const relativeScore = toOptionalNumber(safe.relativeScore);
+  return {
+    absoluteScore,
+    relativeScore,
+    publicScore: relativeScore,
+    publicAvailable: relativeScore !== UNAVAILABLE,
+  };
 }
 
 export function formatPercentFromUnit(value, { decimals = 1 } = {}) {
@@ -118,7 +132,8 @@ export function selectCollectorAppealBreakdown(...sources) {
   const frequency = toObject(components.desirableOutcomeFrequency);
   const dualPath = toObject(components.dualPathDepth);
 
-  const score = toOptionalNumber(appeal.score);
+  const scores = readScoreLayers(appeal);
+  const score = scores.absoluteScore;
   const rosterScore = toOptionalNumber(roster.score);
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
   const dualPathRaw = toOptionalNumber(dualPath.rawValue);
@@ -210,8 +225,14 @@ export function selectCollectorAppealBreakdown(...sources) {
     available: score !== UNAVAILABLE,
     score,
     scoreLabel: formatScore(score),
+    absoluteScore: scores.absoluteScore,
+    relativeScore: scores.relativeScore,
+    // Strict public score: no absolute fallback under a `/100` label.
+    publicScore: scores.publicScore,
+    publicScoreLabel: formatScore(scores.publicScore),
+    publicAvailable: scores.publicAvailable,
     rank: toOptionalNumber(appeal.rank),
-    rankedSetCount: toOptionalNumber(appeal.rankedSetCount),
+    rankedSetCount: toOptionalNumber(appeal.rankedSetCount ?? appeal.cohortSize),
     tier: appeal.tier ?? UNAVAILABLE,
     rows,
     statusReason: appeal.statusReason ?? UNAVAILABLE,
