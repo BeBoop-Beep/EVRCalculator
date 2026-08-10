@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function HomePage() {
-  const { openingSpotlightSet, openingBoosterPackImage, openingRankingRows, marketContext } =
+  const { openingSpotlightSet, openingBoosterPackImage, openingRankingRows, openingDistribution, marketContext } =
     await getLandingPageData();
 
   return (
@@ -18,6 +18,7 @@ export default async function HomePage() {
         set={openingSpotlightSet}
         rankingRows={openingRankingRows}
         boosterPackImage={openingBoosterPackImage}
+        distribution={openingDistribution}
         marketContext={marketContext}
       />
       <Footer />

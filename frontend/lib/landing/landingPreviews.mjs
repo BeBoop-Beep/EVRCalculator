@@ -86,6 +86,7 @@ export function selectExploreRankingRows(entries, limit = 5) {
     .map((entry) => ({
       key: entry.key,
       name: entry.name,
+      canonicalKey: entry.canonicalKey || null,
       era: entry.era,
       logoUrl: entry.logoUrl || entry.symbolUrl || null,
       rank: toFiniteNumber(entry.rank),
@@ -101,6 +102,21 @@ export function selectExploreRankingRows(entries, limit = 5) {
       movement: selectSetValueMovement(entry),
       href: entry.overviewHref || entry.href,
     }));
+}
+
+/**
+ * Attach the homepage hero's visual meaning by ranking position. The resolver
+ * is injected so this selector stays dependency-free and testable: only the
+ * first ranked row may request pack art; every later row keeps its canonical
+ * set logo.
+ */
+export function selectHeroRankingVisuals(rows, resolvePackAsset) {
+  return toList(rows).map((row, index) => ({
+    ...row,
+    heroVisual: index === 0
+      ? { type: "pack", asset: typeof resolvePackAsset === "function" ? resolvePackAsset(row?.canonicalKey) : null }
+      : { type: "set", src: row?.logoUrl || null },
+  }));
 }
 
 /**

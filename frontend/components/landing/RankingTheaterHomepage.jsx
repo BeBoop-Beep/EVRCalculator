@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import WaitlistCta from "./WaitlistCta";
 import MethodologySection from "./MethodologySection";
 import styles from "./rankingTheater.module.css";
@@ -21,6 +22,14 @@ function SetMark({ set, className = "" }) {
   return src ? <img className={className} src={src} alt={`${set.name} set logo`} loading="lazy" /> : <span className={styles.markFallback} aria-hidden="true">#{set?.rank || "1"}</span>;
 }
 
+function SupportingSetVisual({ row }) {
+  return (
+    <div className={styles.supportVisual}>
+      <SetMark set={row} className={styles.supportLogo} />
+    </div>
+  );
+}
+
 function Metrics({ set }) {
   return (
     <dl className={styles.metricGrid}>
@@ -36,8 +45,11 @@ function Theater({ set, rows, boosterPackImage }) {
   return (
     <div className={styles.theater}>
       {rows.slice(1, 3).map((row, index) => (
-        <div key={row.key} className={`${styles.rankPlane} ${index === 0 ? styles.rankTwo : styles.rankThree}`} aria-hidden="true">
-          <span>#{row.rank}</span><strong>{row.name}</strong>
+        <div key={row.key} className={`${styles.rankPlane} ${index === 0 ? styles.rankTwo : styles.rankThree}`} aria-label={`#${row.rank} ${row.name}`} title={`#${row.rank} ${row.name}`}>
+          <div className={styles.supportLockup}>
+            <SupportingSetVisual row={row} />
+            <span className={styles.supportRank}>#{row.rank}</span>
+          </div>
         </div>
       ))}
       <div className={styles.productGlow} aria-hidden="true" />
@@ -53,19 +65,39 @@ function Theater({ set, rows, boosterPackImage }) {
             alt={`${set?.name || "Featured Pokémon"} booster pack`}
           />
         ) : (
-          <div className={styles.logoStage}><SetMark set={set} className={styles.heroLogo} /><span>Local pack image unavailable</span></div>
+          <div className={styles.logoStage}><SetMark set={set} className={styles.heroLogo} /></div>
         )}
       </div>
     </div>
   );
 }
 
-export default function RankingTheaterHomepage({ set, rankingRows = [], boosterPackImage = null, marketContext = null }) {
-  const landmarks = [
-    ["P05", set?.p05Value], ["P50", set?.medianValue], ["P95", set?.p95Value],
-    ["P99", set?.p99Value], ["Max", set?.maxValue],
-  ];
+function DistributionVisual({ distribution }) {
+  if (!distribution?.bins?.length && !distribution?.thresholdBins?.length) {
+    return <p className={styles.distributionUnavailable}>Measured distribution bins are unavailable for this set.</p>;
+  }
+  return (
+    <div className={styles.outcomeLayout}>
+      <dl className={styles.outcomeStats}>
+        {distribution.markers.map((marker) => <div key={marker.key}>
+          <dt><span>{marker.short}</span>{marker.label}</dt>
+          <dd>{money.format(marker.value)}</dd>
+        </div>)}
+      </dl>
+      <div className={styles.distributionFigure}>
+        <RipDistributionChart
+          bins={distribution.bins}
+          thresholdBins={distribution.thresholdBins}
+          markers={distribution.markers}
+          showTitle={false}
+          flush
+        />
+      </div>
+    </div>
+  );
+}
 
+export default function RankingTheaterHomepage({ set, rankingRows = [], boosterPackImage = null, distribution = null, marketContext = null }) {
   return (
     <>
       <section className={styles.hero} aria-labelledby="landing-hero-headline">
@@ -80,7 +112,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
             </div>
             <div className={styles.mobileTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
             <Metrics set={set} />
-            <Link className={styles.primaryCta} href="/Explore/rip-statistics">See Full Rankings <span aria-hidden="true">→</span></Link>
+            <Link className={styles.primaryCta} href="/Explore">See Full Rankings <span aria-hidden="true">→</span></Link>
           </div>
           <div className={styles.desktopTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
         </div>
@@ -98,23 +130,15 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}
           </ol> : <p className={styles.unavailable}>Published rankings are refreshing.</p>}
-          <Link className={styles.textCta} href="/Explore/rip-statistics">See Full Rankings →</Link>
+          <Link className={styles.textCta} href="/Explore">See Full Rankings →</Link>
         </div>
       </section>
 
       <section className={`${styles.section} ${styles.proofSection}`} aria-labelledby="simulation-heading">
         <div className={styles.shell}>
           <div className={styles.sectionHead}><p className={styles.eyebrow}>Opening outcome profile</p><h2 id="simulation-heading">What does one million simulated openings actually look like?</h2>
-            <p>{set?.simulationCount ? `${integer.format(set.simulationCount)} simulated openings for ${set.name}.` : "Simulation count is unavailable in the current published payload."}</p></div>
-          <div className={styles.proofGrid}>
-            <div className={styles.proofCards}>
-              <article><span>Normal / typical</span><h3><Money value={set?.medianValue} /></h3><p>The median (P50): half of modeled openings land below this value and half above.</p></article>
-              <article><span>Average / expected</span><h3><Money value={set?.meanValue} /></h3><p>The mean includes rare high-value hits, so it can sit above what a typical opening returns.</p></article>
-            </div>
-            <div className={styles.tailCard}><p className={styles.tailTitle}>Outcome landmarks</p><ol>
-              {landmarks.map(([label, value]) => <li key={label}><span>{label}</span><i aria-hidden="true" /><strong><Money value={value} /></strong></li>)}
-            </ol><p className={styles.tailNote}>Percentile thresholds are shown as published values. Expected value is kept separate because a mean is not a percentile.</p></div>
-          </div>
+            <p>{set?.simulationCount ? `${integer.format(set.simulationCount)} simulated openings for ${set.name}. Most openings cluster on the left; farther right means rarer, more valuable outcomes.` : "Simulation count is unavailable in the current published payload."}</p></div>
+          <DistributionVisual distribution={distribution} />
         </div>
       </section>
 
