@@ -149,3 +149,44 @@ test("no targets yields no spotlight and an empty strip", () => {
   assert.deepEqual(selectLandingRankedStrip(null), []);
   assert.equal(selectLandingHeroSpotlight(undefined), null);
 });
+
+test("landing metrics come from canonical V7/V3 and published mean/median fields", () => {
+  const target = {
+    target_type: "set", target_id: "current", canonical_key: "paradoxRift", name: "Current",
+    publicRipContractV7: {
+      overallRip: { relativeScore: 88, rank: 1, tier: "S" },
+      financialRip: {
+        relativeScore: 77,
+        sourceRun: { simulationCount: 1000000 },
+        distributionDisclosures: { p05Value: 0.2 },
+        components: {
+          realisticUpside: { raw: { p95ThresholdValue: 14 } },
+          jackpotUpside: { raw: { p99ThresholdValue: 80 } },
+        },
+      },
+      collectorAppeal: { relativeScore: 90 },
+    },
+    mean_value: 5.25,
+    median_value: 1.75,
+    rip: { relativeScore: 99 },
+    ripCore: { relativeScore: 98 },
+    overallRipV6: { relativeScore: 97 },
+  };
+  const entry = selectLandingHeroSpotlight([target]);
+  assert.equal(entry.score, 88);
+  assert.equal(entry.financialRipScore, 77);
+  assert.equal(entry.meanValue, 5.25);
+  assert.equal(entry.medianValue, 1.75);
+  assert.equal(entry.simulationCount, 1000000);
+  assert.equal(entry.p05Value, 0.2);
+  assert.equal(entry.p95Value, 14);
+  assert.equal(entry.p99Value, 80);
+});
+
+test("absent landing metrics remain unavailable", () => {
+  const entry = selectLandingHeroSpotlight([makeTarget()]);
+  assert.equal(entry.financialRipScore, null);
+  assert.equal(entry.meanValue, null);
+  assert.equal(entry.medianValue, null);
+  assert.equal(entry.simulationCount, null);
+});
