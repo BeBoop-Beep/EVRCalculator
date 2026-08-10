@@ -64,13 +64,14 @@ const RAIL_ACCENTS = {
  * A rail is drawn ONLY from a real, finite value the row is already showing.
  * There is no fabricated history, no sparkline and no placeholder fill: an
  * unavailable metric renders the empty track, which reads as "no value" rather
- * than as zero.
+ * than as zero. Zero itself IS a real value on a cohort-relative scale, so a
+ * 0/100 metric remains available even though its fill has zero width.
  */
 function MetricRail({ percent, accentFamily }) {
   const accent = RAIL_ACCENTS[accentFamily] || RAIL_ACCENTS.financial;
   const parsed = Number(percent);
   const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
-  const hasValue = width !== null && width > 0;
+  const hasValue = width !== null;
 
   return (
     <div

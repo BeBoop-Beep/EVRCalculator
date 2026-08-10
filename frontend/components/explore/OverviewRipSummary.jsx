@@ -21,21 +21,18 @@
 // interpretation copy. Each metric gets one plain sentence saying what it
 // measures, and nothing that reads as advice.
 //
-// TWO SCALES, ON PURPOSE
+// ONE PUBLIC SCORE SCALE
 // ----------------------
-// RIP Score shows the Overall RIP V7 RELATIVE score — the cohort-relative 0-100
-// number that is the public scoring language across the site, read through
-// readCanonicalBlock. Financial RIP and Collector Appeal show their own
-// canonical `score`, which is the backend's FIXED-ANCHOR V3 figure and is the
-// number those two models are defined to publish. They are deliberately NOT
-// forced through readCanonicalBlock to make all three accessors match: doing so
-// would swap each one's defined public number for a differently-computed
-// cohort-relative figure under the same label. Rank, tier and cohort are
-// backend-provided in every case.
+// RIP Score, Financial RIP and Collector Appeal all show their backend-owned
+// RELATIVE score: the cohort-relative 0-100 public scoring language already used
+// by Overall RIP and Explore. Their fixed-anchor absolute model scores remain in
+// the payload for formula/audit use, but are never substituted into a `/100`
+// headline. Rank, tier and cohort remain backend-provided in every case.
 //
 // NOTHING IS COMPUTED HERE. Every number is lifted from the resolved canonical
-// bundle, and a missing one renders as an explicit unavailable state — never a
-// zero, never a legacy score, never the other metric's value.
+// bundle, and a missing relative score renders as an explicit unavailable state
+// — never a zero, never a legacy score, never an absolute score on another
+// scale.
 
 import React, { useMemo } from "react";
 
@@ -119,8 +116,8 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
   );
   const collector = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
 
-  const financialScore = toDisplayScore(financial.score);
-  const collectorScore = toDisplayScore(collector.score);
+  const financialScore = toDisplayScore(financial.publicScore);
+  const collectorScore = toDisplayScore(collector.publicScore);
 
   return (
     <section
@@ -166,10 +163,10 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
           <SummaryMetric
             id="financial"
             label="Financial RIP"
-            // Financial RIP V3's canonical fixed-anchor score, as the backend
-            // defines it — not a relative restatement of it.
+            // Financial RIP uses the backend relative 0-100 score, matching
+            // the public scoring language used by Overall RIP.
             score={financialScore}
-            available={financialScore !== null}
+            available={financial.publicAvailable && financialScore !== null}
             meta={formatMeta({
               tier: financial.tier && financial.tier !== UNAVAILABLE_DASH ? financial.tier : null,
               rank: financial.rank,
@@ -182,9 +179,9 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
           <SummaryMetric
             id="collector"
             label="Collector Appeal"
-            // Collector Appeal V3's canonical score, on the same basis.
+            // Collector Appeal follows the same relative public score policy.
             score={collectorScore}
-            available={collector.available && collectorScore !== null}
+            available={collector.publicAvailable && collectorScore !== null}
             meta={formatMeta({
               tier: collector.tier,
               rank: collector.rank,

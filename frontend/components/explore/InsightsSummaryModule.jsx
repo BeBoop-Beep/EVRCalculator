@@ -23,10 +23,12 @@
 // components that share the copy constants and the selectors cannot.
 //
 // NOTHING IS COMPUTED HERE. Every score, tier, rank and denominator is lifted
-// from the single resolved canonical bundle. A missing value renders an em
-// dash — never a zero, never a legacy score, never the other metric's value.
-// The rail width is a presentation-only reading of the score that is already on
-// screen; when the score is unavailable the rail renders as an empty track.
+// from the single resolved canonical bundle. Every visible `/100` score uses
+// the backend cohort-relative score; fixed-anchor absolute model outputs never
+// drive the visible number or rail. A missing value renders an em dash — never
+// a zero, never a legacy score, never the other metric's value. The rail width
+// is a presentation-only reading of the score already on screen; when the score
+// is unavailable the rail renders as an empty track.
 
 import React, { useMemo } from "react";
 
@@ -81,10 +83,13 @@ function formatMeta({ tier, rank, cohortSize }) {
  * The glow is a gradual left-to-right bloom: the fill starts nearly flat and
  * gains luminance toward its leading edge, with a soft shadow in the same hue.
  * It is a single shadow at low alpha, not a neon outline, and it is absent
- * entirely when there is no value to draw.
+ * entirely when there is no value to draw. Zero is a real relative score for
+ * the lowest-ranked cohort member, so 0% is available even though its fill has
+ * zero width.
  */
 function SummaryRail({ accent, percent }) {
-  const hasValue = percent !== null && percent > 0;
+  const hasValue =
+    percent !== null && percent !== undefined && Number.isFinite(Number(percent));
   return (
     <div
       data-insights-summary-rail
@@ -176,8 +181,8 @@ export default function InsightsSummaryModule({
   const collector = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
 
   const overallDisplayScore = toDisplayScore(overallScore);
-  const financialScore = toDisplayScore(financial.score);
-  const collectorScore = toDisplayScore(collector.score);
+  const financialScore = toDisplayScore(financial.publicScore);
+  const collectorScore = toDisplayScore(collector.publicScore);
 
   return (
     <section
@@ -215,10 +220,9 @@ export default function InsightsSummaryModule({
         <SummaryCard
           id="financial"
           label="Financial RIP"
-          // Financial RIP V3's canonical fixed-anchor score, as the backend
-          // defines it — not a relative restatement of it.
+          // Financial RIP uses its backend cohort-relative public score.
           score={financialScore}
-          available={financialScore !== null}
+          available={financial.publicAvailable && financialScore !== null}
           meta={formatMeta({
             tier: financial.tier,
             rank: financial.rank,
@@ -226,14 +230,14 @@ export default function InsightsSummaryModule({
           })}
           description={RIP_SUMMARY_DESCRIPTIONS.financial}
           accent={INSIGHTS_SUMMARY_ACCENTS.financial}
-          railPercent={toRailPercent(financial.score)}
+          railPercent={toRailPercent(financial.publicScore)}
         />
         <SummaryCard
           id="collector"
           label="Collector Appeal"
-          // Collector Appeal V3's canonical score, on the same basis.
+          // Collector Appeal follows the same relative public-score policy.
           score={collectorScore}
-          available={collector.available && collectorScore !== null}
+          available={collector.publicAvailable && collectorScore !== null}
           meta={formatMeta({
             tier: collector.tier,
             rank: collector.rank,
@@ -241,7 +245,7 @@ export default function InsightsSummaryModule({
           })}
           description={RIP_SUMMARY_DESCRIPTIONS.collector}
           accent={INSIGHTS_SUMMARY_ACCENTS.collector}
-          railPercent={toRailPercent(collector.score)}
+          railPercent={toRailPercent(collector.publicScore)}
         />
       </div>
     </section>
