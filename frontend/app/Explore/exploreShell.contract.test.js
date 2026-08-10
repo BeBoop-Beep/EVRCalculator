@@ -58,10 +58,10 @@ test("document metadata and route semantics are preserved", () => {
 test("Market Movers precedes the restored grid and tables have the required DOM order", () => {
   const source = readPage();
   const movers = source.indexOf("<ExploreMarketMovers");
-  const grid = source.indexOf("grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]");
+  const grid = source.indexOf("grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]");
   const rankings = source.indexOf("<ExploreTopRankings");
   const bestSets = source.indexOf("<ExploreTableClient");
-  assert.ok(movers > 0 && movers < grid && grid < rankings && rankings < bestSets);
+  assert.ok(movers > 0 && movers < grid && grid < bestSets && bestSets < rankings);
 });
 
 test("Explore reuses the set-page atmosphere and glass primitives", () => {
@@ -73,13 +73,13 @@ test("Explore reuses the set-page atmosphere and glass primitives", () => {
   assert.ok(source.includes('loading="lazy"'));
 });
 
-test("Top Rankings and Best Sets remain siblings in the original two-column grid", () => {
+test("Best Sets and Top Rankings remain siblings at their original dimensions", () => {
   const source = readPage();
-  assert.ok(source.includes("xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]"));
-  assert.ok(!source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
+  assert.ok(source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
+  assert.ok(!source.includes("xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]"));
   assert.ok(!source.includes('className="space-y-5"'));
   const gridSource = source.slice(source.indexOf("grid grid-cols-1 items-start gap-4"));
-  assert.ok(gridSource.indexOf("<ExploreTopRankings") < gridSource.indexOf("<ExploreTableClient"));
+  assert.ok(gridSource.indexOf("<ExploreTableClient") < gridSource.indexOf("<ExploreTopRankings"));
 });
 
 test("movers and rankings load independently with one global movers request", () => {

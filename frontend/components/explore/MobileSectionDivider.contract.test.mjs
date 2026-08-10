@@ -33,14 +33,14 @@ const afterMoversRule = /\[data-mobile-section\]\[data-mobile-section-variant="a
 const ordinarySpacing = /\[data-mobile-section\] \{[\s\S]*?\n  \}/.exec(css)[0];
 const afterMoversSpacing = /\[data-mobile-section\]\[data-mobile-section-variant="after-movers"\] \{[\s\S]*?\n  \}/.exec(css)[0];
 
-test("Explore Top Rankings takes the after-movers variant and Best Sets to Rip does not", () => {
-  const rankings = explore.slice(explore.indexOf("<div data-mobile-section"), explore.indexOf("<ExploreTopRankings"));
-  assert.match(rankings, /data-mobile-section data-mobile-section-variant="after-movers"/);
+test("Best Sets to Rip takes the after-movers variant and Top Rankings does not", () => {
+  const bestSets = explore.slice(explore.indexOf("<div data-mobile-section"), explore.indexOf("<ExploreTableClient"));
+  assert.match(bestSets, /data-mobile-section data-mobile-section-variant="after-movers"/);
 
-  // ExploreTableClient is "Best Sets to Rip" — ordinary luminous divider.
+  // ExploreTopRankings is now the later section and keeps the ordinary divider.
   const tableWrapper = explore.slice(
-    explore.lastIndexOf("<div data-mobile-section", explore.indexOf("<ExploreTableClient")),
-    explore.indexOf("<ExploreTableClient")
+    explore.lastIndexOf("<div data-mobile-section", explore.indexOf("<ExploreTopRankings")),
+    explore.indexOf("<ExploreTopRankings")
   );
   assert.match(tableWrapper, /<div data-mobile-section>/);
   assert.doesNotMatch(tableWrapper, /after-movers/);
@@ -252,7 +252,7 @@ test("desktop Explore spacing is exactly what it was before the mobile pass", ()
   assert.match(grid, /\bgap-4\b/, "gap between the two desktop tables");
   assert.match(
     grid,
-    /xl:grid-cols-\[minmax\(19rem,1fr\)_minmax\(0,2fr\)\]/,
+    /xl:grid-cols-\[minmax\(0,2fr\)_minmax\(19rem,1fr\)\]/,
     "desktop column sizes"
   );
 });
