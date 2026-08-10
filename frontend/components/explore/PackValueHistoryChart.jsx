@@ -640,7 +640,7 @@ export default function PackValueHistoryChart({
               />
             ) : null}
 
-            {/* Big Hit Upside rendered below Expected Value so Expected Value stays visually on top. */}
+            {/* Strong Upside rendered below Expected Value so Expected Value stays visually on top. */}
             {hasP95Data && showP95Line ? (
               <Line
                 type="monotone"

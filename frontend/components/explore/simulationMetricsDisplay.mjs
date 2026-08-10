@@ -120,11 +120,11 @@ export function buildPercentileStripModel({
     { key: "min", label: "Min", value: toFiniteNumber(min), major: true },
     { key: "p5", label: "P5", value: toFiniteNumber(p5), major: true },
     { key: "p25", label: "P25", value: toFiniteNumber(p25), major: false },
-    { key: "p50", label: "P50", value: toFiniteNumber(p50), major: true },
+    { key: "p50", label: "Typical Opening (P50)", value: toFiniteNumber(p50), major: true },
     { key: "p75", label: "P75", value: toFiniteNumber(p75), major: false },
     { key: "p90", label: "P90", value: toFiniteNumber(p90), major: false },
-    { key: "p95", label: "P95", value: toFiniteNumber(p95), major: true },
-    { key: "p99", label: "P99", value: toFiniteNumber(p99), major: true },
+    { key: "p95", label: "Strong Upside (P95)", value: toFiniteNumber(p95), major: true },
+    { key: "p99", label: "Jackpot Upside (P99)", value: toFiniteNumber(p99), major: true },
     { key: "max", label: "Max", value: toFiniteNumber(max), major: true },
   ];
   const cost = toFiniteNumber(packCost);

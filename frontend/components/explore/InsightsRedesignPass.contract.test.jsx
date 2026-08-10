@@ -327,9 +327,9 @@ test("Financial RIP still renders exactly its six canonical components", () => {
   const { rows } = selectFinancialRipV3Breakdown(V7_FIXTURE.financialRip);
   assert.deepEqual(rows.map((row) => row.title), [
     "Chance to Win",
-    "Typical Return",
+    "Typical Opening",
     "Loss Resilience",
-    "Realistic Upside",
+    "Strong Upside",
     "Jackpot Upside",
     "Base Economics",
   ]);

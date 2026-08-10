@@ -167,9 +167,9 @@ const V2_FIXTURE = {
 test("the six V3 cards are defined in the specified order", () => {
   assert.deepEqual(FINANCIAL_RIP_V3_CARD_ORDER, [
     "Chance to Win",
-    "Typical Return",
+    "Typical Opening",
     "Loss Resilience",
-    "Realistic Upside",
+    "Strong Upside",
     "Jackpot Upside",
     "Base Economics",
   ]);
@@ -264,7 +264,7 @@ test("raw dollar values and ratios reach the rendered rows", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
   const byTitle = new Map(rows.map((row) => [row.title, row]));
 
-  const typical = byTitle.get("Typical Return").metrics;
+  const typical = byTitle.get("Typical Opening").metrics;
   assert.equal(typical[0].value, "$1.20");
   assert.equal(typical[1].value, "24.1%");
 
@@ -330,7 +330,7 @@ test("the V3 selector has no fallback to V2 fields", () => {
 
 test("P95 copy says the top 5% BEGINS at a value — never that it is an average", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const realistic = rows.find((row) => row.title === "Realistic Upside");
+  const realistic = rows.find((row) => row.title === "Strong Upside");
   const thresholdRow = realistic.metrics[0];
   assert.equal(thresholdRow.label, "Top 5% begins at");
   assert.doesNotMatch(thresholdRow.label, /average/i);
@@ -340,7 +340,7 @@ test("P95 copy says the top 5% BEGINS at a value — never that it is an average
 
 test("the top-tail conditional mean is worded distinctly from the threshold", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const realistic = rows.find((row) => row.title === "Realistic Upside");
+  const realistic = rows.find((row) => row.title === "Strong Upside");
   const labels = realistic.metrics.map((metric) => metric.label);
   assert.ok(labels.includes("Top 5% begins at"));
   assert.ok(labels.includes("Average return, 95th–99th percentile"));
@@ -371,9 +371,9 @@ test("Loss Resilience copy never calls a loss a win", () => {
   );
 });
 
-test("Typical Return copy says median or typical, never floor or minimum", () => {
+test("Typical Opening copy says median or typical, never floor or minimum", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const typical = rows.find((row) => row.title === "Typical Return");
+  const typical = rows.find((row) => row.title === "Typical Opening");
   assert.match(typical.interpretation, /median/i);
   assert.doesNotMatch(typical.interpretation, /floor|minimum|guarantee/i);
 });

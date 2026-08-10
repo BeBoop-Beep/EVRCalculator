@@ -3426,8 +3426,8 @@ def test_biggest_upside_evidence_includes_big_hit_and_god_pull_upside():
 
     lens = _lens_by_key(result, "biggest_upside")
     evidence_labels = {item.get("label") for item in lens.get("evidence", []) if isinstance(item, dict)}
-    assert "Big Hit Upside" in evidence_labels
-    assert "God Pull Upside" in evidence_labels
+    assert "Strong Upside" in evidence_labels
+    assert "Jackpot Upside" in evidence_labels
 
 
 def test_p99_changes_do_not_change_safety_or_stability_interpretation_blocks():
@@ -3796,10 +3796,10 @@ def test_set_intelligence_uses_standardized_p95_p99_labels():
     chase_labels = {item.get("label") for item in chase.get("evidence", [])}
     upside_labels = {item.get("label") for item in upside.get("evidence", [])}
 
-    assert "Big Hit Upside" in chase_labels
-    assert "God Pull Upside" in chase_labels
-    assert "Big Hit Upside" in upside_labels
-    assert "God Pull Upside" in upside_labels
+    assert "Strong Upside" in chase_labels
+    assert "Jackpot Upside" in chase_labels
+    assert "Strong Upside" in upside_labels
+    assert "Jackpot Upside" in upside_labels
     assert "P95 upside vs cost" not in chase_labels
     assert "P99 upside vs cost" not in chase_labels
 

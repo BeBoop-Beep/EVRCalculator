@@ -86,7 +86,7 @@ export default function SetIntelligenceSection({ set, chaseCards = [] }) {
                         </span>
                       </div>
                       <div className={styles.barRow}>
-                        <span className={styles.barLabel}>Modeled mean opening</span>
+                        <span className={styles.barLabel}>Expected Value</span>
                         <span className={styles.barValue}>{currency2.format(economics.meanValue)}</span>
                         <span className={styles.barTrack}>
                           <span

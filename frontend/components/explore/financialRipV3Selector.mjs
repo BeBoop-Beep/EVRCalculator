@@ -127,7 +127,7 @@ const V3_CARDS = [
   {
     key: "typicalRetention",
     snakeKey: "typical_retention",
-    title: "Typical Return",
+    title: "Typical Opening",
     // "Typical"/"median" throughout. P50 is not a floor and the copy must never
     // let a reader take it as one.
     interpretation: "What the median simulated pack came back worth — half were above, half below.",
@@ -169,7 +169,7 @@ const V3_CARDS = [
   {
     key: "realisticUpside",
     snakeKey: "realistic_upside",
-    title: "Realistic Upside",
+    title: "Strong Upside",
     interpretation:
       "The good-but-not-miraculous outcome: the top 5% of packs, with the top 1% excluded.",
     metrics: (raw) => [

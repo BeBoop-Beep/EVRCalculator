@@ -143,8 +143,8 @@ test("Set Intelligence Biggest Upside wiring references relative-first score fie
   assert.ok(source.includes('scoreFields: ["relative_biggest_upside_score", "biggest_upside_score"]'));
   assert.ok(source.includes('tierField: "biggest_upside_tier"'));
   assert.ok(source.includes('rankField: "biggest_upside_rank"'));
-  assert.ok(source.includes('"Realistic Upside"'));
-  assert.ok(source.includes('"God Pull Upside"'));
+  assert.ok(source.includes('"Strong Upside"'));
+  assert.ok(source.includes('"Jackpot Upside"'));
 });
 
 test("Set Intelligence Expected Value wiring prefers relative score fields", () => {
@@ -181,10 +181,10 @@ test("Performance series labels expose a market quick-read variant and a technic
   const source = fs.readFileSync(performanceFormattingPath, "utf8");
 
   // Overview quick-read (market) keeps the simplified reader labels; the p95
-  // upside is now "Realistic Upside" (renamed from "Big Hit Upside").
+  // P50/P95 use the canonical Typical Opening / Strong Upside names.
   assert.ok(source.includes('mean: "Expected Value"'));
-  assert.ok(source.includes('median: "Typical Return"'));
-  assert.ok(source.includes('p95: "Realistic Upside"'));
+  assert.ok(source.includes('median: "Typical Opening"'));
+  assert.ok(source.includes('p95: "Strong Upside"'));
   assert.ok(!source.includes('"Big Hit Upside"'), "the confusing Big Hit Upside label must be gone");
   // Simulation Results (Opening Profit vs Cost) keeps the raw percentile-vs-cost labels.
   assert.ok(source.includes('mean: "Expected Value vs Cost"'));
@@ -284,7 +284,7 @@ test("Metrics tab three-tier redesign: verdict row removed, log-scale percentile
   const panelEnd = source.indexOf("function formatDriverScore", panelStart);
   const panelSource = source.slice(panelStart, panelEnd);
 
-  // The former Tier-1 verdict cards (Expected Value / EV/Cost / Typical Pack /
+  // The former Tier-1 verdict cards (Expected Value / EV/Cost / P50 /
   // Chance to Profit) are gone — that data leads the Overview hero and the RIP
   // Score Breakdown, and each figure stays reachable in the grouped rows.
   assert.ok(!source.includes("function VerdictStatCard("), "the verdict stat card component must be removed with its row");
@@ -556,25 +556,25 @@ test("Performance vs Cost info bubble explains chart series and P95 basis", () =
 
   assert.ok(source.includes("<p>Tracks how simulated opening outcomes compare against pack market price over time.</p>"));
   assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Expected Value:</span> average simulated pack value."));
-  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Typical Return:</span> median simulated pack value."));
-  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Realistic Upside:</span> 95th percentile simulated pack outcome. Roughly 5% of simulated packs landed above this value."));
+  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Typical Opening:</span> median (P50) simulated pack value."));
+  assert.ok(source.includes("<span className=\"font-semibold text-[var(--text-primary)]\">Strong Upside:</span> P95 threshold. Roughly 5% of simulated packs landed above this value."));
   assert.ok(source.includes("Above 1.0x means that outcome is above pack market price; below 1.0x means it is below pack market price."));
   assert.ok(
-    source.indexOf("Realistic Upside:</span> 95th percentile simulated pack outcome") <
+    source.indexOf("Strong Upside:</span> P95 threshold") <
       source.indexOf("Expected Value:</span> average simulated pack value.")
   );
   assert.ok(
     source.indexOf("Expected Value:</span> average simulated pack value.") <
-      source.indexOf("Typical Return:</span> median simulated pack value.")
+      source.indexOf("Typical Opening:</span> median (P50) simulated pack value.")
   );
   assert.ok(source.includes("titleInfoText={PERFORMANCE_VS_COST_INFO_TEXT}"));
   assert.ok(source.includes("? PERFORMANCE_VS_COST_INFO_TEXT"));
 });
 
-test("Performance vs Cost metrics include God Pull Upside tile wired to P99 ratio", () => {
+test("Performance vs Cost metrics include Jackpot Upside tile wired to P99 ratio", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(source.includes('godPullUpside: "God Pull Upside"'));
+  assert.ok(source.includes('godPullUpside: "Jackpot Upside"'));
   assert.ok(source.includes('label={RIP_COPY.chartStats.godPullUpside}'));
   assert.ok(source.includes('value={formatMultiplier(summary.p99_value_to_cost_ratio, 1)}'));
   assert.ok(source.includes("Simple: Rare monster-hit outcome compared with pack price."));
@@ -590,11 +590,11 @@ test("Explore Biggest Upside mode uses blended biggest_upside ranking fields", (
   assert.ok(!source.includes('scoreField: "p95_value_to_cost_ratio"'));
 });
 
-test("Explore God Pull Upside mode uses P99 ratio display with P99 ranking fields", () => {
+test("Explore Jackpot Upside mode uses P99 ratio display with P99 ranking fields", () => {
   const source = fs.readFileSync(rankingConfigPath, "utf8");
 
   assert.ok(source.includes('id: "godPullUpside"'));
-  assert.ok(source.includes('label: "God Pull Upside"'));
+  assert.ok(source.includes('label: "Jackpot Upside"'));
   assert.ok(source.includes('scoreField: "p99_value_to_cost_ratio"'));
   assert.ok(source.includes('scoreFormat: "ratio"'));
   assert.ok(source.includes('rankField: "p99_value_to_cost_rank"'));

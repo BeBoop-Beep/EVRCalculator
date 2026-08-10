@@ -21,8 +21,8 @@ from .synthesis.pack_score import interpret_pack_score
 from .thresholds import format_percent, format_ratio, get_numeric, get_summary_data, get_tier
 
 
-BIG_HIT_UPSIDE_LABEL = "Big Hit Upside"
-GOD_PULL_UPSIDE_LABEL = "God Pull Upside"
+BIG_HIT_UPSIDE_LABEL = "Strong Upside"
+GOD_PULL_UPSIDE_LABEL = "Jackpot Upside"
 BIG_HIT_UPSIDE_HELPER = "P95 outcome vs pack cost"
 GOD_PULL_UPSIDE_HELPER = "P99 outcome vs pack cost"
 

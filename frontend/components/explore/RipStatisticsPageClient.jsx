@@ -943,25 +943,25 @@ const RIP_COPY = {
   },
   chartMarkers: {
     packCost: "Pack Market Price",
-    typicalPack: "Typical Pack",
+    typicalPack: "Typical Opening",
     averagePack: "Average Pack",
     badFloor: "Bad Floor",
     bigHit: "Big Hit Threshold",
-    bigHitUpside: "Realistic Upside",
-    godPullUpside: "God Pull Upside",
+    bigHitUpside: "Strong Upside",
+    godPullUpside: "Jackpot Upside",
     bestPull: "Best Pull",
   },
   chartStats: {
-    typicalPack: "Typical Pack Value",
+    typicalPack: "Typical Opening",
     badPackFloor: "Bad Pack Floor Value",
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     chanceAtBigPull: "Chance at a Big Pull",
-    bigHitUpside: "Realistic Upside",
-    godPullUpside: "God Pull Upside",
+    bigHitUpside: "Strong Upside",
+    godPullUpside: "Jackpot Upside",
     bestPull: "Best Simulated Pull",
   },
   advancedStats: {
-    bigHitUpside: "Realistic Upside",
+    bigHitUpside: "Strong Upside",
     expectedLossPerPack: "Average Loss per Pack",
     expectedLossWhenLosing: "Average Loss When You Miss",
     medianLossWhenLosing: "Typical Loss When You Miss",
@@ -1071,7 +1071,7 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
       <li className="flex gap-2">
         <span className="flex-none">•</span>
         <span>
-          <span className="font-semibold text-[var(--text-primary)]">Realistic Upside:</span> 95th percentile simulated pack outcome. Roughly 5% of simulated packs landed above this value.
+          <span className="font-semibold text-[var(--text-primary)]">Strong Upside:</span> P95 threshold. Roughly 5% of simulated packs landed above this value.
         </span>
       </li>
       <li className="flex gap-2">
@@ -1083,7 +1083,7 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
       <li className="flex gap-2">
         <span className="flex-none">•</span>
         <span>
-          <span className="font-semibold text-[var(--text-primary)]">Typical Return:</span> median simulated pack value.
+          <span className="font-semibold text-[var(--text-primary)]">Typical Opening:</span> median (P50) simulated pack value.
         </span>
       </li>
       <li className="flex gap-2">
@@ -1117,11 +1117,11 @@ const OPENING_PERFORMANCE_VS_COST_INFO_TEXT = (
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
-        <span><span className="font-semibold text-[var(--text-primary)]">50th Percentile vs Cost:</span> the median (typical) pack value ÷ pack price.</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">Typical Opening (P50) vs Cost:</span> the median simulated pack value ÷ pack price.</span>
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
-        <span><span className="font-semibold text-[var(--text-primary)]">95th Percentile vs Cost:</span> the 95th-percentile pack outcome ÷ pack price.</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">Strong Upside (P95) vs Cost:</span> the P95 threshold ÷ pack price.</span>
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
@@ -1241,8 +1241,8 @@ const DESIRABILITY_VALIDATION_METRICS = [
   },
   {
     key: "p95",
-    label: "P95",
-    summaryLabel: "Cost-Adjusted P95 Upside",
+    label: "Strong Upside (P95)",
+    summaryLabel: "Strong Upside (P95) vs Cost",
     sampleLabel: "simulated opening sets",
     description: "P95 is cost-adjusted upper-tail upside. A negative relationship can happen when highly desirable sets become expensive to open.",
     valueKeys: ["p95_value_to_cost_ratio", "p95ValueToCostRatio", "big_hit_upside", "bigHitUpside"],
@@ -4213,17 +4213,17 @@ const SIMULATION_METRIC_INFO = {
   "Min Pack": "Lowest simulated pack value across the run.",
   P5: "5th-percentile pack value — 95% of simulated packs landed above this.",
   P25: "25th-percentile pack value across simulated packs.",
-  "P50 (Typical Pack)": "Median (50th-percentile) simulated pack value — the typical pack.",
+  "Typical Opening (P50)": "Median (50th-percentile) simulated pack value — half of simulated openings are above it and half below it.",
   P75: "75th-percentile pack value across simulated packs.",
   P90: "90th-percentile pack value across simulated packs.",
-  P95: "95th-percentile pack value — roughly 5% of packs beat this (Realistic Upside).",
-  P99: "99th-percentile pack value — the rare high-end (God Pull) outcome.",
+  P95: "Strong Upside threshold — roughly 5% of simulated packs beat this value.",
+  P99: "Jackpot Upside threshold — the top 1% begins at this value.",
   "Max (Best Pull)": "Highest simulated pack value across the run.",
   "Mean (Expected Value)": "Average simulated pack value across every simulated pack.",
   "Std Dev": "Spread of simulated pack values around the mean; higher means noisier outcomes.",
   Variance: "Square of standard deviation; derived from std dev when the backend does not export it explicitly.",
   "Expected Value": "Average simulated pack value.",
-  "Typical Pack": "Median simulated pack value.",
+  "Typical Opening": "Median (P50) simulated pack value.",
   "EV / Cost": "Expected value ÷ pack market price. Above 1.0x means value exceeds cost.",
   "Typical / Cost": "Median pack value ÷ pack market price.",
   "P95 / Cost": "95th-percentile pack value ÷ pack market price.",
@@ -4419,7 +4419,7 @@ function PercentileStripChart({ model }) {
                 top: -8,
               }}
             >
-              <SimulationChartTooltipFrame label={activeMarker.key === "p50" ? "P50 (Typical Pack)" : activeMarker.label}>
+              <SimulationChartTooltipFrame label={activeMarker.key === "p50" ? "Typical Opening (P50)" : activeMarker.label}>
                 <p>
                   <span className="font-semibold text-white">{formatCurrency(activeMarker.value)}</span> simulated pack value
                 </p>
@@ -4670,8 +4670,8 @@ function SimulationMetricsContent({
     <>
       <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
       <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
-      <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
-      <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
+      <SimMetricLine label="Strong Upside (P95) vs Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
+      <SimMetricLine label="Jackpot Upside (P99 / Top 1%) vs Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
       <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
       <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
       <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
@@ -4745,7 +4745,7 @@ function SimulationMetricsContent({
     {
       key: "where-packs-land",
       label: "Where Packs Land",
-      caption: "Typical pack (P50)",
+      caption: "Typical Opening (P50)",
       value: money(p50),
       infoText: packsLandInfoText,
       body: packsLandBody,
@@ -5433,7 +5433,7 @@ const SET_INTELLIGENCE_LENSES = [
     simpleDetailSummary:
       "This lens focuses on ceiling. It helps you understand whether the strongest possible pulls can feel truly special for this set.",
     description:
-      "This lens blends Realistic Upside (P95) with God Pull Upside (P99) to represent total ceiling quality.",
+      "This lens blends Strong Upside (P95) with Jackpot Upside (Top 1% / P99) to represent total ceiling quality.",
     evidenceKeys: ["p95_value_to_cost_ratio", "p99_value_to_cost_ratio", "big_hit_threshold", "max_value"],
   },
   {
@@ -5575,9 +5575,9 @@ function getLensEvidenceRow(key, summary) {
     case "prob_big_hit":
       return { label: "Chance at a big pull", value: formatPercent(summary.prob_big_hit, { probability: true }) };
     case "p95_value_to_cost_ratio":
-      return { label: "Realistic Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+      return { label: "Strong Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
     case "p99_value_to_cost_ratio":
-      return { label: "God Pull Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
+      return { label: "Jackpot Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
     case "effective_chase_count":
       return { label: "Chase depth", value: formatNumber(summary.effective_chase_count, 2) };
     case "big_hit_threshold":
@@ -11031,9 +11031,9 @@ export default function RipStatisticsPageClient({
   );
   const technicalScoreMetrics = [
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
     { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
     { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
@@ -11047,12 +11047,12 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
   ];
   const safetyPillarMetrics = [
-    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+    { label: "Typical Opening", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Opening") },
     { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
     { label: "Chance to Miss Pack Cost", value: formatPercent(chanceToMissPackCostValue, { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
     { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), trend: trendByMetricKey.averageLossWhenYouMiss, infoText: getMetricTooltip("Average Loss When You Miss") },
@@ -14068,9 +14068,9 @@ export default function RipStatisticsPageClient({
                   ]}
                   advancedMetrics={[
                     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-                    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-                    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+                    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+                    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+                    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
                   ]}
                 />
                 <ScorePillarCard
@@ -14084,7 +14084,7 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   simpleMetrics={[
-                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+                    { label: "Typical Opening", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Opening") },
                     { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
                     { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
                   ]}
