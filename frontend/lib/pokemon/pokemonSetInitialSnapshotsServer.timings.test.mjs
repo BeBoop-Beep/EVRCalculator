@@ -89,28 +89,32 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
     "getPokemonSetInitialSnapshots must never call getPokemonSetMarketDashboardInitialSnapshot anymore"
   );
   // Cards and market-dashboard slots resolve empty unconditionally; the
-  // overview slot falls back to the empty placeholder on non-Overview tabs.
+  // overview slot falls back to the empty placeholder off the Market tab.
   const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
   assert.equal(
     emptyPlaceholderCount,
     3,
-    "the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder, and the overview slot must fall back to it off the Overview tab"
+    "the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder, and the overview slot must fall back to it off the Market tab"
   );
 });
 
-test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Overview tab only", () => {
+test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Market tab only", () => {
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
   const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
   const fnEnd = source.indexOf("\n}\n", fnStart);
   const fnSource = source.slice(fnStart, fnEnd);
 
   assert.ok(
-    fnSource.includes('const wantsOverview = resolveSetDetailTab(tab) === "overview"'),
-    "overview seeding must gate on the resolved set-detail tab (aliases + absent-tab default included)"
+    fnSource.includes('const wantsMarketSeed = resolveSetDetailTab(tab) === "market"'),
+    "the slim market seed must gate on the resolved set-detail tab (aliases + absent-tab default included)"
   );
   assert.ok(
-    fnSource.includes("wantsOverview ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
-    "overview must be fetched only when Overview is the active tab, resolving empty otherwise"
+    fnSource.includes("wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
+    "the slim /overview payload must be fetched only when Market is the active tab, resolving empty otherwise"
+  );
+  assert.ok(
+    !fnSource.includes('resolveSetDetailTab(tab) === "overview"'),
+    "RIP (internal tab value `overview`) must NOT pull the Set Value/market payload it does not render"
   );
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
   assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");

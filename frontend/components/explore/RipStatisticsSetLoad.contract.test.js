@@ -2505,10 +2505,15 @@ test("Patch 2: set-switch pending state exists and replaces placeholder metric v
   ]) {
     assert.ok(source.includes(`formatHeaderMetric(${field}`), `${field} must route through formatHeaderMetric`);
   }
-  // Set Value keeps the shared pending treatment in the persistent shell.
+  // Set Value no longer renders in the persistent shell - it moved to the
+  // Market tab - but it stays in the header data contract.
   assert.ok(
-    source.includes("loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}"),
-    "the shared set value stack must render its pending skeleton during a switch"
+    !source.includes("accessibleLabel=\"Current set value\""),
+    "the title card must not render a Set Value stack anymore"
+  );
+  assert.ok(
+    source.includes("setHeaderSummary.setValue.current"),
+    "Set Value must remain part of the header summary contract"
   );
 });
 
@@ -4341,8 +4346,10 @@ test("Simulation Results section targets: Opening Profit vs Cost routes to Insig
   assert.ok(source.includes('"opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" }'));
   assert.ok(source.includes('"simulation-metrics": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-metrics" }'));
 
-  // Overview keeps its own Performance vs Cost chart, unchanged.
-  assert.ok(source.includes('"performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" }'));
+  // RIP no longer owns the large Opening Profit vs Cost chart, so the legacy
+  // performance-vs-cost link now resolves to the surviving Analysis sub-view
+  // instead of pointing at a DOM node that is no longer rendered.
+  assert.ok(source.includes('"performance-vs-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" }'));
 
   // Metrics is a real graph section so scroll/highlight/URL-sync treat it like
   // the other sub-views.

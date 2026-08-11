@@ -24,9 +24,9 @@ test("shared mobile section treatment is explicit, three pixels, and desktop-fre
   assert.doesNotMatch(css, /\[data-mobile-feed\] > \* \+ \*/);
   // `(?!-)` so the after-movers `data-mobile-section-variant` attribute is not
   // double-counted as a second section marker.
-  // 7: 6 after the Collector Profile wrapper was removed with its section,
-  // plus the new Overview RIP Summary wrapper.
-  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
+  // 11: 7 as before, plus the four Market tab sections (Set Value, Top 10
+  // Chase Cards, 7D Movers, Sealed Market).
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 11);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
   const moversWrapper = explore.slice(explore.lastIndexOf("<div className=", explore.indexOf("<ExploreMarketMovers")), explore.indexOf("<ExploreMarketMovers"));
   assert.doesNotMatch(moversWrapper, /data-mobile-section/);

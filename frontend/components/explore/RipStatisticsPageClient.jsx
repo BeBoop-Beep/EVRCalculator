@@ -222,7 +222,9 @@ const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-rarity", navId: "rarity-contribution" },
 ];
 const SET_DETAIL_DEFAULT_TAB = "overview";
-const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
+// Canonical set-detail tabs, in user-facing order: RIP | Market |
+// Cards & Products | Pull Rates | Analysis.
+const SET_DETAIL_TABS = new Set(["overview", "market", "cards", "pull-rates", "insights"]);
 // No set-detail tab renders content sourced from the full set /page snapshot
 // anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
 // and Insights moved off it in Phase 4B (getPokemonSetInsights — see the
@@ -256,7 +258,7 @@ const MOBILE_SET_MENU_TOP_BOUNDARY_PX = 20;
 const MOBILE_SET_MENU_BOTTOM_EDGE_PX = 64;
 const MOBILE_SET_MENU_GESTURE_NOISE_PX = 4;
 const MOBILE_RETURN_TO_TOP_THRESHOLD_PX = 12;
-// The Overview 7D Movers ticker always requests the 7D window — deliberately
+// The Market 7D Movers ticker always requests the 7D window — deliberately
 // independent of every other time-range selector on the page — and shows the
 // complete eligible movement list ranked by |7D %|, capped at 10 items.
 const MOVERS_TICKER_WINDOW = "7D";
@@ -274,11 +276,12 @@ const SET_PREFETCH_ADJACENT_LIMIT = 0;
 // expected" fallback instead of shimmering forever.
 const INSIGHTS_PENDING_TIMEOUT_MS = 8000;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
+// `market` is deliberately absent: Market is its own canonical tab, so
+// ?tab=market must render Market and must never fold back into overview/RIP.
 const SET_DETAIL_TAB_ALIASES = {
   rip: "overview",
   analysis: "insights",
   analytics: "insights",
-  market: "overview",
 };
 // The ONE preferred DOM id for the canonical Collector Appeal block.
 const COLLECTOR_APPEAL_SECTION_ID = "set-detail-collector-appeal";
@@ -331,10 +334,20 @@ const SET_DETAIL_SECTION_TARGETS = {
   // Performance vs Cost chart (below) stays exactly where it is — same data,
   // different story.
   "opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" },
-  "performance-vs-cost": { tab: "overview", targetId: "set-detail-overview-performance", graphMode: "historical-trend" },
-  "set-value-trend": { tab: "overview", targetId: "set-detail-set-value-trend" },
-  "top-market-cards": { tab: "overview", targetId: "set-detail-top-market-cards" },
-  "market-movers": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
+  // RIP deliberately no longer owns the large Opening Profit/Performance vs
+  // Cost chart, so this legacy link resolves to the surviving Analysis
+  // historical-trend sub-view rather than resurrecting the chart on RIP.
+  "performance-vs-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" },
+  // MARKET-OWNED deep links. These four sections moved off Overview/Analysis
+  // onto the Market tab; each targetId below is a node Market actually renders.
+  "set-value-trend": { tab: "market", targetId: "set-detail-market-set-value" },
+  "set-value": { tab: "market", targetId: "set-detail-market-set-value" },
+  "top-market-cards": { tab: "market", targetId: "set-detail-market-top-chase" },
+  "top-chase-cards": { tab: "market", targetId: "set-detail-market-top-chase" },
+  "market-movers": { tab: "market", targetId: "set-detail-market-movers" },
+  movers: { tab: "market", targetId: "set-detail-market-movers" },
+  "sealed-market": { tab: "market", targetId: "set-detail-market-sealed" },
+  "product-trend": { tab: "market", targetId: "set-detail-market-sealed" },
   "all-cards": { tab: "cards", targetId: "set-detail-cards", cardsSubTab: "checklist" },
 };
 
@@ -997,6 +1010,7 @@ function getSetDetailSectionParam(searchParams) {
 
 function getSetDetailFallbackTargetId(tab) {
   if (tab === "overview") return "set-detail-overview";
+  if (tab === "market") return "set-detail-market";
   if (tab === "cards") return "set-detail-cards";
   if (tab === "pull-rates") return "set-detail-pull-rates";
   return "set-detail-insights";
@@ -8481,8 +8495,11 @@ export default function RipStatisticsPageClient({
     isStateForResolvedSet(marketDashboardState.setId, resolvedSetResourceId) &&
     (marketDashboardState.status === "success" || marketDashboardState.status === "success_stale") &&
     Boolean(marketDashboardState.payload);
+  // Market is the tab that renders Set Value, so it is the tab whose
+  // "modules are stable" answer depends on set-value/market data being ready.
+  // RIP renders none of it and must not be held behind it.
   const marketOrSetValueSeededForActiveTab =
-    setDetailTab !== "overview" || seededSetValueReady || stateSetValueReady || marketDashboardReady;
+    setDetailTab !== "market" || seededSetValueReady || stateSetValueReady || marketDashboardReady;
   const activeSetModulesStable =
     isPrimarySnapshotReady &&
     !isSetPageTransportFallback(explorePayload) &&
@@ -9144,11 +9161,12 @@ export default function RipStatisticsPageClient({
     scrollToSetDetailElement(targetId || getSetDetailFallbackTargetId(nextTab));
   };
 
+  // Set Value lives on Market now, not on RIP/Overview.
   const handleViewSetValueTrend = () => {
     handleSetDetailNavSelect({
-      tab: "overview",
+      tab: "market",
       section: "set-value-trend",
-      targetId: "set-detail-set-value-trend",
+      targetId: "set-detail-market-set-value",
     });
   };
 
@@ -11971,18 +11989,18 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // The header/title set value always needs the canonical "standard" scope.
-    // "hits"/"top10" are only needed once the overview Set Value Trend card is
-    // actually visible (or the user has picked that scope there) — not on
+    // The shell/title set value contract always needs the canonical "standard"
+    // scope. "hits"/"top10" are only needed once Market's Set Value Trend card
+    // is actually visible (or the user has picked that scope there) — not on
     // every set switch regardless of which tab is active.
     const desiredScopes = Array.from(
       new Set([
         CANONICAL_SET_VALUE_SCOPE,
-        ...(setDetailTab === "insights" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
+        ...(setDetailTab === "market" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
       ])
     );
     // This effect re-runs on every tab switch (setDetailTab is a dependency,
-    // since Overview also needs setValueTrendScope), but seededLoadedScopes
+    // since Market also needs setValueTrendScope), but seededLoadedScopes
     // above only reflects server-seeded/dashboard-cached data — it never
     // reflects a scope this very effect already fetched on an earlier run.
     // Without also checking the live setValueHistoryState here, switching
@@ -12165,9 +12183,9 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderMarketData = setDetailTab === "insights";
+    const shouldRenderMarketData = setDetailTab === "market";
     if (!shouldRenderMarketData) {
-      // No background hydration for a tab the user isn't on — overview's own
+      // No background hydration for a tab the user isn't on — Market's own
       // render (or a future switch back to it) triggers this effect again.
       return undefined;
     }
@@ -12236,8 +12254,13 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderOverviewData = setDetailTab === "insights";
-    if (!shouldRenderOverviewData) {
+    // Top Chase is SHARED data: RIP renders a three-card consumer preview from
+    // it and Market renders the full Top 10 market table. Fetch it for either
+    // tab so a fresh RIP entry never depends on the user visiting Market first.
+    // The request-key guard below still makes RIP<->Market switches share one
+    // fetch per set/window.
+    const shouldFetchTopChase = setDetailTab === "overview" || setDetailTab === "market";
+    if (!shouldFetchTopChase) {
       return undefined;
     }
 
@@ -12324,9 +12347,9 @@ export default function RipStatisticsPageClient({
     }
 
     const setId = resolvedSetResourceId;
-    // The slim movers fetch serves the fixed Overview ticker only. The Cards
+    // The slim movers fetch serves the fixed Market 7D ticker only. The Cards
     // preset uses the paginated cards endpoint instead.
-    const isOverviewMoversConsumer = setDetailTab === "insights";
+    const isMarketMoversConsumer = setDetailTab === "market";
     const moversSourceWindow = MOVERS_TICKER_WINDOW;
     const moversFetchLimit = MOVERS_TICKER_FETCH_LIMIT;
     if (!setId) {
@@ -12343,7 +12366,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    if (!isOverviewMoversConsumer) {
+    if (!isMarketMoversConsumer) {
       return undefined;
     }
 
@@ -12449,14 +12472,12 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // Insights needs the slim /overview payload too: its Opening Profit vs
-    // Cost / Metrics views merge performanceVsCostHistory with the set-page
-    // history_trend (see mergePerformanceHistories), and a direct Insights
-    // entry must not depend on the user visiting Overview first to see fresh
-    // history. The request-key guard below still makes overview<->insights
-    // switches share one fetch per set/window.
-    const shouldRenderOverviewData = setDetailTab === "insights";
-    if (!shouldRenderOverviewData) {
+    // Market-owned: the slim /overview payload backs Market's Set Value Trend
+    // (and the Set Value scopes it selects). RIP no longer renders any of it,
+    // so RIP must not pay for this request. Analysis reads set-page history
+    // from its own /insights payload and does not trigger this fetch either.
+    const shouldRenderMarketOverviewData = setDetailTab === "market";
+    if (!shouldRenderMarketOverviewData) {
       // No background fetch for a tab the user isn't on — a tab that needs
       // this data (or a future switch back to one) triggers this effect again.
       return undefined;
@@ -12743,184 +12764,6 @@ export default function RipStatisticsPageClient({
 
         {canRenderPrimaryContent ? (
           <>
-            {setDetailMode && setDetailTab === "insights" ? (
-              <section id="set-detail-insights" data-analysis-page className="order-2 scroll-mt-24 space-y-5 md:scroll-mt-28">
-                <nav aria-label="Analysis sections" className="set-glass-surface flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1.5 text-xs font-medium text-[var(--text-secondary)]">
-                  {[
-                    ["analysis-rip-score", "RIP Score"],
-                    ["analysis-simulation", "Simulation"],
-                    ["analysis-value-structure", "Value Structure"],
-                    ["analysis-market", "Market"],
-                    ["analysis-sealed", "Sealed"],
-                    ["analysis-methodology", "Methodology"],
-                  ].map(([target, label]) => <a key={target} href={`#${target}`} className="min-h-9 flex-none rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">{label}</a>)}
-                </nav>
-
-                <div id="analysis-rip-score" className="scroll-mt-36">
-                  <SectionErrorBoundary sectionName="analysis-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score Breakdown" minHeightClassName="min-h-[14rem]">
-                    <RipScoreBreakdownModule
-                      score={topScoreRaw}
-                      rankTier={heroScoreSelection.tier}
-                      rankValue={heroScoreSelection.rank}
-                      cohortSize={heroScoreSelection.cohortSize}
-                      titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
-                      canonical={canonicalRip}
-                      requestTimeout={isTimeoutFallbackPayload}
-                    />
-                  </SectionErrorBoundary>
-                </div>
-
-                <section id="analysis-simulation" data-analysis-section="simulation-analysis" className="scroll-mt-36">
-                  <SectionCard title="Simulation Analysis" subtitle="What do the simulated openings actually look like?" titleInfoText={SIMULATION_RESULTS_INFO_TEXT}>
-                    <SectionBoundary
-                      status={insightsSectionsBlocked ? "loading" : distributionBins.length > 0 ? "success" : "empty"}
-                      title="Loading simulation analysis…"
-                      minHeightClassName="min-h-[20rem]"
-                    >
-                      <div aria-label="Current simulated opening distribution" className="min-w-0">
-                        <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush />
-                      </div>
-                      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                        <h3 className="text-base font-semibold text-[var(--text-primary)]">Simulation Economics</h3>
-                        <p className="mt-1 text-xs text-[var(--text-secondary)]">Expected Value is the mean; Typical Opening is P50; Strong Upside is P95; Jackpot Upside is the top 1% threshold.</p>
-                        <div className="mt-3">
-                          <SimulationMetricsContent
-                            summary={summary}
-                            percentiles={percentiles}
-                            ripStatistics={ripStatistics}
-                            historyTrend={historyTrend}
-                            asOfDate={fallbackSetValueAsOf}
-                            performanceHistoryLatestDate={latestRealPerformanceDate}
-                          />
-                        </div>
-                      </div>
-                      {historyTrend.length > 0 ? (
-                        <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                          <h3 className="text-base font-semibold text-[var(--text-primary)]">Historical Simulation Movement</h3>
-                          <p className="mt-1 text-xs text-[var(--text-secondary)]">How modeled opening outcomes have moved against pack cost.</p>
-                          <div className="mt-3"><PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} variant="simulation" marketAsOfDate={marketAsOfDate} flush /></div>
-                        </div>
-                      ) : null}
-                    </SectionBoundary>
-                  </SectionCard>
-                </section>
-
-                <section id="analysis-value-structure" data-analysis-section="value-structure" className="scroll-mt-36">
-                  <SectionCard title="Value Structure" subtitle="Why does the distribution look this way?">
-                    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <StatTile label="Top Card Concentration" value={formatPercent(summary.top1_ev_share)} />
-                      <StatTile label="Top 5 Concentration" value={formatPercent(summary.top5_ev_share)} />
-                      <StatTile label="Chase Depth" value={formatNumber(summary.effective_chase_count, 1)} />
-                      <StatTile label="Jackpot Concentration" value={formatPercent(summary.jackpot_value_share)} />
-                    </div>
-                    <SectionErrorBoundary sectionName="analysis-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[14rem]">
-                      <TopChaseCardsModule
-                        cards={topPricedCards}
-                        status={topPricedCardsStatus}
-                        error={activeTopMarketCardsState.error}
-                        infoText={topPricedCardsInfo}
-                        selectedWindowKey={topMarketCardsWindowKey}
-                        onWindowChange={setTopMarketCardsWindowKey}
-                        marketAsOfDate={marketAsOfDate}
-                        rowHref={topChaseRowHref}
-                        onRetry={retryTopChaseModule}
-                      />
-                    </SectionErrorBoundary>
-                    <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                      <h3 className="text-base font-semibold text-[var(--text-primary)]">Cards Driving Opening Value</h3>
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">Modeled EV contribution is shown only where the simulation publishes it.</p>
-                      <div className="mt-3"><TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed maxRows={10} diagnostics={simulationDrivers.diagnostics} /></div>
-                    </div>
-                  </SectionCard>
-                </section>
-
-                <section id="analysis-market" data-analysis-section="market-analysis" className="scroll-mt-36">
-                  <SectionCard title="Market Analysis" subtitle="What is happening around the set?">
-                    <p className="mb-4 text-xs text-[var(--text-secondary)]">Market movement provides supporting context and is not itself the RIP score.</p>
-                    <SectionErrorBoundary sectionName="analysis-movers" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
-                      <SevenDayMarketMoversTicker entry={moversTickerEntry} maxItems={10} scope="set" status={moversTickerStatus} error={activeMarketMoversState.error} viewAllHref={moversTickerHref} onRetry={retryMarketMoversModule} />
-                    </SectionErrorBoundary>
-                    <div className="mt-5 grid gap-5 lg:grid-cols-2 lg:items-stretch">
-                      <SectionErrorBoundary sectionName="analysis-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value Trend" minHeightClassName="min-h-[16rem]">
-                        <SetValueTrendCard
-                          setId={resolvedSetResourceId}
-                          setValueContract={activeSetValueContract}
-                          history={activeSetValueHistory.history}
-                          historiesByScope={activeSetValueHistory.historiesByScope}
-                          availableScopes={activeSetValueHistory.availableScopes}
-                          status={activeSetValueHistory.status}
-                          error={activeSetValueHistory.error}
-                          selectedScope={setValueTrendScope}
-                          onSelectedScopeChange={setSetValueTrendScope}
-                          marketAsOfDate={marketAsOfDate}
-                        />
-                      </SectionErrorBoundary>
-                      <SectionCard title="Market Snapshot" subtitle="Current pricing and opening-economics context." className="h-full">
-                        <dl className="grid gap-2 sm:grid-cols-2">
-                          <StatTile label="Set Value" value={formatCurrency(activeSetValueContract.currentValue)} />
-                          <StatTile label="Pack Price" value={formatCurrency(summary.pack_cost)} />
-                          <StatTile label="Expected Value" value={formatCurrency(summary.mean_value)} />
-                          <StatTile label="Break-even Probability" value={formatPercent(summary.prob_profit, { probability: true })} />
-                        </dl>
-                        <p className="mt-3 text-xs text-[var(--text-secondary)]">Cards-rising and cards-falling breadth are omitted when the market contract does not publish authoritative set-level breadth.</p>
-                      </SectionCard>
-                    </div>
-                  </SectionCard>
-                </section>
-
-                <section id="analysis-sealed" data-analysis-section="sealed-market" className="scroll-mt-36">
-                  <SectionCard title="Sealed Market" subtitle="How are sealed products priced?">
-                    <SectionErrorBoundary sectionName="analysis-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
-                      <SealedMarketTrendCard setId={resolvedSetResourceId} />
-                    </SectionErrorBoundary>
-                    <p className="mt-3 text-xs text-[var(--text-secondary)]">This is sealed-market pricing context only. No Product RIP score is calculated or implied.</p>
-                  </SectionCard>
-                </section>
-
-                <section id="analysis-methodology" data-analysis-section="methodology" className="scroll-mt-36">
-                  <SectionCard title="Methodology" subtitle="Show me exactly how this works.">
-                    <div className="space-y-2">
-                      {[
-                        ["Simulation", [
-                          `Simulation count: ${summary.simulation_count ?? summary.packs_simulated ?? "Unavailable"}`,
-                          `Simulation date: ${summary.run_at ? formatLongDate(summary.run_at) : "Unavailable"}`,
-                          "The current distribution uses the production modeled pack configuration and guaranteed-slot handling published with the set snapshot.",
-                        ]],
-                        ["Pull Rates", [
-                          `Source: ${pullRateAssumptions?.meta?.sourceLabel ?? pullRateAssumptions?.sourceLabel ?? "Unavailable"}`,
-                          "Normalized rarity and slot assumptions feed the simulation; detailed rarity probabilities remain on Pull Rates.",
-                          "Missing or invalid denominators are not replaced with invented probabilities.",
-                        ]],
-                        ["Pricing", [
-                          `Source: ${summary.checklist_set_value_source ?? summary.top_10_card_value_source ?? "Unavailable"}`,
-                          `Pricing date: ${summary.checklist_set_value_as_of ?? summary.current_checklist_set_value_date ?? marketAsOfDate ?? "Unavailable"}`,
-                          "Market prices can move and may not equal cash realized after fees, spread, condition, and sale friction.",
-                        ]],
-                        ["RIP Model", [
-                          `Overall model: ${canonicalRip?.overall?.version ?? "Unavailable"}`,
-                          `Financial model: ${canonicalRip?.financialRip?.scoreVersion ?? canonicalRip?.financialRip?.version ?? "Unavailable"}`,
-                          `Collector model: ${canonicalRip?.collectorAppeal?.version ?? "Unavailable"}`,
-                          `Eligible cohort: ${heroScoreSelection.cohortSize ?? "Unavailable"} sets`,
-                          "Relative RIP Index is cohort-relative. A value of 100 identifies the leading eligible set in the current cohort; it does not mean perfect returns, no risk, or a 100% return.",
-                          "Financial component weights are read from the canonical V3 audit block. Collector Appeal factor weights are not disclosed by the current public contract and are not reconstructed here.",
-                        ]],
-                        ["Uncertainty and Limitations", [
-                          "Pull rates are modeled estimates, not official guarantees of an individual opening.",
-                          "Card and sealed prices are volatile and may be incomplete for some products or variants.",
-                          "Simulations describe a distribution of possible openings; they do not predict or guarantee a future pack.",
-                        ]],
-                      ].map(([title, lines], index) => (
-                        <details key={title} open={index === 0} className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3">
-                          <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between rounded-md font-semibold text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"><span>{title}</span><span aria-hidden="true" className="text-[var(--text-secondary)] transition-transform group-open:rotate-180">⌄</span></summary>
-                          <ul className="mt-2 space-y-1.5 border-t border-[var(--border-subtle)] pt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{lines.map((line) => <li key={line} className="flex gap-2"><span aria-hidden="true">•</span><span>{line}</span></li>)}</ul>
-                        </details>
-                      ))}
-                    </div>
-                  </SectionCard>
-                </section>
-              </section>
-            ) : null}
-
             {setDetailMode ? (
               <>
                 {/* DOM order is tabs -> identity so that below 1200px, where the
@@ -13003,6 +12846,7 @@ export default function RipStatisticsPageClient({
                     mobileEmphasisValue="insights"
                     options={[
                       { value: "overview", label: "RIP", icon: "gauge" },
+                      { value: "market", label: "Market", icon: "trend" },
                       { value: "cards", label: "Cards & Products", icon: "cards" },
                       { value: "pull-rates", label: "Pull Rates", icon: "target" },
                       { value: "insights", label: "Analysis", icon: "analysis" },
@@ -13014,7 +12858,11 @@ export default function RipStatisticsPageClient({
                   data-set-picker-open={isDesktopHeroComposition && heroSetPickerOpen ? "true" : "false"}
                   className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
-                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1400px] items-stretch md:grid-cols-[minmax(20rem,1.7fr)_repeat(4,minmax(8.5rem,1fr))]">
+                  {/* Four columns, not five: Set Value moved out of the
+                      persistent header once Market became its first-class home.
+                      The identity column absorbs the freed width so the card
+                      keeps its compact proportions instead of leaving a hole. */}
+                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1400px] items-stretch md:grid-cols-[minmax(20rem,2fr)_repeat(3,minmax(8.5rem,1fr))]">
                     <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:gap-7 md:px-5">
                       {heroLogoUrl ? (
                         <span className="flex h-14 w-24 flex-none items-center justify-center sm:h-16 sm:w-28">
@@ -13102,20 +12950,12 @@ export default function RipStatisticsPageClient({
                       <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="cards" />Total Cards</p>
                       <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{authoritativeSetCardCount > 0 ? Math.round(authoritativeSetCardCount).toLocaleString("en-US") : "—"}</p>
                     </div>
-                    <div data-set-context-set-value className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
-                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="value" />Set Value</p>
-                        <MarketValueChange
-                          className="mt-1"
-                          value={setHeaderSummary.setValue.current}
-                          changeAmount={setHeaderSummary.setValue.delta30dAmount}
-                          changePercent={setHeaderSummary.setValue.delta30dPercent}
-                          windowLabel="30D"
-                          loading={titleCardMetricsPending && setHeaderSummary.setValue.current === null}
-                          variant="table-row"
-                          accessibleLabel="Current set value"
-                        />
-                    </div>
-                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                    {/* Set Value is intentionally NOT rendered here. The
+                        persistent header is identity/context only; the live
+                        Set Value figure and its trend live on the Market tab.
+                        setHeaderSummary still carries the value in the shell
+                        contract — this is a rendering decision, not a data one. */}
+                    <div data-set-context-rip className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
                         <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
                         {/* Score stays the focal point and stays neutral; the tier
                             takes the outlined pill and the verdict a lighter
@@ -13171,6 +13011,84 @@ export default function RipStatisticsPageClient({
                   />
                 ) : null}
 
+                {/* MARKET — "what is happening with this set financially?".
+                    Four production market modules in reading order: Set Value,
+                    Top 10 Chase Cards, 7D Movers, Sealed Market. This tab is
+                    market OBSERVATION only: no RIP evidence, no per-product
+                    scoring, no portfolio actions, no forecasting. Modelled
+                    causation (value structure, EV contribution, concentration)
+                    stays on Analysis. */}
+                {setDetailTab === "market" ? (
+                  <section id="set-detail-market" data-market-page className="scroll-mt-24 space-y-5 md:scroll-mt-28">
+                    {/* 1. Set Value — the primary wide surface. */}
+                    <div id="set-detail-market-set-value" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="market-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value" minHeightClassName="min-h-[16rem]">
+                        <SetValueTrendCard
+                          setId={resolvedSetResourceId}
+                          setValueContract={activeSetValueContract}
+                          history={activeSetValueHistory.history}
+                          historiesByScope={activeSetValueHistory.historiesByScope}
+                          availableScopes={activeSetValueHistory.availableScopes}
+                          status={activeSetValueHistory.status}
+                          error={activeSetValueHistory.error}
+                          selectedScope={setValueTrendScope}
+                          onSelectedScopeChange={setSetValueTrendScope}
+                          marketAsOfDate={marketAsOfDate}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
+                    {/* 2. Top 10 Chase Cards — the MARKET reading of the chase
+                        pool (what they are worth and how they are moving), not
+                        RIP's three-card "what could I pull" preview. */}
+                    <div id="set-detail-market-top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
+                        <TopChaseCardsModule
+                          cards={topPricedCards}
+                          status={topPricedCardsStatus}
+                          error={activeTopMarketCardsState.error}
+                          infoText={topPricedCardsInfo}
+                          selectedWindowKey={topMarketCardsWindowKey}
+                          onWindowChange={setTopMarketCardsWindowKey}
+                          marketAsOfDate={marketAsOfDate}
+                          rowHref={topChaseRowHref}
+                          onRetry={retryTopChaseModule}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
+                    {/* 3. 7D Movers — the set-level market pulse. Fixed 7D
+                        window, independent of every other selector on the page. */}
+                    <div id="set-detail-market-movers" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="market-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
+                        <SevenDayMarketMoversTicker
+                          entry={moversTickerEntry}
+                          maxItems={10}
+                          scope="set"
+                          status={moversTickerStatus}
+                          error={activeMarketMoversState.error}
+                          viewAllHref={moversTickerHref}
+                          onRetry={retryMarketMoversModule}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
+                    {/* 4. Sealed Market — product pricing context only. Sealed
+                        products are not scored here. */}
+                    <div id="set-detail-market-sealed" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="market-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
+                        <SealedMarketTrendCard setId={resolvedSetResourceId} />
+                      </SectionErrorBoundary>
+                    </div>
+                  </section>
+                ) : null}
+
+                {/* RETIRED: the pre-RIP-page Overview composition. It is kept
+                    only because the RIP page replaced it in place; it renders
+                    for no tab. Its Set Value / Top Chase / Sealed / movers
+                    modules are NOT the live ones — Market above owns those now
+                    (see #set-detail-market). Do not read data ownership from
+                    this block. */}
                 {false && setDetailTab === "overview" ? (
                   // Progressive rendering: each section below gates
                   // independently on its own fetch status instead of one
@@ -13672,7 +13590,7 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-                {!setDetailMode && !showInsightsCohesiveLoading ? (
+            {(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">

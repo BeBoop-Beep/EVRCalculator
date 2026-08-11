@@ -179,6 +179,9 @@ test("no chart is introduced between the verdict and Why It Ranks", () => {
 
 test("persistent title card keeps identity and restores authoritative context metadata", () => {
   const source = fs.readFileSync(shellPath, "utf8");
-  for (const marker of ["data-set-context-header", "data-set-context-release-date", "data-set-context-total-cards", "data-set-context-set-value", "data-set-context-rip-rank", "selectedName", "selectedTarget?.era"]) assert.ok(source.includes(marker));
-  for (const label of ['label: "RIP"', 'label: "Cards & Products"', 'label: "Pull Rates"', 'label: "Analysis"']) assert.ok(source.includes(label));
+  for (const marker of ["data-set-context-header", "data-set-context-release-date", "data-set-context-total-cards", "data-set-context-rip-rank", "selectedName", "selectedTarget?.era"]) assert.ok(source.includes(marker));
+  // Set Value left the universal title card once Market became its home. The
+  // header is identity/context only; the data contract still carries the value.
+  assert.ok(!source.includes("data-set-context-set-value"), "Set Value must not render in the title card");
+  for (const label of ['label: "RIP"', 'label: "Market"', 'label: "Cards & Products"', 'label: "Pull Rates"', 'label: "Analysis"']) assert.ok(source.includes(label));
 });

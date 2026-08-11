@@ -123,9 +123,9 @@ test("every later analytical section keeps the ordinary luminous marker", () => 
     assert.doesNotMatch(wrapper, /after-movers/, `${label} must keep the ordinary luminous divider`);
   }
 
-  // 7: 6 after the Collector Profile wrapper was removed with its section,
-  // plus the new Overview RIP Summary wrapper.
-  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 7);
+  // 11: 7 as before, plus the four Market tab sections (Set Value, Top 10
+  // Chase Cards, 7D Movers, Sealed Market).
+  assert.equal((client.match(/data-mobile-section(?!-)/g) || []).length, 11);
   assert.equal((explore.match(/data-mobile-section(?!-)/g) || []).length, 2);
 });
 
