@@ -1,115 +1,40 @@
-/**
- * Explore page shell contract (refinement Phase 2).
- *
- * Guards the composition decisions, not the styling: no outer page context
- * box, no visible page title, and the two first-row modules as siblings of one
- * grid fed by a single already-fetched target list.
- */
-
 const fs = require("fs");
 const path = require("path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const pagePath = path.resolve(__dirname, "page.js");
+const exploreSource = fs.readFileSync(path.resolve(__dirname, "page.js"), "utf8");
+const rankingsSource = fs.readFileSync(path.resolve(__dirname, "../Rankings/page.js"), "utf8");
+const marketSource = fs.readFileSync(path.resolve(__dirname, "../Market/page.js"), "utf8");
 
-function readPage() {
-  return fs.readFileSync(pagePath, "utf8");
-}
-
-// --- A. Page shell -------------------------------------------------------
-
-test("the visible Explore page heading is gone but a semantic h1 remains", () => {
-  const source = readPage();
-  assert.ok(
-    source.includes('<h1 className="sr-only">Explore</h1>'),
-    "an h1 must remain for document structure, visually hidden via the screen-reader utility"
-  );
-  assert.ok(
-    !/<h1(?![^>]*sr-only)/.test(source),
-    "no visible h1 may be rendered on the Explore page"
-  );
-  assert.ok(
-    !source.includes('text-2xl font-semibold text-[var(--text-primary)]">Explore<'),
-    "the old visible page title must not come back"
-  );
+test("Rankings is the public name and /Explore remains backwards compatible", () => {
+  assert.ok(exploreSource.includes('<h1 className="sr-only">Pokémon Set Rankings</h1>'));
+  assert.ok(exploreSource.includes('title: "Pokémon Set Rankings — inDex"'));
+  assert.ok(rankingsSource.includes('export { default, metadata } from "../Explore/page"'));
 });
 
-test("the obsolete outer page context wrapper is gone", () => {
-  const source = readPage();
-  assert.ok(!source.includes("dashboard-container"), "the outer context box must not wrap the Explore page");
-  assert.ok(!source.includes("!border-0"), "the wrapper's override hacks must be gone with it");
+test("Rankings contains only the canonical RIP leaderboard", () => {
+  assert.ok(exploreSource.includes("<ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />"));
+  assert.ok(!exploreSource.includes("ExploreMarketMovers"));
+  assert.ok(!exploreSource.includes("ExploreTopRankings"));
+  assert.ok(!exploreSource.includes("getExploreMarketMovers"));
+  assert.equal((exploreSource.match(/getRipStatisticsTargets\(/g) || []).length, 1);
+  assert.ok(exploreSource.includes("targets.filter(isPublicAnalyticsEligiblePokemonSet)"));
 });
 
-test("a sensible max content width and horizontal gutters are preserved", () => {
-  const source = readPage();
-  assert.ok(source.includes("max-w-7xl"), "content must stay bounded on very large screens");
-  assert.ok(/px-4[^"]*sm:px-6[^"]*lg:px-8/.test(source), "page gutters must be preserved");
+test("Rankings preserves its bounded layout and existing atmosphere", () => {
+  assert.ok(exploreSource.includes("max-w-7xl"));
+  assert.ok(exploreSource.includes("max-w-5xl"));
+  assert.ok(/px-4[^\"]*sm:px-6[^\"]*lg:px-8/.test(exploreSource));
+  assert.ok(exploreSource.includes('getExploreBackground("pokemon")'));
 });
 
-test("document metadata and route semantics are preserved", () => {
-  const source = readPage();
-  assert.ok(source.includes("export const metadata"), "the route must still describe itself for document metadata");
-  assert.ok(source.includes("export default async function ExplorePage({ searchParams })"), "route signature unchanged");
-});
-
-// --- B. Layout -----------------------------------------------------------
-
-test("Market Movers precedes the restored grid and tables have the required DOM order", () => {
-  const source = readPage();
-  const movers = source.indexOf("<ExploreMarketMovers");
-  const grid = source.indexOf("grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]");
-  const rankings = source.indexOf("<ExploreTopRankings");
-  const bestSets = source.indexOf("<ExploreTableClient");
-  assert.ok(movers > 0 && movers < grid && grid < bestSets && bestSets < rankings);
-});
-
-test("Explore reuses the set-page atmosphere and glass primitives", () => {
-  const source = readPage();
-  assert.ok(source.includes('getExploreBackground("pokemon")'));
-  assert.ok(source.includes("explore-glass-scope relative isolate"));
-  assert.ok(source.includes('dataAttribute="data-explore-ambient-artwork"'));
-  assert.ok(source.includes('visibilityClassName="hidden desk:block"'));
-  assert.ok(source.includes('loading="lazy"'));
-});
-
-test("Best Sets and Top Rankings remain siblings at their original dimensions", () => {
-  const source = readPage();
-  assert.ok(source.includes("xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]"));
-  assert.ok(!source.includes("xl:grid-cols-[minmax(19rem,1fr)_minmax(0,2fr)]"));
-  assert.ok(!source.includes('className="space-y-5"'));
-  const gridSource = source.slice(source.indexOf("grid grid-cols-1 items-start gap-4"));
-  assert.ok(gridSource.indexOf("<ExploreTableClient") < gridSource.indexOf("<ExploreTopRankings"));
-});
-
-test("movers and rankings load independently with one global movers request", () => {
-  const source = readPage();
-  assert.ok(source.includes("Promise.allSettled"));
-  assert.ok(source.includes("getExploreMarketMovers()"));
-});
-
-test("either module can render when the other has no data", () => {
-  const source = readPage();
-  // Both modules receive the SAME already-resolved list and the same error
-  // flag, and each owns its own empty/error branch — neither can throw the
-  // other out of the tree.
-  assert.ok(source.includes("<ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />"));
-  assert.ok(source.includes("<ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />"));
-});
-
-// --- D. No regression ----------------------------------------------------
-
-test("the redesign introduces exactly one request per prepared snapshot family", () => {
-  const source = readPage();
-  const fetches = source.match(/getRipStatisticsTargets\(/g) || [];
-  assert.equal(fetches.length, 1, "Explore must still make exactly one targets request");
-  assert.equal((source.match(/getExploreMarketMovers\(\)/g) || []).length, 1);
-});
-
-test("public-analytics eligibility filtering is unchanged", () => {
-  const source = readPage();
-  assert.ok(
-    source.includes("targets.filter(isPublicAnalyticsEligiblePokemonSet)"),
-    "the eligibility filter must still gate every consumer on the page"
-  );
+test("Market reuses the existing canonical market modules and one loader per data family", () => {
+  assert.ok(marketSource.includes("<ExploreMarketMovers payload={moversPayload} />"));
+  assert.ok(marketSource.includes("<ExploreTopRankings targets={targets} loadError={loadError} />"));
+  assert.equal((marketSource.match(/getExploreMarketMovers\(\)/g) || []).length, 1);
+  assert.equal((marketSource.match(/getRipStatisticsTargets\(/g) || []).length, 1);
+  assert.ok(marketSource.includes("Promise.allSettled"));
+  assert.ok(marketSource.includes("requestFailed: true"));
+  assert.ok(marketSource.includes("filter(isPublicAnalyticsEligiblePokemonSet)"));
 });

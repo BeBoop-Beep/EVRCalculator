@@ -18,14 +18,14 @@ const itemsBlock = source.slice(
   source.indexOf("if (shouldHide)")
 );
 
-test("the five destinations are Home, Explore, TCGs, Portfolio, Profile in order", () => {
+test("the five destinations are Home, Rankings, TCGs, Portfolio, Profile in order", () => {
   assert.ok(itemsBlock.length > 0, "the items block must be locatable");
 
   const ids = [...itemsBlock.matchAll(/id: "([a-z]+)"/g)].map((match) => match[1]);
   assert.deepEqual(ids, ["home", "explore", "tcgs", "portfolio", "profile"]);
 
   const labels = [...itemsBlock.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ["Home", "Explore", "TCGs", "Portfolio", "Profile"]);
+  assert.deepEqual(labels, ["Home", "Rankings", "TCGs", "Portfolio", "Profile"]);
 });
 
 test("TCGs routes through the shared href constant and lights the whole /TCGs family", () => {

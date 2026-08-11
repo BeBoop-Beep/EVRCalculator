@@ -204,6 +204,13 @@ test("each row keeps exactly one real link, stretched over the row", () => {
   assert.ok(bodySource.includes("href={buildRipLink(target)}"), "row navigation target must be unchanged");
 });
 
+test("desktop and mobile ranking rows route to the canonical set RIP tab", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes('buildTcgSetHrefFromTarget(target, { tab: "overview" })'));
+  assert.equal((source.match(/href=\{buildRipLink\(target\)\}/g) || []).length, 2);
+  assert.ok(!source.includes('tab: "insights", section: "rip-score"'));
+});
+
 test("rank is a scannable column driven by the canonical mode rank", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(

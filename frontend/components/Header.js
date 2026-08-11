@@ -158,12 +158,20 @@ export default function Header() {
           <div className="absolute right-[calc(50%+260px)] 2xl:right-[calc(50%+280px)] top-1/2 hidden -translate-y-1/2 xl:flex items-center">
             <nav className="flex items-center gap-4 whitespace-nowrap">
               <Link
-                href="/Explore"
+                href="/Rankings"
                 className={`${navTabBase} inline-flex items-center justify-center ${
-                  isTopNavActive('/Explore') ? navTabActive : navTabInactive
+                  isTopNavActive('/Rankings') || isTopNavActive('/Explore') ? navTabActive : navTabInactive
                 }`}
               >
-                Explore
+                Rankings
+              </Link>
+              <Link
+                href="/Market"
+                className={`${navTabBase} inline-flex items-center justify-center ${
+                  isTopNavActive('/Market') ? navTabActive : navTabInactive
+                }`}
+              >
+                Market
               </Link>
               {/* Pokémon is the only live TCG, so TCGs is a direct link to its
                   Sets catalog rather than a one-item menu. It stays active for
@@ -176,6 +184,14 @@ export default function Header() {
                 }`}
               >
                 TCGs
+              </Link>
+              <Link
+                href="/Research"
+                className={`${navTabBase} inline-flex items-center justify-center ${
+                  isTopNavActive('/Research') ? navTabActive : navTabInactive
+                }`}
+              >
+                Research
               </Link>
             </nav>
           </div>

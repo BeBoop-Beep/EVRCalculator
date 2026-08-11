@@ -4,7 +4,7 @@ export default function ExploreLoading() {
   return (
     <InDexLogoLoader
       fullScreen
-      label="Loading Explore"
+      label="Loading Rankings"
       shouldDelay={false}
       isLoading={true}
     />

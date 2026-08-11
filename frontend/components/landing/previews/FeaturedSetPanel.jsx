@@ -27,10 +27,10 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
           Live set intelligence
         </p>
         <p className={styles.emptyNote}>
-          Opening rankings are refreshing. Open Explore for the sets published right now.
+          Opening rankings are refreshing. Open Rankings for the sets published right now.
         </p>
-        <Link href="/Explore" className={styles.cardCta}>
-          Explore Pokémon sets
+        <Link href="/Rankings" className={styles.cardCta}>
+          Open Rankings
           <Arrow />
         </Link>
       </div>

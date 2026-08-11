@@ -97,10 +97,10 @@ export default function LandingHero({
                 shares a line with it, leaving Explore the only button.
               */}
               <div className={`${styles.ctas} ${styles.rise}`} style={{ "--d": "190ms" }}>
-                <Link href="/Explore" className={styles.ctaPrimary}>
-                  Explore Pokémon sets
+                <Link href="/Rankings" className={styles.ctaPrimary}>
+                  View Rankings
                 </Link>
-                <Link href={set?.ripScoreHref || "/Explore"} className={styles.ctaSecondary}>
+                <Link href={set?.ripScoreHref || "/Rankings"} className={styles.ctaSecondary}>
                   How RIP Score works
                   <Arrow />
                 </Link>

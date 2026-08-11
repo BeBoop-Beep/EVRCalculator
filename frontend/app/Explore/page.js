@@ -1,9 +1,6 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import ExploreTableClient from "@/components/explore/ExploreTableClient";
-import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
-import ExploreMarketMovers from "@/components/explore/ExploreMarketMovers";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
-import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import styles from "@/components/explore/explore.module.css";
@@ -55,22 +52,15 @@ function rankTargets(targets) {
 }
 
 export const metadata = {
-  title: "Explore — inDex",
+  title: "Pokémon Set Rankings — inDex",
   description:
-    "Ranked set intelligence: the strongest sets to rip right now, RIP Score and Financial RIP, tiers, and opening economics.",
+    "Best Pokémon sets to rip right now, ranked by canonical RIP Score with Financial RIP, tier, and opening economics.",
 };
 
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
   const backgroundUrl = getExploreBackground("pokemon");
-  const [rankingsResult, moversResult] = await Promise.allSettled([
-    getRipStatisticsTargets({ limit: 60 }),
-    getExploreMarketMovers(),
-  ]);
-  const payload = rankingsResult.status === "fulfilled" ? rankingsResult.value : null;
-  const moversPayload = moversResult.status === "fulfilled"
-    ? moversResult.value
-    : { marketMovers: { window: "7D", all: [] }, meta: { requestFailed: true } };
+  const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   // Sword & Shield's simulator-era data is not yet validated for public
   // analytics (incomplete pull/hit-rate model, unblended subsets) — see
@@ -101,7 +91,7 @@ export default async function ExplorePage({ searchParams }) {
         canvas. The page heading stays in the document for structure but is
         visually hidden — the first thing on screen is the ranked data.
       */}
-      <h1 className="sr-only">Explore</h1>
+      <h1 className="sr-only">Pokémon Set Rankings</h1>
 
       {/*
         Primary dashboard row. Both modules are siblings of one grid, top
@@ -113,17 +103,11 @@ export default async function ExplorePage({ searchParams }) {
           original mb-5 is the unconditional base and mobile subtracts it — so
           the desktop value can never lose a source-order coin toss to the
           mobile override the way `mb-0 desk:mb-5` did. */}
-      <div className="mb-5 max-desk:mb-0">
-        <ExploreMarketMovers payload={moversPayload} />
-      </div>
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(19rem,1fr)]">
+      <div className="mx-auto w-full max-w-5xl">
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
-        <div data-mobile-section data-mobile-section-variant="after-movers">
-          <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
-        </div>
         <div data-mobile-section>
-          <ExploreTopRankings targets={leaderboardTargets} loadError={rankingsLoadError} />
+          <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>

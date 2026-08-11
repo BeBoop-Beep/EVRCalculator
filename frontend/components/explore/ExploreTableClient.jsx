@@ -163,7 +163,7 @@ function estimateAverageLoss(target) {
 }
 
 function buildRipLink(target) {
-  return buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" });
+  return buildTcgSetHrefFromTarget(target, { tab: "overview" });
 }
 
 // NO INTERPRETATION BADGE. The leaderboard row used to carry a verdict pill

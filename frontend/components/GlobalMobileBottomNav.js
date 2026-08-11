@@ -111,9 +111,9 @@ export default function GlobalMobileBottomNav() {
       },
       {
         id: "explore",
-        label: "Explore",
-        href: "/Explore",
-        isActive: isPathMatch(normalizedPathname, ["/Explore", "/explore"], { caseInsensitive: true }),
+        label: "Rankings",
+        href: "/Rankings",
+        isActive: isPathMatch(normalizedPathname, ["/Rankings", "/Explore"], { caseInsensitive: true }),
       },
       {
         id: "tcgs",

@@ -30,10 +30,12 @@ async function getLandingDistribution(setId) {
 
 function withRoutes(entry) {
   const target = { target_type: entry.targetType, target_id: entry.targetId, name: entry.name };
+  const ripHref = buildTcgSetHrefFromTarget(target, { tab: "overview" });
   return {
     ...entry,
-    overviewHref: buildTcgSetHrefFromTarget(target, { tab: "overview" }),
-    ripScoreHref: buildTcgSetHrefFromTarget(target, { tab: "insights", section: "rip-score" }),
+    href: ripHref,
+    overviewHref: ripHref,
+    ripScoreHref: ripHref,
   };
 }
 

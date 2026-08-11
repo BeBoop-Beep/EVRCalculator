@@ -112,7 +112,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
             </div>
             <div className={styles.mobileTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
             <Metrics set={set} />
-            <Link className={styles.primaryCta} href="/Explore">See Full Rankings <span aria-hidden="true">→</span></Link>
+            <Link className={styles.primaryCta} href="/Rankings">See Full Rankings <span aria-hidden="true">→</span></Link>
           </div>
           <div className={styles.desktopTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
         </div>
@@ -130,7 +130,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}
           </ol> : <p className={styles.unavailable}>Published rankings are refreshing.</p>}
-          <Link className={styles.textCta} href="/Explore">See Full Rankings →</Link>
+          <Link className={styles.textCta} href="/Rankings">See Full Rankings →</Link>
         </div>
       </section>
 

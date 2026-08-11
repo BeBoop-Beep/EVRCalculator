@@ -134,10 +134,10 @@ function ExploreLevel({ rows }) {
           })}
         </ol>
       ) : (
-        <p className={styles.emptyNote}>Rankings are refreshing. Open Explore for the full table.</p>
+        <p className={styles.emptyNote}>Rankings are refreshing. Open Rankings for the full table.</p>
       )}
-      <Link href="/Explore" className={styles.cardCta}>
-        Open Explore
+      <Link href="/Rankings" className={styles.cardCta}>
+        Open Rankings
         <Arrow />
       </Link>
     </div>
@@ -179,7 +179,7 @@ export default function LevelsSection({
     {
       key: "explore",
       question: "How does it compare?",
-      product: "Explore",
+      product: "Rankings",
       meaning:
         "Compare opening profiles, set values, tiers, and recent movement across tracked Pokémon sets.",
       visual: <ExploreLevel rows={rankingRows} />,

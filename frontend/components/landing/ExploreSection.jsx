@@ -37,8 +37,8 @@ export default function ExploreSection({ openingRankingRows = [], setValueRankin
             set separately.
           </p>
           <div className={styles.featureActions}>
-            <Link href="/Explore" className={styles.ctaSecondary}>
-              Open Explore
+            <Link href="/Rankings" className={styles.ctaSecondary}>
+              Open Rankings
               <Arrow />
             </Link>
           </div>
@@ -87,11 +87,11 @@ export default function ExploreSection({ openingRankingRows = [], setValueRankin
               </ol>
             ) : (
               <p className={styles.emptyNote}>
-                Rankings are refreshing. Open Explore for the full table.
+                Rankings are refreshing. Open Rankings for the full table.
               </p>
             )}
 
-            <Link href="/Explore" className={styles.cardCta}>
+            <Link href="/Rankings" className={styles.cardCta}>
               See all rankings
               <Arrow />
             </Link>
@@ -122,7 +122,7 @@ export default function ExploreSection({ openingRankingRows = [], setValueRankin
               </ol>
             ) : (
               <p className={styles.emptyNote}>
-                Set values are refreshing. Open Explore for the sets published right now.
+                Set values are refreshing. Open Market for the sets published right now.
               </p>
             )}
           </div>
