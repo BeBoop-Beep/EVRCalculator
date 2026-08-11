@@ -1,12 +1,8 @@
 // The Overview RIP Summary, tested by RENDERING it.
 //
-// The module imports only React and the three canonical selectors — no "@/"
-// aliases, no CSS module, no next/link — so it mounts directly and its real
-// tree can be asserted on. That matters most for the two requirements that a
-// source scan cannot honestly answer: that a missing metric prints an em dash
-// rather than a zero or a neighbour's value, and that the Overall headline is
-// the RELATIVE score while Financial RIP and Collector Appeal keep their own
-// fixed-anchor scores.
+// All three public `/100` values must be the backend cohort-relative scores.
+// The fixture carries deliberately different absolute and relative values so a
+// mixed-scale regression is unmistakable.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -18,9 +14,6 @@ import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-// Shaped after backend/desirability/public_rip_contract_v7.py. The three
-// blocks carry DELIBERATELY DIFFERENT absolute and relative numbers, so a
-// surface reading the wrong field or the wrong block is unmistakable.
 const V7 = {
   contractVersion: "public_rip_contract_v7",
   overallRip: {
@@ -100,8 +93,6 @@ function scoreOf(renderer, id) {
   return String(scoreSpan.props.children);
 }
 
-/* ------------------------------------------------- exactly three metrics --- */
-
 test("exactly three canonical metrics render, and nothing else", () => {
   const renderer = render({ publicRipContractV7: V7 });
   const metrics = renderer.root.findAll((n) => n.props?.["data-rip-summary-metric"] !== undefined);
@@ -135,24 +126,20 @@ test("each metric carries its label, tier, rank/cohort and one plain sentence", 
   assert.ok(collector.includes(RIP_SUMMARY_DESCRIPTIONS.collector));
 });
 
-/* --------------------------------------------------------- score scales --- */
-
-test("Overall uses the RELATIVE score; Financial and Collector keep their own", () => {
+test("all three public scores use their own cohort-relative 0–100 values", () => {
   const renderer = render({ publicRipContractV7: V7 });
 
-  // Overall RIP's public number is the cohort-relative score (73.4), never the
-  // absolute 90/10 blend (57.75).
   assert.equal(scoreOf(renderer, "overall"), "73.4");
+  assert.equal(scoreOf(renderer, "financial"), "88.8");
+  assert.equal(scoreOf(renderer, "collector"), "41.2");
 
-  // Financial RIP and Collector Appeal publish their own fixed-anchor V3
-  // scores (61.2 and 65.7). They are NOT restated on the Overall relative
-  // scale (88.8 and 41.2) to make all three accessors match.
-  assert.equal(scoreOf(renderer, "financial"), "61.2");
-  assert.equal(scoreOf(renderer, "collector"), "65.7");
+  const text = ["overall", "financial", "collector"].map((id) => metricOf(renderer, id)).join(" ");
+  assert.ok(!text.includes("57.75"), "Overall absolute score must not be shown");
+  assert.ok(!text.includes("61.2"), "Financial absolute score must not be shown");
+  assert.ok(!text.includes("65.7"), "Collector absolute score must not be shown");
 });
 
 test("an Overall block with only an absolute score renders unavailable", () => {
-  // A differently-scaled number must never appear under the public label.
   const renderer = render({
     publicRipContractV7: { ...V7, overallRip: { ...V7.overallRip, relativeScore: null } },
   });
@@ -160,7 +147,21 @@ test("an Overall block with only an absolute score renders unavailable", () => {
   assert.ok(!metricOf(renderer, "overall").includes("57.75"));
 });
 
-/* ------------------------------------------------------- unavailability --- */
+test("a Financial block with only an absolute score renders unavailable", () => {
+  const renderer = render({
+    publicRipContractV7: { ...V7, financialRip: { ...V7.financialRip, relativeScore: null } },
+  });
+  assert.equal(scoreOf(renderer, "financial"), "—");
+  assert.ok(!metricOf(renderer, "financial").includes("61.2"));
+});
+
+test("a Collector block with only an absolute score renders unavailable", () => {
+  const renderer = render({
+    publicRipContractV7: { ...V7, collectorAppeal: { ...V7.collectorAppeal, relativeScore: null } },
+  });
+  assert.equal(scoreOf(renderer, "collector"), "—");
+  assert.ok(!metricOf(renderer, "collector").includes("65.7"));
+});
 
 test("a missing metric renders an em dash — never zero, never a neighbour", () => {
   const renderer = render({
@@ -171,12 +172,11 @@ test("a missing metric renders an em dash — never zero, never a neighbour", ()
   const collector = metricOf(renderer, "collector");
   assert.ok(collector.includes("Not available for this set yet."));
   assert.ok(!collector.includes("0.0"), "an unavailable metric is not a zero");
-  assert.ok(!collector.includes("61.2"), "and never borrows Financial RIP's score");
+  assert.ok(!collector.includes("88.8"), "and never borrows Financial RIP's score");
   assert.ok(!collector.includes("73.4"), "and never borrows the Overall score");
 
-  // The other two are unaffected.
   assert.equal(scoreOf(renderer, "overall"), "73.4");
-  assert.equal(scoreOf(renderer, "financial"), "61.2");
+  assert.equal(scoreOf(renderer, "financial"), "88.8");
 });
 
 test("no canonical contract at all renders three unavailable metrics, not a crash", () => {
@@ -187,9 +187,6 @@ test("no canonical contract at all renders three unavailable metrics, not a cras
 });
 
 test("a legacy payload cannot fill the summary", () => {
-  // `rip` is Overall RIP v4 and `ripCore` is Financial RIP V2. Neither is a
-  // canonical source, so a set carrying only these renders unavailable rather
-  // than showing a superseded score under a current label.
   const renderer = render({
     rip: { score: 88, relativeScore: 91, rank: 1, tier: "S", cohortSize: 21 },
     ripCore: { score: 79, relativeScore: 83, rank: 1, tier: "S" },
@@ -198,8 +195,6 @@ test("a legacy payload cannot fill the summary", () => {
     assert.equal(scoreOf(renderer, id), "—");
   }
 });
-
-/* ---------------------------------------------------------------- copy --- */
 
 test("no weights, formulas, contributions, versions or retired lenses appear", () => {
   const renderer = render({ publicRipContractV7: V7 });
@@ -229,8 +224,6 @@ test("no weights, formulas, contributions, versions or retired lenses appear", (
     assert.ok(!text.includes(banned), `"${banned}" must not appear in the RIP Summary`);
   }
 });
-
-/* -------------------------------------------------------- view analysis --- */
 
 test("View analysis is one restrained action that calls the page's navigator", () => {
   const calls = [];

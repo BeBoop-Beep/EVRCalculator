@@ -107,7 +107,7 @@ test("Opening Profit vs Cost keeps its desktop inline end labels and their margi
 });
 
 test("the three series values survive when the inline end labels do not", () => {
-  // Expected Value / Typical Return / Realistic Upside are relocated, never
+  // Expected Value / Typical Opening / Strong Upside are relocated, never
   // removed: below 1200px they render in a compact row under the legend.
   assert.ok(packValue.includes("data-latest-values"), "a latest-values row exists below desktop");
   assert.ok(

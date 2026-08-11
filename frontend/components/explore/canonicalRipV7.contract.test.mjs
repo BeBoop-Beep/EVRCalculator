@@ -365,7 +365,7 @@ test("Financial RIP prefers the packaged contract and shows exactly six componen
   assert.equal(v3.rows.length, 6);
   assert.deepEqual(
     v3.rows.map((row) => row.title),
-    ["Chance to Win", "Typical Return", "Loss Resilience", "Realistic Upside", "Jackpot Upside", "Base Economics"]
+    ["Chance to Win", "Typical Opening", "Loss Resilience", "Strong Upside", "Jackpot Upside", "Base Economics"]
   );
   for (const row of v3.rows) {
     assert.equal("weight" in row, false, "no component may carry a visible weight");

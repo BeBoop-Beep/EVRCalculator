@@ -30,8 +30,8 @@ export const DESIRABILITY_VALIDATION_METRICS = [
   },
   {
     key: "p95",
-    label: "P95",
-    summaryLabel: "Cost-Adjusted P95 Upside",
+    label: "Strong Upside (P95)",
+    summaryLabel: "Strong Upside (P95) vs Cost",
     sampleLabel: "simulated opening sets",
     valueKeys: ["p95_value_to_cost_ratio", "p95ValueToCostRatio", "big_hit_upside", "bigHitUpside"],
   },

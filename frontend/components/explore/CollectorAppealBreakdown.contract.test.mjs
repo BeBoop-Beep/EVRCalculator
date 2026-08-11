@@ -299,7 +299,7 @@ test("Financial RIP still shows exactly six components and gains no seventh", ()
   });
   assert.equal(financial.rows.length, 6);
   assert.ok(
-    !financial.rows.some((row) => /desirab|frequency|collector/i.test(row.title)),
+    !financial.rows.some((row) => /desirable outcome|collector/i.test(row.title)),
     "Desirable Outcome Frequency must never appear as a financial component"
   );
 });

@@ -114,8 +114,8 @@ def interpret_outcome_distribution(data: Dict[str, Any]) -> SectionInterpretatio
         EvidenceItem("Pack Cost", format_currency(pack_cost)),
         EvidenceItem("P5", format_currency(p5_value_effective)),
         EvidenceItem("Median", format_currency(median_value)),
-        EvidenceItem("P95", format_ratio(p95_to_cost)),
-        EvidenceItem("P99", format_ratio(p99_ratio)),
+        EvidenceItem("Strong Upside (P95)", format_ratio(p95_to_cost)),
+        EvidenceItem("Jackpot Upside (P99 / Top 1%)", format_ratio(p99_ratio)),
         EvidenceItem("Big Hit", format_currency(big_hit_threshold)),
         EvidenceItem("Max", format_currency(max_value)),
     ]

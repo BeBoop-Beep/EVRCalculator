@@ -22,7 +22,9 @@
 // Every score, rank, tier, ratio and conditional mean below is lifted from the
 // backend payload. This file formats; it never computes a financial number.
 // The only arithmetic here is presentational unit conversion (a 0-1 ratio to a
-// percentage string), which is formatting, not scoring.
+// percentage string), which is formatting, not scoring. `score` remains the
+// fixed-anchor model output for internal/audit consumers; `publicScore` is the
+// backend cohort-relative score and is the only value intended for `/100` UI.
 //
 // NO VISIBLE WEIGHTS
 // ------------------
@@ -59,6 +61,18 @@ function toOptionalNumber(value) {
 
 function toObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function readScoreLayers(block = {}) {
+  const safe = toObject(block);
+  const absoluteScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
+  const relativeScore = toOptionalNumber(safe.relativeScore);
+  return {
+    absoluteScore,
+    relativeScore,
+    publicScore: relativeScore,
+    publicAvailable: relativeScore !== UNAVAILABLE,
+  };
 }
 
 // --- Formatters -------------------------------------------------------------
@@ -108,7 +122,7 @@ const V3_CARDS = [
   {
     key: "trueWinFrequency",
     snakeKey: "true_win_frequency",
-    title: "Chance to Win",
+    title: "Win Frequency",
     // Deliberately "recovers or beats", not "profits": a pack landing exactly
     // on cost recovers it, and the component counts that as a win.
     interpretation: "How often a pack comes back worth at least what it cost.",
@@ -127,7 +141,7 @@ const V3_CARDS = [
   {
     key: "typicalRetention",
     snakeKey: "typical_retention",
-    title: "Typical Return",
+    title: "Typical Retention",
     // "Typical"/"median" throughout. P50 is not a floor and the copy must never
     // let a reader take it as one.
     interpretation: "What the median simulated pack came back worth — half were above, half below.",
@@ -169,7 +183,7 @@ const V3_CARDS = [
   {
     key: "realisticUpside",
     snakeKey: "realistic_upside",
-    title: "Realistic Upside",
+    title: "Strong Upside",
     interpretation:
       "The good-but-not-miraculous outcome: the top 5% of packs, with the top 1% excluded.",
     metrics: (raw) => [
@@ -215,7 +229,7 @@ const V3_CARDS = [
   {
     key: "baseEconomicEfficiency",
     snakeKey: "base_economic_efficiency",
-    title: "Base Economics",
+    title: "Base Economic Efficiency",
     interpretation:
       "Average return with the jackpots removed — how much of the headline average an ordinary opening actually sees.",
     metrics: (raw) => [
@@ -245,13 +259,16 @@ export const FINANCIAL_RIP_V3_CARD_ORDER = V3_CARDS.map((card) => card.title);
 export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {}) {
   const safe = toObject(financialRipV3);
   const components = toObject(safe.components);
+  const configuredWeights = toObject(toObject(toObject(safe.audit).weights).weights);
   const requestTimeout =
     options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
 
   const hasContract = Object.keys(components).length > 0;
   const status = safe.status ?? (hasContract ? null : "unavailable");
-  const isReady = status === "ready" && toOptionalNumber(safe.score) !== UNAVAILABLE;
+  const parentScores = readScoreLayers(safe);
+  const isReady = status === "ready" && parentScores.absoluteScore !== UNAVAILABLE;
   const missingFields = [];
+  const missingPublicScoreFields = [];
 
   const rows = V3_CARDS.map((card) => {
     // The backend keys components in snake_case on the runtime object and in
@@ -260,10 +277,12 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
     // difference in ONE object, not a fallback to a different model.
     const component = toObject(components[card.snakeKey] ?? components[card.key]);
     const raw = toObject(component.raw);
-    const score = toOptionalNumber(component.score);
+    const scores = readScoreLayers(component);
+    const score = scores.absoluteScore;
     const rank = toOptionalNumber(component.rank);
 
     if (score === UNAVAILABLE) missingFields.push(`${card.snakeKey}.score`);
+    if (scores.relativeScore === UNAVAILABLE) missingPublicScoreFields.push(`${card.snakeKey}.relativeScore`);
     if (rank === UNAVAILABLE) missingFields.push(`${card.snakeKey}.rank`);
 
     return {
@@ -271,6 +290,12 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       title: card.title,
       score,
       scoreLabel: formatScore(score),
+      absoluteScore: scores.absoluteScore,
+      relativeScore: scores.relativeScore,
+      // Strict public score: no absolute fallback under a `/100` label.
+      publicScore: scores.publicScore,
+      publicScoreLabel: formatScore(scores.publicScore),
+      publicAvailable: scores.publicAvailable,
       rankValue: rank,
       rankTier: component.tier ?? UNAVAILABLE,
       // `rankedSetCount` in the packaged contract, `cohortSize` on the runtime
@@ -278,6 +303,7 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       cohortSize: toOptionalNumber(component.rankedSetCount ?? component.cohortSize),
       interpretation: card.interpretation,
       metrics: card.metrics(raw),
+      weight: toOptionalNumber(configuredWeights[card.snakeKey] ?? configuredWeights[card.key]),
       available: score !== UNAVAILABLE,
       // Weight is intentionally absent from the row. It is not rendered, so it
       // is not selected — a field the UI does not read is a field that can only
@@ -296,8 +322,14 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
   return {
     mode: "v3",
     rows,
-    score: toOptionalNumber(safe.score),
-    scoreLabel: formatScore(safe.score),
+    score: parentScores.absoluteScore,
+    scoreLabel: formatScore(parentScores.absoluteScore),
+    absoluteScore: parentScores.absoluteScore,
+    relativeScore: parentScores.relativeScore,
+    // Strict public score: no absolute fallback under a `/100` label.
+    publicScore: parentScores.publicScore,
+    publicScoreLabel: formatScore(parentScores.publicScore),
+    publicAvailable: parentScores.publicAvailable,
     rank: toOptionalNumber(safe.rank),
     rankedSetCount: toOptionalNumber(safe.rankedSetCount ?? safe.cohortSize),
     tier: safe.tier ?? UNAVAILABLE,
@@ -312,6 +344,7 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       statusReason: safe.statusReason ?? UNAVAILABLE,
       statusDetail: safe.statusDetail ?? UNAVAILABLE,
       missingFields: requestTimeout ? [] : missingFields,
+      missingPublicScoreFields: requestTimeout ? [] : missingPublicScoreFields,
       fallbackUsed: false,
     },
   };

@@ -218,8 +218,8 @@ export const EXPLORE_RANKING_MODES = {
     id: "upside",
     label: "Biggest Upside",
     title: "Biggest Upside",
-    subtitle: "Sets ranked by blended ceiling quality using Big Hit Upside (P95) and God Pull Upside (P99).",
-    tooltip: "Sets ranked by blended ceiling quality using Big Hit Upside (P95) and God Pull Upside (P99). This is separate from either individual upside metric.",
+    subtitle: "Sets ranked by blended ceiling quality using Strong Upside (P95) and Jackpot Upside (Top 1% / P99).",
+    tooltip: "Sets ranked by blended ceiling quality using Strong Upside (P95) and Jackpot Upside (Top 1% / P99). This is separate from either individual upside metric.",
     scoreLabel: "BIGGEST UPSIDE",
     tierLabel: "TIER",
     scoreField: "relative_biggest_upside_score",
@@ -230,8 +230,8 @@ export const EXPLORE_RANKING_MODES = {
   },
   godPullUpside: {
     id: "godPullUpside",
-    label: "God Pull Upside",
-    title: "God Pull Upside",
+    label: "Jackpot Upside",
+    title: "Jackpot Upside",
     subtitle: "Ranks sets by the P99 simulated outcome compared with pack cost.",
     tooltip: "Ranks sets by the 99th percentile simulated outcome compared with pack cost. This represents rare tail upside, not a likely pack result.",
     scoreLabel: "GOD PULL UPSIDE",
@@ -240,7 +240,7 @@ export const EXPLORE_RANKING_MODES = {
     rankField: "p99_value_to_cost_rank",
     tierField: "p99_value_to_cost_tier",
     scoreFormat: "ratio",
-    description: "God Pull Upside isolates the P99 outcome vs pack cost to focus on rare tail upside.",
+    description: "Jackpot Upside ranks the top-1% threshold (P99) relative to pack cost to focus on rare tail upside.",
   },
 };
 

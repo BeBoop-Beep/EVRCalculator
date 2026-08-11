@@ -430,7 +430,7 @@ def _blend_biggest_upside_score(
     p95_value_to_cost_ratio: Optional[float],
     p99_value_to_cost_ratio: Optional[float],
 ) -> Optional[float]:
-    """Blend Big Hit Upside (P95) and God Pull Upside (P99) into a 0-100 score."""
+    """Blend Strong Upside (P95) and Jackpot Upside (P99) into a 0-100 score."""
 
     p95 = _to_optional_float(p95_value_to_cost_ratio)
     p99 = _to_optional_float(p99_value_to_cost_ratio)
@@ -1776,7 +1776,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         target["desirability_rank"] = rank_payload.get("rank")
         target["desirability_tier"] = rank_payload.get("tier")
 
-    # Blend Biggest Upside lens from P95 (Big Hit Upside) + P99 (God Pull Upside).
+    # Blend Biggest Upside lens from P95 (Strong Upside) + P99 (Jackpot Upside).
     blended_rows = [
         {
             "target_id": target.get("target_id"),

@@ -59,7 +59,7 @@ function RipLevel({ set, sealedProducts }) {
               <span className={styles.statValue}>{currency2.format(economics.packCost)}</span>
             </span>
             <span className={styles.stat}>
-              <span className={styles.statLabel}>Modeled mean</span>
+              <span className={styles.statLabel}>Expected Value</span>
               <span className={styles.statValue}>{currency2.format(economics.meanValue)}</span>
             </span>
             <span className={styles.stat}>

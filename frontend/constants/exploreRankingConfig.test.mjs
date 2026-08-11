@@ -65,7 +65,7 @@ test("a mode without a relative field returns null for relative, keeps absolute"
 });
 
 test("ratio-only modes expose no relative score", () => {
-  // EV-to-cost and God Pull Upside are raw ratios; they must not fabricate one.
+  // EV-to-cost and Jackpot Upside are raw ratios; they must not fabricate one.
   for (const mode of ["averageReturn", "godPullUpside"]) {
     assert.equal(getRelativeScoreField(mode), null);
     assert.equal(getRelativeScoreForMode(TARGET, mode), null);

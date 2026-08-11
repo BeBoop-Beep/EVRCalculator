@@ -35,6 +35,7 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
+import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
@@ -79,6 +80,7 @@ import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
+import RipDecisionPage from "./RipDecisionPage.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -219,7 +221,7 @@ const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-drivers", navId: "top-ev-drivers" },
   { sectionId: "explore-rarity", navId: "rarity-contribution" },
 ];
-const SET_DETAIL_DEFAULT_TAB = "cards";
+const SET_DETAIL_DEFAULT_TAB = "overview";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
 // No set-detail tab renders content sourced from the full set /page snapshot
 // anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
@@ -273,6 +275,8 @@ const SET_PREFETCH_ADJACENT_LIMIT = 0;
 const INSIGHTS_PENDING_TIMEOUT_MS = 8000;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
+  rip: "overview",
+  analysis: "insights",
   analytics: "insights",
   market: "overview",
 };
@@ -943,25 +947,25 @@ const RIP_COPY = {
   },
   chartMarkers: {
     packCost: "Pack Market Price",
-    typicalPack: "Typical Pack",
+    typicalPack: "Typical Opening",
     averagePack: "Average Pack",
     badFloor: "Bad Floor",
     bigHit: "Big Hit Threshold",
-    bigHitUpside: "Realistic Upside",
-    godPullUpside: "God Pull Upside",
+    bigHitUpside: "Strong Upside",
+    godPullUpside: "Jackpot Upside",
     bestPull: "Best Pull",
   },
   chartStats: {
-    typicalPack: "Typical Pack Value",
+    typicalPack: "Typical Opening",
     badPackFloor: "Bad Pack Floor Value",
     chanceToBeatPackCost: "Chance to Beat Pack Cost",
     chanceAtBigPull: "Chance at a Big Pull",
-    bigHitUpside: "Realistic Upside",
-    godPullUpside: "God Pull Upside",
+    bigHitUpside: "Strong Upside",
+    godPullUpside: "Jackpot Upside",
     bestPull: "Best Simulated Pull",
   },
   advancedStats: {
-    bigHitUpside: "Realistic Upside",
+    bigHitUpside: "Strong Upside",
     expectedLossPerPack: "Average Loss per Pack",
     expectedLossWhenLosing: "Average Loss When You Miss",
     medianLossWhenLosing: "Typical Loss When You Miss",
@@ -1071,7 +1075,7 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
       <li className="flex gap-2">
         <span className="flex-none">•</span>
         <span>
-          <span className="font-semibold text-[var(--text-primary)]">Realistic Upside:</span> 95th percentile simulated pack outcome. Roughly 5% of simulated packs landed above this value.
+          <span className="font-semibold text-[var(--text-primary)]">Strong Upside:</span> P95 threshold. Roughly 5% of simulated packs landed above this value.
         </span>
       </li>
       <li className="flex gap-2">
@@ -1083,7 +1087,7 @@ const PERFORMANCE_VS_COST_INFO_TEXT = (
       <li className="flex gap-2">
         <span className="flex-none">•</span>
         <span>
-          <span className="font-semibold text-[var(--text-primary)]">Typical Return:</span> median simulated pack value.
+          <span className="font-semibold text-[var(--text-primary)]">Typical Opening:</span> median (P50) simulated pack value.
         </span>
       </li>
       <li className="flex gap-2">
@@ -1117,11 +1121,11 @@ const OPENING_PERFORMANCE_VS_COST_INFO_TEXT = (
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
-        <span><span className="font-semibold text-[var(--text-primary)]">50th Percentile vs Cost:</span> the median (typical) pack value ÷ pack price.</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">Typical Opening (P50) vs Cost:</span> the median simulated pack value ÷ pack price.</span>
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
-        <span><span className="font-semibold text-[var(--text-primary)]">95th Percentile vs Cost:</span> the 95th-percentile pack outcome ÷ pack price.</span>
+        <span><span className="font-semibold text-[var(--text-primary)]">Strong Upside (P95) vs Cost:</span> the P95 threshold ÷ pack price.</span>
       </li>
       <li className="flex gap-2">
         <span className="flex-none">•</span>
@@ -1241,8 +1245,8 @@ const DESIRABILITY_VALIDATION_METRICS = [
   },
   {
     key: "p95",
-    label: "P95",
-    summaryLabel: "Cost-Adjusted P95 Upside",
+    label: "Strong Upside (P95)",
+    summaryLabel: "Strong Upside (P95) vs Cost",
     sampleLabel: "simulated opening sets",
     description: "P95 is cost-adjusted upper-tail upside. A negative relationship can happen when highly desirable sets become expensive to open.",
     valueKeys: ["p95_value_to_cost_ratio", "p95ValueToCostRatio", "big_hit_upside", "bigHitUpside"],
@@ -3686,7 +3690,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
                 } ${mobileEmphasisClass}`}
               >
-                <span className="block truncate">{option.label}</span>
+                <span className="flex min-w-0 items-center justify-center gap-1.5">{option.icon ? <SetPageIcon name={option.icon} className="h-3.5 w-3.5 flex-none" /> : null}<span className="truncate">{option.label}</span></span>
               </button>
             );
           })}
@@ -4213,17 +4217,17 @@ const SIMULATION_METRIC_INFO = {
   "Min Pack": "Lowest simulated pack value across the run.",
   P5: "5th-percentile pack value — 95% of simulated packs landed above this.",
   P25: "25th-percentile pack value across simulated packs.",
-  "P50 (Typical Pack)": "Median (50th-percentile) simulated pack value — the typical pack.",
+  "Typical Opening (P50)": "Median (50th-percentile) simulated pack value — half of simulated openings are above it and half below it.",
   P75: "75th-percentile pack value across simulated packs.",
   P90: "90th-percentile pack value across simulated packs.",
-  P95: "95th-percentile pack value — roughly 5% of packs beat this (Realistic Upside).",
-  P99: "99th-percentile pack value — the rare high-end (God Pull) outcome.",
+  P95: "Strong Upside threshold — roughly 5% of simulated packs beat this value.",
+  P99: "Jackpot Upside threshold — the top 1% begins at this value.",
   "Max (Best Pull)": "Highest simulated pack value across the run.",
   "Mean (Expected Value)": "Average simulated pack value across every simulated pack.",
   "Std Dev": "Spread of simulated pack values around the mean; higher means noisier outcomes.",
   Variance: "Square of standard deviation; derived from std dev when the backend does not export it explicitly.",
   "Expected Value": "Average simulated pack value.",
-  "Typical Pack": "Median simulated pack value.",
+  "Typical Opening": "Median (P50) simulated pack value.",
   "EV / Cost": "Expected value ÷ pack market price. Above 1.0x means value exceeds cost.",
   "Typical / Cost": "Median pack value ÷ pack market price.",
   "P95 / Cost": "95th-percentile pack value ÷ pack market price.",
@@ -4419,7 +4423,7 @@ function PercentileStripChart({ model }) {
                 top: -8,
               }}
             >
-              <SimulationChartTooltipFrame label={activeMarker.key === "p50" ? "P50 (Typical Pack)" : activeMarker.label}>
+              <SimulationChartTooltipFrame label={activeMarker.key === "p50" ? "Typical Opening (P50)" : activeMarker.label}>
                 <p>
                   <span className="font-semibold text-white">{formatCurrency(activeMarker.value)}</span> simulated pack value
                 </p>
@@ -4670,8 +4674,8 @@ function SimulationMetricsContent({
     <>
       <SimMetricLine label="Chance at Big Pull" value={probability(safeSummary.prob_big_hit)} />
       <SimMetricLine label="Big Hit Threshold" value={money(safeSummary.big_hit_threshold)} />
-      <SimMetricLine label="P95 / Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
-      <SimMetricLine label="P99 / Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
+      <SimMetricLine label="Strong Upside (P95) vs Cost" value={ratio(safeSummary.p95_value_to_cost_ratio)} />
+      <SimMetricLine label="Jackpot Upside (P99 / Top 1%) vs Cost" value={ratio(safeSummary.p99_value_to_cost_ratio)} />
       <SimMetricLine label="Max (Best Pull)" value={money(safeSummary.max_value)} />
       <SimMetricLine label="Average Hit Value" value={money(safeSummary.average_hit_value)} />
       <SimMetricLine label="Hit EV" value={money(safeSummary.hit_ev)} />
@@ -4745,7 +4749,7 @@ function SimulationMetricsContent({
     {
       key: "where-packs-land",
       label: "Where Packs Land",
-      caption: "Typical pack (P50)",
+      caption: "Typical Opening (P50)",
       value: money(p50),
       infoText: packsLandInfoText,
       body: packsLandBody,
@@ -5433,7 +5437,7 @@ const SET_INTELLIGENCE_LENSES = [
     simpleDetailSummary:
       "This lens focuses on ceiling. It helps you understand whether the strongest possible pulls can feel truly special for this set.",
     description:
-      "This lens blends Realistic Upside (P95) with God Pull Upside (P99) to represent total ceiling quality.",
+      "This lens blends Strong Upside (P95) with Jackpot Upside (Top 1% / P99) to represent total ceiling quality.",
     evidenceKeys: ["p95_value_to_cost_ratio", "p99_value_to_cost_ratio", "big_hit_threshold", "max_value"],
   },
   {
@@ -5575,9 +5579,9 @@ function getLensEvidenceRow(key, summary) {
     case "prob_big_hit":
       return { label: "Chance at a big pull", value: formatPercent(summary.prob_big_hit, { probability: true }) };
     case "p95_value_to_cost_ratio":
-      return { label: "Realistic Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
+      return { label: "Strong Upside", value: fmtMult(summary.p95_value_to_cost_ratio) };
     case "p99_value_to_cost_ratio":
-      return { label: "God Pull Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
+      return { label: "Jackpot Upside", value: fmtMult(summary.p99_value_to_cost_ratio) };
     case "effective_chase_count":
       return { label: "Chase depth", value: formatNumber(summary.effective_chase_count, 2) };
     case "big_hit_threshold":
@@ -6302,9 +6306,10 @@ function RipScoreBreakdownModule({
         <div className="min-w-0">
           <SectionEyebrow>01 · RIP Score</SectionEyebrow>
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
             {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
           </div>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">What drives the RIP Score?</p>
         </div>
 
         {/* THE INSIGHTS SUMMARY. One grouped surface, three cards, stated
@@ -9520,6 +9525,8 @@ export default function RipStatisticsPageClient({
   const chartMarkers = [
     { key: "pack-cost", label: RIP_COPY.chartMarkers.packCost, value: summary.pack_cost },
     { key: "median", label: RIP_COPY.chartMarkers.typicalPack, value: percentileP50 ?? summary.median_value },
+    { key: "p25", label: "P25", value: selectPercentileValue(percentiles, 25) },
+    { key: "p75", label: "P75", value: selectPercentileValue(percentiles, 75) },
     { key: "mean", label: RIP_COPY.chartMarkers.averagePack, value: summary.mean_value },
     { key: "bad-floor", label: RIP_COPY.chartMarkers.badFloor, value: percentileP5 ?? summary.tail_value_p05 },
     { key: "big-hit", label: RIP_COPY.chartMarkers.bigHit, value: summary.big_hit_threshold },
@@ -10777,6 +10784,16 @@ export default function RipStatisticsPageClient({
     cardsPageState.setId === resolvedSetResourceId
       ? cardsPageState
       : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null };
+  const authoritativeSetCardCount =
+    toNumber(activeCardsPageState.pagination?.totalCards) > 0
+      ? toNumber(activeCardsPageState.pagination?.totalCards)
+      : toNumber(
+          selectedTarget?.card_count ??
+            selectedTarget?.cardCount ??
+            selectedTarget?.checklist_set_value_total_card_count ??
+            selectedTarget?.checklistSetValueTotalCardCount ??
+            summary?.simulated_set_value_card_count
+        );
   const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
   const effectiveCardsPageStatus =
     activeCardsPageState.cards.length > 0
@@ -11031,9 +11048,9 @@ export default function RipStatisticsPageClient({
   );
   const technicalScoreMetrics = [
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
     { label: "Outcome Volatility", value: formatNumber(summary.coefficient_of_variation, 2), trend: trendByMetricKey.outcomeVolatility },
     { label: "Value Spread", value: formatNumber(summary.hhi_ev_concentration, 3), trend: trendByMetricKey.evConcentration },
     { label: "Cards Carrying Value", value: formatNumber(summary.effective_chase_count, 2), trend: trendByMetricKey.chaseDepth },
@@ -11047,12 +11064,12 @@ export default function RipStatisticsPageClient({
     { label: RIP_COPY.simpleMetrics.chanceToBeatPackCost, value: formatPercent(summary.prob_profit, { probability: true }), trend: trendByMetricKey.chanceToBeatPackCost },
     { label: RIP_COPY.simpleMetrics.chanceAtBigPull, value: formatPercent(summary.prob_big_hit, { probability: true }), trend: trendByMetricKey.chanceAtBigPull },
     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
   ];
   const safetyPillarMetrics = [
-    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+    { label: "Typical Opening", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Opening") },
     { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
     { label: "Chance to Miss Pack Cost", value: formatPercent(chanceToMissPackCostValue, { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
     { label: "Average Loss When You Miss", value: formatLossCurrency(summary.expected_loss_when_losing), trend: trendByMetricKey.averageLossWhenYouMiss, infoText: getMetricTooltip("Average Loss When You Miss") },
@@ -11818,7 +11835,7 @@ export default function RipStatisticsPageClient({
       }));
       return undefined;
     }
-    if (setDetailTab !== "pull-rates") {
+    if (setDetailTab !== "pull-rates" && setDetailTab !== "overview") {
       return undefined;
     }
 
@@ -11961,7 +11978,7 @@ export default function RipStatisticsPageClient({
     const desiredScopes = Array.from(
       new Set([
         CANONICAL_SET_VALUE_SCOPE,
-        ...(setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
+        ...(setDetailTab === "insights" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
       ])
     );
     // This effect re-runs on every tab switch (setDetailTab is a dependency,
@@ -12148,7 +12165,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderMarketData = setDetailTab === "overview";
+    const shouldRenderMarketData = setDetailTab === "insights";
     if (!shouldRenderMarketData) {
       // No background hydration for a tab the user isn't on — overview's own
       // render (or a future switch back to it) triggers this effect again.
@@ -12219,7 +12236,7 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    const shouldRenderOverviewData = setDetailTab === "overview";
+    const shouldRenderOverviewData = setDetailTab === "insights";
     if (!shouldRenderOverviewData) {
       return undefined;
     }
@@ -12309,7 +12326,7 @@ export default function RipStatisticsPageClient({
     const setId = resolvedSetResourceId;
     // The slim movers fetch serves the fixed Overview ticker only. The Cards
     // preset uses the paginated cards endpoint instead.
-    const isOverviewMoversConsumer = setDetailTab === "overview";
+    const isOverviewMoversConsumer = setDetailTab === "insights";
     const moversSourceWindow = MOVERS_TICKER_WINDOW;
     const moversFetchLimit = MOVERS_TICKER_FETCH_LIMIT;
     if (!setId) {
@@ -12438,7 +12455,7 @@ export default function RipStatisticsPageClient({
     // entry must not depend on the user visiting Overview first to see fresh
     // history. The request-key guard below still makes overview<->insights
     // switches share one fetch per set/window.
-    const shouldRenderOverviewData = setDetailTab === "overview" || setDetailTab === "insights";
+    const shouldRenderOverviewData = setDetailTab === "insights";
     if (!shouldRenderOverviewData) {
       // No background fetch for a tab the user isn't on — a tab that needs
       // this data (or a future switch back to one) triggers this effect again.
@@ -12644,7 +12661,7 @@ export default function RipStatisticsPageClient({
   );
 
   return (
-    <main className={setDetailMode ? "w-full max-w-full pb-[calc(5.25rem+env(safe-area-inset-bottom)+0.875rem)] pt-0 desk:pb-8 desk:pt-8" : "w-full max-w-full pb-8 pt-0 lg:py-8"}>
+    <main className={setDetailMode ? "w-full max-w-full pb-[calc(5.25rem+env(safe-area-inset-bottom)+0.875rem)] pt-0 desk:pb-8 desk:pt-8 [@media(min-width:1440px)_and_(max-height:950px)]:pt-5" : "w-full max-w-full pb-8 pt-0 lg:py-8"}>
       {/* The set page's desktop boundary is 1200px, not Tailwind's 1280px xl,
           so it opts the shared scaffold into the `desk` recipe. Both strings are
           written out statically. The non-set Explore page renders through this
@@ -12687,7 +12704,7 @@ export default function RipStatisticsPageClient({
         <div
           className={`dashboard-container relative isolate w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
             setDetailMode
-              ? "set-detail-glass-scope mx-auto max-w-[1400px] space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              ? "set-detail-glass-scope mx-auto flex max-w-[1400px] flex-col space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
               : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
           }`}
         >
@@ -12726,6 +12743,184 @@ export default function RipStatisticsPageClient({
 
         {canRenderPrimaryContent ? (
           <>
+            {setDetailMode && setDetailTab === "insights" ? (
+              <section id="set-detail-insights" data-analysis-page className="order-2 scroll-mt-24 space-y-5 md:scroll-mt-28">
+                <nav aria-label="Analysis sections" className="set-glass-surface flex max-w-full gap-1 overflow-x-auto rounded-xl border p-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                  {[
+                    ["analysis-rip-score", "RIP Score"],
+                    ["analysis-simulation", "Simulation"],
+                    ["analysis-value-structure", "Value Structure"],
+                    ["analysis-market", "Market"],
+                    ["analysis-sealed", "Sealed"],
+                    ["analysis-methodology", "Methodology"],
+                  ].map(([target, label]) => <a key={target} href={`#${target}`} className="min-h-9 flex-none rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">{label}</a>)}
+                </nav>
+
+                <div id="analysis-rip-score" className="scroll-mt-36">
+                  <SectionErrorBoundary sectionName="analysis-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score Breakdown" minHeightClassName="min-h-[14rem]">
+                    <RipScoreBreakdownModule
+                      score={topScoreRaw}
+                      rankTier={heroScoreSelection.tier}
+                      rankValue={heroScoreSelection.rank}
+                      cohortSize={heroScoreSelection.cohortSize}
+                      titleInfoText={`${ripBreakdownInfo}${decisionSignalFreshnessInfo}`}
+                      canonical={canonicalRip}
+                      requestTimeout={isTimeoutFallbackPayload}
+                    />
+                  </SectionErrorBoundary>
+                </div>
+
+                <section id="analysis-simulation" data-analysis-section="simulation-analysis" className="scroll-mt-36">
+                  <SectionCard title="Simulation Analysis" subtitle="What do the simulated openings actually look like?" titleInfoText={SIMULATION_RESULTS_INFO_TEXT}>
+                    <SectionBoundary
+                      status={insightsSectionsBlocked ? "loading" : distributionBins.length > 0 ? "success" : "empty"}
+                      title="Loading simulation analysis…"
+                      minHeightClassName="min-h-[20rem]"
+                    >
+                      <div aria-label="Current simulated opening distribution" className="min-w-0">
+                        <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush />
+                      </div>
+                      <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+                        <h3 className="text-base font-semibold text-[var(--text-primary)]">Simulation Economics</h3>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">Expected Value is the mean; Typical Opening is P50; Strong Upside is P95; Jackpot Upside is the top 1% threshold.</p>
+                        <div className="mt-3">
+                          <SimulationMetricsContent
+                            summary={summary}
+                            percentiles={percentiles}
+                            ripStatistics={ripStatistics}
+                            historyTrend={historyTrend}
+                            asOfDate={fallbackSetValueAsOf}
+                            performanceHistoryLatestDate={latestRealPerformanceDate}
+                          />
+                        </div>
+                      </div>
+                      {historyTrend.length > 0 ? (
+                        <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+                          <h3 className="text-base font-semibold text-[var(--text-primary)]">Historical Simulation Movement</h3>
+                          <p className="mt-1 text-xs text-[var(--text-secondary)]">How modeled opening outcomes have moved against pack cost.</p>
+                          <div className="mt-3"><PackValueHistoryChart historyTrend={historyTrend} packCost={summary.pack_cost} summary={summary} variant="simulation" marketAsOfDate={marketAsOfDate} flush /></div>
+                        </div>
+                      ) : null}
+                    </SectionBoundary>
+                  </SectionCard>
+                </section>
+
+                <section id="analysis-value-structure" data-analysis-section="value-structure" className="scroll-mt-36">
+                  <SectionCard title="Value Structure" subtitle="Why does the distribution look this way?">
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <StatTile label="Top Card Concentration" value={formatPercent(summary.top1_ev_share)} />
+                      <StatTile label="Top 5 Concentration" value={formatPercent(summary.top5_ev_share)} />
+                      <StatTile label="Chase Depth" value={formatNumber(summary.effective_chase_count, 1)} />
+                      <StatTile label="Jackpot Concentration" value={formatPercent(summary.jackpot_value_share)} />
+                    </div>
+                    <SectionErrorBoundary sectionName="analysis-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[14rem]">
+                      <TopChaseCardsModule
+                        cards={topPricedCards}
+                        status={topPricedCardsStatus}
+                        error={activeTopMarketCardsState.error}
+                        infoText={topPricedCardsInfo}
+                        selectedWindowKey={topMarketCardsWindowKey}
+                        onWindowChange={setTopMarketCardsWindowKey}
+                        marketAsOfDate={marketAsOfDate}
+                        rowHref={topChaseRowHref}
+                        onRetry={retryTopChaseModule}
+                      />
+                    </SectionErrorBoundary>
+                    <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
+                      <h3 className="text-base font-semibold text-[var(--text-primary)]">Cards Driving Opening Value</h3>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">Modeled EV contribution is shown only where the simulation publishes it.</p>
+                      <div className="mt-3"><TopEVDriversContent topHits={topHits} meanValue={summary.mean_value} condensed maxRows={10} diagnostics={simulationDrivers.diagnostics} /></div>
+                    </div>
+                  </SectionCard>
+                </section>
+
+                <section id="analysis-market" data-analysis-section="market-analysis" className="scroll-mt-36">
+                  <SectionCard title="Market Analysis" subtitle="What is happening around the set?">
+                    <p className="mb-4 text-xs text-[var(--text-secondary)]">Market movement provides supporting context and is not itself the RIP score.</p>
+                    <SectionErrorBoundary sectionName="analysis-movers" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
+                      <SevenDayMarketMoversTicker entry={moversTickerEntry} maxItems={10} scope="set" status={moversTickerStatus} error={activeMarketMoversState.error} viewAllHref={moversTickerHref} onRetry={retryMarketMoversModule} />
+                    </SectionErrorBoundary>
+                    <div className="mt-5 grid gap-5 lg:grid-cols-2 lg:items-stretch">
+                      <SectionErrorBoundary sectionName="analysis-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value Trend" minHeightClassName="min-h-[16rem]">
+                        <SetValueTrendCard
+                          setId={resolvedSetResourceId}
+                          setValueContract={activeSetValueContract}
+                          history={activeSetValueHistory.history}
+                          historiesByScope={activeSetValueHistory.historiesByScope}
+                          availableScopes={activeSetValueHistory.availableScopes}
+                          status={activeSetValueHistory.status}
+                          error={activeSetValueHistory.error}
+                          selectedScope={setValueTrendScope}
+                          onSelectedScopeChange={setSetValueTrendScope}
+                          marketAsOfDate={marketAsOfDate}
+                        />
+                      </SectionErrorBoundary>
+                      <SectionCard title="Market Snapshot" subtitle="Current pricing and opening-economics context." className="h-full">
+                        <dl className="grid gap-2 sm:grid-cols-2">
+                          <StatTile label="Set Value" value={formatCurrency(activeSetValueContract.currentValue)} />
+                          <StatTile label="Pack Price" value={formatCurrency(summary.pack_cost)} />
+                          <StatTile label="Expected Value" value={formatCurrency(summary.mean_value)} />
+                          <StatTile label="Break-even Probability" value={formatPercent(summary.prob_profit, { probability: true })} />
+                        </dl>
+                        <p className="mt-3 text-xs text-[var(--text-secondary)]">Cards-rising and cards-falling breadth are omitted when the market contract does not publish authoritative set-level breadth.</p>
+                      </SectionCard>
+                    </div>
+                  </SectionCard>
+                </section>
+
+                <section id="analysis-sealed" data-analysis-section="sealed-market" className="scroll-mt-36">
+                  <SectionCard title="Sealed Market" subtitle="How are sealed products priced?">
+                    <SectionErrorBoundary sectionName="analysis-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
+                      <SealedMarketTrendCard setId={resolvedSetResourceId} />
+                    </SectionErrorBoundary>
+                    <p className="mt-3 text-xs text-[var(--text-secondary)]">This is sealed-market pricing context only. No Product RIP score is calculated or implied.</p>
+                  </SectionCard>
+                </section>
+
+                <section id="analysis-methodology" data-analysis-section="methodology" className="scroll-mt-36">
+                  <SectionCard title="Methodology" subtitle="Show me exactly how this works.">
+                    <div className="space-y-2">
+                      {[
+                        ["Simulation", [
+                          `Simulation count: ${summary.simulation_count ?? summary.packs_simulated ?? "Unavailable"}`,
+                          `Simulation date: ${summary.run_at ? formatLongDate(summary.run_at) : "Unavailable"}`,
+                          "The current distribution uses the production modeled pack configuration and guaranteed-slot handling published with the set snapshot.",
+                        ]],
+                        ["Pull Rates", [
+                          `Source: ${pullRateAssumptions?.meta?.sourceLabel ?? pullRateAssumptions?.sourceLabel ?? "Unavailable"}`,
+                          "Normalized rarity and slot assumptions feed the simulation; detailed rarity probabilities remain on Pull Rates.",
+                          "Missing or invalid denominators are not replaced with invented probabilities.",
+                        ]],
+                        ["Pricing", [
+                          `Source: ${summary.checklist_set_value_source ?? summary.top_10_card_value_source ?? "Unavailable"}`,
+                          `Pricing date: ${summary.checklist_set_value_as_of ?? summary.current_checklist_set_value_date ?? marketAsOfDate ?? "Unavailable"}`,
+                          "Market prices can move and may not equal cash realized after fees, spread, condition, and sale friction.",
+                        ]],
+                        ["RIP Model", [
+                          `Overall model: ${canonicalRip?.overall?.version ?? "Unavailable"}`,
+                          `Financial model: ${canonicalRip?.financialRip?.scoreVersion ?? canonicalRip?.financialRip?.version ?? "Unavailable"}`,
+                          `Collector model: ${canonicalRip?.collectorAppeal?.version ?? "Unavailable"}`,
+                          `Eligible cohort: ${heroScoreSelection.cohortSize ?? "Unavailable"} sets`,
+                          "Relative RIP Index is cohort-relative. A value of 100 identifies the leading eligible set in the current cohort; it does not mean perfect returns, no risk, or a 100% return.",
+                          "Financial component weights are read from the canonical V3 audit block. Collector Appeal factor weights are not disclosed by the current public contract and are not reconstructed here.",
+                        ]],
+                        ["Uncertainty and Limitations", [
+                          "Pull rates are modeled estimates, not official guarantees of an individual opening.",
+                          "Card and sealed prices are volatile and may be incomplete for some products or variants.",
+                          "Simulations describe a distribution of possible openings; they do not predict or guarantee a future pack.",
+                        ]],
+                      ].map(([title, lines], index) => (
+                        <details key={title} open={index === 0} className="group rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-3">
+                          <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between rounded-md font-semibold text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"><span>{title}</span><span aria-hidden="true" className="text-[var(--text-secondary)] transition-transform group-open:rotate-180">⌄</span></summary>
+                          <ul className="mt-2 space-y-1.5 border-t border-[var(--border-subtle)] pt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{lines.map((line) => <li key={line} className="flex gap-2"><span aria-hidden="true">•</span><span>{line}</span></li>)}</ul>
+                        </details>
+                      ))}
+                    </div>
+                  </SectionCard>
+                </section>
+              </section>
+            ) : null}
+
             {setDetailMode ? (
               <>
                 {/* DOM order is tabs -> identity so that below 1200px, where the
@@ -12807,10 +13002,10 @@ export default function RipStatisticsPageClient({
                        accessibility are untouched. */
                     mobileEmphasisValue="insights"
                     options={[
-                      { value: "overview", label: "Overview" },
-                      { value: "cards", label: "Cards" },
-                      { value: "pull-rates", label: "Pull Rates" },
-                      { value: "insights", label: "Insights" },
+                      { value: "overview", label: "RIP", icon: "gauge" },
+                      { value: "cards", label: "Cards & Products", icon: "cards" },
+                      { value: "pull-rates", label: "Pull Rates", icon: "target" },
+                      { value: "insights", label: "Analysis", icon: "analysis" },
                     ]}
                   />
                 </div>
@@ -12819,8 +13014,8 @@ export default function RipStatisticsPageClient({
                   data-set-picker-open={isDesktopHeroComposition && heroSetPickerOpen ? "true" : "false"}
                   className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
-                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
-                    <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
+                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1400px] items-stretch md:grid-cols-[minmax(20rem,1.7fr)_repeat(4,minmax(8.5rem,1fr))]">
+                    <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:gap-7 md:px-5">
                       {heroLogoUrl ? (
                         <span className="flex h-14 w-24 flex-none items-center justify-center sm:h-16 sm:w-28">
                           <img
@@ -12899,8 +13094,16 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="set-context-eyebrow">Set Value</p>
+                    <div data-set-context-release-date className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                      <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="calendar" />Release Date</p>
+                      <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{selectedTarget?.release_date || selectedTarget?.releaseDate ? formatLongDate(selectedTarget?.release_date ?? selectedTarget?.releaseDate) : "—"}</p>
+                    </div>
+                    <div data-set-context-total-cards className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                      <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="cards" />Total Cards</p>
+                      <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{authoritativeSetCardCount > 0 ? Math.round(authoritativeSetCardCount).toLocaleString("en-US") : "—"}</p>
+                    </div>
+                    <div data-set-context-set-value className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="value" />Set Value</p>
                         <MarketValueChange
                           className="mt-1"
                           value={setHeaderSummary.setValue.current}
@@ -12911,16 +13114,9 @@ export default function RipStatisticsPageClient({
                           variant="table-row"
                           accessibleLabel="Current set value"
                         />
-                        <button
-                          type="button"
-                          onClick={handleViewSetValueTrend}
-                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                        >
-                          View trend
-                        </button>
                     </div>
-                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="set-context-eyebrow">{setContextRipLabel}</p>
+                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
                         {/* Score stays the focal point and stays neutral; the tier
                             takes the outlined pill and the verdict a lighter
                             relative of the breakdown's interpretation pill, both
@@ -12929,7 +13125,6 @@ export default function RipStatisticsPageClient({
                             third chip on this row made the compact card read as
                             three competing badges. */}
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{displayedTopScore}</span>
                           {setContextRipTier ? (
                             <span
                               data-set-context-rip-tier
@@ -12949,7 +13144,7 @@ export default function RipStatisticsPageClient({
                                   : `Rank #${Math.round(setContextRipRank)} of ${Math.round(setContextRipCohort)} ranked sets`
                               }
                             >
-                              Rank #{Math.round(setContextRipRank)}
+                              #{Math.round(setContextRipRank)}{setContextRipCohort === null ? "" : ` of ${Math.round(setContextRipCohort)}`}
                             </span>
                           ) : null}
                         </div>
@@ -12958,16 +13153,6 @@ export default function RipStatisticsPageClient({
                             describes a model the site no longer publishes. A
                             neutral line naming the two canonical inputs takes
                             the slot so the card keeps its shape. */}
-                        <p data-set-context-rip-helper className="mt-1 min-w-0 text-[11px] leading-tight text-[var(--text-secondary)]">
-                          {RIP_SCORE_HELPER}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
-                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                        >
-                          View analysis
-                        </button>
                     </div>
                   </div>
                 </section>
@@ -12975,6 +13160,18 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
+                  <RipDecisionPage
+                    canonical={canonicalRip}
+                    summary={summary}
+                    chaseCards={topPricedCards}
+                    cardCount={authoritativeSetCardCount}
+                    pullRateAssumptions={pullRateAssumptions}
+                    cardsHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "cards" })}
+                    pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
+                  />
+                ) : null}
+
+                {false && setDetailTab === "overview" ? (
                   // Progressive rendering: each section below gates
                   // independently on its own fetch status instead of one
                   // shared whole-tab skeleton (removed — see
@@ -13475,7 +13672,7 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (
+                {!setDetailMode && !showInsightsCohesiveLoading ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
@@ -13574,7 +13771,7 @@ export default function RipStatisticsPageClient({
                           <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
                             {displayedTopScore}
                           </span>
-                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
+                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">relative index</span>
                           <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
                         </div>
                       </div>
@@ -14068,9 +14265,9 @@ export default function RipStatisticsPageClient({
                   ]}
                   advancedMetrics={[
                     { label: "Expected Value vs Cost", value: formatNumber(meanValueToCostRatio, 2), trend: trendByMetricKey.averageReturnVsCost },
-                    { label: "Typical Return vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
-                    { label: "Realistic Upside", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
-                    { label: "God Pull Upside", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
+                    { label: "Typical Opening (P50) vs Cost", value: formatNumber(medianValueToCostRatio, 2), trend: trendByMetricKey.typicalReturnVsCost },
+                    { label: "Strong Upside (P95) vs Cost", value: formatNumber(summary.p95_value_to_cost_ratio, 2), trend: trendByMetricKey.bigHitUpside },
+                    { label: "Jackpot Upside (Top 1% / P99)", value: formatNumber(summary.p99_value_to_cost_ratio, 2), trend: trendByMetricKey.godPullUpside },
                   ]}
                 />
                 <ScorePillarCard
@@ -14084,7 +14281,7 @@ export default function RipStatisticsPageClient({
                   fallbackSummary={null}
                   infoText={getFormattedTooltip("Safety")}
                   simpleMetrics={[
-                    { label: "Typical Pack Value", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Pack Value") },
+                    { label: "Typical Opening", value: formatCurrency(percentileP50 ?? summary.median_value), trend: trendByMetricKey.typicalPackValue, infoText: getMetricTooltip("Typical Opening") },
                     { label: "Bad Pack Floor Value", value: formatCurrency(percentileP5 ?? summary.tail_value_p05), trend: trendByMetricKey.badPackFloorValue, infoText: getMetricTooltip("Bad Pack Floor Value") },
                     { label: "Chance to Miss Pack Cost", value: formatPercent(1 - (toNumber(summary.prob_profit) > 1 ? toNumber(summary.prob_profit) / 100 : toNumber(summary.prob_profit)), { probability: true }), trend: trendByMetricKey.chanceToMissPackCost, infoText: getMetricTooltip("Chance to Miss Pack Cost") },
                   ]}

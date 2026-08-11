@@ -1,10 +1,12 @@
 import { toSetSlug as toCanonicalSetSlug } from "@/utils/slugify";
 
 const TCG_SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
-const SET_DETAIL_DEFAULT_TAB = "cards";
+const SET_DETAIL_DEFAULT_TAB = "overview";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
 const SET_MARKET_MOVER_WINDOWS = new Set(["7D", "30D"]);
 const SET_DETAIL_TAB_ALIASES = {
+  rip: "overview",
+  analysis: "insights",
   market: "overview",
   analytics: "insights",
 };
@@ -12,7 +14,7 @@ const SET_DETAIL_TAB_ALIASES = {
 /**
  * Resolve a raw `?tab=` query value to one of the canonical set detail tabs,
  * applying the same aliasing (market -> overview, analytics -> insights) and
- * default (cards) used client-side by RipStatisticsPageClient.
+ * default (overview) used client-side by RipStatisticsPageClient.
  */
 export function resolveSetDetailTab(rawTab) {
   const normalized = normaliseString(rawTab).toLowerCase();

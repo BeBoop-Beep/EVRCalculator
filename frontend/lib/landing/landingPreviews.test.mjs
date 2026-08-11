@@ -5,6 +5,7 @@ import {
   selectBestSetsToRip,
   selectChaseCards,
   selectExploreRankingRows,
+  selectHeroRankingVisuals,
   selectMarketContext,
   selectMarketSignals,
   selectOpeningEconomics,
@@ -101,6 +102,36 @@ test("the best-sets ladder is the same order, shorter", () => {
     selectBestSetsToRip(entries, 3).map((row) => row.rank),
     [1, 2, 3]
   );
+});
+
+test("homepage hero image meaning follows ranking position when rankings reorder", () => {
+  const packCalls = [];
+  const resolvePack = (key) => {
+    packCalls.push(key);
+    return { src: `/packs/${key}.webp`, width: 400, height: 300 };
+  };
+  const makeRows = (keys) => keys.map((key, index) => ({
+    key,
+    canonicalKey: key,
+    name: key,
+    rank: index + 1,
+    logoUrl: `/logos/${key}.png`,
+  }));
+
+  const firstOrder = selectHeroRankingVisuals(makeRows(["set-a", "set-b", "set-c"]), resolvePack);
+  assert.deepEqual(firstOrder.map((row) => [row.key, row.heroVisual.type]), [
+    ["set-a", "pack"], ["set-b", "set"], ["set-c", "set"],
+  ]);
+  assert.equal(firstOrder[0].heroVisual.asset.src, "/packs/set-a.webp");
+  assert.equal(firstOrder[1].heroVisual.src, "/logos/set-b.png");
+  assert.equal(firstOrder[2].heroVisual.src, "/logos/set-c.png");
+
+  const reordered = selectHeroRankingVisuals(makeRows(["set-c", "set-a", "set-b"]), resolvePack);
+  assert.deepEqual(reordered.map((row) => [row.key, row.heroVisual.type]), [
+    ["set-c", "pack"], ["set-a", "set"], ["set-b", "set"],
+  ]);
+  assert.equal(reordered[0].heroVisual.asset.src, "/packs/set-c.webp");
+  assert.deepEqual(packCalls, ["set-a", "set-c"], "only the first-ranked row requests pack art");
 });
 
 test("the set value ladder orders by value and numbers itself", () => {

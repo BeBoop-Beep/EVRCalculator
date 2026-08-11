@@ -15,7 +15,7 @@
 // can run it directly under `node --test` / `tsx --test`, which cannot resolve
 // the "@/" specifiers the Next bundler uses.
 
-import { selectRipHeroScoreMode } from "../../components/explore/ripHeroScoreMode.mjs";
+import { readCanonicalBlock, resolveCanonicalRipV7 } from "../../components/explore/canonicalRipV7.mjs";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") {
@@ -95,7 +95,24 @@ function readOpeningEconomics(target) {
   return {
     packCost: toOptionalNumber(target?.pack_cost) ?? toOptionalNumber(target?.packCost),
     meanValue: toOptionalNumber(target?.mean_value) ?? toOptionalNumber(target?.meanValue),
+    medianValue: toOptionalNumber(target?.median_value) ?? toOptionalNumber(target?.medianValue),
     probProfit: toOptionalNumber(target?.prob_profit) ?? toOptionalNumber(target?.probProfit),
+    expectedLossPerPack:
+      toOptionalNumber(target?.expected_loss_per_pack) ?? toOptionalNumber(target?.expectedLossPerPack),
+  };
+}
+
+function readDistribution(financialRip, target) {
+  const components = financialRip?.components || {};
+  return {
+    simulationCount:
+      toOptionalNumber(financialRip?.sourceRun?.simulationCount) ??
+      toOptionalNumber(target?.financial_rip_v3_simulation_count) ??
+      toOptionalNumber(target?.financialRipV3SimulationCount),
+    p05Value: toOptionalNumber(financialRip?.distributionDisclosures?.p05Value),
+    p95Value: toOptionalNumber(components?.realisticUpside?.raw?.p95ThresholdValue),
+    p99Value: toOptionalNumber(components?.jackpotUpside?.raw?.p99ThresholdValue),
+    maxValue: toOptionalNumber(target?.max_value) ?? toOptionalNumber(target?.maxValue),
   };
 }
 
@@ -113,26 +130,32 @@ function buildRipLink(target) {
  * available for it.
  */
 function toEntry(target) {
-  const hero = selectRipHeroScoreMode({ target });
-  if (!hero.available) {
+  const canonical = resolveCanonicalRipV7(target);
+  const overall = readCanonicalBlock(canonical.overall);
+  const financial = readCanonicalBlock(canonical.financialRip);
+  if (!overall.available) {
     return null;
   }
 
   const economics = readOpeningEconomics(target);
-  const cohortSize = toOptionalNumber(hero.cohortSize);
+  const cohortSize = toOptionalNumber(overall.cohortSize);
 
   return {
     key: `${toOptionalString(target?.target_type) || "set"}:${toOptionalString(target?.target_id) || ""}`,
     targetType: toOptionalString(target?.target_type),
     targetId: toOptionalString(target?.target_id),
+    canonicalKey:
+      toOptionalString(target?.canonical_key) ?? toOptionalString(target?.canonicalKey) ??
+      toOptionalString(target?.slug),
     name: toOptionalString(target?.name) || toOptionalString(target?.target_id) || "Unknown set",
     era: toOptionalString(target?.era),
     logoUrl: toOptionalString(target?.logo_image_url),
     symbolUrl: toOptionalString(target?.symbol_image_url),
-    score: hero.score,
-    scoreLabel: hero.label,
-    tier: toOptionalString(hero.tier),
-    rank: toOptionalNumber(hero.rank),
+    score: overall.score,
+    scoreLabel: "Overall RIP",
+    tier: toOptionalString(overall.tier),
+    rank: toOptionalNumber(overall.rank),
+    financialRipScore: financial.available ? financial.score : null,
     cohortSize,
     setValue: readSetValue(target),
     setValueAsOf:
@@ -144,7 +167,10 @@ function toEntry(target) {
     setValueStatus7d: readSetValueStatus7d(target),
     packCost: economics.packCost,
     meanValue: economics.meanValue,
+    medianValue: economics.medianValue,
     probProfit: economics.probProfit,
+    expectedLossPerPack: economics.expectedLossPerPack,
+    ...readDistribution(canonical.financialRip, target),
     // NO INTERPRETATION COPY. `decisionLabel` / `decisionSeverity` (from
     // `leaderboard_label`, `canonical_recommendation_header` and
     // `recommendation_severity`) and `interpretationLabel` /
@@ -158,7 +184,7 @@ function toEntry(target) {
     // taken from the canonical hero result above, so it can only be true when a
     // canonical Overall RIP V7 score really resolved — the presence of any
     // legacy field cannot turn it on.
-    hasCanonicalOverallRipV7: hero.available === true,
+    hasCanonicalOverallRipV7: overall.available === true,
     ...readDesirabilityFields(target),
     href: buildRipLink(target),
   };

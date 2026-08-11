@@ -193,8 +193,8 @@ def interpret_historical_trend(data: Dict[str, Any]) -> SectionInterpretation:
         EvidenceItem("First median-to-cost", format_ratio(first_median)),
         EvidenceItem("Latest median-to-cost", format_ratio(last_median)),
         EvidenceItem("Median delta", format_ratio(median_delta) if median_delta is not None else "N/A"),
-        EvidenceItem("Latest P95-to-cost", format_ratio(last_p95) if last_p95 is not None else "N/A"),
-        EvidenceItem("P95 delta", format_ratio(p95_delta) if p95_delta is not None else "N/A"),
+        EvidenceItem("Latest Strong Upside (P95) vs Cost", format_ratio(last_p95) if last_p95 is not None else "N/A"),
+        EvidenceItem("Strong Upside (P95) delta", format_ratio(p95_delta) if p95_delta is not None else "N/A"),
     ]
 
     return SectionInterpretation(

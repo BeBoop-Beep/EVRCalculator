@@ -51,8 +51,8 @@ export function formatRatioWithCurrency(ratioValue, dollarValue) {
 export const PERFORMANCE_SERIES_LABELS = {
   market: {
     mean: "Expected Value",
-    median: "Typical Return",
-    p95: "Realistic Upside",
+    median: "Typical Opening",
+    p95: "Strong Upside",
   },
   simulation: {
     mean: "Expected Value vs Cost",

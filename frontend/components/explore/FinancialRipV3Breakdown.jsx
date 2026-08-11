@@ -19,6 +19,10 @@
 // weight the page has no reason to state. Legacy V2 is still computed and still
 // persisted on the backend for audit and rollback; it is simply not a public
 // presentation any more. No version number appears in user-facing copy.
+//
+// Every component shown as a relative index uses its backend cohort-relative score. The
+// fixed-anchor model score remains available to internal/audit consumers but is
+// not rendered under a public relative-index label.
 
 import React, { useMemo, useState } from "react";
 
@@ -48,6 +52,9 @@ function MetricRow({ label, value }) {
  * it did not, the backend's own diagnostic is printed instead of a blank.
  */
 function formatComponentMeta(row) {
+  const weightMeta = row.weight !== null && row.weight !== undefined
+    ? ` · Weight ${(Number(row.weight) * 100).toFixed(0)}%`
+    : "";
   if (row.rankValue === null || row.rankValue === undefined) {
     return row.rankDiagnostic || null;
   }
@@ -55,7 +62,7 @@ function formatComponentMeta(row) {
     `Rank #${row.rankValue}`,
     row.cohortSize ? ` of ${row.cohortSize}` : "",
     row.rankTier ? ` · Tier ${row.rankTier}` : "",
-  ].join("");
+  ].join("") + weightMeta;
 }
 
 // DEPTH AND ROBUSTNESS — CONTEXT, NEVER A SEVENTH COMPONENT.
@@ -173,15 +180,14 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                   rowKey={row.key}
                   dataAttribute="data-v3-component"
                   title={row.title}
-                  value={row.scoreLabel}
-                  valueSuffix="/100"
+                  value={row.publicScoreLabel}
+                  valueSuffix="relative index"
                   meta={formatComponentMeta(row)}
                   interpretation={row.interpretation}
                   metrics={row.metrics}
-                  // The QUIET rail, drawn from the component's own backend
-                  // score — the same number printed above it. Never the summary
-                  // treatment, and never a fabricated value.
-                  railPercent={row.available ? row.score : null}
+                  // The QUIET rail uses the component's own backend relative
+                  // score — the same public number printed above it.
+                  railPercent={row.publicAvailable ? row.publicScore : null}
                   accentFamily="financial"
                   isOpen={disclosure.openKeys.includes(row.key)}
                   onToggle={disclosure.toggle}
