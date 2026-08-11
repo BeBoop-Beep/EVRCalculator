@@ -148,7 +148,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
         </div>
       </section>
 
-      <MethodologySection marketContext={marketContext} methodologyHref={set?.ripScoreHref || "/Explore/rip-statistics"} />
+      <MethodologySection marketContext={marketContext} methodologyHref="/Research" />
     </>
   );
 }

@@ -17,7 +17,7 @@ function canonicalOf({ overallRank = 9, cohort = 22, tier = null, financialRank 
 const pagePath = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), "RipDecisionPage.jsx");
 const shellPath = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), "RipStatisticsPageClient.jsx");
 
-test("RIP page follows the locked four-section narrative and ends after opening odds", () => {
+test("RIP page follows the locked narrative and ends after opening odds", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const markers = ["decision", "why-it-ranks", "chase-cards", "opening-odds"].map((marker) => source.indexOf(`data-rip-section=\"${marker}\"`));
   assert.ok(markers.every((index) => index >= 0));
@@ -128,16 +128,20 @@ test("verdict headline and qualitative label stay dynamic and per-set data drive
   assert.equal(buildRipDecisionModel({ canonical: { overall: {} } }).qualitativeLabel, null);
 });
 
-test("Why It Ranks renders helps, hurts and a dominant result, and stacks on mobile", () => {
+test("Verdict and Why It Ranks form one responsive card with three canonical evidence columns", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(source.includes('data-rip-driver={driver.key}'));
-  assert.ok(source.includes('data-rip-driver="result"'));
-  assert.ok(source.includes("driver.standingLabel"));
-  // Single column by default, three only from the md breakpoint up.
-  assert.ok(source.includes("md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]"));
+  const decisionStart = source.indexOf('data-rip-section="decision"');
+  const decisionEnd = source.indexOf("</article>", decisionStart);
+  const whyStart = source.indexOf('data-rip-section="why-it-ranks"');
+  assert.ok(decisionStart >= 0 && whyStart > decisionStart && whyStart < decisionEnd, "Why It Ranks must be nested in Verdict");
+  assert.equal((source.match(/set-glass-surface rounded-2xl border p-4 md:p-5/g) || []).length, 1, "Verdict and Why It Ranks use one glass card");
+  for (const key of ["rip", "financial", "collector"]) assert.ok(source.includes(`key: "${key}"`));
+  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal"]) assert.equal((source.match(new RegExp(`label: "${label}"`, "g")) || []).length, 1, `${label} appears once in the unified evidence model`);
+  assert.equal((source.match(/rankLabel: "RIP Rank"/g) || []).length, 1, "overall RIP Rank appears once in the unified evidence model");
+  assert.ok(source.includes("md:grid-cols-3"));
   assert.ok(source.includes('index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0"'));
-  // Result outweighs either driver typographically (3xl vs lg).
-  assert.ok(source.includes("md:text-3xl"));
+  assert.ok(!source.includes('data-rip-driver="result"'));
+  assert.ok(!source.includes('data-rip-section="core-scores"'));
 });
 
 test("stronger driver is assigned from the data, so neither factor is always Helps", () => {
@@ -200,13 +204,13 @@ test("the result line says RIP Score on the /100 public scale, not Relative RIP 
   const source = fs.readFileSync(pagePath, "utf8");
   assert.ok(!source.includes("Relative RIP Index"), "retired vocabulary must not render");
   assert.ok(!source.includes("Overall RIP"), "RIP Score is the public name");
-  assert.ok(source.includes("RIP Score {score(model.overall.publicScore)}"));
+  assert.ok(source.includes('label: "RIP Score"'));
   assert.ok(source.includes("/100"), "the public suffix is /100");
 });
 
-test("no chart is introduced between the verdict and Why It Ranks", () => {
+test("no chart is introduced inside the unified Verdict and Why It Ranks card", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  const between = source.slice(source.indexOf('data-rip-section="decision"'), source.indexOf('data-rip-section="why-it-ranks"'));
+  const between = source.slice(source.indexOf('data-rip-section="decision"'), source.indexOf('data-rip-section="simulation-evidence"'));
   for (const banned of ["Chart", "recharts", "<svg", "Sparkline", "Gauge chart", "Donut", "Radial"]) assert.ok(!between.includes(banned), banned);
 });
 

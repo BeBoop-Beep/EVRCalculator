@@ -23,6 +23,7 @@ import pytest
 from backend.db.services.public_rip_publication_contract import (
     canonical_publication_identity,
 )
+from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
 from backend.scripts import pokemon_explore_rankings_publisher as command
 
 CANONICAL = canonical_publication_identity()

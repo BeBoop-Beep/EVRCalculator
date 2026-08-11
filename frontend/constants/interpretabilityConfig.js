@@ -453,7 +453,7 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Pack Score") {
     return (
       <div className="space-y-2 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Rip Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">RIP Score</p>
         <p className="text-[var(--text-secondary)]">Measures overall pack rip quality by combining:</p>
         <ul className="space-y-1.5 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
@@ -506,7 +506,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of RIP Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -545,7 +545,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of RIP Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -576,7 +576,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of RIP Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -599,7 +599,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of RIP Score</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>

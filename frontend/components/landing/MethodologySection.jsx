@@ -33,7 +33,7 @@ const STEPS = [
   },
 ];
 
-export default function MethodologySection({ marketContext, methodologyHref = "/Explore" }) {
+export default function MethodologySection({ marketContext, methodologyHref = "/Research" }) {
   const marketDate = formatFullDate(marketContext?.marketDate);
   const rankedSets = marketContext?.rankedSetCount ?? null;
 
@@ -63,12 +63,10 @@ export default function MethodologySection({ marketContext, methodologyHref = "/
               </div>
             ) : null}
 
-            {/* Deep-links to one published set's RIP Score breakdown — the
-                methodology surface that exists today; there is no standalone
-                docs route. Phrased for what the link actually opens, and it
-                does not rename the breakdown model behind it. */}
+            {/* General methodology belongs to the global Research surface;
+                set-specific evidence remains on each set's RIP page. */}
             <Link href={methodologyHref} className={styles.methodLink}>
-              Why this set ranks here
+              Read the Research
               <Arrow />
             </Link>
           </div>

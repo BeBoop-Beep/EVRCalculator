@@ -25,19 +25,16 @@ function IconCue({ name, role = "neutral", tier = null, contained = false, class
   return <span className={`${contained ? `inline-flex h-10 w-10 items-center justify-center rounded-lg border ${presentation.containerClassName}` : "inline-flex items-center justify-center"} ${presentation.iconClassName}`} style={presentation.style}><SetPageIcon name={name} className={className} /></span>;
 }
 
-// One comparative driver of the RIP Score. The eyebrow ("Helps" / "Hurts" /
-// "Stronger driver") is decided in ripDrivers.mjs, never by position, and the
-// bar visualises the SAME cohort standing the "#3 of 22" beside it states.
-//
-// `driver.score` is the canonical PUBLIC score for that metric — the identical
-// number the RIP Summary card prints for it. Do not swap it for a model score.
-function DriverCell({ driver, index }) {
-  const presentation = getRipPageIconPresentation(driver.role);
+// One canonical public metric in the unified Verdict -> Why It Ranks card.
+// Scores and ranks come directly from buildRipDecisionModel; the bar is a
+// visual rendering of the same published relative score, not a new scale.
+function EvidenceMetric({ metric, index }) {
+  const presentation = getRipPageIconPresentation(metric.role, metric.tier);
   return (
-    <div data-rip-driver={driver.key} className={`${styles.whyMetric} py-2 md:px-5 md:first:pl-0 ${index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0" : ""}`}>
-      <dt className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]"><IconCue name={driver.icon} role={driver.role} className="h-3.5 w-3.5" />{driver.standingLabel}</dt>
-      <dd className="mt-0.5 flex items-baseline gap-2"><span className="text-sm font-semibold text-[var(--text-primary)]">{driver.label}</span><span className="text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">{score(driver.score)}</span>{driver.score === null ? null : <span className="text-[10px] font-medium text-[var(--text-secondary)]">/100</span>}<span className="text-xs tabular-nums text-[var(--text-secondary)]">{rank(driver.rank, driver.cohortSize)}</span></dd>
-      <dd className={`${styles.driverTrack} mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[var(--border-subtle)]`}>{driver.barPercent === null ? null : <span className="block h-full rounded-full" style={{ width: `${driver.barPercent}%`, backgroundColor: presentation.style.color }} />}</dd>
+    <div data-rip-evidence={metric.key} className={`${styles.whyMetric} py-3 md:px-5 md:first:pl-0 ${index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0" : ""}`}>
+      <dt className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><IconCue name={metric.icon} role={metric.role} tier={metric.tier} className="h-3.5 w-3.5" />{metric.label}</dt>
+      <dd className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{score(metric.score)}</span>{metric.score === null ? null : <span className="text-xs font-medium text-[var(--text-secondary)]">/100</span>}<span className="text-xs tabular-nums text-[var(--text-secondary)]">{metric.rankLabel ? `${metric.rankLabel} ` : ""}{rank(metric.rank, metric.cohortSize)}</span>{metric.tier ? <span className="text-xs font-semibold" style={{ color: presentation.style.color }}>{metric.tier} Tier</span> : null}</dd>
+      <dd className={`${styles.driverTrack} mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--border-subtle)]`}>{metric.score === null ? null : <span className="block h-full rounded-full" style={{ width: `${metric.score}%`, backgroundColor: presentation.style.color }} />}</dd>
     </div>
   );
 }
@@ -59,14 +56,14 @@ function ChaseCard({ card }) {
   );
 }
 
-export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = "/Explore/rip-statistics" }) {
+export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = "/Research" }) {
   const model = buildRipDecisionModel({ canonical, summary, pullRateAssumptions });
   const verdictPresentation = getRipPageIconPresentation("verdict");
   const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : `#${Math.round(model.overall.rank)} Modern Set to Rip Right Now`;
-  const coreScores = [
-    ["RIP Score", score(model.overall.publicScore), model.overall.tier ? `${model.overall.tier} Tier` : "overall opening score", "gauge"],
-    ["Financial RIP", score(model.financial.publicScore), "opening economics", "trend"],
-    ["Collector Appeal", score(model.collector.publicScore), "collector strength", "cards"],
+  const evidenceMetrics = [
+    { key: "rip", label: "RIP Score", rankLabel: "RIP Rank", icon: "gauge", role: "overall", tier: model.overall.tier, score: model.overall.publicScore, rank: model.overall.rank, cohortSize: model.overall.cohortSize },
+    { key: "financial", label: "Financial RIP", icon: "shield", role: "financial", tier: null, score: model.financial.publicScore, rank: model.financial.rank, cohortSize: model.financial.cohortSize },
+    { key: "collector", label: "Collector Appeal", icon: "star", role: "collector", tier: null, score: model.collector.publicScore, rank: model.collector.rank, cohortSize: model.collector.cohortSize },
   ];
   const openingMetrics = [
     ["Expected Value", money(model.expectedValue), "long-run mean"],
@@ -78,18 +75,13 @@ export default function RipDecisionPage({ canonical, summary, chaseCards = [], c
     <section id="set-detail-overview" data-rip-decision-page className={`${styles.page} scroll-mt-24 space-y-3 md:scroll-mt-28 md:space-y-3.5`}>
       <article data-rip-section="decision" className={`${styles.decision} set-glass-surface rounded-2xl border p-4 md:p-5`}>
         <div className={`${styles.decisionIntro} flex items-start gap-3.5`}><span className="inline-flex h-10 w-10 flex-none"><IconCue name="gauge" role="verdict" contained className="h-5 w-5" /></span><div className="min-w-0"><p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.16em]"><span style={{ color: verdictPresentation.style.color }}>Verdict</span>{model.qualitativeLabel ? <><span aria-hidden="true" className="text-[var(--border-subtle)]">/</span><span data-rip-qualitative-label style={{ color: model.qualitativeLabel.color || undefined }}>{model.qualitativeLabel.label}</span></> : null}</p><h1 className={`${styles.headline} mt-1 max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] md:text-[2.25rem]`}>{headline}</h1><p className="mt-1.5 max-w-4xl text-sm leading-snug text-[var(--text-secondary)] md:text-base">{model.verdict}</p></div></div>
-        <dl data-rip-section="core-scores" className={`${styles.metrics} mt-4 grid grid-cols-1 border-t border-[var(--border-subtle)] pt-2 sm:grid-cols-3`}>
-          {coreScores.map(([label, value, helper, icon], index) => <div key={label} className={`${styles.metric} grid min-w-0 grid-cols-[2rem_minmax(0,1fr)] gap-x-2 px-2 py-2 first:pl-0 sm:px-4 sm:first:pl-0 ${index ? "border-t border-[var(--border-subtle)] sm:border-l sm:border-t-0" : ""}`}><span className="row-span-3 mt-1 inline-flex h-6 w-6 items-center justify-center"><IconCue name={icon} tier={label === "RIP Score" ? model.overall.tier : null} /></span><dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</dt><dd className="mt-0.5 text-xl font-semibold leading-tight tabular-nums text-[var(--text-primary)] md:text-2xl">{value}{value === "â€”" ? null : <span className="ml-1 text-xs font-medium text-[var(--text-secondary)]">/100</span>}</dd><dd className="text-[11px] leading-tight text-[var(--text-secondary)]">{helper}</dd></div>)}
-        </dl>
-      </article>
-
-      <article data-rip-section="why-it-ranks" className={`${styles.why} set-glass-surface rounded-2xl border p-4 md:p-5`}>
-        <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks {model.overall.rank === null ? "" : `#${Math.round(model.overall.rank)}`}</h2>
-        <dl className={`${styles.whyGrid} mt-3 grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]`}>
-          {model.drivers.drivers.map((driver, index) => <DriverCell key={driver.key} driver={driver} index={index} />)}
-          <div data-rip-driver="result" className={`${styles.whyMetric} ${styles.whyResult} border-t border-[var(--border-subtle)] py-2 md:border-l md:border-t-0 md:px-5`}><dt className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]"><IconCue name="trophy" role="overall" tier={model.overall.tier} className="h-3.5 w-3.5" />Result</dt><dd className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-[var(--text-primary)] md:text-3xl">{rank(model.overall.rank, model.overall.cohortSize)} <span className="text-sm font-semibold text-[var(--text-secondary)]">RIP Rank</span></dd><dd className="mt-0.5 text-xs text-[var(--text-secondary)]">RIP Score {score(model.overall.publicScore)}<span className="pl-0.5">/100</span></dd></div>
-        </dl>
-        <p className={`${styles.takeaway} mt-2 flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2.5 text-xs leading-snug text-[var(--text-secondary)]`}><IconCue name="bulb" role="takeaway" className="mt-0.5 h-4 w-4" /><span><span className="font-semibold text-[var(--text-primary)]">The takeaway:</span> {model.takeaway}</span></p>
+        <div data-rip-section="why-it-ranks" className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+          <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks</h2>
+          <dl className={`${styles.whyGrid} mt-2 grid md:grid-cols-3`}>
+            {evidenceMetrics.map((metric, index) => <EvidenceMetric key={metric.key} metric={metric} index={index} />)}
+          </dl>
+          <p className={`${styles.takeaway} mt-2 flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2.5 text-xs leading-snug text-[var(--text-secondary)]`}><IconCue name="bulb" role="takeaway" className="mt-0.5 h-4 w-4" /><span><span className="font-semibold text-[var(--text-primary)]">The takeaway:</span> {model.takeaway}</span></p>
+        </div>
       </article>
 
       <article id="set-detail-outcome-distribution" data-rip-section="simulation-evidence" className="set-glass-surface min-w-0 scroll-mt-24 rounded-2xl border p-4 md:scroll-mt-28 md:p-5">
