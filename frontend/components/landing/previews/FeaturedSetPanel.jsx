@@ -92,7 +92,7 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
         ) : null}
         {/* Supporting analytical detail, deliberately last and smallest. */}
         <span className={`${styles.stat} ${styles.statMuted}`}>
-          <span className={styles.statLabel}>RIP Score</span>
+          <span className={styles.statLabel}>Overall RIP</span>
           <span className={styles.statValue}>{set.score.toFixed(0)}</span>
         </span>
       </div>

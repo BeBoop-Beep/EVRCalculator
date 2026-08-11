@@ -939,7 +939,7 @@ const RIP_COPY = {
   // "RIP Score" / "RIP Rank", capitalised exactly as the locked public
   // vocabulary spells them. These read "Rip Score" / "Rip Rank", a fourth and
   // fifth spelling of names the rest of the product renders in caps.
-  scoreLabel: "RIP Score",
+  scoreLabel: "Overall RIP",
   scoreRankLabel: "RIP Rank",
   summaryQuestion: "Should You Open This Set?",
   scoreDetailsLabel: "Show details",
@@ -954,7 +954,7 @@ const RIP_COPY = {
     chanceAtBigPull: "Chance at a Big Pull",
   },
   sections: {
-    packScore: "RIP Score",
+    packScore: "Overall RIP",
     outcomeDistribution: "Opening Outcomes",
     historicalTrend: "Performance vs Cost",
     packBreakdown: "Pack Breakdown",
@@ -1067,7 +1067,7 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
-    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and is not scored separately in the RIP Score.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and is not scored separately in Overall RIP.",
   // The trailing sentence used to read "It contributes 20% to Overall RIP,
   // alongside Financial RIP at 80%." That published a composition weight — and
   // published the WRONG one, since the canonical blend is 0.90 Financial RIP +
@@ -6105,7 +6105,7 @@ function OverviewPillarSignalsCard({ signals }) {
   return (
     <SectionCard
       title="RIP Signals"
-      titleInfoText="Compact overview signals from the four RIP pillars. Full details are in Insights -> RIP Score Breakdown."
+      titleInfoText="Compact overview signals from the four RIP pillars. Full details are in Insights → Overall RIP Breakdown."
     >
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         {visibleSignals.map((signal) => (
@@ -6330,12 +6330,12 @@ function RipScoreBreakdownModule({
           same p-5 inset. */}
       <article className="set-glass-surface rounded-2xl border p-4 desk:p-5 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]">
         <div className="min-w-0">
-          <SectionEyebrow>01 · RIP Score</SectionEyebrow>
+          <SectionEyebrow>01 · Overall RIP</SectionEyebrow>
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Overall RIP Breakdown</h2>
             {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
           </div>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">What drives the RIP Score?</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">What drives Overall RIP?</p>
         </div>
 
         {/* THE INSIGHTS SUMMARY. One grouped surface, three cards, stated
@@ -7659,7 +7659,7 @@ function SetPageNavigationRail({
           { id: "pull-rate-assumptions", label: "Pull Rate Assumptions", tab: "pull-rates", active: true },
         ]
       : [
-          { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
+          { id: "rip-score", label: "Overall RIP Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
           // The "Collector Profile" entry pointed at a section that no longer
           // exists. It is renamed to what actually renders, and points at the
           // canonical block rather than at a legacy anchor.
@@ -11141,7 +11141,7 @@ export default function RipStatisticsPageClient({
   // split (the canonical model is not 80/20) and then expanded it into
   // Profit/Safety/Stability percentages, which are Financial RIP V2's pillars.
   const ripBreakdownInfo =
-    "RIP Score combines Financial RIP with Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution and the pack price; Collector Appeal is how desirable the modeled cards are and how often the pack can deliver them.";
+    "Overall RIP combines Financial RIP with Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution and the pack price; Collector Appeal is how desirable the modeled cards are and how often the pack can deliver them.";
   // The Explore expert view's three pillar-lens cards, and nothing else. These
   // are Financial RIP V2 pillars, presented as their own named lenses on a
   // diagnostic surface - never as the components of Financial RIP, which has
@@ -13949,7 +13949,7 @@ export default function RipStatisticsPageClient({
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
                 <div data-mobile-section>
-                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
+                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="Overall RIP" minHeightClassName="min-h-[14rem]">
                   <RipScoreBreakdownModule
                     score={topScoreRaw}
                     rankTier={heroScoreSelection.tier}

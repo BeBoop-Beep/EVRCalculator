@@ -48,7 +48,7 @@ test("the hero resolves the canonical V7 score, rank, tier and cohort", () => {
   const selected = selectRipHeroScoreMode({ target: CANONICAL_TARGET });
 
   assert.equal(selected.label, RIP_SCORE_LABEL);
-  assert.equal(selected.label, "RIP Score");
+  assert.equal(selected.label, "Overall RIP");
   assert.equal(selected.available, true);
   assert.equal(selected.publicScore, 73.4);
   assert.equal(selected.rank, 4);
@@ -140,5 +140,5 @@ test("no arguments at all is safe and unavailable", () => {
   const selected = selectRipHeroScoreMode();
   assert.equal(selected.available, false);
   assert.equal(selected.publicScore, null);
-  assert.equal(selected.label, "RIP Score");
+  assert.equal(selected.label, "Overall RIP");
 });

@@ -136,8 +136,8 @@ test("Verdict and Why It Ranks form one responsive card with three canonical evi
   assert.ok(decisionStart >= 0 && whyStart > decisionStart && whyStart < decisionEnd, "Why It Ranks must be nested in Verdict");
   assert.equal((source.match(/set-glass-surface rounded-2xl border p-4 md:p-5/g) || []).length, 1, "Verdict and Why It Ranks use one glass card");
   for (const key of ["rip", "financial", "collector"]) assert.ok(source.includes(`key: "${key}"`));
-  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal"]) assert.equal((source.match(new RegExp(`label: "${label}"`, "g")) || []).length, 1, `${label} appears once in the unified evidence model`);
-  assert.equal((source.match(/rankLabel: "RIP Rank"/g) || []).length, 1, "overall RIP Rank appears once in the unified evidence model");
+  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal"]) assert.equal((source.match(new RegExp(`label: "${label}"`, "g")) || []).length, 1, `${label} appears once in the unified evidence model`);
+  assert.equal((source.match(/rankLabel: "Overall Rank"/g) || []).length, 1, "Overall Rank appears once in the unified evidence model");
   assert.ok(source.includes("md:grid-cols-3"));
   assert.ok(source.includes('index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0"'));
   assert.ok(!source.includes('data-rip-driver="result"'));
@@ -200,11 +200,11 @@ test("drivers print the canonical PUBLIC score, never the fixed-anchor model sco
   );
 });
 
-test("the result line says RIP Score on the /100 public scale, not Relative RIP Index", () => {
+test("the result line says Overall RIP on the /100 public scale, not Relative RIP Index", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   assert.ok(!source.includes("Relative RIP Index"), "retired vocabulary must not render");
-  assert.ok(!source.includes("Overall RIP"), "RIP Score is the public name");
-  assert.ok(source.includes('label: "RIP Score"'));
+  assert.ok(!source.includes("Relative RIP Index"));
+  assert.ok(source.includes('label: "Overall RIP"'));
   assert.ok(source.includes("/100"), "the public suffix is /100");
 });
 

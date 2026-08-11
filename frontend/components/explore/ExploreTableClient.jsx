@@ -423,8 +423,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
   const sortNote = RANKING_MODE_PICKER_ENABLED
-    ? `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
-    : `Ordered by ${isOverallMode ? "RIP Score" : scoreLabel}, best first.`;
+    ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
+    : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
   const visibleMobileTargets =
     showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
       ? sortedTargets
@@ -551,7 +551,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   {isOverallMode ? (
                     <>
                       <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
-                        <span>RIP Score</span>
+                        <span>Overall RIP</span>
                       </th>
                       <th scope="col" className={styles.numeric}>
                         <span>Financial RIP</span>

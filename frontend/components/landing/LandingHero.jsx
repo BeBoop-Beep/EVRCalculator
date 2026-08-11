@@ -101,7 +101,7 @@ export default function LandingHero({
                   View Rankings
                 </Link>
                 <Link href={set?.ripScoreHref || "/Rankings"} className={styles.ctaSecondary}>
-                  How RIP Score works
+                  How Overall RIP works
                   <Arrow />
                 </Link>
                 {/* Scoped to what it actually is: the waitlist is for the

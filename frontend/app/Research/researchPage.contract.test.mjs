@@ -18,9 +18,11 @@ test("Research is a standalone global page, never a set redirect", () => {
 });
 
 test("Research documents the canonical public methodology contracts", () => {
-  for (const phrase of ["Financial RIP", "Collector Appeal", "True Win Frequency", "Typical Retention", "Loss Resilience", "Realistic Upside", "Base Economic Efficiency", "Roster desirability", "Desirable outcome frequency", "Dual-path depth", "P50", "P95", "P99", "eligible cohort", "official Pokémon pull rates"]) {
+  for (const phrase of ["Overall RIP", "Financial RIP", "Collector Appeal", "True Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Base Economic Efficiency", "Roster desirability", "Desirable outcome frequency", "Dual-path depth", "P50", "P95", "P99", "eligible cohort", "official Pokémon pull rates", "one million", "TCGplayer", "unsupported", "transaction costs"]) {
     assert.ok(source.includes(phrase), phrase);
   }
+  assert.ok(!source.includes("RIP Score"));
+  assert.ok(!source.includes("Realistic Upside"));
 });
 
 test("Research does not disclose production weights or scoring coefficients", () => {

@@ -108,7 +108,7 @@ test("each metric carries its label, tier, rank/cohort and one plain sentence", 
   const renderer = render({ publicRipContractV7: V7 });
 
   const overall = metricOf(renderer, "overall");
-  assert.ok(overall.includes("RIP Score"));
+  assert.ok(overall.includes("Overall RIP"));
   assert.ok(overall.includes("A Tier"));
   assert.ok(overall.includes("Rank #4 of 21"));
   assert.ok(overall.includes(RIP_SUMMARY_DESCRIPTIONS.overall));

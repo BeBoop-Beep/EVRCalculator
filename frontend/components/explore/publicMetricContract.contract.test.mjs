@@ -634,15 +634,15 @@ test("the public scale is explained in product language, not as a formula", () =
 });
 
 test("the canonical public names are the ones actually rendered", () => {
-  assert.equal(selectRipHeroScoreMode({ canonical: CANONICAL }).label, "RIP Score");
+  assert.equal(selectRipHeroScoreMode({ canonical: CANONICAL }).label, "Overall RIP");
   const drivers = buildRipDrivers({
     financial: readCanonicalBlock(CANONICAL.financialRip),
     collector: readCanonicalBlock(CANONICAL.collectorAppeal),
     overall: readCanonicalBlock(CANONICAL.overall),
   });
   assert.deepEqual(drivers.drivers.map((d) => d.label).sort(), ["Collector Appeal", "Financial RIP"]);
-  assert.equal(selectLandingHeroEntries([TARGET])[0].scoreLabel, "RIP Score");
-  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "RIP SCORE");
+  assert.equal(selectLandingHeroEntries([TARGET])[0].scoreLabel, "Overall RIP");
+  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
   assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
 });
 

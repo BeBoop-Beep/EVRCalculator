@@ -154,7 +154,7 @@ function toEntry(target) {
     // THE canonical public RIP Score — the same cohort-relative 0-100 value
     // Explore and the set page print. Never the fixed-anchor model score.
     score: overall.publicScore,
-    scoreLabel: "RIP Score",
+    scoreLabel: "Overall RIP",
     tier: toOptionalString(overall.tier),
     rank: toOptionalNumber(overall.rank),
     financialRipScore: financial.available ? financial.publicScore : null,

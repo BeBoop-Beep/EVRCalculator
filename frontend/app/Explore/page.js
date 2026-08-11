@@ -54,7 +54,7 @@ function rankTargets(targets) {
 export const metadata = {
   title: "Pokémon Set Rankings — inDex",
   description:
-    "Best Pokémon sets to rip right now, ranked by canonical RIP Score with Financial RIP, tier, and opening economics.",
+    "Best Pokémon sets to rip right now, ranked by canonical Overall RIP with Financial RIP, tier, and opening economics.",
 };
 
 export default async function ExplorePage({ searchParams }) {

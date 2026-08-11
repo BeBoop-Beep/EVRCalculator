@@ -167,7 +167,7 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
       <div className="mt-3 flex min-w-0 flex-col gap-3 desk:flex-row desk:gap-6 desk:divide-x desk:divide-[var(--border-subtle)]">
         <SummaryMetric
           id="overall"
-          label="RIP Score"
+          label="Overall RIP"
           // THE canonical public value. The fixed-anchor 90/10 blend is never
           // promoted into this headline.
           score={toDisplayScore(overall.publicScore)}

@@ -453,7 +453,7 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Pack Score") {
     return (
       <div className="space-y-2 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">RIP Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">Overall RIP</p>
         <p className="text-[var(--text-secondary)]">Measures overall pack rip quality by combining:</p>
         <ul className="space-y-1.5 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
@@ -489,7 +489,7 @@ export function getFormattedTooltip(scoreType) {
             </span>
           </li>
         </ul>
-        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">RIP Score combines Financial RIP with Collector Appeal to estimate how appealing a set is to open.</p>
+        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">Overall RIP combines Financial RIP with Collector Appeal to estimate how appealing a set is to open.</p>
       </div>
     );
   }
@@ -506,7 +506,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of RIP Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -545,7 +545,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of RIP Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -576,7 +576,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of RIP Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -599,7 +599,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of RIP Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>

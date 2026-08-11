@@ -140,11 +140,11 @@ test("the Insights Summary is one grouped surface carrying exactly three canonic
   assert.deepEqual(
     cards.map((card) => card.props["data-insights-summary-metric"]),
     ["overall", "financial", "collector"],
-    "exactly RIP Score, Financial RIP and Collector Appeal, in that order"
+    "exactly Overall RIP, Financial RIP and Collector Appeal, in that order"
   );
 
   const text = textOf(renderer.toJSON());
-  for (const label of ["RIP Score", "Financial RIP", "Collector Appeal"]) {
+  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal"]) {
     assert.ok(text.includes(label), `${label} must be labelled`);
   }
   assert.match(summarySource, /import \{ RIP_SUMMARY_DESCRIPTIONS \} from "\.\/OverviewRipSummary\.jsx";/);

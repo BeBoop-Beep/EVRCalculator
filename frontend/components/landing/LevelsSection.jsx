@@ -71,7 +71,7 @@ function RipLevel({ set, sealedProducts }) {
       ) : null}
 
       {set?.score !== null && set?.score !== undefined ? (
-        <p className={styles.levelCardFoot}>RIP Score {set.score.toFixed(0)}</p>
+        <p className={styles.levelCardFoot}>Overall RIP {set.score.toFixed(0)}</p>
       ) : null}
     </div>
   );
@@ -162,7 +162,7 @@ export default function LevelsSection({
     {
       key: "rip",
       question: "Should I open it?",
-      product: "RIP Score",
+      product: "Overall RIP",
       meaning:
         "See modeled opening outcomes, downside, and relative opening strength before breaking the seal.",
       visual: <RipLevel set={openingSet} sealedProducts={sealedProducts} />,

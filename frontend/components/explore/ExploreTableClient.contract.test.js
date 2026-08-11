@@ -49,11 +49,11 @@ test("ExploreTableClient renders a distinct error message when loadError is true
 
 // Phase 2-4: absolute / relative / rank presentation, both score families.
 
-test("desktop default mode renders RIP Score and Financial RIP columns", () => {
+test("desktop default mode renders Overall RIP and Financial RIP columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   // The public headline name is "RIP Score" everywhere. "Overall RIP" was an
   // internal identifier that leaked into this column header.
-  assert.ok(source.includes("<span>RIP Score</span>"), "desktop header must include a RIP Score column");
+  assert.ok(source.includes("<span>Overall RIP</span>"), "desktop header must include an Overall RIP column");
   assert.ok(!source.includes("<span>Overall RIP</span>"));
   assert.ok(source.includes("<span>Financial RIP</span>"), "desktop header must include a Financial RIP column");
   assert.ok(

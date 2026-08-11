@@ -81,7 +81,7 @@ export const EXPLORE_RANKING_MODES = {
     title: "Best Sets to Rip Right Now",
     subtitle: "Sets ranked by the strongest overall opening profile.",
     tooltip: "Sets ranked by the strongest overall opening profile.",
-    scoreLabel: "RIP SCORE",
+    scoreLabel: "OVERALL RIP",
     tierLabel: "TIER",
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
@@ -90,7 +90,7 @@ export const EXPLORE_RANKING_MODES = {
     rankField: "overallRipV7.rank",
     rankedSetCountField: "overallRipV7.cohortSize",
     tierField: "overallRipV7.tier",
-    description: "RIP Score combines financial opening performance with collector appeal.",
+    description: "Overall RIP combines financial opening performance with collector appeal.",
   },
   financial: {
     id: "financial",

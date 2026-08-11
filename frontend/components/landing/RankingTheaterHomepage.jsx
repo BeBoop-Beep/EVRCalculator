@@ -33,7 +33,7 @@ function SupportingSetVisual({ row }) {
 function Metrics({ set }) {
   return (
     <dl className={styles.metricGrid}>
-      <div><dt>RIP Score</dt><dd><Score value={set?.score} /></dd></div>
+      <div><dt>Overall RIP</dt><dd><Score value={set?.score} /></dd></div>
       <div><dt>Financial RIP</dt><dd><Score value={set?.financialRipScore} /></dd></div>
       <div><dt>Expected Value</dt><dd><Money value={set?.meanValue} /></dd></div>
       <div><dt>Typical Opening</dt><dd><Money value={set?.medianValue} /></dd></div>
@@ -120,12 +120,12 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
 
       <section className={styles.section} aria-labelledby="best-sets-heading">
         <div className={styles.shell}>
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published RIP Score ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
+          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Overall RIP ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
           {rankingRows.length ? <ol className={styles.rankingBoard}>
             {rankingRows.map((row) => <li key={row.key}><Link href={row.href} className={styles.rankingRow}>
               <span className={styles.rank}>#{row.rank}</span><SetMark set={row} className={styles.rowLogo} />
               <span className={styles.rowName}><strong>{row.name}</strong><small>{row.tier ? `${row.tier} tier` : "Tier unavailable"}</small></span>
-              <span className={styles.rowMetric}><small>RIP Score</small><Score value={row.score} /></span>
+              <span className={styles.rowMetric}><small>Overall RIP</small><Score value={row.score} /></span>
               <span className={styles.rowMetric}><small>Financial RIP</small><Score value={row.financialRipScore} /></span>
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}

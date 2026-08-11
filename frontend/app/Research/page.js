@@ -2,14 +2,14 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Research & Methodology — inDex",
-  description: "How inDex calculates RIP Score, Financial RIP, Collector Appeal, and modeled Pokémon opening outcomes.",
+  description: "How inDex calculates Overall RIP, Financial RIP, Collector Appeal, and modeled Pokémon opening outcomes.",
 };
 
 const FINANCIAL_COMPONENTS = [
   ["True Win Frequency", "How often a modeled opening returns at least the current pack cost."],
   ["Typical Retention", "How much of pack cost the median modeled opening retains."],
   ["Loss Resilience", "How much losing openings return and how often those losses are near-misses rather than hard losses."],
-  ["Realistic Upside", "The quality of good-but-not-miraculous outcomes below the exceptional jackpot tail."],
+  ["Strong Upside Quality", "The quality of the strongest 5% of modeled outcomes after excluding the exceptional top-1% jackpot tail."],
   ["Jackpot Upside", "The exceptional top 1% of modeled outcomes, controlled so one enormous chase cannot dominate the score."],
   ["Base Economic Efficiency", "Average return relative to cost after excluding the top 1%, keeping ordinary opening economics visible."],
 ];
@@ -41,9 +41,9 @@ export default function ResearchPage() {
       </header>
 
       <div className="mt-10 space-y-5">
-        <Section eyebrow="The headline score" title="RIP Score">
-          <p>RIP Score combines <strong className="text-[var(--text-primary)]">Financial RIP</strong> with <strong className="text-[var(--text-primary)]">Collector Appeal</strong>. Financial RIP measures the modeled outcome profile relative to pack cost; Collector Appeal measures whether the set&apos;s desirable roster and opening structure make those outcomes compelling to collectors.</p>
-          <p>The public RIP Score is the set&apos;s cohort-relative position on a 0–100 scale. The strongest eligible set in the current comparison group is 100. This relative score is a presentation of position, not the underlying absolute model score, and can move when the eligible cohort changes.</p>
+        <Section eyebrow="The headline score" title="Overall RIP">
+          <p>Overall RIP combines <strong className="text-[var(--text-primary)]">Financial RIP</strong> with <strong className="text-[var(--text-primary)]">Collector Appeal</strong>. Financial RIP measures the modeled outcome profile relative to pack cost; Collector Appeal measures whether the set&apos;s desirable roster and opening structure make those outcomes compelling to collectors.</p>
+          <p>The public Overall RIP is the set&apos;s cohort-relative position on a 0–100 scale. The strongest eligible set in the current comparison group is 100. This relative score is a presentation of position, not the underlying absolute model score, and can move when the eligible cohort changes.</p>
         </Section>
 
         <Section eyebrow="Opening economics" title="Financial RIP">
@@ -65,16 +65,23 @@ export default function ResearchPage() {
         </Section>
 
         <Section eyebrow="Modeled openings" title="Opening simulation">
-          <p>inDex models possible pack outcomes using the set&apos;s configured pack structure, card pools, modeled pull-rate assumptions, and current market values. The resulting distribution powers the outcome metrics and Financial RIP inputs; it is not a prediction for a particular pack.</p>
+          <p>inDex runs one million modeled openings per supported set using the set&apos;s configured pack structure, card pools, modeled pull-rate assumptions, and current market values. The resulting distribution powers the outcome metrics and Financial RIP inputs; it is not a prediction for a particular pack.</p>
           <dl className="grid gap-3 sm:grid-cols-2">
             {OUTCOME_METRICS.map(([name, description]) => <div key={name} className="rounded-xl border border-[var(--border-subtle)] p-4"><dt className="font-semibold text-[var(--text-primary)]">{name}</dt><dd className="mt-1">{description}</dd></div>)}
           </dl>
           <p>Set pages disclose the modeled pull-rate inputs and assumptions available for that set. These are inDex modeling assumptions and should not be presented as official Pokémon pull rates.</p>
         </Section>
 
+        <Section eyebrow="Data provenance" title="Where the inputs come from">
+          <p>Card catalogs, card values, and sealed-product market observations are sourced from the TCGplayer data paths recorded by inDex. Set configuration supplies the pack structure and modeled rarity or pull-rate assumptions used by the simulator.</p>
+          <p>Each public result is tied to a stored calculation snapshot. Pricing dates and available pull-rate assumptions are shown on the relevant set surfaces where the payload provides them.</p>
+        </Section>
+
         <Section eyebrow="Use responsibly" title="Limitations & interpretation">
           <ul className="list-disc space-y-2 pl-5 marker:text-[var(--accent)]">
-            <li>A high relative RIP Score means a set compares strongly with the current eligible cohort; it does not promise absolute profitability.</li>
+            <li>A high Overall RIP means a set compares strongly with the current eligible cohort; it does not promise absolute profitability.</li>
+            <li>Market liquidity, seller fees, taxes, shipping, and other transaction costs are not guaranteed to be reflected in displayed card values.</li>
+            <li>Sets without the required simulation and scoring inputs remain unsupported and are not assigned substitute outcomes or ranks.</li>
             <li>Market prices, eligible sets, modeled inputs, and data coverage change. Scores and ranks can change when those inputs change.</li>
             <li>Expected Value is a long-run average and can be heavily influenced by rare outcomes. Typical Opening is often more representative of one opening.</li>
             <li>Simulation results are modeled estimates, not guarantees, forecasts, financial advice, or official Pokémon pull-rate statements.</li>
