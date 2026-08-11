@@ -62,6 +62,14 @@ const stripComments = (source) =>
 // Shaped exactly like the backend `financialRipV3` object.
 
 const V3_FIXTURE = {
+  audit: { weights: { weights: {
+    true_win_frequency: 0.25,
+    typical_retention: 0.20,
+    loss_resilience: 0.15,
+    realistic_upside: 0.25,
+    jackpot_upside: 0.10,
+    base_economic_efficiency: 0.05,
+  } } },
   score: 46.8,
   scoreVersion: "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
   normalizationVersion: "financial_rip_v3_fixed_absolute_piecewise_v1",
@@ -166,12 +174,12 @@ const V2_FIXTURE = {
 
 test("the six V3 cards are defined in the specified order", () => {
   assert.deepEqual(FINANCIAL_RIP_V3_CARD_ORDER, [
-    "Chance to Win",
-    "Typical Opening",
+    "Win Frequency",
+    "Typical Retention",
     "Loss Resilience",
     "Strong Upside",
     "Jackpot Upside",
-    "Base Economics",
+    "Base Economic Efficiency",
   ]);
 });
 
@@ -227,25 +235,10 @@ test("there is no model toggle: Financial RIP means V3 and nothing else", () => 
 
 // --- No visible weights -----------------------------------------------------
 
-test("no V3 weight percentage is shown on any card", () => {
+test("V3 component weights come from the authoritative audit definition", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  for (const row of rows) {
-    assert.equal(row.weight, undefined, `${row.title} must not carry a weight`);
-    for (const metric of row.metrics) {
-      assert.doesNotMatch(
-        String(metric.label),
-        /weight/i,
-        `${row.title} metric label must not mention weight`
-      );
-    }
-  }
-  // And the row renderer has no weight expression at all. The six components
-  // are drawn by the shared disclosure primitive now, so that is the file that
-  // must be clean; RipMetricDisclosureRow.test.jsx additionally proves by
-  // rendering that no weight, contribution or formula reaches the DOM.
-  assert.doesNotMatch(rowComponentSource, /weight/i);
-  // And no composition percentage: the section never states what share of the
-  // RIP Score it is.
+  assert.deepEqual(rows.map((row) => row.weight), [0.25, 0.20, 0.15, 0.25, 0.10, 0.05]);
+  assert.match(componentSource, /Weight/);
   assert.doesNotMatch(stripComments(componentSource), /of Overall RIP/);
 });
 
@@ -264,7 +257,7 @@ test("raw dollar values and ratios reach the rendered rows", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
   const byTitle = new Map(rows.map((row) => [row.title, row]));
 
-  const typical = byTitle.get("Typical Opening").metrics;
+  const typical = byTitle.get("Typical Retention").metrics;
   assert.equal(typical[0].value, "$1.20");
   assert.equal(typical[1].value, "24.1%");
 
@@ -371,9 +364,9 @@ test("Loss Resilience copy never calls a loss a win", () => {
   );
 });
 
-test("Typical Opening copy says median or typical, never floor or minimum", () => {
+test("Typical Retention copy says median or typical, never floor or minimum", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const typical = rows.find((row) => row.title === "Typical Opening");
+  const typical = rows.find((row) => row.title === "Typical Retention");
   assert.match(typical.interpretation, /median/i);
   assert.doesNotMatch(typical.interpretation, /floor|minimum|guarantee/i);
 });

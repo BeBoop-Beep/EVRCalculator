@@ -122,7 +122,7 @@ const V3_CARDS = [
   {
     key: "trueWinFrequency",
     snakeKey: "true_win_frequency",
-    title: "Chance to Win",
+    title: "Win Frequency",
     // Deliberately "recovers or beats", not "profits": a pack landing exactly
     // on cost recovers it, and the component counts that as a win.
     interpretation: "How often a pack comes back worth at least what it cost.",
@@ -141,7 +141,7 @@ const V3_CARDS = [
   {
     key: "typicalRetention",
     snakeKey: "typical_retention",
-    title: "Typical Opening",
+    title: "Typical Retention",
     // "Typical"/"median" throughout. P50 is not a floor and the copy must never
     // let a reader take it as one.
     interpretation: "What the median simulated pack came back worth — half were above, half below.",
@@ -229,7 +229,7 @@ const V3_CARDS = [
   {
     key: "baseEconomicEfficiency",
     snakeKey: "base_economic_efficiency",
-    title: "Base Economics",
+    title: "Base Economic Efficiency",
     interpretation:
       "Average return with the jackpots removed — how much of the headline average an ordinary opening actually sees.",
     metrics: (raw) => [
@@ -259,6 +259,7 @@ export const FINANCIAL_RIP_V3_CARD_ORDER = V3_CARDS.map((card) => card.title);
 export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {}) {
   const safe = toObject(financialRipV3);
   const components = toObject(safe.components);
+  const configuredWeights = toObject(toObject(toObject(safe.audit).weights).weights);
   const requestTimeout =
     options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
 
@@ -302,6 +303,7 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       cohortSize: toOptionalNumber(component.rankedSetCount ?? component.cohortSize),
       interpretation: card.interpretation,
       metrics: card.metrics(raw),
+      weight: toOptionalNumber(configuredWeights[card.snakeKey] ?? configuredWeights[card.key]),
       available: score !== UNAVAILABLE,
       // Weight is intentionally absent from the row. It is not rendered, so it
       // is not selected — a field the UI does not read is a field that can only

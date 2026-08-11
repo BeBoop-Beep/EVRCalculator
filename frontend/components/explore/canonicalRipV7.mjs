@@ -105,7 +105,7 @@ export function resolveCanonicalRipV7(...sources) {
       return bundle(
         "publicRipContractV7",
         toObject(contract.overallRip),
-        toObject(contract.financialRip),
+        { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
         toObject(contract.collectorAppeal)
       );
     }

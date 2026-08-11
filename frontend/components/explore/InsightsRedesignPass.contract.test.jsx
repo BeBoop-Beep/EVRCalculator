@@ -7,7 +7,7 @@
 // invents a number, a grid drops a canonical component, or an unavailable
 // metric starts drawing an empty fill that reads as a real zero.
 //
-// Public `/100` scores are also guarded here: RIP Score, Financial RIP,
+// Public relative-index scores are also guarded here: RIP Score, Financial RIP,
 // Collector Appeal and the six Financial RIP component scores must all use the
 // backend-owned cohort-relative score, never the fixed-anchor formula output.
 
@@ -289,12 +289,12 @@ test("Insights renders no sparkline, no fabricated history and no achievement ch
 test("Financial RIP still renders exactly its six canonical components", () => {
   const { rows } = selectFinancialRipV3Breakdown(V7_FIXTURE.financialRip);
   assert.deepEqual(rows.map((row) => row.title), [
-    "Chance to Win",
-    "Typical Opening",
+    "Win Frequency",
+    "Typical Retention",
     "Loss Resilience",
     "Strong Upside",
     "Jackpot Upside",
-    "Base Economics",
+    "Base Economic Efficiency",
   ]);
   assert.deepEqual(rows.map((row) => row.publicScore), [74.5, 63.0, 79.0, 91.2, 88.7, 70.1]);
   assert.equal((financialSource.match(/<RipMetricDisclosureRow/g) || []).length, 1);

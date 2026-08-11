@@ -5,6 +5,7 @@ const paths = {
   cards: <><rect x="5" y="3" width="11" height="14" rx="2" /><path d="M5 6H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8" /></>,
   value: <><circle cx="10" cy="10" r="7" /><path d="M12.5 7.5c-.5-.7-1.3-1-2.4-1-1.3 0-2.2.6-2.2 1.6 0 2.4 4.3 1.1 4.3 3.5 0 1-.9 1.8-2.4 1.8-1.1 0-2-.4-2.6-1.2M10 5v10" /></>,
   trophy: <><path d="M6 3h8v3c0 3-1.6 5-4 5S6 9 6 6V3ZM8 11v3M12 11v3M6.5 17h7M8 14h4" /><path d="M6 5H3v1c0 2 1.2 3.5 3.4 3.8M14 5h3v1c0 2-1.2 3.5-3.4 3.8" /></>,
+  gauge: <><path d="M3.2 14.5a8 8 0 1 1 13.6 0" /><path d="m10 11 3.5-4M5.5 14.5h9" /><circle cx="10" cy="11" r="1" /></>,
   trend: <><path d="m3 14 4-4 3 3 6-7" /><path d="M12 6h4v4" /></>,
   target: <><circle cx="10" cy="10" r="7" /><circle cx="10" cy="10" r="3" /><path d="m12 8 5-5M14 3h3v3" /></>,
   package: <><path d="m3 6 7-3 7 3-7 3-7-3Z" /><path d="M3 6v8l7 3 7-3V6M10 9v8" /></>,

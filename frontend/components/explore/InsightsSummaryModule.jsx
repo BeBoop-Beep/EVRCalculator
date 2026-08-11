@@ -136,7 +136,7 @@ function SummaryCard({ id, label, score, meta, description, available, accent, r
               legacy score, to the other metrics, or to zero. */}
           <span data-insights-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
           {available ? (
-            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
+            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">relative index</span>
           ) : null}
         </p>
         {available && badges ? <span className="min-w-0">{badges}</span> : null}

@@ -1,4 +1,7 @@
 import { readCanonicalBlock } from "./canonicalRipV7.mjs";
+import { buildRipDrivers } from "./ripDrivers.mjs";
+import { getRipQualitativeLabel } from "./ripQualitativeLabel.mjs";
+import { normalizeRarityKey, selectPullRateRows } from "../pokemon/set-page/PullRates/pullRateRowsSelector.mjs";
 
 function number(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -25,20 +28,37 @@ export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumpt
     else verdict = "Its combined opening economics and collector appeal place it in the middle of the tracked cohort.";
   }
 
-  let takeaway = "The canonical model inputs are unavailable, so no comparative driver is stated.";
-  if (financial.rank !== null && collector.rank !== null) {
-    const gap = collector.rank - financial.rank;
-    if (gap >= 3) takeaway = "This set ranks primarily because its opening economics compare more favorably with other tracked sets; collector appeal contributes less.";
-    else if (gap <= -3) takeaway = "Collector appeal meaningfully lifts this set despite a weaker financial opening profile.";
-    else if (overall.rank !== null && overall.cohortSize !== null && overall.rank <= Math.max(3, Math.ceil(overall.cohortSize * 0.25))) takeaway = "Both its opening economics and collector appeal compare strongly with the tracked cohort.";
-    else takeaway = "Its financial and collector profiles are similarly placed, and their combined result produces the displayed rank.";
-  }
+  // HELPS / HURTS / RESULT and the takeaway are one deterministic decision, so
+  // the sentence can never contradict the labels shown above it.
+  const drivers = buildRipDrivers({ financial, collector, overall });
+  const takeaway = drivers.takeaway;
+  const qualitativeLabel = getRipQualitativeLabel({
+    tier: overall.tier,
+    rank: overall.rank,
+    cohortSize: overall.cohortSize,
+  });
 
-  const rows = [
-    ...(Array.isArray(pullRateAssumptions?.rows) ? pullRateAssumptions.rows : []),
-    ...(Array.isArray(pullRateAssumptions?.groups) ? pullRateAssumptions.groups.flatMap((group) => Array.isArray(group?.rows) ? group.rows : []) : []),
-  ];
-  const specialIllustrationRare = rows.find((row) => /special illustration rare/i.test(String(row?.rarity || row?.slotLabel || "")));
+  const consumerPriority = new Map([
+    ["illustration rare", 1],
+    ["ultra rare", 2],
+    ["special illustration rare", 3],
+    ["hyper rare", 4],
+    ["double rare", 5],
+  ]);
+  const openingOdds = selectPullRateRows(pullRateAssumptions)
+    .map(({ row, groupKey }) => ({
+      label: String(row?.rarity || "").trim(),
+      rarityKey: normalizeRarityKey(row?.rarity),
+      denominator: number(row?.rarityOddsDenominator),
+      groupKey,
+    }))
+    .filter((row) => row.label && row.denominator > 0 && (row.groupKey === "hit_rarity_model" || consumerPriority.has(row.rarityKey)))
+    .sort((left, right) => (consumerPriority.get(left.rarityKey) ?? 20) - (consumerPriority.get(right.rarityKey) ?? 20))
+    .slice(0, 3)
+    .map(({ label, denominator }) => ({
+      label: label.replace(/\b\w/g, (letter) => letter.toUpperCase()),
+      denominator,
+    }));
 
   return {
     overall,
@@ -49,9 +69,9 @@ export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumpt
     typicalOpening,
     recoverCostProbability,
     verdict,
+    qualitativeLabel,
+    drivers,
     takeaway,
-    openingOdds: number(specialIllustrationRare?.rarityOddsDenominator) > 0
-      ? [{ label: "Special Illustration Rare", denominator: number(specialIllustrationRare.rarityOddsDenominator) }]
-      : [],
+    openingOdds,
   };
 }
