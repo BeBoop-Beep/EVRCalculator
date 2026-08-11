@@ -202,11 +202,13 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * Load the initial shell + active-tab snapshot for the Pokemon set detail page.
  *
  * Only the shell (lightweight header/title-card data) is always fetched. When
- * the active tab is Overview, the slim /overview snapshot (Set Value Trend +
- * Performance vs Cost + scopes) is additionally server-seeded — see
- * getPokemonSetOverviewInitialSnapshot — so those two above-the-fold sections
- * render without a client-side loading panel. The seed is best-effort: on
- * error/timeout the client's own /overview fetch takes over unchanged.
+ * the active tab is Market, the slim /overview snapshot (Set Value Trend +
+ * scopes) is additionally server-seeded — see
+ * getPokemonSetOverviewInitialSnapshot — so Market's above-the-fold Set Value
+ * section renders without a client-side loading panel. The seed is
+ * best-effort: on error/timeout the client's own /overview fetch takes over
+ * unchanged. RIP (internal route value `overview`) is deliberately NOT seeded:
+ * it renders no part of that payload.
  *
  * The full /cards snapshot is never route-seeded here for any tab anymore.
  * Cards uses its own slim, paginated contract (getPokemonSetCardsPage,
@@ -220,11 +222,12 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * full /cards payload server-side; getPokemonSetInitialSnapshots itself
  * never calls it.
  *
- * Overview uses /overview (+ /market/top-chase, /market/movers). Cards uses
+ * Market uses /overview (+ /market/movers) and shares /market/top-chase with
+ * RIP, which renders a three-card chase preview from it. Cards uses
  * /cards/page. Pull Rates uses /pull-rates (Phase 4A). Insights uses
  * /insights (Phase 4B) plus /cards/validation for its card validation
- * section — all four are fetched client-side from RipStatisticsPageClient.jsx.
- * Of these, only /overview is additionally server-seeded (Overview tab only);
+ * section — all are fetched client-side from RipStatisticsPageClient.jsx.
+ * Of these, only /overview is additionally server-seeded (Market tab only);
  * top-chase/movers/cards/pull-rates/insights are never seeded here. The full
  * /page snapshot is legacy-only
  * (see needsExplorePagePayload in page.js, gated on non-"set" target types
@@ -253,16 +256,21 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   // needs the full /cards snapshot server-seeded anymore, so this slot
   // always resolves empty.
   //
-  // The slim /overview snapshot IS seeded, but only when Overview is the
-  // active tab. resolveSetDetailTab applies the same aliasing and absent-tab
-  // default as the route/client, so this stays correct if the default
-  // set-detail tab ever becomes Overview.
-  const wantsOverview = resolveSetDetailTab(tab) === "overview";
+  // The slim /overview snapshot IS seeded, but only for the Market tab.
+  // `overview` is the internal route value for the user-facing RIP tab, and
+  // RIP renders none of this payload — its Set Value Trend moved to Market
+  // (see RipStatisticsPageClient's Market section), and RIP's own modules read
+  // the canonical RIP bundle, top-chase and pull-rates instead. Seeding it for
+  // RIP would buy a large market payload nothing on that tab consumes, so the
+  // seed follows the consumer. resolveSetDetailTab applies the same aliasing
+  // and absent-tab default as the route/client. Note the backend endpoint is
+  // still named /overview — that is a transport name, not a UI tab name.
+  const wantsMarketSeed = resolveSetDetailTab(tab) === "market";
   const [shell, cards, marketDashboard, overview] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsOverview ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
   const totalMs = Date.now() - startedAt;
