@@ -8,10 +8,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const pageSource = fs.readFileSync(path.join(here, "RipStatisticsPageClient.jsx"), "utf8");
 const ripSource = fs.readFileSync(path.join(here, "RipDecisionPage.jsx"), "utf8");
 
-// The six-section "research paper" Analysis wrapper (RIP Score / Simulation /
-// Value Structure / Market / Sealed / Methodology) was reverted. Analysis is
-// once again the previous deep analytical experience that already lived in this
-// file, and it no longer owns any market-observation module.
+// Set-specific simulation and scoring evidence belongs to RIP. The legacy
+// Analysis destination must not survive as a competing information architecture.
 
 test("the six-section Analysis wrapper is gone", () => {
   for (const marker of [
@@ -27,21 +25,11 @@ test("the six-section Analysis wrapper is gone", () => {
   }
 });
 
-test("the previous deep Analysis implementation is re-enabled for set detail", () => {
-  assert.ok(
-    pageSource.includes('{(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? ('),
-    "the previous Insights/Analysis render gate must include setDetailMode + insights again"
-  );
-  for (const moduleName of [
-    "RipScoreBreakdownModule",
-    "RipDistributionChart",
-    "SimulationMetricsContent",
-    "TopEVDriversContent",
-    "CollectorAppealBreakdown",
-    "PackValueHistoryChart",
-  ]) {
-    assert.ok(pageSource.includes(moduleName), `${moduleName} remains mounted for Analysis`);
-  }
+test("legacy Analysis is removed from set navigation and redirects to RIP", () => {
+  assert.ok(!pageSource.includes('{ value: "insights", label: "Analysis"'));
+  assert.ok(pageSource.includes('analysis: "overview"'));
+  assert.ok(pageSource.includes('analytics: "overview"'));
+  assert.ok(pageSource.includes('{!setDetailMode && !showInsightsCohesiveLoading ? ('));
 });
 
 test("Analysis no longer owns market observation", () => {
@@ -58,8 +46,9 @@ test("Analysis no longer owns market observation", () => {
   assert.ok(!pageSource.includes('title="Market Snapshot"'), "the invented Analysis Market Snapshot must not survive");
   assert.ok(!pageSource.includes('title="Market Analysis"'), "Analysis must not render a market-analysis card");
 
-  for (const forbidden of ["SetValueTrendCard", "SevenDayMarketMoversTicker", "SealedMarketTrendCard", "TopChaseCardsModule", "RipDistributionChart"])
+  for (const forbidden of ["SetValueTrendCard", "SevenDayMarketMoversTicker", "SealedMarketTrendCard", "TopChaseCardsModule"])
     assert.ok(!ripSource.includes(forbidden), `${forbidden} must not return to RIP`);
+  assert.ok(ripSource.includes("RipDistributionChart"), "the existing distribution moves to RIP");
 });
 
 test("Analysis keeps current terminology and canonical model families", () => {
@@ -67,7 +56,7 @@ test("Analysis keeps current terminology and canonical model families", () => {
     assert.ok(pageSource.includes(label), `${label} must survive the structural revert`);
   for (const retired of ["Typical Pack", "Realistic Upside", "God Pull Upside"])
     assert.ok(!pageSource.includes(retired), `${retired} is a retired label and must not come back`);
-  for (const component of ["Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside", "Jackpot Upside", "Base Economic Efficiency"])
+  for (const component of ["Win Frequency", "Typical Retention", "Loss Resilience", "Strong Upside Quality", "Jackpot Upside Quality", "Base Economic Efficiency"])
     assert.ok(fs.readFileSync(path.join(here, "financialRipV3Selector.mjs"), "utf8").includes(`title: "${component}"`));
   assert.ok(!pageSource.includes("Relative RIP Index: 100 / 100"));
 });

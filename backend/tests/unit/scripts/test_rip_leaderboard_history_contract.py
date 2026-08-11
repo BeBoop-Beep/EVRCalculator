@@ -226,17 +226,49 @@ def test_a_cohort_that_does_not_match_the_supported_set_list_fails_closed():
         command.publication_contract(payload)
 
 
-def test_a_v7_cohort_that_diverges_from_the_rpc_predicate_fails_closed():
-    """The publish RPC counts ranked targets by ``rip.rank``.
+def test_a_legacy_v4_rank_no_longer_gates_canonical_publication():
+    """The transitional v4-cohort precondition is gone, and must stay gone.
 
-    Its predicate must select the same rows this publisher does, or the RPC
-    rejects the payload from inside a transaction with an opaque message. Caught
-    here instead, as a named precondition.
+    Migration 054's RPC counted ranked targets by the LEGACY ``rip.rank``, so the
+    publisher carried a precondition requiring the Overall RIP v4 cohort to match
+    the canonical V7 one. Migration 061 repointed the RPC at ``overallRipV7.rank``
+    and made it verify ``publicRipContractV7.contractVersion`` itself; it is
+    applied in production, so the database is now authoritative about the
+    canonical cohort.
+
+    Keeping the precondition would keep a retired model load-bearing for a
+    publication that no longer consults it: a set with a perfectly good V7 score
+    could be refused because a v4 score it does not publish happened to be null.
     """
     payload = _row()
     payload["ranking_payload_json"]["targets"][0]["rip"] = {"score": 78, "rank": None}
-    with pytest.raises(RuntimeError, match="the publish RPC counts ranked targets by rip.rank"):
-        command.publication_contract(payload)
+
+    snapshot, rows = command.publication_contract(payload)
+
+    assert snapshot["overall_rip_version"] == CANONICAL_OVERALL_RIP_VERSION
+    assert len(rows) == snapshot["eligible_cohort_count"]
+
+
+def test_history_rows_carry_the_canonical_v7_and_v3_scores():
+    """The stored history is the canonical model's, on its own fixed-anchor scale.
+
+    A rank-movement consumer reads these rows, so a legacy score reaching them
+    would reintroduce the cross-model comparison at the storage layer.
+    """
+    snapshot, rows = command.publication_contract(_row())
+    targets = {
+        str(target.get("set_id")): target
+        for target in _row()["ranking_payload_json"]["targets"]
+    }
+    for row in rows:
+        target = targets[str(row["set_id"])]
+        assert row["overall_rip_score"] == target["overallRipV7"]["score"]
+        assert row["overall_rip_rank"] == target["overallRipV7"]["rank"]
+        assert row["financial_rip_score"] == target["financialRipV3"]["score"]
+        assert row["financial_rip_rank"] == target["financialRipV3"]["rank"]
+        # Never the legacy objects, which the fixture gives different values.
+        assert row["overall_rip_score"] != target.get("rip", {}).get("score")
+        assert row["financial_rip_score"] != target.get("ripCore", {}).get("score")
 
 
 @pytest.mark.parametrize(

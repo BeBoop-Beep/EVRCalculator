@@ -13,10 +13,24 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * Server-side ordering of the leaderboard, by the CANONICAL Overall RIP V7
+ * rank.
+ *
+ * This used to sort by `pack_rank` and `relative_pack_score` — the retired
+ * 45/25/20/10 blend the payload's own `meta.deprecatedFields` marks "Do not
+ * read". `ExploreTableClient` re-sorts by the selected mode so the legacy order
+ * was usually overwritten, but every other consumer of `leaderboardTargets`
+ * (the Top Rankings ladder, the "N ranked sets" count) inherited it, and a
+ * hidden legacy ordering is one refactor away from being a visible one.
+ *
+ * A target with no canonical rank sorts last rather than borrowing a legacy
+ * number.
+ */
 function rankTargets(targets) {
   return [...targets].sort((left, right) => {
-    const leftRank = toNumber(left?.pack_rank);
-    const rightRank = toNumber(right?.pack_rank);
+    const leftRank = toNumber(left?.overallRipV7?.rank);
+    const rightRank = toNumber(right?.overallRipV7?.rank);
 
     if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
       return leftRank - rightRank;
@@ -30,8 +44,8 @@ function rankTargets(targets) {
       return 1;
     }
 
-    const leftScore = toNumber(left?.relative_pack_score) ?? -Infinity;
-    const rightScore = toNumber(right?.relative_pack_score) ?? -Infinity;
+    const leftScore = toNumber(left?.overallRipV7?.relativeScore) ?? -Infinity;
+    const rightScore = toNumber(right?.overallRipV7?.relativeScore) ?? -Infinity;
     if (leftScore !== rightScore) {
       return rightScore - leftScore;
     }
@@ -43,7 +57,7 @@ function rankTargets(targets) {
 export const metadata = {
   title: "Explore — inDex",
   description:
-    "Ranked set intelligence: the strongest sets to rip right now, Overall and Financial RIP scores, tiers, and opening economics.",
+    "Ranked set intelligence: the strongest sets to rip right now, RIP Score and Financial RIP, tiers, and opening economics.",
 };
 
 export default async function ExplorePage({ searchParams }) {
@@ -62,8 +76,7 @@ export default async function ExplorePage({ searchParams }) {
   // analytics (incomplete pull/hit-rate model, unblended subsets) — see
   // pokemonSetPublicCoverage.js. Filtering here means every consumer below
   // (the ranked table, its "N ranked sets" count, the Top Rankings ladder)
-  // only ever sees eligible sets; this never touches how pack_score/relative
-  // scores are computed.
+  // only ever sees eligible sets; this never touches how any score is computed.
   const eligibleTargets = targets.filter(isPublicAnalyticsEligiblePokemonSet);
   const sortedTargets = rankTargets(eligibleTargets);
   const leaderboardTargets = sortedTargets;

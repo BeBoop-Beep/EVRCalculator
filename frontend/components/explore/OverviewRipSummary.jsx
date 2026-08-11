@@ -23,11 +23,16 @@
 //
 // ONE PUBLIC SCORE SCALE
 // ----------------------
-// RIP Score, Financial RIP and Collector Appeal all show their backend-owned
-// RELATIVE score: the cohort-relative 0-100 public scoring language already used
-// by Overall RIP and Explore. Their fixed-anchor absolute model scores remain in
-// the payload for formula/audit use, but are never substituted into a `/100`
-// headline. Rank, tier and cohort remain backend-provided in every case.
+// RIP Score, Financial RIP and Collector Appeal all show their canonical
+// `publicScore`: the backend cohort-relative 0-100 value, on `/100`, to one
+// decimal. Their fixed-anchor model scores remain in the payload for
+// formula/audit use and are never substituted into a public headline. Rank,
+// tier and cohort remain backend-provided in every case.
+//
+// The same three numbers appear in the "Why It Ranks" block further down this
+// same tab (RipDecisionPage) and in the Insights summary on the next tab. All
+// three surfaces read this same canonical bundle through the same selectors, so
+// they cannot disagree.
 //
 // NOTHING IS COMPUTED HERE. Every number is lifted from the resolved canonical
 // bundle, and a missing relative score renders as an explicit unavailable state
@@ -36,7 +41,12 @@
 
 import React, { useMemo } from "react";
 
-import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+import InfoPopover from "@/components/ui/InfoPopover";
+import {
+  PUBLIC_SCORE_SCALE_NOTE,
+  readCanonicalBlock,
+  resolveCanonicalRipV7,
+} from "./canonicalRipV7.mjs";
 import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 
@@ -126,12 +136,18 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
       className="set-glass-surface min-w-0 rounded-2xl border p-4 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]"
     >
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2
-          id="set-detail-rip-summary-heading"
-          className="text-sm font-semibold text-[var(--text-primary)]"
-        >
-          RIP Summary
-        </h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2
+            id="set-detail-rip-summary-heading"
+            className="text-sm font-semibold text-[var(--text-primary)]"
+          >
+            RIP Summary
+          </h2>
+          {/* The scale, in product language, behind the existing InfoPopover
+              pattern. The normalization formula itself belongs in Research —
+              never in a metric label. */}
+          <InfoPopover text={PUBLIC_SCORE_SCALE_NOTE} />
+        </div>
         {/* One restrained action, not a button per metric. */}
         {onViewAnalysis ? (
           <button
@@ -152,9 +168,9 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
         <SummaryMetric
           id="overall"
           label="RIP Score"
-          // The PUBLIC Overall RIP number is the cohort-relative score. The
-          // absolute 90/10 blend is never promoted into this headline.
-          score={toDisplayScore(overall.relativeScore)}
+          // THE canonical public value. The fixed-anchor 90/10 blend is never
+          // promoted into this headline.
+          score={toDisplayScore(overall.publicScore)}
           available={overall.available}
           meta={formatMeta({ tier: overall.tier, rank: overall.rank, cohortSize: overall.cohortSize })}
           description={RIP_SUMMARY_DESCRIPTIONS.overall}

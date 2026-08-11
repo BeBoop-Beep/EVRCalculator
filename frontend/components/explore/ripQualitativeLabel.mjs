@@ -6,7 +6,7 @@
 // whether #9 of 22 is good, average or poor. This module answers that question
 // WITHOUT introducing a second classification model: the descriptor is a pure
 // relabelling of the canonical S/A/B/C/D/F tier that the RIP model already
-// publishes (see constants/rankConfig.js). There is no editorial judgement and
+// publishes (see constants/rankConfig.mjs). There is no editorial judgement and
 // no per-set special casing here.
 //
 // TIER SOURCE PRECEDENCE
@@ -18,7 +18,7 @@
 // When neither is available the label is null and the page renders the headline
 // alone rather than guessing.
 
-import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.js";
+import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.mjs";
 
 const TIER_LABELS = {
   S: "TOP-TIER RIP",

@@ -1,3 +1,22 @@
+// The public score layer, per metric.
+//
+// WHAT THIS FILE USED TO ASSERT
+// -----------------------------
+// That `selectFinancialRipV3Breakdown(...).score` is the ABSOLUTE fixed-anchor
+// value while `.publicScore` is the relative one — and the same for Collector
+// Appeal, with a fixture whose two layers were 67.3 and 93.6. That is the exact
+// dual-scale behaviour that let one set print Collector Appeal as 53.2 in the
+// "Why It Ranks" block and 95.9 in the RIP Summary above it, and it was written
+// down here as intended.
+//
+// It is not intended. There is now no generic `score` on either selector: the
+// public value is `publicScore` (the backend cohort-relative 0-100 score) and
+// the model output is `modelScore`, named so it cannot be mistaken for a public
+// number. This file now asserts that separation instead of the old ambiguity.
+//
+// Cross-surface agreement — the property that actually prevents the defect — is
+// asserted in publicMetricContract.contract.test.mjs.
+
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -21,7 +40,7 @@ function financialFixture() {
         rank: 5,
         cohortSize: 22,
         tier: "B",
-        raw: {},
+        raw: { trueWinProbability: 0.312 },
       },
       typical_retention: {
         score: 28.1,
@@ -30,7 +49,7 @@ function financialFixture() {
         rank: 8,
         cohortSize: 22,
         tier: "B",
-        raw: {},
+        raw: { typicalPackValue: 2.81 },
       },
       loss_resilience: {
         score: 35.0,
@@ -39,7 +58,7 @@ function financialFixture() {
         rank: 4,
         cohortSize: 22,
         tier: "A",
-        raw: {},
+        raw: { averageRetentionGivenLoss: 0.35 },
       },
       realistic_upside: {
         score: 55.4,
@@ -48,7 +67,7 @@ function financialFixture() {
         rank: 2,
         cohortSize: 22,
         tier: "A",
-        raw: {},
+        raw: { p95ThresholdValue: 15.54 },
       },
       jackpot_upside: {
         score: 61.0,
@@ -57,7 +76,7 @@ function financialFixture() {
         rank: 3,
         cohortSize: 22,
         tier: "A",
-        raw: {},
+        raw: { p99ThresholdValue: 61.0 },
       },
       base_economic_efficiency: {
         score: 39.8,
@@ -66,7 +85,7 @@ function financialFixture() {
         rank: 6,
         cohortSize: 22,
         tier: "B",
-        raw: {},
+        raw: { baseRtpExcludingTop1Pct: 0.398, totalRtpRatio: 0.52 },
       },
     },
   };
@@ -105,39 +124,43 @@ function canonicalFixture() {
   };
 }
 
-test("Financial RIP separates absolute model score from public relative score", () => {
+test("Financial RIP exposes ONE public score, and it is the relative one", () => {
   const selected = selectFinancialRipV3Breakdown(financialFixture());
-  assert.equal(selected.score, 48.25);
-  assert.equal(selected.scoreLabel, "48.3");
-  assert.equal(selected.absoluteScore, 48.25);
-  assert.equal(selected.relativeScore, 82.4);
   assert.equal(selected.publicScore, 82.4);
   assert.equal(selected.publicScoreLabel, "82.4");
   assert.equal(selected.publicAvailable, true);
+  // The model output is still readable, under a name no surface will mistake.
+  assert.equal(selected.modelScore, 48.25);
+  // And there is no ambiguous `score` for a consumer to pick by accident.
+  assert.equal("score" in selected, false);
+  assert.equal("scoreLabel" in selected, false);
+  assert.equal("absoluteScore" in selected, false);
 });
 
-test("every Financial RIP component exposes its own public relative score", () => {
+test("every Financial RIP component exposes ONE public score", () => {
   const selected = selectFinancialRipV3Breakdown(financialFixture());
   assert.deepEqual(
     selected.rows.map((row) => row.publicScore),
     [74.5, 63.0, 79.0, 91.2, 88.7, 70.1]
   );
   assert.deepEqual(
-    selected.rows.map((row) => row.absoluteScore),
+    selected.rows.map((row) => row.modelScore),
     [31.2, 28.1, 35.0, 55.4, 61.0, 39.8]
   );
   assert.ok(selected.rows.every((row) => row.publicAvailable));
+  assert.ok(selected.rows.every((row) => !("score" in row)));
+  assert.ok(selected.rows.every((row) => !("absoluteScore" in row)));
 });
 
-test("Collector Appeal separates absolute model score from public relative score", () => {
+test("Collector Appeal exposes ONE public score, and it is the relative one", () => {
   const selected = selectCollectorAppealBreakdown(canonicalFixture());
-  assert.equal(selected.score, 67.3);
-  assert.equal(selected.scoreLabel, "67.3");
-  assert.equal(selected.absoluteScore, 67.3);
-  assert.equal(selected.relativeScore, 93.6);
   assert.equal(selected.publicScore, 93.6);
   assert.equal(selected.publicScoreLabel, "93.6");
   assert.equal(selected.publicAvailable, true);
+  assert.equal(selected.modelScore, 67.3);
+  assert.equal("score" in selected, false);
+  assert.equal("scoreLabel" in selected, false);
+  assert.equal("absoluteScore" in selected, false);
 });
 
 test("Collector Appeal factor values stay on their native units", () => {
@@ -148,7 +171,7 @@ test("Collector Appeal factor values stay on their native units", () => {
   assert.equal(byKey.get("dualPathDepth").value, "42.0%");
 });
 
-test("missing Financial relativeScore never falls back into publicScore", () => {
+test("a missing Financial relativeScore renders unavailable, never the model score", () => {
   const stale = financialFixture();
   delete stale.relativeScore;
   for (const component of Object.values(stale.components)) {
@@ -156,21 +179,27 @@ test("missing Financial relativeScore never falls back into publicScore", () => 
   }
 
   const selected = selectFinancialRipV3Breakdown(stale);
-  assert.equal(selected.score, 48.25, "absolute model score remains available for audit");
   assert.equal(selected.publicScore, null);
   assert.equal(selected.publicScoreLabel, "—");
   assert.equal(selected.publicAvailable, false);
+  // The whole section reports itself unavailable rather than letting a
+  // differently-scaled number take a public slot.
+  assert.equal(selected.diagnostics.status, "unavailable");
   assert.ok(selected.rows.every((row) => row.publicScore === null));
-  assert.ok(selected.rows.every((row) => row.absoluteScore !== null));
+  assert.ok(selected.rows.every((row) => row.available === false));
+  // The model score is still there for audit — it is simply not public.
+  assert.equal(selected.modelScore, 48.25);
+  assert.ok(selected.rows.every((row) => row.modelScore !== null));
 });
 
-test("missing Collector Appeal relativeScore never falls back into publicScore", () => {
+test("a missing Collector Appeal relativeScore renders unavailable, never the model score", () => {
   const stale = canonicalFixture();
   delete stale.publicRipContractV7.collectorAppeal.relativeScore;
 
   const selected = selectCollectorAppealBreakdown(stale);
-  assert.equal(selected.score, 67.3, "absolute model score remains available for audit");
   assert.equal(selected.publicScore, null);
   assert.equal(selected.publicScoreLabel, "—");
   assert.equal(selected.publicAvailable, false);
+  assert.equal(selected.available, false);
+  assert.equal(selected.modelScore, 67.3);
 });

@@ -20,9 +20,17 @@
 // persisted on the backend for audit and rollback; it is simply not a public
 // presentation any more. No version number appears in user-facing copy.
 //
-// Every component shown as a relative index uses its backend cohort-relative score. The
-// fixed-anchor model score remains available to internal/audit consumers but is
-// not rendered under a public relative-index label.
+// WHAT EACH CARD LEADS WITH
+// -------------------------
+// The concrete measured outcome — a probability, a dollar figure, a ratio —
+// taken from `row.headline`. The component's normalized 0-100 index is NOT the
+// headline: two of these components ("Strong Upside", "Jackpot Upside") share
+// their names with public outcome metrics that have locked dollar definitions,
+// and printing an index under those names put two quantities behind one label.
+// The index still carries its weight into Financial RIP and is still published;
+// it is simply not what the card announces. No weight or transform changed.
+//
+// The fixed-anchor model score is never rendered here under any label.
 
 import React, { useMemo, useState } from "react";
 
@@ -56,7 +64,7 @@ function formatComponentMeta(row) {
     ? ` · Weight ${(Number(row.weight) * 100).toFixed(0)}%`
     : "";
   if (row.rankValue === null || row.rankValue === undefined) {
-    return row.rankDiagnostic || null;
+    return `${row.rankDiagnostic || "Rank unavailable"}${weightMeta}`;
   }
   return [
     `Rank #${row.rankValue}`,
@@ -180,13 +188,17 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                   rowKey={row.key}
                   dataAttribute="data-v3-component"
                   title={row.title}
-                  value={row.publicScoreLabel}
-                  valueSuffix="relative index"
+                  // The concrete measured outcome, not the normalized index.
+                  // See the module header for why the index is not the headline.
+                  value={row.headline}
                   meta={formatComponentMeta(row)}
                   interpretation={row.interpretation}
                   metrics={row.metrics}
-                  // The QUIET rail uses the component's own backend relative
-                  // score — the same public number printed above it.
+                  // The QUIET rail draws this component's cohort standing — the
+                  // same quantity the "Rank #n of N" meta line beside it
+                  // states, and the backend's own relative score. It is an
+                  // unlabelled reinforcement of that rank, never a second
+                  // reading of the outcome figure printed as the value.
                   railPercent={row.publicAvailable ? row.publicScore : null}
                   accentFamily="financial"
                   isOpen={disclosure.openKeys.includes(row.key)}

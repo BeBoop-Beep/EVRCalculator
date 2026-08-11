@@ -121,8 +121,8 @@ test("Collector Appeal shows Roster Desirability, Desirable Outcome Frequency an
 
 test("the score, rank, tier and denominator are the backend's own", () => {
   const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: V7_FIXTURE });
-  assert.equal(appeal.score, 65.6858);
-  assert.equal(appeal.scoreLabel, "65.7");
+  assert.equal(appeal.modelScore, 65.6858, "the model score stays available for audit");
+  assert.equal("score" in appeal, false, "no ambiguous generic `score` key");
   assert.equal(appeal.rank, 3);
   assert.equal(appeal.rankedSetCount, 21);
   assert.equal(appeal.tier, "A");
@@ -366,8 +366,8 @@ test("an unavailable Collector Appeal does not render a fabricated score", () =>
     },
   });
   assert.equal(appeal.available, false);
-  assert.equal(appeal.score, null);
-  assert.equal(appeal.scoreLabel, "—");
+  assert.equal(appeal.publicScore, null);
+  assert.equal(appeal.publicScoreLabel, "—");
   assert.match(appeal.statusReason, /needs all three/);
   assert.match(componentSource, /data-collector-appeal-unavailable/);
 });

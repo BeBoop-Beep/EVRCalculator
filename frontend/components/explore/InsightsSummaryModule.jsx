@@ -23,15 +23,18 @@
 // components that share the copy constants and the selectors cannot.
 //
 // NOTHING IS COMPUTED HERE. Every score, tier, rank and denominator is lifted
-// from the single resolved canonical bundle. Every visible `/100` score uses
-// the backend cohort-relative score; fixed-anchor absolute model outputs never
-// drive the visible number or rail. A missing value renders an em dash — never
-// a zero, never a legacy score, never the other metric's value. The rail width
-// is a presentation-only reading of the score already on screen; when the score
-// is unavailable the rail renders as an empty track.
+// from the single resolved canonical bundle. All three cards show the canonical
+// `publicScore` on `/100` to one decimal — the identical values the Overview
+// RIP Summary and the "Why It Ranks" drivers show for the same set. Fixed-anchor
+// model outputs never drive the visible number or the rail. A missing value
+// renders an em dash — never a zero, never a legacy score, never the other
+// metric's value. The rail width is a presentation-only reading of the score
+// already on screen; when the score is unavailable the rail renders empty.
 
 import React, { useMemo } from "react";
 
+import InfoPopover from "@/components/ui/InfoPopover";
+import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
 import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import { RIP_SUMMARY_DESCRIPTIONS } from "./OverviewRipSummary.jsx";
@@ -136,7 +139,7 @@ function SummaryCard({ id, label, score, meta, description, available, accent, r
               legacy score, to the other metrics, or to zero. */}
           <span data-insights-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
           {available ? (
-            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">relative index</span>
+            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
           ) : null}
         </p>
         {available && badges ? <span className="min-w-0">{badges}</span> : null}
@@ -190,12 +193,17 @@ export default function InsightsSummaryModule({
       aria-labelledby="set-detail-insights-summary-heading"
       className="mt-3 min-w-0 rounded-2xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.012)] p-3 desk:p-4"
     >
-      <h3
-        id="set-detail-insights-summary-heading"
-        className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]"
-      >
-        Insights Summary
-      </h3>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <h3
+          id="set-detail-insights-summary-heading"
+          className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]"
+        >
+          Insights Summary
+        </h3>
+        {/* Same wording as Overview's, from the canonical reader, so the scale
+            is explained identically wherever a `/100` score appears. */}
+        <InfoPopover text={PUBLIC_SCORE_SCALE_NOTE} />
+      </div>
 
       {/* ONE grouped surface. Three cards in a row at 1200px+, a compact stack
           below it. Each card is min-w-0 so a long rank line wraps instead of

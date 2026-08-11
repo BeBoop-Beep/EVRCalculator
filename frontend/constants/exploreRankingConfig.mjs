@@ -23,17 +23,29 @@
  * score fields are a cohort min-max presentation over the old 33-set population
  * and must not power public ranking again.
  *
- * ABSOLUTE vs RELATIVE
- * --------------------
- * Every score-bearing mode exposes two numbers where both exist:
- *   - `absoluteScoreField` — the direct 0-100 formula result
- *     (`overallRipV7.score`, `financialRipV3.score`, a pillar `.score`). It does
- *     not move when the cohort does.
- *   - `relativeScoreField` — the backend cohort-relative 0-100 position
- *     (`overallRipV7.relativeScore`, `financialRipV3.relativeScore`), computed
- *     over the same fixed public cohort the `rankField` is quoted against.
- * `scoreField` is retained as the absolute field for backward compatibility.
- * Ratio-only modes (EV/P99 to cost) have no relative score and expose neither.
+ * EVERY MODE DECLARES WHAT KIND OF NUMBER ITS COLUMN HOLDS
+ * --------------------------------------------------------
+ * `scoreKind` is required on every mode and is the thing that stops one generic
+ * "score" column from silently changing meaning between modes:
+ *
+ *   "publicScore" — the canonical cohort-relative 0-100 public score of a
+ *                   canonical RIP-family metric. Rendered as `NN.N` with a
+ *                   `/100` suffix. Only RIP Score and Financial RIP use this.
+ *   "index"       — some other backend 0-100 index that is NOT one of the three
+ *                   canonical public metrics. Rendered as `NN.N`, no `/100`.
+ *   "ratio"       — a value-to-cost multiple. Rendered as `N.Nx`.
+ *
+ * Previously every mode published an `absoluteScoreField` and an optional
+ * `relativeScoreField`, and the table rendered the relative one when it existed
+ * and silently fell back to the absolute one when it did not — in the same
+ * visual slot, with the same formatting. A reader could not tell that the
+ * "score" in the Financial column and the "score" in the Profit column were
+ * measured on different scales. `scoreKind` makes that impossible: the renderer
+ * formats and labels by kind, and a `publicScore` mode has exactly one field.
+ *
+ * `publicScoreField` on a `publicScore` mode is the ONLY score field it has.
+ * The fixed-anchor model score is deliberately not exposed here: it is not a
+ * public number, and a config that offers it invites a surface to render it.
  */
 
 function toNumber(value) {
@@ -58,6 +70,10 @@ export function getFieldValue(target, fieldPath) {
   return value === undefined ? null : value;
 }
 
+export const SCORE_KIND_PUBLIC = "publicScore";
+export const SCORE_KIND_INDEX = "index";
+export const SCORE_KIND_RATIO = "ratio";
+
 export const EXPLORE_RANKING_MODES = {
   overall: {
     id: "overall",
@@ -67,15 +83,13 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by the strongest overall opening profile.",
     scoreLabel: "RIP SCORE",
     tierLabel: "TIER",
-    scoreField: "overallRipV7.score",
-    absoluteScoreField: "overallRipV7.score",
-    relativeScoreField: "overallRipV7.relativeScore",
-    absoluteScoreLabel: "Absolute",
-    relativeScoreLabel: "Relative",
+    scoreKind: SCORE_KIND_PUBLIC,
+    // The ONE canonical public RIP Score field. There is deliberately no
+    // absolute/model field here: it is not a public number.
+    publicScoreField: "overallRipV7.relativeScore",
     rankField: "overallRipV7.rank",
     rankedSetCountField: "overallRipV7.cohortSize",
     tierField: "overallRipV7.tier",
-    scoreFormat: "decimal",
     description: "RIP Score combines financial opening performance with collector appeal.",
   },
   financial: {
@@ -86,91 +100,44 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Financial RIP measures monetary pack outcomes against pack cost. It excludes collector appeal.",
     scoreLabel: "FINANCIAL RIP",
     tierLabel: "TIER",
-    scoreField: "financialRipV3.score",
-    absoluteScoreField: "financialRipV3.score",
-    relativeScoreField: "financialRipV3.relativeScore",
-    absoluteScoreLabel: "Absolute",
-    relativeScoreLabel: "Relative",
+    scoreKind: SCORE_KIND_PUBLIC,
+    publicScoreField: "financialRipV3.relativeScore",
     rankField: "financialRipV3.rank",
     rankedSetCountField: "financialRipV3.cohortSize",
     tierField: "financialRipV3.tier",
-    scoreFormat: "decimal",
     description: "Financial RIP is the financial-only opening quality, built from the simulated pack-value distribution and the pack price.",
   },
-  profit: {
-    id: "profit",
-    label: "Most Profitable",
-    title: "Most Profitable Sets",
-    subtitle: "Sets ranked by their profit profile, including chance to beat cost, Expected Value, and upside.",
-    tooltip: "Sets ranked by their profit profile, including chance to beat cost, Expected Value, and upside.",
-    scoreLabel: "PROFIT SCORE",
-    tierLabel: "PROFIT TIER",
-    scoreField: "rip.financialRip.components.profit.score",
-    absoluteScoreField: "rip.financialRip.components.profit.score",
-    relativeScoreField: "rip.financialRip.components.profit.relativeScore",
-    absoluteScoreLabel: "Absolute",
-    relativeScoreLabel: "Relative",
-    rankField: "rip.financialRip.components.profit.rank",
-    rankedSetCountField: "rip.financialRip.components.profit.cohortSize",
-    tierField: "rip.financialRip.components.profit.tier",
-    scoreFormat: "decimal",
-    description: "Profit score focuses on return potential and margin above pack cost.",
-  },
-  safety: {
-    id: "safety",
-    label: "Safest Opens",
-    title: "Safest Sets to Open",
-    subtitle: "Sets ranked by how well they protect against rough openings.",
-    tooltip: "Sets ranked by how well they protect against rough openings.",
-    scoreLabel: "SAFETY SCORE",
-    tierLabel: "SAFETY TIER",
-    scoreField: "rip.financialRip.components.safety.score",
-    absoluteScoreField: "rip.financialRip.components.safety.score",
-    relativeScoreField: "rip.financialRip.components.safety.relativeScore",
-    absoluteScoreLabel: "Absolute",
-    relativeScoreLabel: "Relative",
-    rankField: "rip.financialRip.components.safety.rank",
-    rankedSetCountField: "rip.financialRip.components.safety.cohortSize",
-    tierField: "rip.financialRip.components.safety.tier",
-    scoreFormat: "decimal",
-    description: "Safety score emphasizes protection from downside and loss mitigation.",
-  },
+  // RETIRED: `profit`, `safety`, `stability`.
+  //
+  // All three read `rip.financialRip.components.*` — the pillars of Financial
+  // RIP **V2**, the retired 60/25/15 model. Keeping them as public ranking
+  // lenses meant the site could not stop publishing a superseded financial
+  // model, and it made "score" mean a V2 pillar in one column and a canonical
+  // V3 public score in another. They are removed rather than reimplemented:
+  // Financial RIP V3 has its own six components, presented on the set page,
+  // and replacing three lenses with six new modes is a separate product pass.
+  //
+  // Nothing about V2 scoring changed. `rip` / `ripCore` are still computed and
+  // still published for audit and rollback; they simply no longer power a
+  // public ranking.
   desirability: {
     id: "desirability",
     label: "Set Desirability",
     title: "Most Desirable Sets",
     subtitle: "Sets ranked by the popularity and depth of the Pokémon subjects they contain, independent of price.",
-    tooltip: "Set Desirability measures the popularity and depth of the Pokémon subjects represented in a set. It does not use card prices or predict future value.",
+    tooltip: "Set Desirability measures the popularity and depth of the Pokémon subjects represented in a set. It does not use card prices or predict future value. It is a separate metric from Collector Appeal and is ranked against every scored set, not against the opening cohort.",
     scoreLabel: "SET DESIRABILITY",
     tierLabel: "TIER",
-    // The authoritative score, and its ALL-SET rank (of 135) rather than the
-    // 21-set simulated cohort rank the retired CA7 lens quoted. CA7 needs a
-    // pull model; this does not, so this lens covers every scored set.
+    // A 0-100 index in its own right, NOT one of the three canonical public
+    // RIP metrics — so it does not take the `/100` public-score treatment, and
+    // its rank is quoted against its OWN all-set denominator rather than the
+    // opening cohort's.
+    scoreKind: SCORE_KIND_INDEX,
     scoreField: "universalSetDesirability.score",
     rankField: "universalSetDesirability.rank",
     rankedSetCountField: "universalSetDesirability.rankedSetCount",
     tierField: null,
-    scoreFormat: "decimal",
-    description: "Set Desirability measures how popular and deep a set's Pokémon roster is, independent of price.",
-  },
-  stability: {
-    id: "stability",
-    label: "Most Consistent",
-    title: "Most Consistent Sets",
-    subtitle: "Sets ranked by how steady their opening profile is across many simulated packs.",
-    tooltip: "Sets ranked by how steady their opening profile is across many simulated packs.",
-    scoreLabel: "STABILITY SCORE",
-    tierLabel: "STABILITY TIER",
-    scoreField: "rip.financialRip.components.stability.score",
-    absoluteScoreField: "rip.financialRip.components.stability.score",
-    relativeScoreField: "rip.financialRip.components.stability.relativeScore",
-    absoluteScoreLabel: "Absolute",
-    relativeScoreLabel: "Relative",
-    rankField: "rip.financialRip.components.stability.rank",
-    rankedSetCountField: "rip.financialRip.components.stability.cohortSize",
-    tierField: "rip.financialRip.components.stability.tier",
-    scoreFormat: "decimal",
-    description: "Stability score measures consistency and predictability of outcomes.",
+    description: "Set Desirability measures how popular and deep a set's Pokémon roster is, independent of price. It is not Collector Appeal.",
   },
   experience: {
     id: "experience",
@@ -180,10 +147,10 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how often the pack feels good to open, not just the highest ceiling.",
     scoreLabel: "EXPERIENCE",
     tierLabel: "TIER",
+    scoreKind: SCORE_KIND_INDEX,
     scoreField: "relative_experience_score",
     rankField: "experience_rank",
     tierField: "experience_tier",
-    scoreFormat: "decimal",
     description: "Experience score measures how consistently satisfying a pack opening feels.",
   },
   chase: {
@@ -194,10 +161,10 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by how strong the chase-card opportunity is compared with the cost to open.",
     scoreLabel: "CHASE SCORE",
     tierLabel: "TIER",
+    scoreKind: SCORE_KIND_INDEX,
     scoreField: "relative_chase_potential_score",
     rankField: "chase_potential_rank",
     tierField: "chase_potential_tier",
-    scoreFormat: "decimal",
     description: "Chase score measures the opportunity for landing high-value target cards.",
   },
   averageReturn: {
@@ -208,39 +175,41 @@ export const EXPLORE_RANKING_MODES = {
     tooltip: "Sets ranked by mean simulated pack value compared against pack cost.",
     scoreLabel: "EV VS COST",
     tierLabel: "TIER",
+    scoreKind: SCORE_KIND_RATIO,
     scoreField: "mean_value_to_cost_ratio",
     rankField: "mean_value_to_cost_rank",
     tierField: "mean_value_to_cost_tier",
-    scoreFormat: "ratio",
     description: "Expected Value vs Cost shows the mean value-to-cost ratio across all simulated packs.",
   },
   upside: {
     id: "upside",
     label: "Biggest Upside",
     title: "Biggest Upside",
-    subtitle: "Sets ranked by blended ceiling quality using Strong Upside (P95) and Jackpot Upside (Top 1% / P99).",
-    tooltip: "Sets ranked by blended ceiling quality using Strong Upside (P95) and Jackpot Upside (Top 1% / P99). This is separate from either individual upside metric.",
+    subtitle: "Sets ranked by blended ceiling quality using both the P95 and the top-1% thresholds.",
+    tooltip: "Sets ranked by blended ceiling quality using both the P95 and the top-1% thresholds. This is a blend and is separate from Strong Upside and from Jackpot Upside, each of which is a single threshold value.",
     scoreLabel: "BIGGEST UPSIDE",
     tierLabel: "TIER",
+    scoreKind: SCORE_KIND_INDEX,
     scoreField: "relative_biggest_upside_score",
     rankField: "biggest_upside_rank",
     tierField: "biggest_upside_tier",
-    scoreFormat: "decimal",
-    description: "Biggest Upside blends P95 and P99 value-to-cost ratios so broad high-end strength matters more than a single extreme spike.",
+    description: "Biggest Upside blends the P95 and top-1% value-to-cost ratios so broad high-end strength matters more than a single extreme spike.",
   },
-  godPullUpside: {
-    id: "godPullUpside",
+  jackpotUpside: {
+    id: "jackpotUpside",
     label: "Jackpot Upside",
     title: "Jackpot Upside",
-    subtitle: "Ranks sets by the P99 simulated outcome compared with pack cost.",
-    tooltip: "Ranks sets by the 99th percentile simulated outcome compared with pack cost. This represents rare tail upside, not a likely pack result.",
-    scoreLabel: "GOD PULL UPSIDE",
+    subtitle: "Ranks sets by the top-1% simulated outcome compared with pack cost.",
+    tooltip: "Ranks sets by the top-1% (99th percentile) simulated outcome compared with pack cost. This represents rare tail upside, not a likely pack result.",
+    // Was "GOD PULL UPSIDE", which is a third name for a metric the locked
+    // vocabulary calls Jackpot Upside. The mode id moved with it.
+    scoreLabel: "JACKPOT UPSIDE",
     tierLabel: "TIER",
+    scoreKind: SCORE_KIND_RATIO,
     scoreField: "p99_value_to_cost_ratio",
     rankField: "p99_value_to_cost_rank",
     tierField: "p99_value_to_cost_tier",
-    scoreFormat: "ratio",
-    description: "Jackpot Upside ranks the top-1% threshold (P99) relative to pack cost to focus on rare tail upside.",
+    description: "Jackpot Upside ranks the top-1% threshold relative to pack cost to focus on rare tail upside.",
   },
 };
 
@@ -248,8 +217,24 @@ export function getModeConfig(modeId) {
   return EXPLORE_RANKING_MODES[modeId] || EXPLORE_RANKING_MODES.overall;
 }
 
+export function getScoreKind(modeId) {
+  return getModeConfig(modeId).scoreKind || SCORE_KIND_INDEX;
+}
+
+export function isPublicScoreMode(modeId) {
+  return getScoreKind(modeId) === SCORE_KIND_PUBLIC;
+}
+
+/**
+ * The one score field for a mode, whatever kind it is.
+ *
+ * A `publicScore` mode reads `publicScoreField`; every other mode reads
+ * `scoreField`. There is exactly one field per mode either way, so no caller
+ * can pick between an absolute and a relative reading of the same column.
+ */
 export function getScoreField(modeId) {
-  return getModeConfig(modeId).scoreField;
+  const config = getModeConfig(modeId);
+  return config.publicScoreField || config.scoreField || null;
 }
 
 export function getRankField(modeId) {
@@ -262,25 +247,6 @@ export function getTierField(modeId) {
 
 export function getScoreForMode(target, modeId) {
   return toNumber(getFieldValue(target, getScoreField(modeId)));
-}
-
-export function getAbsoluteScoreField(modeId) {
-  const config = getModeConfig(modeId);
-  return config.absoluteScoreField || config.scoreField || null;
-}
-
-export function getRelativeScoreField(modeId) {
-  return getModeConfig(modeId).relativeScoreField || null;
-}
-
-export function getAbsoluteScoreForMode(target, modeId) {
-  const field = getAbsoluteScoreField(modeId);
-  return field ? toNumber(getFieldValue(target, field)) : null;
-}
-
-export function getRelativeScoreForMode(target, modeId) {
-  const field = getRelativeScoreField(modeId);
-  return field ? toNumber(getFieldValue(target, field)) : null;
 }
 
 export function getRankForMode(target, modeId) {
@@ -308,15 +274,26 @@ export function getTierForMode(target, modeId) {
   return value === null || value === undefined ? null : String(value);
 }
 
-export function formatModeScore(value, format = "decimal") {
+/**
+ * Format a mode's score BY ITS DECLARED KIND, never by a caller's guess.
+ *
+ * A ratio prints as `1.4x`; a public score and a plain index both print to one
+ * decimal. The `/100` suffix is NOT added here — it is a separate element in the
+ * cell so it can be styled and so only a `publicScore` mode ever receives one.
+ */
+export function formatModeScore(value, scoreKind = SCORE_KIND_INDEX) {
   const num = toNumber(value);
   if (num === null) {
     return "—";
   }
 
-  if (format === "ratio") {
+  if (scoreKind === SCORE_KIND_RATIO) {
     return `${num.toFixed(1)}x`;
   }
 
   return num.toFixed(1);
+}
+
+export function formatScoreForMode(target, modeId) {
+  return formatModeScore(getScoreForMode(target, modeId), getScoreKind(modeId));
 }

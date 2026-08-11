@@ -162,32 +162,18 @@ def publication_contract(row):
             f"ranked cohort size {len(targets)} does not match the authoritative supported "
             f"cohort of {supported['count']} sets"
         )
-    # TRANSITIONAL, and deliberately retained until migration 061 is applied to
-    # production. Migration 054's RPC counts ranked targets by the LEGACY
-    # `rip.rank` (Overall RIP v4), so until 061 lands its predicate must select
-    # the same rows this publisher does. Checked HERE so a divergence surfaces as
-    # a named precondition rather than an opaque Postgres exception thrown from
-    # inside a transaction.
+    # The transitional legacy-cohort precondition stood here. It required the
+    # Overall RIP v4 ranked cohort to match the canonical V7 one, because
+    # migration 054's RPC counted ranked targets by `rip.rank` and would
+    # otherwise have thrown an opaque exception from inside the transaction.
     #
-    # Migration 061 repoints the RPC at `overallRipV7.rank`, after which this
-    # check is redundant - but it is also harmless (the two cohorts coincide
-    # today), and removing it BEFORE 061 is applied would remove the only thing
-    # standing between a legitimate v4/v7 divergence and that opaque failure.
-    legacy_ranked_ids = {
-        str(target.get("set_id") or target.get("target_id"))
-        for target in all_targets
-        if _ranked(target, "rip")
-    }
-    canonical_ranked_ids = {
-        str(target.get("set_id") or target.get("target_id")) for target in targets
-    }
-    if legacy_ranked_ids != canonical_ranked_ids:
-        problems.append(
-            "the Overall RIP V7 ranked cohort and the legacy v4 ranked cohort differ "
-            f"(v7_only={sorted(canonical_ranked_ids - legacy_ranked_ids)}, "
-            f"v4_only={sorted(legacy_ranked_ids - canonical_ranked_ids)}); the publish "
-            "RPC counts ranked targets by rip.rank and would reject this payload"
-        )
+    # Migration 061 repointed the RPC at `overallRipV7.rank` and made it check
+    # `publicRipContractV7.contractVersion` itself; it is applied in production
+    # (the live function body reads `overallRipV7` and no longer contains
+    # `{rip,rank}`). The database is now authoritative about the canonical
+    # cohort, so this check no longer guards anything - it only kept a retired
+    # model load-bearing for a publication that does not consult it.
+    #
     # Both score layers, on every pillar and every weighted component, for every
     # supported set. Reported in full rather than as a count so one rerun fixes
     # everything that is wrong.

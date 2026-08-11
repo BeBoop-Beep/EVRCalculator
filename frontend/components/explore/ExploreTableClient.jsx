@@ -34,13 +34,15 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import {
   EXPLORE_RANKING_MODES,
   getModeConfig,
-  getAbsoluteScoreForMode,
-  getRelativeScoreForMode,
+  getScoreForMode,
+  getScoreKind,
+  isPublicScoreMode,
   getRankForMode,
   getRankedSetCountForMode,
   getTierForMode,
   formatModeScore,
 } from "@/constants/exploreRankingConfig";
+import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
 import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
@@ -69,6 +71,21 @@ const RANKING_MODE_PICKER_ENABLED = false;
 // reinforcement and never the only signal.
 const LEAD_RANK_LIMIT = 3;
 
+/**
+ * Day-over-day RANK movement, and only for the two canonical modes.
+ *
+ * `previousOverallRipRank1d` / `previousFinancialRipRank1d` are produced by
+ * `attach_daily_rip_rank_movements` in the backend snapshot builder, which now
+ * reads the previous day's **Overall RIP V7** and **Financial RIP V3** ranks and
+ * refuses to emit anything when the two snapshots were built under different
+ * scoring versions. Before that fix it read the previous day's Overall RIP v4
+ * and Financial RIP V2 ranks, and this function subtracted them from the current
+ * V7/V3 rank — so a set whose V7 rank had not moved at all could still render
+ * "↑2" purely because v4 disagreed with V7 about where it belonged.
+ *
+ * Every other mode is `unavailable`: no other lens has a published previous
+ * rank, and inventing one from a different model is exactly the defect above.
+ */
 function getRipMovementForMode(target, modeId, currentRank) {
   if (modeId === "overall") {
     return formatRankMovement(
@@ -119,11 +136,6 @@ function formatPercent(value, probability = false) {
   return `${normalized.toFixed(1)}%`;
 }
 
-function formatRelative(value) {
-  const parsed = toNumber(value);
-  return parsed === null ? null : parsed.toFixed(1);
-}
-
 /**
  * Cohort size is stated once per module (the "N ranked sets" line), so the
  * per-cell rank stays a bare "#4" unless a caller explicitly asks for the
@@ -164,13 +176,18 @@ function buildRipLink(target) {
 // would be a second, unscored opinion.
 
 /**
- * Read the authoritative absolute / relative / rank / cohort quartet for one
- * mode from a target. Never derives a score; only reads backend fields.
+ * Read the ONE score a mode declares, plus its rank and cohort denominator.
+ *
+ * There is a single score field per mode now (see exploreRankingConfig), so
+ * this can no longer hand a caller two differently-scaled candidates and let it
+ * choose. `kind` travels with the value so the cell formats and suffixes it
+ * correctly instead of assuming every column is a 0-100 public score.
  */
 function readModeScore(target, modeId) {
   return {
-    absolute: getAbsoluteScoreForMode(target, modeId),
-    relative: getRelativeScoreForMode(target, modeId),
+    value: getScoreForMode(target, modeId),
+    kind: getScoreKind(modeId),
+    isPublic: isPublicScoreMode(modeId),
     rank: getRankForMode(target, modeId),
     cohort: getRankedSetCountForMode(target, modeId),
   };
@@ -184,34 +201,30 @@ function readModeScore(target, modeId) {
  */
 const RankColumnModeContext = createContext(null);
 
-// Tooltip explaining what the displayed score means.
 const RELATIVE_SCORE_TOOLTIP =
   "Relative scores standardize each set against the current eligible cohort on a 0–100 scale.";
 
 /**
  * Desktop score cell.
  *
- * The RELATIVE score is the public number and the ONLY score shown; "#rank" is
- * the small supporting line beneath it. The raw formula output (the "model
- * score") is intentionally not displayed — it is an internal quantity that
- * meant nothing to readers next to the standardized score. It is still read
- * from the backend because ratio-only and legacy-relative modes expose no
- * relative field and fall back to it as their single displayed score. A null
- * primary renders an explicit Unavailable state, never a fabricated zero.
+ * ONE FIELD, FORMATTED BY ITS DECLARED KIND.
+ *
+ * This cell used to read a relative field and an absolute field and render
+ * whichever existed — so the same column, with the same styling, held a
+ * cohort-relative 0-100 public score for RIP Score and Financial RIP, and a
+ * fixed-anchor or ratio value for every other mode, with nothing on screen
+ * distinguishing them. `readModeScore` now returns one value and its `kind`.
+ *
+ * Only a `publicScore` mode gets the `/100` suffix and the scale tooltip;
+ * a ratio prints `1.4x`; a plain index prints a bare number. A null value
+ * renders an explicit Unavailable state, never a fabricated zero and never a
+ * substitute from another scale.
  */
 function ScoreCell({ target, modeId }) {
-  const config = getModeConfig(modeId);
   const rankColumnMode = useContext(RankColumnModeContext);
-  const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
+  const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 
-  const hasRelative = relative !== null;
-  const primaryText = hasRelative
-    ? formatRelative(relative)
-    : absolute === null
-    ? null
-    : formatModeScore(absolute, config?.scoreFormat);
-
-  if (primaryText === null) {
+  if (value === null) {
     return (
       <span className="text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>
     );
@@ -221,8 +234,16 @@ function ScoreCell({ target, modeId }) {
     rankColumnMode === modeId ? null : formatRankText(rank, cohort, { withCohort: false });
 
   return (
-    <div className="flex min-w-0 flex-col items-end leading-tight" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
-      <span className="text-[14px] font-semibold text-[var(--text-primary)]">{primaryText}</span>
+    <div
+      className="flex min-w-0 flex-col items-end leading-tight"
+      title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}
+    >
+      <span className="text-[14px] font-semibold text-[var(--text-primary)]">
+        {formatModeScore(value, kind)}
+        {isPublic ? (
+          <span className="pl-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
+        ) : null}
+      </span>
       {rankText !== null ? (
         <span className="mt-0.5 truncate text-[10px] text-[var(--text-secondary)]">{rankText}</span>
       ) : null}
@@ -231,34 +252,29 @@ function ScoreCell({ target, modeId }) {
 }
 
 /**
- * Mobile score block: labelled family (Overall / Financial). Preserves the same
- * hierarchy as desktop — RELATIVE score prominent, "#rank" as the small
- * supporting value, no model score. Financial is never hidden on mobile. No
- * border per metric: the label carries the meaning, the shared row carries the
- * frame.
+ * Mobile score block: labelled family (RIP Score / Financial RIP). Same
+ * one-field-by-kind contract as the desktop cell, same suffix rule, same
+ * unavailable state. Financial is never hidden on mobile. No border per metric:
+ * the label carries the meaning, the shared row carries the frame.
  */
 function MobileScoreBlock({ target, modeId, label }) {
-  const config = getModeConfig(modeId);
   const rankColumnMode = useContext(RankColumnModeContext);
-  const { absolute, relative, rank, cohort } = readModeScore(target, modeId);
+  const { value, kind, isPublic, rank, cohort } = readModeScore(target, modeId);
 
-  const hasRelative = relative !== null;
-  const primaryText = hasRelative
-    ? formatRelative(relative)
-    : absolute === null
-    ? null
-    : formatModeScore(absolute, config?.scoreFormat);
   const rankText =
     rankColumnMode === modeId ? null : formatRankText(rank, cohort, { compact: true, withCohort: false });
 
   return (
-    <div className="min-w-0" title={hasRelative ? RELATIVE_SCORE_TOOLTIP : undefined}>
+    <div className="min-w-0" title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}>
       <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">{label}</div>
-      {primaryText === null ? (
+      {value === null ? (
         <div className="mt-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</div>
       ) : (
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[10px] text-[var(--text-secondary)]">
-          <span className="text-[13px] font-semibold text-[var(--text-primary)]">{primaryText}</span>
+          <span className="text-[13px] font-semibold text-[var(--text-primary)]">
+            {formatModeScore(value, kind)}
+            {isPublic ? <span className="pl-0.5 text-[9px] font-medium text-[var(--text-secondary)]">/100</span> : null}
+          </span>
           {rankText !== null ? <span>{rankText}</span> : null}
         </div>
       )}
@@ -270,9 +286,10 @@ function MobileScoreBlock({ target, modeId, label }) {
  * Sort targets by the selected ranking mode.
  *
  * Contract (Phase 2): canonical rank → relative score → absolute score → name.
- * Nulls always sort last within each tier. The rank, relative, and absolute
- * fields all come from the SAME mode config, so the displayed rank/cohort and
- * the sort key describe one cohort and one score version.
+ * Contract: canonical rank → the mode's one score field → name. Nulls always
+ * sort last within each tier. The rank and score fields come from the SAME mode
+ * config, so the displayed rank/cohort and the sort key describe one cohort and
+ * one score version.
  */
 function compareRankAsc(left, right) {
   if (left !== null && right !== null) {
@@ -312,20 +329,14 @@ function sortTargetsByMode(targets, modeId) {
       }
     }
 
-    const relativeCmp = compareScoreDesc(
-      getRelativeScoreForMode(left, modeId),
-      getRelativeScoreForMode(right, modeId)
+    // One score field per mode, so there is one tiebreak rather than a
+    // relative-then-absolute chain that mixed two scales in one ordering.
+    const scoreCmp = compareScoreDesc(
+      getScoreForMode(left, modeId),
+      getScoreForMode(right, modeId)
     );
-    if (relativeCmp !== 0) {
-      return relativeCmp;
-    }
-
-    const absoluteCmp = compareScoreDesc(
-      getAbsoluteScoreForMode(left, modeId),
-      getAbsoluteScoreForMode(right, modeId)
-    );
-    if (absoluteCmp !== 0) {
-      return absoluteCmp;
+    if (scoreCmp !== 0) {
+      return scoreCmp;
     }
 
     return String(left?.name || "").localeCompare(String(right?.name || ""));

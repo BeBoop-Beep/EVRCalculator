@@ -32,7 +32,7 @@ test("bare and invalid set tabs resolve to the overview-backed RIP destination",
 });
 
 test("market is a canonical set-detail tab, not an overview alias", () => {
-  assert.ok(source.includes('new Set(["overview", "market", "cards", "pull-rates", "insights"])'));
+  assert.ok(source.includes('new Set(["overview", "market", "cards", "pull-rates"])'));
   assert.equal(resolveSetDetailTab("market"), "market");
   assert.equal(resolveSetDetailTab("MARKET"), "market");
   assert.ok(!source.includes('market: "overview"'), "market must never alias back to overview/RIP");
@@ -40,7 +40,7 @@ test("market is a canonical set-detail tab, not an overview alias", () => {
 
 test("every canonical tab round-trips through the set href builder", () => {
   const target = { target_type: "set", target_id: "uuid-1", name: "Ascended Heroes" };
-  for (const tab of ["overview", "market", "cards", "pull-rates", "insights"]) {
+  for (const tab of ["overview", "market", "cards", "pull-rates"]) {
     assert.equal(
       buildTcgSetHrefFromTarget(target, { tab }),
       `/TCGs/Pokemon/Sets/ascended-heroes?tab=${tab}`,
@@ -52,13 +52,13 @@ test("every canonical tab round-trips through the set href builder", () => {
 
 test("legacy routes and user-facing aliases remain compatible", () => {
   assert.ok(source.includes('rip: "overview"'));
-  assert.ok(source.includes('analysis: "insights"'));
-  assert.ok(source.includes('analytics: "insights"'));
-  assert.equal(resolveSetDetailTab("analysis"), "insights");
-  assert.equal(resolveSetDetailTab("analytics"), "insights");
+  assert.ok(source.includes('analysis: "overview"'));
+  assert.ok(source.includes('analytics: "overview"'));
+  assert.equal(resolveSetDetailTab("analysis"), "overview");
+  assert.equal(resolveSetDetailTab("analytics"), "overview");
   // Existing indexed URLs must keep working untouched.
   assert.equal(resolveSetDetailTab("overview"), "overview");
-  assert.equal(resolveSetDetailTab("insights"), "insights");
+  assert.equal(resolveSetDetailTab("insights"), "overview");
   assert.equal(resolveSetDetailTab("cards"), "cards");
   assert.equal(resolveSetDetailTab("pull-rates"), "pull-rates");
 });

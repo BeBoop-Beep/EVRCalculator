@@ -71,6 +71,10 @@ const V3_FIXTURE = {
     base_economic_efficiency: 0.05,
   } } },
   score: 46.8,
+  absoluteScore: 46.8,
+  // Deliberately different from the absolute so an assertion can tell which
+  // layer a surface read.
+  relativeScore: 79.4,
   scoreVersion: "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
   normalizationVersion: "financial_rip_v3_fixed_absolute_piecewise_v1",
   status: "ready",
@@ -80,6 +84,7 @@ const V3_FIXTURE = {
   components: {
     true_win_frequency: {
       score: 32.4,
+      relativeScore: 58.2,
       rank: 6,
       tier: "B",
       cohortSize: 21,
@@ -87,6 +92,7 @@ const V3_FIXTURE = {
     },
     typical_retention: {
       score: 24.1,
+      relativeScore: 41.0,
       rank: 9,
       tier: "C",
       cohortSize: 21,
@@ -94,6 +100,7 @@ const V3_FIXTURE = {
     },
     loss_resilience: {
       score: 30.7,
+      relativeScore: 52.6,
       rank: 7,
       tier: "B",
       cohortSize: 21,
@@ -107,6 +114,7 @@ const V3_FIXTURE = {
     },
     realistic_upside: {
       score: 61.9,
+      relativeScore: 88.1,
       rank: 3,
       tier: "A",
       cohortSize: 21,
@@ -119,6 +127,7 @@ const V3_FIXTURE = {
     },
     jackpot_upside: {
       score: 74.2,
+      relativeScore: 93.7,
       rank: 2,
       tier: "S",
       cohortSize: 21,
@@ -131,6 +140,7 @@ const V3_FIXTURE = {
     },
     base_economic_efficiency: {
       score: 41.0,
+      relativeScore: 66.5,
       rank: 5,
       tier: "B",
       cohortSize: 21,
@@ -177,8 +187,11 @@ test("the six V3 cards are defined in the specified order", () => {
     "Win Frequency",
     "Typical Retention",
     "Loss Resilience",
-    "Strong Upside",
-    "Jackpot Upside",
+    // NOT the bare "Strong Upside" / "Jackpot Upside". Those are PUBLIC OUTCOME
+    // METRICS with locked dollar definitions (the P95 and top-1% thresholds); a
+    // normalized 0-100 component index must not share their names.
+    "Strong Upside Quality",
+    "Jackpot Upside Quality",
     "Base Economic Efficiency",
   ]);
 });
@@ -261,7 +274,7 @@ test("raw dollar values and ratios reach the rendered rows", () => {
   assert.equal(typical[0].value, "$1.20");
   assert.equal(typical[1].value, "24.1%");
 
-  const jackpot = byTitle.get("Jackpot Upside").metrics;
+  const jackpot = byTitle.get("Jackpot Upside Quality").metrics;
   assert.equal(jackpot[0].value, "$96.00");
   assert.equal(jackpot[1].value, "19.24x");
   assert.equal(jackpot[2].value, "$310.40");
@@ -274,8 +287,9 @@ test("missing data renders as an em dash, never as zero", () => {
   const { rows, diagnostics } = selectFinancialRipV3Breakdown(empty);
   assert.equal(diagnostics.status, "unavailable");
   for (const row of rows) {
-    assert.equal(row.score, null, `${row.title} score must be null, not 0`);
-    assert.equal(row.scoreLabel, "—");
+    assert.equal(row.publicScore, null, `${row.title} public score must be null, not 0`);
+    assert.equal(row.publicScoreLabel, "—");
+    assert.equal(row.headline, "—", `${row.title} headline must be an em dash, not 0`);
     assert.equal(row.available, false);
     for (const metric of row.metrics) {
       assert.equal(metric.value, "—", `${row.title}/${metric.label} must not be 0`);
@@ -323,7 +337,7 @@ test("the V3 selector has no fallback to V2 fields", () => {
 
 test("P95 copy says the top 5% BEGINS at a value — never that it is an average", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const realistic = rows.find((row) => row.title === "Strong Upside");
+  const realistic = rows.find((row) => row.title === "Strong Upside Quality");
   const thresholdRow = realistic.metrics[0];
   assert.equal(thresholdRow.label, "Top 5% begins at");
   assert.doesNotMatch(thresholdRow.label, /average/i);
@@ -333,7 +347,7 @@ test("P95 copy says the top 5% BEGINS at a value — never that it is an average
 
 test("the top-tail conditional mean is worded distinctly from the threshold", () => {
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  const realistic = rows.find((row) => row.title === "Strong Upside");
+  const realistic = rows.find((row) => row.title === "Strong Upside Quality");
   const labels = realistic.metrics.map((metric) => metric.label);
   assert.ok(labels.includes("Top 5% begins at"));
   assert.ok(labels.includes("Average return, 95th–99th percentile"));
@@ -344,7 +358,7 @@ test("the top-tail conditional mean is worded distinctly from the threshold", ()
   ).value;
   assert.notEqual(threshold, mean);
 
-  const jackpot = rows.find((row) => row.title === "Jackpot Upside");
+  const jackpot = rows.find((row) => row.title === "Jackpot Upside Quality");
   const jackpotLabels = jackpot.metrics.map((metric) => metric.label);
   assert.ok(jackpotLabels.includes("Top 1% begins at"));
   assert.ok(jackpotLabels.includes("Average top 1% return"));
@@ -497,7 +511,7 @@ test("financialRipV3 survives every allow-listing layer between API and page", a
   // And the selector renders the object that survived the chain.
   const { rows, diagnostics } = selectFinancialRipV3Breakdown(normalized.financialRipV3);
   assert.equal(diagnostics.status, "ready");
-  assert.equal(rows[0].scoreLabel, "32.4");
+  assert.equal(rows[0].publicScoreLabel, "58.2");
 });
 
 test("mobile and desktop layout contracts are preserved", () => {
