@@ -172,7 +172,7 @@ export default function RipMetricDisclosureRow({
          two sections can lay their rows out on a grid without the dividers
          running into each other between columns. Nothing about the markup, the
          controls or the disclosure wiring changes with width. */
-      className="min-w-0 py-2.5 max-desk:border-b max-desk:border-[var(--border-subtle)] max-desk:last:border-b-0 desk:rounded-xl desk:border desk:border-[var(--border-subtle)] desk:p-3.5"
+      className="min-w-0 rounded-xl border border-[rgba(255,255,255,0.09)] bg-[linear-gradient(145deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.08)] transition-colors hover:border-[rgba(255,255,255,0.15)]"
     >
       <div className="flex min-w-0 items-baseline justify-between gap-3">
         <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
@@ -217,9 +217,7 @@ export default function RipMetricDisclosureRow({
             className="mt-1.5 inline-flex items-center gap-1 rounded text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
             {isOpen ? "Hide details" : "Details"}
-            <span aria-hidden="true" className="text-[9px] leading-none">
-              {isOpen ? "▲" : "▼"}
-            </span>
+            <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m2.5 4.25 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
 
           {/* Unmounted rather than hidden when collapsed, so a screen reader

@@ -60,17 +60,14 @@ function MetricRow({ label, value }) {
  * it did not, the backend's own diagnostic is printed instead of a blank.
  */
 function formatComponentMeta(row) {
-  const weightMeta = row.weight !== null && row.weight !== undefined
-    ? ` · Weight ${(Number(row.weight) * 100).toFixed(0)}%`
-    : "";
   if (row.rankValue === null || row.rankValue === undefined) {
-    return `${row.rankDiagnostic || "Rank unavailable"}${weightMeta}`;
+    return row.rankDiagnostic || "Rank unavailable";
   }
   return [
     `Rank #${row.rankValue}`,
     row.cohortSize ? ` of ${row.cohortSize}` : "",
     row.rankTier ? ` · Tier ${row.rankTier}` : "",
-  ].join("") + weightMeta;
+  ].join("");
 }
 
 // DEPTH AND ROBUSTNESS — CONTEXT, NEVER A SEVENTH COMPONENT.
@@ -103,11 +100,9 @@ function DepthAndRobustnessPanel({ diagnostic }) {
         <span className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
           Depth and robustness
         </span>
-        <span className="flex-none text-[11px] font-medium text-[var(--text-secondary)]">
-          {isOpen ? "Hide" : "Show"}
-          <span aria-hidden="true" className="pl-1 text-[9px] leading-none">
-            {isOpen ? "▲" : "▼"}
-          </span>
+        <span className="inline-flex flex-none items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          {isOpen ? "Hide context" : "View context"}
+          <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m2.5 4.25 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
       </button>
 
@@ -181,7 +176,7 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                 what a phone can actually read. `items-start` lets one expanded
                 card grow without stretching its neighbours, and no cell carries
                 a fixed height, so an expanded panel can never be clipped. */}
-            <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-2.5 md:grid-cols-2 desk:grid-cols-3 desk:gap-3">
               {v3.rows.map((row) => (
                 <RipMetricDisclosureRow
                   key={row.key}

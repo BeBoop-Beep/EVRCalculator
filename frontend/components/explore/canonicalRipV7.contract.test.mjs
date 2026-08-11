@@ -476,14 +476,33 @@ test("no hero surface renders the obsolete interpretation badge or summary", () 
 });
 
 test("\"View analysis\" replaces \"View verdict\" and keeps its navigation target", () => {
+  // The CTA no longer lives inline in the persistent hero shell beside
+  // `data-set-context-rip-helper`. The RIP Summary was extracted into its own
+  // component, and the action went with the summary it belongs to — the copy is
+  // now in OverviewRipSummary.jsx and the page injects the destination as the
+  // `onViewAnalysis` callback. The guarantee under test is unchanged: the label
+  // is "View analysis", never "View verdict", and it still lands on the RIP
+  // Score Breakdown section of the Insights tab.
   const client = readSource("./RipStatisticsPageClient.jsx");
+  const summary = readSource("./OverviewRipSummary.jsx");
+
   assert.equal(client.includes("View verdict"), false);
-  assert.ok(client.includes("View analysis"));
-  const cta = client.slice(client.indexOf("data-set-context-rip-helper"), client.indexOf("View analysis") + 20);
-  assert.ok(
-    cta.includes('handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })'),
-    "the CTA must keep its existing destination"
+  assert.equal(summary.includes("View verdict"), false);
+  assert.ok(summary.includes("View analysis"), "the CTA copy lives with the RIP Summary");
+
+  // Same-set tab navigation must stay a callback, not an <a href> — the set
+  // page owns tab state + router.push + scroll.
+  assert.ok(summary.includes("onClick={onViewAnalysis}"));
+
+  const cta = client.slice(
+    client.indexOf("<OverviewRipSummary"),
+    client.indexOf("/>", client.indexOf("<OverviewRipSummary"))
   );
+  assert.ok(cta.includes("onViewAnalysis={"), "the page must supply the CTA's destination");
+  for (const fragment of ['tab: "insights"', 'section: "rip-score"', 'targetId: "set-detail-rip-score"']) {
+    assert.ok(cta.includes(fragment), `the CTA must keep its existing destination (${fragment})`);
+  }
+  assert.ok(cta.includes("handleSetDetailNavSelect({"), "and must route through the set-detail navigator");
 });
 
 test("the hero selector reads no legacy field in any code path", () => {

@@ -5,7 +5,14 @@ import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
 import RipDistributionChart from "./RipDistributionChart";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
+import InfoPopover from "@/components/ui/InfoPopover";
 import styles from "./RipDecisionPage.module.css";
+
+const RESEARCH_HREF = "/Research";
+
+function Help({ text }) {
+  return <InfoPopover text={text} learnMoreHref={RESEARCH_HREF} learnMoreLabel="Learn more in Research" />;
+}
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
 
@@ -32,7 +39,7 @@ function EvidenceMetric({ metric, index }) {
   const presentation = getRipPageIconPresentation(metric.role, metric.tier);
   return (
     <div data-rip-evidence={metric.key} className={`${styles.whyMetric} py-3 md:px-5 md:first:pl-0 ${index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0" : ""}`}>
-      <dt className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><IconCue name={metric.icon} role={metric.role} tier={metric.tier} className="h-3.5 w-3.5" />{metric.label}</dt>
+      <dt className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><IconCue name={metric.icon} role={metric.role} tier={metric.tier} className="h-3.5 w-3.5" />{metric.label}<Help text={metric.help} /></dt>
       <dd className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="text-2xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{score(metric.score)}</span>{metric.score === null ? null : <span className="text-xs font-medium text-[var(--text-secondary)]">/100</span>}<span className="text-xs tabular-nums text-[var(--text-secondary)]">{metric.rankLabel ? `${metric.rankLabel} ` : ""}{rank(metric.rank, metric.cohortSize)}</span>{metric.tier ? <span className="text-xs font-semibold" style={{ color: presentation.style.color }}>{metric.tier} Tier</span> : null}</dd>
       <dd className={`${styles.driverTrack} mt-2 h-1 w-full overflow-hidden rounded-full bg-[var(--border-subtle)]`}>{metric.score === null ? null : <span className="block h-full rounded-full" style={{ width: `${metric.score}%`, backgroundColor: presentation.style.color }} />}</dd>
     </div>
@@ -61,22 +68,22 @@ export default function RipDecisionPage({ canonical, summary, chaseCards = [], c
   const verdictPresentation = getRipPageIconPresentation("verdict");
   const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : `#${Math.round(model.overall.rank)} Modern Set to Rip Right Now`;
   const evidenceMetrics = [
-    { key: "rip", label: "RIP Score", rankLabel: "RIP Rank", icon: "gauge", role: "overall", tier: model.overall.tier, score: model.overall.publicScore, rank: model.overall.rank, cohortSize: model.overall.cohortSize },
-    { key: "financial", label: "Financial RIP", icon: "shield", role: "financial", tier: null, score: model.financial.publicScore, rank: model.financial.rank, cohortSize: model.financial.cohortSize },
-    { key: "collector", label: "Collector Appeal", icon: "star", role: "collector", tier: null, score: model.collector.publicScore, rank: model.collector.rank, cohortSize: model.collector.cohortSize },
+    { key: "rip", label: "RIP Score", help: "The overall relative ranking score for opening this set, combining opening economics and collector appeal on a 0–100 scale.", rankLabel: "RIP Rank", icon: "gauge", role: "overall", tier: model.overall.tier, score: model.overall.publicScore, rank: model.overall.rank, cohortSize: model.overall.cohortSize },
+    { key: "financial", label: "Financial RIP", help: "Measures opening economics across normal outcomes, downside protection, upside potential, and efficiency.", icon: "shield", role: "financial", tier: null, score: model.financial.publicScore, rank: model.financial.rank, cohortSize: model.financial.cohortSize },
+    { key: "collector", label: "Collector Appeal", help: "Reflects how desirable the set is to collectors, including the strength of its card pool beyond pure opening economics.", icon: "star", role: "collector", tier: null, score: model.collector.publicScore, rank: model.collector.rank, cohortSize: model.collector.cohortSize },
   ];
   const openingMetrics = [
-    ["Expected Value", money(model.expectedValue), "long-run mean"],
-    ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median"],
-    ["Strong Upside", money(p95), "P95 threshold"],
-    ["Jackpot Upside", money(p99), "top-1% threshold"],
+    ["Expected Value", money(model.expectedValue), "long-run mean", "The long-run average return per pack. It is useful for averages, but an average pack is not the same as a typical pack."],
+    ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median", "The median simulated result: half of openings landed above this level and half below it."],
+    ["Strong Upside", money(p95), "P95 threshold", "A meaningfully good outcome at the upper end of non-jackpot results."],
+    ["Jackpot Upside", money(p99), "top-1% threshold", "Rare, exceptional high-end outcomes—not what normally happens."],
   ];
   return (
     <section id="set-detail-overview" data-rip-decision-page className={`${styles.page} scroll-mt-24 space-y-3 md:scroll-mt-28 md:space-y-3.5`}>
       <article data-rip-section="decision" className={`${styles.decision} set-glass-surface rounded-2xl border p-4 md:p-5`}>
         <div className={`${styles.decisionIntro} flex items-start gap-3.5`}><span className="inline-flex h-10 w-10 flex-none"><IconCue name="gauge" role="verdict" contained className="h-5 w-5" /></span><div className="min-w-0"><p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.16em]"><span style={{ color: verdictPresentation.style.color }}>Verdict</span>{model.qualitativeLabel ? <><span aria-hidden="true" className="text-[var(--border-subtle)]">/</span><span data-rip-qualitative-label style={{ color: model.qualitativeLabel.color || undefined }}>{model.qualitativeLabel.label}</span></> : null}</p><h1 className={`${styles.headline} mt-1 max-w-4xl text-3xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] md:text-[2.25rem]`}>{headline}</h1><p className="mt-1.5 max-w-4xl text-sm leading-snug text-[var(--text-secondary)] md:text-base">{model.verdict}</p></div></div>
         <div data-rip-section="why-it-ranks" className="mt-4 border-t border-[var(--border-subtle)] pt-4">
-          <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks</h2>
+          <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks <Help text="This set’s overall opening verdict, based on RIP Score, Financial RIP, and Collector Appeal relative to other ranked sets." /></h2>
           <dl className={`${styles.whyGrid} mt-2 grid md:grid-cols-3`}>
             {evidenceMetrics.map((metric, index) => <EvidenceMetric key={metric.key} metric={metric} index={index} />)}
           </dl>
@@ -85,10 +92,10 @@ export default function RipDecisionPage({ canonical, summary, chaseCards = [], c
       </article>
 
       <article id="set-detail-outcome-distribution" data-rip-section="simulation-evidence" className="set-glass-surface min-w-0 scroll-mt-24 rounded-2xl border p-4 md:scroll-mt-28 md:p-5">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">What Do the Simulated Openings Actually Look Like?</h2>
+        <h2 className="flex items-center gap-2 text-xl font-semibold text-[var(--text-primary)]">What Do the Simulated Openings Actually Look Like? <Help text="This modeled pack-return distribution shows typical outcomes, better-than-normal results, and how often value reaches key thresholds." /></h2>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">The modeled return distribution, with today&apos;s pack price plotted on the same value axis.</p>
         <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--border-subtle)] lg:grid-cols-4">
-          {openingMetrics.map(([label, value, helper]) => <div key={label} className="min-w-0 bg-[var(--surface-panel)] p-3"><dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</dt><dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd><dd className="text-[11px] text-[var(--text-secondary)]">{helper}</dd></div>)}
+          {openingMetrics.map(([label, value, helper, help]) => <div key={label} className="min-w-0 bg-[var(--surface-panel)] p-3"><dt className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}<Help text={help} /></dt><dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd><dd className="text-[11px] text-[var(--text-secondary)]">{helper}</dd></div>)}
         </dl>
         <div className="mt-4 min-w-0">
           {distributionBins.length || thresholdBins.length ? <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush /> : <p className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">{simulationPending ? "Loading simulated opening evidenceâ€¦" : "Outcome distribution data is not available for this set yet."}</p>}
@@ -97,10 +104,10 @@ export default function RipDecisionPage({ canonical, summary, chaseCards = [], c
       </article>
 
       <article id="set-detail-financial-rip" data-rip-section="financial-evidence" className="set-glass-surface min-w-0 scroll-mt-24 rounded-2xl border p-4 md:scroll-mt-28 md:p-5">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">Why Financial RIP Scores This Way</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">The canonical factors below show their production weights so their relative importance is explicit.</p>
+        <h2 className="flex items-center gap-2 text-xl font-semibold text-[var(--text-primary)]">Why Financial RIP Scores This Way <Help text="These factors explain the kinds of opening economics that make a set stronger or weaker as an opening option." /></h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">These factors highlight the main opening-economics signals used to evaluate Financial RIP.</p>
         <div className="mt-4"><FinancialRipV3Breakdown canonical={canonical} requestTimeout={false} /></div>
-        <a href={methodologyHref} className={`${styles.cta} mt-4 inline-flex min-h-9 items-center text-sm font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]`}>View methodology â†’</a>
+        <a href={methodologyHref} className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-semibold text-[var(--accent)] transition-colors hover:border-[var(--accent)] hover:bg-[rgba(255,255,255,0.03)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">View methodology <span aria-hidden="true">→</span></a>
       </article>
 
       <div className={`${styles.lowerGrid} grid gap-5 lg:grid-cols-2 lg:items-start`}>

@@ -305,6 +305,85 @@ test("ordinary public components never touch absoluteScore themselves", () => {
   assert.deepEqual(offenders, [], "these files read absoluteScore outside the canonical readers");
 });
 
+test("no public surface renders an exact model weight or contribution share", () => {
+  // THE LOCKED PUBLIC CONTRACT: the normal product names what a metric measures
+  // and how it ranks. It never publishes the model's composition — because a
+  // weight vector over a weighted sum IS the formula, and a contribution in
+  // model points is that formula evaluated. Both stay internal.
+  //
+  // Weights remain valid and unchanged in backend model configuration, in the
+  // calculations, in `audit.weights.weights` on the served object, in tests and
+  // in comments. This walks the RENDERABLE frontend only.
+  //
+  // The regression this exists to catch: `formatComponentMeta` appended
+  // "· Weight 25%" to every Financial RIP component's rank line, because the
+  // public row model carried the weight as a plain field.
+  const RENDERED_WEIGHT = [
+    /\bWeight \d/, //            "Weight 25%"
+    /\bWeight[:=] ?\{/, //       "Weight {value}"
+    /\bWeight \$\{/, //          `Weight ${...}`
+    /\d\s*% weight\b/i, //       "25% weight"
+    /\bweighted \d+\s*%/i, //    "weighted 25%"
+    /\bContributes \d/i, //      "Contributes 12 points"
+    /\bcontributionPercent\b/,
+    /\bweightLabel\b/,
+    /\bweightPct\b/,
+    /\bformatWeight\b/,
+  ];
+
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "node_modules" || entry.name === ".next") continue;
+        walk(full);
+        continue;
+      }
+      if (!/\.(jsx?|mjs)$/.test(entry.name)) continue;
+      if (entry.name.includes(".test.")) continue;
+      // Prose legitimately names the removed labels while explaining why they
+      // were removed, so this reads executable code only.
+      const code = fs
+        .readFileSync(full, "utf8")
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .filter((line) => {
+          const trimmed = line.trimStart();
+          return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+        })
+        .join("\n");
+      for (const pattern of RENDERED_WEIGHT) {
+        if (pattern.test(code)) offenders.push(`${path.relative(here, full)} [${pattern}]`);
+      }
+    }
+  };
+  for (const root of ["..", "../../app", "../../lib", "../../constants", "../../hooks"]) {
+    const resolved = path.resolve(here, root);
+    if (fs.existsSync(resolved)) walk(resolved);
+  }
+  assert.deepEqual(offenders, [], "these files render an exact weight or contribution share");
+});
+
+test("the public metric view models carry no weight a component could render", () => {
+  // Belt to the previous test's braces: even if no file renders a weight today,
+  // a weight sitting on the object handed to the render layer is one property
+  // access away from being rendered tomorrow.
+  const financial = selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(CANONICAL));
+  const appeal = selectCollectorAppealBreakdown(CANONICAL);
+
+  for (const [name, view] of [["Financial RIP", financial], ["Collector Appeal", appeal]]) {
+    for (const field of ["weight", "weights", "contribution", "contributionPoints"]) {
+      assert.equal(field in view, false, `${name} must not expose \`${field}\``);
+    }
+    for (const row of view.rows || []) {
+      for (const field of ["weight", "weights", "contribution", "contributionPoints"]) {
+        assert.equal(field in row, false, `${name} / ${row.title || row.key} must not expose \`${field}\``);
+      }
+    }
+  }
+});
+
 test("a payload with only the model score renders unavailable, never the model score", () => {
   const absoluteOnly = {
     publicRipContractV7: {

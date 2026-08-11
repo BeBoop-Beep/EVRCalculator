@@ -1067,12 +1067,18 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
-    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and does not receive a separate RIP Score weight of its own.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and is not scored separately in the RIP Score.",
   // The trailing sentence used to read "It contributes 20% to Overall RIP,
   // alongside Financial RIP at 80%." That published a composition weight — and
   // published the WRONG one, since the canonical blend is 0.90 Financial RIP +
   // 0.10 Collector Appeal. No public surface states a weight, a contribution
   // or a split, so the claim is removed rather than corrected to 90/10.
+  //
+  // The replacement wording went one step further: it used to end "...does not
+  // receive a separate RIP Score weight of its own". That named no percentage,
+  // but it still described the model's composition in weighting language inside
+  // a public tooltip. It now states the same fact — Set Desirability is not one
+  // of the scored public metrics — without invoking weights at all.
   "Collector Appeal":
     "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices.",
   // Legacy key kept only for stale render paths. Its wording is Set

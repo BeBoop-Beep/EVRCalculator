@@ -248,10 +248,27 @@ test("there is no model toggle: Financial RIP means V3 and nothing else", () => 
 
 // --- No visible weights -----------------------------------------------------
 
-test("V3 component weights come from the authoritative audit definition", () => {
+test("V3 component weights stay in the audit definition and never reach a public row", () => {
+  // The weights are unchanged and still authoritative. They travel on the
+  // backend object under `audit.weights.weights`, which is where audit,
+  // Research and this test read them.
+  assert.deepEqual(
+    Object.values(V3_FIXTURE.audit.weights.weights),
+    [0.25, 0.20, 0.15, 0.25, 0.10, 0.05]
+  );
+
+  // What changed is that the PUBLIC row model no longer carries one. These rows
+  // are handed straight to the render layer, so a `weight` property on them is
+  // one property access away from any render site — which is exactly how
+  // `formatComponentMeta` came to print "· Weight 25%" beside a rank.
   const { rows } = selectFinancialRipV3Breakdown(V3_FIXTURE);
-  assert.deepEqual(rows.map((row) => row.weight), [0.25, 0.20, 0.15, 0.25, 0.10, 0.05]);
-  assert.match(componentSource, /Weight/);
+  for (const row of rows) {
+    assert.equal("weight" in row, false, `${row.title} must not carry a weight`);
+    assert.equal("contribution" in row, false, `${row.title} must not carry a contribution`);
+  }
+
+  // And nothing renders a weight or a composition share.
+  assert.doesNotMatch(stripComments(componentSource), /Weight/);
   assert.doesNotMatch(stripComments(componentSource), /of Overall RIP/);
 });
 

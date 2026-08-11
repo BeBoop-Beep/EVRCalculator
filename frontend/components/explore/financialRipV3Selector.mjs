@@ -34,11 +34,23 @@
 // RELATIVE one, which is exactly how "Financial Quality" and "Financial RIP"
 // ended up printing two different numbers for one model on one page.
 //
-// CANONICAL WEIGHTS
-// -----------------
-// The six production weights travel in the contract's audit block. Normal
-// surfaces may display those values to communicate component importance, but
-// never infer, renormalize or replace a missing weight locally.
+// CANONICAL WEIGHTS — INTERNAL, NEVER PUBLISHED
+// ---------------------------------------------
+// The six production weights travel in the contract's audit block and are
+// authoritative there. Normal surfaces must NOT display them: Financial RIP is
+// a weighted sum, so a published weight vector is the formula itself, and a
+// published contribution is that formula evaluated. Weights stay in the backend
+// model configuration, in the audit block, in tests and in Research's
+// methodology data structures.
+//
+// Consequently the rows this selector returns carry no `weight` field at all.
+// A weight sitting on the public view model is one property access away from a
+// render site — which is precisely how the component meta line came to print
+// "· Weight 25%" beside each rank. Nothing about the weights or the scoring
+// mathematics changed; only their reachability from the render layer did.
+//
+// Research may explain what the components measure, how they normalize and what
+// they assume, without publishing the exact percentages.
 
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
@@ -300,7 +312,6 @@ export const FINANCIAL_RIP_V3_CARD_ORDER = V3_CARDS.map((card) => card.title);
 export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {}) {
   const safe = toObject(financialRipV3);
   const components = toObject(safe.components);
-  const configuredWeights = toObject(toObject(toObject(safe.audit).weights).weights);
   const requestTimeout =
     options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
 
@@ -349,14 +360,22 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       cohortSize: toOptionalNumber(component.rankedSetCount ?? component.cohortSize),
       interpretation: card.interpretation,
       metrics: card.metrics(raw),
-      weight: toOptionalNumber(configuredWeights[card.snakeKey] ?? configuredWeights[card.key]),
       // Availability is decided by the PUBLIC score, so a row carrying only the
       // fixed-anchor model score renders unavailable rather than taking a
       // public slot with a differently-scaled number.
       available: scores.publicAvailable,
-      // Weight is intentionally absent from the row. It is not rendered, so it
-      // is not selected — a field the UI does not read is a field that can only
-      // go stale.
+      // WEIGHT IS INTENTIONALLY ABSENT FROM THE ROW.
+      //
+      // These rows are the public view model handed straight to the render
+      // layer, and the locked public contract is that no public metric
+      // component carries a visible exact weight. Carrying the weight here
+      // anyway is what let `formatComponentMeta` print "· Weight 25%" beside a
+      // rank: the field was one property access away from any render site.
+      //
+      // The weights are unchanged and still authoritative — they live on the
+      // backend model configuration and travel on this same object under
+      // `audit.weights.weights`, which audit, Research and tests read directly.
+      // What is removed is the public row's ability to hand one to a component.
       rankDiagnostic:
         rank === UNAVAILABLE
           ? requestTimeout
