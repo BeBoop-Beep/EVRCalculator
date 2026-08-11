@@ -35,6 +35,7 @@ import PublicProfileLocalScaffold from "@/components/Profile/PublicProfileLocalS
 import InterpretationInsight from "@/components/explore/InterpretationInsight";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
+import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
@@ -79,6 +80,7 @@ import { selectRipScoreBreakdown } from "./ripScoreBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
+import RipDecisionPage from "./RipDecisionPage.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -219,7 +221,7 @@ const SECTION_SCROLL_ORDER = [
   { sectionId: "explore-drivers", navId: "top-ev-drivers" },
   { sectionId: "explore-rarity", navId: "rarity-contribution" },
 ];
-const SET_DETAIL_DEFAULT_TAB = "cards";
+const SET_DETAIL_DEFAULT_TAB = "overview";
 const SET_DETAIL_TABS = new Set(["overview", "cards", "pull-rates", "insights"]);
 // No set-detail tab renders content sourced from the full set /page snapshot
 // anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
@@ -273,6 +275,8 @@ const SET_PREFETCH_ADJACENT_LIMIT = 0;
 const INSIGHTS_PENDING_TIMEOUT_MS = 8000;
 const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 const SET_DETAIL_TAB_ALIASES = {
+  rip: "overview",
+  analysis: "insights",
   analytics: "insights",
   market: "overview",
 };
@@ -3686,7 +3690,7 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
                 } ${mobileEmphasisClass}`}
               >
-                <span className="block truncate">{option.label}</span>
+                <span className="flex min-w-0 items-center justify-center gap-1.5">{option.icon ? <SetPageIcon name={option.icon} className="h-3.5 w-3.5 flex-none" /> : null}<span className="truncate">{option.label}</span></span>
               </button>
             );
           })}
@@ -10777,6 +10781,16 @@ export default function RipStatisticsPageClient({
     cardsPageState.setId === resolvedSetResourceId
       ? cardsPageState
       : { status: "idle", setId: resolvedSetResourceId, scopeKey: null, page: 1, cards: [], pagination: null, filters: null, meta: null, error: null };
+  const authoritativeSetCardCount =
+    toNumber(activeCardsPageState.pagination?.totalCards) > 0
+      ? toNumber(activeCardsPageState.pagination?.totalCards)
+      : toNumber(
+          selectedTarget?.card_count ??
+            selectedTarget?.cardCount ??
+            selectedTarget?.checklist_set_value_total_card_count ??
+            selectedTarget?.checklistSetValueTotalCardCount ??
+            summary?.simulated_set_value_card_count
+        );
   const effectiveCardsPageCards = activeCardsPageState.cards.length > 0 ? activeCardsPageState.cards : cardsPageFallbackCards;
   const effectiveCardsPageStatus =
     activeCardsPageState.cards.length > 0
@@ -11818,7 +11832,7 @@ export default function RipStatisticsPageClient({
       }));
       return undefined;
     }
-    if (setDetailTab !== "pull-rates") {
+    if (setDetailTab !== "pull-rates" && setDetailTab !== "overview") {
       return undefined;
     }
 
@@ -12805,12 +12819,11 @@ export default function RipStatisticsPageClient({
                     /* Scoped, mobile-only emphasis for the active Insights
                        segment. Desktop tabs, tab order, routing and
                        accessibility are untouched. */
-                    mobileEmphasisValue="insights"
                     options={[
-                      { value: "overview", label: "Overview" },
-                      { value: "cards", label: "Cards" },
-                      { value: "pull-rates", label: "Pull Rates" },
-                      { value: "insights", label: "Insights" },
+                      { value: "overview", label: "RIP", icon: "trend" },
+                      { value: "cards", label: "Cards & Products", icon: "cards" },
+                      { value: "pull-rates", label: "Pull Rates", icon: "target" },
+                      { value: "insights", label: "Analysis", icon: "analysis" },
                     ]}
                   />
                 </div>
@@ -12819,8 +12832,8 @@ export default function RipStatisticsPageClient({
                   data-set-picker-open={isDesktopHeroComposition && heroSetPickerOpen ? "true" : "false"}
                   className="set-context-premium page-hero-panel relative min-h-[88px] overflow-visible rounded-t-xl border max-desk:hidden desk:order-1 md:rounded-t-2xl"
                 >
-                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1360px] grid-cols-2 items-center md:grid-cols-[minmax(0,46fr)_minmax(0,27fr)_minmax(0,27fr)]">
-                    <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 col-span-2 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:col-span-1 md:gap-7 md:px-5">
+                  <div className="mx-auto grid min-h-[88px] w-full max-w-[1400px] items-stretch md:grid-cols-[minmax(20rem,1.7fr)_repeat(4,minmax(8.5rem,1fr))]">
+                    <div ref={heroSetPickerRef} data-set-picker data-compact-set-picker className="relative z-20 flex min-w-0 items-center gap-4 px-4 py-2.5 sm:gap-6 md:gap-7 md:px-5">
                       {heroLogoUrl ? (
                         <span className="flex h-14 w-24 flex-none items-center justify-center sm:h-16 sm:w-28">
                           <img
@@ -12899,8 +12912,16 @@ export default function RipStatisticsPageClient({
                       </div>
                     </div>
 
-                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="set-context-eyebrow">Set Value</p>
+                    <div data-set-context-release-date className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                      <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="calendar" />Release Date</p>
+                      <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{selectedTarget?.release_date || selectedTarget?.releaseDate ? formatLongDate(selectedTarget?.release_date ?? selectedTarget?.releaseDate) : "—"}</p>
+                    </div>
+                    <div data-set-context-total-cards className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                      <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="cards" />Total Cards</p>
+                      <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text-primary)]">{authoritativeSetCardCount > 0 ? Math.round(authoritativeSetCardCount).toLocaleString("en-US") : "—"}</p>
+                    </div>
+                    <div data-set-context-set-value className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="value" />Set Value</p>
                         <MarketValueChange
                           className="mt-1"
                           value={setHeaderSummary.setValue.current}
@@ -12911,16 +12932,9 @@ export default function RipStatisticsPageClient({
                           variant="table-row"
                           accessibleLabel="Current set value"
                         />
-                        <button
-                          type="button"
-                          onClick={handleViewSetValueTrend}
-                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                        >
-                          View trend
-                        </button>
                     </div>
-                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0 md:px-5">
-                        <p className="set-context-eyebrow">{setContextRipLabel}</p>
+                    <div className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
                         {/* Score stays the focal point and stays neutral; the tier
                             takes the outlined pill and the verdict a lighter
                             relative of the breakdown's interpretation pill, both
@@ -12929,7 +12943,6 @@ export default function RipStatisticsPageClient({
                             third chip on this row made the compact card read as
                             three competing badges. */}
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="text-sm font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{displayedTopScore}</span>
                           {setContextRipTier ? (
                             <span
                               data-set-context-rip-tier
@@ -12949,7 +12962,7 @@ export default function RipStatisticsPageClient({
                                   : `Rank #${Math.round(setContextRipRank)} of ${Math.round(setContextRipCohort)} ranked sets`
                               }
                             >
-                              Rank #{Math.round(setContextRipRank)}
+                              #{Math.round(setContextRipRank)}{setContextRipCohort === null ? "" : ` of ${Math.round(setContextRipCohort)}`}
                             </span>
                           ) : null}
                         </div>
@@ -12958,16 +12971,6 @@ export default function RipStatisticsPageClient({
                             describes a model the site no longer publishes. A
                             neutral line naming the two canonical inputs takes
                             the slot so the card keeps its shape. */}
-                        <p data-set-context-rip-helper className="mt-1 min-w-0 text-[11px] leading-tight text-[var(--text-secondary)]">
-                          {RIP_SCORE_HELPER}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleSetDetailNavSelect({ tab: "insights", section: "rip-score", targetId: "set-detail-rip-score" })}
-                          className="set-context-action mt-1 inline-flex min-h-7 items-center text-[11px] font-semibold text-[var(--accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                        >
-                          View analysis
-                        </button>
                     </div>
                   </div>
                 </section>
@@ -12975,6 +12978,18 @@ export default function RipStatisticsPageClient({
                 </div>
 
                 {setDetailTab === "overview" ? (
+                  <RipDecisionPage
+                    canonical={canonicalRip}
+                    summary={summary}
+                    chaseCards={topPricedCards}
+                    cardCount={authoritativeSetCardCount}
+                    pullRateAssumptions={pullRateAssumptions}
+                    cardsHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "cards" })}
+                    pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
+                  />
+                ) : null}
+
+                {false && setDetailTab === "overview" ? (
                   // Progressive rendering: each section below gates
                   // independently on its own fetch status instead of one
                   // shared whole-tab skeleton (removed — see
