@@ -6,6 +6,7 @@ import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
 import RipDistributionChart from "./RipDistributionChart";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import InfoPopover from "@/components/ui/InfoPopover";
+import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import styles from "./RipDecisionPage.module.css";
 
 const RESEARCH_HREF = "/Research";
@@ -48,7 +49,7 @@ function EvidenceMetric({ metric, index }) {
 
 function ChaseCard({ card }) {
   const name = card?.name || "Card name unavailable";
-  const image = card?.imageUrl || card?.image_url || card?.images?.small || null;
+  const image = optimizedImageUrl(card?.imageUrl || card?.image_url || card?.images?.small || null, CARD_THUMBNAIL_WIDTH);
   const price = card?.marketPrice ?? card?.market_price ?? card?.currentPrice ?? card?.current_price ?? card?.price ?? null;
   const odds = card?.specificCardOddsDenominator ?? card?.specific_card_odds_denominator ?? card?.pullOddsDenominator ?? card?.pull_odds_denominator ?? null;
   const validOdds = Number.isFinite(Number(odds)) && Number(odds) > 0;

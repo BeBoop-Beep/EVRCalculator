@@ -1,4 +1,5 @@
 import RemoteImg from "./previews/RemoteImg";
+import { SET_LOGO_WIDTH } from "@/lib/images/remoteImageDelivery.mjs";
 import styles from "./LandingHero.module.css";
 
 /**
@@ -30,6 +31,9 @@ export default function HeroBoosterPackBackdrop({ image }) {
         alt=""
         className={styles.packBackdropImg}
         loading="lazy"
+        /* The one slot on this page that is painted large rather than as a
+           mark or thumbnail, so it asks the optimizer for more width. */
+        optimizeWidth={SET_LOGO_WIDTH}
         /* A dead URL collapses to nothing rather than to a broken-image glyph;
            RemoteImg returns the fallback, which here is deliberately null. */
         fallback={null}

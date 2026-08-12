@@ -44,6 +44,12 @@ import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 import SectionBoundary from "@/components/ui/SectionBoundary";
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
+import {
+  CARD_ART_WIDTH,
+  CARD_THUMBNAIL_WIDTH,
+  SET_LOGO_WIDTH,
+  optimizedImageUrl,
+} from "@/lib/images/remoteImageDelivery.mjs";
 import { useSectionTiming } from "@/hooks/useSectionTiming";
 import { useSectionFetchState } from "@/hooks/useSectionFetchState";
 import useMediaQuery from "@/hooks/useMediaQuery";
@@ -1970,7 +1976,13 @@ function CardImagePlaceholder({ shimmer = false, label = null }) {
 }
 
 function ChecklistCardTile({ card, movementWindow = "7D" }) {
-  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || null;
+  // Still the small upstream variant — the provider publishes only `<n>.png`
+  // (245x342) and `<n>_hires.png` (~1.2 MB), so this is already the smaller of
+  // the two and there is no thumbnail variant left to ask for. What was left
+  // was the encoding: that 245x342 file is an RGBA PNG at ~182 kB, and the grid
+  // paints dozens of them. Transcoding it at its own native width costs no
+  // pixels and about a tenth of the bytes.
+  const imageUrl = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || null, CARD_ART_WIDTH);
   const name = card?.name || "Unknown card";
   const number = card?.printedNumber || card?.cardNumber || null;
   const rarity = card?.rarity || null;
@@ -3109,7 +3121,7 @@ function OverviewReadPanel({ metrics, compactRead, detailRead }) {
 }
 
 function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = null, href = null }) {
-  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const imageUrl = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null, CARD_THUMBNAIL_WIDTH);
   const name = card?.name || "Unknown card";
   const rarity = card?.rarity || null;
   const price = getChecklistCardMarketPrice(card);
@@ -3544,7 +3556,7 @@ function hasMarketMoverRows(entry) {
 // ---------------------------------------------------------------------------
 
 function MoversTickerItemChip({ card, movement, href, tabIndex }) {
-  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const imageUrl = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null, CARD_THUMBNAIL_WIDTH);
   const name = card?.name || "Unknown card";
   const price = getCardMarketPrice(card) ?? toNumber(card?.currentPrice);
 
@@ -5093,7 +5105,7 @@ function getCollectorDriverSubjects(card) {
 }
 
 function CollectorAppealDriverRow({ card, index }) {
-  const imageUrl = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null;
+  const imageUrl = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl || null, CARD_THUMBNAIL_WIDTH);
   const [hasImageError, setHasImageError] = useState(false);
   const name = card?.name || "Unknown card";
   const printedNumber = card?.printedNumber || null;
@@ -6525,7 +6537,10 @@ const TOP_CARD_IMAGE_CONTAINER_CLASS = "h-[5rem] w-[3.5rem] sm:h-[6.125rem] sm:w
 const TOP_CARD_IMAGE_CONTAINER_COMPACT_CLASS = "h-11 w-[2rem] sm:h-12 sm:w-[2.25rem] flex-none overflow-hidden rounded-md border border-[rgba(255,255,255,0.06)] bg-[rgba(0,0,0,0.18)] p-0.5 shadow-[0_2px_5px_rgba(0,0,0,0.32)]";
 
 function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl, condensed = false, compactImage = false }) {
-  const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
+  // One width for both the full and compact slot even though the compact one is
+  // half the size: the same top hits are rendered by all three row layouts on
+  // this page, and asking for two widths would fetch the same art twice.
+  const imageSrc = optimizedImageUrl(imageUrl || imageSmallUrl || imageLargeUrl || null, CARD_ART_WIDTH);
   const [hasImageError, setHasImageError] = useState(false);
 
   useEffect(() => {
@@ -6572,7 +6587,7 @@ function TopHitRow({ name, evContribution, evShare, nearMintPrice, imageUrl, ima
 }
 
 function TopDriverListRow({ rank, name, evContribution, evShare, nearMintPrice, imageUrl, imageSmallUrl, imageLargeUrl }) {
-  const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
+  const imageSrc = optimizedImageUrl(imageUrl || imageSmallUrl || imageLargeUrl || null, CARD_ART_WIDTH);
   const [hasImageError, setHasImageError] = useState(false);
 
   useEffect(() => {
@@ -6647,7 +6662,7 @@ function getSimulationDriversSummaryValue(meanValue, topHits) {
 }
 
 function SimpleTopHitRow({ name, imageUrl, imageSmallUrl, imageLargeUrl, cardPrice }) {
-  const imageSrc = imageUrl || imageSmallUrl || imageLargeUrl || null;
+  const imageSrc = optimizedImageUrl(imageUrl || imageSmallUrl || imageLargeUrl || null, CARD_ART_WIDTH);
   const [hasImageError, setHasImageError] = useState(false);
 
   useEffect(() => {
@@ -6736,14 +6751,19 @@ function SimulationDriversCompactList({ hits, totalEV }) {
           hit?.cardRarity ||
           ""
       ).trim() || null;
-    const imageUrl =
+    // CARD_ART_WIDTH, not the thumbnail tier: this compact panel shows the same
+    // top hits as the desktop driver rows, so sharing their width shares their
+    // cache entry.
+    const imageUrl = optimizedImageUrl(
       hit?.image_small_url ||
-      hit?.imageSmallUrl ||
-      hit?.image_url ||
-      hit?.imageUrl ||
-      hit?.image_large_url ||
-      hit?.imageLargeUrl ||
-      null;
+        hit?.imageSmallUrl ||
+        hit?.image_url ||
+        hit?.imageUrl ||
+        hit?.image_large_url ||
+        hit?.imageLargeUrl ||
+        null,
+      CARD_ART_WIDTH
+    );
     return {
       key: `${hit?.card_name || "unknown"}:${hit?.ev_contribution ?? "na"}:${index}`,
       rank: index + 1,
@@ -9665,10 +9685,19 @@ export default function RipStatisticsPageClient({
     normalizedOpeningDesirability
   );
   const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics();
-  const heroLogoUrl =
-    selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
-  const ambientSetArtworkUrl =
-    selectedTarget?.hero_image_url || selectedTarget?.logo_image_url || selectedTarget?.symbol_image_url || null;
+  // Both usually resolve to the SAME set logo, and each is painted into several
+  // slots at once (compact hero, mobile hero, hero wash, full-page atmosphere).
+  // They therefore share one optimizer width — see SET_LOGO_WIDTH — so the page
+  // keeps making the single logo request it made before, just for a ~450 px
+  // WebP instead of a 113 kB PNG.
+  const heroLogoUrl = optimizedImageUrl(
+    selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null,
+    SET_LOGO_WIDTH
+  );
+  const ambientSetArtworkUrl = optimizedImageUrl(
+    selectedTarget?.hero_image_url || selectedTarget?.logo_image_url || selectedTarget?.symbol_image_url || null,
+    SET_LOGO_WIDTH
+  );
 
   // `packScoreMeta` (the interpretation engine's label and summary) is NOT read
   // here any more. It produced the hero's "Elite but swingy"-style verdict pill

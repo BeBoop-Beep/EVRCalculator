@@ -24,6 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
 import { buildPreviousSetValueRanks, formatRankMovement, getSetValueMovement, getStableSetId } from "./rankingMovement.mjs";
@@ -79,7 +80,13 @@ function getInitials(name) {
 
 function LadderLogo({ target, name }) {
   const [failed, setFailed] = useState(false);
-  const src = String(target?.logo_image_url || target?.symbol_image_url || "").trim();
+  // A 24 px slot, and every row is a different set, so there is no shared logo
+  // to match a width with — this asks for the thumbnail tier rather than the
+  // full set-logo tier the set page uses.
+  const src = optimizedImageUrl(
+    String(target?.logo_image_url || target?.symbol_image_url || "").trim(),
+    CARD_THUMBNAIL_WIDTH
+  );
 
   if (!src || failed) {
     return (

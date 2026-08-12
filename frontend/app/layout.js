@@ -51,10 +51,27 @@ export const metadata = {
     description: "Your collectible intelligence platform for pack simulations, EV insights, market signals, and collection analytics.",
   },
   manifest: "/manifest.json",
+  /*
+   * Icons are DERIVED assets, not the master artwork.
+   *
+   * Every slot here used to point at `/inDex.png` — the 2000x2000 RGBA master,
+   * 1.74 MB. Browsers fetch `rel="icon"` eagerly, so all of that landed on the
+   * wire on every route to paint a 16-32 px glyph. The files below come from
+   * that same master via `scripts/generate_app_icons.py` (same crop, same
+   * proportions, same transparency), so the mark is unchanged and the request
+   * is three orders of magnitude smaller.
+   *
+   * `sizes` is declared so a browser picks one file rather than fetching
+   * several to compare them.
+   */
   icons: {
-    icon: [{ url: "/inDex.png", type: "image/png" }],
-    shortcut: ["/inDex.png"],
-    apple: [{ url: "/inDex.png", type: "image/png" }]
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48 32x32 16x16", type: "image/x-icon" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

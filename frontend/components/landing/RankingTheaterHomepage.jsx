@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
+import { SET_LOGO_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import WaitlistCta from "./WaitlistCta";
 import MethodologySection from "./MethodologySection";
 import styles from "./rankingTheater.module.css";
@@ -18,7 +19,10 @@ function Money({ value }) {
 }
 
 function SetMark({ set, className = "" }) {
-  const src = set?.logoUrl || set?.symbolUrl;
+  // SET_LOGO_WIDTH for every slot this renders — the hero stage (up to 190 px
+  // tall), the supporting visual and the 52 px ranking-row mark can all show
+  // the same set on one page, so a single width keeps that a single request.
+  const src = optimizedImageUrl(set?.logoUrl || set?.symbolUrl, SET_LOGO_WIDTH);
   return src ? <img className={className} src={src} alt={`${set.name} set logo`} loading="lazy" /> : <span className={styles.markFallback} aria-hidden="true">#{set?.rank || "1"}</span>;
 }
 

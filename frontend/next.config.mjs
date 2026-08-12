@@ -1,5 +1,32 @@
+import createBundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = createBundleAnalyzer({
+	enabled: process.env.ANALYZE === "true",
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+	// Keep production performance audits isolated from a concurrently running
+	// development server, which otherwise rewrites the shared .next directory.
+	...(process.env.PERF_AUDIT_DIST_DIR
+		? { distDir: process.env.PERF_AUDIT_DIST_DIR }
+		: {}),
+	images: {
+		// EXACTLY the two hosts that serve set/card artwork today — never a
+		// wildcard. `/_next/image` is a fetch-and-transform endpoint, so every
+		// host listed here is a host this origin will proxy on request.
+		//
+		// Both serve source PNGs that are wildly larger than the slots they are
+		// painted into (a 245x342 RGBA card PNG is ~182 kB and is rendered as
+		// small as 40x54 CSS px), so routing them through the optimizer is the
+		// single largest image saving available. See
+		// `lib/images/remoteImageDelivery.mjs` for the URL builder that must
+		// stay in sync with this list.
+		remotePatterns: [
+			{ protocol: "https", hostname: "images.pokemontcg.io" },
+			{ protocol: "https", hostname: "images.scrydex.com" },
+		],
+	},
 	async redirects() {
 		return [
 			{
@@ -60,4 +87,4 @@ const nextConfig = {
 	},
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

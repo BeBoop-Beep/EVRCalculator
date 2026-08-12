@@ -6,6 +6,10 @@
 // that to assert on the rendered tree instead of on the source text.
 import React, { useEffect, useMemo, useState } from "react";
 
+// Relative, not the "@/" alias: SetIdentity.test.jsx renders this component
+// directly under `tsx --test`, which does not resolve the bundler alias.
+import { SET_LOGO_WIDTH, optimizedImageUrl } from "../../lib/images/remoteImageDelivery.mjs";
+
 // IDENTITY ONLY. This block used to render an interpretation verdict badge next
 // to the set name, fed by the retired Profit/Safety/Stability engine's
 // `leaderboard_label` / `canonical_recommendation_header` and toned by
@@ -69,7 +73,10 @@ export default function SetIdentity({
     setShowImage(imageCandidates.length > 0);
   }, [imageCandidates]);
 
-  const activeSrc = showImage ? imageCandidates[candidateIndex] || null : null;
+  // SET_LOGO_WIDTH, matching the set hero and page atmosphere: this is the same
+  // logo those slots paint, so a shared width means a shared cache entry rather
+  // than a second transform of identical artwork.
+  const activeSrc = optimizedImageUrl(showImage ? imageCandidates[candidateIndex] || null : null, SET_LOGO_WIDTH);
 
   const handleImageError = () => {
     const nextIndex = candidateIndex + 1;
