@@ -36,6 +36,10 @@ from backend.db.services.pokemon_set_market_service import (
     get_pokemon_set_top_market_cards_payload,
     get_pokemon_set_value_history_payload,
 )
+from backend.desirability.scoring_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION,
+)
 from backend.desirability.set_validation import (
     build_opening_set_audit,
     is_opening_set_row,
@@ -3439,7 +3443,35 @@ def build_coordinated_set_market_snapshot_rows(
 def attach_daily_rip_rank_movements(
     payload: Dict[str, Any], previous_payload: Optional[Dict[str, Any]]
 ) -> Dict[str, Any]:
-    """Attach prior canonical Overall RIP ranks from the last published payload."""
+    """Attach the previous day's CANONICAL ranks, or nothing at all.
+
+    ONE MODEL ON BOTH SIDES OF EVERY SUBTRACTION
+    --------------------------------------------
+    Overall movement compares ``overallRipV7.rank`` against ``overallRipV7.rank``.
+    Financial movement compares ``financialRipV3.rank`` against
+    ``financialRipV3.rank``. Nothing here ever reads the legacy ``rip`` (Overall
+    RIP v4) or ``ripCore`` (Financial RIP V2) objects.
+
+    It used to read exactly those. The previous rank came from ``rip.rank`` /
+    ``ripCore.rank`` while the surface that renders the arrow subtracts it from
+    the CURRENT V7 / V3 rank, so the published "movement" was the disagreement
+    between two different models rather than a change over time. Verified in
+    production on 2026-08-11: Scarlet and Violet 151 held V7 rank 5 on both days
+    and was published with ``previousOverallRipRank1d = 7`` - its v4 rank - which
+    the Explore table rendered as a one-day rise of two places.
+
+    VERSION GATE
+    ------------
+    Both snapshots must declare the canonical Overall RIP and Financial RIP
+    versions, not merely equal ones. Requiring equality alone would happily
+    compare a v4 day against a v4 day and publish it under a field the frontend
+    reads beside a V7 rank. The cohort version must also match: a rank is a
+    statement about a population, and two ranks over different populations are
+    not comparable even under one scoring model.
+
+    When any of that fails the movement is ``unavailable`` with a null rank,
+    which the UI already renders as "N/A" rather than as no change.
+    """
     meta = dict(payload.get("meta") or {})
     dates = dict(meta.get("comparisonSnapshots") or {})
     current_date = str(dates.get("currentMarketDate") or "")[:10]
@@ -3462,9 +3494,13 @@ def attach_daily_rip_rank_movements(
         and previous_date
         and previous_date < current_date
         and stored_previous_date == previous_date
-        and current_version
-        and current_version == previous_version
-        and current_financial_version == previous_financial_version
+        # Both days must be on the CANONICAL models, not merely agree with each
+        # other. A matched pair of superseded snapshots is still not publishable
+        # movement for a canonical rank.
+        and current_version == CANONICAL_OVERALL_RIP_VERSION
+        and previous_version == CANONICAL_OVERALL_RIP_VERSION
+        and current_financial_version == CANONICAL_FINANCIAL_RIP_VERSION
+        and previous_financial_version == CANONICAL_FINANCIAL_RIP_VERSION
         and current_cohort
         and current_cohort == previous_cohort
     )
@@ -3480,13 +3516,16 @@ def attach_daily_rip_rank_movements(
         elif previous is None:
             status, rank = "new", None
         else:
-            rank = ((previous.get("rip") or {}).get("rank"))
+            rank = ((previous.get("overallRipV7") or {}).get("rank"))
             status = "available" if rank is not None else "unavailable"
-        financial_rank = ((previous or {}).get("ripCore") or {}).get("rank") if compatible and previous else None
+        financial_rank = (
+            ((previous or {}).get("financialRipV3") or {}).get("rank")
+            if compatible and previous else None
+        )
         financial_status = ("new" if compatible and previous is None else
                             "available" if compatible and financial_rank is not None else "unavailable")
-        current_rank = ((target.get("rip") or {}).get("rank"))
-        current_financial_rank = ((target.get("ripCore") or {}).get("rank"))
+        current_rank = ((target.get("overallRipV7") or {}).get("rank"))
+        current_financial_rank = ((target.get("financialRipV3") or {}).get("rank"))
         movement = rank - current_rank if status == "available" and current_rank is not None else None
         financial_movement = (
             financial_rank - current_financial_rank

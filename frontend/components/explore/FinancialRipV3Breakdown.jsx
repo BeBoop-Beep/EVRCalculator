@@ -20,9 +20,17 @@
 // persisted on the backend for audit and rollback; it is simply not a public
 // presentation any more. No version number appears in user-facing copy.
 //
-// Every component shown as a relative index uses its backend cohort-relative score. The
-// fixed-anchor model score remains available to internal/audit consumers but is
-// not rendered under a public relative-index label.
+// WHAT EACH CARD LEADS WITH
+// -------------------------
+// The concrete measured outcome — a probability, a dollar figure, a ratio —
+// taken from `row.headline`. The component's normalized 0-100 index is NOT the
+// headline: two of these components ("Strong Upside", "Jackpot Upside") share
+// their names with public outcome metrics that have locked dollar definitions,
+// and printing an index under those names put two quantities behind one label.
+// The index still carries its weight into Financial RIP and is still published;
+// it is simply not what the card announces. No weight or transform changed.
+//
+// The fixed-anchor model score is never rendered here under any label.
 
 import React, { useMemo, useState } from "react";
 
@@ -52,17 +60,14 @@ function MetricRow({ label, value }) {
  * it did not, the backend's own diagnostic is printed instead of a blank.
  */
 function formatComponentMeta(row) {
-  const weightMeta = row.weight !== null && row.weight !== undefined
-    ? ` · Weight ${(Number(row.weight) * 100).toFixed(0)}%`
-    : "";
   if (row.rankValue === null || row.rankValue === undefined) {
-    return row.rankDiagnostic || null;
+    return row.rankDiagnostic || "Rank unavailable";
   }
   return [
     `Rank #${row.rankValue}`,
     row.cohortSize ? ` of ${row.cohortSize}` : "",
     row.rankTier ? ` · Tier ${row.rankTier}` : "",
-  ].join("") + weightMeta;
+  ].join("");
 }
 
 // DEPTH AND ROBUSTNESS — CONTEXT, NEVER A SEVENTH COMPONENT.
@@ -95,11 +100,9 @@ function DepthAndRobustnessPanel({ diagnostic }) {
         <span className="min-w-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
           Depth and robustness
         </span>
-        <span className="flex-none text-[11px] font-medium text-[var(--text-secondary)]">
-          {isOpen ? "Hide" : "Show"}
-          <span aria-hidden="true" className="pl-1 text-[9px] leading-none">
-            {isOpen ? "▲" : "▼"}
-          </span>
+        <span className="inline-flex flex-none items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          {isOpen ? "Hide context" : "View context"}
+          <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m2.5 4.25 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </span>
       </button>
 
@@ -173,20 +176,24 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                 what a phone can actually read. `items-start` lets one expanded
                 card grow without stretching its neighbours, and no cell carries
                 a fixed height, so an expanded panel can never be clipped. */}
-            <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-2.5 md:grid-cols-2 desk:grid-cols-3 desk:gap-3">
               {v3.rows.map((row) => (
                 <RipMetricDisclosureRow
                   key={row.key}
                   rowKey={row.key}
                   dataAttribute="data-v3-component"
                   title={row.title}
-                  value={row.publicScoreLabel}
-                  valueSuffix="relative index"
+                  // The concrete measured outcome, not the normalized index.
+                  // See the module header for why the index is not the headline.
+                  value={row.headline}
                   meta={formatComponentMeta(row)}
                   interpretation={row.interpretation}
                   metrics={row.metrics}
-                  // The QUIET rail uses the component's own backend relative
-                  // score — the same public number printed above it.
+                  // The QUIET rail draws this component's cohort standing — the
+                  // same quantity the "Rank #n of N" meta line beside it
+                  // states, and the backend's own relative score. It is an
+                  // unlabelled reinforcement of that rank, never a second
+                  // reading of the outcome figure printed as the value.
                   railPercent={row.publicAvailable ? row.publicScore : null}
                   accentFamily="financial"
                   isOpen={disclosure.openKeys.includes(row.key)}

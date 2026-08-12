@@ -14,8 +14,8 @@ test("the footer Product column no longer offers Tools", () => {
   assert.ok(!/label: "Tools"/.test(source), "the Tools label must be removed");
 });
 
-test("the other footer destinations are unchanged", () => {
-  for (const href of ["/Explore", "/TCGs", "/my-collection", "/about", "/blog", "/careers", "/contact", "/terms", "/privacy", "/cookies"]) {
+test("the footer exposes the public architecture and preserves existing destinations", () => {
+  for (const href of ["/Rankings", "/Market", "/Research", "/TCGs", "/my-collection", "/about", "/blog", "/careers", "/contact", "/terms", "/privacy", "/cookies"]) {
     assert.ok(source.includes(`href: "${href}"`), `${href} must survive`);
   }
 });

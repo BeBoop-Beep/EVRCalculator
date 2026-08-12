@@ -40,11 +40,20 @@ function isPathMatch(pathname, targets, { caseInsensitive = false } = {}) {
 function navItemIcon(id, isActive) {
   const activeClass = isActive ? "text-[var(--accent)]" : "text-current";
 
-  if (id === "home") {
+  if (id === "market") {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3.75 10.25 12 4l8.25 6.25" />
-        <path d="M6.5 9.8V20h11V9.8" />
+        <path d="M4 18.5 9 13l3.5 3 7.5-9" />
+        <path d="M15.5 7H20v4.5" />
+      </svg>
+    );
+  }
+
+  if (id === "research") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4.5 5.5A3.5 3.5 0 0 1 8 2h4v17H8a3.5 3.5 0 0 0-3.5 3Z" />
+        <path d="M19.5 5.5A3.5 3.5 0 0 0 16 2h-4v17h4a3.5 3.5 0 0 1 3.5 3Z" />
       </svg>
     );
   }
@@ -104,22 +113,28 @@ export default function GlobalMobileBottomNav() {
   const items = useMemo(
     () => [
       {
-        id: "home",
-        label: "Home",
-        href: "/",
-        isActive: normalizedPathname === "/",
+        id: "explore",
+        label: "Rankings",
+        href: "/Rankings",
+        isActive: isPathMatch(normalizedPathname, ["/Rankings", "/Explore"], { caseInsensitive: true }),
       },
       {
-        id: "explore",
-        label: "Explore",
-        href: "/Explore",
-        isActive: isPathMatch(normalizedPathname, ["/Explore", "/explore"], { caseInsensitive: true }),
+        id: "market",
+        label: "Market",
+        href: "/Market",
+        isActive: isPathMatch(normalizedPathname, ["/Market"], { caseInsensitive: true }),
       },
       {
         id: "tcgs",
         label: "TCGs",
         href: TCGS_NAV_HREF,
         isActive: isPathMatch(normalizedPathname, ["/TCGs"], { caseInsensitive: true }),
+      },
+      {
+        id: "research",
+        label: "Research",
+        href: "/Research",
+        isActive: isPathMatch(normalizedPathname, ["/Research"], { caseInsensitive: true }),
       },
       {
         id: "portfolio",
@@ -131,7 +146,7 @@ export default function GlobalMobileBottomNav() {
         id: "profile",
         label: "Profile",
         href: profileHref,
-        isActive: isPathMatch(normalizedPathname, ["/profile", "/u"], { caseInsensitive: true }),
+        isActive: isPathMatch(normalizedPathname, ["/profile", "/u", "/account-settings"], { caseInsensitive: true }),
       },
     ],
     [normalizedPathname, profileHref]
@@ -147,7 +162,7 @@ export default function GlobalMobileBottomNav() {
       className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur lg:hidden"
       style={{ paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-3 pt-2">
+      <div className="mx-auto grid max-w-xl grid-cols-6 gap-0.5 px-1.5 pt-2">
         {items.map((item) => (
           <Link
             key={item.id}
@@ -155,7 +170,7 @@ export default function GlobalMobileBottomNav() {
             aria-label={`Open ${item.label}`}
             aria-current={item.isActive ? "page" : undefined}
             className={[
-              "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out",
+              "flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[10px] font-medium transition-colors duration-150 ease-out",
               item.isActive
                 ? "text-[var(--accent)]"
                 : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]",
@@ -164,7 +179,7 @@ export default function GlobalMobileBottomNav() {
             <span className={["transition-transform duration-150 ease-out", item.isActive ? "scale-110" : "scale-100"].join(" ")}>
               {navItemIcon(item.id, item.isActive)}
             </span>
-            <span>{item.label}</span>
+            <span className="whitespace-nowrap">{item.label}</span>
           </Link>
         ))}
       </div>

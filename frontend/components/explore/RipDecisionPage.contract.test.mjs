@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { buildRipDecisionModel } from "./ripDecisionModel.mjs";
 import { getRipQualitativeLabel } from "./ripQualitativeLabel.mjs";
-import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.js";
+import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.mjs";
 
 function canonicalOf({ overallRank = 9, cohort = 22, tier = null, financialRank = 10, collectorRank = 3 } = {}) {
   return {
@@ -17,12 +17,21 @@ function canonicalOf({ overallRank = 9, cohort = 22, tier = null, financialRank 
 const pagePath = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), "RipDecisionPage.jsx");
 const shellPath = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), "RipStatisticsPageClient.jsx");
 
-test("RIP page follows the locked four-section narrative and ends after opening odds", () => {
+test("RIP page follows the locked narrative and ends after opening odds", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const markers = ["decision", "why-it-ranks", "chase-cards", "opening-odds"].map((marker) => source.indexOf(`data-rip-section=\"${marker}\"`));
   assert.ok(markers.every((index) => index >= 0));
   assert.deepEqual([...markers].sort((a, b) => a - b), markers);
-  for (const retired of ["7D Movers", "Set Value Trend", "Market Snapshot", "Sealed Market", "RIP Summary", "Opening Outcomes", "Products placeholder"]) assert.ok(!source.includes(retired));
+  // Comments legitimately NAME a removed/neighbouring section while explaining
+  // why a value is read the way it is, so removal checks run against code only.
+  const code = source
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trimStart();
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
+  for (const retired of ["7D Movers", "Set Value Trend", "Market Snapshot", "Sealed Market", "RIP Summary", "Opening Outcomes", "Products placeholder"]) assert.ok(!code.includes(retired), retired);
 });
 
 test("decision metrics use mean, median, pack cost, and authoritative profit probability", () => {
@@ -45,9 +54,13 @@ test("canonical current-model scores are used without legacy fallback", () => {
     },
     summary: { rip: { score: 12 }, ripCore: { score: 13 } },
   });
-  assert.equal(model.overall.relativeScore, 91);
-  assert.equal(model.financial.absoluteScore, 42);
-  assert.equal(model.collector.absoluteScore, 67);
+  assert.equal(model.overall.publicScore, 91);
+  assert.equal(model.financial.publicScore, 80);
+  assert.equal(model.collector.publicScore, 88);
+  // The fixed-anchor model scores remain readable for audit, under a name that
+  // cannot be mistaken for a public one.
+  assert.equal(model.financial.modelScore, 42);
+  assert.equal(model.collector.modelScore, 67);
 });
 
 test("opening summary exposes only an authoritative exact rarity denominator", () => {
@@ -115,16 +128,20 @@ test("verdict headline and qualitative label stay dynamic and per-set data drive
   assert.equal(buildRipDecisionModel({ canonical: { overall: {} } }).qualitativeLabel, null);
 });
 
-test("Why It Ranks renders helps, hurts and a dominant result, and stacks on mobile", () => {
+test("Verdict and Why It Ranks form one responsive card with three canonical evidence columns", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(source.includes('data-rip-driver={driver.key}'));
-  assert.ok(source.includes('data-rip-driver="result"'));
-  assert.ok(source.includes("driver.standingLabel"));
-  // Single column by default, three only from the md breakpoint up.
-  assert.ok(source.includes("md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)]"));
+  const decisionStart = source.indexOf('data-rip-section="decision"');
+  const decisionEnd = source.indexOf("</article>", decisionStart);
+  const whyStart = source.indexOf('data-rip-section="why-it-ranks"');
+  assert.ok(decisionStart >= 0 && whyStart > decisionStart && whyStart < decisionEnd, "Why It Ranks must be nested in Verdict");
+  assert.equal((source.match(/set-glass-surface rounded-2xl border p-4 md:p-5/g) || []).length, 1, "Verdict and Why It Ranks use one glass card");
+  for (const key of ["rip", "financial", "collector"]) assert.ok(source.includes(`key: "${key}"`));
+  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal"]) assert.equal((source.match(new RegExp(`label: "${label}"`, "g")) || []).length, 1, `${label} appears once in the unified evidence model`);
+  assert.equal((source.match(/rankLabel: "Overall Rank"/g) || []).length, 1, "Overall Rank appears once in the unified evidence model");
+  assert.ok(source.includes("md:grid-cols-3"));
   assert.ok(source.includes('index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0"'));
-  // Result outweighs either driver typographically (3xl vs lg).
-  assert.ok(source.includes("md:text-3xl"));
+  assert.ok(!source.includes('data-rip-driver="result"'));
+  assert.ok(!source.includes('data-rip-section="core-scores"'));
 });
 
 test("stronger driver is assigned from the data, so neither factor is always Helps", () => {
@@ -148,32 +165,52 @@ test("near-equal drivers report a balanced profile instead of a manufactured div
 
   const bothStrong = buildRipDecisionModel({ canonical: canonicalOf({ overallRank: 2, financialRank: 2, collectorRank: 3 }) });
   assert.equal(bothStrong.drivers.mode, "balanced");
-  assert.match(bothStrong.takeaway, /Both financial quality and collector appeal/);
+  assert.match(bothStrong.takeaway, /Both Financial RIP and Collector Appeal/);
 
   const unavailable = buildRipDecisionModel({ canonical: { overall: {}, financialRip: {}, collectorAppeal: {} } });
   assert.equal(unavailable.drivers.mode, "unavailable");
   assert.match(unavailable.takeaway, /unavailable/);
 });
 
-test("drivers and result keep absolute scores, ranks and the relative index distinct", () => {
-  const model = buildRipDecisionModel({ canonical: canonicalOf() });
+// THE 53.2 vs 95.9 REGRESSION.
+//
+// This test previously asserted the opposite: that the drivers print
+// `absoluteScore` (34.4 and 53.2) while the summary card beside them prints
+// `relativeScore` (44 and 88), and that the result line is labelled "Relative
+// RIP Index". That is the contradiction — two numbers, two names, one metric,
+// one page — encoded as intended behaviour.
+test("drivers print the canonical PUBLIC score, never the fixed-anchor model score", () => {
+  const canonical = canonicalOf();
+  const model = buildRipDecisionModel({ canonical });
   const byKey = Object.fromEntries(model.drivers.drivers.map((d) => [d.key, d]));
-  assert.equal(byKey.financial.score, 34.4);
-  assert.equal(byKey.financial.rank, 10);
-  assert.equal(byKey.collector.score, 53.2);
-  assert.equal(byKey.collector.rank, 3);
-  assert.equal(model.overall.relativeScore, 76.3);
 
-  const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(source.includes("Relative RIP Index {score(model.overall.relativeScore)}"));
-  // The relative index is a cohort position, never dressed up as an absolute score.
-  assert.ok(!source.includes("Relative RIP Index {score(model.overall.relativeScore)} / 100"));
-  assert.ok(!/\/\s*100/.test(source));
+  assert.equal(byKey.financial.score, 44, "Financial RIP driver must print the public score");
+  assert.equal(byKey.financial.rank, 10);
+  assert.equal(byKey.collector.score, 88, "Collector Appeal driver must print the public score");
+  assert.equal(byKey.collector.rank, 3);
+
+  // Explicitly NOT the absolutes the fixture carries.
+  assert.notEqual(byKey.financial.score, canonical.financialRip.absoluteScore);
+  assert.notEqual(byKey.collector.score, canonical.collectorAppeal.absoluteScore);
+
+  // And the driver labels are the canonical public names.
+  assert.deepEqual(
+    model.drivers.drivers.map((d) => d.label).sort(),
+    ["Collector Appeal", "Financial RIP"]
+  );
 });
 
-test("no chart is introduced between the verdict and Why It Ranks", () => {
+test("the result line says Overall RIP on the /100 public scale, not Relative RIP Index", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  const between = source.slice(source.indexOf('data-rip-section="decision"'), source.indexOf('data-rip-section="chase-cards"'));
+  assert.ok(!source.includes("Relative RIP Index"), "retired vocabulary must not render");
+  assert.ok(!source.includes("Relative RIP Index"));
+  assert.ok(source.includes('label: "Overall RIP"'));
+  assert.ok(source.includes("/100"), "the public suffix is /100");
+});
+
+test("no chart is introduced inside the unified Verdict and Why It Ranks card", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  const between = source.slice(source.indexOf('data-rip-section="decision"'), source.indexOf('data-rip-section="simulation-evidence"'));
   for (const banned of ["Chart", "recharts", "<svg", "Sparkline", "Gauge chart", "Donut", "Radial"]) assert.ok(!between.includes(banned), banned);
 });
 
@@ -183,5 +220,14 @@ test("persistent title card keeps identity and restores authoritative context me
   // Set Value left the universal title card once Market became its home. The
   // header is identity/context only; the data contract still carries the value.
   assert.ok(!source.includes("data-set-context-set-value"), "Set Value must not render in the title card");
-  for (const label of ['label: "RIP"', 'label: "Market"', 'label: "Cards & Products"', 'label: "Pull Rates"', 'label: "Analysis"']) assert.ok(source.includes(label));
+  for (const label of ['label: "RIP"', 'label: "Market"', 'label: "Cards & Products"', 'label: "Pull Rates"']) assert.ok(source.includes(label));
+  assert.ok(!source.includes('label: "Analysis"'));
+});
+
+test("RIP reuses canonical simulation evidence and exposes economic context", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  for (const marker of ["RipDistributionChart", "distributionBins", "thresholdBins", "chartMarkers", "Expected Value", "Typical Opening", "Strong Upside", "Jackpot Upside", "Chance of recovering pack price"])
+    assert.ok(source.includes(marker), marker);
+  assert.ok(source.includes("FinancialRipV3Breakdown"));
+  assert.ok(!source.includes("Good RIP below"), "no unsupported threshold is invented");
 });

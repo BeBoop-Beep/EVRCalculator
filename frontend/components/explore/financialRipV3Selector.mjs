@@ -22,16 +22,35 @@
 // Every score, rank, tier, ratio and conditional mean below is lifted from the
 // backend payload. This file formats; it never computes a financial number.
 // The only arithmetic here is presentational unit conversion (a 0-1 ratio to a
-// percentage string), which is formatting, not scoring. `score` remains the
-// fixed-anchor model output for internal/audit consumers; `publicScore` is the
-// backend cohort-relative score and is the only value intended for `/100` UI.
+// percentage string), which is formatting, not scoring.
 //
-// NO VISIBLE WEIGHTS
-// ------------------
-// The six cards carry no weighting percentage. The weights are real and are
-// published in the contract's audit block for verification, but showing "25%"
-// on a card invites the reader to re-derive the score by hand, and the six
-// weights are not the interesting thing about any of them.
+// ONE PUBLIC SCORE
+// ----------------
+// `publicScore` is the backend cohort-relative 0-100 score and is the only
+// value a normal surface may render. `modelScore` is the fixed-anchor formula
+// output, kept for audit/Research and named so it cannot be mistaken for a
+// public number. This selector no longer returns a generic `score`: it used to
+// alias the ABSOLUTE value while the canonical resolver's `score` aliased the
+// RELATIVE one, which is exactly how "Financial Quality" and "Financial RIP"
+// ended up printing two different numbers for one model on one page.
+//
+// CANONICAL WEIGHTS — INTERNAL, NEVER PUBLISHED
+// ---------------------------------------------
+// The six production weights travel in the contract's audit block and are
+// authoritative there. Normal surfaces must NOT display them: Financial RIP is
+// a weighted sum, so a published weight vector is the formula itself, and a
+// published contribution is that formula evaluated. Weights stay in the backend
+// model configuration, in the audit block, in tests and in Research's
+// methodology data structures.
+//
+// Consequently the rows this selector returns carry no `weight` field at all.
+// A weight sitting on the public view model is one property access away from a
+// render site — which is precisely how the component meta line came to print
+// "· Weight 25%" beside each rank. Nothing about the weights or the scoring
+// mathematics changed; only their reachability from the render layer did.
+//
+// Research may explain what the components measure, how they normalize and what
+// they assume, without publishing the exact percentages.
 
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
@@ -65,11 +84,13 @@ function toObject(value) {
 
 function readScoreLayers(block = {}) {
   const safe = toObject(block);
-  const absoluteScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
+  const modelScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
   const relativeScore = toOptionalNumber(safe.relativeScore);
   return {
-    absoluteScore,
+    // INTERNAL. Fixed-anchor model output; never rendered on a normal surface.
+    modelScore,
     relativeScore,
+    // THE public value.
     publicScore: relativeScore,
     publicAvailable: relativeScore !== UNAVAILABLE,
   };
@@ -117,6 +138,23 @@ export function formatOneInN(oneInN) {
 
 // --- Card definitions -------------------------------------------------------
 // Order is the product spec's order and is asserted by the contract tests.
+//
+// EVERY CARD LEADS WITH A CONCRETE OUTCOME, NOT WITH ITS INDEX
+// ------------------------------------------------------------
+// `headline` is the number the card prints beside its title. It is the real
+// measured statistic — a probability, a dollar figure, a ratio — never the
+// component's normalized 0-100 score.
+//
+// This matters most for two cards. "Strong Upside" and "Jackpot Upside" are
+// also PUBLIC OUTCOME METRICS with locked definitions (the P95 threshold and
+// the P99/top-1% threshold). Printing a 0-100 index under those exact names put
+// two different quantities behind one public label. The index still exists,
+// still carries the component's weight into Financial RIP, and is still
+// available as `publicScore` for Research — it simply no longer occupies the
+// public name. The scoring mathematics is untouched.
+//
+// The two cards whose titles collide with a public outcome metric are therefore
+// titled for the QUALITY they score, and print the threshold itself.
 
 const V3_CARDS = [
   {
@@ -126,6 +164,7 @@ const V3_CARDS = [
     // Deliberately "recovers or beats", not "profits": a pack landing exactly
     // on cost recovers it, and the component counts that as a win.
     interpretation: "How often a pack comes back worth at least what it cost.",
+    headline: (raw) => formatPercent(raw.trueWinProbability),
     metrics: (raw) => [
       {
         label: "Recovers or beats pack cost",
@@ -145,6 +184,7 @@ const V3_CARDS = [
     // "Typical"/"median" throughout. P50 is not a floor and the copy must never
     // let a reader take it as one.
     interpretation: "What the median simulated pack came back worth — half were above, half below.",
+    headline: (raw) => formatDollars(raw.typicalPackValue),
     metrics: (raw) => [
       { label: "Median pack value", value: formatDollars(raw.typicalPackValue) },
       {
@@ -161,6 +201,7 @@ const V3_CARDS = [
     // A loss is a loss. This card describes how soft the losses are; it must
     // never phrase a loss as a win.
     interpretation: "When a pack loses, how much of the cost it still hands back.",
+    headline: (raw) => formatPercent(raw.averageRetentionGivenLoss),
     metrics: (raw) => [
       {
         label: "Average return when losing",
@@ -183,9 +224,13 @@ const V3_CARDS = [
   {
     key: "realisticUpside",
     snakeKey: "realistic_upside",
-    title: "Strong Upside",
+    // NOT the bare "Strong Upside". That name is the public outcome metric —
+    // the P95 threshold value — and a 0-100 component index must not share it.
+    title: "Strong Upside Quality",
     interpretation:
       "The good-but-not-miraculous outcome: the top 5% of packs, with the top 1% excluded.",
+    // The public Strong Upside number itself: where the top 5% begins.
+    headline: (raw) => formatDollars(raw.p95ThresholdValue),
     metrics: (raw) => [
       // "begins at", never "average". P95 is a THRESHOLD.
       {
@@ -211,8 +256,12 @@ const V3_CARDS = [
   {
     key: "jackpotUpside",
     snakeKey: "jackpot_upside",
-    title: "Jackpot Upside",
+    // NOT the bare "Jackpot Upside". That name is the public outcome metric —
+    // the P99 / top-1% threshold value — and a 0-100 index must not share it.
+    title: "Jackpot Upside Quality",
     interpretation: "The exceptional 1% of packs — rare by definition, and capped in the score.",
+    // The public Jackpot Upside number itself: where the top 1% begins.
+    headline: (raw) => formatDollars(raw.p99ThresholdValue),
     metrics: (raw) => [
       { label: "Top 1% begins at", value: formatDollars(raw.p99ThresholdValue) },
       { label: "Threshold vs cost", value: formatRatio(raw.p99ThresholdRatio) },
@@ -232,6 +281,10 @@ const V3_CARDS = [
     title: "Base Economic Efficiency",
     interpretation:
       "Average return with the jackpots removed — how much of the headline average an ordinary opening actually sees.",
+    // Base RTP, the raw ratio this component scores. NOT the component's own
+    // 0-100 index: Base Economic Efficiency is a normalized score DERIVED from
+    // Base RTP and is not itself an RTP percentage.
+    headline: (raw) => formatPercent(raw.baseRtpExcludingTop1Pct),
     metrics: (raw) => [
       { label: "Total return to player", value: formatPercent(raw.totalRtpRatio) },
       {
@@ -259,14 +312,15 @@ export const FINANCIAL_RIP_V3_CARD_ORDER = V3_CARDS.map((card) => card.title);
 export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {}) {
   const safe = toObject(financialRipV3);
   const components = toObject(safe.components);
-  const configuredWeights = toObject(toObject(toObject(safe.audit).weights).weights);
   const requestTimeout =
     options?.requestTimeout === true || options?.payload?.meta?.requestTimeout === true;
 
   const hasContract = Object.keys(components).length > 0;
   const status = safe.status ?? (hasContract ? null : "unavailable");
   const parentScores = readScoreLayers(safe);
-  const isReady = status === "ready" && parentScores.absoluteScore !== UNAVAILABLE;
+  // Readiness is judged on the PUBLIC score. A payload with a fixed-anchor
+  // score but no cohort-relative one has nothing a normal surface may render.
+  const isReady = status === "ready" && parentScores.publicAvailable;
   const missingFields = [];
   const missingPublicScoreFields = [];
 
@@ -278,20 +332,23 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
     const component = toObject(components[card.snakeKey] ?? components[card.key]);
     const raw = toObject(component.raw);
     const scores = readScoreLayers(component);
-    const score = scores.absoluteScore;
     const rank = toOptionalNumber(component.rank);
 
-    if (score === UNAVAILABLE) missingFields.push(`${card.snakeKey}.score`);
+    if (scores.modelScore === UNAVAILABLE) missingFields.push(`${card.snakeKey}.score`);
     if (scores.relativeScore === UNAVAILABLE) missingPublicScoreFields.push(`${card.snakeKey}.relativeScore`);
     if (rank === UNAVAILABLE) missingFields.push(`${card.snakeKey}.rank`);
 
     return {
       key: card.key,
       title: card.title,
-      score,
-      scoreLabel: formatScore(score),
-      absoluteScore: scores.absoluteScore,
+      // The card's HEADLINE public value is the concrete outcome statistic, not
+      // the normalized component score — see `headline` on the card definitions.
+      // A component whose name collides with a public outcome metric (Strong
+      // Upside, Jackpot Upside) must not put a 0-100 index under that name.
+      headline: card.headline(raw),
       relativeScore: scores.relativeScore,
+      // INTERNAL. Kept for audit/Research; never rendered under a public label.
+      modelScore: scores.modelScore,
       // Strict public score: no absolute fallback under a `/100` label.
       publicScore: scores.publicScore,
       publicScoreLabel: formatScore(scores.publicScore),
@@ -303,11 +360,22 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
       cohortSize: toOptionalNumber(component.rankedSetCount ?? component.cohortSize),
       interpretation: card.interpretation,
       metrics: card.metrics(raw),
-      weight: toOptionalNumber(configuredWeights[card.snakeKey] ?? configuredWeights[card.key]),
-      available: score !== UNAVAILABLE,
-      // Weight is intentionally absent from the row. It is not rendered, so it
-      // is not selected — a field the UI does not read is a field that can only
-      // go stale.
+      // Availability is decided by the PUBLIC score, so a row carrying only the
+      // fixed-anchor model score renders unavailable rather than taking a
+      // public slot with a differently-scaled number.
+      available: scores.publicAvailable,
+      // WEIGHT IS INTENTIONALLY ABSENT FROM THE ROW.
+      //
+      // These rows are the public view model handed straight to the render
+      // layer, and the locked public contract is that no public metric
+      // component carries a visible exact weight. Carrying the weight here
+      // anyway is what let `formatComponentMeta` print "· Weight 25%" beside a
+      // rank: the field was one property access away from any render site.
+      //
+      // The weights are unchanged and still authoritative — they live on the
+      // backend model configuration and travel on this same object under
+      // `audit.weights.weights`, which audit, Research and tests read directly.
+      // What is removed is the public row's ability to hand one to a component.
       rankDiagnostic:
         rank === UNAVAILABLE
           ? requestTimeout
@@ -322,10 +390,9 @@ export function selectFinancialRipV3Breakdown(financialRipV3 = {}, options = {})
   return {
     mode: "v3",
     rows,
-    score: parentScores.absoluteScore,
-    scoreLabel: formatScore(parentScores.absoluteScore),
-    absoluteScore: parentScores.absoluteScore,
     relativeScore: parentScores.relativeScore,
+    // INTERNAL. Kept for audit/Research; never rendered under a public label.
+    modelScore: parentScores.modelScore,
     // Strict public score: no absolute fallback under a `/100` label.
     publicScore: parentScores.publicScore,
     publicScoreLabel: formatScore(parentScores.publicScore),

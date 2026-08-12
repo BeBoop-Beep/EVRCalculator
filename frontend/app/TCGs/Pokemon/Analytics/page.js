@@ -1,5 +1,15 @@
-'use client';
 import SecondaryNav from "@/components/SecondaryNav";
+import { NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/routeMetadata.mjs";
+
+// "Analytics dashboard coming soon" — a placeholder with no content. There is
+// no single true replacement URL to redirect it to (the analytics it describes
+// are spread across /Rankings, /Market and the per-set pages), so per the
+// legacy-route policy it is excluded from the index rather than redirected or
+// deleted.
+//
+// `'use client'` was removed so this route can declare metadata: the component
+// uses no state, effects or handlers.
+export const metadata = { robots: NOINDEX_FOLLOW_ROBOTS };
 
 export default function AnalyticsPage() {
   return (

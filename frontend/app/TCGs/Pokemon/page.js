@@ -1,5 +1,14 @@
-'use client';
 import SecondaryNav from "@/components/SecondaryNav";
+import { NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/routeMetadata.mjs";
+
+// This page renders three static description cards and no real data — the
+// content it describes lives on /Rankings, /TCGs/Pokemon/Sets and the set
+// pages. It stays as a hub but is not an independent search destination.
+//
+// `'use client'` was removed so this route can declare metadata: nothing here
+// uses state, effects or event handlers. SecondaryNav is still a client
+// component and is imported normally.
+export const metadata = { robots: NOINDEX_FOLLOW_ROBOTS };
 
 export default function PokemonPage() {
   return (

@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export default function InfoPopover({ text }) {
+export default function InfoPopover({ text, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
   const [open, setOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 36, left: 16, mobile: true });
   const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
 
   useEffect(() => {
     if (!open || typeof window === "undefined") {
@@ -36,20 +37,35 @@ export default function InfoPopover({ text }) {
     };
 
     const closePopover = () => setOpen(false);
+    const handlePointerDown = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !popoverRef.current?.contains(event.target)) closePopover();
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closePopover();
+        triggerRef.current?.focus();
+      }
+    };
 
     updatePopoverPosition();
     window.addEventListener("resize", closePopover);
     window.addEventListener("scroll", closePopover, true);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("resize", closePopover);
       window.removeEventListener("scroll", closePopover, true);
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open]);
 
   const popover = open ? (
     <div
-      role="tooltip"
+      ref={popoverRef}
+      role="dialog"
+      aria-label="Metric information"
       className="fixed z-[70] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] p-3 text-left text-xs leading-relaxed text-[var(--text-secondary)] shadow-[0_8px_32px_rgba(0,0,0,0.45)] sm:w-64 sm:max-w-[min(20rem,calc(100vw-2rem))]"
       style={
         popoverPosition.mobile
@@ -64,7 +80,12 @@ export default function InfoPopover({ text }) {
             }
       }
     >
-      {text}
+      <p>{text}</p>
+      {learnMoreHref ? (
+        <a href={learnMoreHref} className="mt-2 inline-flex rounded font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
+          {learnMoreLabel} <span aria-hidden="true">→</span>
+        </a>
+      ) : null}
     </div>
   ) : null;
 
@@ -74,8 +95,9 @@ export default function InfoPopover({ text }) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
         aria-label="More info"
+        aria-expanded={open}
+        aria-haspopup="dialog"
         className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] transition-all hover:border-[rgba(20,184,166,0.6)] hover:text-[rgba(20,184,166,0.95)] hover:shadow-[0_0_6px_rgba(20,184,166,0.35)]"
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">

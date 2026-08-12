@@ -40,7 +40,7 @@ export default function SetIntelligenceSection({ set, chaseCards = [] }) {
             </p>
 
             <div className={styles.featureActions}>
-              <Link href={set?.overviewHref || "/Explore"} className={styles.ctaSecondary}>
+              <Link href={set?.overviewHref || "/Rankings"} className={styles.ctaSecondary}>
                 View set intelligence
                 <Arrow />
               </Link>

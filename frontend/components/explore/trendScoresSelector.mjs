@@ -67,7 +67,11 @@ export function selectTrendScores({ summary = {}, previousPoint = {}, setValueMe
   const safeSetValueMetrics = setValueMetrics && typeof setValueMetrics === "object" ? setValueMetrics : null;
 
   const fields = {
-    ripScore: [safeSummary.relative_pack_score ?? safeSummary.pack_score, safePreviousPoint.relativePackScore ?? safePreviousPoint.packScore],
+    // NO `ripScore` ENTRY, DELIBERATELY. It compared the legacy 45/25/20/10
+    // `relative_pack_score` / `pack_score` against a history point that never
+    // carried either field, so it was permanently "unknown" — and had it ever
+    // resolved it would have driven the RIP Score arrow from a retired model.
+    // See the note beside `trendByMetricKey` in RipStatisticsPageClient.
     profitScore: [safeSummary.relative_profit_score ?? safeSummary.profit_score, safePreviousPoint.relativeProfitScore ?? safePreviousPoint.profitScore],
     safetyScore: [safeSummary.relative_safety_score ?? safeSummary.safety_score, safePreviousPoint.relativeSafetyScore ?? safePreviousPoint.safetyScore],
     desirabilityScore: [

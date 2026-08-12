@@ -10,7 +10,7 @@
  * - Tooltip explanations for metrics and scores
  */
 
-import { RANK_CONFIG } from "./rankConfig";
+import { RANK_CONFIG } from "./rankConfig.mjs";
 
 /**
  * Pack Score interpretation based on tier/rank.
@@ -403,7 +403,9 @@ export const SCORE_CARD_TOOLTIPS = {
   "Pack Score": "Pack Score",
   "Profit": "Profit Score",
   "Safety": "Safety Score",
-  "Desirability": "Opening Desirability",
+  // "Opening Desirability" is a retired name. The pillar behind this key
+  // describes the price-independent roster metric, which is Set Desirability.
+  "Desirability": "Set Desirability",
   "Stability": "Stability Score",
 };
 
@@ -451,7 +453,7 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Pack Score") {
     return (
       <div className="space-y-2 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Rip Score</p>
+        <p className="font-semibold text-[var(--text-primary)]">Overall RIP</p>
         <p className="text-[var(--text-secondary)]">Measures overall pack rip quality by combining:</p>
         <ul className="space-y-1.5 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
@@ -473,9 +475,9 @@ export function getFormattedTooltip(scoreType) {
           <li className="flex gap-2">
             <span className="flex-none">•</span>
             <span>
-              <span className="font-semibold text-[var(--text-primary)]">Opening Desirability</span>
+              <span className="font-semibold text-[var(--text-primary)]">Collector Appeal</span>
               <br />
-              <span className="text-[11px]">Collector appeal and chase appeal</span>
+              <span className="text-[11px]">How desirable the cards are, and how often a pack delivers one</span>
             </span>
           </li>
           <li className="flex gap-2">
@@ -487,7 +489,7 @@ export function getFormattedTooltip(scoreType) {
             </span>
           </li>
         </ul>
-        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">RIP Score combines pack value, risk, stability, and Opening Desirability to estimate how appealing a set is to open.</p>
+        <p className="pt-1 text-[11px] text-[var(--text-secondary)]">Overall RIP combines Financial RIP with Collector Appeal to estimate how appealing a set is to open.</p>
       </div>
     );
   }
@@ -504,7 +506,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -543,7 +545,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -565,8 +567,8 @@ export function getFormattedTooltip(scoreType) {
   if (scoreType === "Desirability") {
     return (
       <div className="space-y-1.5 text-left">
-        <p className="font-semibold text-[var(--text-primary)]">Opening Desirability</p>
-        <p className="text-[var(--text-secondary)]">Opening Desirability combines Collector Appeal and Chase Appeal to estimate how compelling the set is to open.</p>
+        <p className="font-semibold text-[var(--text-primary)]">Set Desirability</p>
+        <p className="text-[var(--text-secondary)]">Set Desirability measures how popular and deep a set&apos;s Pokémon roster is, independent of card prices. It is the roster input to Collector Appeal, not Collector Appeal itself.</p>
         <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -574,7 +576,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
@@ -597,7 +599,7 @@ export function getFormattedTooltip(scoreType) {
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>
-            <span>Core component of Rip Score</span>
+            <span>Core component of Overall RIP</span>
           </li>
           <li className="flex gap-2">
             <span className="flex-none">•</span>

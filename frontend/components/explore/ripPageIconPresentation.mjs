@@ -1,4 +1,4 @@
-import { RANK_CONFIG } from "../../constants/rankConfig.js";
+import { RANK_CONFIG } from "../../constants/rankConfig.mjs";
 
 const PRESENTATIONS = {
   neutral: { iconClassName: "", containerClassName: "", style: { color: "rgba(148,163,184,0.82)", borderColor: "rgba(148,163,184,0.14)", backgroundColor: "rgba(148,163,184,0.05)" } },

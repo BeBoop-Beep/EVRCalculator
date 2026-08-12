@@ -71,7 +71,7 @@ function RipLevel({ set, sealedProducts }) {
       ) : null}
 
       {set?.score !== null && set?.score !== undefined ? (
-        <p className={styles.levelCardFoot}>RIP Score {set.score.toFixed(0)}</p>
+        <p className={styles.levelCardFoot}>Overall RIP {set.score.toFixed(0)}</p>
       ) : null}
     </div>
   );
@@ -134,10 +134,10 @@ function ExploreLevel({ rows }) {
           })}
         </ol>
       ) : (
-        <p className={styles.emptyNote}>Rankings are refreshing. Open Explore for the full table.</p>
+        <p className={styles.emptyNote}>Rankings are refreshing. Open Rankings for the full table.</p>
       )}
-      <Link href="/Explore" className={styles.cardCta}>
-        Open Explore
+      <Link href="/Rankings" className={styles.cardCta}>
+        Open Rankings
         <Arrow />
       </Link>
     </div>
@@ -162,7 +162,7 @@ export default function LevelsSection({
     {
       key: "rip",
       question: "Should I open it?",
-      product: "RIP Score",
+      product: "Overall RIP",
       meaning:
         "See modeled opening outcomes, downside, and relative opening strength before breaking the seal.",
       visual: <RipLevel set={openingSet} sealedProducts={sealedProducts} />,
@@ -179,7 +179,7 @@ export default function LevelsSection({
     {
       key: "explore",
       question: "How does it compare?",
-      product: "Explore",
+      product: "Rankings",
       meaning:
         "Compare opening profiles, set values, tiers, and recent movement across tracked Pokémon sets.",
       visual: <ExploreLevel rows={rankingRows} />,

@@ -112,7 +112,7 @@ import { buildSetValueContract, selectSetValueTrendFromContract } from "./setVal
 import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
-import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -223,8 +223,8 @@ const SECTION_SCROLL_ORDER = [
 ];
 const SET_DETAIL_DEFAULT_TAB = "overview";
 // Canonical set-detail tabs, in user-facing order: RIP | Market |
-// Cards & Products | Pull Rates | Analysis.
-const SET_DETAIL_TABS = new Set(["overview", "market", "cards", "pull-rates", "insights"]);
+// Cards & Products | Pull Rates. Set-specific opening evidence now lives on RIP.
+const SET_DETAIL_TABS = new Set(["overview", "market", "cards", "pull-rates"]);
 // No set-detail tab renders content sourced from the full set /page snapshot
 // anymore. Pull Rates moved off this list in Phase 4A (getPokemonSetPullRates)
 // and Insights moved off it in Phase 4B (getPokemonSetInsights — see the
@@ -280,8 +280,8 @@ const isDevPerfLoggingEnabled = process.env.NODE_ENV !== "production";
 // ?tab=market must render Market and must never fold back into overview/RIP.
 const SET_DETAIL_TAB_ALIASES = {
   rip: "overview",
-  analysis: "insights",
-  analytics: "insights",
+  analysis: "overview",
+  analytics: "overview",
 };
 // The ONE preferred DOM id for the canonical Collector Appeal block.
 const COLLECTOR_APPEAL_SECTION_ID = "set-detail-collector-appeal";
@@ -304,7 +304,7 @@ const LEGACY_COLLECTOR_APPEAL_ANCHOR_IDS = [
 const SET_DETAIL_SECTION_TARGETS = {
   "set-intelligence": { tab: "overview", targetId: "set-detail-set-intelligence" },
   "set-signals": { tab: "overview", targetId: "set-detail-set-intelligence" },
-  "rip-score": { tab: "insights", targetId: "set-detail-rip-score", graphMode: "outcome-distribution" },
+  "rip-score": { tab: "overview", targetId: "set-detail-overview" },
   // COLLECTOR APPEAL — one destination, many legacy names.
   //
   // `collector-appeal` is the preferred alias. Every other key here addressed
@@ -312,32 +312,32 @@ const SET_DETAIL_SECTION_TARGETS = {
   // sections that preceded it, and each now resolves to the SAME canonical
   // Collector Appeal block. They point at surviving content, not at a deleted
   // section: a legacy link scrolls to the three Collector Appeal V3 factors.
-  "collector-appeal": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "collector-profile": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "set-desirability": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "desirability-evidence": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "opening-experience": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "desirability-proof": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "desirability-validation": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
-  "card-desirability-price": { tab: "insights", targetId: COLLECTOR_APPEAL_SECTION_ID },
+  "collector-appeal": { tab: "overview", targetId: "set-detail-overview" },
+  "collector-profile": { tab: "overview", targetId: "set-detail-overview" },
+  "set-desirability": { tab: "overview", targetId: "set-detail-overview" },
+  "desirability-evidence": { tab: "overview", targetId: "set-detail-overview" },
+  "opening-experience": { tab: "overview", targetId: "set-detail-overview" },
+  "desirability-proof": { tab: "overview", targetId: "set-detail-overview" },
+  "desirability-validation": { tab: "overview", targetId: "set-detail-overview" },
+  "card-desirability-price": { tab: "overview", targetId: "set-detail-overview" },
   // Simulation Results card (formerly "Opening Outcomes"). `opening-outcomes`
   // stays for backwards-compatible deep links; `simulation-results` is the
   // preferred alias for the same card/default sub-view.
-  "opening-outcomes": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
-  "simulation-results": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "outcome-distribution" },
-  "simulation-cards": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-drivers" },
-  value: { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "value-contribution" },
-  "pack-breakdown": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "pack-breakdown" },
-  "simulation-metrics": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "simulation-metrics" },
+  "opening-outcomes": { tab: "overview", targetId: "set-detail-outcome-distribution" },
+  "simulation-results": { tab: "overview", targetId: "set-detail-outcome-distribution" },
+  "simulation-cards": { tab: "overview", targetId: "set-detail-outcome-distribution" },
+  value: { tab: "overview", targetId: "set-detail-outcome-distribution" },
+  "pack-breakdown": { tab: "overview", targetId: "set-detail-outcome-distribution" },
+  "simulation-metrics": { tab: "overview", targetId: "set-detail-outcome-distribution" },
   // The technical "Opening P vs C" sub-view of Simulation Results. Kept as a
   // distinct section id from `performance-vs-cost` so Overview's quick-read
   // Performance vs Cost chart (below) stays exactly where it is — same data,
   // different story.
-  "opening-performance-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" },
+  "opening-performance-cost": { tab: "overview", targetId: "set-detail-outcome-distribution" },
   // RIP deliberately no longer owns the large Opening Profit/Performance vs
   // Cost chart, so this legacy link resolves to the surviving Analysis
   // historical-trend sub-view rather than resurrecting the chart on RIP.
-  "performance-vs-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" },
+  "performance-vs-cost": { tab: "overview", targetId: "set-detail-outcome-distribution" },
   // MARKET-OWNED deep links. These four sections moved off Overview/Analysis
   // onto the Market tab; each targetId below is a node Market actually renders.
   "set-value-trend": { tab: "market", targetId: "set-detail-market-set-value" },
@@ -936,8 +936,11 @@ function shouldSuppressSetPageWarning(warning, { hasTopHits, hasDecisionRanks })
 }
 
 const RIP_COPY = {
-  scoreLabel: "Rip Score",
-  scoreRankLabel: "Rip Rank",
+  // "RIP Score" / "RIP Rank", capitalised exactly as the locked public
+  // vocabulary spells them. These read "Rip Score" / "Rip Rank", a fourth and
+  // fifth spelling of names the rest of the product renders in caps.
+  scoreLabel: "Overall RIP",
+  scoreRankLabel: "RIP Rank",
   summaryQuestion: "Should You Open This Set?",
   scoreDetailsLabel: "Show details",
   advancedLabel: "Advanced Score Details",
@@ -951,7 +954,7 @@ const RIP_COPY = {
     chanceAtBigPull: "Chance at a Big Pull",
   },
   sections: {
-    packScore: "Rip Score",
+    packScore: "Overall RIP",
     outcomeDistribution: "Opening Outcomes",
     historicalTrend: "Performance vs Cost",
     packBreakdown: "Pack Breakdown",
@@ -1064,22 +1067,30 @@ const SIMPLE_PILLAR_INFO_COPY = {
   Safety:
     "Safety explains how painful the misses can feel. A set can have a strong overall score but still feel risky if the lower-end packs give back very little value.",
   "Set Desirability":
-    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and does not receive a separate RIP Score weight of its own.",
+    "Set Desirability measures the popularity and depth of the Pokémon subjects represented in this set. It does not use card prices or predict future value. It supports Collector Appeal as its roster base and is not scored separately in Overall RIP.",
   // The trailing sentence used to read "It contributes 20% to Overall RIP,
   // alongside Financial RIP at 80%." That published a composition weight — and
   // published the WRONG one, since the canonical blend is 0.90 Financial RIP +
   // 0.10 Collector Appeal. No public surface states a weight, a contribution
   // or a split, so the claim is removed rather than corrected to 90/10.
+  //
+  // The replacement wording went one step further: it used to end "...does not
+  // receive a separate RIP Score weight of its own". That named no percentage,
+  // but it still described the model's composition in weighting language inside
+  // a public tooltip. It now states the same fact — Set Desirability is not one
+  // of the scored public metrics — without invoking weights at all.
   "Collector Appeal":
     "Collector Appeal combines the set's roster desirability with how often a modeled pack delivers a desirable card and how meaningful its elite chase paths are. It needs the set's modeled pull structure and uses no card prices.",
-  // Legacy key kept only for stale render paths.
+  // Legacy key kept only for stale render paths. Its wording is Set
+  // Desirability's, because that is what the retired `desirability` pillar
+  // actually described — never Collector Appeal's.
   Desirability:
     "Set Desirability measures the popularity and depth of the Pokémon subjects in the set. It does not use card prices or predict future value.",
   Stability:
     "Stability explains whether value is spread across the set or concentrated in only a few cards. Better stability means the set is less dependent on one or two major hits.",
 };
 
-const DESIRABILITY_FALLBACK_COPY = "Using a fallback Opening Desirability estimate until this set has enough data.";
+const DESIRABILITY_FALLBACK_COPY = "Using a fallback Set Desirability estimate until this set has enough data.";
 const DESIRABILITY_NOT_CALCULATED_COPY = "Not calculated yet.";
 const PERFORMANCE_VS_COST_INFO_TEXT = (
   <div className="space-y-2 text-left">
@@ -1203,7 +1214,11 @@ const METRIC_TREND_DIRECTIONS = {
 };
 
 const HISTORY_METRIC_ALIASES = {
-  ripScore: ["relative_pack_score", "relativePackScore", "pack_score", "packScore"],
+  // NO `ripScore` ENTRY, DELIBERATELY. It aliased the legacy 45/25/20/10
+  // `pack_score` / `relative_pack_score` fields, which the history series does
+  // not carry at all — so it never resolved — and which are a different model
+  // from the canonical Overall RIP V7 the hero displays. Re-adding it would
+  // reintroduce a cross-model comparison behind a public arrow.
   profitScore: ["relative_profit_score", "relativeProfitScore", "profit_score", "profitScore"],
   safetyScore: ["relative_safety_score", "relativeSafetyScore", "safety_score", "safetyScore"],
   desirabilityScore: ["relative_desirability_score", "relativeDesirabilityScore", "desirability_score", "desirabilityScore"],
@@ -1522,17 +1537,32 @@ function isTruthyFlag(value) {
   return value === true || String(value).toLowerCase() === "true";
 }
 
+/**
+ * Supporting prose for the SET DESIRABILITY card.
+ *
+ * The `collector_appeal_fallback` branch used to read "Opening Desirability
+ * needs chase data for this set, so RIP Score is temporarily using Collector
+ * Appeal." Every clause of that was wrong for the current model: "Opening
+ * Desirability" is a retired name, RIP Score does not substitute one metric for
+ * another (Overall RIP V7 is unavailable when an input is missing rather than
+ * falling back), and the sentence implied Collector Appeal is a stand-in for
+ * desirability when the relationship is the reverse — Set Desirability is
+ * Collector Appeal's roster input.
+ *
+ * The flag itself is still honoured: a fallback-sourced desirability must not be
+ * presented as a measured one. It just says so in the current vocabulary.
+ */
 function getDesirabilitySummary(summary) {
-  if (summary?.rip_desirability_source === "collector_appeal_fallback") {
-    return "Opening Desirability needs chase data for this set, so RIP Score is temporarily using Collector Appeal.";
-  }
-  if (isTruthyFlag(summary?.desirability_is_fallback)) {
+  if (
+    summary?.rip_desirability_source === "collector_appeal_fallback" ||
+    isTruthyFlag(summary?.desirability_is_fallback)
+  ) {
     return DESIRABILITY_FALLBACK_COPY;
   }
   if (toNumber(summary?.relative_desirability_score) === null && toNumber(summary?.desirability_score) === null) {
     return DESIRABILITY_NOT_CALCULATED_COPY;
   }
-  return SIMPLE_PILLAR_INFO_COPY.Desirability;
+  return SIMPLE_PILLAR_INFO_COPY["Set Desirability"];
 }
 
 function getFirstNumericFromSources(sources, keys = []) {
@@ -3704,7 +3734,17 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
                 } ${mobileEmphasisClass}`}
               >
-                <span className="flex min-w-0 items-center justify-center gap-1.5">{option.icon ? <SetPageIcon name={option.icon} className="h-3.5 w-3.5 flex-none" /> : null}<span className="truncate">{option.label}</span></span>
+                <span className="flex min-w-0 items-center justify-center gap-1.5">
+                  {option.icon ? <SetPageIcon name={option.icon} className={`h-3.5 w-3.5 flex-none ${option.hideIconOnMobile ? "max-desk:hidden" : ""}`} /> : null}
+                  <span className="whitespace-nowrap">
+                    {option.mobileLabel ? (
+                      <>
+                        <span className="max-desk:hidden">{option.label}</span>
+                        <span className="hidden max-desk:inline">{option.mobileLabel}</span>
+                      </>
+                    ) : option.label}
+                  </span>
+                </span>
               </button>
             );
           })}
@@ -4969,60 +5009,39 @@ function getTopCollectorAppealDrivers(explorePayload, summary, openingPayload) {
   return [];
 }
 
-function formatScoreWithOptionalRank(score, rank, { unavailableLabel = "—" } = {}) {
-  const parsedScore = toNumber(score);
-  if (parsedScore === null) {
-    return unavailableLabel;
-  }
+// `formatScoreWithOptionalRank` and `isMissingChaseDataState` stood here. Both
+// existed only to render the migration-031 prototype's "Collector Appeal" and
+// "Chase Appeal" rows, which are gone — see getDesirabilityOverviewMetrics.
 
-  const parsedRank = toNumber(rank);
-  if (parsedRank === null) {
-    return parsedScore.toFixed(1);
-  }
-
-  return `${parsedScore.toFixed(1)} · Rank #${Math.round(parsedRank)}`;
-}
-
-function isMissingChaseDataState(openingPayload) {
-  const status = String(openingPayload?.displayStatus || "").toLowerCase();
-  const dataQuality = String(openingPayload?.chaseAppealDataQuality || "").toLowerCase();
-
-  return (
-    status === "collector_only" ||
-    status === "insufficient_chase_data" ||
-    status === "missing_chase_data" ||
-    status === "no_chase_data" ||
-    dataQuality === "missing" ||
-    dataQuality === "insufficient" ||
-    dataQuality === "unavailable"
-  );
-}
-
-function getDesirabilityOverviewMetrics(openingPayload) {
-  const payload = openingPayload || {};
-  const needsChaseData = isMissingChaseDataState(payload);
-
-  const chaseValue =
-    toNumber(payload?.chaseAppealScore) === null && needsChaseData
-      ? "Needs chase data"
-      : formatScoreWithOptionalRank(payload?.chaseAppealScore, payload?.chaseAppealRank);
-
-  return [
-    {
-      label: "Collector Appeal",
-      value: formatScoreWithOptionalRank(payload?.collectorAppealScore, payload?.collectorAppealRank),
-      infoText:
-        "Collector Appeal reflects pure collector demand for the Pokémon and card subjects in this set, independent of current market price.",
-      trend: null,
-    },
-    {
-      label: "Chase Appeal",
-      value: chaseValue,
-      infoText:
-        "Chase Appeal reflects the strength, depth, and upside of the set's meaningful chase cards.",
-      trend: null,
-    },
-  ];
+/**
+ * Supporting metrics for the SET DESIRABILITY card.
+ *
+ * WHAT WAS REMOVED, AND WHY
+ * -------------------------
+ * This returned two rows read from `openingDesirability` - the migration-031
+ * prototype table - and the first of them was labelled, literally, "Collector
+ * Appeal". It was not Collector Appeal. The backend payload's own
+ * `meta.deprecatedFields` describes `collector_appeal_score` as an "AMBIGUOUS
+ * LEGACY FIELD: this is Pure/Universal Desirability, NOT Collector Appeal", and
+ * says it is intentionally not repointed. So a retired prototype's desirability
+ * number rendered under the name of a canonical public metric that has its own
+ * V3 model, its own value, and its own surface elsewhere on this page.
+ *
+ * It is REMOVED rather than repointed. Repointing it at Collector Appeal V3
+ * would put a third copy of that metric inside a card about a different
+ * concept; Set Desirability is not Collector Appeal and this card is not where
+ * Collector Appeal is published. The canonical Collector Appeal lives in
+ * CollectorAppealBreakdown and in the two summary modules.
+ *
+ * The prototype "Chase Appeal" row went with it: same retired source, and it is
+ * not part of the public metric vocabulary.
+ *
+ * Set Desirability itself is unaffected - the card still shows
+ * `universalSetDesirability.score` with its own all-set rank, and still lists
+ * its top desirability drivers.
+ */
+function getDesirabilityOverviewMetrics() {
+  return [];
 }
 
 function normalizeOpeningDesirabilityPayload(payload) {
@@ -5040,18 +5059,21 @@ function normalizeOpeningDesirabilityPayload(payload) {
     payload.top_desirable_cards,
   ].find((value) => Array.isArray(value));
 
+  // ONLY the driver CARDS survive normalization.
+  //
+  // The migration-031 prototype's score fields — `collector_appeal_score`,
+  // `collector_appeal_rank`, `chase_appeal_score`, `chase_appeal_rank`,
+  // `opening_desirability_score/rank` — are deliberately not read any more. The
+  // backend's own `meta.deprecatedFields` calls `collector_appeal_score` an
+  // "AMBIGUOUS LEGACY FIELD: this is Pure/Universal Desirability, NOT Collector
+  // Appeal", and this page used to render it under exactly that name. Dropping
+  // it here, rather than only at the render site, means no future surface can
+  // pick it back up off a normalized object that looks canonical.
+  //
+  // The card list is a different thing: it is the set's top desirability-driving
+  // cards, it carries no score under a canonical metric name, and the Set
+  // Desirability card still lists it.
   return {
-    openingDesirabilityScore: toNumber(payload.openingDesirabilityScore ?? payload.opening_desirability_score),
-    openingDesirabilityRank: toNumber(payload.openingDesirabilityRank ?? payload.opening_desirability_rank),
-    collectorAppealScore: toNumber(payload.collectorAppealScore ?? payload.collector_appeal_score),
-    collectorAppealRank: toNumber(payload.collectorAppealRank ?? payload.collector_appeal_rank),
-    chaseAppealScore: toNumber(payload.chaseAppealScore ?? payload.chase_appeal_score),
-    chaseAppealRank: toNumber(payload.chaseAppealRank ?? payload.chase_appeal_rank),
-    chaseAppealDataQuality: payload.chaseAppealDataQuality ?? payload.chase_appeal_data_quality ?? "missing",
-    displayStatus: payload.displayStatus ?? payload.display_status ?? "insufficient_chase_data",
-    summary: payload.summary ?? "",
-    tooltipCopy: payload.tooltipCopy ?? payload.tooltip_copy ?? {},
-    builtAt: payload.builtAt ?? payload.built_at ?? null,
     topCollectorAppealDrivers: Array.isArray(topCollectorAppealDrivers)
       ? topCollectorAppealDrivers.map(normalizeCollectorAppealDriverCard).filter(Boolean)
       : [],
@@ -6093,7 +6115,7 @@ function OverviewPillarSignalsCard({ signals }) {
   return (
     <SectionCard
       title="RIP Signals"
-      titleInfoText="Compact overview signals from the four RIP pillars. Full details are in Insights -> RIP Score Breakdown."
+      titleInfoText="Compact overview signals from the four RIP pillars. Full details are in Insights → Overall RIP Breakdown."
     >
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         {visibleSignals.map((signal) => (
@@ -6318,12 +6340,12 @@ function RipScoreBreakdownModule({
           same p-5 inset. */}
       <article className="set-glass-surface rounded-2xl border p-4 desk:p-5 max-desk:rounded-none max-desk:border-0 max-desk:bg-transparent max-desk:p-0 max-desk:shadow-none max-desk:[backdrop-filter:none]">
         <div className="min-w-0">
-          <SectionEyebrow>01 · RIP Score</SectionEyebrow>
+          <SectionEyebrow>01 · Overall RIP</SectionEyebrow>
           <div className="flex min-w-0 items-center gap-2">
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">RIP Score Breakdown</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Overall RIP Breakdown</h2>
             {titleInfoText ? <InfoPopover text={titleInfoText} /> : null}
           </div>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">What drives the RIP Score?</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">What drives Overall RIP?</p>
         </div>
 
         {/* THE INSIGHTS SUMMARY. One grouped surface, three cards, stated
@@ -6333,11 +6355,11 @@ function RipScoreBreakdownModule({
             header, and HeroScoreBadges is still the one metadata component both
             surfaces share.
 
-            SCALES DIFFER ON PURPOSE. The RIP Score card is Overall RIP V7's
-            cohort-RELATIVE score. The other two are Financial RIP V3's and
-            Collector Appeal V3's own fixed-anchor scores, which is the number
-            each of those models is defined to publish. Neither is restated on
-            the Overall relative scale to make the three look alike.
+            ONE SCALE. All three are the canonical cohort-relative 0-100 public
+            score for their metric, on `/100`, to one decimal. This comment used
+            to claim the scales differed on purpose while the code already read
+            the relative value for all three; the claim was stale and the two
+            readings are now identical by construction.
 
             These three rails are the ONLY elevated, glowing bars on the page;
             every rail in the two breakdowns below is deliberately quieter. */}
@@ -7647,7 +7669,7 @@ function SetPageNavigationRail({
           { id: "pull-rate-assumptions", label: "Pull Rate Assumptions", tab: "pull-rates", active: true },
         ]
       : [
-          { id: "rip-score", label: "RIP Score Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
+          { id: "rip-score", label: "Overall RIP Breakdown", tab: "insights", section: "rip-score", targetId: "set-detail-rip-score", active: false },
           // The "Collector Profile" entry pointed at a section that no longer
           // exists. It is renamed to what actually renders, and points at the
           // canonical block rather than at a legacy anchor.
@@ -8272,7 +8294,7 @@ export default function RipStatisticsPageClient({
   // rip_statistics/percentiles/etc. off explorePayload — needs no changes;
   // only what feeds it, and how each section gates on it, changed.
   const insightsFetchEnabled =
-    setDetailMode && setDetailTab === "insights" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
+    setDetailMode && setDetailTab === "overview" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
   const { state: insightsCriticalFetchState, refetch: refetchInsightsCritical } = useSectionFetchState(
     getPokemonSetInsightsCritical,
     { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
@@ -9590,16 +9612,16 @@ export default function RipStatisticsPageClient({
   );
 
   const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
-  // The PUBLIC hero number is the cohort-relative 0-100 Overall RIP V7. The raw
-  // 90/10 formula output is the model score, shown small beneath as a
-  // transparent diagnostic — never competing with the public score.
-  const topScoreRaw = heroScoreSelection.score;
+  // THE public RIP Score: the canonical cohort-relative 0-100 value, identical
+  // to the number the Overview RIP Summary, the "Why It Ranks" result line, the
+  // Insights summary, Explore and Home all print for this set.
+  //
+  // The fixed-anchor 90/10 formula output used to be printed directly beneath
+  // this as "Underlying model score", which put two differently-scaled numbers
+  // for one metric a centimetre apart. It is no longer read on this surface;
+  // `heroScoreSelection.modelScore` still carries it for audit/Research.
+  const topScoreRaw = heroScoreSelection.publicScore;
   const displayedTopScore = formatRawScore(topScoreRaw);
-  const heroModelScoreRaw = heroScoreSelection.absoluteScore;
-  const displayedHeroModelScore =
-    heroModelScoreRaw === null || heroModelScoreRaw === undefined
-      ? null
-      : formatRawScore(heroModelScoreRaw);
 
   // Canonical backend RIP contract: the set-page snapshot payload carries it
   // in set-detail mode, the rankings target carries it on Explore. The pillar
@@ -9642,7 +9664,7 @@ export default function RipStatisticsPageClient({
     summary,
     normalizedOpeningDesirability
   );
-  const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics(normalizedOpeningDesirability);
+  const desirabilityOverviewMetrics = getDesirabilityOverviewMetrics();
   const heroLogoUrl =
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null;
   const ambientSetArtworkUrl =
@@ -10256,14 +10278,18 @@ export default function RipStatisticsPageClient({
     previousTrendPoint?.meanValue,
     previousTrendPoint?.packCost
   );
+  // NO `ripScore` TREND. The history series behind `previousTrendPoint` comes
+  // from `calculation_history_trend` + `simulation_run_summary`, which carry
+  // pack cost, mean, median and value-to-cost ratios and NO score column of any
+  // version. `HISTORY_METRIC_ALIASES.ripScore` therefore never resolved, the
+  // trend was permanently "unknown", and `TrendIndicator` rendered nothing —
+  // while the plumbing stood ready to compare a V7 score against a legacy
+  // 45/25/20/10 `pack_score` the moment such a column appeared.
+  //
+  // Competitive movement is communicated through RIP RANK movement instead,
+  // which is computed from the canonical V7 leaderboard history. Fixed-anchor
+  // model-score history is a Research concern, not a headline arrow.
   const trendByMetricKey = {
-    ripScore: getHistoryMetricTrend({
-      // Trend tracks the absolute model score against recorded history (which
-      // stores the raw formula output), not the cohort-relative public number.
-      metricKey: "ripScore",
-      currentValue: heroModelScoreRaw,
-      previousPoint: previousTrendPoint,
-    }),
     profitScore: getHistoryMetricTrend({
       metricKey: "profitScore",
       currentValue: displayedProfitScore,
@@ -11125,7 +11151,7 @@ export default function RipStatisticsPageClient({
   // split (the canonical model is not 80/20) and then expanded it into
   // Profit/Safety/Stability percentages, which are Financial RIP V2's pillars.
   const ripBreakdownInfo =
-    "RIP Score combines Financial RIP with Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution and the pack price; Collector Appeal is how desirable the modeled cards are and how often the pack can deliver them.";
+    "Overall RIP combines Financial RIP with Collector Appeal. Financial RIP is the monetary opening profile built from the simulated pack-value distribution and the pack price; Collector Appeal is how desirable the modeled cards are and how often the pack can deliver them.";
   // The Explore expert view's three pillar-lens cards, and nothing else. These
   // are Financial RIP V2 pillars, presented as their own named lenses on a
   // diagnostic surface - never as the components of Financial RIP, which has
@@ -12845,11 +12871,10 @@ export default function RipStatisticsPageClient({
                        accessibility are untouched. */
                     mobileEmphasisValue="insights"
                     options={[
-                      { value: "overview", label: "RIP", icon: "gauge" },
-                      { value: "market", label: "Market", icon: "trend" },
-                      { value: "cards", label: "Cards & Products", icon: "cards" },
-                      { value: "pull-rates", label: "Pull Rates", icon: "target" },
-                      { value: "insights", label: "Analysis", icon: "analysis" },
+                      { value: "overview", label: "RIP", icon: "gauge", hideIconOnMobile: true },
+                      { value: "market", label: "Market", icon: "trend", hideIconOnMobile: true },
+                      { value: "cards", label: "Cards & Products", mobileLabel: "Cards", icon: "cards", hideIconOnMobile: true },
+                      { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
                 </div>
@@ -13008,6 +13033,13 @@ export default function RipStatisticsPageClient({
                     pullRateAssumptions={pullRateAssumptions}
                     cardsHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "cards" })}
                     pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
+                    distributionBins={distributionBins}
+                    thresholdBins={thresholdBins}
+                    chartMarkers={chartMarkers}
+                    p50={percentileP50}
+                    p95={percentileP95}
+                    p99={percentileP99}
+                    simulationPending={activeInsightsSecondaryStatus === "idle" || activeInsightsSecondaryStatus === "loading"}
                   />
                 ) : null}
 
@@ -13590,7 +13622,7 @@ export default function RipStatisticsPageClient({
               />
             ) : null}
 
-            {(!setDetailMode || setDetailTab === "insights") && !showInsightsCohesiveLoading ? (
+            {!setDetailMode && !showInsightsCohesiveLoading ? (
               <>
             {!setDetailMode ? (
             <section id="explore-score" style={{ scrollMarginTop: "calc(var(--app-header-offset,64px) + 4rem)" }} className="page-hero-panel relative overflow-hidden scroll-mt-24 rounded-xl px-4 py-6 md:rounded-2xl md:px-6 md:py-8 md:scroll-mt-28">
@@ -13681,7 +13713,7 @@ export default function RipStatisticsPageClient({
                           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
                             {heroScoreSelection.label}
                           </p>
-                          <InfoPopover text={heroScoreSelection.helper} />
+                          <InfoPopover text={`${heroScoreSelection.helper}. ${PUBLIC_SCORE_SCALE_NOTE}`} />
                         </div>
                       </div>
                       <div className="mt-3 flex w-full justify-center">
@@ -13689,18 +13721,21 @@ export default function RipStatisticsPageClient({
                           <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
                             {displayedTopScore}
                           </span>
-                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">relative index</span>
-                          <TrendIndicator trend={trendByMetricKey.ripScore} className="mb-2 sm:mb-3" />
+                          {/* `/100`, the one public suffix. It replaced
+                              "relative index", which put normalization jargon in
+                              a headline metric label. The scale itself is
+                              explained in the InfoPopover above. */}
+                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">
                         <ScoreMeter score={topScoreRaw} rankTier={heroScoreSelection.tier} />
                       </div>
-                      {displayedHeroModelScore !== null ? (
-                        <p className="mt-2 text-xs leading-snug text-[var(--text-secondary)]">
-                          Underlying model score: {displayedHeroModelScore}
-                        </p>
-                      ) : null}
+                      {/* "Underlying model score" stood here. It printed the
+                          fixed-anchor 90/10 output directly under the public
+                          RIP Score — two scales, one metric, one screen. The
+                          model score is audit/Research data, not a public
+                          headline, and is no longer read on this surface. */}
                       <div className="mt-4 flex w-full justify-center self-center">
                         <HeroScoreBadges rank={heroScoreSelection.rank} tier={heroScoreSelection.tier} cohortSize={heroScoreSelection.cohortSize} size="hero" />
                       </div>
@@ -13782,10 +13817,23 @@ export default function RipStatisticsPageClient({
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Stability]}
                               fallbackSummary={interpretation?.stability}
                             />
+                            {/* SET DESIRABILITY, not Collector Appeal. This card
+                                is fed by the interpretation engine's
+                                `desirability` pillar and by `desirabilitySummary`
+                                — both of which describe Universal Set
+                                Desirability, the price-independent roster
+                                metric. It was titled "Collector Appeal", which
+                                put a different model's number and prose under
+                                the name of a canonical public metric that has
+                                its own V3 score and its own surface on this
+                                page. Set Desirability is a real, distinct
+                                concept and keeps its own name and its own
+                                all-set cohort; it is not shortened to bare
+                                "Desirability" beside the RIP metrics. */}
                             <SimplePillarSummaryCard
-                              title="Collector Appeal"
-                              rankTier={ripBreakdownRowByTitle.get("Collector Appeal")?.rankTier ?? null}
-                              infoText={`${SIMPLE_PILLAR_INFO_COPY["Collector Appeal"]}${decisionSignalFreshnessInfo}`}
+                              title="Set Desirability"
+                              rankTier={null}
+                              infoText={`${SIMPLE_PILLAR_INFO_COPY["Set Desirability"]}${decisionSignalFreshnessInfo}`}
                               sectionMeta={desirabilityMeta}
                               backendPillar={pillarMetaByKey[PILLAR_TITLE_TO_KEY.Desirability]}
                               fallbackSummary={desirabilitySummary}
@@ -13911,7 +13959,7 @@ export default function RipStatisticsPageClient({
                     via showInsightsCohesiveLoading (critical-only now), so
                     only render-exception isolation is needed here. */}
                 <div data-mobile-section>
-                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="RIP Score" minHeightClassName="min-h-[14rem]">
+                <SectionErrorBoundary sectionName="insights-rip-score" resetKeys={[resolvedSetResourceId]} title="Overall RIP" minHeightClassName="min-h-[14rem]">
                   <RipScoreBreakdownModule
                     score={topScoreRaw}
                     rankTier={heroScoreSelection.tier}

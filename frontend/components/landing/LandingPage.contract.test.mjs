@@ -83,7 +83,7 @@ test("live number two and three cards use dynamic imagery around a centered fore
   assert.match(phone, /\.rankThree\{left:auto;right:0/);
 });
 
-test("both full-ranking links use the canonical Explore route", () => {
-  assert.equal((component.match(/href="\/Explore"/g) || []).length, 2);
+test("both full-ranking links use the canonical Rankings route", () => {
+  assert.equal((component.match(/href="\/Rankings"/g) || []).length, 2);
   assert.doesNotMatch(component, /See Full Rankings[\s\S]{0,120}\/Explore\/rip-statistics/);
 });

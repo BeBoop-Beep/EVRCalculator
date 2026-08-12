@@ -25,11 +25,11 @@
 
 import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
-export const RIP_SCORE_LABEL = "RIP Score";
+export const RIP_SCORE_LABEL = "Overall RIP";
 
 // Neutral and factual. It names the two canonical inputs without stating a
 // weight, an arithmetic relationship, or a judgement about the set.
-export const RIP_SCORE_HELPER = "Financial performance + collector appeal";
+export const RIP_SCORE_HELPER = "Financial RIP + Collector Appeal";
 
 export function hasCanonicalRipContract(...sources) {
   return readCanonicalBlock(resolveCanonicalRipV7(...sources).overall).available;
@@ -52,13 +52,14 @@ export function selectRipHeroScoreMode({ canonical = null, summary = {}, target 
   return {
     label: RIP_SCORE_LABEL,
     helper: RIP_SCORE_HELPER,
-    // The PUBLIC number is the cohort-relative 0-100 Overall RIP V7. The raw
-    // 90/10 blend is the model/absolute score and is never promoted into
-    // `score`: a payload carrying only the absolute renders unavailable rather
-    // than putting a differently-scaled number under the public label.
-    score: overall.score,
+    // THE public RIP Score: the canonical cohort-relative 0-100 value. The raw
+    // 90/10 blend is `modelScore` and is never rendered on a normal surface —
+    // a payload carrying only that renders unavailable rather than putting a
+    // differently-scaled number under the public label.
+    publicScore: overall.publicScore,
     relativeScore: overall.relativeScore,
-    absoluteScore: overall.absoluteScore,
+    // INTERNAL. Audit/Research only.
+    modelScore: overall.modelScore,
     rank: overall.rank,
     tier: overall.tier,
     cohortSize: overall.cohortSize,

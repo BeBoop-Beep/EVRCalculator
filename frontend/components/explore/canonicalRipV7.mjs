@@ -40,6 +40,15 @@
 // transformation is reading one of two field names for the same backend value
 // (`rankedSetCount` on the contract, `cohortSize` at top level) — a rename the
 // backend already performs on itself, not arithmetic.
+//
+// ONE PUBLIC SCORE, ONE NAME
+// --------------------------
+// `readCanonicalBlock` returns `publicScore` (the backend cohort-relative 0-100
+// value) and `modelScore` (the fixed-anchor formula output). It deliberately
+// does NOT return a generic `score`: that key used to mean the relative value
+// here and the absolute value in the Financial RIP / Collector Appeal
+// selectors, which is the structural defect behind one set showing two
+// different Collector Appeal numbers on one page.
 
 // Marks an object as the OUTPUT of resolveCanonicalRipV7 rather than one of its
 // raw inputs. A resolved bundle is accepted anywhere a source is, and resolving
@@ -127,22 +136,39 @@ export function resolveCanonicalRipV7(...sources) {
 }
 
 /**
- * Read one canonical block's public score/rank/tier/cohort quartet.
+ * Read one canonical block into the PUBLIC view of that metric.
  *
- * The PUBLIC number is the cohort-relative 0-100 score, which is the production
- * scoring language across the site. The absolute formula output is carried
- * alongside as a diagnostic and is never promoted into `score`: a payload
- * holding only the absolute renders unavailable rather than silently showing a
- * differently-scaled number under the same label.
+ * ONE PUBLIC NUMBER, NAMED FOR WHAT IT IS
+ * ---------------------------------------
+ * `publicScore` is the cohort-relative 0-100 score and is the ONLY value a
+ * normal product surface may render for RIP Score, Financial RIP or Collector
+ * Appeal. It is deliberately not called `score`.
+ *
+ * A generic `.score` used to be returned here, aliased to `relativeScore`, while
+ * `financialRipV3Selector` and `collectorAppealBreakdownSelector` returned a
+ * `.score` aliased to the ABSOLUTE fixed-anchor value. One property name, two
+ * scales, decided by which module a component happened to import — that is how
+ * the same set rendered Collector Appeal as 53.2 in one section and 95.9 in
+ * another. There is no `score` key on this object any more, so the ambiguity is
+ * not expressible.
+ *
+ * `modelScore` is the fixed-anchor formula output. It is retained because it is
+ * the real model number and audit, Research and regression work need it — but
+ * it is named so that no reader mistakes it for a public one, and it is never
+ * promoted into `publicScore`. A payload holding only the absolute renders
+ * unavailable rather than silently showing a differently-scaled number under a
+ * public label.
  */
 export function readCanonicalBlock(block) {
   const safeBlock = toObject(block);
   const relative = toNumber(safeBlock.relativeScore);
   return {
     available: relative !== null,
-    score: relative,
+    // THE public value. Cohort-relative 0-100, backend-computed.
+    publicScore: relative,
     relativeScore: relative,
-    absoluteScore: toNumber(safeBlock.absoluteScore ?? safeBlock.score),
+    // INTERNAL. Fixed-anchor model output; never rendered on a normal surface.
+    modelScore: toNumber(safeBlock.absoluteScore ?? safeBlock.score),
     rank: toNumber(safeBlock.rank),
     tier: safeBlock.tier ?? null,
     // `rankedSetCount` on the packaged contract, `cohortSize` at top level —
@@ -154,6 +180,16 @@ export function readCanonicalBlock(block) {
     statusReason: safeBlock.statusReason ?? null,
   };
 }
+
+/**
+ * The one sentence that explains the public 0-100 scale wherever it is shown.
+ *
+ * Stated in product language, not as a formula: the normalization equation
+ * belongs in Research, not in a metric tooltip. Exported from the canonical
+ * reader so every surface quotes the same wording.
+ */
+export const PUBLIC_SCORE_SCALE_NOTE =
+  "Scores are standardized against currently ranked sets; 100 represents the strongest set in the current comparison group.";
 
 /**
  * True when the canonical Overall RIP V7 headline can be rendered for a target.

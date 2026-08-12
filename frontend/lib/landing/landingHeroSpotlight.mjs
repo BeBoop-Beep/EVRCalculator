@@ -151,11 +151,13 @@ function toEntry(target) {
     era: toOptionalString(target?.era),
     logoUrl: toOptionalString(target?.logo_image_url),
     symbolUrl: toOptionalString(target?.symbol_image_url),
-    score: overall.score,
+    // THE canonical public RIP Score — the same cohort-relative 0-100 value
+    // Explore and the set page print. Never the fixed-anchor model score.
+    score: overall.publicScore,
     scoreLabel: "Overall RIP",
     tier: toOptionalString(overall.tier),
     rank: toOptionalNumber(overall.rank),
-    financialRipScore: financial.available ? financial.score : null,
+    financialRipScore: financial.available ? financial.publicScore : null,
     cohortSize,
     setValue: readSetValue(target),
     setValueAsOf:

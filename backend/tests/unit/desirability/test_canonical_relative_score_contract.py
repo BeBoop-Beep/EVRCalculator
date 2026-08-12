@@ -81,6 +81,53 @@ def test_collector_appeal_carries_its_own_relative_score(ranked_cohort):
     assert [block["relativeScore"] for block in appeals] == [0.0, 57.14, 100.0]
 
 
+@pytest.mark.parametrize(
+    ("block_path", "score_path"),
+    [
+        (("overallRipV7",), ("overallRipV7", "score")),
+        (("financialRipV3",), ("financialRipV3", "score")),
+        (
+            ("openingExperience", "collectorAppeal"),
+            ("openingExperience", "collectorAppeal", "score"),
+        ),
+    ],
+    ids=["overall-rip", "financial-rip", "collector-appeal"],
+)
+def test_public_score_endpoints_are_zero_and_one_hundred_and_match_rank_order(
+    ranked_cohort, block_path, score_path
+):
+    """Lock the public 0-100 endpoint and ordering contract for all three scores."""
+
+    def read(row, path):
+        value = row
+        for key in path:
+            value = value[key]
+        return value
+
+    blocks = [read(row, block_path) for row in ranked_cohort]
+    public_scores = [block["relativeScore"] for block in blocks]
+
+    assert min(public_scores) == pytest.approx(0.0)
+    assert max(public_scores) == pytest.approx(100.0)
+
+    by_model_score = sorted(
+        ranked_cohort,
+        key=lambda row: (-read(row, score_path), str(row["target_id"])),
+    )
+    by_public_score = sorted(
+        ranked_cohort,
+        key=lambda row: (-read(row, block_path)["relativeScore"], str(row["target_id"])),
+    )
+    by_rank = sorted(
+        ranked_cohort,
+        key=lambda row: (read(row, block_path)["rank"], str(row["target_id"])),
+    )
+
+    expected_ids = [row["target_id"] for row in by_model_score]
+    assert [row["target_id"] for row in by_public_score] == expected_ids
+    assert [row["target_id"] for row in by_rank] == expected_ids
+
+
 def test_every_weighted_financial_component_carries_a_relative_score(ranked_cohort):
     for row in ranked_cohort:
         components = row["financialRipV3"]["components"]

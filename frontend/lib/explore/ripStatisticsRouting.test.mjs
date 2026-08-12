@@ -52,9 +52,25 @@ test("canonical set names drive mover routes and validated windows", () => {
   );
 });
 
-test("existing Top Rankings overview route remains unchanged", () => {
+test("the default tab is never written into an internal href — Top Rankings links to the bare canonical set URL", () => {
+  // `overview` is the default view, so `?tab=overview` and the bare path render
+  // the same page. The bare path is what the set page declares as canonical, so
+  // internal links must not point at the query variant of it.
   assert.equal(
     buildTcgSetHrefFromTarget(setTarget("Journey Together"), { tab: "overview" }),
-    "/TCGs/Pokemon/Sets/journey-together?tab=overview"
+    "/TCGs/Pokemon/Sets/journey-together"
+  );
+  assert.equal(
+    buildTcgSetHrefFromTarget(setTarget("Journey Together")),
+    "/TCGs/Pokemon/Sets/journey-together"
+  );
+  // A non-default tab still travels, and so does a section on the default tab.
+  assert.equal(
+    buildTcgSetHrefFromTarget(setTarget("Journey Together"), { tab: "market" }),
+    "/TCGs/Pokemon/Sets/journey-together?tab=market"
+  );
+  assert.equal(
+    buildTcgSetHrefFromTarget(setTarget("Journey Together"), { tab: "overview", section: "rip-score" }),
+    "/TCGs/Pokemon/Sets/journey-together?section=rip-score"
   );
 });

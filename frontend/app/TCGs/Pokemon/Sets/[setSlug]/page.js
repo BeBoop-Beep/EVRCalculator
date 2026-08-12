@@ -8,13 +8,96 @@ import {
   findTargetBySetSlug,
   resolveSetDetailTab,
 } from "@/lib/explore/ripStatisticsRouting";
+import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import { redirect } from "next/navigation";
+
+const SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
+
+/**
+ * SET CANONICAL POLICY
+ * --------------------
+ * The canonical identity of a set is its BARE path:
+ *
+ *     /TCGs/Pokemon/Sets/[setSlug]
+ *
+ * Every query variant of that path — `?tab=market`, `?tab=cards`,
+ * `?tab=pull-rates`, `?section=…`, `?window=…`, `?card_sort=…`, `?movement=…`
+ * — is presentation state for the same set, so all of them canonicalize to the
+ * bare URL below. That keeps Market/Cards/Pull Rates fully functional as user
+ * surfaces (nothing about them changes) while stopping them from forming an
+ * uncontrolled family of near-duplicate indexable URLs. If any of those tabs
+ * later earns its own stable path, that path can declare its own canonical.
+ *
+ * The pure aliases of the default view (`?tab=rip`, `?tab=analysis`,
+ * `?tab=analytics`) are collapsed onto that bare URL with a 308 in
+ * middleware.js — they are legacy spellings the app itself never writes, and
+ * middleware is the only layer that can still set a status code here (see the
+ * note in the page component below). `?tab=overview` is deliberately NOT
+ * redirected: the client writes it on every RIP-tab click (see
+ * `updateSetDetailQueryParams` in RipStatisticsPageClient), so redirecting it
+ * would put a server round-trip in the middle of ordinary tab navigation. The
+ * canonical tag already consolidates it.
+ *
+ * NOTHING HERE COMPUTES A SCORE. The set name is lifted verbatim from the same
+ * canonical targets payload the page itself renders from.
+ */
+export async function generateMetadata({ params }) {
+  const resolvedParams = (await params) || {};
+  const requestedSetSlug = String(resolvedParams?.setSlug || "").trim().toLowerCase();
+
+  if (!requestedSetSlug) {
+    return buildRouteMetadata({
+      path: SETS_BASE_PATH,
+      title: "Pokémon TCG Set Catalog — inDex",
+      description: "Browse Pokémon TCG sets and open one for its Overall RIP and opening analysis.",
+    });
+  }
+
+  const canonicalPath = `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`;
+
+  // getRipStatisticsTargets is wrapped in React `cache()` AND a process-level
+  // TTL cache, so this resolves from the same in-flight/cached payload the page
+  // body below awaits. Metadata costs no extra backend request.
+  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(() => null);
+  const setName = String(
+    findTargetBySetSlug(Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [], requestedSetSlug)
+      ?.name || ""
+  ).trim();
+
+  // Graceful failure: a set we cannot name still gets the RIGHT canonical URL
+  // and an accurate generic title. A name is never invented from the slug.
+  if (!setName) {
+    return buildRouteMetadata({
+      path: canonicalPath,
+      title: "Pokémon Set Overall RIP & Opening Analysis — inDex",
+      description:
+        "Overall RIP, Financial RIP, Collector Appeal and modeled opening outcomes for this Pokémon set.",
+    });
+  }
+
+  return buildRouteMetadata({
+    path: canonicalPath,
+    title: `${setName} Overall RIP, Expected Value & Opening Analysis — inDex`,
+    description: `Is ${setName} worth ripping? See its Overall RIP, Financial RIP, Collector Appeal, expected value and modeled opening outcomes on inDex.`,
+    ogTitle: `${setName} — Overall RIP & Opening Analysis`,
+    ogDescription: `Overall RIP, Financial RIP, Collector Appeal and modeled pack outcomes for ${setName}.`,
+  });
+}
 
 export default async function TcgSetRipStatisticsPage({ params, searchParams }) {
   const routeStartedAt = Date.now();
   const resolvedParams = (await params) || {};
   const requestedSetSlug = String(resolvedParams?.setSlug || "").trim().toLowerCase();
   const resolvedSearchParams = (await searchParams) || {};
+
+  // NOTE: the legacy default-view tab aliases (?tab=rip|analysis|analytics) are
+  // collapsed onto the bare canonical set URL by middleware.js, not here. This
+  // route has a loading.js, so Next flushes the response shell before this
+  // function runs — a redirect thrown from here arrives after the 200 is
+  // committed and degrades to a client-side redirect, which is not a signal a
+  // crawler can follow. resolveSetDetailTab still aliases them to `overview`
+  // below so a direct render (or any request that bypasses middleware) is
+  // correct rather than merely redirected.
   const activeSetDetailTab = resolveSetDetailTab(resolvedSearchParams?.tab);
 
   const targetsStartedAt = Date.now();

@@ -19,12 +19,12 @@ export default function FinalCtaSection() {
             Market intelligence for every collecting decision.
           </h2>
           <p className={styles.finalLede}>
-            Explore Pokémon sets today and build a more informed collectible portfolio as inDex
+            View Pokémon set rankings today and build a more informed collectible portfolio as inDex
             expands.
           </p>
           <div className={styles.finalActions}>
-            <Link href="/Explore" className={styles.finalPrimary}>
-              Explore Pokémon sets
+            <Link href="/Rankings" className={styles.finalPrimary}>
+              View Rankings
             </Link>
             <WaitlistCta
               source="landing_page_final"

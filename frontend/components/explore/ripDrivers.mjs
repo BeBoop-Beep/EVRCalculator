@@ -1,11 +1,20 @@
 // HELPS / HURTS / RESULT composition for the set-level RIP page.
 //
-// The two published drivers of the canonical Overall RIP — Financial RIP V3
-// ("Financial Quality") and Collector Appeal V3 — are compared against EACH
-// OTHER on their cohort standing to decide which one is comparatively lifting
-// the set and which one is holding it back. Nothing here is hardcoded per
-// metric: whichever driver ranks materially better is the one that HELPS, so
-// Financial is not always Helps and Collector is not always Helps.
+// The two published drivers of the canonical Overall RIP — Financial RIP and
+// Collector Appeal — are compared against EACH OTHER on their cohort standing
+// to decide which one is comparatively lifting the set and which one is holding
+// it back. Nothing here is hardcoded per metric: whichever driver ranks
+// materially better is the one that HELPS, so Financial is not always Helps and
+// Collector is not always Helps.
+//
+// THE NUMBERS ARE THE PUBLIC ONES
+// -------------------------------
+// Each driver prints `publicScore` — the same canonical cohort-relative 0-100
+// value the RIP Summary card above it prints for the same metric. It used to
+// print `absoluteScore` under the label "Financial Quality", so one set showed
+// Financial RIP twice, on two scales, under two names, in one scroll; Collector
+// Appeal did the same at 53.2 here and 95.9 there. The labels are now the
+// canonical public names and the numbers are the canonical public values.
 //
 // MATERIALITY
 // -----------
@@ -20,7 +29,7 @@
 // printed beside them ("#3 of 22") is the same quantity. A driver ranked first
 // fills the track; last fills a sliver.
 
-const FINANCIAL = { key: "financial", label: "Financial Quality", icon: "shield", role: "financial" };
+const FINANCIAL = { key: "financial", label: "Financial RIP", icon: "shield", role: "financial" };
 const COLLECTOR = { key: "collector", label: "Collector Appeal", icon: "star", role: "collector" };
 
 export function materialRankGap(cohortSize) {
@@ -40,7 +49,9 @@ function driver(descriptor, block, standingLabel) {
   return {
     ...descriptor,
     standingLabel,
-    score: block?.absoluteScore ?? null,
+    // The canonical PUBLIC value — identical to the number the RIP Summary
+    // states for this metric. Never the fixed-anchor model score.
+    score: block?.publicScore ?? null,
     rank: block?.rank ?? null,
     cohortSize: block?.cohortSize ?? null,
     barPercent: standing(block),
@@ -100,7 +111,7 @@ export function buildRipDrivers({ financial = {}, collector = {}, overall = {} }
     mode: "balanced",
     drivers: [driver(strong, strongBlock, "Stronger driver"), driver(weak, weakBlock, "Secondary driver")],
     takeaway: bothStrong
-      ? "Both financial quality and collector appeal support this set's high relative rank."
+      ? "Both Financial RIP and Collector Appeal support this set's high relative rank."
       : "This set has a balanced profile, with no single dominant driver behind its rank.",
   };
 }

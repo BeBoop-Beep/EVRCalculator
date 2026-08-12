@@ -48,9 +48,9 @@ test("the hero resolves the canonical V7 score, rank, tier and cohort", () => {
   const selected = selectRipHeroScoreMode({ target: CANONICAL_TARGET });
 
   assert.equal(selected.label, RIP_SCORE_LABEL);
-  assert.equal(selected.label, "RIP Score");
+  assert.equal(selected.label, "Overall RIP");
   assert.equal(selected.available, true);
-  assert.equal(selected.score, 73.4);
+  assert.equal(selected.publicScore, 73.4);
   assert.equal(selected.rank, 4);
   assert.equal(selected.tier, "A");
   assert.equal(selected.cohortSize, 21);
@@ -59,9 +59,10 @@ test("the hero resolves the canonical V7 score, rank, tier and cohort", () => {
 
 test("the public score is the relative score; the absolute stays a diagnostic", () => {
   const selected = selectRipHeroScoreMode({ target: CANONICAL_TARGET });
-  assert.equal(selected.score, selected.relativeScore);
-  assert.equal(selected.absoluteScore, 41.8);
-  assert.notEqual(selected.score, selected.absoluteScore);
+  assert.equal(selected.publicScore, selected.relativeScore);
+  assert.equal(selected.modelScore, 41.8);
+  assert.notEqual(selected.publicScore, selected.modelScore);
+  assert.equal("score" in selected, false, "no ambiguous generic `score` key");
 });
 
 test("there is one mode: no RIP Core, no mode argument, no coreAvailable", () => {
@@ -88,7 +89,7 @@ test("the hero returns no interpretation label, summary or severity", () => {
 });
 
 test("the helper is neutral and states no weight or verdict", () => {
-  assert.equal(RIP_SCORE_HELPER, "Financial performance + collector appeal");
+  assert.equal(RIP_SCORE_HELPER, "Financial RIP + Collector Appeal");
   assert.equal(/\d/.test(RIP_SCORE_HELPER), false, "no percentage or weight in public copy");
   assert.equal(/RIP Core|Profit|Safety|Stability/.test(RIP_SCORE_HELPER), false);
 });
@@ -97,9 +98,9 @@ test("a legacy-only payload renders unavailable, never a legacy score", () => {
   const selected = selectRipHeroScoreMode({ summary: LEGACY_ONLY_TARGET });
 
   assert.equal(selected.available, false);
-  assert.equal(selected.score, null);
+  assert.equal(selected.publicScore, null);
   assert.equal(selected.relativeScore, null);
-  assert.equal(selected.absoluteScore, null);
+  assert.equal(selected.modelScore, null);
   assert.equal(selected.rank, null);
   assert.equal(selected.tier, null);
   assert.equal(selected.cohortSize, null);
@@ -113,9 +114,9 @@ test("source precedence is payload -> target -> summary within the one model", (
   const target = { publicRipContractV7: { overallRip: { relativeScore: 50.0, rank: 10, tier: "C" } } };
   const summary = { publicRipContractV7: { overallRip: { relativeScore: 10.0, rank: 20, tier: "F" } } };
 
-  assert.equal(selectRipHeroScoreMode({ payload, target, summary }).score, 90.0);
-  assert.equal(selectRipHeroScoreMode({ target, summary }).score, 50.0);
-  assert.equal(selectRipHeroScoreMode({ summary }).score, 10.0);
+  assert.equal(selectRipHeroScoreMode({ payload, target, summary }).publicScore, 90.0);
+  assert.equal(selectRipHeroScoreMode({ target, summary }).publicScore, 50.0);
+  assert.equal(selectRipHeroScoreMode({ summary }).publicScore, 10.0);
 });
 
 test("the backend's unavailable reason is carried, not replaced by a number", () => {
@@ -130,7 +131,7 @@ test("the backend's unavailable reason is carried, not replaced by a number", ()
     },
   });
   assert.equal(selected.available, false);
-  assert.equal(selected.score, null);
+  assert.equal(selected.publicScore, null);
   assert.equal(selected.status, "unavailable_missing_input");
   assert.equal(selected.statusReason, "collector_appeal_v3_unavailable");
 });
@@ -138,6 +139,6 @@ test("the backend's unavailable reason is carried, not replaced by a number", ()
 test("no arguments at all is safe and unavailable", () => {
   const selected = selectRipHeroScoreMode();
   assert.equal(selected.available, false);
-  assert.equal(selected.score, null);
-  assert.equal(selected.label, "RIP Score");
+  assert.equal(selected.publicScore, null);
+  assert.equal(selected.label, "Overall RIP");
 });

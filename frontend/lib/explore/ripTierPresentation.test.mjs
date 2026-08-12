@@ -26,7 +26,7 @@ const readSource = (relative) => fs.readFileSync(path.join(here, relative), "utf
 // The live tier colours, read from the single source of truth rather than
 // copied, so this file cannot become a second mapping.
 function tierColorsFromRankConfig() {
-  const config = readSource("../../constants/rankConfig.js");
+  const config = readSource("../../constants/rankConfig.mjs");
   const colors = {};
   for (const [, tier, color] of config.matchAll(/^ {2}([SABCDF]): \{[\s\S]*?\n {4}color: "([^"]+)"/gm)) {
     colors[tier] = color;

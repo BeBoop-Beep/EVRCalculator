@@ -23,18 +23,17 @@ test("Market is a real canonical set-detail tab", () => {
   assert.ok(marketSection.startsWith(MARKET_START), "Market must have its own render branch");
 });
 
-test("visible set tab order is RIP | Market | Cards & Products | Pull Rates | Analysis", () => {
+test("set tabs preserve desktop labels and define the compact mobile presentation", () => {
   const tabBar = pageSource.slice(pageSource.indexOf("data-set-detail-sticky-tabs"));
   const optionsStart = tabBar.indexOf("options={[");
   const optionsBlock = tabBar.slice(optionsStart, tabBar.indexOf("]}", optionsStart));
-  const order = [...optionsBlock.matchAll(/value: "([^"]+)", label: "([^"]+)", icon: "([^"]+)"/g)].map((match) => match.slice(1));
-  assert.deepEqual(order, [
-    ["overview", "RIP", "gauge"],
-    ["market", "Market", "trend"],
-    ["cards", "Cards & Products", "cards"],
-    ["pull-rates", "Pull Rates", "target"],
-    ["insights", "Analysis", "analysis"],
-  ]);
+  const order = [...optionsBlock.matchAll(/value: "([^"]+)", label: "([^"]+)"/g)].map((match) => match.slice(1));
+  assert.deepEqual(order, [["overview", "RIP"], ["market", "Market"], ["cards", "Cards & Products"], ["pull-rates", "Pull Rates"]]);
+  assert.ok(optionsBlock.includes('label: "Cards & Products", mobileLabel: "Cards"'));
+  assert.equal((optionsBlock.match(/hideIconOnMobile: true/g) || []).length, 4);
+  assert.ok(pageSource.includes('option.hideIconOnMobile ? "max-desk:hidden" : ""'));
+  assert.ok(pageSource.includes('<span className="max-desk:hidden">{option.label}</span>'));
+  assert.ok(pageSource.includes('<span className="hidden max-desk:inline">{option.mobileLabel}</span>'));
 });
 
 test("Market renders exactly the four production market modules", () => {

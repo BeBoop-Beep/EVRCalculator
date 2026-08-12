@@ -51,9 +51,17 @@
 // NO SCORING IN JAVASCRIPT
 // ------------------------
 // Every score, probability and rank is lifted from the backend payload. The
-// only arithmetic is presentational unit conversion. `score` remains the
-// fixed-anchor model output for internal/audit consumers; `publicScore` is the
-// backend cohort-relative score and is the only value intended for `/100` UI.
+// only arithmetic is presentational unit conversion.
+//
+// ONE PUBLIC SCORE
+// ----------------
+// `publicScore` is the backend cohort-relative 0-100 score and is the only
+// value a normal surface may render. `modelScore` is the fixed-anchor formula
+// output, kept for audit/Research and named so it cannot be mistaken for a
+// public number. This selector no longer returns a generic `score`: it used to
+// alias the ABSOLUTE value while the canonical resolver's `score` aliased the
+// RELATIVE one, which is why one set could show Collector Appeal twice, at two
+// different numbers, on one page.
 
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 
@@ -71,11 +79,13 @@ function toObject(value) {
 
 function readScoreLayers(block = {}) {
   const safe = toObject(block);
-  const absoluteScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
+  const modelScore = toOptionalNumber(safe.absoluteScore ?? safe.score);
   const relativeScore = toOptionalNumber(safe.relativeScore);
   return {
-    absoluteScore,
+    // INTERNAL. Fixed-anchor model output; never rendered on a normal surface.
+    modelScore,
     relativeScore,
+    // THE public value.
     publicScore: relativeScore,
     publicAvailable: relativeScore !== UNAVAILABLE,
   };
@@ -133,7 +143,6 @@ export function selectCollectorAppealBreakdown(...sources) {
   const dualPath = toObject(components.dualPathDepth);
 
   const scores = readScoreLayers(appeal);
-  const score = scores.absoluteScore;
   const rosterScore = toOptionalNumber(roster.score);
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
   const dualPathRaw = toOptionalNumber(dualPath.rawValue);
@@ -222,11 +231,14 @@ export function selectCollectorAppealBreakdown(...sources) {
 
   const scope = toObject(appeal.subjectScope);
   return {
-    available: score !== UNAVAILABLE,
-    score,
-    scoreLabel: formatScore(score),
-    absoluteScore: scores.absoluteScore,
+    // Availability is decided by the PUBLIC score. A block carrying only the
+    // fixed-anchor model score is not renderable on a normal surface, so it must
+    // not report itself available — that is what let an absolute value take a
+    // public slot.
+    available: scores.publicAvailable,
     relativeScore: scores.relativeScore,
+    // INTERNAL. Kept for audit/Research; never rendered under a public label.
+    modelScore: scores.modelScore,
     // Strict public score: no absolute fallback under a `/100` label.
     publicScore: scores.publicScore,
     publicScoreLabel: formatScore(scores.publicScore),

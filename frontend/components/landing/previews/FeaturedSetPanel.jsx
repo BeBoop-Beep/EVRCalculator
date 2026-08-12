@@ -27,10 +27,10 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
           Live set intelligence
         </p>
         <p className={styles.emptyNote}>
-          Opening rankings are refreshing. Open Explore for the sets published right now.
+          Opening rankings are refreshing. Open Rankings for the sets published right now.
         </p>
-        <Link href="/Explore" className={styles.cardCta}>
-          Explore Pokémon sets
+        <Link href="/Rankings" className={styles.cardCta}>
+          Open Rankings
           <Arrow />
         </Link>
       </div>
@@ -92,7 +92,7 @@ export default function FeaturedSetPanel({ set, marketDate = null }) {
         ) : null}
         {/* Supporting analytical detail, deliberately last and smallest. */}
         <span className={`${styles.stat} ${styles.statMuted}`}>
-          <span className={styles.statLabel}>RIP Score</span>
+          <span className={styles.statLabel}>Overall RIP</span>
           <span className={styles.statValue}>{set.score.toFixed(0)}</span>
         </span>
       </div>

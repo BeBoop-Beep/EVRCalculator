@@ -112,7 +112,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
             </div>
             <div className={styles.mobileTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
             <Metrics set={set} />
-            <Link className={styles.primaryCta} href="/Explore">See Full Rankings <span aria-hidden="true">→</span></Link>
+            <Link className={styles.primaryCta} href="/Rankings">See Full Rankings <span aria-hidden="true">→</span></Link>
           </div>
           <div className={styles.desktopTheater}><Theater set={set} rows={rankingRows} boosterPackImage={boosterPackImage} /></div>
         </div>
@@ -120,7 +120,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
 
       <section className={styles.section} aria-labelledby="best-sets-heading">
         <div className={styles.shell}>
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Overall RIP V7</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
+          <div className={styles.sectionHead}><p className={styles.eyebrow}>Published Overall RIP ranking</p><h2 id="best-sets-heading">BEST SETS TO RIP RIGHT NOW</h2></div>
           {rankingRows.length ? <ol className={styles.rankingBoard}>
             {rankingRows.map((row) => <li key={row.key}><Link href={row.href} className={styles.rankingRow}>
               <span className={styles.rank}>#{row.rank}</span><SetMark set={row} className={styles.rowLogo} />
@@ -130,7 +130,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
               <span className={`${styles.rowMetric} ${styles.optionalMetric}`}><small>Pack price</small><Money value={row.packCost} /></span>
             </Link></li>)}
           </ol> : <p className={styles.unavailable}>Published rankings are refreshing.</p>}
-          <Link className={styles.textCta} href="/Explore">See Full Rankings →</Link>
+          <Link className={styles.textCta} href="/Rankings">See Full Rankings →</Link>
         </div>
       </section>
 
@@ -148,7 +148,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
         </div>
       </section>
 
-      <MethodologySection marketContext={marketContext} methodologyHref={set?.ripScoreHref || "/Explore/rip-statistics"} />
+      <MethodologySection marketContext={marketContext} methodologyHref="/Research" />
     </>
   );
 }

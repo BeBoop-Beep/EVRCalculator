@@ -3,18 +3,23 @@ import assert from "node:assert/strict";
 
 import {
   EXPLORE_RANKING_MODES,
-  getAbsoluteScoreField,
-  getAbsoluteScoreForMode,
-  getRelativeScoreField,
-  getRelativeScoreForMode,
+  SCORE_KIND_INDEX,
+  SCORE_KIND_PUBLIC,
+  SCORE_KIND_RATIO,
+  formatModeScore,
   getRankForMode,
   getRankedSetCountField,
   getRankedSetCountForMode,
+  getScoreField,
   getScoreForMode,
-} from "./exploreRankingConfig.js";
+  getScoreKind,
+  isPublicScoreMode,
+} from "./exploreRankingConfig.mjs";
 
 const TARGET = {
   // CANONICAL. The public "RIP SCORE" and "FINANCIAL RIP" columns read these.
+  // `score` and `relativeScore` differ deliberately so an assertion can tell
+  // which layer a column resolved.
   overallRipV7: { score: 29.07, relativeScore: 82.4, rank: 4, tier: "A", cohortSize: 21 },
   financialRipV3: { score: 22.32, relativeScore: 61.8, rank: 12, tier: "B", cohortSize: 21 },
   // LEGACY, still served for audit consumers: Overall RIP v4 and Financial RIP
@@ -29,6 +34,8 @@ const TARGET = {
     financialRip: {
       components: {
         profit: { score: 40.1, rank: 6, tier: "B", cohortSize: 21 },
+        safety: { score: 41.2, rank: 7, tier: "B", cohortSize: 21 },
+        stability: { score: 42.3, rank: 8, tier: "C", cohortSize: 21 },
       },
     },
   },
@@ -36,63 +43,166 @@ const TARGET = {
   universalSetDesirability: { score: 95.5, rank: 1, rankedSetCount: 135 },
   mean_value_to_cost_ratio: 1.23,
   mean_value_to_cost_rank: 3,
+  p99_value_to_cost_ratio: 18.4,
+  p99_value_to_cost_rank: 2,
 };
 
-test("overall mode exposes distinct absolute and relative fields", () => {
-  assert.equal(getAbsoluteScoreField("overall"), "overallRipV7.score");
-  assert.equal(getRelativeScoreField("overall"), "overallRipV7.relativeScore");
-  assert.equal(getAbsoluteScoreForMode(TARGET, "overall"), 29.07);
-  assert.equal(getRelativeScoreForMode(TARGET, "overall"), 82.4);
-  assert.equal(getRankForMode(TARGET, "overall"), 4);
-});
+// --- The canonical public columns -------------------------------------------
 
-test("financial mode reads Financial RIP V3, never ripCore (V2)", () => {
-  assert.equal(getAbsoluteScoreForMode(TARGET, "financial"), 22.32);
-  assert.equal(getRelativeScoreForMode(TARGET, "financial"), 61.8);
+test("the two canonical modes read the PUBLIC relative score and nothing else", () => {
+  assert.equal(getScoreField("overall"), "overallRipV7.relativeScore");
+  assert.equal(getScoreField("financial"), "financialRipV3.relativeScore");
+  assert.equal(getScoreForMode(TARGET, "overall"), 82.4);
+  assert.equal(getScoreForMode(TARGET, "financial"), 61.8);
+  assert.equal(getRankForMode(TARGET, "overall"), 4);
   assert.equal(getRankForMode(TARGET, "financial"), 12);
 });
 
-test("absolute and relative are never the same field", () => {
+test("no mode exposes a fixed-anchor model score field", () => {
+  // The absolute is a real model number and stays in the payload, but the
+  // ranking config must not offer it: a config that hands a surface both
+  // layers is a config that invites the surface to pick the wrong one, which
+  // is how the same metric rendered on two scales.
+  for (const [id, mode] of Object.entries(EXPLORE_RANKING_MODES)) {
+    const serialized = JSON.stringify(mode);
+    assert.equal(/absoluteScoreField/.test(serialized), false, `${id} must not expose an absolute field`);
+    assert.equal(/relativeScoreField/.test(serialized), false, `${id} must not expose a rival relative field`);
+    assert.equal(/\.absoluteScore/.test(serialized), false, `${id} must not point at an absoluteScore path`);
+  }
+  assert.equal(getScoreField("overall").endsWith(".score"), false);
+  assert.equal(getScoreField("financial").endsWith(".score"), false);
+});
+
+test("the canonical modes never read a legacy object", () => {
   for (const mode of ["overall", "financial"]) {
-    assert.notEqual(getAbsoluteScoreField(mode), getRelativeScoreField(mode));
+    const field = getScoreField(mode);
+    assert.equal(field.startsWith("rip."), false, `${mode} must not read Overall RIP v4`);
+    assert.equal(field.startsWith("ripCore"), false, `${mode} must not read Financial RIP V2`);
+    assert.equal(/pack_score|pack_rank|relative_pack_score/.test(field), false);
   }
 });
 
-test("a mode without a relative field returns null for relative, keeps absolute", () => {
-  // Pillars carry an absolute component score and a rank, but no relativeScore.
-  assert.equal(getRelativeScoreForMode(TARGET, "profit"), null);
-  assert.equal(getAbsoluteScoreField("profit"), "rip.financialRip.components.profit.score");
-});
+// --- Retired legacy V2 lenses -----------------------------------------------
 
-test("ratio-only modes expose no relative score", () => {
-  // EV-to-cost and Jackpot Upside are raw ratios; they must not fabricate one.
-  for (const mode of ["averageReturn", "godPullUpside"]) {
-    assert.equal(getRelativeScoreField(mode), null);
-    assert.equal(getRelativeScoreForMode(TARGET, mode), null);
-    assert.equal(EXPLORE_RANKING_MODES[mode].scoreFormat, "ratio");
+test("the Financial RIP V2 pillar lenses are retired as public ranking modes", () => {
+  for (const retired of ["profit", "safety", "stability"]) {
+    assert.equal(retired in EXPLORE_RANKING_MODES, false, `${retired} must no longer be a public lens`);
   }
 });
 
-test("absolute score falls back to scoreField when no explicit absolute field", () => {
-  // desirability mode defines only scoreField; absolute resolves to it.
-  assert.equal(getAbsoluteScoreField("desirability"), "universalSetDesirability.score");
-  assert.equal(getAbsoluteScoreForMode(TARGET, "desirability"), 95.5);
+test("no surviving mode reads Financial RIP V2 pillars", () => {
+  for (const [id, mode] of Object.entries(EXPLORE_RANKING_MODES)) {
+    const field = mode.publicScoreField || mode.scoreField || "";
+    assert.equal(
+      field.includes("rip.financialRip.components"),
+      false,
+      `${id} must not rank on a retired V2 pillar`
+    );
+  }
+});
+
+// --- Every column declares what kind of number it holds ----------------------
+
+test("every mode declares a score kind", () => {
+  for (const [id, mode] of Object.entries(EXPLORE_RANKING_MODES)) {
+    assert.ok(
+      [SCORE_KIND_PUBLIC, SCORE_KIND_INDEX, SCORE_KIND_RATIO].includes(mode.scoreKind),
+      `${id} must declare a scoreKind`
+    );
+    assert.ok(mode.publicScoreField || mode.scoreField, `${id} must declare exactly one score field`);
+  }
+});
+
+test("only the three canonical public metrics take the public-score treatment", () => {
+  const publicModes = Object.values(EXPLORE_RANKING_MODES)
+    .filter((mode) => mode.scoreKind === SCORE_KIND_PUBLIC)
+    .map((mode) => mode.id)
+    .sort();
+  assert.deepEqual(publicModes, ["financial", "overall"]);
+  assert.equal(isPublicScoreMode("overall"), true);
+  assert.equal(isPublicScoreMode("financial"), true);
+  assert.equal(isPublicScoreMode("desirability"), false);
+  assert.equal(isPublicScoreMode("averageReturn"), false);
+});
+
+test("a ratio column can never be formatted as a 0-100 score", () => {
+  assert.equal(getScoreKind("averageReturn"), SCORE_KIND_RATIO);
+  assert.equal(getScoreKind("jackpotUpside"), SCORE_KIND_RATIO);
+  assert.equal(formatModeScore(getScoreForMode(TARGET, "averageReturn"), getScoreKind("averageReturn")), "1.2x");
+  assert.equal(formatModeScore(getScoreForMode(TARGET, "jackpotUpside"), getScoreKind("jackpotUpside")), "18.4x");
+  // And a public score is never suffixed with an x.
+  assert.equal(formatModeScore(getScoreForMode(TARGET, "overall"), getScoreKind("overall")), "82.4");
+});
+
+test("public scores format to exactly one decimal", () => {
+  assert.equal(formatModeScore(100, SCORE_KIND_PUBLIC), "100.0");
+  assert.equal(formatModeScore(0, SCORE_KIND_PUBLIC), "0.0");
+  assert.equal(formatModeScore(88, SCORE_KIND_PUBLIC), "88.0");
+  assert.equal(formatModeScore(null, SCORE_KIND_PUBLIC), "—");
+});
+
+// --- Set Desirability stays its own concept ---------------------------------
+
+test("Set Desirability is a distinct index against its own all-set cohort", () => {
+  const mode = EXPLORE_RANKING_MODES.desirability;
+  assert.equal(mode.label, "Set Desirability");
+  assert.equal(mode.scoreLabel, "SET DESIRABILITY");
+  assert.equal(mode.scoreKind, SCORE_KIND_INDEX, "it is not one of the three canonical public metrics");
   assert.equal(getScoreForMode(TARGET, "desirability"), 95.5);
+  // Its OWN denominator (135 scored sets), never the opening cohort's 21.
+  assert.equal(getRankedSetCountForMode(TARGET, "desirability"), 135);
+  assert.notEqual(getRankedSetCountForMode(TARGET, "desirability"), getRankedSetCountForMode(TARGET, "overall"));
+  // And it is never presented as Collector Appeal.
+  assert.equal(/Collector Appeal/.test(mode.label), false);
+  assert.equal(/Collector Appeal/.test(mode.scoreLabel), false);
 });
+
+// --- Vocabulary -------------------------------------------------------------
+
+test("no mode publishes retired public vocabulary", () => {
+  const forbidden = [
+    /God Pull/i,
+    /GOD PULL/,
+    /RIP Score/,
+    /Relative RIP Index/,
+    /Financial Quality/,
+    /Opening Desirability/,
+  ];
+  for (const [id, mode] of Object.entries(EXPLORE_RANKING_MODES)) {
+    const copy = [mode.label, mode.title, mode.subtitle, mode.tooltip, mode.scoreLabel, mode.tierLabel, mode.description]
+      .filter(Boolean)
+      .join(" | ");
+    for (const pattern of forbidden) {
+      assert.equal(pattern.test(copy), false, `${id} copy must not contain ${pattern}`);
+    }
+  }
+});
+
+test("the canonical modes are labelled Overall RIP and Financial RIP", () => {
+  assert.equal(EXPLORE_RANKING_MODES.overall.scoreLabel, "OVERALL RIP");
+  assert.equal(EXPLORE_RANKING_MODES.financial.scoreLabel, "FINANCIAL RIP");
+  assert.equal(EXPLORE_RANKING_MODES.financial.label, "Financial RIP");
+});
+
+test("Jackpot Upside is the only name for the top-1% ranking lens", () => {
+  const mode = EXPLORE_RANKING_MODES.jackpotUpside;
+  assert.equal(mode.label, "Jackpot Upside");
+  assert.equal(mode.scoreLabel, "JACKPOT UPSIDE");
+  assert.equal("godPullUpside" in EXPLORE_RANKING_MODES, false);
+  assert.equal(getScoreField("jackpotUpside"), "p99_value_to_cost_ratio");
+});
+
+// --- Denominators and null-safety -------------------------------------------
 
 test("ranked-set count reads each mode's own cohort denominator", () => {
-  // Overall/Financial denominators live on the RIP objects as cohortSize; the
-  // desirability denominator is the ALL-SET rankedSetCount. They differ on
-  // purpose, so a rank and its denominator always describe one population.
   assert.equal(getRankedSetCountField("overall"), "overallRipV7.cohortSize");
   assert.equal(getRankedSetCountForMode(TARGET, "overall"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "financial"), 21);
-  assert.equal(getRankedSetCountForMode(TARGET, "profit"), 21);
   assert.equal(getRankedSetCountForMode(TARGET, "desirability"), 135);
 });
 
 test("ratio-only modes expose no ranked-set count field", () => {
-  for (const mode of ["averageReturn", "godPullUpside"]) {
+  for (const mode of ["averageReturn", "jackpotUpside"]) {
     assert.equal(getRankedSetCountField(mode), null);
     assert.equal(getRankedSetCountForMode(TARGET, mode), null);
   }
@@ -100,24 +210,23 @@ test("ratio-only modes expose no ranked-set count field", () => {
 
 test("null-safe getters: missing objects never throw and return null", () => {
   const empty = {};
-  for (const mode of ["overall", "financial", "profit", "desirability"]) {
-    assert.equal(getAbsoluteScoreForMode(empty, mode), null);
-    assert.equal(getRelativeScoreForMode(empty, mode), null);
+  for (const mode of Object.keys(EXPLORE_RANKING_MODES)) {
+    assert.equal(getScoreForMode(empty, mode), null);
     assert.equal(getRankForMode(empty, mode), null);
     assert.equal(getRankedSetCountForMode(empty, mode), null);
   }
 });
 
-test("missing relative but present absolute: relative null, absolute intact", () => {
-  const partial = { overallRipV7: { score: 30.0, rank: 2, cohortSize: 21 } };
-  assert.equal(getAbsoluteScoreForMode(partial, "overall"), 30.0);
-  assert.equal(getRelativeScoreForMode(partial, "overall"), null);
-  assert.equal(getRankForMode(partial, "overall"), 2);
+test("a payload carrying ONLY the model score renders no public score", () => {
+  // The exact stale-snapshot shape. It must not fall back to the absolute.
+  const absoluteOnly = { overallRipV7: { score: 30.0, rank: 2, cohortSize: 21 } };
+  assert.equal(getScoreForMode(absoluteOnly, "overall"), null);
+  assert.equal(formatModeScore(getScoreForMode(absoluteOnly, "overall"), getScoreKind("overall")), "—");
+  // Rank still resolves — it is a separate, still-valid backend field.
+  assert.equal(getRankForMode(absoluteOnly, "overall"), 2);
 });
 
-test("missing absolute but present rank: absolute null, rank intact", () => {
-  const partial = { overallRipV7: { relativeScore: 55.0, rank: 3, cohortSize: 21 } };
-  assert.equal(getAbsoluteScoreForMode(partial, "overall"), null);
-  assert.equal(getRelativeScoreForMode(partial, "overall"), 55.0);
-  assert.equal(getRankForMode(partial, "overall"), 3);
+test("an unknown mode falls back to the canonical overall mode", () => {
+  assert.equal(getScoreForMode(TARGET, "does-not-exist"), 82.4);
+  assert.equal(getScoreKind("does-not-exist"), SCORE_KIND_PUBLIC);
 });
