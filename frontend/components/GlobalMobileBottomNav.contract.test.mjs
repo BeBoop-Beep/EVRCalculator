@@ -18,14 +18,14 @@ const itemsBlock = source.slice(
   source.indexOf("if (shouldHide)")
 );
 
-test("the six destinations are Rankings, Market, TCGs, Research, Portfolio, Profile in order", () => {
+test("the six destinations are Rankings, Market, TCGs, Articles, Portfolio, Profile in order", () => {
   assert.ok(itemsBlock.length > 0, "the items block must be locatable");
 
   const ids = [...itemsBlock.matchAll(/id: "([a-z]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(ids, ["explore", "market", "tcgs", "research", "portfolio", "profile"]);
+  assert.deepEqual(ids, ["explore", "market", "tcgs", "articles", "portfolio", "profile"]);
 
   const labels = [...itemsBlock.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ["Rankings", "Market", "TCGs", "Research", "Portfolio", "Profile"]);
+  assert.deepEqual(labels, ["Rankings", "Market", "TCGs", "Articles", "Portfolio", "Profile"]);
 });
 
 test("TCGs routes through the shared href constant and lights the whole /TCGs family", () => {
@@ -75,12 +75,13 @@ test("the bottom navigation preserves its chrome while fitting six destinations"
   assert.equal(iconOpenings.length, 6, "all six destinations share one icon recipe");
 });
 
-test("Market and Research own their canonical routes and Home is removed", () => {
+test("Market and Articles own their canonical routes and Home is removed", () => {
   assert.ok(itemsBlock.includes('href: "/Market"'));
-  assert.ok(itemsBlock.includes('href: "/Research"'));
+  assert.ok(itemsBlock.includes('href: "/Articles"'));
+  assert.ok(!source.includes("/Research"), "the retired Research destination must be gone");
   assert.ok(!itemsBlock.includes('label: "Home"'));
   assert.ok(itemsBlock.includes('isPathMatch(normalizedPathname, ["/Market"], { caseInsensitive: true })'));
-  assert.ok(itemsBlock.includes('isPathMatch(normalizedPathname, ["/Research"], { caseInsensitive: true })'));
+  assert.ok(itemsBlock.includes('isPathMatch(normalizedPathname, ["/Articles"], { caseInsensitive: true })'));
 });
 
 test("portfolio and profile route families retain their active states", () => {

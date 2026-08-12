@@ -51,6 +51,25 @@ const nextConfig = {
 			// They are collapsed onto the bare canonical set URL in
 			// middleware.js, which can delete exactly one parameter, keep the
 			// rest, and still set a real 308 status.
+			// /Research was a top-level product section whose entire content
+			// was the RIP methodology. Articles is now the content destination
+			// and that methodology is an article inside it, so the old URL is
+			// redirected to the article ITSELF — not to the /Articles hub —
+			// because every external link to /Research was a link to the
+			// methodology. ONE rule covers both spellings: redirect `source`
+			// matching is case-insensitive, so this also catches the /research a
+			// visitor types by hand or a video description writes lowercase.
+			{
+				source: "/Research",
+				destination: "/Articles/how-rip-score-works",
+				permanent: true,
+			},
+			// NOTE: there is deliberately no /articles -> /Articles rule. Redirect
+			// `source` matching is CASE-INSENSITIVE, so such a rule also matches
+			// /Articles itself and 308s the canonical URL to itself forever. The
+			// pair above is safe only because its destination is a different path
+			// than either source. The capitalized hub is the one canonical URL, the
+			// same as /Rankings and /Market, neither of which has a lowercase alias.
 			{
 				source: "/learn",
 				destination: "/tools",

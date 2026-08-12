@@ -251,7 +251,7 @@ test("there is no model toggle: Financial RIP means V3 and nothing else", () => 
 test("V3 component weights stay in the audit definition and never reach a public row", () => {
   // The weights are unchanged and still authoritative. They travel on the
   // backend object under `audit.weights.weights`, which is where audit,
-  // Research and this test read them.
+  // the methodology article and this test read them.
   assert.deepEqual(
     Object.values(V3_FIXTURE.audit.weights.weights),
     [0.25, 0.20, 0.15, 0.25, 0.10, 0.05]

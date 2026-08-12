@@ -7,7 +7,7 @@ const NAV_COLUMNS = [
     links: [
       { label: "Rankings", href: "/Rankings" },
       { label: "Market", href: "/Market" },
-      { label: "Research", href: "/Research" },
+      { label: "Articles", href: "/Articles" },
       { label: "TCGs", href: "/TCGs" },
       { label: "My Portfolio", href: "/my-collection" },
     ],

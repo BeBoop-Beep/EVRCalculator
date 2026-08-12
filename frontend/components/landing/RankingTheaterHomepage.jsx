@@ -152,7 +152,7 @@ export default function RankingTheaterHomepage({ set, rankingRows = [], boosterP
         </div>
       </section>
 
-      <MethodologySection marketContext={marketContext} methodologyHref="/Research" />
+      <MethodologySection marketContext={marketContext} methodologyHref="/Articles/how-rip-score-works" />
     </>
   );
 }

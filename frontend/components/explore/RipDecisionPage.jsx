@@ -9,10 +9,12 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import styles from "./RipDecisionPage.module.css";
 
-const RESEARCH_HREF = "/Research";
+// A reader who opens a metric bubble wants the methodology, not a content hub,
+// so this deep-links straight to the article rather than to /Articles.
+const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 
 function Help({ text }) {
-  return <InfoPopover text={text} learnMoreHref={RESEARCH_HREF} learnMoreLabel="Learn more in Research" />;
+  return <InfoPopover text={text} learnMoreHref={METHODOLOGY_ARTICLE_HREF} learnMoreLabel="How the RIP Score works" />;
 }
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
@@ -64,7 +66,7 @@ function ChaseCard({ card }) {
   );
 }
 
-export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = "/Research" }) {
+export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = METHODOLOGY_ARTICLE_HREF }) {
   const model = buildRipDecisionModel({ canonical, summary, pullRateAssumptions });
   const verdictPresentation = getRipPageIconPresentation("verdict");
   const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : `#${Math.round(model.overall.rank)} Modern Set to Rip Right Now`;

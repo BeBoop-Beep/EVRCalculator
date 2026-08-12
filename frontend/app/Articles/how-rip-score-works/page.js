@@ -6,15 +6,20 @@ import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 // most widely republished text on the site.
 //
 // NAMING: "Overall RIP" is the public name of the headline metric. It is the
-// name this page uses throughout, and researchPage.contract.test.mjs asserts
+// name this page uses throughout, and articlesRoutes.contract.test.mjs asserts
 // that the retired label does not appear anywhere in this file — metadata
 // included, which is why the wording below matches the page copy exactly.
+//
+// ROUTE HISTORY: this content shipped at /Research, which was a top-level
+// product section. Articles is now the content destination and methodology is
+// an article inside it. /Research and /research are permanent redirects to this
+// URL (next.config.mjs) so there is exactly ONE indexable copy.
 export const metadata = buildRouteMetadata({
-  path: "/Research",
-  title: "Pokémon RIP Methodology & Research — inDex",
+  path: "/Articles/how-rip-score-works",
+  title: "How the RIP Score Works — inDex",
   description:
     "How inDex builds Overall RIP from Financial RIP and Collector Appeal, what its modeled opening simulation measures, and how to read the results.",
-  ogTitle: "Pokémon RIP Methodology & Research",
+  ogTitle: "How the RIP Score Works",
 });
 
 const FINANCIAL_COMPONENTS = [
@@ -43,12 +48,12 @@ function Section({ eyebrow, title, children }) {
   );
 }
 
-export default function ResearchPage() {
+export default function HowRipScoreWorksArticle() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
       <header className="mx-auto max-w-3xl text-center">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">inDex methodology</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">Research</h1>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">How the RIP Score Works</h1>
         <p className="mt-4 text-base leading-7 text-[var(--text-secondary)] sm:text-lg">inDex combines modeled opening economics with collector-oriented set structure to answer one question: what Pokémon set is worth ripping right now?</p>
       </header>
 
@@ -104,6 +109,7 @@ export default function ResearchPage() {
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Link href="/Rankings" className="inline-flex min-h-11 items-center rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--surface-page)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">View Rankings</Link>
         <Link href="/Market" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border-subtle)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">View Market</Link>
+        <Link href="/Articles" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border-subtle)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">All Articles</Link>
       </div>
     </div>
   );

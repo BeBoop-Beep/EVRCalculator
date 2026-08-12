@@ -40,7 +40,8 @@
 // authoritative there. Normal surfaces must NOT display them: Financial RIP is
 // a weighted sum, so a published weight vector is the formula itself, and a
 // published contribution is that formula evaluated. Weights stay in the backend
-// model configuration, in the audit block, in tests and in Research's
+// model configuration, in the audit block, in tests and in the methodology
+// article's
 // methodology data structures.
 //
 // Consequently the rows this selector returns carry no `weight` field at all.
@@ -49,7 +50,7 @@
 // "· Weight 25%" beside each rank. Nothing about the weights or the scoring
 // mathematics changed; only their reachability from the render layer did.
 //
-// Research may explain what the components measure, how they normalize and what
+// The methodology article may explain what the components measure, how they normalize and what
 // they assume, without publishing the exact percentages.
 
 import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
@@ -150,7 +151,7 @@ export function formatOneInN(oneInN) {
 // the P99/top-1% threshold). Printing a 0-100 index under those exact names put
 // two different quantities behind one public label. The index still exists,
 // still carries the component's weight into Financial RIP, and is still
-// available as `publicScore` for Research — it simply no longer occupies the
+// available as `publicScore` for the methodology article — it simply no longer occupies the
 // public name. The scoring mathematics is untouched.
 //
 // The two cards whose titles collide with a public outcome metric are therefore

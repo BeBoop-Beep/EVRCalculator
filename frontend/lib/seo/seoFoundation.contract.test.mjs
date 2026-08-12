@@ -71,7 +71,7 @@ test("canonical URLs drop query strings, hashes and trailing slashes", () => {
     "https://www.inthedex.io/TCGs/Pokemon/Sets/perfect-order"
   );
   assert.equal(canonicalUrl("/Market#movers"), "https://www.inthedex.io/Market");
-  assert.equal(canonicalUrl("/Research/"), "https://www.inthedex.io/Research");
+  assert.equal(canonicalUrl("/Articles/how-rip-score-works/"), "https://www.inthedex.io/Articles/how-rip-score-works");
 });
 
 /* ------------------------------------------------------------------ *
@@ -143,7 +143,8 @@ const PRIMARY_ROUTES = [
   ["app/page.js", "/"],
   ["app/Rankings/page.js", "/Rankings"],
   ["app/Market/page.js", "/Market"],
-  ["app/Research/page.js", "/Research"],
+  ["app/Articles/page.js", "/Articles"],
+  ["app/Articles/how-rip-score-works/page.js", "/Articles/how-rip-score-works"],
   ["app/TCGs/Pokemon/Sets/page.js", "/TCGs/Pokemon/Sets"],
 ];
 
@@ -158,7 +159,8 @@ for (const [relativePath, routePath] of PRIMARY_ROUTES) {
 test("the approved public titles are the ones shipped", () => {
   assert.ok(read("app/Rankings/page.js").includes("Best Pokémon Sets to Rip Right Now — inDex"));
   assert.ok(read("app/Market/page.js").includes("Pokémon Market Trends & Set Values — inDex"));
-  assert.ok(read("app/Research/page.js").includes("Pokémon RIP Methodology & Research — inDex"));
+  assert.ok(read("app/Articles/how-rip-score-works/page.js").includes("How the RIP Score Works — inDex"));
+  assert.ok(read("app/Articles/page.js").includes("Articles — inDex"));
 });
 
 /* ------------------------------------------------------------------ *
@@ -285,7 +287,8 @@ test("robots exposes the sitemap and blocks only private/app-only families", () 
   for (const publicPath of [
     "/Rankings",
     "/Market",
-    "/Research",
+    "/Articles",
+    "/Articles/how-rip-score-works",
     "/TCGs/Pokemon/Sets",
     "/cards",
     "/sealed-products",
@@ -311,7 +314,8 @@ test("the sitemap contains the canonical hubs and excludes redirects, noindex ro
     "https://www.inthedex.io/",
     "https://www.inthedex.io/Rankings",
     "https://www.inthedex.io/Market",
-    "https://www.inthedex.io/Research",
+    "https://www.inthedex.io/Articles",
+    "https://www.inthedex.io/Articles/how-rip-score-works",
     "https://www.inthedex.io/TCGs/Pokemon/Sets",
   ]) {
     assert.ok(urls.includes(hub), `${hub} must be in the sitemap`);
@@ -362,7 +366,8 @@ test("a backend failure degrades the sitemap to the canonical hubs rather than e
       "https://www.inthedex.io/",
       "https://www.inthedex.io/Rankings",
       "https://www.inthedex.io/Market",
-      "https://www.inthedex.io/Research",
+      "https://www.inthedex.io/Articles",
+      "https://www.inthedex.io/Articles/how-rip-score-works",
       "https://www.inthedex.io/TCGs/Pokemon/Sets",
     ]
   );

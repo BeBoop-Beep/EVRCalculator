@@ -10317,7 +10317,7 @@ export default function RipStatisticsPageClient({
   //
   // Competitive movement is communicated through RIP RANK movement instead,
   // which is computed from the canonical V7 leaderboard history. Fixed-anchor
-  // model-score history is a Research concern, not a headline arrow.
+  // model-score history is an audit concern, not a headline arrow.
   const trendByMetricKey = {
     profitScore: getHistoryMetricTrend({
       metricKey: "profitScore",

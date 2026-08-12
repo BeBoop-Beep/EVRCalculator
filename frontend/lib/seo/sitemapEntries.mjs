@@ -7,7 +7,8 @@ import { canonicalUrl } from "./siteUrl.mjs";
  * fixtures instead of the network.
  *
  * WHAT IS IN IT
- *   * the five canonical hub URLs, and
+ *   * the canonical hub URLs (including the one published article, which is a
+ *     real indexable destination rather than a redirect), and
  *   * the bare canonical URL of every set that is BOTH a real ranking target
  *     and public-analytics eligible.
  *
@@ -18,8 +19,8 @@ import { canonicalUrl } from "./siteUrl.mjs";
  * asserts "this is a complete, canonical page", not "this route resolves".
  *
  * WHAT IS DELIBERATELY EXCLUDED
- *   * /Explore and /Explore/top-10 — permanent redirects. A sitemap lists the
- *     destination (already present), never the redirecting URL.
+ *   * /Explore, /Explore/top-10 and /Research — permanent redirects. A sitemap
+ *     lists the destination (already present), never the redirecting URL.
  *   * /Explore/rip-statistics, /TCGs, /TCGs/Pokemon, /TCGs/Pokemon/Analytics —
  *     noindex placeholders/legacy entry points.
  *   * every query variant (?tab=, ?section=, ?window=, ?card_sort=, ?movement=,
@@ -43,7 +44,8 @@ export const SITEMAP_HUB_PATHS = Object.freeze([
   "/",
   "/Rankings",
   "/Market",
-  "/Research",
+  "/Articles",
+  "/Articles/how-rip-score-works",
   "/TCGs/Pokemon/Sets",
 ]);
 

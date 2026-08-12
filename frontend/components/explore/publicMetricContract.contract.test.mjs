@@ -629,7 +629,7 @@ test("no live public surface emits retired vocabulary", () => {
 test("the public scale is explained in product language, not as a formula", () => {
   assert.match(PUBLIC_SCORE_SCALE_NOTE, /standardized against currently ranked sets/);
   assert.match(PUBLIC_SCORE_SCALE_NOTE, /100 represents the strongest set/);
-  // No arithmetic in a metric tooltip — normalization methodology is Research.
+  // No arithmetic in a metric tooltip — normalization methodology is the article.
   assert.equal(/min|max|\/\s*\(|percentile/i.test(PUBLIC_SCORE_SCALE_NOTE), false);
 });
 

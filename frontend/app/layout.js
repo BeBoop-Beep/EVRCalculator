@@ -23,7 +23,7 @@ const manrope = Manrope({
  * this object must never claim to be a specific page.
  *
  * `openGraph.url` used to be hard-coded to `https://www.inthedex.io/` here,
- * which meant Rankings, Market, Research and every set page told crawlers and
+ * which meant Rankings, Market, Articles and every set page told crawlers and
  * social scrapers that they *were* the homepage. It is removed rather than
  * corrected: a route's `og:url` is now set by `buildRouteMetadata` alongside
  * that route's canonical, and a route with no `og:url` is better than a route
