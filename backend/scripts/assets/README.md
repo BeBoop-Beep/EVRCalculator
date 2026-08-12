@@ -4,7 +4,8 @@ This local utility recursively removes backgrounds from booster-pack artwork wit
 `rembg`, preserves source-relative folders, and validates every generated file.
 WebP inputs remain lossless transparent WebP files with the same name and canvas
 dimensions. PNG inputs remain PNG; JPEG inputs become PNG because JPEG cannot
-store transparency.
+store transparency. The pipeline applies EXIF normalization before segmentation,
+then enforces a portrait canvas and portrait alpha-foreground bounding box.
 
 ## Install
 
@@ -35,7 +36,8 @@ Run the batch and create an optional QA contact sheet:
 .\.venv\Scripts\python.exe backend\scripts\assets\remove_pack_backgrounds.py `
   --input frontend\public\images\pokemon\booster-packs `
   --output tmp\pack-background-removal `
-  --extensions .webp `
+  --extensions .jpg `
+  --output-format webp `
   --preview tmp\pack-background-removal-preview.png
 ```
 
@@ -44,6 +46,10 @@ written to the output directory by default; use `--report PATH` to place it
 elsewhere. Processing errors and validation failures are recorded while the
 remaining files continue. Use `--extensions .webp` when a directory also holds
 archival JPEG sources that are not part of the frontend asset contract.
+Use `--output-format webp` to regenerate canonical transparent WebPs directly
+from pristine JPEG sources. If a landscape image remains after EXIF
+normalization, the whole canvas is rotated clockwise by default; use
+`--landscape-rotation counterclockwise` only after verifying the source family.
 
 Automatic semantic segmentation can still produce halos or remove dark,
 reflective, transparent, or crimped packaging details. Review the contact sheet

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 SUPPORTED_EXTENSIONS = {".webp", ".png", ".jpg", ".jpeg"}
 MIN_FOREGROUND_RATIO = 0.01
@@ -29,6 +29,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preview", type=Path, help="Optional dark/light QA contact-sheet path")
     parser.add_argument("--model", default="u2net", help="rembg model name (default: u2net)")
     parser.add_argument(
+        "--output-format",
+        choices=("preserve", "png", "webp"),
+        default="preserve",
+        help="Output format (default: preserve alpha-capable formats; JPEG becomes PNG)",
+    )
+    parser.add_argument(
+        "--landscape-rotation",
+        choices=("clockwise", "counterclockwise"),
+        default="clockwise",
+        help="Correction for a landscape image remaining after EXIF normalization (default: clockwise)",
+    )
+    parser.add_argument(
         "--extensions",
         nargs="+",
         choices=sorted(SUPPORTED_EXTENSIONS),
@@ -38,15 +50,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def destination_for(source: Path, input_root: Path, output_root: Path) -> Path:
+def destination_for(source: Path, input_root: Path, output_root: Path, output_format: str) -> Path:
     relative = source.relative_to(input_root)
+    if output_format != "preserve":
+        return output_root / relative.with_suffix(f".{output_format}")
     # WebP and PNG can carry alpha. JPEG inputs become transparent PNGs.
     return output_root / (relative if source.suffix.lower() in {".webp", ".png"} else relative.with_suffix(".png"))
 
 
-def validate_output(source: Path, output: Path) -> dict[str, Any]:
-    with Image.open(source) as source_image:
-        source_size = source_image.size
+def validate_output(source: Path, output: Path, expected_size: tuple[int, int]) -> dict[str, Any]:
     with Image.open(output) as image:
         image.load()  # Decode fully so truncated/corrupt outputs fail here.
         rgba = image.convert("RGBA")
@@ -61,8 +73,8 @@ def validate_output(source: Path, output: Path) -> dict[str, Any]:
     foreground_pixels = pixels - histogram[0]
     bbox_area = 0 if bbox is None else (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
     problems: list[str] = []
-    if (width, height) != source_size:
-        problems.append(f"dimensions changed from {source_size} to {(width, height)}")
+    if (width, height) != expected_size:
+        problems.append(f"dimensions changed from expected {expected_size} to {(width, height)}")
     if extrema[0] == 255:
         problems.append("output contains no transparent pixels")
     if extrema[1] == 0 or bbox is None:
@@ -71,6 +83,10 @@ def validate_output(source: Path, output: Path) -> dict[str, Any]:
         problems.append("foreground contains less than 1% of the canvas")
     if bbox_area / pixels < MIN_BOUNDING_BOX_RATIO:
         problems.append("foreground bounding box contains less than 1% of the canvas")
+    if width >= height:
+        problems.append("final canvas is not portrait")
+    if bbox is not None and (bbox[2] - bbox[0]) >= (bbox[3] - bbox[1]):
+        problems.append("alpha foreground bounding box is not portrait")
 
     return {
         "dimensions": [width, height],
@@ -82,6 +98,20 @@ def validate_output(source: Path, output: Path) -> dict[str, Any]:
         "alpha_extrema": list(extrema),
         "validation_errors": problems,
     }
+
+
+def normalize_pack_orientation(
+    image: Image.Image, landscape_rotation: str
+) -> tuple[Image.Image, str]:
+    """Enforce the canonical portrait canvas without resampling pixels."""
+    if image.width < image.height:
+        return image, "none"
+    transpose = (
+        Image.Transpose.ROTATE_270
+        if landscape_rotation == "clockwise"
+        else Image.Transpose.ROTATE_90
+    )
+    return image.transpose(transpose), f"90 degrees {landscape_rotation}"
 
 
 def save_removed_image(image: Image.Image, output: Path) -> None:
@@ -159,7 +189,7 @@ def main() -> int:
         remove = rembg_remove
 
     for source in sources:
-        output = destination_for(source, input_root, output_root)
+        output = destination_for(source, input_root, output_root, args.output_format)
         record: dict[str, Any] = {"source_path": str(source), "output_path": str(output)}
         try:
             if output.exists() and not args.force:
@@ -168,15 +198,24 @@ def main() -> int:
                 record.update(status="DRY_RUN")
             else:
                 with Image.open(source) as opened:
-                    source_image = opened.convert("RGBA")
-                    # Camera EXIF can claim a rotation that is already baked into
-                    # the pixels. rembg honors that tag, which would swap the
-                    # canonical canvas dimensions, so inference receives pixels
-                    # without inherited metadata.
+                    source_dimensions = opened.size
+                    exif_orientation = opened.getexif().get(274, 1)
+                    source_image = ImageOps.exif_transpose(opened).convert("RGBA")
+                    after_exif_dimensions = source_image.size
                     source_image.info.pop("exif", None)
                 result = remove(source_image, session=session, post_process_mask=True)
+                result, canonical_rotation = normalize_pack_orientation(
+                    result.convert("RGBA"), args.landscape_rotation
+                )
+                expected_size = result.size
                 save_removed_image(result, output)
-                record.update(validate_output(source, output))
+                record.update(
+                    source_dimensions=list(source_dimensions),
+                    exif_orientation=exif_orientation,
+                    after_exif_dimensions=list(after_exif_dimensions),
+                    canonical_rotation=canonical_rotation,
+                )
+                record.update(validate_output(source, output, expected_size))
                 if record["validation_errors"]:
                     output.unlink(missing_ok=True)
                     record.update(status="FAILED_REVIEW", reason="; ".join(record["validation_errors"]))
