@@ -1,8 +1,14 @@
+from pathlib import Path
+
 import pytest
 from postgrest.exceptions import APIError
 
 from backend.db.services import pokemon_public_snapshot_service, pokemon_set_market_service, public_read_retry
 from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
+from backend.db.services.public_rip_publication_contract import (
+    PUBLIC_SET_VALUE_CONTRACT_VERSION,
+    canonical_publication_identity,
+)
 
 
 class _Result:
@@ -1049,6 +1055,7 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
                             }
                         ],
                         "meta": {
+                            **_identity_meta(),
                             "warnings": ["existing warning"],
                             "snapshot": {"fallbackReason": "older_failure"},
                         },
@@ -1110,10 +1117,11 @@ def test_rankings_snapshot_retries_with_fresh_client_and_returns_normal_data(mon
                             }
                         ],
                         "meta": {
+                            **_identity_meta(),
                             "snapshot": {
                                 "isStaleFallback": True,
                                 "fallbackReason": "older_failure",
-                            }
+                            },
                         },
                     },
                     "default_target_json": {"target_id": "set-1", "target_type": "set"},
@@ -1179,7 +1187,7 @@ def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(m
             "updated_at": "2026-07-13T00:00:00Z",
             "ranking_payload_json": {
                 "targets": [{"id": "set-1", "target_id": "set-1", "target_type": "set", "is_opening_set": True}],
-                "meta": {},
+                "meta": _identity_meta(),
             },
             "default_target_json": {"target_id": "set-1", "target_type": "set"},
         }]
@@ -1235,6 +1243,143 @@ def test_rankings_snapshot_non_transient_failure_remains_500(monkeypatch):
     assert raised.value.status_code == 500
     assert raised.value.code == "RIP_STATISTICS_TARGETS_SNAPSHOT_FAILED"
     assert factories == []
+
+
+# ---------------------------------------------------------------------------
+# Publication identity — a served snapshot must belong to the CURRENT contract
+# ---------------------------------------------------------------------------
+#
+# The publisher already REFUSES to publish under a superseded model: it checks
+# `meta.ripWeightsConfig` against `canonical_publication_identity()` before
+# writing (see `pokemon_explore_rankings_publisher.publication_contract`). The
+# reader did not check anything. That asymmetry is the gap: a row published
+# BEFORE a cutover stays in `pokemon_explore_rankings_snapshot_latest` and keeps
+# being served as the current canonical ranking, because nothing on the read
+# path re-asks the question the publisher asked at write time.
+#
+# A matching market date never establishes currency — a scoring cutover moves no
+# timestamp. That is exactly the defect `public_rip_publication_contract`
+# exists to prevent, and it must hold on the read path too.
+
+
+def _identity_meta(identity=None, **overrides):
+    """A `meta.ripWeightsConfig` block carrying the given publication identity."""
+    resolved = dict(identity or canonical_publication_identity())
+    resolved.update(overrides)
+    return {
+        "ripWeightsConfig": {
+            "overallRip": {"version": resolved["overallRipVersion"]},
+            "financialRip": {"version": resolved["financialRipVersion"]},
+            "publicContract": {"version": resolved["publicRipContractVersion"]},
+            "collectorAppeal": {"version": resolved["collectorAppealVersion"]},
+        }
+    }
+
+
+def _rankings_row(meta, *, updated_at="2026-08-12T00:00:00+00:00"):
+    return [{
+        "updated_at": updated_at,
+        "ranking_payload_json": {
+            "targets": [{
+                "id": "set-1",
+                "target_id": "set-1",
+                "target_type": "set",
+                "name": "Plausible Set",
+                "is_opening_set": True,
+            }],
+            "meta": meta,
+        },
+        "default_target_json": {"target_id": "set-1", "target_type": "set"},
+    }]
+
+
+def _patch_rankings_reader(monkeypatch, rows):
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    client = _Client({"pokemon_explore_rankings_snapshot_latest": lambda _query: rows})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service, "create_public_read_client", lambda: client
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "_enrich_rankings_payload_with_checklist_set_values",
+        lambda payload: payload,
+    )
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_rip_statistics_targets_payload",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("an incompatible snapshot must NOT trigger the ~150s live builder")
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["overallRipVersion", "financialRipVersion", "publicRipContractVersion", "collectorAppealVersion"],
+)
+def test_rankings_snapshot_refuses_incompatible_publication_identity(monkeypatch, field):
+    """A structurally valid snapshot from a superseded model is not the current ranking."""
+    _patch_rankings_reader(
+        monkeypatch, _rankings_row(_identity_meta(**{field: "superseded_model_v0"}))
+    )
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.status_code == 503
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED"
+
+
+def test_rankings_snapshot_accepts_canonical_publication_identity(monkeypatch):
+    """The current contract must still be served, unchanged."""
+    _patch_rankings_reader(monkeypatch, _rankings_row(_identity_meta()))
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert payload["targets"][0]["target_id"] == "set-1"
+    assert payload["meta"]["snapshot"]["source"] == "pokemon_explore_rankings_snapshot_latest"
+    assert payload["meta"]["snapshot"]["publicationIdentity"] == "current"
+
+
+def test_rankings_snapshot_stale_market_date_with_canonical_identity_is_served(monkeypatch):
+    """STALE_BUT_COMPATIBLE is not INCOMPATIBLE. An old market date under the
+    canonical model is still the current canonical ranking — collapsing the two
+    would take the site down every time a publication merely lagged a day."""
+    meta = _identity_meta()
+    meta["comparisonSnapshots"] = {"currentMarketDate": "2020-01-01"}
+    _patch_rankings_reader(monkeypatch, _rankings_row(meta, updated_at="2020-01-01T00:00:00+00:00"))
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert payload["targets"][0]["target_id"] == "set-1"
+    assert payload["meta"]["snapshot"]["publicationIdentity"] == "current"
+
+
+def test_rankings_snapshot_missing_identity_fails_closed(monkeypatch):
+    """"We cannot tell which contract built this" is not "it is current".
+
+    Same fail-closed rule `evaluate_leaderboard_staleness` already applies."""
+    _patch_rankings_reader(monkeypatch, _rankings_row({}))
+
+    with pytest.raises(pokemon_public_snapshot_service.ExploreRipStatisticsTargetsError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert raised.value.code == "RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED"
+
+
+def test_rankings_snapshot_incompatible_identity_prefers_last_known_good(monkeypatch):
+    """A compatible payload already served stays serveable — degrade, don't fail."""
+    rows = _rankings_row(_identity_meta())
+    _patch_rankings_reader(monkeypatch, rows)
+    good = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    rows[0]["ranking_payload_json"]["meta"] = _identity_meta(overallRipVersion="superseded_model_v0")
+    fallback = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert fallback["targets"] == good["targets"]
+    assert fallback["meta"]["snapshot"]["isStaleFallback"] is True
+    assert fallback["meta"]["snapshot"]["fallbackReason"] == "incompatible_publication_identity"
 
 
 def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(monkeypatch):
@@ -5588,3 +5733,127 @@ def test_latest_standard_point_never_lets_an_undated_point_win():
     )
 
     assert latest == {"value": 100.0, "date": "2026-07-28"}
+
+
+# ---------------------------------------------------------------------------
+# Compatibility enrichment gating.
+#
+# The compatibility fill was measured at ~403 ms - 58% of a healthy ~800 ms
+# targets response - while changing 0 of 34 published targets. It is now skipped
+# for publications that carry the Set Value guarantee, and retained in full for
+# the legacy/partial payloads that still need it.
+# ---------------------------------------------------------------------------
+
+
+_SET_VALUE_MARKER_COMPLETE = {
+    "version": PUBLIC_SET_VALUE_CONTRACT_VERSION,
+    "coverage": "complete",
+    "targetCount": 1,
+    "coveredTargetCount": 1,
+    "asOf": "2026-08-12",
+}
+
+
+def _rankings_reader_with_compatibility_probe(monkeypatch, snapshot_meta):
+    """A reader whose ONLY other table is the compatibility source.
+
+    Reading it appends to `queried`, so a test can assert the DB round trip
+    itself was avoided rather than that the returned payload happened to be
+    unchanged - those are different facts, and only the first one is the ~403 ms.
+    """
+    queried = []
+    rows = _rankings_row({**_identity_meta(), "snapshot": snapshot_meta})
+    rows[0]["ranking_payload_json"]["targets"][0].update({
+        "set_id": "00000000-0000-0000-0000-000000000001",
+        "checklistSetValue": 561.26,
+        "checklist_set_value": 561.26,
+        "currentChecklistSetValue": 561.26,
+        "current_checklist_set_value": 561.26,
+        "checklistSetValueAsOf": "2026-08-12",
+        "checklist_set_value_as_of": "2026-08-12",
+    })
+
+    def _handler(name):
+        if name == "pokemon_explore_rankings_snapshot_latest":
+            return lambda _query: rows
+        raise AssertionError(name)
+
+    class _ProbeClient(_Client):
+        def table(self, name):
+            if name == "pokemon_set_market_dashboard_snapshot_latest":
+                queried.append(name)
+            return super().table(name)
+
+    pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
+    client = _ProbeClient({
+        "pokemon_explore_rankings_snapshot_latest": lambda _query: rows,
+        "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
+    })
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "create_public_read_client", lambda: client)
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "get_rip_statistics_targets_payload",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("live fallback should not run")),
+    )
+    return queried
+
+
+def test_guaranteed_publication_never_reads_the_compatibility_source(monkeypatch):
+    """THE acceptance criterion: 1 compatibility DB read becomes 0."""
+    queried = _rankings_reader_with_compatibility_probe(
+        monkeypatch, {"setValueContract": _SET_VALUE_MARKER_COMPLETE}
+    )
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert queried == []
+    assert payload["targets"][0]["checklistSetValue"] == 561.26
+    assert (
+        payload["meta"]["sources"]["checklist_set_value_enrichment"]
+        == "SKIPPED_PUBLICATION_GUARANTEES_SET_VALUE"
+    )
+
+
+def test_a_legacy_payload_without_the_marker_still_gets_the_compatibility_fill(monkeypatch):
+    """Backward compatibility is not deleted to make current traffic faster.
+
+    A payload published before the guarantee existed carries no marker, so the
+    reader must not assume the canonical value is there.
+    """
+    queried = _rankings_reader_with_compatibility_probe(monkeypatch, {})
+
+    payload = pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert queried == ["pokemon_set_market_dashboard_snapshot_latest"]
+    assert payload["targets"][0]["checklistSetValue"] == 561.26
+
+
+def test_a_partial_coverage_publication_still_gets_the_compatibility_fill(monkeypatch):
+    """A publication that reports incomplete coverage is not a guarantee."""
+    queried = _rankings_reader_with_compatibility_probe(
+        monkeypatch,
+        {"setValueContract": {**_SET_VALUE_MARKER_COMPLETE, "coverage": "partial"}},
+    )
+
+    pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert queried == ["pokemon_set_market_dashboard_snapshot_latest"]
+
+
+def test_an_unrecognised_set_value_contract_version_fails_closed(monkeypatch):
+    queried = _rankings_reader_with_compatibility_probe(
+        monkeypatch,
+        {"setValueContract": {**_SET_VALUE_MARKER_COMPLETE, "version": "some_future_contract_v9"}},
+    )
+
+    pokemon_public_snapshot_service.get_pokemon_explore_rankings_snapshot_payload(limit=10)
+
+    assert queried == ["pokemon_set_market_dashboard_snapshot_latest"]
+
+
+def test_the_reader_does_not_restate_the_set_value_contract_version():
+    """ONE authority. A second copy of the marker string is a second contract."""
+    source = Path(pokemon_public_snapshot_service.__file__).read_text(encoding="utf-8")
+    assert PUBLIC_SET_VALUE_CONTRACT_VERSION not in source
+    assert "payload_guarantees_canonical_set_value" in source

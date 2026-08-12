@@ -153,7 +153,7 @@ export function resolveCanonicalRipV7(...sources) {
  * not expressible.
  *
  * `modelScore` is the fixed-anchor formula output. It is retained because it is
- * the real model number and audit, Research and regression work need it — but
+ * the real model number and audit, methodology and regression work need it — but
  * it is named so that no reader mistakes it for a public one, and it is never
  * promoted into `publicScore`. A payload holding only the absolute renders
  * unavailable rather than silently showing a differently-scaled number under a
@@ -185,7 +185,7 @@ export function readCanonicalBlock(block) {
  * The one sentence that explains the public 0-100 scale wherever it is shown.
  *
  * Stated in product language, not as a formula: the normalization equation
- * belongs in Research, not in a metric tooltip. Exported from the canonical
+ * belongs in the methodology article, not in a metric tooltip. Exported from the canonical
  * reader so every surface quotes the same wording.
  */
 export const PUBLIC_SCORE_SCALE_NOTE =

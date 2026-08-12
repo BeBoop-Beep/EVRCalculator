@@ -49,7 +49,11 @@ function navItemIcon(id, isActive) {
     );
   }
 
-  if (id === "research") {
+  if (id === "articles") {
+    // The open-book glyph carried over unchanged from the destination this
+    // slot used to hold: same 24x24 grid, same h-5 w-5 box, same 1.85 stroke
+    // and round caps/joins as every other icon here. Only the destination
+    // changed, so the visual language must not.
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24" className={`h-5 w-5 ${activeClass}`} fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4.5 5.5A3.5 3.5 0 0 1 8 2h4v17H8a3.5 3.5 0 0 0-3.5 3Z" />
@@ -131,10 +135,10 @@ export default function GlobalMobileBottomNav() {
         isActive: isPathMatch(normalizedPathname, ["/TCGs"], { caseInsensitive: true }),
       },
       {
-        id: "research",
-        label: "Research",
-        href: "/Research",
-        isActive: isPathMatch(normalizedPathname, ["/Research"], { caseInsensitive: true }),
+        id: "articles",
+        label: "Articles",
+        href: "/Articles",
+        isActive: isPathMatch(normalizedPathname, ["/Articles"], { caseInsensitive: true }),
       },
       {
         id: "portfolio",

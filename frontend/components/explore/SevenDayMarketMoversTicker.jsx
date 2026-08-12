@@ -3,6 +3,7 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "./MoversTickerViewport";
 import { selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
 const hrefFor = (card, fallback) => {
@@ -17,7 +18,7 @@ const hrefFor = (card, fallback) => {
 };
 
 function Item({ card, movement, href, hidden, crossSet, thumbnailSize }) {
-  const image = card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl;
+  const image = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl, CARD_THUMBNAIL_WIDTH);
   const name = card?.name || "Unknown card";
   const price = Number(card?.marketPrice ?? card?.currentPrice);
   const thumbnailSizeClass = thumbnailSize === "medium"

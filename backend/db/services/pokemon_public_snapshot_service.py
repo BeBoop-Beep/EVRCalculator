@@ -12,6 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.db.clients.supabase_client import create_public_read_client, public_read_client
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
+from backend.db.services.public_rip_publication_contract import (
+    canonical_publication_identity,
+    payload_guarantees_canonical_set_value,
+)
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -1797,6 +1801,72 @@ def _load_pokemon_explore_rankings_snapshot_row(client: Any) -> Optional[Dict[st
     return _first_row(result)
 
 
+def _read_rankings_publication_identity(payload: Dict[str, Any]) -> Dict[str, Optional[str]]:
+    """The publication identity a persisted rankings payload actually carries.
+
+    Read from `meta.ripWeightsConfig`, which is where the rankings builder writes
+    it and where `pokemon_explore_rankings_publisher.publication_contract`
+    already reads it to decide whether publishing is allowed. Same block, same
+    keys, both directions.
+    """
+    versions = ((payload.get("meta") or {}).get("ripWeightsConfig") or {})
+
+    def _version(key: str) -> Optional[str]:
+        return _to_optional_str((versions.get(key) or {}).get("version"))
+
+    return {
+        "financialRipVersion": _version("financialRip"),
+        "collectorAppealVersion": _version("collectorAppeal"),
+        "overallRipVersion": _version("overallRip"),
+        "publicRipContractVersion": _version("publicContract"),
+    }
+
+
+def _rankings_publication_identity_mismatches(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Every identifier on which this payload is not the current publication.
+
+    THE PUBLISHER ALREADY ASKS THIS QUESTION; THE READER DID NOT. The publisher
+    refuses to write a snapshot whose `meta.ripWeightsConfig` disagrees with
+    `canonical_publication_identity()`. But a row published BEFORE a cutover
+    stays in `pokemon_explore_rankings_snapshot_latest` and kept being served as
+    the current canonical ranking afterwards, because nothing on the read path
+    re-asked it. A scoring cutover moves no timestamp, so neither `updated_at`
+    nor a matching market date can detect this — which is precisely the defect
+    `public_rip_publication_contract` was written to prevent.
+
+    `canonical_publication_identity()` is the ONE authority, imported, not
+    restated: a second copy of a cutover switch is a second cutover.
+
+    Fails CLOSED on absent evidence, matching `evaluate_leaderboard_staleness`:
+    a payload with no version recorded is not current, because "we cannot tell
+    which model built this" and "it was built under the current model" are not
+    the same fact. This is safe for production — the rankings builder writes all
+    four identifiers from those same canonical constants, so a genuinely current
+    snapshot always carries them.
+
+    A LIST, not a boolean: an operator seeing only the first mismatched version
+    reruns, and rediscovers the rest one publication at a time.
+    """
+    expected = canonical_publication_identity()
+    observed = _read_rankings_publication_identity(payload)
+    return [
+        {"identifier": key, "observed": observed.get(key), "expected": expected[key]}
+        for key in sorted(expected)
+        if observed.get(key) != expected[key]
+    ]
+
+
+def _stale_rankings_fallback(cached: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """A previously served compatible payload, explicitly labelled as stale."""
+    fallback = deepcopy(cached)
+    meta = dict(fallback.get("meta") or {})
+    snapshot = dict(meta.get("snapshot") or {})
+    snapshot.update({"isStaleFallback": True, "fallbackReason": reason})
+    meta["snapshot"] = snapshot
+    fallback["meta"] = meta
+    return fallback
+
+
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
     try:
@@ -1811,18 +1881,7 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         if is_transient_data_service_error(exc):
             cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
             if cached:
-                fallback = deepcopy(cached)
-                meta = dict(fallback.get("meta") or {})
-                snapshot = dict(meta.get("snapshot") or {})
-                snapshot.update(
-                    {
-                        "isStaleFallback": True,
-                        "fallbackReason": "transient_data_service_failure",
-                    }
-                )
-                meta["snapshot"] = snapshot
-                fallback["meta"] = meta
-                return fallback
+                return _stale_rankings_fallback(cached, "transient_data_service_failure")
             raise ExploreRipStatisticsTargetsError(
                 status_code=503,
                 message="RIP Statistics targets are temporarily unavailable",
@@ -1837,21 +1896,68 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
 
     if row and isinstance(row.get("ranking_payload_json"), dict):
         payload = row["ranking_payload_json"]
+
+        # INCOMPATIBLE PUBLICATION IS NOT STALENESS. An old market date under the
+        # canonical model is still the current canonical ranking and is served
+        # normally; a snapshot built under a superseded model is not the current
+        # ranking at all and must never be presented as one.
+        mismatches = _rankings_publication_identity_mismatches(payload)
+        if mismatches:
+            logger.error(
+                "[pokemon-snapshot] persisted rankings snapshot is not the canonical publication; "
+                "refusing to serve it as current mismatches=%s",
+                "; ".join(
+                    f"{item['identifier']} observed={item['observed']!r} expected={item['expected']!r}"
+                    for item in mismatches
+                ),
+            )
+            cached = _LAST_SUCCESSFUL_RANKINGS_PAYLOADS.get(clamped_limit)
+            if cached:
+                return _stale_rankings_fallback(cached, "incompatible_publication_identity")
+            # Deliberately NOT the live builder: it was measured at ~3.8s warm
+            # and up to ~150s cold, so falling back to it would hand every
+            # visitor a publication-grade rebuild for as long as the superseded
+            # row remains published. A recoverable unavailable response is the
+            # cheaper and more honest answer; republishing is the real fix.
+            raise ExploreRipStatisticsTargetsError(
+                status_code=503,
+                message="RIP Statistics rankings are being republished",
+                code="RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED",
+                retry_after_seconds=60,
+            )
+
         enrichment_warning = None
-        try:
-            payload = _enrich_rankings_payload_with_checklist_set_values(payload)
-        except Exception:
-            logger.warning(
-                "[pokemon-snapshot] checklist set value enrichment failed; serving persisted rankings snapshot",
-                exc_info=True,
-            )
-            enrichment_warning = (
-                "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
-            )
+        # THE COMPATIBILITY FILL IS A FALLBACK, AND IS NOW PRICED AS ONE.
+        # It re-read `pokemon_set_market_dashboard_snapshot_latest` on every
+        # healthy request - ~403 ms, 58% of the response - to fill a value that
+        # the publication already carried for all 34 targets, changing none of
+        # them. It is skipped only when the publication itself GUARANTEES the
+        # canonical value; the marker is written by the publisher and read here
+        # through the one contract module, never re-decided from field presence.
+        # Absent or unrecognised marker => fill still runs, so a payload
+        # published before the guarantee keeps its exact previous behaviour.
+        set_value_enrichment = None
+        if payload_guarantees_canonical_set_value(payload):
+            set_value_enrichment = "SKIPPED_PUBLICATION_GUARANTEES_SET_VALUE"
+        else:
+            try:
+                payload = _enrich_rankings_payload_with_checklist_set_values(payload)
+            except Exception:
+                logger.warning(
+                    "[pokemon-snapshot] checklist set value enrichment failed; serving persisted rankings snapshot",
+                    exc_info=True,
+                )
+                enrichment_warning = (
+                    "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
+                )
 
         raw_targets = list(payload.get("targets") or [])
         targets = [target for target in raw_targets if is_opening_set_row(target)][:clamped_limit]
         meta = dict(payload.get("meta") or {})
+        if set_value_enrichment:
+            sources = dict(meta.get("sources") or {})
+            sources["checklist_set_value_enrichment"] = set_value_enrichment
+            meta["sources"] = sources
         if enrichment_warning:
             warnings = list(meta.get("warnings") or [])
             if enrichment_warning not in warnings:
@@ -1869,6 +1975,9 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
                 "source": "pokemon_explore_rankings_snapshot_latest",
                 "updatedAt": _to_optional_str(row.get("updated_at")),
                 "isStaleFallback": False,
+                # Proven against canonical_publication_identity() on this read,
+                # not assumed from the row being present.
+                "publicationIdentity": "current",
             }
         )
         snapshot.pop("fallbackReason", None)

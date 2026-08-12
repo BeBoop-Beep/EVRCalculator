@@ -186,12 +186,12 @@ export default function Header() {
                 TCGs
               </Link>
               <Link
-                href="/Research"
+                href="/Articles"
                 className={`${navTabBase} inline-flex items-center justify-center ${
-                  isTopNavActive('/Research') ? navTabActive : navTabInactive
+                  isTopNavActive('/Articles') ? navTabActive : navTabInactive
                 }`}
               >
-                Research
+                Articles
               </Link>
             </nav>
           </div>

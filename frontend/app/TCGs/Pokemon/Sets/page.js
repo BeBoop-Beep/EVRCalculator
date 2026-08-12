@@ -3,6 +3,7 @@ import { toSetSlug } from "@/utils/slugify";
 import { getPokemonSets } from "@/lib/pokemon/pokemonSetsServer";
 import { isHiddenFromPublicPokemonSetsCatalog } from "@/lib/pokemon/pokemonSetPublicCoverage";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
+import { SET_LOGO_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 
 export const metadata = buildRouteMetadata({
   path: "/TCGs/Pokemon/Sets",
@@ -227,7 +228,14 @@ export default async function SetsPage() {
                           const setName = String(setSummary?.name || setSummary?.id || "Unknown Set");
                           const cardCount = getCardCount(setSummary);
                           const releaseDateText = toDisplayDate(setSummary?.releaseDate ?? null);
-                          const setImageUrl = getSetImageUrl(setSummary);
+                          // ONE url for both roles below. The ambient wash and
+                          // the tile logo are the same artwork at different CSS
+                          // sizes; asking the optimizer for one width means the
+                          // browser makes a single request and reuses it,
+                          // exactly as it did when both were the raw source.
+                          // Giving each its own width would turn today's one
+                          // fetch into two.
+                          const setImageUrl = optimizedImageUrl(getSetImageUrl(setSummary), SET_LOGO_WIDTH);
                           const slug = toSetSlug(setName, setSummary?.slug || setSummary?.id);
                           // The catalog links to the BARE canonical set URL, not
                           // `?tab=cards`. The bare URL is the set's canonical

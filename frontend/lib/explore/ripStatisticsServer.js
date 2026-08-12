@@ -30,8 +30,18 @@ function sanitiseLimit(value, defaultValue, maxValue) {
   return parsed;
 }
 
-function toCacheKey(limit) {
-  return `rip-statistics-targets:${limit}`;
+// The backend builds the ENTIRE target cohort regardless of `limit` and only
+// then truncates it: `meta.timings` is byte-identical for limit=5 and
+// limit=200, and the limit=5 targets are an exact prefix of limit=200. So a
+// small limit buys no backend work, while a per-limit cache key costs a second
+// full ~1.6s cold computation whenever a caller asking for 60 (Rankings,
+// Market, landing) is followed by one asking for 150 (set detail) — which is
+// precisely the Rankings -> Set navigation. One cohort is fetched and cached
+// once; each caller's `limit` is applied by slicing that shared result.
+const CANONICAL_COHORT_LIMIT = MAX_TARGETS_LIMIT;
+
+function toCacheKey() {
+  return "rip-statistics-targets";
 }
 
 function normalisePayload(payload) {
@@ -97,8 +107,9 @@ function getRecoverableTargetsPayload(cacheKey, warning) {
   });
 }
 
-const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTargets(limit) {
-  const cacheKey = toCacheKey(limit);
+const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTargets() {
+  const limit = CANONICAL_COHORT_LIMIT;
+  const cacheKey = toCacheKey();
   const now = Date.now();
 
   const cached = targetsCache.get(cacheKey);
@@ -113,7 +124,7 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
 
   const promise = (async () => {
     const url = new URL(`${BACKEND_URL}/explore/rip-statistics/targets`);
-    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("limit", String(CANONICAL_COHORT_LIMIT));
 
     let res;
     try {
@@ -173,5 +184,16 @@ const _fetchRipStatisticsTargets = cache(async function _fetchRipStatisticsTarge
 
 export async function getRipStatisticsTargets(options = {}) {
   const limit = sanitiseLimit(options.limit, DEFAULT_TARGETS_LIMIT, MAX_TARGETS_LIMIT);
-  return _fetchRipStatisticsTargets(limit);
+  const cohort = await _fetchRipStatisticsTargets();
+  // Return a fresh payload per caller — the cached cohort object is shared by
+  // every consumer in this process and must never be truncated in place.
+  return {
+    ...cohort,
+    targets: cohort.targets.slice(0, limit),
+    meta: {
+      ...cohort.meta,
+      // Report back what this caller asked for, not the canonical cohort size.
+      request: { ...(cohort.meta?.request || {}), limit },
+    },
+  };
 }

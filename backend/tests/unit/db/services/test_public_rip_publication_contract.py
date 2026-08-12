@@ -321,3 +321,78 @@ def test_a_round_trip_through_the_diagnostics_block_reports_current():
     row = _snapshot()
     row["diagnostics_json"] = diagnostics
     assert _evaluate(row) == []
+
+
+# ---------------------------------------------------------------------------
+# ONE canonical authority — publisher and public reader must not drift
+# ---------------------------------------------------------------------------
+#
+# The defect this module exists for was "current" being defined per call site.
+# The public rankings READER is now a third call site (it refuses to serve a
+# snapshot whose publication identity is superseded), so it has to be pinned to
+# the same authority as the publisher rather than acquiring its own copy of the
+# cutover switch.
+
+
+def _canonical_ranking_payload():
+    """A rankings payload carrying the identity block the builder writes."""
+    identity = canonical_publication_identity()
+    return {
+        "targets": [],
+        "meta": {
+            "ripWeightsConfig": {
+                "overallRip": {"version": identity["overallRipVersion"]},
+                "financialRip": {"version": identity["financialRipVersion"]},
+                "collectorAppeal": {"version": identity["collectorAppealVersion"]},
+                "publicContract": {"version": identity["publicRipContractVersion"]},
+            }
+        },
+    }
+
+
+def test_the_public_reader_accepts_exactly_the_canonical_identity():
+    from backend.db.services.pokemon_public_snapshot_service import (
+        _rankings_publication_identity_mismatches,
+    )
+
+    assert _rankings_publication_identity_mismatches(_canonical_ranking_payload()) == []
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["overallRip", "financialRip", "collectorAppeal", "publicContract"],
+)
+def test_the_public_reader_rejects_every_superseded_identifier(key):
+    from backend.db.services.pokemon_public_snapshot_service import (
+        _rankings_publication_identity_mismatches,
+    )
+
+    payload = _canonical_ranking_payload()
+    payload["meta"]["ripWeightsConfig"][key]["version"] = "superseded_model_v0"
+    assert _rankings_publication_identity_mismatches(payload), (
+        f"a superseded {key} version must not read as the current publication"
+    )
+
+
+def test_the_public_reader_does_not_restate_any_version_literal():
+    """THE point of this file, applied to the reader.
+
+    A second hand-maintained copy of a version string is a second cutover: the
+    reader would keep accepting the old model after scoring_config moved on, and
+    nothing would contradict it. The reader must import the authority, never
+    restate it.
+    """
+    from pathlib import Path
+
+    import backend.db.services.pokemon_public_snapshot_service as reader
+
+    source = Path(reader.__file__).read_text(encoding="utf-8")
+    for identifier, version in canonical_publication_identity().items():
+        # Quoted forms only. The bare text also matches ordinary Python
+        # identifiers (the module has a local `public_rip_contract_v7`, which is
+        # a variable name and not a second copy of the cutover switch).
+        for literal in (f'"{version}"', f"'{version}'"):
+            assert literal not in source, (
+                f"{identifier} literal {version!r} is restated in the reader; "
+                "it must come from canonical_publication_identity()"
+            )

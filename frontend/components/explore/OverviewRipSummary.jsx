@@ -144,7 +144,7 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
             RIP Summary
           </h2>
           {/* The scale, in product language, behind the existing InfoPopover
-              pattern. The normalization formula itself belongs in Research —
+              pattern. The normalization formula itself belongs in the methodology article —
               never in a metric label. */}
           <InfoPopover text={PUBLIC_SCORE_SCALE_NOTE} />
         </div>

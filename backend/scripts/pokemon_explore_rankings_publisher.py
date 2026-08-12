@@ -34,8 +34,11 @@ from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
 from backend.db.services.public_rip_publication_contract import (
+    PUBLIC_SET_VALUE_CONTRACT_VERSION,
     build_publication_diagnostics,
     canonical_publication_identity,
+    evaluate_set_value_coverage,
+    set_value_contract_problems,
     supported_cohort_fingerprint,
 )
 from backend.scripts.pokemon_snapshot_builders import (
@@ -180,6 +183,23 @@ def publication_contract(row):
     score_problems = [
         problem for target in targets for problem in _score_contract_problems(target)
     ]
+    # THE CANONICAL CHECKLIST SET VALUE IS PART OF THE PUBLICATION, NOT A
+    # DECORATION. The public targets reader previously re-read
+    # `pokemon_set_market_dashboard_snapshot_latest` on every healthy request to
+    # fill this value if it was absent - 58% of the response time to change
+    # nothing. That fill can only be retired if the value is guaranteed here, so
+    # a ranked target without it now fails publication for the same reason a
+    # ranked target without a relative score does: publishing it would put an
+    # incomplete public record in front of visitors.
+    #
+    # RANKED targets only. An unranked discovery target may legitimately predate
+    # its own set-value history (a newly onboarded set does), and that case is
+    # reported through the coverage marker instead of breaking publication.
+    score_problems.extend(
+        problem
+        for target in targets
+        for problem in set_value_contract_problems(target, market_date=market_date)
+    )
     problems.extend(score_problems[:40])
     if len(score_problems) > 40:
         problems.append(f"...and {len(score_problems) - 40} further missing canonical score values")
@@ -221,6 +241,32 @@ def publication_contract(row):
         "source_market_date": market_date, "pack_price": target.get("pack_cost"),
     } for target in targets]
     return snapshot, rows
+
+
+def attach_publication_metadata(row: Dict[str, Any], snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Write the publication metadata the reader is entitled to trust.
+
+    `publicationId` and `marketDate` identify the publication. `setValueContract`
+    is the CAPABILITY marker: it records that this payload was built under the
+    canonical checklist Set Value contract and whether every served target
+    satisfies it. The reader skips its compatibility fill on that marker rather
+    than on "the field happens to be present", because presence is a property of
+    the row in hand and says nothing about the contract it was published under -
+    which is exactly what distinguishes a payload published before this guarantee
+    from one published after it.
+
+    Coverage is measured over EVERY target in the payload, ranked or not, because
+    the reader serves them all.
+    """
+    payload = row["ranking_payload_json"]
+    payload.setdefault("meta", {}).setdefault("snapshot", {}).update({
+        "publicationId": snapshot["id"],
+        "marketDate": snapshot["market_date"],
+        "setValueContract": evaluate_set_value_coverage(
+            payload.get("targets") or [], market_date=snapshot["market_date"]
+        ),
+    })
+    return row
 
 
 def previous_calendar_day_payload(client: Any, market_date: str) -> Optional[Dict[str, Any]]:
@@ -300,6 +346,17 @@ def validate_publication_payload(
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: marketDate is missing")
     if str(market_date) != str(snapshot.get("market_date")):
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: marketDate does not match snapshot")
+    marker = snapshot_meta.get("setValueContract") or {}
+    if marker.get("version") != PUBLIC_SET_VALUE_CONTRACT_VERSION:
+        raise RuntimeError(
+            "Refusing to publish Explore RIP leaderboard: set value contract marker is missing "
+            f"or not {PUBLIC_SET_VALUE_CONTRACT_VERSION!r}"
+        )
+    if str(marker.get("asOf") or "") != str(snapshot.get("market_date")):
+        raise RuntimeError(
+            "Refusing to publish Explore RIP leaderboard: set value contract marker as-of does not "
+            "match snapshot"
+        )
 
 
 def publish_explore_rip_rankings_snapshot(
@@ -318,9 +375,7 @@ def publish_explore_rip_rankings_snapshot(
     row["ranking_payload_json"] = attach_daily_rip_rank_movements(row["ranking_payload_json"], previous)
     if commit:
         _reuse_publication_id(client, snapshot)
-    row["ranking_payload_json"].setdefault("meta", {}).setdefault("snapshot", {}).update({
-        "publicationId": snapshot["id"], "marketDate": snapshot["market_date"],
-    })
+    attach_publication_metadata(row, snapshot)
     validate_publication_payload(row, snapshot, history_rows)
     if not commit:
         logger.info("[dry-run] validated complete RIP publication market_date=%s rows=%s",

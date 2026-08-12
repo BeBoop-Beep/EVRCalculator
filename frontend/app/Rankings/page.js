@@ -13,7 +13,7 @@ export const metadata = buildRouteMetadata({
   path: "/Rankings",
   title: "Best Pokémon Sets to Rip Right Now — inDex",
   // "Overall RIP" is the current public name of the headline metric (see
-  // /Research and the set page verdict card); the retired "RIP Score" label
+  // /Articles/how-rip-score-works and the set page verdict card); the retired "RIP Score" label
   // must not come back through metadata.
   description:
     "Current Pokémon set rankings by Overall RIP, with Financial RIP, Collector Appeal and modeled opening economics for every ranked set.",

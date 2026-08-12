@@ -33,7 +33,7 @@ const STEPS = [
   },
 ];
 
-export default function MethodologySection({ marketContext, methodologyHref = "/Research" }) {
+export default function MethodologySection({ marketContext, methodologyHref = "/Articles/how-rip-score-works" }) {
   const marketDate = formatFullDate(marketContext?.marketDate);
   const rankedSets = marketContext?.rankedSetCount ?? null;
 
@@ -63,10 +63,12 @@ export default function MethodologySection({ marketContext, methodologyHref = "/
               </div>
             ) : null}
 
-            {/* General methodology belongs to the global Research surface;
-                set-specific evidence remains on each set's RIP page. */}
+            {/* General methodology is an article on the global Articles
+                surface; set-specific evidence remains on each set's RIP page.
+                This deep-links to the article itself — a reader here wants the
+                methodology, not the hub. */}
             <Link href={methodologyHref} className={styles.methodLink}>
-              Read the Research
+              Read the methodology
               <Arrow />
             </Link>
           </div>

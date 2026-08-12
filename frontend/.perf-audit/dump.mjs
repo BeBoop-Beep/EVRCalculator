@@ -1,0 +1,13 @@
+import { chromium } from "@playwright/test";
+const B="http://127.0.0.1:3210";
+const br=await chromium.launch();
+const p=await br.newPage({viewport:{width:1500,height:1100}});
+p.on("pageerror",e=>console.log("PAGEERR:",String(e).slice(0,400)));
+p.on("console",m=>console.log("CONSOLE["+m.type()+"]:",m.text().slice(0,300)));
+p.on("requestfailed",r=>console.log("REQFAIL:",r.url().slice(0,120),r.failure()?.errorText));
+await p.goto(`${B}/TCGs/Pokemon/Sets/paldeaEvolved?tab=cards`,{waitUntil:"load"});
+await p.waitForTimeout(10000);
+const t=await p.evaluate(()=>document.body.innerText);
+console.log("LEN",t.length);
+console.log(t.slice(0,2000));
+await br.close();

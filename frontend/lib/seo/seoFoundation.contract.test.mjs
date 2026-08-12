@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { buildRouteMetadata, NOINDEX_FOLLOW_ROBOTS, SITE_NAME } from "./routeMetadata.mjs";
 import { buildRobotsPolicy } from "./robotsPolicy.mjs";
 import { buildSitemapEntries } from "./sitemapEntries.mjs";
+import { buildSiteStructuredData } from "./structuredData.mjs";
 import { canonicalUrl, getCanonicalSiteOrigin, PRODUCTION_SITE_ORIGIN } from "./siteUrl.mjs";
 
 /**
@@ -71,7 +72,7 @@ test("canonical URLs drop query strings, hashes and trailing slashes", () => {
     "https://www.inthedex.io/TCGs/Pokemon/Sets/perfect-order"
   );
   assert.equal(canonicalUrl("/Market#movers"), "https://www.inthedex.io/Market");
-  assert.equal(canonicalUrl("/Research/"), "https://www.inthedex.io/Research");
+  assert.equal(canonicalUrl("/Articles/how-rip-score-works/"), "https://www.inthedex.io/Articles/how-rip-score-works");
 });
 
 /* ------------------------------------------------------------------ *
@@ -143,7 +144,8 @@ const PRIMARY_ROUTES = [
   ["app/page.js", "/"],
   ["app/Rankings/page.js", "/Rankings"],
   ["app/Market/page.js", "/Market"],
-  ["app/Research/page.js", "/Research"],
+  ["app/Articles/page.js", "/Articles"],
+  ["app/Articles/how-rip-score-works/page.js", "/Articles/how-rip-score-works"],
   ["app/TCGs/Pokemon/Sets/page.js", "/TCGs/Pokemon/Sets"],
 ];
 
@@ -158,7 +160,8 @@ for (const [relativePath, routePath] of PRIMARY_ROUTES) {
 test("the approved public titles are the ones shipped", () => {
   assert.ok(read("app/Rankings/page.js").includes("Best Pokémon Sets to Rip Right Now — inDex"));
   assert.ok(read("app/Market/page.js").includes("Pokémon Market Trends & Set Values — inDex"));
-  assert.ok(read("app/Research/page.js").includes("Pokémon RIP Methodology & Research — inDex"));
+  assert.ok(read("app/Articles/how-rip-score-works/page.js").includes("How the RIP Score Works — inDex"));
+  assert.ok(read("app/Articles/page.js").includes("Articles — inDex"));
 });
 
 /* ------------------------------------------------------------------ *
@@ -285,7 +288,8 @@ test("robots exposes the sitemap and blocks only private/app-only families", () 
   for (const publicPath of [
     "/Rankings",
     "/Market",
-    "/Research",
+    "/Articles",
+    "/Articles/how-rip-score-works",
     "/TCGs/Pokemon/Sets",
     "/cards",
     "/sealed-products",
@@ -311,7 +315,8 @@ test("the sitemap contains the canonical hubs and excludes redirects, noindex ro
     "https://www.inthedex.io/",
     "https://www.inthedex.io/Rankings",
     "https://www.inthedex.io/Market",
-    "https://www.inthedex.io/Research",
+    "https://www.inthedex.io/Articles",
+    "https://www.inthedex.io/Articles/how-rip-score-works",
     "https://www.inthedex.io/TCGs/Pokemon/Sets",
   ]) {
     assert.ok(urls.includes(hub), `${hub} must be in the sitemap`);
@@ -362,8 +367,102 @@ test("a backend failure degrades the sitemap to the canonical hubs rather than e
       "https://www.inthedex.io/",
       "https://www.inthedex.io/Rankings",
       "https://www.inthedex.io/Market",
-      "https://www.inthedex.io/Research",
+      "https://www.inthedex.io/Articles",
+      "https://www.inthedex.io/Articles/how-rip-score-works",
       "https://www.inthedex.io/TCGs/Pokemon/Sets",
     ]
   );
+});
+
+/* ------------------------------------------------------------------ *
+ * Site entity (WebSite + Organization structured data)
+ * ------------------------------------------------------------------ */
+
+const siteGraph = buildSiteStructuredData();
+const nodeOfType = (type) => siteGraph["@graph"].filter((node) => node["@type"] === type);
+
+test("the site emits exactly one WebSite and one Organization, in one graph", () => {
+  assert.equal(siteGraph["@context"], "https://schema.org");
+  assert.equal(nodeOfType("WebSite").length, 1, "competing WebSite entities are competing site identities");
+  assert.equal(nodeOfType("Organization").length, 1);
+});
+
+test("WebSite names the brand, its legitimate variants and the canonical origin", () => {
+  const [website] = nodeOfType("WebSite");
+  assert.equal(website.url, "https://www.inthedex.io/");
+  assert.equal(website["@id"], "https://www.inthedex.io/#website");
+  assert.equal(website.name, SITE_NAME);
+  assert.equal(website.name, "inDex");
+  // Asserted as an exact set, not a subset: a name added here is a new public
+  // claim about what this entity is called, so it should have to be deliberate.
+  assert.deepEqual(website.alternateName, ["inDex Pokémon", "inDex Pokémon TCG", "inthedex"]);
+  assert.ok(
+    !website.alternateName.includes("inthedex.io"),
+    "a fully-qualified domain is an address, not an alternate name — `url` already states it"
+  );
+});
+
+test("Organization shares the brand name and points at a logo asset that exists", () => {
+  const [organization] = nodeOfType("Organization");
+  assert.equal(organization["@id"], "https://www.inthedex.io/#organization");
+  assert.equal(organization.name, SITE_NAME);
+  assert.equal(organization.url, "https://www.inthedex.io/");
+  assert.equal(organization.logo.url, "https://www.inthedex.io/icon-512.png");
+  assert.ok(
+    fs.existsSync(path.resolve(HERE, "../../public/icon-512.png")),
+    "the declared logo must be a real public asset, not a promised one"
+  );
+});
+
+test("Organization asserts nothing the repository cannot corroborate", () => {
+  const [organization] = nodeOfType("Organization");
+  for (const invented of ["sameAs", "address", "telephone", "founder", "legalName", "email"]) {
+    assert.equal(organization[invented], undefined, `${invented} must not be invented`);
+  }
+});
+
+test("the graph is connected rather than two unrelated fragments", () => {
+  const [website] = nodeOfType("WebSite");
+  const [organization] = nodeOfType("Organization");
+  assert.equal(website.publisher["@id"], organization["@id"]);
+});
+
+test("the site entity associates inDex with the Pokemon TCG in plain language", () => {
+  const [website] = nodeOfType("WebSite");
+  assert.match(website.description, /Pok[eé]mon TCG/);
+  assert.ok(website.description.startsWith("inDex is "));
+});
+
+test("the homepage is the one route that emits the site entity", () => {
+  const home = read("app/page.js");
+  assert.ok(home.includes("buildSiteStructuredData"));
+  assert.ok(home.includes('type="application/ld+json"'));
+
+  const layout = read("app/layout.js");
+  assert.ok(
+    !layout.includes("ld+json"),
+    "site-level JSON-LD in the root layout would restate the site's url on every route"
+  );
+
+  for (const route of ["app/Rankings/page.js", "app/Market/page.js", "app/Articles/page.js"]) {
+    assert.ok(!read(route).includes("buildSiteStructuredData"), `${route} must not emit a second site entity`);
+  }
+});
+
+test("the JSON-LD payload survives serialization", () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(siteGraph)), siteGraph);
+});
+
+/* ------------------------------------------------------------------ *
+ * Account routes stay out of the index under BOTH spellings
+ * ------------------------------------------------------------------ */
+
+test("robots disallows the account collection under its public URL, not only its legacy one", () => {
+  const rule = buildRobotsPolicy().rules[0];
+  for (const accountPath of ["/my-collection", "/my-portfolio", "/my-portfolio/wishlist"]) {
+    assert.ok(
+      rule.disallow.some((entry) => accountPath.startsWith(entry)),
+      `${accountPath} must be disallowed`
+    );
+  }
 });

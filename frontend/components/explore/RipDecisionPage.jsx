@@ -6,12 +6,15 @@ import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
 import RipDistributionChart from "./RipDistributionChart";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import InfoPopover from "@/components/ui/InfoPopover";
+import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import styles from "./RipDecisionPage.module.css";
 
-const RESEARCH_HREF = "/Research";
+// A reader who opens a metric bubble wants the methodology, not a content hub,
+// so this deep-links straight to the article rather than to /Articles.
+const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 
 function Help({ text }) {
-  return <InfoPopover text={text} learnMoreHref={RESEARCH_HREF} learnMoreLabel="Learn more in Research" />;
+  return <InfoPopover text={text} learnMoreHref={METHODOLOGY_ARTICLE_HREF} learnMoreLabel="How the RIP Score works" />;
 }
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
@@ -48,7 +51,7 @@ function EvidenceMetric({ metric, index }) {
 
 function ChaseCard({ card }) {
   const name = card?.name || "Card name unavailable";
-  const image = card?.imageUrl || card?.image_url || card?.images?.small || null;
+  const image = optimizedImageUrl(card?.imageUrl || card?.image_url || card?.images?.small || null, CARD_THUMBNAIL_WIDTH);
   const price = card?.marketPrice ?? card?.market_price ?? card?.currentPrice ?? card?.current_price ?? card?.price ?? null;
   const odds = card?.specificCardOddsDenominator ?? card?.specific_card_odds_denominator ?? card?.pullOddsDenominator ?? card?.pull_odds_denominator ?? null;
   const validOdds = Number.isFinite(Number(odds)) && Number(odds) > 0;
@@ -63,7 +66,7 @@ function ChaseCard({ card }) {
   );
 }
 
-export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = "/Research" }) {
+export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = METHODOLOGY_ARTICLE_HREF }) {
   const model = buildRipDecisionModel({ canonical, summary, pullRateAssumptions });
   const verdictPresentation = getRipPageIconPresentation("verdict");
   const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : `#${Math.round(model.overall.rank)} Modern Set to Rip Right Now`;

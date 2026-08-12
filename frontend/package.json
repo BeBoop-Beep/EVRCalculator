@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.15",
     "@playwright/test": "^1.62.1",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
