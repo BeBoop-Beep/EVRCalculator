@@ -24,7 +24,7 @@ const ARTICLE_HREF = "/Articles/how-rip-score-works";
 
 test("the RIP methodology article is a standalone page, never a set redirect", () => {
   assert.ok(article.includes("export default function HowRipScoreWorksArticle()"));
-  assert.ok(article.includes(">How the RIP Score Works</h1>"));
+  assert.ok(/>\s*How the RIP Score Works\s*<\/h1>/.test(article), "the h1 names the article");
   assert.ok(!article.includes("redirect("));
   assert.ok(!article.includes("/Explore/rip-statistics"));
 });

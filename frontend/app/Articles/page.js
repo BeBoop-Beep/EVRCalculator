@@ -24,7 +24,7 @@ const ARTICLES = [
     eyebrow: "Methodology",
     title: "How the RIP Score Works",
     summary:
-      "What Overall RIP measures, how Financial RIP and Collector Appeal contribute, how the 0–100 scale is relative to the eligible cohort, and what the one-million-opening simulation can and cannot tell you.",
+      "Expected Value was the first thing I calculated, and the first thing that showed me why it was not enough on its own. What Overall RIP measures instead, why the 0 to 100 scale is relative rather than absolute, and what a million simulated openings can and cannot tell you.",
   },
 ];
 
@@ -35,8 +35,8 @@ export default function ArticlesPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">inDex</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">Articles</h1>
         <p className="mt-4 text-base leading-7 text-[var(--text-secondary)] sm:text-lg">
-          How inDex measures Pokémon sets — the methodology behind the scores, the modeled opening
-          simulations that feed them, and how to read the results.
+          Notes on how inDex actually works: what the scores measure, how the opening simulations behind
+          them are built, and where the models stop being reliable.
         </p>
       </header>
 
