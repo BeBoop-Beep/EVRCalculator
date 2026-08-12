@@ -21,7 +21,11 @@ from pathlib import Path
 import pytest
 
 from backend.db.services.public_rip_publication_contract import (
+    PUBLIC_SET_VALUE_CONTRACT_VERSION,
+    SET_VALUE_AS_OF_FIELDS,
+    SET_VALUE_VALUE_FIELDS,
     canonical_publication_identity,
+    payload_guarantees_canonical_set_value,
 )
 from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
 from backend.scripts import pokemon_explore_rankings_publisher as command
@@ -123,6 +127,10 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "cohortFingerprint": "stub-fingerprint",
         "calculation_run_id": f"run-{index}",
         "pack_cost": 5,
+        # The canonical checklist Set Value the publication now guarantees. One
+        # value, mirrored into the aliases the builder derives from it.
+        **{field: 500.0 + index for field in SET_VALUE_VALUE_FIELDS},
+        **{field: "2026-08-01" for field in SET_VALUE_AS_OF_FIELDS},
     } for index in range(target_count)]
     # Keep the stubbed authority in step with the cohort just built.
     _set_supported_keys(f"set-{index}" for index in range(target_count))
@@ -441,10 +449,9 @@ def _publication_parameters(*, ranked=22, unranked=12):
             "rip": {"score": None, "rank": None},
         })
     snapshot, history = command.publication_contract(row)
-    row["ranking_payload_json"]["meta"]["snapshot"].update({
-        "publicationId": snapshot["id"],
-        "marketDate": snapshot["market_date"],
-    })
+    # The publisher owns publication metadata; call the same writer it does so
+    # the preflight tests below exercise the real marker and not a copy of it.
+    command.attach_publication_metadata(row, snapshot)
     return row, snapshot, history
 
 
@@ -540,3 +547,124 @@ def test_shared_publisher_sends_complete_discovery_payload(monkeypatch):
     rpc = next(call for call in client.calls if call[0] == "rpc")
     assert len(rpc[2]["p_latest"]["ranking_payload_json"]["targets"]) == 34
     assert len(rpc[2]["p_rows"]) == 22
+
+
+# ---------------------------------------------------------------------------
+# The canonical checklist Set Value publication contract.
+#
+# The public targets reader used to run a compatibility DB fill on every healthy
+# request because nothing on the publish path guaranteed the value was there.
+# These tests are what turns that from an assumption into a contract: a candidate
+# whose RANKED targets are missing the authoritative Set Value must not be able
+# to replace the valid published leaderboard.
+# ---------------------------------------------------------------------------
+
+
+def _mutate_targets(row, mutate, *, ranked_only=True):
+    for target in row["ranking_payload_json"]["targets"]:
+        if ranked_only and (target.get("overallRipV7") or {}).get("rank") is None:
+            continue
+        mutate(target)
+    return row
+
+
+def test_ranked_target_with_a_valid_set_value_publishes():
+    """A. The happy path: the canonical value and its as-of are present."""
+    snapshot, rows = command.publication_contract(_row())
+    assert len(rows) == 1
+
+
+def test_ranked_target_missing_the_canonical_set_value_refuses_to_publish():
+    """B. The defect this contract exists to prevent."""
+    row = _mutate_targets(_row(), lambda target: [
+        target.pop(field, None) for field in SET_VALUE_VALUE_FIELDS
+    ])
+    with pytest.raises(RuntimeError, match="checklistSetValue is missing"):
+        command.publication_contract(row)
+
+
+def test_a_malformed_set_value_type_refuses_to_publish():
+    """C. A stringified value is a serialization defect, not a value."""
+    row = _mutate_targets(_row(), lambda target: target.update(checklistSetValue="561.26"))
+    with pytest.raises(RuntimeError, match="checklistSetValue is missing or not a positive number"):
+        command.publication_contract(row)
+
+
+def test_a_set_value_alias_that_disagrees_refuses_to_publish():
+    """C2. The aliases are the fields the compatibility fill used to write."""
+    row = _mutate_targets(_row(), lambda target: target.update(checklist_set_value=1.0))
+    with pytest.raises(RuntimeError, match="checklist_set_value does not match"):
+        command.publication_contract(row)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected"),
+    [
+        (lambda target: target.pop("checklistSetValueAsOf"), "checklistSetValueAsOf is missing"),
+        (
+            lambda target: target.update(checklistSetValueAsOf="2026-07-04"),
+            "publication market date",
+        ),
+    ],
+)
+def test_set_value_as_of_must_match_the_publication_market_date(mutate, expected):
+    """D. A value carrying another date was not built for this publication."""
+    row = _mutate_targets(_row(), mutate)
+    with pytest.raises(RuntimeError, match=expected):
+        command.publication_contract(row)
+
+
+def test_an_unranked_discovery_target_may_lack_a_set_value_and_still_publish():
+    """E. The explicitly encoded exception.
+
+    A newly onboarded set appears as an unranked discovery target before its
+    daily set-value history starts - `pitchBlack` did exactly that for the whole
+    of July 2026. Refusing to publish the leaderboard over it would make a normal
+    onboarding break publication, so it publishes and reports partial coverage.
+    """
+    row, snapshot, history = _publication_parameters(ranked=1, unranked=1)
+    command.validate_publication_payload(row, snapshot, history)
+    marker = row["ranking_payload_json"]["meta"]["snapshot"]["setValueContract"]
+    assert marker["coverage"] == "partial"
+    assert marker["targetCount"] == 2
+    assert marker["coveredTargetCount"] == 1
+
+
+def test_a_complete_publication_carries_the_set_value_capability_marker(monkeypatch):
+    row = _row()
+    client = _Client(previous=[], existing=[])
+    monkeypatch.setattr(command, "build_explore_rankings_snapshot_row", lambda **_kwargs: row)
+    command.publish_explore_rip_rankings_snapshot(client, commit=True)
+    rpc = next(call for call in client.calls if call[0] == "rpc")
+    marker = rpc[2]["p_latest"]["ranking_payload_json"]["meta"]["snapshot"]["setValueContract"]
+    assert marker == {
+        "version": PUBLIC_SET_VALUE_CONTRACT_VERSION,
+        "coverage": "complete",
+        "targetCount": 1,
+        "coveredTargetCount": 1,
+        "asOf": "2026-08-01",
+    }
+    assert payload_guarantees_canonical_set_value(rpc[2]["p_latest"]["ranking_payload_json"])
+
+
+def test_a_candidate_missing_set_value_never_reaches_the_publish_rpc(monkeypatch):
+    """The guard is on the publication, not merely on a helper.
+
+    The previously valid snapshot stays active because the atomic RPC is never
+    invoked at all.
+    """
+    row = _mutate_targets(_row(), lambda target: [
+        target.pop(field, None) for field in SET_VALUE_VALUE_FIELDS
+    ])
+    client = _Client(previous=[], existing=[])
+    monkeypatch.setattr(command, "build_explore_rankings_snapshot_row", lambda **_kwargs: row)
+    with pytest.raises(RuntimeError, match="checklistSetValue is missing"):
+        command.publish_explore_rip_rankings_snapshot(client, commit=True)
+    assert not [call for call in client.calls if call[0] == "rpc"]
+
+
+def test_publication_preflight_rejects_a_stripped_set_value_marker():
+    row, snapshot, history = _publication_parameters(ranked=1, unranked=0)
+    row["ranking_payload_json"]["meta"]["snapshot"].pop("setValueContract", None)
+    with pytest.raises(RuntimeError, match="set value contract marker"):
+        command.validate_publication_payload(row, snapshot, history)

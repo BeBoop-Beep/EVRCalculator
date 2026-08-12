@@ -164,3 +164,11 @@ V4/V5/V6/V7 blocks and snake_case + camelCase duplicates.
 assertion that the Set Value fields are part of the persisted publication.
 It is 57.9% of a ~800 ms response and provably zero-change for current
 snapshots; no other single item on this path is close.
+
+> **Done.** See
+> [`PERFORMANCE_SET_VALUE_PUBLICATION_CONTRACT.md`](PERFORMANCE_SET_VALUE_PUBLICATION_CONTRACT.md).
+> The canonical checklist Set Value is now a required part of the publication
+> contract for ranked targets, publications carry an explicit
+> `meta.snapshot.setValueContract` capability marker, and the reader skips the
+> compatibility DB read for publications that carry it — 0 semantic differences
+> across 34 targets and 5,904 field comparisons.

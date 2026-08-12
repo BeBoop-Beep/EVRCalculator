@@ -84,6 +84,159 @@ REASON_NOT_PUBLISHED = "published_at_missing"
 
 SUPPORTED_COHORT_FINGERPRINT_VERSION = "supported_opening_cohort_fingerprint_v1"
 
+# --- Canonical checklist Set Value publication contract ----------------------
+#
+# WHY THIS IS PART OF THE PUBLICATION CONTRACT
+# --------------------------------------------
+# The public targets reader used to call
+# `_enrich_rankings_payload_with_checklist_set_values` on EVERY healthy request:
+# a second DB round trip against `pokemon_set_market_dashboard_snapshot_latest`
+# whose only job is to fill a checklist Set Value that is MISSING. Measured
+# against the live publication it filled 0 of 34 targets and cost ~403 ms - 58%
+# of the response - because the rankings builder already writes the canonical
+# value from `pokemon_set_value_daily_history`.
+#
+# It could not simply be deleted: nothing on the publish path REQUIRED the value,
+# so a future builder change could have dropped it silently and turned a
+# redundant read into missing public data. The fix is contract-first - make the
+# value a published guarantee, then let the reader trust the guarantee.
+#
+# THE SMALLEST CONTRACT THAT PROVES THE GUARANTEE
+# ------------------------------------------------
+# Exactly the fields the compatibility layer could have written, and nothing
+# else. Requiring less would leave a field the reader stops filling and the
+# publisher never checks; requiring more would pin aliases the one builder
+# assignment already derives from the same variable.
+PUBLIC_SET_VALUE_CONTRACT_VERSION = "public_rip_set_value_contract_v1"
+
+CANONICAL_SET_VALUE_FIELD = "checklistSetValue"
+SET_VALUE_VALUE_FIELDS = (
+    CANONICAL_SET_VALUE_FIELD,
+    "checklist_set_value",
+    "currentChecklistSetValue",
+    "current_checklist_set_value",
+)
+SET_VALUE_AS_OF_FIELDS = ("checklistSetValueAsOf", "checklist_set_value_as_of")
+
+SET_VALUE_COVERAGE_COMPLETE = "complete"
+SET_VALUE_COVERAGE_PARTIAL = "partial"
+
+
+def _positive_float(value: Any) -> Optional[float]:
+    """A strictly positive number, or None. Strings are NOT coerced.
+
+    A Set Value that arrives as ``"561.26"`` is a serialization defect, not a
+    value: it compares wrong, sorts wrong and formats wrong downstream. The
+    contract must fail on it rather than quietly accept a shape the builder
+    never produces.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if number != number or number <= 0:  # NaN or non-positive
+        return None
+    return number
+
+
+def set_value_contract_problems(
+    target: Mapping[str, Any], *, market_date: Optional[str] = None
+) -> List[str]:
+    """Every way ONE target fails the canonical checklist Set Value contract.
+
+    A LIST, for the same reason every other check in this module returns one: a
+    target missing the value and a target whose as-of drifted off the market date
+    are different defects, and reporting only the first sends an operator back
+    for a second publication run to discover the rest.
+
+    ``market_date`` is the publication's own market date. The as-of is required
+    to equal it because the builder resolves the value from
+    ``pokemon_set_value_daily_history`` AT the current published snapshot date -
+    a value carrying any other date was not built for this publication.
+    """
+    label = str(
+        target.get("canonical_key") or target.get("set_id") or target.get("target_id") or "target"
+    )
+    problems: List[str] = []
+    canonical = _positive_float(target.get(CANONICAL_SET_VALUE_FIELD))
+    if canonical is None:
+        problems.append(f"{label}: {CANONICAL_SET_VALUE_FIELD} is missing or not a positive number")
+    else:
+        for field in SET_VALUE_VALUE_FIELDS[1:]:
+            if _positive_float(target.get(field)) != canonical:
+                problems.append(f"{label}: {field} does not match {CANONICAL_SET_VALUE_FIELD}")
+    expected_as_of = str(market_date)[:10] if market_date else None
+    for field in SET_VALUE_AS_OF_FIELDS:
+        observed = _text(target.get(field))
+        if observed is None:
+            problems.append(f"{label}: {field} is missing")
+        elif expected_as_of and observed[:10] != expected_as_of:
+            problems.append(
+                f"{label}: {field} is {observed!r}; the publication market date is {expected_as_of!r}"
+            )
+    return problems
+
+
+def evaluate_set_value_coverage(
+    targets: Sequence[Mapping[str, Any]], *, market_date: Optional[str] = None
+) -> Dict[str, Any]:
+    """The Set Value capability marker a publication carries in its metadata.
+
+    Computed over EVERY target in the payload, not just the ranked cohort, because
+    the reader serves every target and the marker is what lets it skip the
+    compatibility fill for all of them.
+
+    Coverage is ``complete`` only when every target satisfies the contract.
+    A discovery-only target that is not yet ranked - a newly onboarded set whose
+    daily set-value history has not started - legitimately has no canonical value;
+    that publishes normally and reports ``partial``, and the reader keeps filling
+    it. Publication is refused only for RANKED targets, which the publisher gates
+    separately. Encoding the exception is what keeps the guarantee honest instead
+    of making a normal onboarding fail to publish.
+    """
+    resolved = [target for target in targets if isinstance(target, Mapping)]
+    covered = [
+        target
+        for target in resolved
+        if not set_value_contract_problems(target, market_date=market_date)
+    ]
+    return {
+        "version": PUBLIC_SET_VALUE_CONTRACT_VERSION,
+        "coverage": (
+            SET_VALUE_COVERAGE_COMPLETE
+            if resolved and len(covered) == len(resolved)
+            else SET_VALUE_COVERAGE_PARTIAL
+        ),
+        "targetCount": len(resolved),
+        "coveredTargetCount": len(covered),
+        "asOf": str(market_date)[:10] if market_date else None,
+    }
+
+
+def payload_guarantees_canonical_set_value(payload: Mapping[str, Any]) -> bool:
+    """Was this persisted payload published under the Set Value guarantee?
+
+    THE READER'S ONE QUESTION. "The field happens to be present" is deliberately
+    not the test: that is a property of the row the reader is holding, not proof
+    of the contract it was published under, and it cannot distinguish a payload
+    published before the guarantee existed from one published after it.
+
+    Fails CLOSED, exactly like `evaluate_leaderboard_staleness`: an absent or
+    unrecognised marker means the compatibility fill still runs. A legacy payload
+    therefore keeps its existing behaviour without knowing anything about this.
+    """
+    if not isinstance(payload, Mapping):
+        return False
+    meta = payload.get("meta")
+    meta = meta if isinstance(meta, Mapping) else {}
+    snapshot = meta.get("snapshot")
+    snapshot = snapshot if isinstance(snapshot, Mapping) else {}
+    marker = snapshot.get("setValueContract")
+    marker = marker if isinstance(marker, Mapping) else {}
+    return (
+        _text(marker.get("version")) == PUBLIC_SET_VALUE_CONTRACT_VERSION
+        and _text(marker.get("coverage")) == SET_VALUE_COVERAGE_COMPLETE
+    )
+
 
 def canonical_publication_identity() -> Dict[str, str]:
     """The four version identifiers a current publication must carry.

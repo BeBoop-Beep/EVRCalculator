@@ -12,7 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from backend.db.clients.supabase_client import create_public_read_client, public_read_client
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
-from backend.db.services.public_rip_publication_contract import canonical_publication_identity
+from backend.db.services.public_rip_publication_contract import (
+    canonical_publication_identity,
+    payload_guarantees_canonical_set_value,
+)
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -1924,20 +1927,37 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
             )
 
         enrichment_warning = None
-        try:
-            payload = _enrich_rankings_payload_with_checklist_set_values(payload)
-        except Exception:
-            logger.warning(
-                "[pokemon-snapshot] checklist set value enrichment failed; serving persisted rankings snapshot",
-                exc_info=True,
-            )
-            enrichment_warning = (
-                "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
-            )
+        # THE COMPATIBILITY FILL IS A FALLBACK, AND IS NOW PRICED AS ONE.
+        # It re-read `pokemon_set_market_dashboard_snapshot_latest` on every
+        # healthy request - ~403 ms, 58% of the response - to fill a value that
+        # the publication already carried for all 34 targets, changing none of
+        # them. It is skipped only when the publication itself GUARANTEES the
+        # canonical value; the marker is written by the publisher and read here
+        # through the one contract module, never re-decided from field presence.
+        # Absent or unrecognised marker => fill still runs, so a payload
+        # published before the guarantee keeps its exact previous behaviour.
+        set_value_enrichment = None
+        if payload_guarantees_canonical_set_value(payload):
+            set_value_enrichment = "SKIPPED_PUBLICATION_GUARANTEES_SET_VALUE"
+        else:
+            try:
+                payload = _enrich_rankings_payload_with_checklist_set_values(payload)
+            except Exception:
+                logger.warning(
+                    "[pokemon-snapshot] checklist set value enrichment failed; serving persisted rankings snapshot",
+                    exc_info=True,
+                )
+                enrichment_warning = (
+                    "Checklist set value enrichment failed; served persisted rankings snapshot without enrichment."
+                )
 
         raw_targets = list(payload.get("targets") or [])
         targets = [target for target in raw_targets if is_opening_set_row(target)][:clamped_limit]
         meta = dict(payload.get("meta") or {})
+        if set_value_enrichment:
+            sources = dict(meta.get("sources") or {})
+            sources["checklist_set_value_enrichment"] = set_value_enrichment
+            meta["sources"] = sources
         if enrichment_warning:
             warnings = list(meta.get("warnings") or [])
             if enrichment_warning not in warnings:
