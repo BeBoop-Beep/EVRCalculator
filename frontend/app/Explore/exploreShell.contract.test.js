@@ -8,9 +8,21 @@ const rankingsSource = fs.readFileSync(path.resolve(__dirname, "../Rankings/page
 const marketSource = fs.readFileSync(path.resolve(__dirname, "../Market/page.js"), "utf8");
 
 test("Rankings is the public name and /Explore remains backwards compatible", () => {
-  assert.ok(exploreSource.includes('<h1 className="sr-only">Pokémon Set Rankings</h1>'));
-  assert.ok(exploreSource.includes('title: "Pokémon Set Rankings — inDex"'));
-  assert.ok(rankingsSource.includes('export { default, metadata } from "../Explore/page"'));
+  // The heading is still in the document and still visually hidden; it now
+  // carries the page's public intent rather than a bare section label.
+  assert.ok(exploreSource.includes('<header className="sr-only">'));
+  assert.ok(exploreSource.includes("<h1>Best Pokémon Sets to Rip Right Now</h1>"));
+  assert.ok(rankingsSource.includes('export { default } from "../Explore/page"'));
+});
+
+test("Rankings — not /Explore — owns the canonical identity of the leaderboard", () => {
+  // /Explore permanently redirects to /Rankings, so a metadata object left in
+  // app/Explore/page.js would put a live route's title, canonical and og:url in
+  // a directory that no longer answers requests.
+  assert.ok(!/export const metadata\b/.test(exploreSource), "/Explore must not declare metadata");
+  assert.ok(rankingsSource.includes('title: "Best Pokémon Sets to Rip Right Now — inDex"'));
+  assert.ok(rankingsSource.includes('path: "/Rankings"'));
+  assert.ok(rankingsSource.includes('buildRouteMetadata'));
 });
 
 test("Rankings contains only the canonical RIP leaderboard", () => {

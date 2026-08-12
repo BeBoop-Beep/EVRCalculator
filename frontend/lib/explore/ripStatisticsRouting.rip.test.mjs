@@ -40,7 +40,9 @@ test("market is a canonical set-detail tab, not an overview alias", () => {
 
 test("every canonical tab round-trips through the set href builder", () => {
   const target = { target_type: "set", target_id: "uuid-1", name: "Ascended Heroes" };
-  for (const tab of ["overview", "market", "cards", "pull-rates"]) {
+
+  // Non-default tabs must survive href construction verbatim.
+  for (const tab of ["market", "cards", "pull-rates"]) {
     assert.equal(
       buildTcgSetHrefFromTarget(target, { tab }),
       `/TCGs/Pokemon/Sets/ascended-heroes?tab=${tab}`,
@@ -48,6 +50,19 @@ test("every canonical tab round-trips through the set href builder", () => {
     );
     assert.equal(resolveSetDetailTab(tab), tab);
   }
+
+  // `overview` is the DEFAULT view, so its href is the bare canonical set URL
+  // rather than a query variant of it — the set page declares that bare URL as
+  // its canonical, and internal links must point at the canonical, not at an
+  // equivalent alias. The round trip is still lossless: an absent tab resolves
+  // back to overview.
+  assert.equal(
+    buildTcgSetHrefFromTarget(target, { tab: "overview" }),
+    "/TCGs/Pokemon/Sets/ascended-heroes",
+    "the default tab is carried by the bare canonical URL, not by ?tab="
+  );
+  assert.equal(resolveSetDetailTab("overview"), "overview");
+  assert.equal(resolveSetDetailTab(undefined), "overview");
 });
 
 test("legacy routes and user-facing aliases remain compatible", () => {

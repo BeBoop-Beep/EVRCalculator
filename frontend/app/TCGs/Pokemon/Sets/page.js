@@ -2,6 +2,15 @@ import Link from "next/link";
 import { toSetSlug } from "@/utils/slugify";
 import { getPokemonSets } from "@/lib/pokemon/pokemonSetsServer";
 import { isHiddenFromPublicPokemonSetsCatalog } from "@/lib/pokemon/pokemonSetPublicCoverage";
+import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
+
+export const metadata = buildRouteMetadata({
+  path: "/TCGs/Pokemon/Sets",
+  title: "Pokémon TCG Set Catalog — inDex",
+  description:
+    "Browse every Pokémon TCG set by era, newest to oldest, and open a set for its Overall RIP and opening analysis.",
+  ogTitle: "Pokémon TCG Set Catalog",
+});
 
 function toTimestamp(value) {
   if (!value) {
@@ -220,7 +229,15 @@ export default async function SetsPage() {
                           const releaseDateText = toDisplayDate(setSummary?.releaseDate ?? null);
                           const setImageUrl = getSetImageUrl(setSummary);
                           const slug = toSetSlug(setName, setSummary?.slug || setSummary?.id);
-                          const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}?tab=cards` : "/TCGs/Pokemon/Sets";
+                          // The catalog links to the BARE canonical set URL, not
+                          // `?tab=cards`. The bare URL is the set's canonical
+                          // identity (its RIP view) and is what the set page
+                          // declares as canonical, so the catalog — the single
+                          // largest source of internal set links on the site —
+                          // now reinforces that identity instead of pointing a
+                          // few hundred links at a query variant. The Cards tab
+                          // is unchanged and one click away on the set page.
+                          const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}` : "/TCGs/Pokemon/Sets";
 
                           return (
                             <Link

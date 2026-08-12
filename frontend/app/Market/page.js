@@ -5,12 +5,19 @@ import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
+import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
 
-export const metadata = {
-  title: "Pokémon Market — inDex",
-  description: "Pokémon set values and global 7-day card-market movers.",
-};
+// Describes only what this page actually renders: the global 7-day card-market
+// movers module and the set-value ladder. No forecast, alert or watchlist
+// language — none of that exists here.
+export const metadata = buildRouteMetadata({
+  path: "/Market",
+  title: "Pokémon Market Trends & Set Values — inDex",
+  description:
+    "Pokémon set and card market movement: current set values and the global 7-day card-market movers.",
+  ogTitle: "Pokémon Market Trends & Set Values",
+});
 
 export default async function MarketPage() {
   const [rankingsResult, moversResult] = await Promise.allSettled([

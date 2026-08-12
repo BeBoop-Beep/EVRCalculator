@@ -4,6 +4,24 @@ const { createContext, useState, useEffect } = require("react");
 
 export const CartContext = createContext({});
 
+/**
+ * NOTE ON SERVER RENDERING
+ * ------------------------
+ * This provider wraps the ENTIRE application in `app/layout.js`, so anything
+ * it refuses to render is missing from every page.
+ *
+ * It used to end with `if (!isClient) return null`, which meant the server
+ * emitted no HTML at all for any route — not the nav, not `<main>`, not a
+ * single `<h1>` — and the whole document was reconstructed client-side from
+ * the React Flight payload. `isClient` is only needed to gate `localStorage`,
+ * and every `localStorage` access below already lives in an effect or an event
+ * handler, both of which are client-only by construction. Rendering the
+ * provider on the server is therefore safe: `cartProducts` starts as `[]` in
+ * the server render AND in the first client render (the stored cart is loaded
+ * in the effect below, after hydration), so the two renders match.
+ *
+ * Do not reintroduce a render-time client-only bail-out here.
+ */
 export function CartContextProvider({ children }) {
   const [cartProducts, setCartProducts] = useState([]);
   const [isClient, setIsClient] = useState(false);
@@ -36,8 +54,6 @@ export function CartContextProvider({ children }) {
       return updatedCart;
     });
   }
-
-  if (!isClient) return null; // Prevent rendering until client-side
 
   return (
     <CartContext.Provider value={{ cartProducts, setCartProducts, addItem }}>

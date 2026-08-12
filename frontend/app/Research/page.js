@@ -1,9 +1,21 @@
 import Link from "next/link";
+import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 
-export const metadata = {
-  title: "Research & Methodology — inDex",
-  description: "How inDex calculates Overall RIP, Financial RIP, Collector Appeal, and modeled Pokémon opening outcomes.",
-};
+// Descriptive only. This must never name a production weight, a blend split or
+// a formula — the page itself deliberately withholds them, and metadata is the
+// most widely republished text on the site.
+//
+// NAMING: "Overall RIP" is the public name of the headline metric. It is the
+// name this page uses throughout, and researchPage.contract.test.mjs asserts
+// that the retired label does not appear anywhere in this file — metadata
+// included, which is why the wording below matches the page copy exactly.
+export const metadata = buildRouteMetadata({
+  path: "/Research",
+  title: "Pokémon RIP Methodology & Research — inDex",
+  description:
+    "How inDex builds Overall RIP from Financial RIP and Collector Appeal, what its modeled opening simulation measures, and how to read the results.",
+  ogTitle: "Pokémon RIP Methodology & Research",
+});
 
 const FINANCIAL_COMPONENTS = [
   ["True Win Frequency", "How often a modeled opening returns at least the current pack cost."],

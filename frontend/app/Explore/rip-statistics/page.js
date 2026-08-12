@@ -4,6 +4,17 @@ import RipStatisticsPageClient from "@/components/explore/RipStatisticsPageClien
 import { getExplorePagePayload } from "@/lib/explore/explorePageServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { buildTargetHrefById, buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/routeMetadata.mjs";
+
+/**
+ * Legacy entry point. Every `target_type=set` request it receives is already
+ * redirected to the canonical `/TCGs/Pokemon/Sets/[setSlug]` page below, and
+ * the only requests that survive that redirect are non-set target types with no
+ * canonical public address of their own. It stays reachable so old links and
+ * bookmarks keep working, but it must not compete in search with the set pages
+ * it forwards to — hence `noindex, follow` rather than deletion.
+ */
+export const metadata = { robots: NOINDEX_FOLLOW_ROBOTS };
 
 function readParamValue(searchParams, key) {
   const raw = searchParams?.[key];

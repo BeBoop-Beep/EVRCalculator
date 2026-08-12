@@ -23,6 +23,22 @@ export function resolveSetDetailTab(rawTab) {
   return SET_DETAIL_TABS.has(alias) ? alias : SET_DETAIL_DEFAULT_TAB;
 }
 
+/**
+ * True for the legacy spellings of the default view (`rip`, `analysis`,
+ * `analytics`) — the values SET_DETAIL_TAB_ALIASES rewrites to `overview`.
+ *
+ * These are pure duplicates of the bare canonical set URL: nothing in the app
+ * writes them any more, and the bare URL renders exactly the same view. The set
+ * route uses this to collapse them onto the canonical URL with a permanent
+ * redirect. `overview` itself is NOT one of these — the client writes it on
+ * every RIP-tab click, so it is consolidated by the canonical tag rather than a
+ * redirect.
+ */
+export function isLegacySetDetailTabAlias(rawTab) {
+  const normalized = normaliseString(rawTab).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(SET_DETAIL_TAB_ALIASES, normalized);
+}
+
 function normaliseString(value) {
   return String(value || "").trim();
 }
@@ -34,7 +50,13 @@ function appendSetDetailParams(href, options = {}) {
   const window = normaliseString(options.window).toUpperCase();
   const params = new URLSearchParams();
 
-  if (SET_DETAIL_TABS.has(tab)) {
+  // The DEFAULT tab is never written into an internal href. The bare set URL
+  // already renders `overview`, and the set page declares that bare URL as its
+  // canonical — so emitting `?tab=overview` would point the site's own highest
+  // volume internal links (Rankings rows, the landing ladder, Top Rankings) at
+  // a query variant of the URL we are asking search engines to consolidate on.
+  // Behaviour is identical: resolveSetDetailTab(undefined) === "overview".
+  if (SET_DETAIL_TABS.has(tab) && tab !== SET_DETAIL_DEFAULT_TAB) {
     params.set("tab", tab);
   }
 

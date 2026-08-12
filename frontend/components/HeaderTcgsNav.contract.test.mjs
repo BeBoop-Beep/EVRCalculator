@@ -143,7 +143,18 @@ test("the Sets page keeps its heading, route and content structure", () => {
   assert.ok(setsPageSource.includes("<main "), "the page keeps a main landmark");
   assert.ok(setsPageSource.includes("<section"), "era groups stay sectioned for screen readers");
   assert.ok(setsPageSource.includes("export default async function SetsPage()"), "the route entry point is unchanged");
-  assert.ok(setsPageSource.includes("/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}?tab=cards"), "set links are unchanged");
+  // The catalog now links to the BARE canonical set URL. It used to default to
+  // `?tab=cards`, which pointed a few hundred internal links — the site's
+  // largest single source of them — at a query variant of the URL the set page
+  // declares as its canonical. Cards is unchanged and one click away.
+  assert.ok(
+    setsPageSource.includes("const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}` :"),
+    "set links point at the canonical set URL"
+  );
+  assert.ok(
+    !/\$\{encodeURIComponent\(slug\)\}\?tab=/.test(setsPageSource),
+    "set links must not default to a tab query variant"
+  );
 });
 
 test("the navbar carries one restrained, static, non-interactive bottom glow", () => {

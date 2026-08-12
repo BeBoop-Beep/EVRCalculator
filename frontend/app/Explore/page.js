@@ -51,11 +51,11 @@ function rankTargets(targets) {
   });
 }
 
-export const metadata = {
-  title: "Pokémon Set Rankings — inDex",
-  description:
-    "Best Pokémon sets to rip right now, ranked by canonical Overall RIP with Financial RIP, tier, and opening economics.",
-};
+// Title, description, canonical URL and og:url for this page live in
+// app/Rankings/page.js. /Rankings is its canonical address and /Explore
+// permanently redirects there (see next.config.mjs), so declaring metadata here
+// would put a live route's canonical identity in a directory that no longer
+// answers requests.
 
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
@@ -90,8 +90,21 @@ export default async function ExplorePage({ searchParams }) {
         No outer context box: the modules sit directly on the application
         canvas. The page heading stays in the document for structure but is
         visually hidden — the first thing on screen is the ranked data.
+
+        The sentence below it is the same accessibility affordance, not SEO
+        filler: a screen-reader user landing here otherwise gets a heading and
+        then a table with no statement of what the page is for. It says only
+        what the module beneath it already shows (sets ordered by Overall RIP,
+        each linking to its own analysis) and names no weight, coefficient or
+        formula.
       */}
-      <h1 className="sr-only">Pokémon Set Rankings</h1>
+      <header className="sr-only">
+        <h1>Best Pokémon Sets to Rip Right Now</h1>
+        <p>
+          Every Pokémon set inDex currently ranks, ordered by Overall RIP. Open a set for its
+          Financial RIP, Collector Appeal and modeled opening outcomes.
+        </p>
+      </header>
 
       {/*
         Primary dashboard row. Both modules are siblings of one grid, top
