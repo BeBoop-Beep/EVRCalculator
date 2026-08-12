@@ -16,12 +16,23 @@
  * PRESENTATION (Explore refinement Phase 2)
  * -----------------------------------------
  * Desktop renders a real semantic <table> — caption, <th scope="col">, and
- * aria-sort on the column the active ranking mode orders by. Sorting is still
- * driven exclusively by that mode (see sortTargetsByMode); no per-column sort
- * interaction was introduced, so the canonical rank -> relative -> absolute ->
- * name contract is untouched. Row navigation stays a single real <a> per row,
- * stretched over the row by a pseudo-element rather than nesting interactive
- * elements. Mobile is a purpose-built compact row, not a shrunken table.
+ * aria-sort on the column the table is currently ordered by. Row navigation
+ * stays a single real <a> per row, stretched over the row by a pseudo-element
+ * rather than nesting interactive elements. Mobile is a purpose-built compact
+ * row, not a shrunken table.
+ *
+ * COLUMN SORTING (Rankings completeness pass)
+ * -------------------------------------------
+ * Every quantitative header is a click target that re-orders the rows ALREADY IN
+ * MEMORY. There is no fetch, no server round-trip and no recomputation behind a
+ * header click — `targets` is the single optimized read this component is handed,
+ * `sortTargetsByMode` puts it in canonical order once, and `sortRankingsRows`
+ * returns a memoized permutation of that same array (see rankingsSort.mjs).
+ *
+ * Sorting is PRESENTATION. It never rewrites a score, a rank, a tier or the
+ * cohort: the "#" column keeps showing the canonical Overall RIP V7 rank, so
+ * under a non-default sort those numerals legitimately appear out of sequence.
+ * The default view is unchanged — Overall RIP, strongest first.
  */
 
 "use client";
@@ -41,8 +52,19 @@ import {
   getRankedSetCountForMode,
   getTierForMode,
   formatModeScore,
+  SCORE_KIND_PUBLIC,
 } from "@/constants/exploreRankingConfig";
 import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
+import {
+  RANKINGS_DEFAULT_SORT,
+  RANKINGS_SORT_COLUMNS,
+  SORT_ASC,
+  ariaSortFor,
+  nextSortState,
+  readAverageLoss,
+  readCollectorAppealBlock,
+  sortRankingsRows,
+} from "./rankingsSort.mjs";
 import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
@@ -104,7 +126,22 @@ function getRipMovementForMode(target, modeId, currentRank) {
   return formatRankMovement(null, currentRank, "unavailable");
 }
 
+/**
+ * A MISSING VALUE IS NOT ZERO.
+ *
+ * This used to be a bare `Number(value)` guarded only by `Number.isFinite`, and
+ * `Number(null)`, `Number(undefined ?? "")` and `Number("")` are `0`, `NaN` and
+ * `0`. So an absent pack cost printed "$0.00" and an absent probability printed
+ * "0.0%" — a fabricated measurement wearing the same styling as a real one, in
+ * the one place a reader cannot tell them apart. The null/undefined/"" cases are
+ * rejected before the numeric coercion so the formatters below reach their
+ * existing "-" branch, which is what every one of them was already written to
+ * render for an unavailable metric.
+ */
 function toNumber(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -153,14 +190,12 @@ function formatRankText(rank, cohort, { compact = false, withCohort = true } = {
   return compact ? `#${parsedRank}/${parsedCohort}` : `#${parsedRank} of ${parsedCohort}`;
 }
 
-function estimateAverageLoss(target) {
-  const packCost = toNumber(target?.pack_cost);
-  const meanValue = toNumber(target?.mean_value);
-  if (packCost === null || meanValue === null) {
-    return null;
-  }
-  return packCost - meanValue;
-}
+// Average Loss is READ (not derived) in exactly ONE place — rankingsSort.mjs's
+// readAverageLoss, which lifts the simulation's `expected_loss_when_losing`,
+// i.e. Average Loss When Losing = E[pack_cost - value | value < pack_cost]. It
+// is imported here so the number this cell prints and the number the Average
+// Loss column sorts by cannot drift apart, and it is the same field the set
+// page renders as "Average Loss When You Miss".
 
 function buildRipLink(target) {
   return buildTcgSetHrefFromTarget(target, { tab: "overview" });
@@ -183,7 +218,34 @@ function buildRipLink(target) {
  * choose. `kind` travels with the value so the cell formats and suffixes it
  * correctly instead of assuming every column is a 0-100 public score.
  */
+/**
+ * Collector Appeal is a COLUMN, not a ranking mode.
+ *
+ * It is deliberately absent from `exploreRankingConfig`: the canonical public
+ * Collector Appeal V3 block reaches the frontend only through the packaged
+ * `publicRipContractV7`, and `canonicalRipV7.mjs` is the one reader allowed to
+ * resolve it (see its module note — reading `openingExperience.collectorAppeal`
+ * directly would be a second projection of the model in JavaScript, and the
+ * flat `collector_appeal_score` on the same row is a retired CA7-era value
+ * ranked against a different population). Routing it through this id lets the
+ * existing score cell render it with the same one-field-by-kind contract, the
+ * same `/100` treatment and the same Unavailable state as the other two public
+ * scores, without inventing a mode that could then power a public ranking.
+ */
+const COLLECTOR_APPEAL_COLUMN = "collectorAppeal";
+
 function readModeScore(target, modeId) {
+  if (modeId === COLLECTOR_APPEAL_COLUMN) {
+    const block = readCollectorAppealBlock(target);
+    return {
+      value: block.publicScore,
+      kind: SCORE_KIND_PUBLIC,
+      isPublic: true,
+      rank: block.rank,
+      cohort: block.cohortSize,
+    };
+  }
+
   return {
     value: getScoreForMode(target, modeId),
     kind: getScoreKind(modeId),
@@ -361,17 +423,72 @@ function RankMarker({ rank, tier, isLead, movement }) {
   );
 }
 
+/**
+ * A quantitative column heading that is also its own sort control.
+ *
+ * The <th> remains the semantic header and carries `aria-sort`; the <button>
+ * inside it is the click/tap/Enter/Space target, which is what makes the sort
+ * operable from the keyboard without inventing a separate control. The direction
+ * caret is drawn by the `[aria-sort]` rule in explore.module.css — the same
+ * indicator the table already used — so no new visual language is introduced.
+ */
+function SortableHeader({ columnId, label, sort, onSort, note }) {
+  const ariaSort = ariaSortFor(sort, columnId);
+  const isActive = Boolean(ariaSort);
+  return (
+    <th
+      scope="col"
+      className={styles.numeric}
+      aria-sort={ariaSort}
+      title={isActive ? note : `Sort by ${label}`}
+    >
+      <button
+        type="button"
+        className={styles.sortButton}
+        onClick={() => onSort(columnId)}
+        aria-label={
+          isActive
+            ? `${label}, sorted ${ariaSort}. Activate to reverse the sort direction.`
+            : `Sort by ${label}, highest first.`
+        }
+      >
+        <span>{label}</span>
+      </button>
+    </th>
+  );
+}
+
 export default function ExploreTableClient({ targets = [], loadError = false }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
+  // Presentation-only column sort. `RANKINGS_DEFAULT_SORT` is Overall RIP
+  // descending, which sortRankingsRows resolves to the canonical order itself,
+  // so the first paint is byte-for-byte the leaderboard it has always been.
+  const [sort, setSort] = useState(RANKINGS_DEFAULT_SORT);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const dropdownContainerRef = useRef(null);
+  const sortMenuContainerRef = useRef(null);
 
   const currentModeConfig = EXPLORE_RANKING_MODES[selectedMode];
-  const sortedTargets = useMemo(() => sortTargetsByMode(targets, selectedMode), [targets, selectedMode]);
+  // ONE canonical ordering pass over the already-fetched targets. Nothing below
+  // re-reads the network, and a header click only re-runs the memo on the line
+  // after this one.
+  const canonicalTargets = useMemo(() => sortTargetsByMode(targets, selectedMode), [targets, selectedMode]);
+  const sortedTargets = useMemo(() => sortRankingsRows(canonicalTargets, sort), [canonicalTargets, sort]);
+  // The row's position in the CANONICAL order, used only as the "#" fallback for
+  // a target the backend gave no rank. Taking it from the canonical array rather
+  // than from the rendered index keeps that fallback meaning "where this set
+  // sits on the leaderboard" instead of "where it happens to sit in this sort".
+  const canonicalIndexByTarget = useMemo(
+    () => new Map(canonicalTargets.map((target, index) => [target, index])),
+    [canonicalTargets]
+  );
+  // Keyed off the CANONICAL order, so re-sorting a column does not collapse an
+  // expanded mobile list — only a genuinely different cohort does.
   const mobilePreviewResetKey = useMemo(
-    () => `${selectedMode}:${sortedTargets.map((target) => `${target?.target_type}:${target?.target_id}`).join("|")}`,
-    [selectedMode, sortedTargets]
+    () => `${selectedMode}:${canonicalTargets.map((target) => `${target?.target_type}:${target?.target_id}`).join("|")}`,
+    [selectedMode, canonicalTargets]
   );
   useEffect(() => {
     setShowAllMobileRows(false);
@@ -419,12 +536,45 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     };
   }, [dropdownOpen]);
 
+  useEffect(() => {
+    if (!sortMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (sortMenuContainerRef.current && !sortMenuContainerRef.current.contains(event.target)) {
+        setSortMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setSortMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [sortMenuOpen]);
+
+  // A header click is the ONLY thing this does: swap a small piece of local
+  // state. No fetch, no router navigation, no revalidation.
+  function handleSort(columnId) {
+    setSort((current) => nextSortState(current, columnId));
+  }
+
   const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
-  const sortNote = RANKING_MODE_PICKER_ENABLED
-    ? `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first. Change the ranking with the ${modeTitle} menu.`
-    : `Ordered by ${isOverallMode ? "Overall RIP" : scoreLabel}, best first.`;
+  const activeSortColumn = RANKINGS_SORT_COLUMNS[sort.column] || RANKINGS_SORT_COLUMNS.overall;
+  const activeSortLabel = sort.column === "overall" && !isOverallMode ? scoreLabel : activeSortColumn.label;
+  const sortDirectionNote = sort.direction === SORT_ASC ? "lowest first" : "highest first";
+  const sortNote = `Ordered by ${activeSortLabel}, ${sortDirectionNote}. Select any metric column heading to sort by it; select it again to reverse the direction.`;
   const visibleMobileTargets =
     showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
       ? sortedTargets
@@ -505,6 +655,66 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          {/*
+            The desktop sort control IS the column heading. Mobile has no header
+            row to click, so the same sort state gets the module's existing
+            menu affordance — the identical trigger + listbox pattern already
+            used by the (currently hidden) ranking-mode picker above, not a new
+            control system and not a filter bar. Selecting the active metric
+            flips its direction, exactly as clicking its header does.
+          */}
+          <div className="relative md:hidden" ref={sortMenuContainerRef}>
+            <button
+              type="button"
+              onClick={() => setSortMenuOpen((open) => !open)}
+              aria-expanded={sortMenuOpen}
+              aria-haspopup="listbox"
+              className="inline-flex min-h-11 max-w-[11rem] items-center gap-1 rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              <span className="truncate">
+                Sort: <span className="text-[var(--text-primary)]">{activeSortLabel}</span>
+              </span>
+              <span aria-hidden="true" className="flex-none text-[8px]">
+                {sort.direction === SORT_ASC ? "▲" : "▼"}
+              </span>
+              <span className="sr-only">
+                , {sortDirectionNote}. Change how the rankings are sorted.
+              </span>
+            </button>
+            {sortMenuOpen ? (
+              <div
+                className="absolute right-0 top-full z-30 mt-2 w-[min(13rem,calc(100vw-2.5rem))] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                role="listbox"
+              >
+                <div className="p-1.5">
+                  {Object.values(RANKINGS_SORT_COLUMNS).map((column) => {
+                    const columnAriaSort = ariaSortFor(sort, column.id);
+                    return (
+                      <button
+                        key={column.id}
+                        type="button"
+                        role="option"
+                        aria-selected={Boolean(columnAriaSort)}
+                        onClick={() => handleSort(column.id)}
+                        className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
+                          columnAriaSort
+                            ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
+                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"
+                        }`}
+                      >
+                        <span className="truncate">{column.label}</span>
+                        {columnAriaSort ? (
+                          <span aria-hidden="true" className="flex-none text-[9px]">
+                            {columnAriaSort === "ascending" ? "▲" : "▼"}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
           <span className="hidden text-[11px] text-[var(--text-secondary)] lg:inline">
             Select a set for the full rip breakdown.
           </span>
@@ -533,12 +743,20 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               <colgroup>
                 <col style={{ width: "2.6rem" }} />
                 <col />
+                {/* Tier holds a fixed-size badge, not a number that scales with
+                    the table, so it takes a fixed width rather than a
+                    percentage. As a percentage it matched the badge at desktop
+                    but squeezed below it at the md breakpoint, clipping "S Tier".
+                    4.2rem is what the badge measures at full width, so this
+                    changes nothing on desktop and only stops the md clip. */}
+                <col style={{ width: "4.2rem" }} />
                 <col style={{ width: "9.5%" }} />
-                <col style={{ width: "12%" }} />
-                {isOverallMode ? <col style={{ width: "12%" }} /> : null}
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "12%" }} />
+                {isOverallMode ? <col style={{ width: "9.5%" }} /> : null}
+                <col style={{ width: "9.5%" }} />
+                <col style={{ width: "7.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "9%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -550,34 +768,40 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   <th scope="col">{tierLabel}</th>
                   {isOverallMode ? (
                     <>
-                      <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
-                        <span>Overall RIP</span>
-                      </th>
-                      <th scope="col" className={styles.numeric}>
-                        <span>Financial RIP</span>
-                      </th>
+                      <SortableHeader columnId="overall" label="Overall RIP" sort={sort} onSort={handleSort} note={sortNote} />
+                      <SortableHeader columnId="financial" label="Financial RIP" sort={sort} onSort={handleSort} note={sortNote} />
                     </>
                   ) : (
-                    <th scope="col" className={styles.numeric} aria-sort="descending" title={sortNote}>
-                      <span>{scoreLabel}</span>
-                    </th>
+                    // The alternate lenses are behind RANKING_MODE_PICKER_ENABLED.
+                    // Their single mode-scoped column keeps the same sort id as
+                    // the Overall column so the sort state survives a mode change.
+                    <SortableHeader columnId="overall" label={scoreLabel} sort={sort} onSort={handleSort} note={sortNote} />
                   )}
-                  <th scope="col" className={styles.numeric}>
-                    Average Loss
-                  </th>
-                  <th scope="col" className={styles.numeric}>
-                    Market Pack Price
-                  </th>
-                  <th scope="col" className={styles.numeric}>
-                    Chance to Beat Cost
-                  </th>
+                  <SortableHeader
+                    columnId="collectorAppeal"
+                    label="Collector Appeal"
+                    sort={sort}
+                    onSort={handleSort}
+                    note={sortNote}
+                  />
+                  <SortableHeader columnId="ev" label="EV" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="averageLoss" label="Average Loss" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="marketPrice" label="Market Pack Price" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader
+                    columnId="chanceToBeatCost"
+                    label="Chance to Beat Cost"
+                    sort={sort}
+                    onSort={handleSort}
+                    note={sortNote}
+                  />
                 </tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
-                  const averageLoss = estimateAverageLoss(target);
+                  const averageLoss = readAverageLoss(target);
                   const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-                  const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
+                  const modeRank =
+                    getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = isLead && tier ? getTierTone(tier) : null;
                   const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
@@ -613,6 +837,12 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                           <ScoreCell target={target} modeId={selectedMode} />
                         </td>
                       )}
+                      <td className={styles.numeric}>
+                        <ScoreCell target={target} modeId="collectorAppeal" />
+                      </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
+                        {formatCurrency(target?.mean_value)}
+                      </td>
                       <td className={`${styles.numeric} text-[13px] font-semibold`} style={getDangerValueStyle()}>
                         {formatLossCurrency(averageLoss)}
                       </td>
@@ -635,9 +865,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
               const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-              const modeRank = getRankForMode(target, selectedMode) ?? index + 1;
+              const modeRank =
+                getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
               const isLead = modeRank <= LEAD_RANK_LIMIT;
-              const averageLoss = estimateAverageLoss(target);
+              const averageLoss = readAverageLoss(target);
               const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
               return (
@@ -655,9 +886,21 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     </div>
                     <RankBadge rank={tier} title={tierLabel} format="tier" />
                   </div>
-                  <div className="mt-2 flex items-start gap-4 pl-[1.95rem]">
+                  {/*
+                    Seven metrics instead of four. A fixed 4-column grid rather
+                    than a wider flex row: the columns wrap onto a second line
+                    inside the card, so nothing is clipped and the page itself
+                    never gains a horizontal scrollbar. Same row frame, same
+                    label/value typography, same treatment per metric.
+                  */}
+                  <div className="mt-2 grid grid-cols-4 items-start gap-x-3 gap-y-2 pl-[1.95rem]">
                     <MobileScoreBlock target={target} modeId="overall" label="Overall" />
                     <MobileScoreBlock target={target} modeId="financial" label="Financial" />
+                    <MobileScoreBlock target={target} modeId="collectorAppeal" label="Appeal" />
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">EV</div>
+                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.mean_value)}</div>
+                    </div>
                     <div className="min-w-0">
                       <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
                         Avg loss
@@ -669,6 +912,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <div className="min-w-0">
                       <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Market price</div>
                       <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.pack_cost)}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Beat cost</div>
+                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatPercent(target?.prob_profit, true)}</div>
                     </div>
                   </div>
                 </Link>

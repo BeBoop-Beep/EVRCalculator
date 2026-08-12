@@ -434,3 +434,136 @@ test("insufficient history still settles on attempt one without retrying", async
   assert.equal(calls.length, 1, "a settled truth must not spend the retry");
   assert.equal(result.topChaseVerdict.status, TOP_CHASE_STATUS.INSUFFICIENT_HISTORY);
 });
+
+// ---------------------------------------------------------------------------
+// P1-B — the duplicate Top Chase request.
+//
+// Every Market visit issued TWO byte-identical Top Chase requests ~400 ms apart
+// (TOP_CHASE_RETRY_DELAY_MS) even though the first returned HTTP 200 with a
+// perfectly healthy payload: 10 priced cards carrying 124 history points each.
+//
+// The cause was the cross-set card check. It compared each card's `setId`
+// against `requested` — the normalized form of the identifier the CALLER asked
+// with. The set page asks by slug ("ascendedheroes"), while cards carry the set
+// UUID ("75cd439d-..."), so the two could never be equal and EVERY card was
+// classified foreign. That produced IDENTITY_MISMATCH, which is retryable, so
+// the helper burned a second identical 542 kB request and reached the same
+// verdict again.
+//
+// The payload-level identity check immediately above it already proves
+// `payload.set` IS the requested set, and it does so by comparing against a
+// candidate list (id / slug / canonicalKey) precisely because callers use
+// different identifier forms. The card-level check must use those same verified
+// candidates. A card from a genuinely different set is still caught, because
+// neither its UUID nor its slug appears among them.
+// ---------------------------------------------------------------------------
+
+const SET_UUID = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29";
+
+function slugRequestBody() {
+  return {
+    set: { id: SET_UUID, name: "Ascended Heroes", slug: "ascendedHeroes" },
+    latestMarketDate: DATE,
+    topChaseCards: [
+      { cardVariantId: "v1", cardId: "c1", name: "Mega Gengar ex", marketPrice: 1118.76, setId: SET_UUID },
+      { cardVariantId: "v2", cardId: "c2", name: "Chase B", marketPrice: 80.25, setId: SET_UUID },
+    ],
+    topChaseCardHistories: { v1: history([PRIOR, DATE]), v2: history([PRIOR, DATE], 20) },
+    meta: { sources: {}, warnings: [] },
+  };
+}
+
+test("P1-B: a card's set UUID is not 'foreign' when the caller asked by slug", () => {
+  const verdict = validateTopChasePayload(
+    {
+      set: { id: SET_UUID, slug: "ascendedHeroes" },
+      latestMarketDate: DATE,
+      cards: [{ cardVariantId: "v1", marketPrice: 10, setId: SET_UUID, priceHistory: history([PRIOR, DATE]) }],
+    },
+    // Exactly what the set page sends.
+    { setId: "ascendedheroes" }
+  );
+
+  assert.equal(verdict.status, TOP_CHASE_STATUS.COMPLETE, `expected COMPLETE, got ${verdict.status} (${verdict.reasons})`);
+  assert.equal(verdict.complete, true);
+  assert.ok(!verdict.reasons.includes("cross_set_card_history"));
+});
+
+test("P1-B: a genuinely foreign card is still rejected when the caller asked by slug", () => {
+  const verdict = validateTopChasePayload(
+    {
+      set: { id: SET_UUID, slug: "ascendedHeroes" },
+      latestMarketDate: DATE,
+      cards: [{ cardVariantId: "v1", marketPrice: 10, setId: OTHER_SET_ID, priceHistory: history([PRIOR, DATE]) }],
+    },
+    { setId: "ascendedheroes" }
+  );
+
+  assert.equal(verdict.status, TOP_CHASE_STATUS.IDENTITY_MISMATCH);
+  assert.ok(verdict.reasons.includes("cross_set_card_history"));
+});
+
+// §10-A — valid first-attempt 200 must cost exactly one network request.
+test("P1-B/A: a valid first 200 issues exactly ONE network request", async () => {
+  const calls = installFetch([jsonResponse(slugRequestBody())]);
+  const result = await getPokemonSetTopChase("ascendedheroes");
+
+  assert.equal(calls.length, 1, `expected 1 request, got ${calls.length} (the duplicate-fetch regression)`);
+  assert.equal(result.topChaseVerdict.status, TOP_CHASE_STATUS.COMPLETE);
+  assert.equal(result.isStale, false);
+  assert.equal(result.cards.length, 2);
+});
+
+// §10-B — a retryable failure must still retry within the bounded policy.
+test("P1-B/B: a retryable first-attempt failure still retries and can succeed", async () => {
+  let call = 0;
+  const calls = installFetch([
+    () => {
+      call += 1;
+      return call === 1 ? jsonResponse({ message: "down" }, { status: 503 }) : jsonResponse(slugRequestBody());
+    },
+  ]);
+
+  const result = await getPokemonSetTopChase("ascendedheroes");
+  assert.equal(calls.length, 2, "a transient 503 must still be retried exactly once");
+  assert.equal(result.topChaseVerdict.status, TOP_CHASE_STATUS.COMPLETE);
+});
+
+// §10-C — a non-retryable failure must not burn a second request.
+test("P1-B/C: a non-retryable 404 does not retry", async () => {
+  const calls = installFetch([jsonResponse({ message: "nope" }, { status: 404 })]);
+  await assert.rejects(() => getPokemonSetTopChase("ascendedheroes"));
+  assert.equal(calls.length, 1, "a settled 4xx must not spend a second attempt");
+});
+
+// §10-D — identical concurrent consumers (RIP preview + Market table) share one request.
+test("P1-B/D: concurrent identical consumers share a single in-flight request", async () => {
+  const calls = installFetch([() => jsonResponse(slugRequestBody())]);
+  const [a, b] = await Promise.all([
+    getPokemonSetTopChase("ascendedheroes"),
+    getPokemonSetTopChase("ascendedheroes"),
+  ]);
+
+  assert.equal(calls.length, 1, "RIP and Market must join one Top Chase fetch, not issue two");
+  assert.equal(a.cards.length, b.cards.length);
+  assert.equal(__hasSlimModuleInflightForTests("top-chase:ascendedheroes:365d:10"), false, "the in-flight key must be released");
+});
+
+// §10-E — a successful retry commits its result once, and as last-known-good.
+test("P1-B/E: a successful retry commits exactly one result and stores last-known-good", async () => {
+  let call = 0;
+  installFetch([
+    () => {
+      call += 1;
+      return call === 1 ? jsonResponse({ message: "down" }, { status: 503 }) : jsonResponse(slugRequestBody());
+    },
+  ]);
+
+  const result = await getPokemonSetTopChase("ascendedheroes");
+  assert.equal(result.topChaseVerdict.complete, true);
+  assert.equal(result.isLastKnownGood, false, "a freshly fetched result is not a stale replay");
+
+  const cached = getCachedPokemonSetTopChase("ascendedheroes");
+  assert.ok(cached, "a COMPLETE payload must be retained as last-known-good");
+  assert.equal(cached.isStale, true);
+});

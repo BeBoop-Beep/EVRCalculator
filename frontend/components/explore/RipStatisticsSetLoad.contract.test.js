@@ -695,11 +695,25 @@ test("set value history direct-fetch effect requests only the scopes the active 
   assert.ok(directFetchStart >= 0);
   assert.ok(directFetchEnd > directFetchStart);
   assert.ok(directEffectSource.includes("const seededSetValueFromSnapshot ="));
-  // Only "standard" (header/title) is always desired; hits/top10 are added
-  // only when the overview Set Value Trend card is active — not an
+  // hits/top10 are added only when the Set Value Trend card is active — not an
   // unconditional fanout over every SET_VALUE_SCOPE_OPTIONS entry.
+  //
+  // This assertion used to pin the trend scope to `setDetailTab === "overview"`.
+  // That is obsolete: SetValueTrendCard is rendered inside the
+  // `setDetailTab === "market"` branch, so "overview" described a render site
+  // that no longer exists and the assertion had been failing at HEAD for that
+  // reason. The tab name is corrected here; the contract it checks (the trend
+  // scope is requested only by the tab that renders the trend card) is unchanged.
+  //
+  // "standard" is no longer unconditionally desired either — see Phase 2A. It is
+  // requested by Market, or as a fallback when the shell seed that feeds the
+  // title card's sparkline/30D delta is genuinely absent.
   assert.ok(directEffectSource.includes("const desiredScopes = Array.from("));
-  assert.ok(directEffectSource.includes('setDetailTab === "overview" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []'));
+  assert.ok(directEffectSource.includes('setDetailTab === "market" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []'));
+  assert.ok(
+    directEffectSource.includes('setDetailTab === "market" || titleCardNeedsCanonicalScopeFetch'),
+    "the canonical scope must be gated to Market plus the shell-seed fallback, not requested on every tab"
+  );
   assert.ok(directEffectSource.includes("const requestedScopes = desiredScopes.filter("));
   assert.ok(directEffectSource.includes("!seededLoadedScopes.includes(scope) && !alreadyLoadedScopes.includes(scope)"));
   assert.ok(!directEffectSource.includes("const requestedScopes = SET_VALUE_SCOPE_OPTIONS.map((scope) => scope.key).filter("), "must not unconditionally request every scope");

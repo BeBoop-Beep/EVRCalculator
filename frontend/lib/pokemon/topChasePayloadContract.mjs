@@ -125,10 +125,15 @@ export function validateTopChasePayload(payload, options = {}) {
   // payload whose identity cannot be verified is treated as unusable rather than
   // trusted (fail-closed).
   const requested = normalizeIdentity(setId);
+  // Retained beyond the identity block below: the per-card cross-set check needs
+  // the SAME verified candidate list, not the caller's identifier form. See the
+  // cross-set section for why.
+  let identityCandidates = [];
   if (requested) {
     const candidates = [payload?.set?.id, payload?.set?.slug, payload?.set?.canonicalKey, payload?.set?.canonical_key]
       .filter((value) => value !== null && value !== undefined && String(value).trim() !== "")
       .map(normalizeIdentity);
+    identityCandidates = candidates;
 
     if (candidates.length === 0) {
       reasons.push("identity_unverifiable");
@@ -151,10 +156,24 @@ export function validateTopChasePayload(payload, options = {}) {
   // --- Cross-set history ----------------------------------------------------
   // A card carrying a different set's id means the row was assembled from the
   // wrong source. This is never renderable under the requested set.
+  //
+  // Compare against the payload's OWN verified identity candidates, not against
+  // `requested`. Callers legitimately ask by different identifier forms — the
+  // set page asks by slug ("ascendedheroes") while cards carry the set UUID
+  // ("75cd439d-...") — so `cardSetId !== requested` classified every card of a
+  // perfectly healthy payload as foreign. That produced a spurious, retryable
+  // IDENTITY_MISMATCH on every single Top Chase load, which cost a second
+  // identical ~542 kB request and then failed again. The block above has already
+  // proven `payload.set` IS the requested set, so its candidate list is the
+  // correct basis for comparison; `requested` is included too, so a payload
+  // whose `set` echoes only the caller's form still matches. A card from a
+  // genuinely different set is still caught — neither its UUID nor its slug
+  // appears among these candidates.
   if (requested) {
+    const allowedSetIdentities = new Set([...identityCandidates, requested]);
     const foreign = cards.find((card) => {
       const cardSetId = normalizeIdentity(card?.setId ?? card?.set_id);
-      return cardSetId && cardSetId !== requested;
+      return cardSetId && !allowedSetIdentities.has(cardSetId);
     });
     if (foreign) {
       reasons.push("cross_set_card_history");

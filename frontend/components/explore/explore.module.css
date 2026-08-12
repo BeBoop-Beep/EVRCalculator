@@ -140,6 +140,41 @@
   opacity: 0.8;
 }
 
+.head th[aria-sort="ascending"]::after {
+  content: "\00a0\25B2";
+  font-size: 8px;
+  opacity: 0.8;
+}
+
+/* Sortable headings are their own control. Deliberately `display: inline` and
+   fully unstyled: the <th> already owns the size, weight, tracking, case and
+   right alignment, and an inline button keeps the aria-sort caret flowing
+   immediately after the label instead of being pushed onto its own line by a
+   block-level box. */
+.sortButton {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  color: rgba(232, 238, 247, 0.95);
+}
+
+.sortButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -357,6 +392,10 @@
 
 :global([data-theme="light"]) .head th[aria-sort] {
   color: rgba(15, 23, 42, 0.85);
+}
+
+:global([data-theme="light"]) .sortButton:hover {
+  color: rgba(15, 23, 42, 0.95);
 }
 
 :global([data-theme="light"]) .row td {

@@ -1701,6 +1701,25 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 "pack_cost": row.get("pack_cost"),
                 "mean_value": row.get("mean_value"),
                 "median_value": row.get("median_value"),
+                # AVERAGE LOSS WHEN LOSING — E[pack_cost - value | value < cost],
+                # in dollars.
+                #
+                # This is a PASSTHROUGH of an existing published column, not a new
+                # statistic. It is produced by compute_downside_metrics as
+                # `expected_loss_given_loss`, persisted as the required
+                # `simulation_run_summary.expected_loss_when_losing`, and already
+                # exposed by `explore_rip_statistics_latest` — the very row this
+                # projection is reading. It cost no extra query, join or column to
+                # add; the value was simply being dropped on the way out.
+                #
+                # It is NOT derivable from what the leaderboard already published.
+                # `pack_cost - mean_value` is the unconditional gap between price
+                # and Expected Value, which says nothing about the size of a loss:
+                # a set whose packs return $0 half the time and 2x cost the other
+                # half has an unconditional gap of $0 and an average loss when
+                # losing of a full pack cost. Any consumer needing the conditional
+                # statistic must read this field rather than reconstruct one.
+                "expected_loss_when_losing": row.get("expected_loss_when_losing"),
                 "simulated_set_value": row.get("simulated_set_value"),
                 "simulated_set_value_card_count": row.get("simulated_set_value_card_count"),
                 "set_value_for_validation": checklist_set_value,

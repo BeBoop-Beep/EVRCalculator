@@ -115,6 +115,7 @@ def _build_handlers():
                 "pack_score_is_placeholder": False,
                 "pack_cost": 4.99,
                 "mean_value": 6.11,
+                "expected_loss_when_losing": 3.42,
                 "median_value": 5.21,
                 "roi_percent": 22.4,
                 "prob_profit": 0.55,
@@ -142,6 +143,7 @@ def _build_handlers():
                 "pack_score_is_placeholder": False,
                 "pack_cost": 5.49,
                 "mean_value": 7.18,
+                "expected_loss_when_losing": 5.07,
                 "median_value": 5.88,
                 "roi_percent": 30.7,
                 "prob_profit": 0.63,
@@ -496,3 +498,39 @@ def test_top_10_card_value_rank_ties_use_target_id_deterministically():
         "set-z": 2,
         "set-m": 3,
     }
+
+
+def test_targets_publish_average_loss_when_losing_as_a_passthrough(monkeypatch):
+    """Average Loss When Losing reaches the Rankings target verbatim.
+
+    `expected_loss_when_losing` is E[pack_cost - value | value < pack_cost],
+    computed by the simulation, stored as a required column on
+    `simulation_run_summary` and already exposed by the
+    `explore_rip_statistics_latest` view this projection reads. It is copied
+    across unchanged.
+
+    It is NOT `pack_cost - mean_value`. That expression is the unconditional gap
+    between price and Expected Value and is a different statistic: the stub rows
+    below deliberately give the two different values, so a regression that
+    reintroduced the subtraction would fail here rather than quietly publish a
+    number the simulation never measured.
+    """
+    handlers = _build_handlers()
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    _stub_collector_appeal_bundle(monkeypatch)
+    monkeypatch.setattr(service, "build_rip_interpretation", lambda summary_row: {})
+
+    payload = service.get_rip_statistics_targets_payload(limit="150")
+    targets_by_id = {target["target_id"]: target for target in payload["targets"]}
+
+    for target in payload["targets"]:
+        assert "expected_loss_when_losing" in target, (
+            "every ranked target must carry Average Loss When Losing"
+        )
+
+    first = targets_by_id["set-1"]
+    assert first["expected_loss_when_losing"] == 3.42
+    # The unconditional gap on this row is 4.99 - 6.11 = -1.12; the conditional
+    # loss is 3.42. Nothing may collapse the two.
+    assert first["expected_loss_when_losing"] != first["pack_cost"] - first["mean_value"]

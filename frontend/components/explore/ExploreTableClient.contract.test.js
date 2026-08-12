@@ -51,11 +51,8 @@ test("ExploreTableClient renders a distinct error message when loadError is true
 
 test("desktop default mode renders Overall RIP and Financial RIP columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  // The public headline name is "RIP Score" everywhere. "Overall RIP" was an
-  // internal identifier that leaked into this column header.
-  assert.ok(source.includes("<span>Overall RIP</span>"), "desktop header must include an Overall RIP column");
-  assert.ok(!source.includes("<span>Overall RIP</span>"));
-  assert.ok(source.includes("<span>Financial RIP</span>"), "desktop header must include a Financial RIP column");
+  assert.ok(source.includes('label="Overall RIP"'), "desktop header must include an Overall RIP column");
+  assert.ok(source.includes('label="Financial RIP"'), "desktop header must include a Financial RIP column");
   assert.ok(
     source.includes('<ScoreCell target={target} modeId="overall" />'),
     "desktop overall column must render the Overall RIP score cell"
@@ -63,6 +60,139 @@ test("desktop default mode renders Overall RIP and Financial RIP columns", () =>
   assert.ok(
     source.includes('<ScoreCell target={target} modeId="financial" />'),
     "desktop financial column must render the Financial RIP score cell"
+  );
+});
+
+/* ------------------------------------ Rankings completeness: seven metrics --- */
+
+// The table must SURFACE all seven quantitative metrics. What each one reads is
+// asserted behaviourally in rankingsSort.test.mjs against the real module; what
+// can only be checked here is that each one actually reaches the markup.
+
+test("the desktop table surfaces all seven required metrics", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  for (const label of [
+    "Overall RIP",
+    "Financial RIP",
+    "Collector Appeal",
+    "EV",
+    "Average Loss",
+    "Market Pack Price",
+    "Chance to Beat Cost",
+  ]) {
+    assert.ok(source.includes(`label="${label}"`), `${label} must be a column heading`);
+  }
+
+  // …and that each has a value cell, not just a heading.
+  assert.ok(source.includes('<ScoreCell target={target} modeId="collectorAppeal" />'), "Collector Appeal cell");
+  assert.ok(source.includes("formatCurrency(target?.mean_value)"), "EV cell reads the published mean_value");
+  assert.ok(source.includes("formatLossCurrency(averageLoss)"), "Average Loss cell");
+  // Average Loss must come from the shared reader (the simulation's published
+  // conditional loss), never from an inline EV-based expression.
+  assert.ok(source.includes("readAverageLoss(target)"), "Average Loss must use the shared reader");
+  const code = source
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
+  assert.ok(
+    !/pack_cost\s*\)?\s*-\s*.*mean_value/.test(code) && !code.includes("estimateAverageLoss"),
+    "the retired unconditional pack_cost - mean_value expression must not return"
+  );
+  assert.ok(source.includes("formatCurrency(target?.pack_cost)"), "Market Pack Price cell");
+  assert.ok(source.includes("formatPercent(target?.prob_profit, true)"), "Chance to Beat Cost cell");
+});
+
+test("mobile surfaces the same seven metrics", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const mobileSource = source.slice(source.indexOf("{/* Mobile rows"));
+  assert.ok(mobileSource.includes('modeId="overall" label="Overall"'));
+  assert.ok(mobileSource.includes('modeId="financial" label="Financial"'));
+  assert.ok(mobileSource.includes('modeId="collectorAppeal" label="Appeal"'));
+  assert.ok(mobileSource.includes(">EV</div>"), "mobile must show EV");
+  assert.ok(mobileSource.includes("formatLossCurrency(averageLoss)"), "mobile must show Average Loss");
+  assert.ok(mobileSource.includes("formatCurrency(target?.pack_cost)"), "mobile must show Market Price");
+  assert.ok(mobileSource.includes("formatPercent(target?.prob_profit, true)"), "mobile must show Chance to Beat Cost");
+  // The extra metrics must wrap inside the card rather than widen the row, so
+  // the page cannot gain a horizontal scrollbar on a phone.
+  assert.ok(mobileSource.includes("grid grid-cols-4"), "mobile metrics must wrap in a fixed grid, not a wider flex row");
+});
+
+test("Collector Appeal reads the canonical public contract, never a frontend substitute", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(
+    source.includes("readCollectorAppealBlock"),
+    "Collector Appeal must be read through the canonical reader"
+  );
+  const code = source
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+    .join("\n");
+  // The retired CA7-era flat columns live on the same target row.
+  assert.ok(!code.includes("collector_appeal_score"), "the retired flat CA7 score must not be read");
+  assert.ok(!code.includes("collector_appeal_rank"), "the retired flat CA7 rank must not be read");
+  // No weight, no coefficient, no recomputation.
+  assert.ok(!/0\.4\s*\*/.test(code) && !/weights\s*\[/.test(code), "no Collector Appeal arithmetic may live here");
+});
+
+/* ------------------------------------------- Rankings completeness: sorting --- */
+
+test("sorting is client-side over the already-loaded targets, with no fetch", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(
+    source.includes("sortRankingsRows(canonicalTargets, sort)"),
+    "the rendered rows must be a sort of the in-memory canonical array"
+  );
+  assert.ok(
+    source.includes("useMemo(() => sortRankingsRows(canonicalTargets, sort), [canonicalTargets, sort])"),
+    "the sorted rows must be memoized on the data and the sort state alone"
+  );
+  // Nothing in this component may reach the network or the router when a header
+  // is clicked. A header click sets local state and nothing else.
+  for (const forbidden of ["fetch(", "useRouter", "router.", "revalidate", "useSWR", "axios"]) {
+    assert.ok(!source.includes(forbidden), `a sort must not trigger ${forbidden}`);
+  }
+});
+
+test("the default sort state is the canonical Overall RIP order", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(
+    source.includes("useState(RANKINGS_DEFAULT_SORT)"),
+    "initial sort must be the module's declared default (Overall RIP descending)"
+  );
+  assert.ok(
+    source.includes("sortTargetsByMode(targets, selectedMode)"),
+    "the canonical ordering pass must still run first and feed the sort"
+  );
+});
+
+test("every quantitative header is a keyboard-operable sort control that announces its state", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const headerStart = source.indexOf("function SortableHeader");
+  assert.ok(headerStart >= 0, "a shared sortable-header component must exist");
+  const headerSource = source.slice(headerStart, source.indexOf("export default function", headerStart));
+
+  assert.ok(headerSource.includes('scope="col"'), "it must stay a scoped column header");
+  assert.ok(headerSource.includes("aria-sort={ariaSort}"), "the active column must expose aria-sort");
+  assert.ok(headerSource.includes('type="button"'), "the click target must be a real button, so Enter/Space work");
+  assert.ok(headerSource.includes("onClick={() => onSort(columnId)}"), "the header itself is the click target");
+  assert.ok(headerSource.includes("aria-label="), "the control must state what it sorts and in which direction");
+
+  // Both directions need an indicator, not just descending.
+  const cssPath = path.resolve(__dirname, "explore.module.css");
+  const css = fs.readFileSync(cssPath, "utf8");
+  assert.ok(css.includes('.head th[aria-sort="descending"]::after'), "descending caret");
+  assert.ok(css.includes('.head th[aria-sort="ascending"]::after'), "ascending caret");
+  assert.ok(css.includes(".sortButton:focus-visible"), "the header control must show a visible focus ring");
+});
+
+test("mobile keeps a tappable sort control even though it has no header row", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes('className="relative md:hidden" ref={sortMenuContainerRef}'), "mobile sort control exists");
+  assert.ok(source.includes("setSortMenuOpen"), "it opens the existing menu pattern");
+  assert.ok(source.includes("min-h-11"), "its targets must stay tappable");
+  assert.ok(
+    source.includes("onClick={() => handleSort(column.id)}"),
+    "mobile options must go through the same nextSortState rule as a header click"
   );
 });
 
@@ -80,8 +210,8 @@ test("ScoreCell reads authoritative absolute/relative/rank/cohort fields, never 
   assert.ok(cellStart >= 0, "readModeScore helper must exist");
   const cellSource = source.slice(cellStart, source.indexOf("function ScoreCell", cellStart) + 1200);
   for (const getter of [
-    "getAbsoluteScoreForMode",
-    "getRelativeScoreForMode",
+    "getScoreForMode",
+    "getScoreKind",
     "getRankForMode",
     "getRankedSetCountForMode",
   ]) {
@@ -96,49 +226,42 @@ test("null primary scores render an explicit Unavailable state, never zero", () 
   // value (the relative public score, or the absolute for ratio/legacy modes) —
   // never silently promoting the model score when the relative one is missing.
   assert.ok(
-    source.includes("if (primaryText === null)"),
+    source.includes("if (value === null) {"),
     "the desktop ScoreCell must guard a null primary value with the Unavailable state"
   );
   assert.ok(
-    source.includes("primaryText === null ? ("),
+    source.includes("{value === null ? ("),
     "the mobile score block must guard a null primary value with the Unavailable state"
   );
 });
 
-test("relative is the prominent value, with the rank as its only supporting line", () => {
+test("the one declared score is the prominent value, with the rank as its only supporting line", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const cellStart = source.indexOf("function ScoreCell");
   const cellSource = source.slice(cellStart, source.indexOf("function MobileScoreBlock", cellStart));
-  // Primary text prefers the relative score, falling back to absolute only for
-  // modes with no relative field (ratio-only / legacy-relative modes).
+  // One field per column, formatted by its declared kind — never a choice
+  // between two differently-scaled candidates.
   assert.ok(
-    cellSource.includes("hasRelative") && cellSource.includes("formatRelative(relative)"),
-    "ScoreCell must derive its prominent value from the relative score when present"
-  );
-  // The prominent span must render primaryText (relative-first), not the raw absolute.
-  assert.ok(
-    /font-semibold text-\[var\(--text-primary\)\]">\{primaryText\}</.test(cellSource),
-    "the prominent span must render the relative-first primaryText"
+    cellSource.includes("formatModeScore(value, kind)"),
+    "ScoreCell must render the mode's one score formatted by its declared kind"
   );
   assert.ok(cellSource.includes("{rankText}"), "the supporting line must be the rank");
 });
 
-test("mobile preserves the relative-primary hierarchy", () => {
+test("mobile preserves the same one-field-by-kind hierarchy", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const start = source.indexOf("function MobileScoreBlock");
   const mobileSource = source.slice(start, source.indexOf("function sortTargetsByMode", start));
   assert.ok(
-    /font-semibold text-\[var\(--text-primary\)\]">\{primaryText\}</.test(mobileSource),
-    "mobile prominent span must render the relative-first primaryText"
+    mobileSource.includes("formatModeScore(value, kind)"),
+    "mobile prominent span must render the same declared-kind value"
   );
   assert.ok(mobileSource.includes("{rankText}"), "mobile must keep the rank as the supporting value");
 });
 
 // The internal "model score" (the raw pre-standardization formula output) is
 // no longer shown to readers: next to a standardized 0-100 score it read as a
-// second, contradictory number. The absolute is still READ from the backend,
-// because ratio-only and legacy-relative modes have no relative field and use
-// it as their single displayed score.
+// second, contradictory number.
 test("the internal model score is never displayed", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(!/\bModel \{/.test(source), "no cell may render a 'Model' value");
@@ -147,10 +270,12 @@ test("the internal model score is never displayed", () => {
     !source.includes("Model scores are the underlying formula outputs"),
     "the tooltip must not explain a number that is no longer shown"
   );
-  assert.ok(
-    source.includes("getAbsoluteScoreForMode"),
-    "the absolute must still be read as the fallback primary for modes without a relative score"
-  );
+  // Collector Appeal comes back from the canonical reader carrying BOTH the
+  // public relative score and the internal fixed-anchor modelScore. Only the
+  // public one may be rendered — this is exactly the ambiguity that once made
+  // one set show two different Collector Appeal numbers on one page.
+  assert.ok(!source.includes("modelScore"), "the fixed-anchor model score must not reach this table");
+  assert.ok(source.includes("block.publicScore"), "Collector Appeal must render the public relative score");
 });
 
 test("a tooltip explains what the displayed score means", () => {
@@ -184,13 +309,18 @@ test("desktop renders semantic table markup with an accessible caption", () => {
   assert.ok(source.includes("<tbody>") && source.includes("<thead"), "table must use thead/tbody sections");
 });
 
-test("the column the active ranking mode orders by announces its sort state", () => {
+test("the column the table is ordered by announces its sort state", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes('aria-sort="descending"'), "the ordered column must expose aria-sort");
-  // Sorting is still driven exclusively by the ranking-mode menu; no per-column
-  // sort handler may be introduced, because that would bypass the canonical
-  // rank -> relative -> absolute -> name contract.
-  assert.ok(!/<th[^>]*onClick/.test(source), "column headers must not introduce their own sort handlers");
+  assert.ok(source.includes("aria-sort={ariaSort}"), "the ordered column must expose aria-sort");
+  // Per-column sorting is now supported, but it must never reach into the
+  // canonical ordering: the sort state is a separate value applied AFTER
+  // sortTargetsByMode, so the canonical contract is untouched by a click.
+  assert.ok(
+    source.indexOf("sortTargetsByMode(targets, selectedMode)") <
+      source.indexOf("sortRankingsRows(canonicalTargets, sort)"),
+    "the canonical ordering must be computed first and then permuted, not replaced"
+  );
+  assert.ok(!/<th[^>]*onClick/.test(source), "the handler belongs to the header's button, not the <th> itself");
 });
 
 test("each row keeps exactly one real link, stretched over the row", () => {
@@ -214,8 +344,8 @@ test("desktop and mobile ranking rows route to the canonical set RIP tab", () =>
 test("rank is a scannable column driven by the canonical mode rank", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(
-    source.includes("getRankForMode(target, selectedMode) ?? index + 1"),
-    "the rank marker must read the canonical mode rank, falling back to render order only for display"
+    source.includes("getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1"),
+    "the rank marker must read the canonical mode rank, falling back to canonical position only for display"
   );
   assert.ok(source.includes("LEAD_RANK_LIMIT"), "top-of-ladder emphasis must be bounded by an explicit limit");
 });
@@ -321,18 +451,33 @@ test("mobile preview shows five rows before the disclosure control expands the r
   assert.ok(source.includes("sortedTargets.length <= MOBILE_PREVIEW_LIMIT"), "rows under the limit stay fully visible");
 });
 
-test("sort contract is rank -> relative -> absolute -> name", () => {
+// The CANONICAL ordering contract — the input to column sorting, unchanged by
+// it. Column sorting is a presentation permutation applied on top; its own
+// contract (descending first, nulls last, canonical tie-break) is asserted
+// behaviourally in rankingsSort.test.mjs.
+test("canonical sort contract is rank -> the mode's one score -> name", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const sortStart = source.indexOf("function sortTargetsByMode");
   const sortSource = source.slice(sortStart, sortStart + 1400);
   const rankIndex = sortSource.indexOf("compareRankAsc(getRankForMode");
-  const relativeIndex = sortSource.indexOf("getRelativeScoreForMode");
-  const absoluteIndex = sortSource.indexOf("getAbsoluteScoreForMode");
+  const scoreIndex = sortSource.indexOf("compareScoreDesc(");
   const nameIndex = sortSource.indexOf("localeCompare");
   assert.ok(rankIndex >= 0, "sort must first compare rank ascending");
-  assert.ok(relativeIndex > rankIndex, "relative comparison must follow rank");
-  assert.ok(absoluteIndex > relativeIndex, "absolute comparison must follow relative");
-  assert.ok(nameIndex > absoluteIndex, "name tie-break must be last");
+  assert.ok(scoreIndex > rankIndex, "the mode's one score must follow rank");
+  assert.ok(nameIndex > scoreIndex, "name tie-break must be last");
+});
+
+test("the canonical rank column is unaffected by the presentation sort", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  // The "#" cell keeps reading the backend rank. Its only fallback is the row's
+  // position in the CANONICAL array — never its position in the current sort,
+  // which would turn a presentation choice into a fabricated rank.
+  assert.equal(
+    (source.match(/getRankForMode\(target, selectedMode\) \?\? \(canonicalIndexByTarget\.get\(target\) \?\? index\) \+ 1/g) || []).length,
+    2,
+    "both desktop and mobile rank fallbacks must come from the canonical order"
+  );
+  assert.ok(!source.includes("getRankForMode(target, selectedMode) ?? index + 1"), "no render-order rank fallback");
 });
 
 /* ------------------------------------------- no interpretation-engine leak --- */
