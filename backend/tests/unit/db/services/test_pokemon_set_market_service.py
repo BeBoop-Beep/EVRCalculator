@@ -1,6 +1,20 @@
+import httpcore
 import pytest
 
 from backend.db.services import pokemon_set_market_service
+from backend.db.services import public_read_retry
+
+
+class _ImmediateSleepTime:
+    """Drop-in for the retry module's `time`, so bounded backoff costs no wall clock."""
+
+    @staticmethod
+    def sleep(_seconds):
+        return None
+
+    @staticmethod
+    def monotonic():
+        return 0.0
 
 
 def test_market_movers_all_ranks_signed_moves_by_absolute_percent_then_amount():
@@ -996,3 +1010,211 @@ def test_market_movers_payload_serialized_size_is_under_150kb(monkeypatch):
 
     serialized_bytes = len(json.dumps(payload, default=str).encode("utf-8"))
     assert serialized_bytes < 150_000, f"movers payload was {serialized_bytes} bytes, over the 150KB budget"
+
+
+# ---------------------------------------------------------------------------
+# resolve_pokemon_set_identifier — stale pooled connection recovery
+# ---------------------------------------------------------------------------
+#
+# OBSERVED FAILURE (2026-08-12, isolated production build): 84 generic 500s
+# across 8 set-detail endpoints, every one of them an
+# `httpcore.RemoteProtocolError: Server disconnected` raised out of the shared
+# HTTP/2 connection pool on the FIRST database call of the request. The
+# dominant frame was this resolver. It fails in ~40-230ms, far too fast to be
+# query latency: an idle keep-alive connection is closed by PostgREST, the
+# pooled client hands that dead connection to the next request, and the read
+# dies immediately. Direct repeated calls never reproduce it because the
+# connection stays hot; a tab navigation leaves exactly the idle gap required.
+#
+# The classifier already calls RemoteProtocolError transient, and this resolver
+# already re-raised it deliberately — there was simply no retry, so a dead
+# socket became a user-visible 500. The retry must use a FRESH client, since
+# retrying on the same pool can hand back the same dead connection.
+
+
+class _DisconnectingSetsHandler:
+    """Raises a stale-connection error on the first N calls, then succeeds."""
+
+    def __init__(self, rows, failures=1):
+        self.rows = rows
+        self.remaining_failures = failures
+        self.calls = 0
+
+    def __call__(self, query):
+        self.calls += 1
+        if self.remaining_failures > 0:
+            self.remaining_failures -= 1
+            raise httpcore.RemoteProtocolError("Server disconnected")
+        if query.eq_filters:
+            field, value = query.eq_filters[-1]
+            matches = [row for row in self.rows if row.get(field) == value]
+            return matches[: query.limit_value] if query.limit_value else matches
+        return self.rows
+
+
+def test_resolve_pokemon_set_identifier_recovers_from_stale_pooled_connection(monkeypatch):
+    """A dead keep-alive connection must not surface as a 500."""
+    rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    handler = _DisconnectingSetsHandler(rows, failures=1)
+    fresh_clients = []
+
+    def _client_factory():
+        client = _Client({"sets": handler})
+        fresh_clients.append(client)
+        return client
+
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client", _client_factory)
+    monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+
+    row = pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
+
+    assert row["id"] == _PRISMATIC_EVOLUTIONS_UUID, "the retry must return the resolved set"
+    assert handler.calls == 2, "exactly one retry — not zero, and not a retry storm"
+    assert fresh_clients, "the retry must use a FRESH client, not the pool that just died"
+
+
+# ---------------------------------------------------------------------------
+# value-history — stale pooled connection recovery at the LATER read sites
+# ---------------------------------------------------------------------------
+#
+# OBSERVED FAILURE (2026-08-12, isolated production build): after the resolver
+# was hardened, backend 500s fell 84 -> 12 and every one of the 12 survivors
+# came from `market/value-history` with the identical
+# `httpcore.RemoteProtocolError: Server disconnected` signature. The resolver
+# retry cannot cover these: they are the reads that run AFTER the resolver has
+# already succeeded, so they can still be handed a different idle-killed socket
+# out of the shared pool. Each was classified transient and re-raised with no
+# retry, so the dead socket became a generic 500.
+
+
+class _DisconnectingValueHistoryHandler:
+    """Raises a stale-connection error on the first N calls, then returns rows."""
+
+    def __init__(self, rows, failures=1):
+        self.rows = rows
+        self.remaining_failures = failures
+        self.calls = 0
+
+    def __call__(self, query):
+        self.calls += 1
+        if self.remaining_failures > 0:
+            self.remaining_failures -= 1
+            raise httpcore.RemoteProtocolError("Server disconnected")
+        if query.limit_value:
+            return self.rows[: query.limit_value]
+        return self.rows
+
+
+def _value_history_row(date_key, value):
+    return {
+        "snapshot_date": date_key,
+        "value_scope": "market",
+        "set_value": value,
+        "priced_card_count": 10,
+        "total_card_count": 10,
+        "source": "test",
+        "created_at": f"{date_key}T00:00:00+00:00",
+        "updated_at": f"{date_key}T00:00:00+00:00",
+    }
+
+
+def _patch_value_history_retry(monkeypatch, sets_handler, history_handler):
+    fresh_clients = []
+
+    def _client_factory():
+        client = _Client({"sets": sets_handler, "pokemon_set_value_daily_history": history_handler})
+        fresh_clients.append(client)
+        return client
+
+    monkeypatch.setattr(
+        pokemon_set_market_service,
+        "public_read_client",
+        _Client({"sets": sets_handler, "pokemon_set_value_daily_history": history_handler}),
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client", _client_factory)
+    monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+    return fresh_clients
+
+
+def test_value_history_recovers_from_stale_pooled_connection(monkeypatch):
+    """The proven 12 remaining 500s must not survive as user-visible failures."""
+    sets_handler = _RecordingSetsHandler(
+        [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    )
+    history_handler = _DisconnectingValueHistoryHandler(
+        [_value_history_row("2026-08-11", 100.0), _value_history_row("2026-08-12", 110.0)],
+        failures=1,
+    )
+    fresh_clients = _patch_value_history_retry(monkeypatch, sets_handler, history_handler)
+
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
+
+    assert payload["set"]["id"] == "set-uuid-1"
+    assert payload["history"], "the retry must recover real history, not an empty degraded payload"
+    assert fresh_clients, "the retry must use a FRESH client, not the pool that just died"
+
+
+def test_value_history_retry_is_bounded_per_read(monkeypatch):
+    """Persistent disconnects must still surface — no retry storm."""
+    sets_handler = _RecordingSetsHandler(
+        [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    )
+    history_handler = _DisconnectingValueHistoryHandler([], failures=99)
+    _patch_value_history_retry(monkeypatch, sets_handler, history_handler)
+
+    with pytest.raises(Exception):
+        pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
+
+    assert history_handler.calls <= 2, "the live request path retries each read at most once"
+
+
+def test_value_history_does_not_retry_a_deterministic_empty_result(monkeypatch):
+    """No rows is a real answer, not a transient fault — retrying cannot help."""
+    sets_handler = _RecordingSetsHandler(
+        [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    )
+    calls = {"count": 0}
+
+    def _history_handler(_query):
+        calls["count"] += 1
+        return []
+
+    _patch_value_history_retry(monkeypatch, sets_handler, _history_handler)
+
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
+
+    assert payload["history"] == []
+    assert calls["count"] <= 2, "an empty result must not be retried per read"
+
+
+def test_resolve_pokemon_set_identifier_does_not_retry_a_genuine_miss(monkeypatch):
+    """A set that does not exist is deterministic — retrying cannot help."""
+    handler = _RecordingSetsHandler([])
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+
+    with pytest.raises(pokemon_set_market_service.PokemonSetMarketError) as excinfo:
+        pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
+
+    assert excinfo.value.status_code == 404
+    assert len(handler.calls) == 1, "a 404 must not be retried"
+
+
+def test_resolve_pokemon_set_identifier_gives_up_after_the_bounded_retry(monkeypatch):
+    """Persistent disconnects must still fail — no unbounded retry loop."""
+    handler = _DisconnectingSetsHandler([], failures=99)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client",
+                        lambda: _Client({"sets": handler}))
+    monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
+    public_read_retry._reset_public_read_circuit_breaker_for_tests()
+
+    with pytest.raises(Exception) as excinfo:
+        pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
+
+    assert not isinstance(excinfo.value, pokemon_set_market_service.PokemonSetMarketError) or \
+        excinfo.value.status_code >= 500
+    assert handler.calls <= 2, "the live request path retries at most once"

@@ -7,7 +7,8 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.pokemon_card_market_delta_contract import (
     WINDOW_CONVENTION,
@@ -247,21 +248,8 @@ def _looks_like_uuid(value: str) -> bool:
     return bool(_UUID_RE.match(value))
 
 
-def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[str, Any]:
-    """Resolve a Pokemon set identifier to its `sets` row.
-
-    Shared across page/shell/cards/market-dashboard/value-history/top-cards so
-    every route accepts the same identifier forms: UUID, canonical_key,
-    pokemon_api_set_id, exact set name, or a normalized/hyphenated slug (e.g.
-    "prismatic-evolutions").
-
-    `client` defaults to this module's own `public_read_client`. Callers in
-    other modules that monkeypatch their own module-level `public_read_client`
-    (e.g. in tests) must pass their own patched client explicitly — a plain
-    function reference would otherwise always resolve `public_read_client`
-    from this module's globals, silently bypassing a caller's mock.
-    """
-    active_client = client if client is not None else public_read_client
+def _resolve_pokemon_set_identifier_once(active_client: Any, set_id: str) -> Dict[str, Any]:
+    """One resolution attempt against one client. See the public wrapper below."""
     t0 = time.perf_counter()
     resolved = _to_optional_str(set_id)
     if not resolved:
@@ -343,6 +331,43 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
             logger.warning("[pokemon-set-market] normalized set lookup failed set_id=%s", resolved)
 
     raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
+
+
+def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[str, Any]:
+    """Resolve a Pokemon set identifier to its `sets` row.
+
+    Shared across page/shell/cards/market-dashboard/value-history/top-cards so
+    every route accepts the same identifier forms: UUID, canonical_key,
+    pokemon_api_set_id, exact set name, or a normalized/hyphenated slug (e.g.
+    "prismatic-evolutions").
+
+    `client` defaults to this module's own `public_read_client`. Callers in
+    other modules that monkeypatch their own module-level `public_read_client`
+    (e.g. in tests) must pass their own patched client explicitly — a plain
+    function reference would otherwise always resolve `public_read_client`
+    from this module's globals, silently bypassing a caller's mock.
+
+    THE RETRY IS ABOUT DEAD SOCKETS, NOT SLOW QUERIES. This is the first
+    database call of nearly every set-detail route, and an idle keep-alive
+    connection closed by PostgREST is handed back out of the shared HTTP/2 pool
+    to the next request, which then dies instantly with
+    `RemoteProtocolError: Server disconnected` — measured at ~40-230ms, far
+    below any real query time. The failure was already classified transient and
+    already deliberately re-raised here; there was simply no retry, so a dead
+    socket surfaced as a generic 500 on Cards, Pull Rates, Market, value-history
+    and Insights alike. `run_public_read_with_retry` is the established live
+    path for this: at most ONE further attempt, abandoned if the first failure
+    was slow, and — critically — on a FRESH client, because retrying into the
+    same pool can be handed the same dead connection. A genuine miss stays a
+    fast 404: it is not transient, so it raises on the first attempt.
+    """
+    active_client = client if client is not None else public_read_client
+    return run_public_read_with_retry(
+        lambda attempt_client: _resolve_pokemon_set_identifier_once(attempt_client, set_id),
+        operation_name="pokemon_set.resolve_identifier",
+        initial_client=active_client,
+        client_factory=create_public_read_client,
+    )
 
 
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
@@ -2555,14 +2580,47 @@ def _public_set_value_history_point(
     }
 
 
+def _run_set_value_history_read(operation, *, operation_name: str):
+    """Run one value-history read under the shared live-read retry policy.
+
+    SAME DEFECT AS THE RESOLVER, DIFFERENT READ SITE. See
+    `resolve_pokemon_set_identifier` for the full description of the stale
+    pooled connection: PostgREST closes an idle keep-alive socket, the shared
+    HTTP/2 pool hands that dead connection to the next request, and the read
+    dies instantly with `RemoteProtocolError: Server disconnected`.
+
+    Hardening the resolver removed that failure from the FIRST read of every
+    set-detail route, which is why Cards went 18/48 -> 0/48. value-history then
+    kept failing because its own reads happen AFTER the resolver has already
+    succeeded: by then the request has a live connection for the resolver's
+    query but these later reads can still draw a different, idle-killed socket
+    out of the pool. They were classified transient and re-raised deliberately,
+    with no retry, so the dead socket became a generic 500.
+
+    This is a thin wiring wrapper, not a second retry policy: bounds, transient
+    classification, the elapsed-time budget and the circuit breaker all stay in
+    `run_public_read_with_retry`. `public_read_client` is resolved at call time
+    so tests (and any caller that swaps the module client) are not bypassed.
+    """
+    return run_public_read_with_retry(
+        operation,
+        operation_name=operation_name,
+        initial_client=public_read_client,
+        client_factory=create_public_read_client,
+    )
+
+
 def _load_available_set_value_scopes(set_id: str, sources: Dict[str, str]) -> List[Dict[str, Any]]:
     try:
-        result = (
-            public_read_client.table("pokemon_set_value_daily_history")
-                .select("value_scope,snapshot_date")
-                .eq("set_id", set_id)
-                .order("snapshot_date", desc=True)
-                .execute()
+        result = _run_set_value_history_read(
+            lambda attempt_client: (
+                attempt_client.table("pokemon_set_value_daily_history")
+                    .select("value_scope,snapshot_date")
+                    .eq("set_id", set_id)
+                    .order("snapshot_date", desc=True)
+                    .execute()
+            ),
+            operation_name="pokemon_set_value_history.scopes",
         )
         sources["pokemon_set_value_daily_history_scopes"] = "OK"
     except Exception as exc:
@@ -2601,14 +2659,17 @@ def _load_market_set_value_history(
     sources: Dict[str, str],
 ) -> List[Dict[str, Any]]:
     try:
-        latest_result = (
-            public_read_client.table("pokemon_set_value_daily_history")
-                .select("snapshot_date")
-                .eq("set_id", set_id)
-                .eq("value_scope", value_scope)
-                .order("snapshot_date", desc=True)
-                .limit(1)
-                .execute()
+        latest_result = _run_set_value_history_read(
+            lambda attempt_client: (
+                attempt_client.table("pokemon_set_value_daily_history")
+                    .select("snapshot_date")
+                    .eq("set_id", set_id)
+                    .eq("value_scope", value_scope)
+                    .order("snapshot_date", desc=True)
+                    .limit(1)
+                    .execute()
+            ),
+            operation_name="pokemon_set_value_history.latest",
         )
         latest_row = _first_row(latest_result)
         sources["pokemon_set_value_daily_history_latest"] = "OK"
@@ -2633,14 +2694,17 @@ def _load_market_set_value_history(
 
     start_date = latest_date - timedelta(days=max(days - 1, 0))
     try:
-        history_result = (
-            public_read_client.table("pokemon_set_value_daily_history")
-                .select("snapshot_date,value_scope,set_value,priced_card_count,total_card_count,source,created_at,updated_at")
-                .eq("set_id", set_id)
-                .eq("value_scope", value_scope)
-                .gte("snapshot_date", start_date.isoformat())
-                .order("snapshot_date", desc=False)
-                .execute()
+        history_result = _run_set_value_history_read(
+            lambda attempt_client: (
+                attempt_client.table("pokemon_set_value_daily_history")
+                    .select("snapshot_date,value_scope,set_value,priced_card_count,total_card_count,source,created_at,updated_at")
+                    .eq("set_id", set_id)
+                    .eq("value_scope", value_scope)
+                    .gte("snapshot_date", start_date.isoformat())
+                    .order("snapshot_date", desc=False)
+                    .execute()
+            ),
+            operation_name="pokemon_set_value_history.window",
         )
         raw_rows = list(history_result.data or [])
         sources["pokemon_set_value_daily_history"] = "OK"
