@@ -3734,7 +3734,17 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                     : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
                 } ${mobileEmphasisClass}`}
               >
-                <span className="flex min-w-0 items-center justify-center gap-1.5">{option.icon ? <SetPageIcon name={option.icon} className="h-3.5 w-3.5 flex-none" /> : null}<span className="truncate">{option.label}</span></span>
+                <span className="flex min-w-0 items-center justify-center gap-1.5">
+                  {option.icon ? <SetPageIcon name={option.icon} className={`h-3.5 w-3.5 flex-none ${option.hideIconOnMobile ? "max-desk:hidden" : ""}`} /> : null}
+                  <span className="whitespace-nowrap">
+                    {option.mobileLabel ? (
+                      <>
+                        <span className="max-desk:hidden">{option.label}</span>
+                        <span className="hidden max-desk:inline">{option.mobileLabel}</span>
+                      </>
+                    ) : option.label}
+                  </span>
+                </span>
               </button>
             );
           })}
@@ -12861,10 +12871,10 @@ export default function RipStatisticsPageClient({
                        accessibility are untouched. */
                     mobileEmphasisValue="insights"
                     options={[
-                      { value: "overview", label: "RIP", icon: "gauge" },
-                      { value: "market", label: "Market", icon: "trend" },
-                      { value: "cards", label: "Cards & Products", icon: "cards" },
-                      { value: "pull-rates", label: "Pull Rates", icon: "target" },
+                      { value: "overview", label: "RIP", icon: "gauge", hideIconOnMobile: true },
+                      { value: "market", label: "Market", icon: "trend", hideIconOnMobile: true },
+                      { value: "cards", label: "Cards & Products", mobileLabel: "Cards", icon: "cards", hideIconOnMobile: true },
+                      { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
                 </div>

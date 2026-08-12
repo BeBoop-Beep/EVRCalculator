@@ -18,14 +18,14 @@ const itemsBlock = source.slice(
   source.indexOf("if (shouldHide)")
 );
 
-test("the five destinations are Home, Rankings, TCGs, Portfolio, Profile in order", () => {
+test("the six destinations are Rankings, Market, TCGs, Research, Portfolio, Profile in order", () => {
   assert.ok(itemsBlock.length > 0, "the items block must be locatable");
 
   const ids = [...itemsBlock.matchAll(/id: "([a-z]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(ids, ["home", "explore", "tcgs", "portfolio", "profile"]);
+  assert.deepEqual(ids, ["explore", "market", "tcgs", "research", "portfolio", "profile"]);
 
   const labels = [...itemsBlock.matchAll(/label: "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(labels, ["Home", "Rankings", "TCGs", "Portfolio", "Profile"]);
+  assert.deepEqual(labels, ["Rankings", "Market", "TCGs", "Research", "Portfolio", "Profile"]);
 });
 
 test("TCGs routes through the shared href constant and lights the whole /TCGs family", () => {
@@ -47,8 +47,7 @@ test("Tools is gone from the bottom navigation", () => {
   assert.ok(!/label: "Tools"/.test(source), "the Tools label must be removed");
 });
 
-test("the bottom navigation chrome is untouched", () => {
-  // Geometry, surface, safe area and icon recipe are all frozen by the brief.
+test("the bottom navigation preserves its chrome while fitting six destinations", () => {
   assert.ok(
     source.includes(
       'className="fixed inset-x-0 bottom-0 z-[60] border-t border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 backdrop-blur lg:hidden"'
@@ -60,18 +59,31 @@ test("the bottom navigation chrome is untouched", () => {
     "the safe-area padding is unchanged"
   );
   assert.ok(
-    source.includes('className="mx-auto grid max-w-xl grid-cols-5 gap-1 px-3 pt-2"'),
-    "the five-column grid is unchanged"
+    source.includes('className="mx-auto grid max-w-xl grid-cols-6 gap-0.5 px-1.5 pt-2"'),
+    "the destinations use a compact six-column grid"
   );
   assert.ok(
     source.includes(
-      '"flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors duration-150 ease-out"'
+      '"flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-0.5 py-2 text-[10px] font-medium transition-colors duration-150 ease-out"'
     ),
-    "the item typography, padding and gap are unchanged"
+    "the item recipe is compact enough for six labels"
   );
   // Every icon uses one recipe; the new TCGs glyph must not deviate.
   const iconOpenings = source.match(
     /className=\{`h-5 w-5 \$\{activeClass\}`\} fill="none" stroke="currentColor" strokeWidth="1\.85" strokeLinecap="round" strokeLinejoin="round"/g
   ) || [];
-  assert.equal(iconOpenings.length, 5, "home, explore, tcgs, portfolio and the profile fallback share one icon recipe");
+  assert.equal(iconOpenings.length, 6, "all six destinations share one icon recipe");
+});
+
+test("Market and Research own their canonical routes and Home is removed", () => {
+  assert.ok(itemsBlock.includes('href: "/Market"'));
+  assert.ok(itemsBlock.includes('href: "/Research"'));
+  assert.ok(!itemsBlock.includes('label: "Home"'));
+  assert.ok(itemsBlock.includes('isPathMatch(normalizedPathname, ["/Market"], { caseInsensitive: true })'));
+  assert.ok(itemsBlock.includes('isPathMatch(normalizedPathname, ["/Research"], { caseInsensitive: true })'));
+});
+
+test("portfolio and profile route families retain their active states", () => {
+  assert.ok(itemsBlock.includes('["/my-collection", "/my-portfolio", "/portfolio"]'));
+  assert.ok(itemsBlock.includes('["/profile", "/u", "/account-settings"]'));
 });
