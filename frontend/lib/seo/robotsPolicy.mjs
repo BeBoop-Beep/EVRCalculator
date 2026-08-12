@@ -24,6 +24,11 @@ export const DISALLOWED_PATH_PREFIXES = Object.freeze([
   "/dashboard",
   "/account-settings",
   "/profile",
+  // BOTH spellings. /my-collection is the internal route; /my-portfolio is the
+  // public URL it was renamed to (next.config.mjs 308s the old path to the new
+  // one and rewrites it back internally). Listing only /my-collection left the
+  // rule guarding a URL that redirects away while the address the app actually
+  // links to stayed crawlable.
   "/my-collection",
   "/my-portfolio",
   "/cart",
