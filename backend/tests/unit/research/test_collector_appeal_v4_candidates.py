@@ -727,13 +727,26 @@ def test_h_only_is_research_only():
     assert v4.FROZEN_H_ONLY_STATUS == "research_candidate_frozen_not_canonical"
     assert "research" in v4.FROZEN_H_ONLY_VERSION
     assert v4.frozen_h_only_identity()["status"] == v4.FROZEN_H_ONLY_STATUS
+    # Checked against IMPORTS, not against the raw text. A production module may
+    # legitimately REFERENCE this research in prose - the Dual-Path Depth
+    # retention note in ``collector_appeal.py`` cites the validation document by
+    # filename - and a substring ban would forbid exactly the kind of comment
+    # that keeps a scoping decision discoverable. What must not exist is a
+    # production module that DEPENDS on the research module.
     offenders = []
     for path in (REPO_ROOT / "backend").rglob("*.py"):
         parts = path.relative_to(REPO_ROOT).parts
         if "tests" in parts or parts[1] in {"research", "scripts"}:
             continue
-        if "collector_appeal_v4" in path.read_text(encoding="utf-8"):
-            offenders.append(str(path))
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            modules = []
+            if isinstance(node, ast.ImportFrom):
+                modules.append(node.module or "")
+            elif isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            if any("collector_appeal_v4" in module for module in modules):
+                offenders.append(str(path))
     assert offenders == []
 
 

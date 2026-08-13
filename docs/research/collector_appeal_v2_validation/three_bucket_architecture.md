@@ -92,6 +92,61 @@ Fit does not exist as a separate construct".
 
 ---
 
+## Metric ownership: Dual-Path Depth
+
+**Owner bucket: none yet. Retained, maintained, and unassigned.**
+
+Collector Appeal V4 removes Dual-Path Depth (`P`) from the **universal**
+Collector Appeal formula. The metric itself is **not deprecated and must not be
+deleted.** Its authoritative definition stays where it has always been, in
+`backend/desirability/collector_appeal.compute_dual_path_depth`, carrying
+`DUAL_PATH_DEPTH_VERSION`, with its mathematics unchanged.
+
+**Why it left universal Collector Appeal.** The V4 ablation held every other
+assumption identical — same D, same H transform and anchors, same neutral point,
+same +4.0 / −2.0 asymmetric modifier, same clamp — and varied only whether P
+entered the structural index. P changed 3 of 231 pairwise orderings, moved six
+sets by exactly one rank each, and left Spearman(with P, without P) = **0.9966**.
+For a universal set-level appeal score that is not useful discrimination beyond
+Desirable Outcome Frequency. Evidence:
+[`collector_appeal_v4_promotion_validation.md`](../collector_appeal_v4_promotion_validation.md) §2.
+
+**Why it is kept.** "Adds little at the population level" and "measures nothing
+useful" are different claims, and only the first is supported. P asks a question
+whose answer plausibly depends on *who is asking*, which is the defining shape of
+a Personal Fit feature rather than a General Collector Appeal one:
+
+* **master-set collectors** — accessible plus elite printing paths may change the
+  progression and completion experience;
+* **collectors chasing one specific Pokémon** — subject-level dual-path depth
+  (`subject_dual_path` already computes exactly this, per subject) could measure
+  whether *their* Pokémon has both an attainable and a premium chase printing;
+* **other personalized collecting profiles** where a stated preference makes
+  rarity structure relevant.
+
+This sits naturally beside candidate approach **3** above: `axis_position` is a
+taste coordinate that General Collector Appeal cannot encode without privileging
+someone's taste, and P is a *structural* companion to it — taste-free in itself,
+but differently valuable depending on the user's goal.
+
+```text
+Universal Collector Appeal V4      Future Personal Fit
+    D + modest H modifier              P remains a CANDIDATE feature
+    NO P                               usage depends on the collector's
+                                       stated goal / preferences
+```
+
+**What this entry does not authorize.** It is not permission to add P back to
+universal Collector Appeal, and it is not permission to build Personal Fit —
+which this document has never authorized and still does not. Any future
+personalization work must validate P's appropriate use and weighting
+independently, on its own evidence, under the same "incremental, not repeated"
+constraint the rest of this document imposes. Note in particular that P is
+**not** currently known to satisfy constraint 1 below: nobody has measured
+whether a P-based Personal Fit would merely repeat General Collector Appeal.
+
+---
+
 ## A future Personal RIP
 
 A future Personal RIP may combine all three. Two constraints:
