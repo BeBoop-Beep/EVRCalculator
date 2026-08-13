@@ -468,11 +468,20 @@ def candidate_registry() -> Dict[str, Dict[str, Any]]:
         "max_flip_gap": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
     }
     registry[FROZEN_ABLATION_KEY] = {
-        "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+        "label": "P ABLATION twin - asymmetric H only, +4.0 / -2.0",
         "family": "frozen_ablation",
         "formula": "S = sH; " + FROZEN_FORMULA_EXPRESSION.split("S = 0.70*sH + 0.30*sP; ")[-1],
         "scorer": lambda d, h, p: collector_appeal_v4_candidate_frozen_h_only(d, h, p),
         "max_flip_gap": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+    }
+    # THE FINAL CONSTRUCT CANDIDATE. Same arithmetic as the ablation twin above,
+    # its own key, version and fingerprint - see the FROZEN_H_ONLY block.
+    registry[FROZEN_H_ONLY_KEY] = {
+        "label": "FINAL candidate - H only, D baseline, +4.0 / -2.0",
+        "family": "frozen_h_only",
+        "formula": FROZEN_H_ONLY_FORMULA_EXPRESSION,
+        "scorer": lambda d, h, p: collector_appeal_v4_candidate_h_only(d, h),
+        "max_flip_gap": FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
     }
     return registry
 
@@ -631,7 +640,192 @@ def collector_appeal_v4_candidate_frozen_h_only(d: Any, h: Any, p: Any = None) -
     )
 
 
+# The ablation twin's key, kept as the name under which the P ablation was run
+# and reported. The SAME function is also the FINAL construct candidate below,
+# under its own key, version and fingerprint - see FROZEN_H_ONLY_*.
 FROZEN_ABLATION_KEY = "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2"
+
+
+# ===========================================================================
+# THE FINAL CONSTRUCT CANDIDATE: H-ONLY
+#
+# Promoted from "ablation twin" to "the candidate" by the P ablation, which
+# measured P at rho(with P, without P) = 0.9966 - 3 changed pairwise orderings
+# out of 231, six sets moving one rank each, and one of those three flips a
+# weight-dilution artifact rather than a P signal. See
+# docs/research/collector_appeal_v4_promotion_validation.md section 2.
+#
+# THE H70/P30 CANDIDATE ABOVE IS NOT MUTATED. Its constants, function, version
+# string and fingerprint are untouched and it remains computable, so the
+# with-P/without-P comparison keeps a real number to name and a rollback
+# diagnostic stays available. A test asserts its fingerprint is unchanged.
+#
+# WHAT THE CONSTRUCT SAYS
+# -----------------------
+#   D = underlying collector desirability   -> the dominant baseline
+#   H = desirable outcome accessibility     -> a modest tiebreaker
+#   "D ranks the neighbourhood. H settles many close calls."
+#
+# H is NOT a peer pillar: its entire span is 6 points against D's 100, and it is
+# centred so that neutral accessibility contributes exactly nothing.
+#
+# P IS DELIBERATELY ABSENT. Dual-Path Depth remains implemented, computable and
+# available as a diagnostic in ``collector_appeal.compute_dual_path_depth``; it
+# is simply not an input to this construct. Reintroducing it requires new
+# evidence, not a preference.
+# ===========================================================================
+
+FROZEN_H_ONLY_KEY = "collector_appeal_v4_candidate_h_only_up4_down2"
+FROZEN_H_ONLY_VERSION = (
+    "collector_appeal_v4_candidate_h_only_d_baseline_ceil4_floor2_log2_anchors_research_v1"
+)
+FROZEN_H_ONLY_FORMULA_VERSION = "collector_appeal_v4_h_only_centred_asymmetric_modifier_v1"
+FROZEN_H_ONLY_STATUS = "research_candidate_frozen_not_canonical"
+
+# H transform: identical anchors to the H70/P30 candidate. NOT retuned. Retuning
+# anchors after seeing which sets moved would be fitting to a preferred ranking,
+# which is exactly what this study forbids.
+FROZEN_H_ONLY_ANCHOR_ZERO_ONE_IN_N = FROZEN_H_ANCHOR_ZERO_ONE_IN_N        # 1 in 16 -> 0.0
+FROZEN_H_ONLY_ANCHOR_NEUTRAL_ONE_IN_N = FROZEN_H_ANCHOR_NEUTRAL_ONE_IN_N  # 1 in 8  -> 0.5
+FROZEN_H_ONLY_ANCHOR_ONE_ONE_IN_N = FROZEN_H_ANCHOR_ONE_ONE_IN_N          # 1 in 4  -> 1.0
+
+FROZEN_H_ONLY_MODIFIER_CEILING = 4.0
+FROZEN_H_ONLY_DOWNSIDE_DAMPING = 0.50
+FROZEN_H_ONLY_MODIFIER_FLOOR = (
+    -FROZEN_H_ONLY_MODIFIER_CEILING * FROZEN_H_ONLY_DOWNSIDE_DAMPING
+)  # = -2.0
+FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE = (
+    FROZEN_H_ONLY_MODIFIER_CEILING - FROZEN_H_ONLY_MODIFIER_FLOOR
+)  # = 6.0
+FROZEN_H_ONLY_OUTPUT_DOMAIN = (0.0, 100.0)
+
+# Same contract, same saturation boundaries, same reasoning as the H70/P30 block
+# above: the clamp is retained rather than engineered away, and the region it can
+# bind in is named so a future set entering it fails loudly instead of tying.
+FROZEN_H_ONLY_MONOTONICITY_CONTRACT = {
+    "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+    "in_h": "non_decreasing_everywhere",
+    "in_p": "not_an_input",
+    "upper_saturation_begins_above_d": (100.0 - FROZEN_H_ONLY_MODIFIER_CEILING) / 100.0,
+    "lower_saturation_begins_below_d": -FROZEN_H_ONLY_MODIFIER_FLOOR / 100.0,
+    "ties_possible_only_inside_saturation": True,
+}
+
+FROZEN_H_ONLY_FORMULA_EXPRESSION = (
+    "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))) "
+    "= clamp01((log2(H) + 4) / 2); "
+    "z = 2*sH - 1; "
+    "m = 4.0*z if z >= 0 else 2.0*z; "
+    "CA = clamp(100*D + m, 0, 100)"
+)
+
+
+def collector_appeal_v4_candidate_h_only(d: Any, h: Any) -> Optional[float]:
+    """THE final construct candidate. RESEARCH ONLY - not canonical, not published.
+
+    ``CA = clamp(100*D + m, 0, 100)`` with ``m`` rising to +4.0 for excellent
+    desirable-outcome accessibility and falling to only -2.0 for the worst.
+
+    THE ASYMMETRY IS THE POINT. Strong accessibility genuinely delivers something
+    - a pack that regularly hands you a Pokemon you care about is a better box to
+    open - so it earns the full +4. Difficult pulls cost only -2, because a hard
+    chase can itself be the appeal; punishing difficulty symmetrically would
+    encode "easy is better", which is a taste, not a measurement.
+
+    Takes NO P argument at all. A signature that accepted and ignored ``p`` would
+    let a caller pass dual-path data and believe it had been used.
+
+    Delegates to the shared modifier so the final candidate and the ablation twin
+    it was promoted from can never diverge; a test asserts they are identical on
+    a dense grid.
+    """
+    return collector_appeal_v4_candidate_additive(
+        d,
+        h,
+        None,
+        ceiling=FROZEN_H_ONLY_MODIFIER_CEILING,
+        penalty_damping=FROZEN_H_ONLY_DOWNSIDE_DAMPING,
+        h_weight=1.0,
+        p_weight=0.0,
+    )
+
+
+def frozen_h_only_assumptions() -> Dict[str, Any]:
+    """Every assumption capable of changing an H-only candidate score.
+
+    Deliberately includes ``version_identifier``: this study now carries two
+    frozen models whose arithmetic coincides (the H-only candidate and the P
+    ablation twin), and a fingerprint that could not tell them apart would let a
+    stored score claim the wrong lineage. Elsewhere the canonical fingerprint
+    excludes labels because there only one model wears each hash; here the label
+    is load-bearing and is hashed on purpose.
+    """
+    return {
+        "version_identifier": FROZEN_H_ONLY_VERSION,
+        "formula_expression": FROZEN_H_ONLY_FORMULA_EXPRESSION,
+        "inputs": ["roster_desirability", "desirable_outcome_frequency"],
+        "excluded_inputs": ["dual_path_depth", "market_price", "pack_cost", "financial_score"],
+        "h_transform": {
+            "kind": "log2_wait_time",
+            "anchor_zero_one_in_n": FROZEN_H_ONLY_ANCHOR_ZERO_ONE_IN_N,
+            "anchor_neutral_one_in_n": FROZEN_H_ONLY_ANCHOR_NEUTRAL_ONE_IN_N,
+            "anchor_one_one_in_n": FROZEN_H_ONLY_ANCHOR_ONE_ONE_IN_N,
+            "clamped": True,
+            "requires_strictly_positive_h": True,
+        },
+        "structural_blend": {"h_weight": 1.0, "p_weight": 0.0},
+        "neutral_structural_index": 0.5,
+        "modifier": {
+            "positive_ceiling_points": FROZEN_H_ONLY_MODIFIER_CEILING,
+            "downside_damping": FROZEN_H_ONLY_DOWNSIDE_DAMPING,
+            "negative_floor_points": FROZEN_H_ONLY_MODIFIER_FLOOR,
+            "asymmetric": True,
+            "centred_at_neutral": True,
+        },
+        "max_pairwise_structural_advantage_points": (
+            FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE
+        ),
+        "clamp": {
+            "output_domain": list(FROZEN_H_ONLY_OUTPUT_DOMAIN),
+            "applied_to": "100*D + m",
+            "kind": "hard_clamp_no_taper",
+        },
+        "monotonicity_contract": FROZEN_H_ONLY_MONOTONICITY_CONTRACT,
+        "missing_data_policy": FROZEN_MISSING_DATA_POLICY,
+        "d_is_rescaled": False,
+        "cohort_relative_normalization": False,
+    }
+
+
+def frozen_h_only_fingerprint() -> str:
+    """SHA-256 over the H-only assumptions, via the canonical hashing machinery."""
+    from backend.desirability.collector_appeal_fingerprint import fingerprint_assumptions
+
+    return fingerprint_assumptions(frozen_h_only_assumptions())
+
+
+def frozen_h_only_identity() -> Dict[str, Any]:
+    """Human-readable identity plus the hash. Never stored on a canonical path."""
+    return {
+        "key": FROZEN_H_ONLY_KEY,
+        "version": FROZEN_H_ONLY_VERSION,
+        "formulaVersion": FROZEN_H_ONLY_FORMULA_VERSION,
+        "status": FROZEN_H_ONLY_STATUS,
+        "formula": FROZEN_H_ONLY_FORMULA_EXPRESSION,
+        "inputs": ["D", "H"],
+        "excludesP": True,
+        "hAnchorsOneInN": {
+            "zero": FROZEN_H_ONLY_ANCHOR_ZERO_ONE_IN_N,
+            "neutral": FROZEN_H_ONLY_ANCHOR_NEUTRAL_ONE_IN_N,
+            "one": FROZEN_H_ONLY_ANCHOR_ONE_ONE_IN_N,
+        },
+        "modifierCeiling": FROZEN_H_ONLY_MODIFIER_CEILING,
+        "modifierFloor": FROZEN_H_ONLY_MODIFIER_FLOOR,
+        "maxPairwiseStructuralAdvantage": FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+        "monotonicityContract": dict(FROZEN_H_ONLY_MONOTONICITY_CONTRACT),
+        "fingerprint": frozen_h_only_fingerprint(),
+        "fingerprintAlgorithm": "sha256",
+    }
 
 
 def frozen_candidate_assumptions() -> Dict[str, Any]:

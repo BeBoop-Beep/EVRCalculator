@@ -57,12 +57,15 @@ from backend.research.collector_appeal_v4_candidates import (
     COLLECTOR_APPEAL_V4_CANDIDATE_FAMILY_VERSION,
     FROZEN_ABLATION_KEY,
     FROZEN_CANDIDATE_KEY,
+    FROZEN_H_ONLY_KEY,
+    FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
     COLLECTOR_APPEAL_V4_CANDIDATE_STATUS,
     MODIFIER_CEILING_GRID,
     PENALTY_DAMPING_GRID,
     RECOMMENDED_CANDIDATE_KEY,
     candidate_registry,
     frozen_candidate_identity,
+    frozen_h_only_identity,
     max_overturnable_d_gap_points,
     structural_diagnostics,
 )
@@ -79,8 +82,11 @@ CASE_STUDIES: Tuple[Tuple[str, str], ...] = (
     ("Ascended Heroes", "Perfect Order"),
     ("Ascended Heroes", "Journey Together"),
     ("Mega Evolution", "Scarlet and Violet 151"),
+    ("Mega Evolution", "Journey Together"),
+    ("Prismatic Evolutions", "Scarlet and Violet 151"),
     ("Phantasmal Flames", "Ascended Heroes"),
     ("Phantasmal Flames", "Prismatic Evolutions"),
+    ("Phantasmal Flames", "Paldean Fates"),
 )
 
 # D gaps, in public points, at which the inversion boundary is probed.
@@ -400,6 +406,83 @@ def case_studies(
 # ---------------------------------------------------------------------------
 
 
+def significant_movers(
+    rows: Sequence[Mapping[str, Any]],
+    scored: Mapping[str, Mapping[str, Optional[float]]],
+    model_key: str,
+    *,
+    threshold: int = 3,
+) -> Dict[str, Any]:
+    """Every set moving >= ``threshold`` ranks away from the D-only ordering.
+
+    Reported with the full causal chain - D, D rank, H, sH, modifier, final CA,
+    final rank, movement - so a reader can verify that each move is arithmetic
+    rather than take it on trust.
+
+    ``localityCheck`` is the construct guarantee this section exists to test: a
+    set may be reordered inside its desirability neighbourhood, but must not
+    travel the leaderboard. It is measured as the D-rank distance to the sets a
+    mover passed, not as the raw rank delta.
+    """
+    d_only = scored["D_only"]
+    model = scored[model_key]
+    d_ranks = stats.dense_ranks(d_only)
+    model_ranks = stats.dense_ranks(model)
+    by_name = {row["set"]: row for row in rows}
+
+    movers: List[Dict[str, Any]] = []
+    for row in rows:
+        name = row["set"]
+        delta = int(d_ranks[name]) - int(model_ranks[name])
+        if abs(delta) < threshold:
+            continue
+        structure = structural_diagnostics(row["H"], row["P"])
+        modifier = model[name] - row["D"] * 100.0
+        # Who did this set pass, and how far away were they in D?
+        passed = [
+            other["set"]
+            for other in rows
+            if (int(d_ranks[other["set"]]) - int(model_ranks[other["set"]])) * delta < 0
+            and (int(d_ranks[other["set"]]) - int(d_ranks[name])) * delta < 0
+            and abs(int(d_ranks[other["set"]]) - int(d_ranks[name])) <= abs(delta) + 2
+        ]
+        d_gaps = [abs(by_name[other]["D"] - row["D"]) * 100.0 for other in passed]
+        movers.append(
+            {
+                "set": name,
+                "D": round(row["D"] * 100.0, 4),
+                "dRank": int(d_ranks[name]),
+                "H": round(row["H"], 6),
+                "hOneInN": round(1.0 / row["H"], 2) if row["H"] else None,
+                "sH": _round(structure["sH"]),
+                "modifier": round(modifier, 4),
+                "finalCa": _round(model[name]),
+                "finalRank": int(model_ranks[name]),
+                "rankMovement": delta,
+                "direction": "up" if delta > 0 else "down",
+                "passedSets": passed,
+                "maxDGapCrossedPoints": round(max(d_gaps), 4) if d_gaps else 0.0,
+            }
+        )
+
+    movers.sort(key=lambda item: -abs(item["rankMovement"]))
+    crossed = [item["maxDGapCrossedPoints"] for item in movers]
+    return {
+        "model": model_key,
+        "threshold": threshold,
+        "count": len(movers),
+        "movers": movers,
+        # Locality: no mover may cross a D gap wider than the model's own
+        # structural span, or the "neighbourhood" claim is false.
+        "maxDGapCrossedPoints": round(max(crossed), 4) if crossed else 0.0,
+        "allMovesWithinStructuralSpan": (
+            all(gap <= FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE + 1e-9 for gap in crossed)
+            if crossed
+            else True
+        ),
+    }
+
+
 def p_ablation(
     rows: Sequence[Mapping[str, Any]],
     scored: Mapping[str, Mapping[str, Optional[float]]],
@@ -658,6 +741,8 @@ def build_report(
         "movement": movement_table(rows, scored),
         "caseStudies": case_studies(rows, scored),
         "frozenCandidate": frozen_candidate_identity(),
+        "hOnlyCandidate": frozen_h_only_identity(),
+        "significantMovers": significant_movers(rows, scored, FROZEN_H_ONLY_KEY),
         "pAblation": p_ablation(rows, scored),
         "pAudit": {
             "sharedBudgetPoints": 4.0,
@@ -687,8 +772,8 @@ def print_report(report: Mapping[str, Any]) -> None:
     else:
         print("published V3 / CA7 / V2 reproduce exactly from canonical code.")
 
-    rec = report["recommendedCandidate"]
-    keys = ["D_only", "baseline_A_v3", "baseline_B_ca7", "baseline_C_v2", rec]
+    keys = ["D_only", "baseline_A_v3", "baseline_B_ca7", "baseline_C_v2",
+            FROZEN_CANDIDATE_KEY, FROZEN_H_ONLY_KEY]
 
     print("\n--- Cohort (published state) ---")
     header = f"{'set':<28}{'D':>7}{'H':>7}{'P':>7}{'S':>6}" + "".join(
@@ -768,6 +853,31 @@ def print_report(report: Mapping[str, Any]) -> None:
                 f"{m['rightScore']:>7.2f}(#{m['rightRank']})  gap={m['caGap']:+7.2f}  "
                 f"{'FLIPS vs D' if m['flipsAgainstD'] else 'follows D'}"
             )
+
+    movers = report["significantMovers"]
+    print(f"\n--- Sets moving >= {movers['threshold']} ranks from D-only under {movers['model']} ---")
+    mh = (f"{'set':<28}{'D':>8}{'dRk':>5}{'H':>8}{'1-in-N':>8}{'sH':>7}"
+          f"{'mod':>7}{'CA':>8}{'rk':>5}{'move':>6}{'maxDgap':>9}")
+    print(mh)
+    for mover in movers["movers"]:
+        print(
+            f"{mover['set'][:27]:<28}{mover['D']:>8.2f}{mover['dRank']:>5}{mover['H']:>8.3f}"
+            f"{mover['hOneInN']:>8.2f}{mover['sH']:>7.3f}{mover['modifier']:>+7.2f}"
+            f"{mover['finalCa']:>8.2f}{mover['finalRank']:>5}{mover['rankMovement']:>+6}"
+            f"{mover['maxDGapCrossedPoints']:>9.2f}"
+        )
+        print(f"      passed: {', '.join(mover['passedSets']) or '-'}")
+    print(
+        f"  widest D gap crossed by any mover: {movers['maxDGapCrossedPoints']:.2f} pts "
+        f"(structural span is {FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE:.1f}); "
+        f"all moves local: {movers['allMovesWithinStructuralSpan']}"
+    )
+
+    ablation = report["pAblation"]
+    print(f"\n--- P ablation: {ablation['full']} vs {ablation['ablated']} ---")
+    print(f"  differ only in: {ablation['identicalExcept']}")
+    print(f"  spearman(with P, without P) = {ablation['fullVsAblated']['spearman']}")
+    print(f"  pairwise orderings changed by P: {ablation['pairwiseFlipCount']} of 231")
 
     print("\n--- P audit (all at the same +/-4 budget) ---")
     for key, entry in report["pAudit"]["variants"].items():

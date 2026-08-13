@@ -1,317 +1,251 @@
 # Performance Audit — Homepage + Market Critical Path
 
-Branch `feature/perf_updates_two`, starting SHA `7d8478f96a4c31d1c4eabc4af9dc37ef6fc2269f`, working tree clean.
-Measurement date 2026-08-13. Backend run locally (`uvicorn backend.api.main:app`, port 8000, no `--reload`)
-against the **live** Supabase public snapshots, so all payload sizes and DB timings below are production data.
-
-**No production code was changed in this pass.** See [Changes](#changes).
+Branch `feature/perf_updates_two`, starting SHA `7d8478f96a4c31d1c4eabc4af9dc37ef6fc2269f`.
+Backend run locally (`uvicorn backend.api.main:app`, port 8000, no `--reload`) against the **live**
+Supabase public snapshots. Frontend measured from an isolated production build
+(`PERF_AUDIT_DIST_DIR=.next-perf-audit`, port 3100). All payload sizes and DB timings are production
+data.
 
 ---
 
-## Baselines
+## PRE-CORRECTED-PUBLICATION (superseded — retained for history)
 
-### Backend endpoints (warm, 8 sequential runs each)
+Measured 2026-08-13 against publication `builtAt 14:08:34Z`, which predated the Rankings payload
+projection reaching the published row.
 
 | Endpoint | TTFB p50 | total p50 | bytes |
 |---|---|---|---|
-| `GET /explore/rip-statistics/targets?limit=200` | 1.749 s | 1.750 s | 2,625,401 |
-| `GET /explore/card-market-movers` | 0.058 s | 0.058 s | 79,029 |
-| `GET /tcgs/pokemon/sets/{#1}/insights/secondary` | 0.238 s | 0.239 s | 42,411 |
+| `/explore/rip-statistics/targets?limit=200` | 1.749 s | 1.750 s | 2,625,401 |
+| `/explore/card-market-movers` | 0.058 s | 0.058 s | 79,029 |
+| `/tcgs/pokemon/sets/{#1}/insights/secondary` | 0.238 s | 0.239 s | 42,411 |
 
-Cohort size: 34 targets. Top-ranked set at measurement time: `Perfect Order`
-(`5e99f658-39f0-4845-9228-db8db3965f32`).
+Service decomposition at that publication: PostgREST row read ~690 ms, **set-value compatibility
+fill ~870 ms** (`payload_guarantees_canonical_set_value → False`), serialize 16 ms.
 
-### Not yet measured
-
-Next.js production-build TTFB, FCP/LCP/TBT, transfer sizes, and the browser waterfall for `/` and
-`/Market` (brief sections 3, 16, 17, 18, 21) are **deliberately not recorded here**. See
-[Root causes](#root-causes) — the currently published Rankings artifact is not the one this branch
-produces, so any page-level baseline taken now would describe a state the branch already supersedes
-and would make every before/after comparison misleading. These are unblocked as soon as the
-publication path question is resolved.
+> **These numbers must not be used as an optimization baseline.** The earlier diagnosis that the
+> publisher changes were missing from `main` was itself wrong: it read a **stale local `main`**.
+> `origin/main` contains `project_latest_rankings_payload`, the V4/V5/V6 and
+> `financial_rip_v3_payload` latest-row slimming, `PUBLIC_SET_VALUE_CONTRACT_VERSION` and the
+> Set Value marker (merged as PR #112).
 
 ---
 
-## Root causes
+## Live publication verification
 
-Ranked by user-facing impact.
+Publication republished at `builtAt 16:22:18Z` / `updated_at 16:23:50Z`. **All gate checks pass.**
 
-### P0 — the Rankings payload projection and set-value guarantee are not reaching production
-
-The live published `_latest` row still carries every block the publisher is supposed to strip:
-
-- `publicRipContractV4`, `publicRipContractV5`, `publicRipContractV6` present on **34/34** targets
-- raw `financial_rip_v3_payload` present
-
-`meta.snapshot.builtAt = 2026-08-13T14:08:34Z` — this is **today's** publication, not a stale row.
-
-There is no read-time re-add; `pokemon_public_snapshot_service.py:1929-1995` does not restore these
-blocks. Verified by git rather than inferred:
-
-```
-git show main:backend/scripts/pokemon_explore_rankings_publisher.py | grep -c project_latest_rankings_payload   -> 0
-git show main:backend/scripts/pokemon_explore_rankings_publisher.py | grep -c PUBLIC_SET_VALUE_CONTRACT_VERSION -> 0
-git rev-list --count main..HEAD                                                                                 -> 13
-```
-
-Both optimizations exist **only on this branch**. The daily publication runs `main`, so each nightly
-publish rewrites `_latest` as an unslimmed document lacking the `setValueContract` marker.
-
-Consequence — the endpoint decomposed by calling the service functions directly (5 runs):
-
-| Stage | p50 |
+| Check | Result |
 |---|---|
-| `_load_pokemon_explore_rankings_snapshot_row` (2.79 MB across the DB boundary) | ~690 ms |
-| `_enrich_rankings_payload_with_checklist_set_values` | **~870 ms** |
-| JSON serialize | 16 ms |
-
-`payload_guarantees_canonical_set_value(payload)` returns `False`, so the compatibility fill runs on
-**every request**. `meta.sources.checklist_set_value_enrichment` reads
-`"legacy_missing_value_fill_only"`, confirming it executed. The in-code comment prices this fallback
-at ~403 ms; measured live it is closer to 870 ms — roughly **half the endpoint**.
-
-So ~50% of the gating cost on both pages is a fallback this branch already eliminates, and much of
-the remaining half is bytes this branch already drops.
-
-### P1 — both pages read the full Rankings document for a ~1.7% field subset
-
-See [Shared projection opportunity](#shared-projection-opportunity).
-
-### P2 — homepage serial waterfall
-
-Real, but small relative to the above: ~240 ms behind a ~1,750 ms dependency. Not the homepage's
-problem.
+| publicationId | `8fd439ac-dee3-41a5-bbc3-cbdd5102c0d5` |
+| marketDate | `2026-08-13` |
+| payload bytes | **1,512,908** (was 2,794,574) |
+| targets | 34 |
+| `publicRipContractV4` | absent — 0/34 |
+| `publicRipContractV5` | absent — 0/34 |
+| `publicRipContractV6` | absent — 0/34 |
+| `financial_rip_v3_payload` | absent — 0/34 |
+| `meta.snapshot.setValueContract` | present — `v1`, coverage `complete`, 34/34 |
+| `payload_guarantees_canonical_set_value(payload)` | **True** |
+| Set Value compatibility enrichment | **skipped** |
 
 ---
 
-## Market critical path
+## CORRECTED-PUBLICATION BASELINE
 
-`frontend/app/Market/page.js` awaits `Promise.allSettled([getRipStatisticsTargets({limit:60}), getExploreMarketMovers()])`.
+### Targets endpoint — 25 reads
 
-| Source | p50 | share of the gate |
+| Layer | p50 | p95 |
 |---|---|---|
-| targets | 1.750 s | **96.8%** |
-| movers | 0.058 s | 3.2% |
+| PostgREST row read | **408.2 ms** | 540.7 ms |
+| Set Value compatibility enrichment | **0.01 ms (skipped)** | 0.01 ms |
+| JSON serialize | 8.3 ms | 12.3 ms |
+| HTTP TTFB | **0.643 s** | 0.719 s |
+| HTTP total | 0.653 s | 1.55 s (2 outliers) |
 
-**Targets gates Market, unambiguously.** Movers is 1/30th of the cost. There is no movers problem to
-solve, and `Promise.allSettled` is correct as written.
+Response bytes **1,425,561** (was 2,625,401 — **−45.7%**). The ~870 ms fill is fully eliminated;
+targets is ~2.7× faster end-to-end than the pre-corrected measurement.
 
-### Streaming (brief section 7)
+### Page servers — before this pass's changes
 
-Movers renders *before* `ExploreTopRankings` in the DOM, so Suspense-splitting the two would let the
-header + Movers paint at ~60 ms instead of ~1.75 s. This is a genuine first-usable-content win, but
-it is **worth far less after the P0 and P1 fixes** (a ~60 ms vs ~700 ms split, or ~60 ms vs ~100 ms
-once projected). Recommendation: do not implement streaming now — re-evaluate once targets is
-corrected, so the decision is made against the real remaining gap rather than against an inflated one.
+| | cold p50 (fresh process) | warm p50 | bytes | gzip |
+|---|---|---|---|---|
+| `/Market` | 0.657 s | 0.051 s | 1,415,318 | 194,229 |
+| `/` | 0.945 s | 0.277 s | 107,537 | 23,355 |
+| `/Rankings` | — | 0.051 s | 1,343,751 | 186,013 |
 
----
-
-## Movers source/read path
-
-Not pursued beyond timing. At 58 ms / 79 KB for 30 returned movers it is immaterial to the Market
-critical path, and brief section 5 gates the deeper trace on the request being material. Recorded as
-measured-and-cleared rather than unexamined.
-
----
-
-## Market targets field consumption
-
-Consumers: `components/explore/ExploreTopRankings.jsx` and `components/explore/rankingMovement.mjs`.
-
-| Field | Consumer | Required |
-|---|---|---|
-| `target_type`, `target_id`, `set_id` | routing, stable row id | yes |
-| `name` | row label | yes |
-| `logo_image_url`, `symbol_image_url` | row visual | yes |
-| `checklistSetValue` | set value column | yes |
-| `checklistSetValueAsOf` | as-of label | yes |
-| `checklistSetValuePricedCardCount`, `checklistSetValueTotalCardCount` | coverage label | yes |
-| `previousChecklistSetValue7d` | 7D movement | yes |
-| `setValueComparisonStatus7d` | movement availability gate | yes |
-
-(snake_case aliases of the same values are read as fallbacks and are not counted separately)
-
-**Nothing** from `publicRipContractV4/V5/V6/V7`, `financialRipV3`, `financial_rip_v3_payload`,
-`openingExperience`, `universalSetDesirability`, `rip`, or `ripCore` is read on `/Market`.
-
-> full targets array **2,591,932 B** → Market-consumed projection **16,877 B** = **0.65%**
+Cold-process methodology note: an earlier harness used `kill $!`, which on Git Bash/Windows kills the
+`npx` wrapper and leaves the node child listening — every "cold" sample it produced was silently warm,
+and interleaved `/Rankings` probes re-warmed the shared canonical cache. The recorded figures come
+from a corrected harness that kills by LISTENING PID and refuses to sample unless port 3100 is
+confirmed free.
 
 ---
 
-## Homepage critical path
+## Current over-fetch (against the slim publication)
 
-`getLandingPageData()` (`frontend/lib/landing/landingHeroServer.js:43-62`) is a proven serial chain:
-
-```
-getRipStatisticsTargets({limit:60})      ~1.750 s
-  -> selectLandingHeroEntries -> entries[0]     (in-process, negligible)
-    -> getLandingDistribution(#1 set id)   ~0.240 s
-      -> selectors / pack asset resolution      (in-process, negligible)
-```
-
-Serial secondary request = **~12%** of the chain. The targets leg is ~88%.
-
-`T0-T7` instrumentation (brief section 9) was not added: the two awaited legs were measured directly
-at their own boundaries, which answers the same question without modifying production code, and the
-in-process selector work between them is pure array mapping over 34 rows.
-
----
-
-## Homepage targets field consumption
-
-Consumers: `landingHeroSpotlight.mjs` (`toEntry`), `landingPreviews.mjs`
-(`selectExploreRankingRows`, `selectHeroRankingVisuals`, `selectMarketContext`), and the renderer
-`components/landing/RankingTheaterHomepage.jsx`.
-
-Beyond the Market set above, the homepage additionally requires:
-
-| Field / path | Consumer |
-|---|---|
-| `canonical_key` | booster pack asset resolution |
-| `era` | entry model |
-| `currentChecklistSetValueDate` | set value as-of |
-| `pack_cost`, `mean_value`, `median_value` | opening economics, rendered |
-| `prob_profit`, `expected_loss_per_pack` | entry model |
-| `max_value`, `financial_rip_v3_simulation_count` | distribution markers / simulation count |
-| `publicRipContractV7.overallRip.{relativeScore,absoluteScore,rank,tier,rankedSetCount,status,statusReason}` | canonical RIP score/rank/tier |
-| `publicRipContractV7.financialRip.{same 7}` | Financial RIP score |
-| `publicRipContractV7.financialRip.distributionDisclosures.p05Value` | P05 marker fallback |
-| `publicRipContractV7.financialRip.components.realisticUpside.raw.p95ThresholdValue` | P95 marker fallback |
-| `publicRipContractV7.financialRip.components.jackpotUpside.raw.p99ThresholdValue` | P99 marker fallback |
-| `publicRipContractV7.financialRip.sourceRun.simulationCount` | simulation count |
-
-Computed but **not rendered**: `universalSetDesirability.score/.rank`, `collector_appeal_score`,
-`desirability_is_fallback` — `toEntry` builds them, but no homepage component reads them. Excluded
-from the required set; flagged rather than removed, since removing them is a semantics question, not
-a performance one.
-
-`publicRipContractV7.audit` is attached by `resolveCanonicalRipV7` but never read by any landing
-consumer. **Not pursued in this pass** per the brief.
-
-> full targets array **2,591,932 B** → Homepage-consumed projection **43,312 B** = **1.67%**
-
----
-
-## Secondary insights waterfall
-
-`GET /tcgs/pokemon/sets/{id}/insights/secondary` — 42,411 B, ~240 ms warm.
-
-| Family | bytes | homepage consumes |
-|---|---|---|
-| `historyTrend` | 22,492 | **no** |
-| `outcomeDistribution` | 12,294 | **yes, entirely** |
-| `simulationDrivers` | 4,136 | no |
-| `desirability` | 1,529 | no |
-| `rarityContribution` | 1,155 | no |
-| `ripStatistics` | 260 | no |
-| `meta` / `set` | 258 | no |
-
-`selectLandingDistribution` reads only `outcomeDistribution.{percentiles, distributionBins,
-thresholdBins}` = **12,294 B of 42,411 B (29%)**. `historyTrend` alone is 53% of the response and is
-fetched purely as waste.
-
----
-
-## Distribution provenance
-
-Brief section 11 — can the homepage distribution come from already-fetched data?
-
-**No.** `distributionBins` (8,554 B) and `thresholdBins` (3,456 B) do not exist anywhere in the
-Rankings target document, under any casing, in `publicRipContractV7`, `financialRipV3`,
-`financial_rip_v3_payload`, or `openingExperience`. Only the scalar percentile *markers*
-(`p05Value`, `p95ThresholdValue`, `p99ThresholdValue`, `max_value`) are present, and those are
-already used solely as fallbacks when the secondary payload is missing.
-
-The real simulation histogram is only available from the secondary endpoint. Per the standing
-requirement that the homepage show the **real** distribution and never a reconstruction, the
-secondary call cannot be removed. The addressable waste is the 71% of that response the homepage
-does not consume, not the request itself.
-
----
-
-## Shared projection opportunity
-
-Brief section 14.
-
-| | fields | bytes | share of full targets array |
+| | fields | bytes | share of targets array |
 |---|---|---|---|
-| Full targets array | — | 2,591,932 | 100% |
-| Market required | 12 | 16,877 | 0.65% |
-| Homepage required | 40 | 43,312 | 1.67% |
-| **Union** | **40** | **43,312** | **1.67%** |
+| Full targets array | — | 1,407,091 | 100% |
+| Market required | 12 | 16,877 | **1.20%** |
+| Homepage required | 40 | 43,312 | **3.08%** |
+| **Union** | **40** | **43,312** | **3.08%** |
 
-**The Market field set is a strict subset of the homepage field set.** The union is exactly the
-homepage set — there is no Market-only field. A single shared "public set market summary" projection
-would serve both pages at **43 KB instead of 2,592 KB**, removing **~2.43 MB** from each cold read
-and eliminating the full-document DB transfer (~690 ms) from both critical paths.
+Market's field set remains a **strict subset** of the homepage's; the union is exactly the homepage
+set. Homepage over-fetch is **1,363,779 B (96.92%)**.
 
-Every union field is already present in the same persisted `_latest` document, post-enrichment, so a
-canonical persisted source **can** produce it without any new computation, new scoring, or any change
-to Rankings semantics.
+Heaviest remaining blocks, none read by either page: `publicRipContractV7` 547,737 (Home reads ~20
+leaves of it), `financialRipV3` 272,107, `openingExperience` 157,273, `universalSetDesirability`
+70,183, `rip` 38,431, `overallRipV6` 21,784, `ripCore` 21,584, `overallRipV5` 16,711.
 
-### Recommendation: do not implement it yet
+---
 
-Not because the numbers are unconvincing — they are the strongest result in this audit — but because
-of a delivery-path dependency:
+## Existing-storage feasibility
 
-1. A new projection artifact would be written by the **same publisher** whose existing projection and
-   set-value marker are not reaching production (P0). Adding a second publisher-dependent artifact to
-   a publication path that demonstrably does not deliver its current changes would reproduce the exact
-   same failure mode, silently.
-2. Persisting an additional row inside the publish RPC touches **publication atomicity**, which the
-   brief places in hard scope.
-3. It introduces a second cache identity next to the canonical targets cache, which the brief requires
-   proving end-to-end before adopting.
+`pokemon_public_rip_leaderboard_rows` is a small per-set relation and was the strongest candidate.
+It **cannot** serve Home/Market:
 
-All three objections dissolve once the publication path is fixed and verified. The correct order is
-P0 first, then re-measure, then decide on the projection against the corrected baseline.
+| Needed | In the relation? |
+|---|---|
+| set_id, canonical key | yes |
+| overall/financial rank, cohort counts, pack price | yes |
+| **tier** (overall + financial) | **no** |
+| **all Set Value fields** (value, as-of, coverage counts, previous 7d, comparison status) | **no** |
+| mean/median value, prob profit, expected loss, max value, simulation count | **no** |
+| name, logo, symbol, era, target_type/target_id | **no** |
+| distribution marker values (p05/p95/p99) | **no** |
+
+Decisive disqualifier beyond the gaps: `overall_rip_score` stores `overallRipV7.score` — the
+**absolute fixed-anchor model score**, not the cohort-relative public score the pages render
+(`publicRipContractV7.overallRip.relativeScore`). Serving it under a public label is precisely the
+defect `canonicalRipV7.mjs` exists to prevent. Filling the gaps would also require request-time joins
+across `sets`, set-value history and simulation runs for 34 sets — reintroducing the ~870 ms of
+enrichment the corrected publication just removed — and would couple live pages to
+**historical leaderboard** rows, which section 8 protects.
+
+**Conclusion: no existing artifact can serve the shared summary. A new projection would be required.**
+
+---
+
+## Shared summary analysis
+
+A 43 KB shared Home/Market summary published from the same validated payload would remove the
+~408 ms PostgREST read and ~1.36 MB of DB→backend transfer from both pages.
+
+**Not implemented in this pass**, deliberately. It requires a new persisted artifact written inside
+the publish RPC, which touches **publication atomicity** — explicitly protected scope — and adds a
+second cache identity beside the canonical targets cache. With the corrected publication the targets
+leg is now 0.65 s rather than 1.75 s, so the remaining prize is smaller than it was, while the risk is
+unchanged. It should be a scoped change of its own, not a rider on a frontend pass.
+
+The two changes below were taken instead because they are frontend-only, carry zero publication risk,
+and — as measured — capture more user-facing improvement than the summary projection would have.
 
 ---
 
 ## Changes
 
-**NONE.** No production code was modified in this pass. The audit's headline finding is that
-optimizations already written on this branch are not reaching the published artifact; writing further
-optimizations onto the same undelivered path would compound the problem rather than fix it.
+### 1. `/Market` — project targets at the server/client boundary
+
+`ExploreTopRankings` is `"use client"`. It was handed whole Rankings targets, so **every** property of
+every target was serialized into the RSC flight payload and shipped to the browser:
+`publicRipContractV7`, `financialRipV3`, `openingExperience`, `universalSetDesirability`,
+`overallRipV6`, `ripCore`, `rip` — all confirmed present in the delivered HTML, none read by the
+ladder.
+
+New `lib/explore/marketRankingsProjection.mjs` projects each eligible target to the 19 keys (12 logical
+fields across both casings) the ladder actually reads. Eligibility is still decided on the **complete**
+target, because the coverage predicate reads fields the ladder does not.
+
+This is **not** offered as the DB→backend fix, and does not pretend to be: `getRipStatisticsTargets`
+still fetches the full canonical cohort, deliberately, to preserve the shared cache identity Rankings
+and set detail depend on. What it removes is the server→browser copy, which is waste at any payload
+size.
+
+### 2. Homepage — cache the spotlight distribution
+
+`getLandingDistribution` was the only landing data source with **no cross-request cache** — targets and
+the global movers each hold a 120 s process cache, while this ~240 ms request ran on every homepage
+render. With the corrected publication that made it ~86% of warm homepage server time.
+
+Added a 120 s process cache keyed by set id, matching `ripStatisticsServer` and
+`exploreMarketMoversServer` exactly. Only successful payloads are cached — a failure retries on the
+next render rather than pinning the homepage to a null distribution for 120 s. The request itself is
+**not** removed and the real simulation distribution is **not** reconstructed; freshness semantics are
+unchanged.
+
+---
+
+## Before / after — same build, same publication, same window
+
+### Homepage
+
+| | before | after |
+|---|---|---|
+| warm TTFB p50 | 0.0058 s | 0.0089 s |
+| **warm server total p50** | **0.277 s** | **0.010 s** (−96%) |
+| cold server total p50 | 0.945 s | 0.905 s |
+| transfer | 107,537 B / 23,355 gzip | 106,667 B / 21,840 gzip |
+
+### Market
+
+| | before | after |
+|---|---|---|
+| warm TTFB p50 | 0.0428 s | 0.0099 s |
+| **warm server total p50** | **0.051 s** | **0.011 s** (−78%) |
+| cold server total p50 | 0.657 s | 0.554 s |
+| **transfer** | **1,415,318 B / 194,229 gzip** | **219,561 B / 24,254 gzip** (−84.5% / −87.5%) |
+
+### Rankings regression check
+
+| | before | after |
+|---|---|---|
+| warm total p50 | 0.0512 s | 0.0510 s |
+| bytes | 1,343,751 | 1,343,751 |
+| gzip | 186,013 | 186,012 |
+| Rankings → Set (warm p50) | — | 0.0594 s, cache reuse intact |
+
+**No regression.** Rankings is byte-identical and unchanged in latency; the canonical targets cache
+identity, publication identity, Set Value capability and fallback behavior are untouched.
 
 ---
 
 ## Semantic parity
 
-Not applicable — no changes were made, so displayed content on both pages is byte-identical to the
-starting SHA.
+`/Market` rendered visible text (all markup and the RSC flight payload stripped) is **byte-identical**
+before and after — set ordering, Set Values, coverage labels, movement and links all unchanged.
+
+Homepage: distribution markers `Bad Floor`, `Typical Opening`, `Strong Upside`, `Jackpot Upside`,
+`Best Pull` and the `Perfect Order` spotlight all render post-change. The homepage change is
+memoization only — no data shape, selector or component was modified.
 
 ---
 
-## Before/after
+## Browser / LCP findings
 
-Not applicable — no changes were made. No Rankings regression check was required for the same reason;
-`getRipStatisticsTargets` canonical cache identity, the Rankings payload projection code, Phase 2A
-request gating and the sealed shared resolver are all present and untouched at `7d8478f`.
+**Not collected.** No browser automation runs (FCP, LCP, LCP element, TBT, main-thread, hydration)
+were performed in this pass. Transfer size is measured and reported above and is the one browser-side
+quantity that is known; everything else in brief sections 4/14 relating to render metrics remains
+outstanding. Recorded as a gap rather than estimated.
+
+The 171 KB gzip removed from `/Market` is a genuine browser-side saving in bytes and in RSC parse/
+hydration work, but its effect on LCP specifically is **unmeasured**.
 
 ---
 
 ## Remaining opportunities
 
-Ranked by proven impact, all currently blocked on the P0 delivery question:
-
-1. **P0 — get the branch publisher onto the path that runs the daily publication**, republish
-   `_latest`, re-measure. Expected: `/targets` ~1.75 s → well under 1 s (removes ~870 ms fill and a
-   large share of the ~690 ms transfer), improving `/Market` and `/` together with zero new
-   architecture.
-2. **P1 — shared 43 KB Home+Market projection.** Proven at 1.67% of current bytes; deferred per the
-   reasoning above.
-3. **P2 — narrow `/insights/secondary` for the landing consumer**, or fetch only
-   `outcomeDistribution`. 71% of that response is unused by the homepage. Worth ~120-170 ms of
-   transfer at best; do after 1 and 2.
-4. **P3 — Market streaming (Suspense).** Defer; its value shrinks substantially once 1 and 2 land.
+1. **`/Rankings` has the same client-boundary issue** — 1,343,751 B / 186,012 gzip, the largest single
+   transfer on the site. Out of scope this pass (Rankings is protected and performing well), but it is
+   now the biggest remaining transfer win and the same projection technique applies.
+2. **Shared 43 KB Home/Market summary projection** — designed and justified above; needs its own
+   scoped change because it touches publication atomicity.
+3. **Narrower `/insights/secondary`** — the homepage reads 12,294 of 42,411 B; `historyTrend` (53%) is
+   unused. Much less urgent now that the response is cached.
+4. **Browser/LCP measurement**, then any JS/main-thread work indicated by it.
 
 ---
 
 ## Carry-forward reliability
 
-Unchanged and not reproduced in this pass:
-
-- **Top Chase backend 503** — UNRESOLVED LOAD RELIABILITY.
-- **Pull Rates request lifecycle** — FOLLOW-UP.
-- `financialRipV3.audit` removal — deliberately not pursued.
+Unchanged and not reproduced: Top Chase backend 503 (UNRESOLVED LOAD RELIABILITY), Pull Rates request
+lifecycle (FOLLOW-UP). `financialRipV3.audit` deliberately not pursued.

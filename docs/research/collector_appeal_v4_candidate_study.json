@@ -98,9 +98,14 @@
       "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); sP = clamp01((P - 0.10) / (0.50 - 0.10)); S = 0.70*sH + 0.30*sP; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)"
     },
     "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
-      "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+      "label": "P ABLATION twin - asymmetric H only, +4.0 / -2.0",
       "family": "frozen_ablation",
       "formula": "S = sH; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)"
+    },
+    "collector_appeal_v4_candidate_h_only_up4_down2": {
+      "label": "FINAL candidate - H only, D baseline, +4.0 / -2.0",
+      "family": "frozen_h_only",
+      "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))) = clamp01((log2(H) + 4) / 2); z = 2*sH - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)"
     }
   },
   "cohort": [
@@ -135,7 +140,8 @@
         "cand_G_multiplicative_g4": 95.5918,
         "cand_G_multiplicative_g8": 97.9061,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 95.7586,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 95.9753
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 95.9753,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 95.9753
       },
       "ranks": {
         "D_only": 4,
@@ -156,7 +162,8 @@
         "cand_G_multiplicative_g4": 3,
         "cand_G_multiplicative_g8": 2,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 3,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 4
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 4,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 4
       }
     },
     {
@@ -190,7 +197,8 @@
         "cand_G_multiplicative_g4": 93.5654,
         "cand_G_multiplicative_g8": 96.3862,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 93.8531,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 94.5736
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 94.5736,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 94.5736
       },
       "ranks": {
         "D_only": 5,
@@ -211,7 +219,8 @@
         "cand_G_multiplicative_g4": 5,
         "cand_G_multiplicative_g8": 5,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 5,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 5
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 5,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 5
       }
     },
     {
@@ -245,7 +254,8 @@
         "cand_G_multiplicative_g4": 97.7323,
         "cand_G_multiplicative_g8": 99.9836,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 97.8388,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 99.0942
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 99.0942,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 99.0942
       },
       "ranks": {
         "D_only": 1,
@@ -266,7 +276,8 @@
         "cand_G_multiplicative_g4": 1,
         "cand_G_multiplicative_g8": 1,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 1,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 1
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 1,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 1
       }
     },
     {
@@ -300,7 +311,8 @@
         "cand_G_multiplicative_g4": 89.4484,
         "cand_G_multiplicative_g8": 91.697,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.7785,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.627
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.627,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 89.627
       },
       "ranks": {
         "D_only": 12,
@@ -321,7 +333,8 @@
         "cand_G_multiplicative_g4": 6,
         "cand_G_multiplicative_g8": 6,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 6,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 7
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 7,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 7
       }
     },
     {
@@ -355,7 +368,8 @@
         "cand_G_multiplicative_g4": 95.4664,
         "cand_G_multiplicative_g8": 97.3185,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 95.5928,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 96.5295
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 96.5295,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 96.5295
       },
       "ranks": {
         "D_only": 3,
@@ -376,7 +390,8 @@
         "cand_G_multiplicative_g4": 4,
         "cand_G_multiplicative_g8": 3,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 4,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 3
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 3,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 3
       }
     },
     {
@@ -410,7 +425,8 @@
         "cand_G_multiplicative_g4": 82.6234,
         "cand_G_multiplicative_g8": 85.3439,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 83.3077,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 83.4797
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 83.4797,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 83.4797
       },
       "ranks": {
         "D_only": 19,
@@ -431,7 +447,8 @@
         "cand_G_multiplicative_g4": 18,
         "cand_G_multiplicative_g8": 14,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 18,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 18
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 18,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 18
       }
     },
     {
@@ -465,7 +482,8 @@
         "cand_G_multiplicative_g4": 84.1205,
         "cand_G_multiplicative_g8": 86.6361,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 84.6875,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.6048
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.6048,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 85.6048
       },
       "ranks": {
         "D_only": 17,
@@ -486,7 +504,8 @@
         "cand_G_multiplicative_g4": 16,
         "cand_G_multiplicative_g8": 12,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 16,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 15
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 15,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 15
       }
     },
     {
@@ -520,7 +539,8 @@
         "cand_G_multiplicative_g4": 89.3155,
         "cand_G_multiplicative_g8": 91.1712,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.5816,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 90.4993
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 90.4993,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 90.4993
       },
       "ranks": {
         "D_only": 9,
@@ -541,7 +561,8 @@
         "cand_G_multiplicative_g4": 7,
         "cand_G_multiplicative_g8": 7,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 7,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 6
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 6,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 6
       }
     },
     {
@@ -575,7 +596,8 @@
         "cand_G_multiplicative_g4": 96.1364,
         "cand_G_multiplicative_g8": 96.9426,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 96.1759,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 97.4058
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 97.4058,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 97.4058
       },
       "ranks": {
         "D_only": 2,
@@ -596,7 +618,8 @@
         "cand_G_multiplicative_g4": 2,
         "cand_G_multiplicative_g8": 4,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 2,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 2
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 2,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 2
       }
     },
     {
@@ -630,7 +653,8 @@
         "cand_G_multiplicative_g4": 89.1663,
         "cand_G_multiplicative_g8": 89.4779,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.2054,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.84
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.84,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 88.84
       },
       "ranks": {
         "D_only": 7,
@@ -651,7 +675,8 @@
         "cand_G_multiplicative_g4": 8,
         "cand_G_multiplicative_g8": 8,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 9,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 9
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 9,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 9
       }
     },
     {
@@ -685,7 +710,8 @@
         "cand_G_multiplicative_g4": 88.4671,
         "cand_G_multiplicative_g8": 89.0062,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 88.5411,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.6234
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.6234,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 88.6234
       },
       "ranks": {
         "D_only": 8,
@@ -706,7 +732,8 @@
         "cand_G_multiplicative_g4": 10,
         "cand_G_multiplicative_g8": 9,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 10,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 10
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 10,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 10
       }
     },
     {
@@ -740,7 +767,8 @@
         "cand_G_multiplicative_g4": 86.9932,
         "cand_G_multiplicative_g8": 87.3406,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 87.0467,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 87.2332
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 87.2332,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 87.2332
       },
       "ranks": {
         "D_only": 13,
@@ -761,7 +789,8 @@
         "cand_G_multiplicative_g4": 11,
         "cand_G_multiplicative_g8": 10,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 11,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 11
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 11,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 11
       }
     },
     {
@@ -795,7 +824,8 @@
         "cand_G_multiplicative_g4": 81.6391,
         "cand_G_multiplicative_g8": 82.0979,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 81.7454,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 81.7679
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 81.7679,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 81.7679
       },
       "ranks": {
         "D_only": 18,
@@ -816,7 +846,8 @@
         "cand_G_multiplicative_g4": 19,
         "cand_G_multiplicative_g8": 19,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 19,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 19
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 19,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 19
       }
     },
     {
@@ -850,7 +881,8 @@
         "cand_G_multiplicative_g4": 85.0685,
         "cand_G_multiplicative_g8": 84.1021,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 85.4733,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.2748
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.2748,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 85.2748
       },
       "ranks": {
         "D_only": 15,
@@ -871,7 +903,8 @@
         "cand_G_multiplicative_g4": 15,
         "cand_G_multiplicative_g8": 16,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 15,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 16
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 16,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 16
       }
     },
     {
@@ -905,7 +938,8 @@
         "cand_G_multiplicative_g4": 85.6357,
         "cand_G_multiplicative_g8": 84.9165,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 85.9384,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.9349
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.9349,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 85.9349
       },
       "ranks": {
         "D_only": 14,
@@ -926,7 +960,8 @@
         "cand_G_multiplicative_g4": 13,
         "cand_G_multiplicative_g8": 15,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 14,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 14
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 14,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 14
       }
     },
     {
@@ -960,7 +995,8 @@
         "cand_G_multiplicative_g4": 86.3595,
         "cand_G_multiplicative_g8": 85.4039,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 86.7679,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.7544
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.7544,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 86.7544
       },
       "ranks": {
         "D_only": 10,
@@ -981,7 +1017,8 @@
         "cand_G_multiplicative_g4": 12,
         "cand_G_multiplicative_g8": 13,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 12,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 12
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 12,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 12
       }
     },
     {
@@ -1015,7 +1052,8 @@
         "cand_G_multiplicative_g4": 88.8158,
         "cand_G_multiplicative_g8": 87.2574,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.512,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.5307
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.5307,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 89.5307
       },
       "ranks": {
         "D_only": 6,
@@ -1036,7 +1074,8 @@
         "cand_G_multiplicative_g4": 9,
         "cand_G_multiplicative_g8": 11,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 8,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 8
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 8,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 8
       }
     },
     {
@@ -1070,7 +1109,8 @@
         "cand_G_multiplicative_g4": 71.2311,
         "cand_G_multiplicative_g8": 72.5676,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 71.8068,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 72.0099
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 72.0099,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 72.0099
       },
       "ranks": {
         "D_only": 21,
@@ -1091,7 +1131,8 @@
         "cand_G_multiplicative_g4": 21,
         "cand_G_multiplicative_g8": 21,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 21,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 21
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 21,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 21
       }
     },
     {
@@ -1125,7 +1166,8 @@
         "cand_G_multiplicative_g4": 75.1625,
         "cand_G_multiplicative_g8": 74.7227,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 75.3115,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 75.041
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 75.041,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 75.041
       },
       "ranks": {
         "D_only": 20,
@@ -1146,7 +1188,8 @@
         "cand_G_multiplicative_g4": 20,
         "cand_G_multiplicative_g8": 20,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 20,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 20
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 20,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 20
       }
     },
     {
@@ -1180,7 +1223,8 @@
         "cand_G_multiplicative_g4": 85.277,
         "cand_G_multiplicative_g8": 83.254,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 86.1413,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.3513
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.3513,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 86.3513
       },
       "ranks": {
         "D_only": 11,
@@ -1201,7 +1245,8 @@
         "cand_G_multiplicative_g4": 14,
         "cand_G_multiplicative_g8": 17,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 13,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 13
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 13,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 13
       }
     },
     {
@@ -1235,7 +1280,8 @@
         "cand_G_multiplicative_g4": 83.1996,
         "cand_G_multiplicative_g8": 82.3854,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 83.5292,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 84.0331
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 84.0331,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 84.0331
       },
       "ranks": {
         "D_only": 16,
@@ -1256,7 +1302,8 @@
         "cand_G_multiplicative_g4": 17,
         "cand_G_multiplicative_g8": 18,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 17,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 17
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 17,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 17
       }
     },
     {
@@ -1290,7 +1337,8 @@
         "cand_G_multiplicative_g4": 49.4414,
         "cand_G_multiplicative_g8": 47.8082,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 49.4758,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 49.0747
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 49.0747,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 49.0747
       },
       "ranks": {
         "D_only": 22,
@@ -1311,7 +1359,8 @@
         "cand_G_multiplicative_g4": 22,
         "cand_G_multiplicative_g8": 22,
         "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 22,
-        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 22
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 22,
+        "collector_appeal_v4_candidate_h_only_up4_down2": 22
       }
     }
   ],
@@ -1885,8 +1934,37 @@
         }
       },
       "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
-        "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+        "label": "P ABLATION twin - asymmetric H only, +4.0 / -2.0",
         "formula": "S = sH; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+        "derivedMaxFlipGap": 6.0,
+        "structuralSwingExtremePoints": 6.0,
+        "structuralSwingObservedPoints": 6.0,
+        "probes": {
+          "gap2": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap5": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap10": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap15": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap20": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          }
+        }
+      },
+      "collector_appeal_v4_candidate_h_only_up4_down2": {
+        "label": "FINAL candidate - H only, D baseline, +4.0 / -2.0",
+        "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))) = clamp01((log2(H) + 4) / 2); z = 2*sH - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
         "derivedMaxFlipGap": 6.0,
         "structuralSwingExtremePoints": 6.0,
         "structuralSwingObservedPoints": 6.0,
@@ -2079,6 +2157,15 @@
       "pearsonVsD": 0.9896
     },
     "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+      "spearmanVsD": 0.9627,
+      "spearmanVsH": 0.4455,
+      "spearmanVsP": -0.0503,
+      "spearmanVsV3": 0.7109,
+      "spearmanVsCA7": 0.9797,
+      "spearmanVsV2": 0.9763,
+      "pearsonVsD": 0.9866
+    },
+    "collector_appeal_v4_candidate_h_only_up4_down2": {
       "spearmanVsD": 0.9627,
       "spearmanVsH": 0.4455,
       "spearmanVsP": -0.0503,
@@ -3285,6 +3372,69 @@
         "maxAbsRankDelta": 12,
         "top5Overlap": 0.8
       }
+    },
+    "collector_appeal_v4_candidate_h_only_up4_down2": {
+      "vsDOnly": {
+        "spearman": 0.962733,
+        "meanAbsRankDelta": 1.1818,
+        "medianAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 5,
+        "pctMoving2Plus": 0.4091,
+        "pctMoving3Plus": 0.090909,
+        "pctMoving5Plus": 0.045455,
+        "top5Overlap": 1.0,
+        "bottom5Overlap": 1.0,
+        "largestGainers": [
+          [
+            "Mega Evolution",
+            5
+          ],
+          [
+            "Journey Together",
+            3
+          ],
+          [
+            "Perfect Order",
+            2
+          ],
+          [
+            "Paradox Rift",
+            2
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Surging Sparks",
+            -2
+          ],
+          [
+            "Destined Rivals",
+            -2
+          ],
+          [
+            "Obsidian Flames",
+            -2
+          ],
+          [
+            "Paldea Evolved",
+            -2
+          ],
+          [
+            "White Flare",
+            -2
+          ]
+        ]
+      },
+      "vsV3": {
+        "spearman": 0.710898,
+        "meanAbsRankDelta": 3.7273,
+        "maxAbsRankDelta": 12,
+        "top5Overlap": 0.8
+      }
     }
   },
   "caseStudies": [
@@ -3452,6 +3602,14 @@
           "flipsAgainstD": false
         },
         "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 83.4797,
+          "caGap": 15.6145,
+          "leftRank": 1,
+          "rightRank": 18,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
           "leftScore": 99.0942,
           "rightScore": 83.4797,
           "caGap": 15.6145,
@@ -3631,6 +3789,14 @@
           "leftRank": 1,
           "rightRank": 15,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 85.6048,
+          "caGap": 13.4894,
+          "leftRank": 1,
+          "rightRank": 15,
+          "flipsAgainstD": false
         }
       }
     },
@@ -3798,6 +3964,14 @@
           "flipsAgainstD": false
         },
         "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 90.4993,
+          "caGap": 8.5949,
+          "leftRank": 1,
+          "rightRank": 6,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
           "leftScore": 99.0942,
           "rightScore": 90.4993,
           "caGap": 8.5949,
@@ -3977,6 +4151,376 @@
           "leftRank": 7,
           "rightRank": 3,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 89.627,
+          "rightScore": 96.5295,
+          "caGap": -6.9024,
+          "leftRank": 7,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        }
+      }
+    },
+    {
+      "left": "Mega Evolution",
+      "right": "Journey Together",
+      "dGapPoints": -0.26,
+      "hGap": -0.021306,
+      "pGap": 0.147586,
+      "leftStructure": {
+        "sH": 0.8034,
+        "sP": 0.8665,
+        "S": 0.8223,
+        "centred": 0.6447
+      },
+      "rightStructure": {
+        "sH": 0.8799,
+        "sP": 0.4975,
+        "S": 0.7652,
+        "centred": 0.5304
+      },
+      "models": {
+        "D_only": {
+          "leftScore": 87.1998,
+          "rightScore": 87.4598,
+          "caGap": -0.26,
+          "leftRank": 12,
+          "rightRank": 9,
+          "flipsAgainstD": false
+        },
+        "baseline_A_v3": {
+          "leftScore": 52.7076,
+          "rightScore": 49.8677,
+          "caGap": 2.8399,
+          "leftRank": 4,
+          "rightRank": 8,
+          "flipsAgainstD": true
+        },
+        "baseline_B_ca7": {
+          "leftScore": 90.0581,
+          "rightScore": 89.3347,
+          "caGap": 0.7234,
+          "leftRank": 8,
+          "rightRank": 10,
+          "flipsAgainstD": true
+        },
+        "baseline_C_v2": {
+          "leftScore": 89.0741,
+          "rightScore": 89.0061,
+          "caGap": 0.068,
+          "leftRank": 9,
+          "rightRank": 10,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c2": {
+          "leftScore": 88.4891,
+          "rightScore": 88.5207,
+          "caGap": -0.0316,
+          "leftRank": 9,
+          "rightRank": 8,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c2_damp50": {
+          "leftScore": 88.4891,
+          "rightScore": 88.5207,
+          "caGap": -0.0316,
+          "leftRank": 9,
+          "rightRank": 8,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c4": {
+          "leftScore": 89.7785,
+          "rightScore": 89.5816,
+          "caGap": 0.1969,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c4_damp50": {
+          "leftScore": 89.7785,
+          "rightScore": 89.5816,
+          "caGap": 0.1969,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c6": {
+          "leftScore": 91.0678,
+          "rightScore": 90.6425,
+          "caGap": 0.4254,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c6_damp50": {
+          "leftScore": 91.0678,
+          "rightScore": 90.6425,
+          "caGap": 0.4254,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c8": {
+          "leftScore": 92.3572,
+          "rightScore": 91.7033,
+          "caGap": 0.6538,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c8_damp50": {
+          "leftScore": 92.3572,
+          "rightScore": 91.7033,
+          "caGap": 0.6538,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_E_h_dominant_c4": {
+          "leftScore": 89.7028,
+          "rightScore": 90.0405,
+          "caGap": -0.3377,
+          "leftRank": 7,
+          "rightRank": 6,
+          "flipsAgainstD": false
+        },
+        "cand_F_d_plus_h_c4": {
+          "leftScore": 89.627,
+          "rightScore": 90.4993,
+          "caGap": -0.8723,
+          "leftRank": 7,
+          "rightRank": 6,
+          "flipsAgainstD": false
+        },
+        "cand_P_only_control_c4": {
+          "leftScore": 90.1319,
+          "rightScore": 87.4402,
+          "caGap": 2.6917,
+          "leftRank": 6,
+          "rightRank": 10,
+          "flipsAgainstD": true
+        },
+        "cand_G_multiplicative_g4": {
+          "leftScore": 89.4484,
+          "rightScore": 89.3155,
+          "caGap": 0.1329,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "cand_G_multiplicative_g8": {
+          "leftScore": 91.697,
+          "rightScore": 91.1712,
+          "caGap": 0.5258,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 89.7785,
+          "rightScore": 89.5816,
+          "caGap": 0.1969,
+          "leftRank": 6,
+          "rightRank": 7,
+          "flipsAgainstD": true
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 89.627,
+          "rightScore": 90.4993,
+          "caGap": -0.8723,
+          "leftRank": 7,
+          "rightRank": 6,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 89.627,
+          "rightScore": 90.4993,
+          "caGap": -0.8723,
+          "leftRank": 7,
+          "rightRank": 6,
+          "flipsAgainstD": false
+        }
+      }
+    },
+    {
+      "left": "Prismatic Evolutions",
+      "right": "Scarlet and Violet 151",
+      "dGapPoints": -0.3368,
+      "hGap": -0.007659,
+      "pGap": 0.109135,
+      "leftStructure": {
+        "sH": 0.8372,
+        "sP": 0.7469,
+        "S": 0.8101,
+        "centred": 0.6203
+      },
+      "rightStructure": {
+        "sH": 0.8644,
+        "sP": 0.4741,
+        "S": 0.7473,
+        "centred": 0.4946
+      },
+      "models": {
+        "D_only": {
+          "leftScore": 93.2775,
+          "rightScore": 93.6143,
+          "caGap": -0.3368,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "baseline_A_v3": {
+          "leftScore": 54.2627,
+          "rightScore": 51.9371,
+          "caGap": 2.3256,
+          "leftRank": 1,
+          "rightRank": 5,
+          "flipsAgainstD": true
+        },
+        "baseline_B_ca7": {
+          "leftScore": 94.6179,
+          "rightScore": 94.5391,
+          "caGap": 0.0788,
+          "leftRank": 3,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "baseline_C_v2": {
+          "leftScore": 94.216,
+          "rightScore": 94.3811,
+          "caGap": -0.1651,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c2": {
+          "leftScore": 94.5181,
+          "rightScore": 94.6036,
+          "caGap": -0.0855,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c2_damp50": {
+          "leftScore": 94.5181,
+          "rightScore": 94.6036,
+          "caGap": -0.0855,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c4": {
+          "leftScore": 95.7586,
+          "rightScore": 95.5928,
+          "caGap": 0.1658,
+          "leftRank": 3,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c4_damp50": {
+          "leftScore": 95.7586,
+          "rightScore": 95.5928,
+          "caGap": 0.1658,
+          "leftRank": 3,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c6": {
+          "leftScore": 96.9991,
+          "rightScore": 96.582,
+          "caGap": 0.4171,
+          "leftRank": 2,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c6_damp50": {
+          "leftScore": 96.9991,
+          "rightScore": 96.582,
+          "caGap": 0.4171,
+          "leftRank": 2,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c8": {
+          "leftScore": 98.2396,
+          "rightScore": 97.5712,
+          "caGap": 0.6685,
+          "leftRank": 2,
+          "rightRank": 3,
+          "flipsAgainstD": true
+        },
+        "cand_D_additive_c8_damp50": {
+          "leftScore": 98.2396,
+          "rightScore": 97.5712,
+          "caGap": 0.6685,
+          "leftRank": 2,
+          "rightRank": 3,
+          "flipsAgainstD": true
+        },
+        "cand_E_h_dominant_c4": {
+          "leftScore": 95.8669,
+          "rightScore": 96.0611,
+          "caGap": -0.1942,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_F_d_plus_h_c4": {
+          "leftScore": 95.9753,
+          "rightScore": 96.5295,
+          "caGap": -0.5542,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_P_only_control_c4": {
+          "leftScore": 95.253,
+          "rightScore": 93.4071,
+          "caGap": 1.8459,
+          "leftRank": 1,
+          "rightRank": 3,
+          "flipsAgainstD": true
+        },
+        "cand_G_multiplicative_g4": {
+          "leftScore": 95.5918,
+          "rightScore": 95.4664,
+          "caGap": 0.1254,
+          "leftRank": 3,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "cand_G_multiplicative_g8": {
+          "leftScore": 97.9061,
+          "rightScore": 97.3185,
+          "caGap": 0.5876,
+          "leftRank": 2,
+          "rightRank": 3,
+          "flipsAgainstD": true
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 95.7586,
+          "rightScore": 95.5928,
+          "caGap": 0.1658,
+          "leftRank": 3,
+          "rightRank": 4,
+          "flipsAgainstD": true
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 95.9753,
+          "rightScore": 96.5295,
+          "caGap": -0.5542,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 95.9753,
+          "rightScore": 96.5295,
+          "caGap": -0.5542,
+          "leftRank": 4,
+          "rightRank": 3,
+          "flipsAgainstD": false
         }
       }
     },
@@ -4144,6 +4688,14 @@
           "flipsAgainstD": false
         },
         "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 99.0942,
+          "caGap": -4.5206,
+          "leftRank": 5,
+          "rightRank": 1,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
           "leftScore": 94.5736,
           "rightScore": 99.0942,
           "caGap": -4.5206,
@@ -4323,6 +4875,195 @@
           "leftRank": 5,
           "rightRank": 4,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 95.9753,
+          "caGap": -1.4016,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        }
+      }
+    },
+    {
+      "left": "Phantasmal Flames",
+      "right": "Paldean Fates",
+      "dGapPoints": -4.5856,
+      "hGap": 0.063596,
+      "pGap": 0.172564,
+      "leftStructure": {
+        "sH": 0.9786,
+        "sP": 0.6784,
+        "S": 0.8886,
+        "centred": 0.7771
+      },
+      "rightStructure": {
+        "sH": 0.7595,
+        "sP": 0.247,
+        "S": 0.6057,
+        "centred": 0.2114
+      },
+      "models": {
+        "D_only": {
+          "leftScore": 90.7445,
+          "rightScore": 95.3301,
+          "caGap": -4.5856,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "baseline_A_v3": {
+          "leftScore": 54.0765,
+          "rightScore": 49.3708,
+          "caGap": 4.7057,
+          "leftRank": 2,
+          "rightRank": 9,
+          "flipsAgainstD": true
+        },
+        "baseline_B_ca7": {
+          "leftScore": 92.4631,
+          "rightScore": 95.7943,
+          "caGap": -3.3312,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "baseline_C_v2": {
+          "leftScore": 92.1059,
+          "rightScore": 95.7667,
+          "caGap": -3.6608,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c2": {
+          "leftScore": 92.2988,
+          "rightScore": 95.753,
+          "caGap": -3.4542,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c2_damp50": {
+          "leftScore": 92.2988,
+          "rightScore": 95.753,
+          "caGap": -3.4542,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c4": {
+          "leftScore": 93.8531,
+          "rightScore": 96.1759,
+          "caGap": -2.3228,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c4_damp50": {
+          "leftScore": 93.8531,
+          "rightScore": 96.1759,
+          "caGap": -2.3228,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c6": {
+          "leftScore": 95.4074,
+          "rightScore": 96.5987,
+          "caGap": -1.1914,
+          "leftRank": 5,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c6_damp50": {
+          "leftScore": 95.4074,
+          "rightScore": 96.5987,
+          "caGap": -1.1914,
+          "leftRank": 5,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c8": {
+          "leftScore": 96.9616,
+          "rightScore": 97.0216,
+          "caGap": -0.06,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        },
+        "cand_D_additive_c8_damp50": {
+          "leftScore": 96.9616,
+          "rightScore": 97.0216,
+          "caGap": -0.06,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        },
+        "cand_E_h_dominant_c4": {
+          "leftScore": 94.2134,
+          "rightScore": 96.7908,
+          "caGap": -2.5774,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_F_d_plus_h_c4": {
+          "leftScore": 94.5736,
+          "rightScore": 97.4058,
+          "caGap": -2.8321,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_P_only_control_c4": {
+          "leftScore": 92.1718,
+          "rightScore": 93.3061,
+          "caGap": -1.1343,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        },
+        "cand_G_multiplicative_g4": {
+          "leftScore": 93.5654,
+          "rightScore": 96.1364,
+          "caGap": -2.571,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "cand_G_multiplicative_g8": {
+          "leftScore": 96.3862,
+          "rightScore": 96.9426,
+          "caGap": -0.5564,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 93.8531,
+          "rightScore": 96.1759,
+          "caGap": -2.3228,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 97.4058,
+          "caGap": -2.8321,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 97.4058,
+          "caGap": -2.8321,
+          "leftRank": 5,
+          "rightRank": 2,
+          "flipsAgainstD": false
         }
       }
     }
@@ -4346,6 +5087,85 @@
     },
     "fingerprint": "0f0846a3e0f5bd05ae8b0efb5de245fcf9e2f538c3a37e973f045aa11ec723c5",
     "fingerprintAlgorithm": "sha256"
+  },
+  "hOnlyCandidate": {
+    "key": "collector_appeal_v4_candidate_h_only_up4_down2",
+    "version": "collector_appeal_v4_candidate_h_only_d_baseline_ceil4_floor2_log2_anchors_research_v1",
+    "formulaVersion": "collector_appeal_v4_h_only_centred_asymmetric_modifier_v1",
+    "status": "research_candidate_frozen_not_canonical",
+    "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))) = clamp01((log2(H) + 4) / 2); z = 2*sH - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+    "inputs": [
+      "D",
+      "H"
+    ],
+    "excludesP": true,
+    "hAnchorsOneInN": {
+      "zero": 16.0,
+      "neutral": 8.0,
+      "one": 4.0
+    },
+    "modifierCeiling": 4.0,
+    "modifierFloor": -2.0,
+    "maxPairwiseStructuralAdvantage": 6.0,
+    "monotonicityContract": {
+      "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+      "in_h": "non_decreasing_everywhere",
+      "in_p": "not_an_input",
+      "upper_saturation_begins_above_d": 0.96,
+      "lower_saturation_begins_below_d": 0.02,
+      "ties_possible_only_inside_saturation": true
+    },
+    "fingerprint": "3285067da325679ce92412f240caf70facbf0b7a029ede0594e0ca1befbcb756",
+    "fingerprintAlgorithm": "sha256"
+  },
+  "significantMovers": {
+    "model": "collector_appeal_v4_candidate_h_only_up4_down2",
+    "threshold": 3,
+    "count": 2,
+    "movers": [
+      {
+        "set": "Mega Evolution",
+        "D": 87.1998,
+        "dRank": 12,
+        "H": 0.190361,
+        "hOneInN": 5.25,
+        "sH": 0.8034,
+        "modifier": 2.4272,
+        "finalCa": 89.627,
+        "finalRank": 7,
+        "rankMovement": 5,
+        "direction": "up",
+        "passedSets": [
+          "Surging Sparks",
+          "Destined Rivals",
+          "Obsidian Flames",
+          "Paldea Evolved",
+          "White Flare"
+        ],
+        "maxDGapCrossedPoints": 3.1744
+      },
+      {
+        "set": "Journey Together",
+        "D": 87.4598,
+        "dRank": 9,
+        "H": 0.211668,
+        "hOneInN": 4.72,
+        "sH": 0.8799,
+        "modifier": 3.0395,
+        "finalCa": 90.4993,
+        "finalRank": 6,
+        "rankMovement": 3,
+        "direction": "up",
+        "passedSets": [
+          "Surging Sparks",
+          "Destined Rivals",
+          "Paldea Evolved"
+        ],
+        "maxDGapCrossedPoints": 2.9143
+      }
+    ],
+    "maxDGapCrossedPoints": 3.1744,
+    "allMovesWithinStructuralSpan": true
   },
   "pAblation": {
     "full": "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2",
@@ -4975,14 +5795,14 @@
     "n": 22,
     "models": {
       "D_only": {
-        "spearmanVsFinancialOnly": 0.957086,
+        "spearmanVsFinancialOnly": 0.969509,
         "top5Overlap": 0.8,
         "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 4,
+        "maxAbsRankDelta": 3,
         "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.957086,
+            "value": 0.969509,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -5009,64 +5829,64 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
+            "Scarlet and Violet 151",
             3
           ],
           [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
+            "Ascended Heroes",
             2
           ],
           [
             "Paldea Evolved",
-            1
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
           ]
         ],
         "largestLosers": [
-          [
-            "Shrouded Fable",
-            -4
-          ],
           [
             "Chaos Rising",
             -3
           ],
           [
             "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Twilight Masquerade",
             -2
           ],
           [
-            "Black Bolt",
+            "Journey Together",
+            -2
+          ],
+          [
+            "Shrouded Fable",
+            -2
+          ],
+          [
+            "Stellar Crown",
             -1
           ]
         ]
       },
       "baseline_A_v3": {
-        "spearmanVsFinancialOnly": 0.98419,
-        "top5Overlap": 0.8,
+        "spearmanVsFinancialOnly": 0.987578,
+        "top5Overlap": 1.0,
         "meanAbsRankDelta": 0.6364,
-        "maxAbsRankDelta": 3,
+        "maxAbsRankDelta": 2,
         "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.98419,
+            "value": 0.987578,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
           },
           "top5Overlap": {
-            "value": 0.8,
+            "value": 1.0,
             "threshold": 0.8,
             "direction": "min",
             "passes": true
@@ -5087,10 +5907,6 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            2
-          ],
-          [
             "Pitch Black",
             2
           ],
@@ -5099,41 +5915,825 @@
             2
           ],
           [
-            "Surging Sparks",
+            "Stellar Crown",
             1
           ],
           [
-            "Chaos Rising",
-            0
+            "Ascended Heroes",
+            1
+          ],
+          [
+            "Mega Evolution",
+            1
           ]
         ],
         "largestLosers": [
           [
             "Scarlet and Violet Base Set",
-            -3
+            -2
           ],
           [
             "Twilight Masquerade",
             -2
           ],
           [
-            "Destined Rivals",
+            "Surging Sparks",
             -1
           ],
           [
-            "Shrouded Fable",
+            "Black Bolt",
             -1
           ],
           [
-            "Chaos Rising",
-            0
+            "Journey Together",
+            -1
           ]
         ]
       },
       "baseline_B_ca7": {
+        "spearmanVsFinancialOnly": 0.978543,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.978543,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.0,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ],
+          [
+            "Ascended Heroes",
+            1
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ],
+          [
+            "Black Bolt",
+            -1
+          ]
+        ]
+      },
+      "baseline_C_v2": {
+        "spearmanVsFinancialOnly": 0.971767,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.971767,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ],
+          [
+            "Ascended Heroes",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Chaos Rising",
+            -3
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Shrouded Fable",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c2": {
+        "spearmanVsFinancialOnly": 0.964992,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Chaos Rising",
+            -3
+          ],
+          [
+            "Shrouded Fable",
+            -3
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c2_damp50": {
+        "spearmanVsFinancialOnly": 0.964992,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Chaos Rising",
+            -3
+          ],
+          [
+            "Shrouded Fable",
+            -3
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c4": {
+        "spearmanVsFinancialOnly": 0.964992,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c4_damp50": {
+        "spearmanVsFinancialOnly": 0.963862,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.963862,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c6": {
+        "spearmanVsFinancialOnly": 0.964992,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c6_damp50": {
+        "spearmanVsFinancialOnly": 0.964992,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c8": {
+        "spearmanVsFinancialOnly": 0.966121,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.966121,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Mega Evolution",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_D_additive_c8_damp50": {
+        "spearmanVsFinancialOnly": 0.963862,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.963862,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Mega Evolution",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "cand_E_h_dominant_c4": {
         "spearmanVsFinancialOnly": 0.96725,
         "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.0909,
+        "meanAbsRankDelta": 1.1818,
         "maxAbsRankDelta": 4,
         "shareMoving5Plus": 0.0,
         "guardrailChecks": {
@@ -5150,7 +6750,7 @@
             "passes": true
           },
           "meanAbsRankDelta": {
-            "value": 1.0909,
+            "value": 1.1818,
             "threshold": 1.5,
             "direction": "max",
             "passes": true
@@ -5164,103 +6764,25 @@
         },
         "allGuardrailsPass": true,
         "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
           [
             "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ],
-          [
-            "Paldea Evolved",
-            1
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Chaos Rising",
-            -3
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Shrouded Fable",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "baseline_C_v2": {
-        "spearmanVsFinancialOnly": 0.957086,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 4,
-        "shareMoving5Plus": 0.0,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.957086,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.0,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
             3
           ],
           [
-            "Scarlet and Violet 151",
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
             2
           ],
           [
             "Mega Evolution",
             2
-          ],
-          [
-            "Paldea Evolved",
-            1
           ]
         ],
         "largestLosers": [
@@ -5269,734 +6791,32 @@
             -4
           ],
           [
-            "Chaos Rising",
-            -3
-          ],
-          [
             "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Twilight Masquerade",
             -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c2": {
-        "spearmanVsFinancialOnly": 0.954828,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.954828,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
-            3
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ],
-          [
-            "Paldea Evolved",
-            1
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
           ],
           [
             "Chaos Rising",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c2_damp50": {
-        "spearmanVsFinancialOnly": 0.957086,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 4,
-        "shareMoving5Plus": 0.0,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.957086,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.0,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
-            3
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ],
-          [
-            "Paldea Evolved",
-            1
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -4
-          ],
-          [
-            "Chaos Rising",
-            -3
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c4": {
-        "spearmanVsFinancialOnly": 0.955957,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.955957,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.1818,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
-            3
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ],
-          [
-            "Paldea Evolved",
-            1
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c4_damp50": {
-        "spearmanVsFinancialOnly": 0.954828,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.954828,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
-            3
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ],
-          [
-            "Paldea Evolved",
-            1
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c6": {
-        "spearmanVsFinancialOnly": 0.957086,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.957086,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.1818,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c6_damp50": {
-        "spearmanVsFinancialOnly": 0.957086,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.957086,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.1818,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c8": {
-        "spearmanVsFinancialOnly": 0.955957,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.955957,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Paradox Rift",
-            -1
-          ]
-        ]
-      },
-      "cand_D_additive_c8_damp50": {
-        "spearmanVsFinancialOnly": 0.955957,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.955957,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.2727,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Paradox Rift",
-            -1
-          ]
-        ]
-      },
-      "cand_E_h_dominant_c4": {
-        "spearmanVsFinancialOnly": 0.957086,
-        "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
-        "guardrailChecks": {
-          "spearman": {
-            "value": 0.957086,
-            "threshold": 0.95,
-            "direction": "min",
-            "passes": true
-          },
-          "top5Overlap": {
-            "value": 0.8,
-            "threshold": 0.8,
-            "direction": "min",
-            "passes": true
-          },
-          "meanAbsRankDelta": {
-            "value": 1.1818,
-            "threshold": 1.5,
-            "direction": "max",
-            "passes": true
-          },
-          "shareMoving5Plus": {
-            "value": 0.045454545454545456,
-            "threshold": 0.1,
-            "direction": "max",
-            "passes": true
-          }
-        },
-        "allGuardrailsPass": true,
-        "largestGainers": [
-          [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Surging Sparks",
-            2
-          ],
-          [
-            "Mega Evolution",
-            2
-          ]
-        ],
-        "largestLosers": [
-          [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
-            -3
-          ],
-          [
-            "Chaos Rising",
-            -2
-          ],
-          [
-            "Twilight Masquerade",
-            -2
-          ],
-          [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
       },
       "cand_F_d_plus_h_c4": {
-        "spearmanVsFinancialOnly": 0.957086,
+        "spearmanVsFinancialOnly": 0.96725,
         "top5Overlap": 0.8,
         "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.957086,
+            "value": 0.96725,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6014,7 +6834,7 @@
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6023,19 +6843,19 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Destined Rivals",
-            2
-          ],
-          [
             "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
             2
           ],
           [
             "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
             2
           ],
           [
@@ -6046,35 +6866,35 @@
         "largestLosers": [
           [
             "Shrouded Fable",
-            -5
+            -4
           ],
           [
             "Scarlet and Violet Base Set",
-            -3
+            -2
           ],
           [
             "Chaos Rising",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
       },
       "cand_P_only_control_c4": {
-        "spearmanVsFinancialOnly": 0.954828,
+        "spearmanVsFinancialOnly": 0.963862,
         "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.954828,
+            "value": 0.963862,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6086,13 +6906,13 @@
             "passes": true
           },
           "meanAbsRankDelta": {
-            "value": 1.2727,
+            "value": 1.3636,
             "threshold": 1.5,
             "direction": "max",
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6101,58 +6921,58 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
+            "Scarlet and Violet 151",
             3
           ],
           [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
+            "Ascended Heroes",
             2
           ],
           [
             "Paldea Evolved",
-            1
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
           ]
         ],
         "largestLosers": [
           [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
+            "Chaos Rising",
             -3
           ],
           [
-            "Chaos Rising",
-            -2
+            "Shrouded Fable",
+            -3
           ],
           [
-            "Twilight Masquerade",
+            "Scarlet and Violet Base Set",
             -2
           ],
           [
             "Black Bolt",
-            -1
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
           ]
         ]
       },
       "cand_G_multiplicative_g4": {
-        "spearmanVsFinancialOnly": 0.954828,
+        "spearmanVsFinancialOnly": 0.964992,
         "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.954828,
+            "value": 0.964992,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6164,13 +6984,13 @@
             "passes": true
           },
           "meanAbsRankDelta": {
-            "value": 1.2727,
+            "value": 1.3636,
             "threshold": 1.5,
             "direction": "max",
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6179,58 +6999,58 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
+            "Scarlet and Violet 151",
             3
           ],
           [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
+            "Ascended Heroes",
             2
           ],
           [
             "Paldea Evolved",
-            1
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
           ]
         ],
         "largestLosers": [
           [
-            "Shrouded Fable",
-            -5
-          ],
-          [
-            "Scarlet and Violet Base Set",
+            "Chaos Rising",
             -3
           ],
           [
-            "Chaos Rising",
+            "Shrouded Fable",
+            -3
+          ],
+          [
+            "Scarlet and Violet Base Set",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
       },
       "cand_G_multiplicative_g8": {
-        "spearmanVsFinancialOnly": 0.957086,
+        "spearmanVsFinancialOnly": 0.966121,
         "top5Overlap": 0.8,
         "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.957086,
+            "value": 0.966121,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6248,7 +7068,7 @@
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6257,15 +7077,93 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
+            "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Mega Evolution",
+            3
+          ],
+          [
             "Ascended Heroes",
-            4
+            2
           ],
           [
             "Destined Rivals",
             2
           ],
           [
+            "Paldea Evolved",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -4
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -2
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Journey Together",
+            -2
+          ],
+          [
+            "Stellar Crown",
+            -1
+          ]
+        ]
+      },
+      "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+        "spearmanVsFinancialOnly": 0.963862,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.963862,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
             "Scarlet and Violet 151",
+            3
+          ],
+          [
+            "Ascended Heroes",
+            2
+          ],
+          [
+            "Paldea Evolved",
             2
           ],
           [
@@ -6273,42 +7171,42 @@
             2
           ],
           [
-            "Mega Evolution",
+            "Destined Rivals",
             2
           ]
         ],
         "largestLosers": [
           [
             "Shrouded Fable",
-            -5
+            -4
           ],
           [
             "Scarlet and Violet Base Set",
-            -3
+            -2
           ],
           [
             "Chaos Rising",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
       },
-      "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
-        "spearmanVsFinancialOnly": 0.954828,
+      "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+        "spearmanVsFinancialOnly": 0.964992,
         "top5Overlap": 0.8,
         "meanAbsRankDelta": 1.2727,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.954828,
+            "value": 0.964992,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6326,7 +7224,7 @@
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6335,58 +7233,58 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
-          ],
-          [
-            "Surging Sparks",
+            "Scarlet and Violet 151",
             3
           ],
           [
-            "Scarlet and Violet 151",
-            2
-          ],
-          [
-            "Mega Evolution",
+            "Ascended Heroes",
             2
           ],
           [
             "Paldea Evolved",
-            1
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Destined Rivals",
+            2
           ]
         ],
         "largestLosers": [
           [
             "Shrouded Fable",
-            -5
+            -4
           ],
           [
             "Scarlet and Violet Base Set",
-            -3
+            -2
           ],
           [
             "Chaos Rising",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
       },
-      "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
-        "spearmanVsFinancialOnly": 0.957086,
+      "collector_appeal_v4_candidate_h_only_up4_down2": {
+        "spearmanVsFinancialOnly": 0.964992,
         "top5Overlap": 0.8,
-        "meanAbsRankDelta": 1.1818,
-        "maxAbsRankDelta": 5,
-        "shareMoving5Plus": 0.0455,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
         "guardrailChecks": {
           "spearman": {
-            "value": 0.957086,
+            "value": 0.964992,
             "threshold": 0.95,
             "direction": "min",
             "passes": true
@@ -6398,13 +7296,13 @@
             "passes": true
           },
           "meanAbsRankDelta": {
-            "value": 1.1818,
+            "value": 1.2727,
             "threshold": 1.5,
             "direction": "max",
             "passes": true
           },
           "shareMoving5Plus": {
-            "value": 0.045454545454545456,
+            "value": 0.0,
             "threshold": 0.1,
             "direction": "max",
             "passes": true
@@ -6413,15 +7311,15 @@
         "allGuardrailsPass": true,
         "largestGainers": [
           [
-            "Ascended Heroes",
-            4
+            "Scarlet and Violet 151",
+            3
           ],
           [
-            "Destined Rivals",
+            "Ascended Heroes",
             2
           ],
           [
-            "Scarlet and Violet 151",
+            "Paldea Evolved",
             2
           ],
           [
@@ -6429,29 +7327,29 @@
             2
           ],
           [
-            "Mega Evolution",
+            "Destined Rivals",
             2
           ]
         ],
         "largestLosers": [
           [
             "Shrouded Fable",
-            -5
+            -4
           ],
           [
             "Scarlet and Violet Base Set",
-            -3
+            -2
           ],
           [
             "Chaos Rising",
             -2
           ],
           [
-            "Twilight Masquerade",
+            "Journey Together",
             -2
           ],
           [
-            "Black Bolt",
+            "Stellar Crown",
             -1
           ]
         ]
@@ -6463,63 +7361,66 @@
     "n": 22,
     "models": {
       "D_only": {
-        "spearmanVsPackPrice": 0.4681
+        "spearmanVsPackPrice": 0.4466
       },
       "baseline_A_v3": {
-        "spearmanVsPackPrice": -0.1892
+        "spearmanVsPackPrice": -0.2016
       },
       "baseline_B_ca7": {
-        "spearmanVsPackPrice": 0.4184
+        "spearmanVsPackPrice": 0.3981
       },
       "baseline_C_v2": {
-        "spearmanVsPackPrice": 0.4353
+        "spearmanVsPackPrice": 0.4139
       },
       "cand_D_additive_c2": {
-        "spearmanVsPackPrice": 0.4082
+        "spearmanVsPackPrice": 0.3845
       },
       "cand_D_additive_c2_damp50": {
-        "spearmanVsPackPrice": 0.4161
+        "spearmanVsPackPrice": 0.3936
       },
       "cand_D_additive_c4": {
-        "spearmanVsPackPrice": 0.3077
+        "spearmanVsPackPrice": 0.284
       },
       "cand_D_additive_c4_damp50": {
-        "spearmanVsPackPrice": 0.3495
+        "spearmanVsPackPrice": 0.3247
       },
       "cand_D_additive_c6": {
-        "spearmanVsPackPrice": 0.1971
-      },
-      "cand_D_additive_c6_damp50": {
-        "spearmanVsPackPrice": 0.2569
-      },
-      "cand_D_additive_c8": {
-        "spearmanVsPackPrice": 0.1203
-      },
-      "cand_D_additive_c8_damp50": {
         "spearmanVsPackPrice": 0.1745
       },
+      "cand_D_additive_c6_damp50": {
+        "spearmanVsPackPrice": 0.2332
+      },
+      "cand_D_additive_c8": {
+        "spearmanVsPackPrice": 0.0988
+      },
+      "cand_D_additive_c8_damp50": {
+        "spearmanVsPackPrice": 0.153
+      },
       "cand_E_h_dominant_c4": {
-        "spearmanVsPackPrice": 0.3168
+        "spearmanVsPackPrice": 0.2908
       },
       "cand_F_d_plus_h_c4": {
-        "spearmanVsPackPrice": 0.2851
+        "spearmanVsPackPrice": 0.2592
       },
       "cand_P_only_control_c4": {
-        "spearmanVsPackPrice": 0.3156
+        "spearmanVsPackPrice": 0.2976
       },
       "cand_G_multiplicative_g4": {
-        "spearmanVsPackPrice": 0.3258
+        "spearmanVsPackPrice": 0.301
       },
       "cand_G_multiplicative_g8": {
-        "spearmanVsPackPrice": 0.1733
+        "spearmanVsPackPrice": 0.1519
       },
       "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
-        "spearmanVsPackPrice": 0.3495
+        "spearmanVsPackPrice": 0.3247
       },
       "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
-        "spearmanVsPackPrice": 0.3405
+        "spearmanVsPackPrice": 0.3145
+      },
+      "collector_appeal_v4_candidate_h_only_up4_down2": {
+        "spearmanVsPackPrice": 0.3145
       }
     },
-    "referenceSpearmanDvsPrice": 0.4681
+    "referenceSpearmanDvsPrice": 0.4466
   }
 }

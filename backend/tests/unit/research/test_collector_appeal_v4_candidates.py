@@ -566,9 +566,343 @@ def test_historical_replay_script_performs_no_writes():
     source = (
         REPO_ROOT / "backend" / "scripts" / "audit_collector_appeal_v4_historical_replay.py"
     ).read_text(encoding="utf-8")
-    for forbidden in (".insert(", ".upsert(", ".update(", ".delete(", ".rpc("):
+    for forbidden in (".insert(", ".upsert(", ".delete(", ".rpc("):
         assert forbidden not in source
+    # ``.update(`` is checked per line rather than globally: ``dict.update`` is a
+    # legitimate local call, and banning the substring outright would either fail
+    # on it or force a contortion that makes the code worse. What must not exist
+    # is an ``update`` on a database chain.
+    for line in source.splitlines():
+        if ".update(" in line:
+            assert "table(" not in line and "client" not in line, line
     # Guardrail thresholds must be read from config, never restated here.
     assert "OVERALL_RIP_PRODUCTION_GUARDRAILS" in source
     for literal in ('"min_spearman_vs_financial_only": 0.95', '"min_top5_overlap": 0.8'):
         assert literal not in source
+
+
+# ===========================================================================
+# THE FINAL H-ONLY CONSTRUCT CANDIDATE
+#
+# The 14 required properties, one test each where they are separable. Same
+# discipline as above: nothing here asserts where a named set lands.
+# ===========================================================================
+
+
+def test_h_only_bounds_stay_on_the_public_scale():
+    """(1) Bounds remain [0, 100] for every admissible input."""
+    for d, h in itertools.product(D_GRID, H_GRID):
+        score = v4.collector_appeal_v4_candidate_h_only(d, h)
+        assert score is not None
+        assert 0.0 <= score <= 100.0
+    # Including inputs well outside the anchors in both directions.
+    for h in (1e-12, 1e-6, 0.99, 1.0):
+        for d in (0.0, 0.5, 1.0):
+            score = v4.collector_appeal_v4_candidate_h_only(d, h)
+            assert 0.0 <= score <= 100.0
+
+
+def test_h_only_strictly_increasing_in_d_off_the_clamp():
+    """(2) Strict monotonicity in D wherever the unclamped value is inside (0, 100)."""
+    ceiling = v4.FROZEN_H_ONLY_MODIFIER_CEILING
+    floor = v4.FROZEN_H_ONLY_MODIFIER_FLOOR
+    for h in H_GRID:
+        modifier = v4.structural_modifier_points(
+            h, None, ceiling=ceiling, penalty_damping=v4.FROZEN_H_ONLY_DOWNSIDE_DAMPING,
+            h_weight=1.0, p_weight=0.0,
+        )
+        previous = None
+        for step in range(201):
+            d = step / 200.0
+            raw = 100.0 * d + modifier
+            score = v4.collector_appeal_v4_candidate_h_only(d, h)
+            if previous is not None and 0.0 < raw < 100.0:
+                assert score > previous
+            previous = score
+    assert floor < 0 < ceiling
+
+
+def test_h_only_non_decreasing_in_d_globally():
+    """(3) Non-decreasing in D everywhere, including inside the clamp."""
+    for h in H_GRID:
+        previous = None
+        for step in range(201):
+            score = v4.collector_appeal_v4_candidate_h_only(step / 200.0, h)
+            if previous is not None:
+                assert score >= previous
+            previous = score
+
+
+def test_h_only_non_decreasing_in_h():
+    """(4) Monotonicity in H."""
+    for d in (0.0, 0.3, 0.6, 0.85, 0.95, 1.0):
+        previous = None
+        for step in range(1, 401):
+            h = step / 400.0
+            score = v4.collector_appeal_v4_candidate_h_only(d, h)
+            if previous is not None:
+                assert score >= previous
+            previous = score
+
+
+def test_h_only_exact_h_anchors():
+    """(5) 1/16 -> 0, 1/8 -> 0.5, 1/4 -> 1."""
+    assert v4.h_structural_index(1.0 / v4.FROZEN_H_ONLY_ANCHOR_ZERO_ONE_IN_N) == pytest.approx(0.0)
+    assert v4.h_structural_index(
+        1.0 / v4.FROZEN_H_ONLY_ANCHOR_NEUTRAL_ONE_IN_N
+    ) == pytest.approx(0.5)
+    assert v4.h_structural_index(1.0 / v4.FROZEN_H_ONLY_ANCHOR_ONE_ONE_IN_N) == pytest.approx(1.0)
+    # And the closed form the brief states, independently: clamp01((log2(H)+4)/2).
+    import math
+
+    for h in (0.03, 0.0625, 0.09, 0.125, 0.2, 0.25, 0.4):
+        expected = min(1.0, max(0.0, (math.log2(h) + 4.0) / 2.0))
+        assert v4.h_structural_index(h) == pytest.approx(expected)
+
+
+def test_h_only_modifier_extrema():
+    """(6) worst H -> -2, neutral H -> 0, best H -> +4."""
+    def modifier(h):
+        return v4.structural_modifier_points(
+            h, None,
+            ceiling=v4.FROZEN_H_ONLY_MODIFIER_CEILING,
+            penalty_damping=v4.FROZEN_H_ONLY_DOWNSIDE_DAMPING,
+            h_weight=1.0, p_weight=0.0,
+        )
+
+    assert modifier(1.0 / 16.0) == pytest.approx(-2.0)
+    assert modifier(1e-9) == pytest.approx(-2.0)
+    assert modifier(1.0 / 8.0) == pytest.approx(0.0)
+    assert modifier(1.0 / 4.0) == pytest.approx(4.0)
+    assert modifier(1.0) == pytest.approx(4.0)
+    # And the score reflects them, at a D clear of both clamps.
+    assert v4.collector_appeal_v4_candidate_h_only(0.50, 1.0 / 16.0) == pytest.approx(48.0)
+    assert v4.collector_appeal_v4_candidate_h_only(0.50, 1.0 / 8.0) == pytest.approx(50.0)
+    assert v4.collector_appeal_v4_candidate_h_only(0.50, 1.0 / 4.0) == pytest.approx(54.0)
+
+
+def test_h_only_max_pairwise_advantage_is_six_points():
+    """(7) Maximum pairwise H advantage = 6 points, verified exhaustively."""
+    limit = v4.FROZEN_H_ONLY_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE
+    assert limit == pytest.approx(6.0)
+    d_high = 0.90
+    incumbent = v4.collector_appeal_v4_candidate_h_only(d_high, 1e-9)
+    assert v4.collector_appeal_v4_candidate_h_only(
+        d_high - (limit + 0.01) / 100.0, 1.0
+    ) < incumbent
+    assert v4.collector_appeal_v4_candidate_h_only(
+        d_high - (limit - 0.01) / 100.0, 1.0
+    ) > incumbent
+    modifiers = [
+        v4.structural_modifier_points(
+            h, None, ceiling=v4.FROZEN_H_ONLY_MODIFIER_CEILING,
+            penalty_damping=v4.FROZEN_H_ONLY_DOWNSIDE_DAMPING,
+            h_weight=1.0, p_weight=0.0,
+        )
+        for h in [i / 500.0 for i in range(1, 501)]
+    ]
+    assert max(modifiers) - min(modifiers) <= limit + 1e-9
+
+
+def test_h_only_reads_no_p_input():
+    """(8) No P input is read or required - the signature does not accept one.
+
+    A signature that accepted and ignored ``p`` would let a caller pass dual-path
+    data and believe it had been used.
+    """
+    import inspect
+
+    signature = inspect.signature(v4.collector_appeal_v4_candidate_h_only)
+    assert list(signature.parameters) == ["d", "h"]
+    with pytest.raises(TypeError):
+        v4.collector_appeal_v4_candidate_h_only(0.9, 0.2, 0.3)
+    assumptions = v4.frozen_h_only_assumptions()
+    assert assumptions["structural_blend"] == {"h_weight": 1.0, "p_weight": 0.0}
+    assert "dual_path_depth" in assumptions["excluded_inputs"]
+    assert assumptions["inputs"] == ["roster_desirability", "desirable_outcome_frequency"]
+
+
+def test_h_only_is_research_only():
+    """(9) The candidate remains research-only."""
+    assert v4.FROZEN_H_ONLY_STATUS == "research_candidate_frozen_not_canonical"
+    assert "research" in v4.FROZEN_H_ONLY_VERSION
+    assert v4.frozen_h_only_identity()["status"] == v4.FROZEN_H_ONLY_STATUS
+    offenders = []
+    for path in (REPO_ROOT / "backend").rglob("*.py"):
+        parts = path.relative_to(REPO_ROOT).parts
+        if "tests" in parts or parts[1] in {"research", "scripts"}:
+            continue
+        if "collector_appeal_v4" in path.read_text(encoding="utf-8"):
+            offenders.append(str(path))
+    assert offenders == []
+
+
+def test_h_only_does_not_disturb_canonical_v3():
+    """(10) Current V3 canonical constants unchanged."""
+    assert canonical.COLLECTOR_APPEAL_V3_VERSION == "collector_appeal_v3_balanced_d40_h35_p25"
+    assert canonical.COLLECTOR_APPEAL_V3_WEIGHTS == {
+        "roster_desirability": 0.40,
+        "desirable_outcome_frequency": 0.35,
+        "dual_path_depth": 0.25,
+    }
+    assert canonical.compute_collector_appeal_v3(0.8, 0.2, 0.3) == pytest.approx(
+        0.40 * 0.8 + 0.35 * 0.2 + 0.25 * 0.3
+    )
+
+
+def test_h_only_does_not_disturb_overall_rip_v7():
+    """(11) Overall RIP V7 canonical constants unchanged."""
+    assert scoring_config.CANONICAL_OVERALL_RIP_VERSION == scoring_config.OVERALL_RIP_V7_VERSION
+    assert scoring_config.OVERALL_RIP_V7_WEIGHTS == {
+        "financial_rip": 0.90,
+        "collector_appeal": 0.10,
+    }
+    assert scoring_config.OVERALL_RIP_PRODUCTION_GUARDRAILS == {
+        "min_spearman_vs_financial_only": 0.95,
+        "min_top5_overlap": 0.80,
+        "max_mean_absolute_rank_movement": 1.5,
+        "max_share_moving_5_plus_ranks": 0.10,
+    }
+
+
+def test_existing_models_are_all_unchanged():
+    """(12) CA7 / V2 / V3 behaviour unchanged, and the H70/P30 candidate is not mutated."""
+    assert canonical.compute_collector_appeal_ca7(0.8, 0.4) == pytest.approx(0.8 + 0.5 * 0.4 * 0.2)
+    assert canonical.compute_collector_appeal_v2(0.8, 0.2, 0.4) == pytest.approx(
+        0.8 + 0.5 * (0.6 * 0.2 + 0.4 * 0.4) * 0.2
+    )
+    # The previous frozen candidate keeps its exact identity, including its hash.
+    assert v4.FROZEN_MODIFIER_CEILING == 4.0
+    assert v4.FROZEN_MODIFIER_FLOOR == -2.0
+    assert v4.FROZEN_H_WEIGHT == 0.70 and v4.FROZEN_P_WEIGHT == 0.30
+    assert (
+        v4.frozen_candidate_fingerprint()
+        == "0f0846a3e0f5bd05ae8b0efb5de245fcf9e2f538c3a37e973f045aa11ec723c5"
+    )
+
+
+def test_h_only_fingerprint_moves_with_every_score_changing_parameter():
+    """(13) Fingerprint changes if any formula parameter changes."""
+    from backend.desirability.collector_appeal_fingerprint import fingerprint_assumptions
+
+    first = v4.frozen_h_only_fingerprint()
+    assert first == v4.frozen_h_only_fingerprint()
+    assert len(first) == 64
+    assumptions = v4.frozen_h_only_assumptions()
+    assert fingerprint_assumptions(assumptions) == first
+    # It must also be distinct from the H70/P30 candidate's hash: the two are
+    # different models and a shared hash would let one claim the other's lineage.
+    assert first != v4.frozen_candidate_fingerprint()
+
+    for path, replacement in (
+        (("h_transform", "kind"), "linear"),
+        (("h_transform", "anchor_zero_one_in_n"), 32.0),
+        (("h_transform", "anchor_neutral_one_in_n"), 6.0),
+        (("h_transform", "anchor_one_one_in_n"), 2.0),
+        (("modifier", "positive_ceiling_points"), 6.0),
+        (("modifier", "downside_damping"), 1.0),
+        (("modifier", "negative_floor_points"), -4.0),
+        (("structural_blend", "p_weight"), 0.30),
+        (("clamp", "output_domain"), [0.0, 120.0]),
+        (("clamp", "kind"), "tapered"),
+    ):
+        mutated = {k: (dict(v) if isinstance(v, dict) else v) for k, v in assumptions.items()}
+        mutated[path[0]][path[1]] = replacement
+        assert fingerprint_assumptions(mutated) != first, path
+    # The version identifier is hashed on purpose here - see the docstring on
+    # frozen_h_only_assumptions - because two frozen models share this arithmetic.
+    mutated = dict(assumptions)
+    mutated["version_identifier"] = "something_else"
+    assert fingerprint_assumptions(mutated) != first
+
+
+def test_h_only_does_not_clamp_any_currently_ranked_set():
+    """(14) No ranked set silently saturates, and a future one fails loudly.
+
+    Asserted as a DATA fact separate from the formula fact. If a future set
+    crosses D = 0.96 this test fails and forces a documented review rather than
+    producing a silent tie at 100.
+    """
+    from backend.scripts.audit_collector_appeal_v4_candidates import load_published_cohort
+
+    contract = v4.FROZEN_H_ONLY_MONOTONICITY_CONTRACT
+    upper = contract["upper_saturation_begins_above_d"]
+    lower = contract["lower_saturation_begins_below_d"]
+    for row in load_published_cohort():
+        assert lower < row["D"] < upper, (
+            f"{row['set']} at D={row['D']} enters the clamp region; "
+            "review required before this candidate can be used unchanged"
+        )
+        score = v4.collector_appeal_v4_candidate_h_only(row["D"], row["H"])
+        assert 0.0 < score < 100.0
+
+
+def test_h_only_matches_the_ablation_twin_exactly():
+    """The final candidate was promoted FROM the ablation twin; they must not
+    have drifted apart in the promotion."""
+    for d, h in itertools.product(D_GRID, H_GRID):
+        assert v4.collector_appeal_v4_candidate_h_only(d, h) == (
+            v4.collector_appeal_v4_candidate_frozen_h_only(d, h)
+        )
+
+
+def test_h_only_missing_data_policy():
+    for d, h in ((None, 0.2), (0.9, None), ("", 0.2), (0.9, "n/a"),
+                 (0.9, 0.0), (0.9, -0.1), (0.9, float("nan"))):
+        assert v4.collector_appeal_v4_candidate_h_only(d, h) is None
+
+
+def test_h_only_neutral_h_returns_exactly_d():
+    neutral_h = 1.0 / v4.FROZEN_H_ONLY_ANCHOR_NEUTRAL_ONE_IN_N
+    for d in D_GRID:
+        assert v4.collector_appeal_v4_candidate_h_only(d, neutral_h) == pytest.approx(d * 100.0)
+
+
+# ---------------------------------------------------------------------------
+# the replay harness
+# ---------------------------------------------------------------------------
+
+
+def test_replay_composition_reproduces_canonical_overall_rip_v7():
+    """The weight sensitivity must not drift into a private scoring convention."""
+    from backend.desirability.weighted_rip import compute_overall_rip_v7
+    from backend.scripts.audit_collector_appeal_v4_historical_replay import compose_overall
+
+    canonical_weight = scoring_config.OVERALL_RIP_V7_WEIGHTS["collector_appeal"]
+    for financial, appeal in ((39.7551, 99.09), (19.3882, 49.07), (0.0, 0.0), (100.0, 100.0)):
+        expected = compute_overall_rip_v7(financial, appeal)["score"]
+        assert compose_overall(financial, appeal, canonical_weight) == pytest.approx(expected)
+
+
+def test_replay_weight_grid_partitions_the_score():
+    from backend.scripts.audit_collector_appeal_v4_historical_replay import (
+        APPEAL_WEIGHT_GRID,
+        compose_overall,
+    )
+
+    assert scoring_config.OVERALL_RIP_V7_WEIGHTS["collector_appeal"] in APPEAL_WEIGHT_GRID
+    for weight in APPEAL_WEIGHT_GRID:
+        # Equal inputs must reproduce themselves at any weight, which is only
+        # true if the two weights sum to exactly 1.
+        assert compose_overall(42.0, 42.0, weight) == pytest.approx(42.0)
+
+
+def test_rank_biased_overlap_is_well_behaved():
+    """The research-only rank-weighted diagnostic, checked against the cases its
+    definition pins down."""
+    from backend.scripts.audit_collector_appeal_v4_historical_replay import rank_biased_overlap
+
+    identical = {"a": 5.0, "b": 4.0, "c": 3.0, "d": 2.0}
+    assert rank_biased_overlap(identical, identical) == pytest.approx(1.0, abs=1e-9)
+
+    reversed_order = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    assert rank_biased_overlap(identical, reversed_order) < 0.6
+
+    # A single adjacent swap deep in the list must cost less than the same swap
+    # at the very top - this is the whole reason the metric exists.
+    deep_swap = {"a": 5.0, "b": 4.0, "d": 3.0, "c": 2.0}
+    top_swap = {"b": 5.0, "a": 4.0, "c": 3.0, "d": 2.0}
+    assert rank_biased_overlap(identical, deep_swap) > rank_biased_overlap(identical, top_swap)
+
+    with pytest.raises(ValueError):
+        rank_biased_overlap(identical, identical, persistence=1.0)
