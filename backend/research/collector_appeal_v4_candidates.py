@@ -43,10 +43,17 @@ the TOTAL structural span stays small, which is what "tiebreaker" means.
 THE SINGLE MOST IMPORTANT PROPERTY
 ----------------------------------
 For the additive family the maximum D gap that structure can overturn is
-EXACTLY ``2 * MODIFIER_CEILING`` points, achieved only when the lower-D set has
-perfect structure and the higher-D set has the worst possible structure. That
-number is a design parameter, not an emergent accident, so the inversion
-boundary can be stated in the spec instead of discovered in a grid search.
+EXACTLY ``MODIFIER_CEILING - MODIFIER_FLOOR`` points - i.e. the full span of the
+modifier, achieved only when the lower-D set has perfect structure and the
+higher-D set has the worst possible structure. That number is a design
+parameter, not an emergent accident, so the inversion boundary can be stated in
+the spec instead of discovered in a grid search.
+
+NOTE THE ASYMMETRY. For the FROZEN candidate the span is NOT ``2 * ceiling``:
+the downside is damped, so the modifier runs ``+4.0`` to ``-2.0`` and the span
+is ``6.0``, not ``8.0``. Writing the frozen model as ``D + 4*(2S-1)`` would be a
+false statement of it - see ``FROZEN_FORMULA_EXPRESSION``, which states both
+branches explicitly.
 
 NORMALIZATION IS FIXED-ANCHOR, NEVER COHORT-RELATIVE
 ----------------------------------------------------
@@ -449,15 +456,255 @@ def candidate_registry() -> Dict[str, Dict[str, Any]]:
             "max_flip_gap": None,  # D-dependent; measured rather than derived
         }
 
+    # The FROZEN candidate and its P ablation twin. Added here, at the end, so
+    # every analysis in the audit covers them automatically and none of them can
+    # be run against a stale hand-copied definition. Defined further down the
+    # module; this function is only ever called after import completes.
+    registry[FROZEN_CANDIDATE_KEY] = {
+        "label": "FROZEN candidate - asymmetric H70/P30, +4.0 / -2.0",
+        "family": "frozen_candidate",
+        "formula": FROZEN_FORMULA_EXPRESSION,
+        "scorer": lambda d, h, p: collector_appeal_v4_candidate_frozen(d, h, p),
+        "max_flip_gap": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+    }
+    registry[FROZEN_ABLATION_KEY] = {
+        "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+        "family": "frozen_ablation",
+        "formula": "S = sH; " + FROZEN_FORMULA_EXPRESSION.split("S = 0.70*sH + 0.30*sP; ")[-1],
+        "scorer": lambda d, h, p: collector_appeal_v4_candidate_frozen_h_only(d, h, p),
+        "max_flip_gap": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+    }
     return registry
 
-
-CANDIDATE_KEYS: Tuple[str, ...] = tuple(candidate_registry())
 
 # The candidate the study recommends. Recorded here so the recommendation is a
 # reviewable constant rather than a sentence in a document, and so a test can
 # assert it is NOT wired to any canonical path.
 RECOMMENDED_CANDIDATE_KEY = "cand_D_additive_c4_damp50"
+
+
+# ===========================================================================
+# THE FROZEN CANDIDATE
+#
+# Everything above is the exploration that led here and stays for comparison.
+# Everything below is the ONE frozen model, stated so that no reader has to
+# reconstruct it from a grid entry, and so that no future edit can change what a
+# score under this version string means without changing the version string.
+# ===========================================================================
+
+# THE ASYMMETRY IS IN THE NAME. Calling this "c4" or writing it as
+# ``D + 4*(2S-1)`` would be a false statement of the model: the downside is
+# damped to half, so the floor is -2 and not -4. A version identifier that omits
+# the floor would let a reader reproduce the wrong number and believe they had
+# reproduced the right one.
+FROZEN_CANDIDATE_KEY = "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2"
+FROZEN_CANDIDATE_VERSION = (
+    "collector_appeal_v4_candidate_asym_d_plus_h70p30_ceil4_floor2_research_v1"
+)
+FROZEN_CANDIDATE_FORMULA_VERSION = "collector_appeal_v4_centred_asymmetric_modifier_v1"
+FROZEN_CANDIDATE_STATUS = "research_candidate_frozen_not_canonical"
+
+# --- H transform: log2 wait-time anchors -----------------------------------
+FROZEN_H_ANCHOR_ZERO_ONE_IN_N = 16.0    # sH = 0.0
+FROZEN_H_ANCHOR_NEUTRAL_ONE_IN_N = 8.0  # sH = 0.5  (NEUTRAL)
+FROZEN_H_ANCHOR_ONE_ONE_IN_N = 4.0      # sH = 1.0
+
+# --- P transform: linear dual-path anchors ---------------------------------
+FROZEN_P_ANCHOR_ZERO = 0.10             # sP = 0.0
+FROZEN_P_ANCHOR_NEUTRAL = 0.30          # sP = 0.5  (NEUTRAL)
+FROZEN_P_ANCHOR_ONE = 0.50              # sP = 1.0
+
+# --- structural blend ------------------------------------------------------
+FROZEN_H_WEIGHT = 0.70
+FROZEN_P_WEIGHT = 0.30
+FROZEN_NEUTRAL_S = 0.50                 # S at which the modifier is exactly 0
+
+# --- the asymmetric modifier, in PUBLIC POINTS -----------------------------
+FROZEN_MODIFIER_CEILING = 4.0           # maximum POSITIVE modifier, at S = 1
+FROZEN_DOWNSIDE_DAMPING = 0.50          # the negative branch's multiplier
+FROZEN_MODIFIER_FLOOR = -FROZEN_MODIFIER_CEILING * FROZEN_DOWNSIDE_DAMPING  # = -2.0
+
+# --- the single behavioural promise ---------------------------------------
+# The widest D gap structure can overturn: best-structured challenger (+4.0)
+# against worst-structured incumbent (-2.0). Derived, then verified by
+# exhaustive search in the test suite.
+FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE = FROZEN_MODIFIER_CEILING - FROZEN_MODIFIER_FLOOR  # 6.0
+
+# --- bounds ----------------------------------------------------------------
+FROZEN_OUTPUT_DOMAIN = (0.0, 100.0)
+
+# THE MONOTONICITY CONTRACT, STATED RATHER THAN IMPLIED
+# ----------------------------------------------------
+# The intended contract is:
+#
+#   NON-DECREASING in D everywhere on [0, 1];
+#   STRICTLY INCREASING in D on the UNSATURATED REGION, which is
+#       100*D + m(H, P)  strictly inside (0, 100).
+#
+# Ties can arise ONLY where the clamp binds, and the clamp can bind only for
+#   D > (100 - 4.0)/100 = 0.96   at the top, or
+#   D < 2.0/100        = 0.02    at the bottom.
+# No set in the eligible cohort is in either region (max D = 0.9548, min
+# D = 0.5107), so on real data the function is strictly increasing in D
+# throughout - but that is a fact about the DATA, not about the FORMULA, and the
+# two are recorded separately here on purpose.
+#
+# The clamp is retained rather than engineered away. The alternatives were:
+#   (a) taper the bonus into the last few points of headroom - which reintroduces
+#       exactly the (1-D) headroom shrinkage that made V2 a restatement of D,
+#       precisely for the elite sets the tiebreaker exists to separate;
+#   (b) let the score exceed 100 - which breaks the published "out of 100" claim.
+# Clamping, with the saturation region named and monitored, is the least
+# dishonest of the three. The audit reports the saturating-set count every run;
+# a cohort that ever puts a set above D = 0.96 is a review trigger, not a silent
+# tie.
+FROZEN_MONOTONICITY_CONTRACT = {
+    "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+    "in_h": "non_decreasing_everywhere",
+    "in_p": "non_decreasing_everywhere",
+    "upper_saturation_begins_above_d": (100.0 - FROZEN_MODIFIER_CEILING) / 100.0,
+    "lower_saturation_begins_below_d": -FROZEN_MODIFIER_FLOOR / 100.0,
+    "ties_possible_only_inside_saturation": True,
+}
+
+FROZEN_MISSING_DATA_POLICY = {
+    "missing_input_returns": "None",
+    "never_substitutes_zero": True,
+    "never_substitutes_d": True,
+    "h_must_be_strictly_positive": True,
+}
+
+# The exact formula, as one unambiguous string. Written out with BOTH branches
+# because a single-branch summary would misstate the model.
+FROZEN_FORMULA_EXPRESSION = (
+    "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); "
+    "sP = clamp01((P - 0.10) / (0.50 - 0.10)); "
+    "S = 0.70*sH + 0.30*sP; "
+    "z = 2*S - 1; "
+    "m = 4.0*z if z >= 0 else 2.0*z; "
+    "CA = clamp(100*D + m, 0, 100)"
+)
+
+
+def collector_appeal_v4_candidate_frozen(d: Any, h: Any, p: Any) -> Optional[float]:
+    """THE frozen candidate. RESEARCH ONLY - not canonical, not published.
+
+    ``CA = clamp(100*D + m, 0, 100)`` where ``m`` rises to +4.0 for perfect
+    obtainability and falls to only -2.0 for the worst: the branches are
+    deliberately asymmetric, because a set whose desirable content is hard to
+    reach is not thereby an unappealing set, while a set that hands you desirable
+    cards readily has genuinely delivered something.
+
+    Implemented as a thin, explicit call into the shared modifier rather than as
+    its own arithmetic, so the frozen model and the grid entry it was chosen from
+    can never disagree. A test asserts they are identical on a dense grid.
+    """
+    return collector_appeal_v4_candidate_additive(
+        d,
+        h,
+        p,
+        ceiling=FROZEN_MODIFIER_CEILING,
+        penalty_damping=FROZEN_DOWNSIDE_DAMPING,
+        h_weight=FROZEN_H_WEIGHT,
+        p_weight=FROZEN_P_WEIGHT,
+    )
+
+
+def collector_appeal_v4_candidate_frozen_h_only(d: Any, h: Any, p: Any = None) -> Optional[float]:
+    """The P ABLATION twin: identical in every respect except that P is absent.
+
+    Same D input, same H transform and anchors, same neutral point, same +4.0
+    ceiling, same -2.0 floor, same clamp, same missing-data policy. The ONLY
+    difference is ``S = sH`` instead of ``S = 0.70*sH + 0.30*sP``, so any
+    difference in behaviour between this and the frozen candidate is attributable
+    to P and to nothing else. ``p`` is accepted and ignored so the two share a
+    call signature.
+    """
+    return collector_appeal_v4_candidate_additive(
+        d,
+        h,
+        p,
+        ceiling=FROZEN_MODIFIER_CEILING,
+        penalty_damping=FROZEN_DOWNSIDE_DAMPING,
+        h_weight=1.0,
+        p_weight=0.0,
+    )
+
+
+FROZEN_ABLATION_KEY = "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2"
+
+
+def frozen_candidate_assumptions() -> Dict[str, Any]:
+    """Every assumption capable of changing a frozen-candidate score.
+
+    Hashed into the fingerprint below. Version identifiers and the status label
+    are recorded but EXCLUDED from the hash for the same reason the canonical
+    fingerprint excludes them: relabelling a model changes no computed number,
+    and hashing a label would mark every score stale for a rename.
+    """
+    return {
+        "formula_expression": FROZEN_FORMULA_EXPRESSION,
+        "h_transform": {
+            "kind": "log2_wait_time",
+            "anchor_zero_one_in_n": FROZEN_H_ANCHOR_ZERO_ONE_IN_N,
+            "anchor_neutral_one_in_n": FROZEN_H_ANCHOR_NEUTRAL_ONE_IN_N,
+            "anchor_one_one_in_n": FROZEN_H_ANCHOR_ONE_ONE_IN_N,
+            "clamped": True,
+            "requires_strictly_positive_h": True,
+        },
+        "p_transform": {
+            "kind": "linear",
+            "anchor_zero": FROZEN_P_ANCHOR_ZERO,
+            "anchor_neutral": FROZEN_P_ANCHOR_NEUTRAL,
+            "anchor_one": FROZEN_P_ANCHOR_ONE,
+            "clamped": True,
+        },
+        "structural_blend": {"h_weight": FROZEN_H_WEIGHT, "p_weight": FROZEN_P_WEIGHT},
+        "neutral_structural_index": FROZEN_NEUTRAL_S,
+        "modifier": {
+            "positive_ceiling_points": FROZEN_MODIFIER_CEILING,
+            "downside_damping": FROZEN_DOWNSIDE_DAMPING,
+            "negative_floor_points": FROZEN_MODIFIER_FLOOR,
+            "asymmetric": True,
+            "centred_at_neutral": True,
+        },
+        "max_pairwise_structural_advantage_points": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+        "output_domain": list(FROZEN_OUTPUT_DOMAIN),
+        "monotonicity_contract": FROZEN_MONOTONICITY_CONTRACT,
+        "missing_data_policy": FROZEN_MISSING_DATA_POLICY,
+        "d_is_rescaled": False,
+        "cohort_relative_normalization": False,
+        "financial_inputs": [],
+    }
+
+
+def frozen_candidate_fingerprint() -> str:
+    """SHA-256 over the frozen assumptions.
+
+    Uses the CANONICAL fingerprint machinery rather than a second hashing
+    implementation, so the candidate's identity is computed by the same
+    deterministic canonicalization the production metric uses.
+    """
+    from backend.desirability.collector_appeal_fingerprint import fingerprint_assumptions
+
+    return fingerprint_assumptions(frozen_candidate_assumptions())
+
+
+def frozen_candidate_identity() -> Dict[str, Any]:
+    """Human-readable identity plus the hash. Never stored on a canonical path."""
+    return {
+        "key": FROZEN_CANDIDATE_KEY,
+        "version": FROZEN_CANDIDATE_VERSION,
+        "formulaVersion": FROZEN_CANDIDATE_FORMULA_VERSION,
+        "status": FROZEN_CANDIDATE_STATUS,
+        "formula": FROZEN_FORMULA_EXPRESSION,
+        "modifierCeiling": FROZEN_MODIFIER_CEILING,
+        "modifierFloor": FROZEN_MODIFIER_FLOOR,
+        "maxPairwiseStructuralAdvantage": FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE,
+        "monotonicityContract": dict(FROZEN_MONOTONICITY_CONTRACT),
+        "fingerprint": frozen_candidate_fingerprint(),
+        "fingerprintAlgorithm": "sha256",
+    }
 
 
 def score_all(d: Any, h: Any, p: Any) -> Dict[str, Optional[float]]:
@@ -477,3 +724,8 @@ def structural_diagnostics(h: Any, p: Any) -> Dict[str, Optional[float]]:
             else 2.0 * float(structural_index(h, p)) - 1.0
         ),
     }
+
+
+# Defined last: ``candidate_registry`` now references the frozen constants above,
+# so the key tuple can only be materialized once the module is fully loaded.
+CANDIDATE_KEYS: Tuple[str, ...] = tuple(candidate_registry())

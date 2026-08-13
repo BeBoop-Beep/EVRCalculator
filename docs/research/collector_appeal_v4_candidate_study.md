@@ -314,7 +314,21 @@ not of leverage:
 | `cand_P_only_control_c4` (D + P) | 0.942 | 0.409 | 0.081 | 1.45 | 6 |
 | `cand_D_additive_c4` (D + H + P) | 0.953 | 0.443 | 0.010 | 1.36 | 6 |
 
-**Verdict: keep P, but reduced to a minority share of a small structural budget
+> **SUPERSEDED.** The verdict below was reached from a shared-budget comparison
+> of *different* variants (D+H at ±4 symmetric vs D+H+P at ±4 symmetric). The
+> pre-promotion pass ran the proper ablation — the frozen candidate against its
+> otherwise-identical H-only twin — and found ρ(with P, without P) = 0.9966, six
+> sets moving one rank each, and 3 changed pairwise orderings out of 231, one of
+> which is a weight-dilution artifact rather than a P signal. Against the stated
+> bar (*useful construct-relevant discrimination beyond H; non-redundancy is not
+> sufficient*), **P does not clear it, and the recommendation is now to remove
+> it.** See
+> [`collector_appeal_v4_promotion_validation.md`](collector_appeal_v4_promotion_validation.md)
+> section 2. The reasoning below is retained as the record of what was
+> originally concluded and why it was wrong: it rested on non-redundancy, which
+> is exactly the insufficient ground.
+
+**Verdict (SUPERSEDED): keep P, but reduced to a minority share of a small structural budget
 — not as a peer pillar, and not removed.**
 
 Three findings support that:

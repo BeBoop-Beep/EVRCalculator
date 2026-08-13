@@ -42,8 +42,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
-import math
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -55,11 +55,14 @@ from backend.desirability.scoring_config import (
 from backend.research import validation_stats as stats
 from backend.research.collector_appeal_v4_candidates import (
     COLLECTOR_APPEAL_V4_CANDIDATE_FAMILY_VERSION,
+    FROZEN_ABLATION_KEY,
+    FROZEN_CANDIDATE_KEY,
     COLLECTOR_APPEAL_V4_CANDIDATE_STATUS,
     MODIFIER_CEILING_GRID,
     PENALTY_DAMPING_GRID,
     RECOMMENDED_CANDIDATE_KEY,
     candidate_registry,
+    frozen_candidate_identity,
     max_overturnable_d_gap_points,
     structural_diagnostics,
 )
@@ -397,6 +400,92 @@ def case_studies(
 # ---------------------------------------------------------------------------
 
 
+def p_ablation(
+    rows: Sequence[Mapping[str, Any]],
+    scored: Mapping[str, Mapping[str, Optional[float]]],
+) -> Dict[str, Any]:
+    """The FROZEN candidate against its otherwise-identical H-only twin.
+
+    Same D, same H transform and anchors, same neutral point, same +4.0 ceiling,
+    same -2.0 floor, same clamp, same missing-data policy. ``S = 0.70*sH+0.30*sP``
+    versus ``S = sH``. Every difference reported below is therefore caused by P
+    and by nothing else.
+
+    The pairwise section is the one that decides the question. Non-redundancy is
+    cheap - any second input reshuffles something. What matters is whether the
+    orderings P *changes* are orderings a collector would recognise as being
+    about collector appeal, so each flip is reported with the P values that
+    caused it and the dual-path facts behind them.
+    """
+    full = scored[FROZEN_CANDIDATE_KEY]
+    ablated = scored[FROZEN_ABLATION_KEY]
+    by_name = {row["set"]: row for row in rows}
+
+    full_ranks = stats.dense_ranks(full)
+    ablated_ranks = stats.dense_ranks(ablated)
+
+    flips: List[Dict[str, Any]] = []
+    for left, right in itertools.combinations([row["set"] for row in rows], 2):
+        full_order = full[left] - full[right]
+        ablated_order = ablated[left] - ablated[right]
+        if full_order == 0 or ablated_order == 0:
+            continue
+        if (full_order > 0) == (ablated_order > 0):
+            continue
+        winner, loser = (left, right) if full_order > 0 else (right, left)
+        w, l = by_name[winner], by_name[loser]
+        flips.append(
+            {
+                "winnerWithP": winner,
+                "loserWithP": loser,
+                "dGapPoints": round((w["D"] - l["D"]) * 100.0, 4),
+                "winnerP": round(w["P"], 4),
+                "loserP": round(l["P"], 4),
+                "pGap": round(w["P"] - l["P"], 4),
+                "winnerSP": _round(structural_diagnostics(w["H"], w["P"])["sP"]),
+                "loserSP": _round(structural_diagnostics(l["H"], l["P"])["sP"]),
+                "winnerH": round(w["H"], 4),
+                "loserH": round(l["H"], 4),
+                "caGapWithP": round(full[winner] - full[loser], 4),
+                "caGapWithoutP": round(ablated[winner] - ablated[loser], 4),
+                # Did P rescue a HIGHER-D set (P defending desirability) or
+                # promote a LOWER-D one (P overriding it)? The two mean very
+                # different things for the construct.
+                "pDefendsDesirability": (w["D"] - l["D"]) > 0,
+            }
+        )
+
+    return {
+        "full": FROZEN_CANDIDATE_KEY,
+        "ablated": FROZEN_ABLATION_KEY,
+        "identicalExcept": "S = 0.70*sH + 0.30*sP  vs  S = sH",
+        "correlations": {
+            "full": correlation_table(rows, scored)[FROZEN_CANDIDATE_KEY],
+            "ablated": correlation_table(rows, scored)[FROZEN_ABLATION_KEY],
+        },
+        "movementVsDOnly": {
+            "full": movement_table(rows, scored)[FROZEN_CANDIDATE_KEY]["vsDOnly"],
+            "ablated": movement_table(rows, scored)[FROZEN_ABLATION_KEY]["vsDOnly"],
+        },
+        "fullVsAblated": stats.rank_comparison(ablated, full),
+        "rankChanges": [
+            {
+                "set": row["set"],
+                "D": round(row["D"] * 100.0, 2),
+                "P": round(row["P"], 4),
+                "rankWithoutP": ablated_ranks[row["set"]],
+                "rankWithP": full_ranks[row["set"]],
+                "delta": ablated_ranks[row["set"]] - full_ranks[row["set"]],
+            }
+            for row in rows
+            if ablated_ranks[row["set"]] != full_ranks[row["set"]]
+        ],
+        "pairwiseFlipCount": len(flips),
+        "pairwiseFlips": sorted(flips, key=lambda f: -abs(f["pGap"])),
+        "inversionBoundaryIdentical": True,
+    }
+
+
 def overall_rip_sensitivity(
     financial: Mapping[str, float],
     scored: Mapping[str, Mapping[str, Optional[float]]],
@@ -568,6 +657,8 @@ def build_report(
         "correlations": correlation_table(rows, scored),
         "movement": movement_table(rows, scored),
         "caseStudies": case_studies(rows, scored),
+        "frozenCandidate": frozen_candidate_identity(),
+        "pAblation": p_ablation(rows, scored),
         "pAudit": {
             "sharedBudgetPoints": 4.0,
             "variants": {k: {

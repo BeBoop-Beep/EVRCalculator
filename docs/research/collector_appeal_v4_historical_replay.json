@@ -1,0 +1,1761 @@
+{
+  "candidate": {
+    "key": "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2",
+    "version": "collector_appeal_v4_candidate_asym_d_plus_h70p30_ceil4_floor2_research_v1",
+    "formulaVersion": "collector_appeal_v4_centred_asymmetric_modifier_v1",
+    "status": "research_candidate_frozen_not_canonical",
+    "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); sP = clamp01((P - 0.10) / (0.50 - 0.10)); S = 0.70*sH + 0.30*sP; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+    "modifierCeiling": 4.0,
+    "modifierFloor": -2.0,
+    "maxPairwiseStructuralAdvantage": 6.0,
+    "monotonicityContract": {
+      "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+      "in_h": "non_decreasing_everywhere",
+      "in_p": "non_decreasing_everywhere",
+      "upper_saturation_begins_above_d": 0.96,
+      "lower_saturation_begins_below_d": 0.02,
+      "ties_possible_only_inside_saturation": true
+    },
+    "fingerprint": "0f0846a3e0f5bd05ae8b0efb5de245fcf9e2f538c3a37e973f045aa11ec723c5",
+    "fingerprintAlgorithm": "sha256"
+  },
+  "canonicalOverallVersion": "overall_rip_v7_90_financial_v3_10_collector_appeal_v3",
+  "canonicalFinancialVersion": "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
+  "weights": {
+    "financial_rip": 0.9,
+    "collector_appeal": 0.1
+  },
+  "guardrails": {
+    "min_spearman_vs_financial_only": 0.95,
+    "min_top5_overlap": 0.8,
+    "max_mean_absolute_rank_movement": 1.5,
+    "max_share_moving_5_plus_ranks": 0.1
+  },
+  "limitation": "D/H/P are held fixed at the published-state cohort across all dates; the published RIP history stores no per-date appeal inputs. This measures the stability of a 90/10 blend as the FINANCIAL ranking moves, not the stability of Collector Appeal itself.",
+  "compatibleSnapshotCount": 10,
+  "excludedSnapshots": [
+    {
+      "marketDate": "2026-08-01",
+      "reason": "incompatible financial rip version 'financial_rip_v2_60_25_15' (canonical is 'financial_rip_v3_outcome_profile_25_20_15_25_10_5')"
+    },
+    {
+      "marketDate": "2026-08-02",
+      "reason": "incompatible financial rip version 'financial_rip_v2_60_25_15' (canonical is 'financial_rip_v3_outcome_profile_25_20_15_25_10_5')"
+    },
+    {
+      "marketDate": "2026-08-03",
+      "reason": "incompatible financial rip version 'financial_rip_v2_60_25_15' (canonical is 'financial_rip_v3_outcome_profile_25_20_15_25_10_5')"
+    },
+    {
+      "marketDate": "2026-08-04",
+      "reason": "incompatible financial rip version 'financial_rip_v2_60_25_15' (canonical is 'financial_rip_v3_outcome_profile_25_20_15_25_10_5')"
+    },
+    {
+      "marketDate": "2026-08-04",
+      "reason": "incompatible financial rip version 'financial_rip_v2_60_25_15' (canonical is 'financial_rip_v3_outcome_profile_25_20_15_25_10_5')"
+    }
+  ],
+  "perDate": {
+    "baseline_A_v3": [
+      {
+        "marketDate": "2026-08-04",
+        "n": 22,
+        "spearman": 0.980802,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.6364,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.980802,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.030802
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.6364,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.8636
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-05",
+        "n": 22,
+        "spearman": 0.980802,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.6364,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.980802,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.030802
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.6364,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.8636
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-06",
+        "n": 22,
+        "spearman": 0.971767,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 0.9091,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.971767,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.021767
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 0.9091,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5909
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-07",
+        "n": 22,
+        "spearman": 0.968379,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 0.8182,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.968379,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.018379
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 0.8182,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.6818
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-08",
+        "n": 22,
+        "spearman": 0.968379,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 0.8182,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.968379,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.018379
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 0.8182,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.6818
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-09",
+        "n": 22,
+        "spearman": 0.968379,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 0.8182,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.968379,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.018379
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 0.8182,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.6818
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-10",
+        "n": 22,
+        "spearman": 0.976285,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.976285,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.026285
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.0,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-11",
+        "n": 22,
+        "spearman": 0.989836,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 0.5455,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.989836,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.039836
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 0.5455,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.9545
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-12",
+        "n": 22,
+        "spearman": 0.98419,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.6364,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.98419,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.03419
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.6364,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.8636
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-13",
+        "n": 22,
+        "spearman": 0.98419,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.6364,
+        "maxAbsRankDelta": 3,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.98419,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.03419
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.6364,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.8636
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      }
+    ],
+    "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": [
+      {
+        "marketDate": "2026-08-04",
+        "n": 22,
+        "spearman": 0.966121,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.9091,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.966121,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.016121
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.9091,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5909
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-05",
+        "n": 22,
+        "spearman": 0.966121,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.9091,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.966121,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.016121
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.9091,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5909
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-06",
+        "n": 22,
+        "spearman": 0.939018,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.1364,
+        "checks": {
+          "spearman": {
+            "value": 0.939018,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.010982
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.13636363636363635,
+            "threshold": 0.1,
+            "passes": false,
+            "margin": -0.036364
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap",
+          "shareMoving5Plus"
+        ]
+      },
+      {
+        "marketDate": "2026-08-07",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-08",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-09",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-10",
+        "n": 22,
+        "spearman": 0.959345,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.959345,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.009345
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-11",
+        "n": 22,
+        "spearman": 0.968379,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.968379,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.018379
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.0,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-12",
+        "n": 22,
+        "spearman": 0.954828,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.954828,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.004828
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-13",
+        "n": 22,
+        "spearman": 0.954828,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.954828,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.004828
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      }
+    ],
+    "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": [
+      {
+        "marketDate": "2026-08-04",
+        "n": 22,
+        "spearman": 0.966121,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.9091,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.966121,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.016121
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.9091,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5909
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-05",
+        "n": 22,
+        "spearman": 0.966121,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.9091,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.966121,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.016121
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.9091,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5909
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-06",
+        "n": 22,
+        "spearman": 0.9345,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.1364,
+        "checks": {
+          "spearman": {
+            "value": 0.9345,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.0155
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.13636363636363635,
+            "threshold": 0.1,
+            "passes": false,
+            "margin": -0.036364
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap",
+          "shareMoving5Plus"
+        ]
+      },
+      {
+        "marketDate": "2026-08-07",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-08",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-09",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.3636,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.3636,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.1364
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-10",
+        "n": 22,
+        "spearman": 0.959345,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.959345,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.009345
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-11",
+        "n": 22,
+        "spearman": 0.964992,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.0909,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.014992
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.0909,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.4091
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-12",
+        "n": 22,
+        "spearman": 0.957086,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.957086,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.007086
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-13",
+        "n": 22,
+        "spearman": 0.957086,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.957086,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.007086
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      }
+    ],
+    "D_only": [
+      {
+        "marketDate": "2026-08-04",
+        "n": 22,
+        "spearman": 0.972897,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.8182,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.972897,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.022897
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.8182,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.6818
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-05",
+        "n": 22,
+        "spearman": 0.972897,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 0.8182,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.972897,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.022897
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 0.8182,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.6818
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-06",
+        "n": 22,
+        "spearman": 0.942405,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 6,
+        "shareMoving5Plus": 0.1364,
+        "checks": {
+          "spearman": {
+            "value": 0.942405,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.007595
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.13636363636363635,
+            "threshold": 0.1,
+            "passes": false,
+            "margin": -0.036364
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap",
+          "shareMoving5Plus"
+        ]
+      },
+      {
+        "marketDate": "2026-08-07",
+        "n": 22,
+        "spearman": 0.946923,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.946923,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.003077
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-08",
+        "n": 22,
+        "spearman": 0.946923,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.946923,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.003077
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-09",
+        "n": 22,
+        "spearman": 0.946923,
+        "top5Overlap": 0.6,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 7,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.946923,
+            "threshold": 0.95,
+            "passes": false,
+            "margin": -0.003077
+          },
+          "top5Overlap": {
+            "value": 0.6,
+            "threshold": 0.8,
+            "passes": false,
+            "margin": -0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.3182
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": false,
+        "failing": [
+          "spearman",
+          "top5Overlap"
+        ]
+      },
+      {
+        "marketDate": "2026-08-10",
+        "n": 22,
+        "spearman": 0.959345,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.959345,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.009345
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-11",
+        "n": 22,
+        "spearman": 0.964992,
+        "top5Overlap": 1.0,
+        "meanAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "checks": {
+          "spearman": {
+            "value": 0.964992,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.014992
+          },
+          "top5Overlap": {
+            "value": 1.0,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.2
+          },
+          "meanAbsRankDelta": {
+            "value": 1.0,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.5
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.054545
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-12",
+        "n": 22,
+        "spearman": 0.957086,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.957086,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.007086
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      },
+      {
+        "marketDate": "2026-08-13",
+        "n": 22,
+        "spearman": 0.957086,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 4,
+        "shareMoving5Plus": 0.0,
+        "checks": {
+          "spearman": {
+            "value": 0.957086,
+            "threshold": 0.95,
+            "passes": true,
+            "margin": 0.007086
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "passes": true,
+            "margin": 0.0
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "passes": true,
+            "margin": 0.2273
+          },
+          "shareMoving5Plus": {
+            "value": 0.0,
+            "threshold": 0.1,
+            "passes": true,
+            "margin": 0.1
+          }
+        },
+        "allPass": true,
+        "failing": []
+      }
+    ]
+  },
+  "summary": {
+    "baseline_A_v3": {
+      "datesEvaluated": 10,
+      "datesPassingAllGuardrails": 6,
+      "datesFailingAny": [
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09"
+      ],
+      "spearman": {
+        "min": 0.968379,
+        "median": 0.978544,
+        "max": 0.989836,
+        "mean": 0.977301
+      },
+      "top5Overlap": {
+        "min": 0.6,
+        "median": 0.8,
+        "max": 1.0,
+        "mean": 0.76
+      },
+      "meanAbsRankDelta": {
+        "min": 0.5455,
+        "median": 0.7273,
+        "max": 1.0,
+        "mean": 0.74548
+      },
+      "maxAbsRankDelta": {
+        "min": 3.0,
+        "median": 4.0,
+        "max": 6.0,
+        "mean": 4.4
+      },
+      "shareMoving5Plus": {
+        "min": 0.0,
+        "median": 0.0,
+        "max": 0.0455,
+        "mean": 0.0182
+      },
+      "minSpearmanMargin": 0.018379
+    },
+    "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+      "datesEvaluated": 10,
+      "datesPassingAllGuardrails": 6,
+      "datesFailingAny": [
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09"
+      ],
+      "spearman": {
+        "min": 0.939018,
+        "median": 0.954828,
+        "max": 0.968379,
+        "mean": 0.953585
+      },
+      "top5Overlap": {
+        "min": 0.6,
+        "median": 0.8,
+        "max": 1.0,
+        "mean": 0.76
+      },
+      "meanAbsRankDelta": {
+        "min": 0.9091,
+        "median": 1.2727,
+        "max": 1.3636,
+        "mean": 1.19998
+      },
+      "maxAbsRankDelta": {
+        "min": 5.0,
+        "median": 5.0,
+        "max": 7.0,
+        "mean": 5.7
+      },
+      "shareMoving5Plus": {
+        "min": 0.0455,
+        "median": 0.0455,
+        "max": 0.1364,
+        "mean": 0.05459
+      },
+      "minSpearmanMargin": -0.010982
+    },
+    "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+      "datesEvaluated": 10,
+      "datesPassingAllGuardrails": 6,
+      "datesFailingAny": [
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09"
+      ],
+      "spearman": {
+        "min": 0.9345,
+        "median": 0.957086,
+        "max": 0.966121,
+        "mean": 0.953247
+      },
+      "top5Overlap": {
+        "min": 0.6,
+        "median": 0.8,
+        "max": 1.0,
+        "mean": 0.76
+      },
+      "meanAbsRankDelta": {
+        "min": 0.9091,
+        "median": 1.22725,
+        "max": 1.3636,
+        "mean": 1.19998
+      },
+      "maxAbsRankDelta": {
+        "min": 5.0,
+        "median": 5.0,
+        "max": 7.0,
+        "mean": 5.7
+      },
+      "shareMoving5Plus": {
+        "min": 0.0455,
+        "median": 0.0455,
+        "max": 0.1364,
+        "mean": 0.05459
+      },
+      "minSpearmanMargin": -0.0155
+    },
+    "D_only": {
+      "datesEvaluated": 10,
+      "datesPassingAllGuardrails": 6,
+      "datesFailingAny": [
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-08",
+        "2026-08-09"
+      ],
+      "spearman": {
+        "min": 0.942405,
+        "median": 0.957086,
+        "max": 0.972897,
+        "mean": 0.956748
+      },
+      "top5Overlap": {
+        "min": 0.6,
+        "median": 0.8,
+        "max": 1.0,
+        "mean": 0.76
+      },
+      "meanAbsRankDelta": {
+        "min": 0.8182,
+        "median": 1.1818,
+        "max": 1.2727,
+        "mean": 1.11817
+      },
+      "maxAbsRankDelta": {
+        "min": 4.0,
+        "median": 5.0,
+        "max": 7.0,
+        "mean": 5.5
+      },
+      "shareMoving5Plus": {
+        "min": 0.0,
+        "median": 0.0455,
+        "max": 0.1364,
+        "mean": 0.04549
+      },
+      "minSpearmanMargin": -0.007595
+    }
+  }
+}

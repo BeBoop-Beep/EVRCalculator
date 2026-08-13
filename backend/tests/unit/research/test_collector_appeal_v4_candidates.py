@@ -373,3 +373,202 @@ def test_candidate_module_reads_no_financial_input():
             if token != "value"
         ), f"financial-looking identifier in a non-financial module: {name}"
         assert "set_value" not in name and "pack_value" not in name
+
+
+# ===========================================================================
+# THE FROZEN CANDIDATE'S CONTRACT
+#
+# These tests exist so the published formula and the executed formula cannot
+# disagree. The recurring failure mode they guard against is a model documented
+# as "D + 4*(2S-1)" while its negative branch is actually damped to -2 - a
+# summary that is wrong in the direction that flatters the model.
+# ===========================================================================
+
+
+def test_frozen_candidate_is_the_grid_entry_it_was_chosen_from():
+    """One arithmetic path. If the frozen function ever diverged from the grid
+    entry the study compared, the study would be describing a different model."""
+    registry = v4.candidate_registry()
+    chosen = registry[v4.RECOMMENDED_CANDIDATE_KEY]["scorer"]
+    for d, h, p in itertools.product(D_GRID, H_GRID, P_GRID):
+        assert v4.collector_appeal_v4_candidate_frozen(d, h, p) == chosen(d, h, p)
+
+
+def test_frozen_modifier_floor_is_damped_and_not_the_negated_ceiling():
+    """The asymmetry, asserted as a number rather than trusted as a comment."""
+    assert v4.FROZEN_MODIFIER_CEILING == 4.0
+    assert v4.FROZEN_DOWNSIDE_DAMPING == 0.5
+    assert v4.FROZEN_MODIFIER_FLOOR == -2.0
+    assert v4.FROZEN_MODIFIER_FLOOR != -v4.FROZEN_MODIFIER_CEILING
+    best = v4.structural_modifier_points(
+        1.0, 1.0, ceiling=v4.FROZEN_MODIFIER_CEILING,
+        penalty_damping=v4.FROZEN_DOWNSIDE_DAMPING,
+    )
+    worst = v4.structural_modifier_points(
+        1e-9, 0.0, ceiling=v4.FROZEN_MODIFIER_CEILING,
+        penalty_damping=v4.FROZEN_DOWNSIDE_DAMPING,
+    )
+    assert best == pytest.approx(v4.FROZEN_MODIFIER_CEILING)
+    assert worst == pytest.approx(v4.FROZEN_MODIFIER_FLOOR)
+
+
+def test_frozen_formula_string_states_both_branches():
+    """A summary that omits the damped branch would let a reader reproduce the
+    wrong number and believe they had reproduced the right one."""
+    expression = v4.FROZEN_FORMULA_EXPRESSION
+    assert "4.0*z if z >= 0" in expression
+    assert "else 2.0*z" in expression
+    assert "clamp(100*D + m, 0, 100)" in expression
+    assert "D + 4*(2S-1)" not in expression
+    assert "ceil4_floor2" in v4.FROZEN_CANDIDATE_VERSION
+    assert "up4_down2" in v4.FROZEN_CANDIDATE_KEY
+
+
+def test_frozen_max_pairwise_structural_advantage_is_six_and_holds_exhaustively():
+    assert v4.FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE == pytest.approx(6.0)
+    limit = v4.FROZEN_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE
+    d_high = 0.90
+    incumbent = v4.collector_appeal_v4_candidate_frozen(d_high, 1e-9, 0.0)
+    challenger_best = v4.collector_appeal_v4_candidate_frozen(
+        d_high - (limit + 0.01) / 100.0, 1.0, 1.0
+    )
+    assert challenger_best < incumbent
+    challenger_inside = v4.collector_appeal_v4_candidate_frozen(
+        d_high - (limit - 0.01) / 100.0, 1.0, 1.0
+    )
+    assert challenger_inside > incumbent
+    modifiers = [
+        v4.structural_modifier_points(
+            h, p, ceiling=v4.FROZEN_MODIFIER_CEILING,
+            penalty_damping=v4.FROZEN_DOWNSIDE_DAMPING,
+        )
+        for h, p in itertools.product(H_GRID, P_GRID)
+    ]
+    assert max(modifiers) - min(modifiers) <= limit + 1e-9
+
+
+def test_frozen_monotonicity_contract_matches_the_implementation():
+    """Strict increase OFF the clamp; non-decreasing everywhere; ties possible
+    ONLY inside the saturation region the contract names."""
+    contract = v4.FROZEN_MONOTONICITY_CONTRACT
+    upper = contract["upper_saturation_begins_above_d"]
+    lower = contract["lower_saturation_begins_below_d"]
+    assert upper == pytest.approx(0.96)
+    assert lower == pytest.approx(0.02)
+
+    ties_outside_saturation = []
+    for h, p in itertools.product(H_GRID, P_GRID):
+        previous_d = previous_score = None
+        for step in range(201):
+            d = step / 200.0
+            score = v4.collector_appeal_v4_candidate_frozen(d, h, p)
+            if previous_score is not None:
+                assert score >= previous_score  # non-decreasing EVERYWHERE
+                if score == previous_score and lower < previous_d and d < upper:
+                    ties_outside_saturation.append((previous_d, d, h, p))
+            previous_d, previous_score = d, score
+    assert ties_outside_saturation == []
+
+
+def test_frozen_clamp_binds_only_inside_the_declared_region():
+    upper = v4.FROZEN_MONOTONICITY_CONTRACT["upper_saturation_begins_above_d"]
+    assert v4.collector_appeal_v4_candidate_frozen(0.99, 1.0, 1.0) == 100.0
+    assert v4.collector_appeal_v4_candidate_frozen(upper, 1.0, 1.0) == pytest.approx(100.0)
+    assert v4.collector_appeal_v4_candidate_frozen(upper - 0.01, 1.0, 1.0) < 100.0
+
+
+def test_no_eligible_cohort_set_is_inside_the_saturation_region():
+    """A fact about the DATA, asserted separately from the fact about the
+    FORMULA. If a future set crosses D = 0.96 this fails and forces a review
+    rather than silently producing a tie."""
+    from backend.scripts.audit_collector_appeal_v4_candidates import load_published_cohort
+
+    upper = v4.FROZEN_MONOTONICITY_CONTRACT["upper_saturation_begins_above_d"]
+    lower = v4.FROZEN_MONOTONICITY_CONTRACT["lower_saturation_begins_below_d"]
+    for row in load_published_cohort():
+        assert lower < row["D"] < upper, f"{row['set']} at D={row['D']} is in the clamp region"
+
+
+def test_frozen_fingerprint_is_deterministic_and_assumption_sensitive():
+    first = v4.frozen_candidate_fingerprint()
+    assert first == v4.frozen_candidate_fingerprint()
+    assert len(first) == 64
+
+    from backend.desirability.collector_appeal_fingerprint import fingerprint_assumptions
+
+    assumptions = v4.frozen_candidate_assumptions()
+    assert fingerprint_assumptions(assumptions) == first
+
+    # Every constant that changes a score must change the hash. The damping is
+    # listed explicitly: a fingerprint blind to it would let a symmetric variant
+    # masquerade as this one.
+    for path, replacement in (
+        (("modifier", "positive_ceiling_points"), 6.0),
+        (("modifier", "downside_damping"), 1.0),
+        (("modifier", "negative_floor_points"), -4.0),
+        (("structural_blend", "h_weight"), 0.85),
+        (("h_transform", "anchor_neutral_one_in_n"), 6.0),
+        (("p_transform", "anchor_one"), 0.60),
+    ):
+        mutated = {k: (dict(v) if isinstance(v, dict) else v) for k, v in assumptions.items()}
+        mutated[path[0]][path[1]] = replacement
+        assert fingerprint_assumptions(mutated) != first, path
+
+
+def test_frozen_identity_reports_the_floor_not_just_the_ceiling():
+    identity = v4.frozen_candidate_identity()
+    assert identity["modifierCeiling"] == 4.0
+    assert identity["modifierFloor"] == -2.0
+    assert identity["maxPairwiseStructuralAdvantage"] == 6.0
+    assert identity["status"] == "research_candidate_frozen_not_canonical"
+    assert identity["fingerprint"] == v4.frozen_candidate_fingerprint()
+
+
+# ---------------------------------------------------------------------------
+# the P ablation twin
+# ---------------------------------------------------------------------------
+
+
+def test_ablation_twin_shares_every_assumption_except_p():
+    """If these two differed in any other assumption, the ablation would not be
+    measuring P."""
+    neutral_h = 1.0 / v4.FROZEN_H_ANCHOR_NEUTRAL_ONE_IN_N
+    for d in D_GRID:
+        # At neutral P, sP contributes exactly what neutrality removes, so the
+        # blended model and the H-only model must agree exactly - for every H.
+        for h in H_GRID:
+            blended = v4.collector_appeal_v4_candidate_frozen(d, h, v4.FROZEN_P_ANCHOR_NEUTRAL)
+            h_only = v4.collector_appeal_v4_candidate_frozen_h_only(d, h)
+            if h == neutral_h:
+                assert blended == pytest.approx(h_only)
+    # Same ceiling, same floor, same clamp, same missing-data policy.
+    assert v4.collector_appeal_v4_candidate_frozen_h_only(0.90, 1.0) == pytest.approx(94.0)
+    assert v4.collector_appeal_v4_candidate_frozen_h_only(0.90, 1e-9) == pytest.approx(88.0)
+    assert v4.collector_appeal_v4_candidate_frozen_h_only(None, 0.2) is None
+    assert v4.collector_appeal_v4_candidate_frozen_h_only(0.9, None) is None
+
+
+def test_ablation_twin_ignores_p_entirely():
+    baseline = v4.collector_appeal_v4_candidate_frozen_h_only(0.85, 0.15, 0.0)
+    for p in P_GRID:
+        assert v4.collector_appeal_v4_candidate_frozen_h_only(0.85, 0.15, p) == baseline
+
+
+def test_both_frozen_models_are_registered_and_neither_is_canonical():
+    registry = v4.candidate_registry()
+    assert registry[v4.FROZEN_CANDIDATE_KEY]["family"] == "frozen_candidate"
+    assert registry[v4.FROZEN_ABLATION_KEY]["family"] == "frozen_ablation"
+    assert "not_canonical" in v4.FROZEN_CANDIDATE_STATUS
+    assert canonical.COLLECTOR_APPEAL_V3_VERSION == "collector_appeal_v3_balanced_d40_h35_p25"
+
+
+def test_historical_replay_script_performs_no_writes():
+    source = (
+        REPO_ROOT / "backend" / "scripts" / "audit_collector_appeal_v4_historical_replay.py"
+    ).read_text(encoding="utf-8")
+    for forbidden in (".insert(", ".upsert(", ".update(", ".delete(", ".rpc("):
+        assert forbidden not in source
+    # Guardrail thresholds must be read from config, never restated here.
+    assert "OVERALL_RIP_PRODUCTION_GUARDRAILS" in source
+    for literal in ('"min_spearman_vs_financial_only": 0.95', '"min_top5_overlap": 0.8'):
+        assert literal not in source

@@ -91,6 +91,16 @@
       "label": "Candidate G - multiplicative, gain 0.08",
       "family": "candidate",
       "formula": "CA = 100*D * (1 + 0.08*(2S-1))"
+    },
+    "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+      "label": "FROZEN candidate - asymmetric H70/P30, +4.0 / -2.0",
+      "family": "frozen_candidate",
+      "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); sP = clamp01((P - 0.10) / (0.50 - 0.10)); S = 0.70*sH + 0.30*sP; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)"
+    },
+    "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+      "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+      "family": "frozen_ablation",
+      "formula": "S = sH; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)"
     }
   },
   "cohort": [
@@ -123,7 +133,9 @@
         "cand_F_d_plus_h_c4": 95.9753,
         "cand_P_only_control_c4": 95.253,
         "cand_G_multiplicative_g4": 95.5918,
-        "cand_G_multiplicative_g8": 97.9061
+        "cand_G_multiplicative_g8": 97.9061,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 95.7586,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 95.9753
       },
       "ranks": {
         "D_only": 4,
@@ -142,7 +154,9 @@
         "cand_F_d_plus_h_c4": 4,
         "cand_P_only_control_c4": 1,
         "cand_G_multiplicative_g4": 3,
-        "cand_G_multiplicative_g8": 2
+        "cand_G_multiplicative_g8": 2,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 3,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 4
       }
     },
     {
@@ -174,7 +188,9 @@
         "cand_F_d_plus_h_c4": 94.5736,
         "cand_P_only_control_c4": 92.1718,
         "cand_G_multiplicative_g4": 93.5654,
-        "cand_G_multiplicative_g8": 96.3862
+        "cand_G_multiplicative_g8": 96.3862,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 93.8531,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 94.5736
       },
       "ranks": {
         "D_only": 5,
@@ -193,7 +209,9 @@
         "cand_F_d_plus_h_c4": 5,
         "cand_P_only_control_c4": 5,
         "cand_G_multiplicative_g4": 5,
-        "cand_G_multiplicative_g8": 5
+        "cand_G_multiplicative_g8": 5,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 5,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 5
       }
     },
     {
@@ -225,7 +243,9 @@
         "cand_F_d_plus_h_c4": 99.0942,
         "cand_P_only_control_c4": 94.9095,
         "cand_G_multiplicative_g4": 97.7323,
-        "cand_G_multiplicative_g8": 99.9836
+        "cand_G_multiplicative_g8": 99.9836,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 97.8388,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 99.0942
       },
       "ranks": {
         "D_only": 1,
@@ -244,7 +264,9 @@
         "cand_F_d_plus_h_c4": 1,
         "cand_P_only_control_c4": 2,
         "cand_G_multiplicative_g4": 1,
-        "cand_G_multiplicative_g8": 1
+        "cand_G_multiplicative_g8": 1,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 1,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 1
       }
     },
     {
@@ -276,7 +298,9 @@
         "cand_F_d_plus_h_c4": 89.627,
         "cand_P_only_control_c4": 90.1319,
         "cand_G_multiplicative_g4": 89.4484,
-        "cand_G_multiplicative_g8": 91.697
+        "cand_G_multiplicative_g8": 91.697,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.7785,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.627
       },
       "ranks": {
         "D_only": 12,
@@ -295,7 +319,9 @@
         "cand_F_d_plus_h_c4": 7,
         "cand_P_only_control_c4": 6,
         "cand_G_multiplicative_g4": 6,
-        "cand_G_multiplicative_g8": 6
+        "cand_G_multiplicative_g8": 6,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 6,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 7
       }
     },
     {
@@ -327,7 +353,9 @@
         "cand_F_d_plus_h_c4": 96.5295,
         "cand_P_only_control_c4": 93.4071,
         "cand_G_multiplicative_g4": 95.4664,
-        "cand_G_multiplicative_g8": 97.3185
+        "cand_G_multiplicative_g8": 97.3185,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 95.5928,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 96.5295
       },
       "ranks": {
         "D_only": 3,
@@ -346,7 +374,9 @@
         "cand_F_d_plus_h_c4": 3,
         "cand_P_only_control_c4": 3,
         "cand_G_multiplicative_g4": 4,
-        "cand_G_multiplicative_g8": 3
+        "cand_G_multiplicative_g8": 3,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 4,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 3
       }
     },
     {
@@ -378,7 +408,9 @@
         "cand_F_d_plus_h_c4": 83.4797,
         "cand_P_only_control_c4": 82.9062,
         "cand_G_multiplicative_g4": 82.6234,
-        "cand_G_multiplicative_g8": 85.3439
+        "cand_G_multiplicative_g8": 85.3439,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 83.3077,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 83.4797
       },
       "ranks": {
         "D_only": 19,
@@ -397,7 +429,9 @@
         "cand_F_d_plus_h_c4": 18,
         "cand_P_only_control_c4": 16,
         "cand_G_multiplicative_g4": 18,
-        "cand_G_multiplicative_g8": 14
+        "cand_G_multiplicative_g8": 14,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 18,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 18
       }
     },
     {
@@ -429,7 +463,9 @@
         "cand_F_d_plus_h_c4": 85.6048,
         "cand_P_only_control_c4": 82.5473,
         "cand_G_multiplicative_g4": 84.1205,
-        "cand_G_multiplicative_g8": 86.6361
+        "cand_G_multiplicative_g8": 86.6361,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 84.6875,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.6048
       },
       "ranks": {
         "D_only": 17,
@@ -448,7 +484,9 @@
         "cand_F_d_plus_h_c4": 13,
         "cand_P_only_control_c4": 17,
         "cand_G_multiplicative_g4": 16,
-        "cand_G_multiplicative_g8": 12
+        "cand_G_multiplicative_g8": 12,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 16,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 15
       }
     },
     {
@@ -480,7 +518,9 @@
         "cand_F_d_plus_h_c4": 90.4993,
         "cand_P_only_control_c4": 87.4402,
         "cand_G_multiplicative_g4": 89.3155,
-        "cand_G_multiplicative_g8": 91.1712
+        "cand_G_multiplicative_g8": 91.1712,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.5816,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 90.4993
       },
       "ranks": {
         "D_only": 9,
@@ -499,7 +539,9 @@
         "cand_F_d_plus_h_c4": 6,
         "cand_P_only_control_c4": 10,
         "cand_G_multiplicative_g4": 7,
-        "cand_G_multiplicative_g8": 7
+        "cand_G_multiplicative_g8": 7,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 7,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 6
       }
     },
     {
@@ -531,7 +573,9 @@
         "cand_F_d_plus_h_c4": 97.4058,
         "cand_P_only_control_c4": 93.3061,
         "cand_G_multiplicative_g4": 96.1364,
-        "cand_G_multiplicative_g8": 96.9426
+        "cand_G_multiplicative_g8": 96.9426,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 96.1759,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 97.4058
       },
       "ranks": {
         "D_only": 2,
@@ -550,7 +594,9 @@
         "cand_F_d_plus_h_c4": 2,
         "cand_P_only_control_c4": 4,
         "cand_G_multiplicative_g4": 2,
-        "cand_G_multiplicative_g8": 4
+        "cand_G_multiplicative_g8": 4,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 2,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 2
       }
     },
     {
@@ -582,7 +628,9 @@
         "cand_F_d_plus_h_c4": 88.8252,
         "cand_P_only_control_c4": 90.0924,
         "cand_G_multiplicative_g4": 89.1663,
-        "cand_G_multiplicative_g8": 89.4779
+        "cand_G_multiplicative_g8": 89.4779,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.2054,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.84
       },
       "ranks": {
         "D_only": 7,
@@ -601,7 +649,9 @@
         "cand_F_d_plus_h_c4": 8,
         "cand_P_only_control_c4": 7,
         "cand_G_multiplicative_g4": 8,
-        "cand_G_multiplicative_g8": 8
+        "cand_G_multiplicative_g8": 8,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 9,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 9
       }
     },
     {
@@ -633,7 +683,9 @@
         "cand_F_d_plus_h_c4": 88.6234,
         "cand_P_only_control_c4": 88.3491,
         "cand_G_multiplicative_g4": 88.4671,
-        "cand_G_multiplicative_g8": 89.0062
+        "cand_G_multiplicative_g8": 89.0062,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 88.5411,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 88.6234
       },
       "ranks": {
         "D_only": 8,
@@ -652,7 +704,9 @@
         "cand_F_d_plus_h_c4": 10,
         "cand_P_only_control_c4": 9,
         "cand_G_multiplicative_g4": 10,
-        "cand_G_multiplicative_g8": 9
+        "cand_G_multiplicative_g8": 9,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 10,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 10
       }
     },
     {
@@ -684,7 +738,9 @@
         "cand_F_d_plus_h_c4": 87.2332,
         "cand_P_only_control_c4": 86.6116,
         "cand_G_multiplicative_g4": 86.9932,
-        "cand_G_multiplicative_g8": 87.3406
+        "cand_G_multiplicative_g8": 87.3406,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 87.0467,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 87.2332
       },
       "ranks": {
         "D_only": 13,
@@ -703,7 +759,9 @@
         "cand_F_d_plus_h_c4": 11,
         "cand_P_only_control_c4": 11,
         "cand_G_multiplicative_g4": 11,
-        "cand_G_multiplicative_g8": 10
+        "cand_G_multiplicative_g8": 10,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 11,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 11
       }
     },
     {
@@ -735,7 +793,9 @@
         "cand_F_d_plus_h_c4": 81.7679,
         "cand_P_only_control_c4": 81.6931,
         "cand_G_multiplicative_g4": 81.6391,
-        "cand_G_multiplicative_g8": 82.0979
+        "cand_G_multiplicative_g8": 82.0979,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 81.7454,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 81.7679
       },
       "ranks": {
         "D_only": 18,
@@ -754,7 +814,9 @@
         "cand_F_d_plus_h_c4": 19,
         "cand_P_only_control_c4": 18,
         "cand_G_multiplicative_g4": 19,
-        "cand_G_multiplicative_g8": 19
+        "cand_G_multiplicative_g8": 19,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 19,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 19
       }
     },
     {
@@ -786,7 +848,9 @@
         "cand_F_d_plus_h_c4": 84.5146,
         "cand_P_only_control_c4": 85.8382,
         "cand_G_multiplicative_g4": 85.0685,
-        "cand_G_multiplicative_g8": 84.1021
+        "cand_G_multiplicative_g8": 84.1021,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 85.4733,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.2748
       },
       "ranks": {
         "D_only": 15,
@@ -805,7 +869,9 @@
         "cand_F_d_plus_h_c4": 16,
         "cand_P_only_control_c4": 13,
         "cand_G_multiplicative_g4": 15,
-        "cand_G_multiplicative_g8": 16
+        "cand_G_multiplicative_g8": 16,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 15,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 16
       }
     },
     {
@@ -837,7 +903,9 @@
         "cand_F_d_plus_h_c4": 85.5149,
         "cand_P_only_control_c4": 85.5387,
         "cand_G_multiplicative_g4": 85.6357,
-        "cand_G_multiplicative_g8": 84.9165
+        "cand_G_multiplicative_g8": 84.9165,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 85.9384,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 85.9349
       },
       "ranks": {
         "D_only": 14,
@@ -856,7 +924,9 @@
         "cand_F_d_plus_h_c4": 14,
         "cand_P_only_control_c4": 14,
         "cand_G_multiplicative_g4": 13,
-        "cand_G_multiplicative_g8": 15
+        "cand_G_multiplicative_g8": 15,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 14,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 14
       }
     },
     {
@@ -888,7 +958,9 @@
         "cand_F_d_plus_h_c4": 86.1938,
         "cand_P_only_control_c4": 86.2833,
         "cand_G_multiplicative_g4": 86.3595,
-        "cand_G_multiplicative_g8": 85.4039
+        "cand_G_multiplicative_g8": 85.4039,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 86.7679,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.7544
       },
       "ranks": {
         "D_only": 10,
@@ -907,7 +979,9 @@
         "cand_F_d_plus_h_c4": 12,
         "cand_P_only_control_c4": 12,
         "cand_G_multiplicative_g4": 12,
-        "cand_G_multiplicative_g8": 13
+        "cand_G_multiplicative_g8": 13,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 12,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 12
       }
     },
     {
@@ -939,7 +1013,9 @@
         "cand_F_d_plus_h_c4": 88.6872,
         "cand_P_only_control_c4": 88.5626,
         "cand_G_multiplicative_g4": 88.8158,
-        "cand_G_multiplicative_g8": 87.2574
+        "cand_G_multiplicative_g8": 87.2574,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 89.512,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 89.5307
       },
       "ranks": {
         "D_only": 6,
@@ -958,7 +1034,9 @@
         "cand_F_d_plus_h_c4": 9,
         "cand_P_only_control_c4": 8,
         "cand_G_multiplicative_g4": 9,
-        "cand_G_multiplicative_g8": 11
+        "cand_G_multiplicative_g8": 11,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 8,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 8
       }
     },
     {
@@ -990,7 +1068,9 @@
         "cand_F_d_plus_h_c4": 72.0099,
         "cand_P_only_control_c4": 71.3329,
         "cand_G_multiplicative_g4": 71.2311,
-        "cand_G_multiplicative_g8": 72.5676
+        "cand_G_multiplicative_g8": 72.5676,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 71.8068,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 72.0099
       },
       "ranks": {
         "D_only": 21,
@@ -1009,7 +1089,9 @@
         "cand_F_d_plus_h_c4": 21,
         "cand_P_only_control_c4": 21,
         "cand_G_multiplicative_g4": 21,
-        "cand_G_multiplicative_g8": 21
+        "cand_G_multiplicative_g8": 21,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 21,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 21
       }
     },
     {
@@ -1041,7 +1123,9 @@
         "cand_F_d_plus_h_c4": 74.4796,
         "cand_P_only_control_c4": 76.2829,
         "cand_G_multiplicative_g4": 75.1625,
-        "cand_G_multiplicative_g8": 74.7227
+        "cand_G_multiplicative_g8": 74.7227,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 75.3115,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 75.041
       },
       "ranks": {
         "D_only": 20,
@@ -1060,7 +1144,9 @@
         "cand_F_d_plus_h_c4": 20,
         "cand_P_only_control_c4": 20,
         "cand_G_multiplicative_g4": 20,
-        "cand_G_multiplicative_g8": 20
+        "cand_G_multiplicative_g8": 20,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 20,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 20
       }
     },
     {
@@ -1092,7 +1178,9 @@
         "cand_F_d_plus_h_c4": 85.4026,
         "cand_P_only_control_c4": 84.003,
         "cand_G_multiplicative_g4": 85.277,
-        "cand_G_multiplicative_g8": 83.254
+        "cand_G_multiplicative_g8": 83.254,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 86.1413,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 86.3513
       },
       "ranks": {
         "D_only": 11,
@@ -1111,7 +1199,9 @@
         "cand_F_d_plus_h_c4": 15,
         "cand_P_only_control_c4": 15,
         "cand_G_multiplicative_g4": 14,
-        "cand_G_multiplicative_g8": 17
+        "cand_G_multiplicative_g8": 17,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 13,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 13
       }
     },
     {
@@ -1143,7 +1233,9 @@
         "cand_F_d_plus_h_c4": 84.0331,
         "cand_P_only_control_c4": 80.7384,
         "cand_G_multiplicative_g4": 83.1996,
-        "cand_G_multiplicative_g8": 82.3854
+        "cand_G_multiplicative_g8": 82.3854,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 83.5292,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 84.0331
       },
       "ranks": {
         "D_only": 16,
@@ -1162,7 +1254,9 @@
         "cand_F_d_plus_h_c4": 17,
         "cand_P_only_control_c4": 19,
         "cand_G_multiplicative_g4": 17,
-        "cand_G_multiplicative_g8": 18
+        "cand_G_multiplicative_g8": 18,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 17,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 17
       }
     },
     {
@@ -1194,7 +1288,9 @@
         "cand_F_d_plus_h_c4": 47.0747,
         "cand_P_only_control_c4": 49.7488,
         "cand_G_multiplicative_g4": 49.4414,
-        "cand_G_multiplicative_g8": 47.8082
+        "cand_G_multiplicative_g8": 47.8082,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 49.4758,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 49.0747
       },
       "ranks": {
         "D_only": 22,
@@ -1213,7 +1309,9 @@
         "cand_F_d_plus_h_c4": 22,
         "cand_P_only_control_c4": 22,
         "cand_G_multiplicative_g4": 22,
-        "cand_G_multiplicative_g8": 22
+        "cand_G_multiplicative_g8": 22,
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": 22,
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": 22
       }
     }
   ],
@@ -1756,6 +1854,64 @@
             "flipsUnderObservedStructure": false
           }
         }
+      },
+      "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+        "label": "FROZEN candidate - asymmetric H70/P30, +4.0 / -2.0",
+        "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); sP = clamp01((P - 0.10) / (0.50 - 0.10)); S = 0.70*sH + 0.30*sP; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+        "derivedMaxFlipGap": 6.0,
+        "structuralSwingExtremePoints": 6.0,
+        "structuralSwingObservedPoints": 5.5956,
+        "probes": {
+          "gap2": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap5": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap10": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap15": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap20": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          }
+        }
+      },
+      "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+        "label": "P ABLATION - asymmetric H only, +4.0 / -2.0",
+        "formula": "S = sH; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+        "derivedMaxFlipGap": 6.0,
+        "structuralSwingExtremePoints": 6.0,
+        "structuralSwingObservedPoints": 6.0,
+        "probes": {
+          "gap2": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap5": {
+            "flipsUnderExtremeStructure": true,
+            "flipsUnderObservedStructure": true
+          },
+          "gap10": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap15": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          },
+          "gap20": {
+            "flipsUnderExtremeStructure": false,
+            "flipsUnderObservedStructure": false
+          }
+        }
       }
     }
   },
@@ -1912,6 +2068,24 @@
       "spearmanVsCA7": 0.9345,
       "spearmanVsV2": 0.9243,
       "pearsonVsD": 0.963
+    },
+    "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+      "spearmanVsD": 0.9605,
+      "spearmanVsH": 0.4207,
+      "spearmanVsP": -0.0344,
+      "spearmanVsV3": 0.712,
+      "spearmanVsCA7": 0.9853,
+      "spearmanVsV2": 0.9785,
+      "pearsonVsD": 0.9896
+    },
+    "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+      "spearmanVsD": 0.9627,
+      "spearmanVsH": 0.4455,
+      "spearmanVsP": -0.0503,
+      "spearmanVsV3": 0.7109,
+      "spearmanVsCA7": 0.9797,
+      "spearmanVsV2": 0.9763,
+      "pearsonVsD": 0.9866
     }
   },
   "movement": {
@@ -2985,6 +3159,132 @@
         "maxAbsRankDelta": 8,
         "top5Overlap": 0.8
       }
+    },
+    "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+      "vsDOnly": {
+        "spearman": 0.960474,
+        "meanAbsRankDelta": 1.1818,
+        "medianAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 6,
+        "pctMoving2Plus": 0.3636,
+        "pctMoving3Plus": 0.045455,
+        "pctMoving5Plus": 0.045455,
+        "top5Overlap": 1.0,
+        "bottom5Overlap": 1.0,
+        "largestGainers": [
+          [
+            "Mega Evolution",
+            6
+          ],
+          [
+            "Journey Together",
+            2
+          ],
+          [
+            "Paradox Rift",
+            2
+          ],
+          [
+            "Prismatic Evolutions",
+            1
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Surging Sparks",
+            -2
+          ],
+          [
+            "Destined Rivals",
+            -2
+          ],
+          [
+            "Obsidian Flames",
+            -2
+          ],
+          [
+            "Paldea Evolved",
+            -2
+          ],
+          [
+            "White Flare",
+            -2
+          ]
+        ]
+      },
+      "vsV3": {
+        "spearman": 0.712027,
+        "meanAbsRankDelta": 3.5455,
+        "maxAbsRankDelta": 12,
+        "top5Overlap": 0.8
+      }
+    },
+    "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+      "vsDOnly": {
+        "spearman": 0.962733,
+        "meanAbsRankDelta": 1.1818,
+        "medianAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 5,
+        "pctMoving2Plus": 0.4091,
+        "pctMoving3Plus": 0.090909,
+        "pctMoving5Plus": 0.045455,
+        "top5Overlap": 1.0,
+        "bottom5Overlap": 1.0,
+        "largestGainers": [
+          [
+            "Mega Evolution",
+            5
+          ],
+          [
+            "Journey Together",
+            3
+          ],
+          [
+            "Perfect Order",
+            2
+          ],
+          [
+            "Paradox Rift",
+            2
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Surging Sparks",
+            -2
+          ],
+          [
+            "Destined Rivals",
+            -2
+          ],
+          [
+            "Obsidian Flames",
+            -2
+          ],
+          [
+            "Paldea Evolved",
+            -2
+          ],
+          [
+            "White Flare",
+            -2
+          ]
+        ]
+      },
+      "vsV3": {
+        "spearman": 0.710898,
+        "meanAbsRankDelta": 3.7273,
+        "maxAbsRankDelta": 12,
+        "top5Overlap": 0.8
+      }
     }
   },
   "caseStudies": [
@@ -3141,6 +3441,22 @@
           "caGap": 14.6397,
           "leftRank": 1,
           "rightRank": 14,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 97.8388,
+          "rightScore": 83.3077,
+          "caGap": 14.5311,
+          "leftRank": 1,
+          "rightRank": 18,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 83.4797,
+          "caGap": 15.6145,
+          "leftRank": 1,
+          "rightRank": 18,
           "flipsAgainstD": false
         }
       }
@@ -3299,6 +3615,22 @@
           "leftRank": 1,
           "rightRank": 12,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 97.8388,
+          "rightScore": 84.6875,
+          "caGap": 13.1513,
+          "leftRank": 1,
+          "rightRank": 16,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 85.6048,
+          "caGap": 13.4894,
+          "leftRank": 1,
+          "rightRank": 15,
+          "flipsAgainstD": false
         }
       }
     },
@@ -3455,6 +3787,22 @@
           "caGap": 8.8124,
           "leftRank": 1,
           "rightRank": 7,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 97.8388,
+          "rightScore": 89.5816,
+          "caGap": 8.2572,
+          "leftRank": 1,
+          "rightRank": 7,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 99.0942,
+          "rightScore": 90.4993,
+          "caGap": 8.5949,
+          "leftRank": 1,
+          "rightRank": 6,
           "flipsAgainstD": false
         }
       }
@@ -3613,6 +3961,22 @@
           "leftRank": 6,
           "rightRank": 3,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 89.7785,
+          "rightScore": 95.5928,
+          "caGap": -5.8143,
+          "leftRank": 6,
+          "rightRank": 4,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 89.627,
+          "rightScore": 96.5295,
+          "caGap": -6.9024,
+          "leftRank": 7,
+          "rightRank": 3,
+          "flipsAgainstD": false
         }
       }
     },
@@ -3767,6 +4131,22 @@
           "leftScore": 96.3862,
           "rightScore": 99.9836,
           "caGap": -3.5974,
+          "leftRank": 5,
+          "rightRank": 1,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 93.8531,
+          "rightScore": 97.8388,
+          "caGap": -3.9857,
+          "leftRank": 5,
+          "rightRank": 1,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 99.0942,
+          "caGap": -4.5206,
           "leftRank": 5,
           "rightRank": 1,
           "flipsAgainstD": false
@@ -3927,10 +4307,389 @@
           "leftRank": 5,
           "rightRank": 2,
           "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+          "leftScore": 93.8531,
+          "rightScore": 95.7586,
+          "caGap": -1.9055,
+          "leftRank": 5,
+          "rightRank": 3,
+          "flipsAgainstD": false
+        },
+        "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+          "leftScore": 94.5736,
+          "rightScore": 95.9753,
+          "caGap": -1.4016,
+          "leftRank": 5,
+          "rightRank": 4,
+          "flipsAgainstD": false
         }
       }
     }
   ],
+  "frozenCandidate": {
+    "key": "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2",
+    "version": "collector_appeal_v4_candidate_asym_d_plus_h70p30_ceil4_floor2_research_v1",
+    "formulaVersion": "collector_appeal_v4_centred_asymmetric_modifier_v1",
+    "status": "research_candidate_frozen_not_canonical",
+    "formula": "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); sP = clamp01((P - 0.10) / (0.50 - 0.10)); S = 0.70*sH + 0.30*sP; z = 2*S - 1; m = 4.0*z if z >= 0 else 2.0*z; CA = clamp(100*D + m, 0, 100)",
+    "modifierCeiling": 4.0,
+    "modifierFloor": -2.0,
+    "maxPairwiseStructuralAdvantage": 6.0,
+    "monotonicityContract": {
+      "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+      "in_h": "non_decreasing_everywhere",
+      "in_p": "non_decreasing_everywhere",
+      "upper_saturation_begins_above_d": 0.96,
+      "lower_saturation_begins_below_d": 0.02,
+      "ties_possible_only_inside_saturation": true
+    },
+    "fingerprint": "0f0846a3e0f5bd05ae8b0efb5de245fcf9e2f538c3a37e973f045aa11ec723c5",
+    "fingerprintAlgorithm": "sha256"
+  },
+  "pAblation": {
+    "full": "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2",
+    "ablated": "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2",
+    "identicalExcept": "S = 0.70*sH + 0.30*sP  vs  S = sH",
+    "correlations": {
+      "full": {
+        "spearmanVsD": 0.9605,
+        "spearmanVsH": 0.4207,
+        "spearmanVsP": -0.0344,
+        "spearmanVsV3": 0.712,
+        "spearmanVsCA7": 0.9853,
+        "spearmanVsV2": 0.9785,
+        "pearsonVsD": 0.9896
+      },
+      "ablated": {
+        "spearmanVsD": 0.9627,
+        "spearmanVsH": 0.4455,
+        "spearmanVsP": -0.0503,
+        "spearmanVsV3": 0.7109,
+        "spearmanVsCA7": 0.9797,
+        "spearmanVsV2": 0.9763,
+        "pearsonVsD": 0.9866
+      }
+    },
+    "movementVsDOnly": {
+      "full": {
+        "spearman": 0.960474,
+        "meanAbsRankDelta": 1.1818,
+        "medianAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 6,
+        "pctMoving2Plus": 0.3636,
+        "pctMoving3Plus": 0.045455,
+        "pctMoving5Plus": 0.045455,
+        "top5Overlap": 1.0,
+        "bottom5Overlap": 1.0,
+        "largestGainers": [
+          [
+            "Mega Evolution",
+            6
+          ],
+          [
+            "Journey Together",
+            2
+          ],
+          [
+            "Paradox Rift",
+            2
+          ],
+          [
+            "Prismatic Evolutions",
+            1
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Surging Sparks",
+            -2
+          ],
+          [
+            "Destined Rivals",
+            -2
+          ],
+          [
+            "Obsidian Flames",
+            -2
+          ],
+          [
+            "Paldea Evolved",
+            -2
+          ],
+          [
+            "White Flare",
+            -2
+          ]
+        ]
+      },
+      "ablated": {
+        "spearman": 0.962733,
+        "meanAbsRankDelta": 1.1818,
+        "medianAbsRankDelta": 1.0,
+        "maxAbsRankDelta": 5,
+        "pctMoving2Plus": 0.4091,
+        "pctMoving3Plus": 0.090909,
+        "pctMoving5Plus": 0.045455,
+        "top5Overlap": 1.0,
+        "bottom5Overlap": 1.0,
+        "largestGainers": [
+          [
+            "Mega Evolution",
+            5
+          ],
+          [
+            "Journey Together",
+            3
+          ],
+          [
+            "Perfect Order",
+            2
+          ],
+          [
+            "Paradox Rift",
+            2
+          ],
+          [
+            "Pitch Black",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Surging Sparks",
+            -2
+          ],
+          [
+            "Destined Rivals",
+            -2
+          ],
+          [
+            "Obsidian Flames",
+            -2
+          ],
+          [
+            "Paldea Evolved",
+            -2
+          ],
+          [
+            "White Flare",
+            -2
+          ]
+        ]
+      }
+    },
+    "fullVsAblated": {
+      "n": 22,
+      "spearman": 0.996612,
+      "kendallTauB": 0.974026,
+      "meanAbsRankDelta": 0.2727,
+      "medianAbsRankDelta": 0.0,
+      "maxAbsRankDelta": 1,
+      "meanAbsScoreDelta": 0.408962,
+      "pctMoving1Plus": 0.272727,
+      "pctMoving3Plus": 0.0,
+      "pctMoving5Plus": 0.0,
+      "top3Overlap": 0.666667,
+      "top5Overlap": 1.0,
+      "top10Overlap": 1.0,
+      "rankDeltas": {
+        "Prismatic Evolutions": 1,
+        "Phantasmal Flames": 0,
+        "Ascended Heroes": 0,
+        "Mega Evolution": 1,
+        "Scarlet and Violet 151": -1,
+        "Pitch Black": 0,
+        "Perfect Order": -1,
+        "Journey Together": -1,
+        "Paldean Fates": 0,
+        "Surging Sparks": 0,
+        "Destined Rivals": 0,
+        "Paradox Rift": 0,
+        "Twilight Masquerade": 0,
+        "Temporal Forces": 1,
+        "Stellar Crown": 0,
+        "Obsidian Flames": 0,
+        "Paldea Evolved": 0,
+        "Chaos Rising": 0,
+        "Scarlet and Violet Base Set": 0,
+        "White Flare": 0,
+        "Black Bolt": 0,
+        "Shrouded Fable": 0
+      },
+      "scoreDeltas": {
+        "Prismatic Evolutions": -0.216696,
+        "Phantasmal Flames": -0.720567,
+        "Ascended Heroes": -1.255421,
+        "Mega Evolution": 0.151444,
+        "Scarlet and Violet 151": -0.936725,
+        "Pitch Black": -0.172046,
+        "Perfect Order": -0.917262,
+        "Journey Together": -0.917748,
+        "Paldean Fates": -1.229909,
+        "Surging Sparks": 0.365399,
+        "Destined Rivals": -0.082307,
+        "Paradox Rift": -0.186493,
+        "Twilight Masquerade": -0.022427,
+        "Temporal Forces": 0.198538,
+        "Stellar Crown": 0.003572,
+        "Obsidian Flames": 0.013422,
+        "Paldea Evolved": -0.018684,
+        "Chaos Rising": -0.203106,
+        "Scarlet and Violet Base Set": 0.270494,
+        "White Flare": -0.209938,
+        "Black Bolt": -0.503836,
+        "Shrouded Fable": 0.401127
+      },
+      "largestGainers": [
+        [
+          "Prismatic Evolutions",
+          1
+        ],
+        [
+          "Mega Evolution",
+          1
+        ],
+        [
+          "Temporal Forces",
+          1
+        ],
+        [
+          "Phantasmal Flames",
+          0
+        ],
+        [
+          "Ascended Heroes",
+          0
+        ]
+      ],
+      "largestLosers": [
+        [
+          "Scarlet and Violet 151",
+          -1
+        ],
+        [
+          "Perfect Order",
+          -1
+        ],
+        [
+          "Journey Together",
+          -1
+        ],
+        [
+          "Phantasmal Flames",
+          0
+        ],
+        [
+          "Ascended Heroes",
+          0
+        ]
+      ]
+    },
+    "rankChanges": [
+      {
+        "set": "Prismatic Evolutions",
+        "D": 93.28,
+        "P": 0.3988,
+        "rankWithoutP": 4,
+        "rankWithP": 3,
+        "delta": 1
+      },
+      {
+        "set": "Mega Evolution",
+        "D": 87.2,
+        "P": 0.4466,
+        "rankWithoutP": 7,
+        "rankWithP": 6,
+        "delta": 1
+      },
+      {
+        "set": "Scarlet and Violet 151",
+        "D": 93.61,
+        "P": 0.2896,
+        "rankWithoutP": 3,
+        "rankWithP": 4,
+        "delta": -1
+      },
+      {
+        "set": "Perfect Order",
+        "D": 81.6,
+        "P": 0.3471,
+        "rankWithoutP": 15,
+        "rankWithP": 16,
+        "delta": -1
+      },
+      {
+        "set": "Journey Together",
+        "D": 87.46,
+        "P": 0.299,
+        "rankWithoutP": 6,
+        "rankWithP": 7,
+        "delta": -1
+      },
+      {
+        "set": "Temporal Forces",
+        "D": 86.03,
+        "P": 0.2902,
+        "rankWithoutP": 16,
+        "rankWithP": 15,
+        "delta": 1
+      }
+    ],
+    "pairwiseFlipCount": 3,
+    "pairwiseFlips": [
+      {
+        "winnerWithP": "Mega Evolution",
+        "loserWithP": "Journey Together",
+        "dGapPoints": -0.26,
+        "winnerP": 0.4466,
+        "loserP": 0.299,
+        "pGap": 0.1476,
+        "winnerSP": 0.8665,
+        "loserSP": 0.4975,
+        "winnerH": 0.1904,
+        "loserH": 0.2117,
+        "caGapWithP": 0.1969,
+        "caGapWithoutP": -0.8723,
+        "pDefendsDesirability": false
+      },
+      {
+        "winnerWithP": "Prismatic Evolutions",
+        "loserWithP": "Scarlet and Violet 151",
+        "dGapPoints": -0.3368,
+        "winnerP": 0.3988,
+        "loserP": 0.2896,
+        "pGap": 0.1091,
+        "winnerSP": 0.7469,
+        "loserSP": 0.4741,
+        "winnerH": 0.1995,
+        "loserH": 0.2072,
+        "caGapWithP": 0.1658,
+        "caGapWithoutP": -0.5542,
+        "pDefendsDesirability": false
+      },
+      {
+        "winnerWithP": "Temporal Forces",
+        "loserWithP": "Perfect Order",
+        "dGapPoints": 4.4301,
+        "winnerP": 0.2902,
+        "loserP": 0.3471,
+        "pGap": -0.057,
+        "winnerSP": 0.4754,
+        "loserSP": 0.6178,
+        "winnerH": 0.096,
+        "loserH": 0.2659,
+        "caGapWithP": 0.7858,
+        "caGapWithoutP": -0.33,
+        "pDefendsDesirability": true
+      }
+    ],
+    "inversionBoundaryIdentical": true
+  },
   "pAudit": {
     "sharedBudgetPoints": 4.0,
     "variants": {
@@ -5540,6 +6299,162 @@
             -1
           ]
         ]
+      },
+      "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+        "spearmanVsFinancialOnly": 0.954828,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.2727,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.954828,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.2727,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Ascended Heroes",
+            4
+          ],
+          [
+            "Surging Sparks",
+            3
+          ],
+          [
+            "Scarlet and Violet 151",
+            2
+          ],
+          [
+            "Mega Evolution",
+            2
+          ],
+          [
+            "Paldea Evolved",
+            1
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -5
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -3
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Twilight Masquerade",
+            -2
+          ],
+          [
+            "Black Bolt",
+            -1
+          ]
+        ]
+      },
+      "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+        "spearmanVsFinancialOnly": 0.957086,
+        "top5Overlap": 0.8,
+        "meanAbsRankDelta": 1.1818,
+        "maxAbsRankDelta": 5,
+        "shareMoving5Plus": 0.0455,
+        "guardrailChecks": {
+          "spearman": {
+            "value": 0.957086,
+            "threshold": 0.95,
+            "direction": "min",
+            "passes": true
+          },
+          "top5Overlap": {
+            "value": 0.8,
+            "threshold": 0.8,
+            "direction": "min",
+            "passes": true
+          },
+          "meanAbsRankDelta": {
+            "value": 1.1818,
+            "threshold": 1.5,
+            "direction": "max",
+            "passes": true
+          },
+          "shareMoving5Plus": {
+            "value": 0.045454545454545456,
+            "threshold": 0.1,
+            "direction": "max",
+            "passes": true
+          }
+        },
+        "allGuardrailsPass": true,
+        "largestGainers": [
+          [
+            "Ascended Heroes",
+            4
+          ],
+          [
+            "Destined Rivals",
+            2
+          ],
+          [
+            "Scarlet and Violet 151",
+            2
+          ],
+          [
+            "Surging Sparks",
+            2
+          ],
+          [
+            "Mega Evolution",
+            2
+          ]
+        ],
+        "largestLosers": [
+          [
+            "Shrouded Fable",
+            -5
+          ],
+          [
+            "Scarlet and Violet Base Set",
+            -3
+          ],
+          [
+            "Chaos Rising",
+            -2
+          ],
+          [
+            "Twilight Masquerade",
+            -2
+          ],
+          [
+            "Black Bolt",
+            -1
+          ]
+        ]
       }
     }
   },
@@ -5597,6 +6512,12 @@
       },
       "cand_G_multiplicative_g8": {
         "spearmanVsPackPrice": 0.1733
+      },
+      "collector_appeal_v4_candidate_asymmetric_h70p30_up4_down2": {
+        "spearmanVsPackPrice": 0.3495
+      },
+      "collector_appeal_v4_candidate_asymmetric_h_only_up4_down2": {
+        "spearmanVsPackPrice": 0.3405
       }
     },
     "referenceSpearmanDvsPrice": 0.4681
