@@ -517,7 +517,10 @@ test("the leaderboard reads no interpretation-engine field", () => {
 test("identity, tier, rank, scores and navigation all survive the badge removal", () => {
   const source = fs.readFileSync(componentPath, "utf8");
 
-  assert.ok(source.includes("<SetIdentity variant=\"compact\" target={target} />"), "identity still renders");
+  // The `eager` prop is a per-row loading hint (see EAGER_LOGO_ROW_LIMIT), not
+  // part of the identity contract, so this matches the opening tag rather than
+  // the whole element.
+  assert.ok(source.includes("<SetIdentity variant=\"compact\" target={target}"), "identity still renders");
   assert.ok(source.includes("<RankBadge rank={tier}"), "tier still renders");
   assert.ok(source.includes("<RankMarker rank={modeRank}"), "rank still renders");
   assert.ok(source.includes('<ScoreCell target={target} modeId="overall" />'), "RIP Score still renders");

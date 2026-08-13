@@ -28,6 +28,7 @@ quietly minting a snapshot under a superseded contract.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from datetime import date, timedelta
 from typing import Any, Dict, Optional
@@ -48,6 +49,65 @@ from backend.scripts.pokemon_snapshot_builders import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Superseded public contracts that are BUILT canonically but not PERSISTED into the
+# `_latest` Rankings row.
+#
+# WHY THEY ARE DROPPED HERE AND NOWHERE ELSE
+# ------------------------------------------
+# GET /explore/rip-statistics/targets was measured at ~861 ms HTTP / ~714 ms
+# PostgREST, of which ~600 ms is purely moving a 2.8 MB JSON document across the DB
+# boundary (a metadata-only query on the same row, index and connection is 67.5 ms).
+# SQL is 0.117 ms planned / ~48 ms with a forced detoast, and the lookup already uses
+# its UNIQUE (tcg, scope) primary key, so the document itself is the cost. These three
+# blocks are 982,110 bytes - 37.47% of all target bytes.
+#
+# Dropping them is safe because nothing that reads the persisted row consumes them:
+#   * the set page keeps them - `_merge_canonical_rip_contract_into_set_payload`
+#     lifts V4/V5/V6 from `get_rip_statistics_targets_payload()`, the LIVE builder,
+#     so set Insights is unaffected by what this artifact stores;
+#   * `_score_contract_problems` validates `publicRipContractV7` only;
+#   * `attach_daily_rip_rank_movements` reads ids plus `overallRipV7.rank` /
+#     `financialRipV3.rank`;
+#   * `canonicalRipV7.mjs` has "deliberately no third step" and never falls back to
+#     V5/V6 - they are different models, not shape variants;
+#   * no `getRipStatisticsTargets` consumer reads them.
+#
+# The builders in backend/desirability/public_rip_contract_v{4,5,6}.py are deliberately
+# untouched: other endpoints still need them.
+LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST = (
+    "publicRipContractV4",
+    "publicRipContractV5",
+    "publicRipContractV6",
+)
+
+
+def project_latest_rankings_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the payload to persist in `_latest`, minus the superseded contracts.
+
+    NON-DESTRUCTIVE BY CONSTRUCTION. The caller's payload is the object publication
+    validation and the historical leaderboard rows were built from, so this copies
+    rather than mutating: the complete canonical document must remain exactly what
+    was validated and what history stores.
+    """
+    if not isinstance(payload, dict):
+        return payload
+
+    targets = payload.get("targets")
+    if not isinstance(targets, list):
+        return payload
+
+    projected_targets = []
+    for target in targets:
+        if not isinstance(target, dict):
+            projected_targets.append(target)
+            continue
+        projected_targets.append(
+            {key: value for key, value in target.items() if key not in LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST}
+        )
+
+    return {**payload, "targets": projected_targets}
 
 
 def _ranked(target: Dict[str, Any], key: str) -> bool:
@@ -377,11 +437,34 @@ def publish_explore_rip_rankings_snapshot(
         _reuse_publication_id(client, snapshot)
     attach_publication_metadata(row, snapshot)
     validate_publication_payload(row, snapshot, history_rows)
+
+    # ORDER MATTERS. The projection runs AFTER validation and AFTER movement, so the
+    # publication contract, the Set Value coverage check and the 1D rank movement all
+    # still see the complete canonical payload. Only the `_latest` row - the single
+    # artifact GET /explore/rip-statistics/targets reads, and the one whose size was
+    # measured as the bottleneck - is slimmed. `snapshot`/`history_rows` are passed
+    # through untouched, so the historical leaderboard keeps the full document and
+    # tomorrow's `previous_calendar_day_payload` comparison is byte-for-byte unchanged.
+    latest_row = {
+        **row,
+        "ranking_payload_json": project_latest_rankings_payload(row["ranking_payload_json"]),
+    }
+    full_bytes = len(json.dumps(row["ranking_payload_json"], default=str))
+    slim_bytes = len(json.dumps(latest_row["ranking_payload_json"], default=str))
+    logger.info(
+        "[rankings-publish] _latest payload projection: %s -> %s bytes (-%s, -%.1f%%) removed=%s",
+        full_bytes,
+        slim_bytes,
+        full_bytes - slim_bytes,
+        (100.0 * (full_bytes - slim_bytes) / full_bytes) if full_bytes else 0.0,
+        ",".join(LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST),
+    )
+
     if not commit:
         logger.info("[dry-run] validated complete RIP publication market_date=%s rows=%s",
                     snapshot["market_date"], len(history_rows))
         return row
     client.rpc("publish_pokemon_public_rip_leaderboard", {
-        "p_snapshot": snapshot, "p_rows": history_rows, "p_latest": row,
+        "p_snapshot": snapshot, "p_rows": history_rows, "p_latest": latest_row,
     }).execute()
     return row

@@ -8,7 +8,11 @@ import React, { useEffect, useMemo, useState } from "react";
 
 // Relative, not the "@/" alias: SetIdentity.test.jsx renders this component
 // directly under `tsx --test`, which does not resolve the bundler alias.
-import { SET_LOGO_WIDTH, optimizedImageUrl } from "../../lib/images/remoteImageDelivery.mjs";
+import {
+  SET_LOGO_THUMBNAIL_WIDTH,
+  SET_LOGO_WIDTH,
+  optimizedImageUrl,
+} from "../../lib/images/remoteImageDelivery.mjs";
 
 // IDENTITY ONLY. This block used to render an interpretation verdict badge next
 // to the set name, fed by the retired Profit/Safety/Stability engine's
@@ -49,6 +53,14 @@ export default function SetIdentity({
    * single supporting line rather than another pill inside the row.
    */
   variant = "default",
+  /**
+   * Opt a row OUT of lazy loading. The Rankings table paints 22 logos; the
+   * handful above the fold are wanted immediately, and waiting for the lazy
+   * scheduler to notice them is pure latency on a cold load. Rows below the
+   * fold stay lazy — this is a per-row decision the CALLER makes, because only
+   * the caller knows the row's position.
+   */
+  eager = false,
 }) {
   const name = String(target?.name || target?.target_id || "Unknown Set");
 
@@ -73,10 +85,14 @@ export default function SetIdentity({
     setShowImage(imageCandidates.length > 0);
   }, [imageCandidates]);
 
-  // SET_LOGO_WIDTH, matching the set hero and page atmosphere: this is the same
-  // logo those slots paint, so a shared width means a shared cache entry rather
-  // than a second transform of identical artwork.
-  const activeSrc = optimizedImageUrl(showImage ? imageCandidates[candidateIndex] || null : null, SET_LOGO_WIDTH);
+  // The default variant paints a ~78 CSS px slot and shares SET_LOGO_WIDTH with
+  // the set hero and page atmosphere, so identical artwork is transformed once.
+  // The compact variant's slot is 32 px and shares the dense-row thumbnail width
+  // with the Market ladder instead — see SET_LOGO_THUMBNAIL_WIDTH.
+  const activeSrc = optimizedImageUrl(
+    showImage ? imageCandidates[candidateIndex] || null : null,
+    variant === "compact" ? SET_LOGO_THUMBNAIL_WIDTH : SET_LOGO_WIDTH
+  );
 
   const handleImageError = () => {
     const nextIndex = candidateIndex + 1;
@@ -96,7 +112,8 @@ export default function SetIdentity({
               src={activeSrc}
               alt=""
               className="h-[86%] w-[86%] object-contain"
-              loading="lazy"
+              loading={eager ? "eager" : "lazy"}
+              fetchPriority={eager ? "high" : undefined}
               decoding="async"
               onError={handleImageError}
             />

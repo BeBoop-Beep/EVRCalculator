@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { formatHistoryDate, getHistoryDateKey } from "./historyDateFormatting.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
-import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
+import { SET_LOGO_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
 import { buildPreviousSetValueRanks, formatRankMovement, getSetValueMovement, getStableSetId } from "./rankingMovement.mjs";
@@ -80,12 +80,13 @@ function getInitials(name) {
 
 function LadderLogo({ target, name }) {
   const [failed, setFailed] = useState(false);
-  // A 24 px slot, and every row is a different set, so there is no shared logo
-  // to match a width with — this asks for the thumbnail tier rather than the
-  // full set-logo tier the set page uses.
+  // A 24 px slot: the dense-row set-logo tier, not the full set-logo tier the
+  // set page uses. Shares SET_LOGO_THUMBNAIL_WIDTH with the Rankings table,
+  // which paints these same logos in the same kind of slot, so the two pages
+  // reuse one transform instead of forcing two of identical artwork.
   const src = optimizedImageUrl(
     String(target?.logo_image_url || target?.symbol_image_url || "").trim(),
-    CARD_THUMBNAIL_WIDTH
+    SET_LOGO_THUMBNAIL_WIDTH
   );
 
   if (!src || failed) {

@@ -116,3 +116,45 @@ test("a set with no era still renders its name without a dangling separator", ()
   assert.ok(text.includes("No Era Set"));
   assert.ok(!text.includes("·"), "the era/verdict separator must not survive alone");
 });
+
+/* ------------------------------------------------------ logo delivery size --- */
+
+// A real optimizable host, unlike LOUD_TARGET's images.example: `optimizedImageUrl`
+// returns non-host-matching sources UNCHANGED, so only a whitelisted host
+// exercises the width policy at all.
+const OPTIMIZABLE_TARGET = {
+  name: "Chaos Rising",
+  logo_image_url: "https://images.pokemontcg.io/sv8/logo.png",
+};
+
+function findImage(renderer) {
+  return renderer.root.findByType("img");
+}
+
+test("the compact variant requests the dense-row thumbnail width, not the hero width", () => {
+  const img = findImage(renderIdentity({ variant: "compact", target: OPTIMIZABLE_TARGET }));
+
+  // 32 CSS px slot at DPR 3. Asking for the 640 hero bucket here transferred the
+  // logo at source resolution (~17-30 kB) for a slot that cannot show it.
+  assert.match(img.props.src, /^\/_next\/image\?url=/);
+  assert.ok(img.props.src.includes("&w=96&"), `compact must request w=96, got ${img.props.src}`);
+  assert.ok(!img.props.src.includes("&w=640&"), "compact must not request the hero width");
+});
+
+test("the default variant keeps the shared hero logo width", () => {
+  const img = findImage(renderIdentity({ variant: "default", target: OPTIMIZABLE_TARGET }));
+
+  // Unchanged on purpose: this slot is ~78 CSS px and shares its cache entry
+  // with the set hero and page atmosphere.
+  assert.ok(img.props.src.includes("&w=640&"), `default must request w=640, got ${img.props.src}`);
+});
+
+test("rows are lazy by default and eager only when the caller asks", () => {
+  const lazy = findImage(renderIdentity({ variant: "compact", target: OPTIMIZABLE_TARGET }));
+  assert.equal(lazy.props.loading, "lazy");
+  assert.equal(lazy.props.fetchPriority, undefined);
+
+  const eager = findImage(renderIdentity({ variant: "compact", target: OPTIMIZABLE_TARGET, eager: true }));
+  assert.equal(eager.props.loading, "eager");
+  assert.equal(eager.props.fetchPriority, "high");
+});

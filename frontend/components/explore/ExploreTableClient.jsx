@@ -93,6 +93,13 @@ const RANKING_MODE_PICKER_ENABLED = false;
 // reinforcement and never the only signal.
 const LEAD_RANK_LIMIT = 3;
 
+// Rows whose set logo skips lazy loading. Roughly one desktop viewport of rows —
+// these are on screen the moment the table paints, so waiting for the lazy
+// scheduler to discover them is latency for no saving. Everything past this
+// stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
+// requests are ~15 kB and do not meaningfully contend with anything.
+const EAGER_LOGO_ROW_LIMIT = 6;
+
 /**
  * Day-over-day RANK movement, and only for the two canonical modes.
  *
@@ -817,7 +824,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
-                          <SetIdentity variant="compact" target={target} />
+                          <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                         </Link>
                       </td>
                       <td>
@@ -882,7 +889,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <SetIdentity variant="compact" target={target} />
+                      <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
                     <RankBadge rank={tier} title={tierLabel} format="tier" />
                   </div>
