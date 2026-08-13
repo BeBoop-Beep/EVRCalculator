@@ -83,6 +83,52 @@ LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST = (
 )
 
 
+# The RAW Financial RIP V3 calculation-run document, dropped from `_latest` for a
+# different reason than the superseded contracts above.
+#
+# IT IS NOT A snake_case ALIAS OF `financialRipV3`. It is the JSONB document stored
+# on the `calculation_runs` row, and it is the INPUT that produces the camel object:
+#
+#     calculation_runs.financial_rip_v3_payload      raw simulation document
+#       -> _build_financial_rip_v3(target)           score / status / components
+#         -> target["financialRipV3"]
+#           -> _rank_financial_rip_v3                rank / tier / relativeScore / cohortSize
+#             -> publicRipContractV7.financialRip    public packaging
+#
+# That lineage is also the 34-vs-22 coverage answer: 22 targets have a V3 run, and
+# the remaining 12 carry `financialRipV3.status == "unavailable"` with
+# `statusReason == "no_financial_rip_v3_payload_on_latest_run"`. The camel object is
+# the computed verdict (all 34); the raw document exists only where a run does (22).
+#
+# Byte anatomy of the pair on the live payload, over the 22 populated targets:
+#   audit                    184,080 B in BOTH, byte-identical 22/22  <- 62% of the pair
+#   distributionDisclosures   16,898 B in both AND in V7, identical
+#   depthAndRobustness        12,605 B in both AND in V7, identical
+#   components                55,748 camel / 68,932 snake  (different shapes)
+#   snake-only  estimationDiagnostics 4,782, tailContractVersion 660,
+#               configVersion 616, packCost 97
+# The two objects were never byte-identical at the top level only because their key
+# SETS differ - which is why "0/34 identical pairs" was not evidence of independence.
+#
+# Nothing reads the raw document from THIS artifact:
+#   * the frontend has ZERO references to `financial_rip_v3_payload`;
+#   * `_merge_canonical_rip_contract_into_set_payload` lifts `financialRipV3` into
+#     the set page payload but NOT the raw document;
+#   * the publisher, publication contract, `attach_daily_rip_rank_movements` and the
+#     snapshot reader never reference it;
+#   * `audit_financial_rip_v3_inputs.py` / `compare_financial_rip_v2_v3.py` read the
+#     `explore_rip_statistics_latest` VIEW, not this table.
+#
+# The live builder still produces and consumes it, so only persistence changes.
+RAW_CALCULATION_DOCUMENT_KEYS_NOT_PERSISTED_IN_LATEST = ("financial_rip_v3_payload",)
+
+# The complete removal set applied to each target of the persisted `_latest` payload.
+TARGET_KEYS_NOT_PERSISTED_IN_LATEST = (
+    LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST
+    + RAW_CALCULATION_DOCUMENT_KEYS_NOT_PERSISTED_IN_LATEST
+)
+
+
 def project_latest_rankings_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Return the payload to persist in `_latest`, minus the superseded contracts.
 
@@ -104,7 +150,7 @@ def project_latest_rankings_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
             projected_targets.append(target)
             continue
         projected_targets.append(
-            {key: value for key, value in target.items() if key not in LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST}
+            {key: value for key, value in target.items() if key not in TARGET_KEYS_NOT_PERSISTED_IN_LATEST}
         )
 
     return {**payload, "targets": projected_targets}
@@ -457,7 +503,7 @@ def publish_explore_rip_rankings_snapshot(
         slim_bytes,
         full_bytes - slim_bytes,
         (100.0 * (full_bytes - slim_bytes) / full_bytes) if full_bytes else 0.0,
-        ",".join(LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST),
+        ",".join(TARGET_KEYS_NOT_PERSISTED_IN_LATEST),
     )
 
     if not commit:

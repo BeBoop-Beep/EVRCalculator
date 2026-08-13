@@ -9,10 +9,14 @@ uses its `UNIQUE (tcg, scope)` primary key.
 This pass removes three superseded public contracts from the **persisted `_latest`
 Rankings artifact only**, after proving no consumer of that artifact reads them.
 
-**Result: 2,796,342 → 1,811,726 bytes, −984,616 (−35.2%), measured in a real
-publication dry-run. Zero consumer differences across 1,496 field comparisons.**
+**Phase 1 result: 2,796,342 → 1,811,726 bytes, −984,616 (−35.2%).**
 
-No production publication was performed — see *User publication commands*.
+**Phase 1 is now PUBLISHED and MEASURED.** See *Phase 1 measured outcome* below —
+PostgREST p50 fell 713.9 → **425.0 ms** and HTTP p50 861 → **518.0 ms**.
+
+**Phase 2** (`financial_rip_v3_payload`) is documented in
+`PERFORMANCE_FINANCIAL_RIP_REPRESENTATION_AUDIT.md`. Combined dry-run projection is
+now 2,796,414 → **1,512,930 bytes (−45.9%)**.
 
 ---
 
@@ -267,6 +271,30 @@ Expect a `_latest payload projection: … -35.2%` line and
 cd /d/EVRCalculator
 ./backend/.venv/Scripts/python.exe -m backend.scripts.build_pokemon_explore_rankings_snapshot --all --commit
 ```
+
+---
+
+## Phase 1 measured outcome (published)
+
+Published snapshot: `updated_at 2026-08-13T03:47:49Z`, publicationId
+`ea2a5cae-c826-492b-8860-624b192c224c`, marketDate 2026-08-12, 34 targets.
+`SLIM PROJECTION APPLIED: YES`, V4/V5/V6 count 0/0/0, `publicRipContractV7` 34/34.
+
+| Metric | Before (pre-slim window) | After (published, n=25) | Delta |
+| --- | ---: | ---: | ---: |
+| Persisted payload | 2,796,448 B | **1,704,939 B** | −39.0% |
+| HTTP response bytes | 2,627,206 B | **1,705,133 B** | −35.1% |
+| PostgREST p50 | 713.9 ms | **425.0 ms** | **−288.9 ms (−40.5%)** |
+| PostgREST p95 | 740.5 ms | 486.2 ms | −254.3 ms |
+| Service p50 | 766.4 ms | 457.8 ms | −308.6 ms |
+| HTTP p50 | 861 ms | **518.0 ms** | **−343.0 ms (−39.8%)** |
+| HTTP p95 | 921 ms | 593.9 ms | −327.1 ms |
+
+The prior phase projected PostgREST ≈ 455 ms from payload-transfer arithmetic; the
+measured result is 425.0 ms, so the transfer-bound model held. **Caveat kept honest:**
+the "before" column was captured in an earlier session, so this is not a strict
+same-window A/B — but the delta is far outside observed session noise (the pre-slim
+window's own min/max spread was 663–748 ms PostgREST) and matches the prediction.
 
 ---
 
