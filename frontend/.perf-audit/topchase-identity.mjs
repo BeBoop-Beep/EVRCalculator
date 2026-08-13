@@ -1,0 +1,14 @@
+import { normalizeTopChasePayload } from "../lib/pokemon/pokemonSetMarketClient.js";
+const url = "http://127.0.0.1:8000/tcgs/pokemon/sets/ascendedheroes/market/top-chase?snapshot_contract=pricing-v4&window=365d&limit=10";
+const raw = await fetch(url).then((r) => r.json());
+const n = normalizeTopChasePayload(raw);
+console.log("payload.set        =", JSON.stringify(n.set));
+console.log("requested id       = ascendedheroes");
+const c = n.cards[0];
+console.log("card[0].setId      =", JSON.stringify(c.setId));
+console.log("card[0].name       =", c.name);
+console.log("card[0].marketPrice=", c.marketPrice);
+console.log("card[0].history pts=", c.priceHistory.length);
+console.log();
+console.log("=> card.setId is the set UUID; requested id is the slug. They can never match,");
+console.log("   so EVERY card is classified 'foreign' => cross_set_card_history.");

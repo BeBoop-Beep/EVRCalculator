@@ -12044,13 +12044,29 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // The shell/title set value contract always needs the canonical "standard"
-    // scope. "hits"/"top10" are only needed once Market's Set Value Trend card
-    // is actually visible (or the user has picked that scope there) — not on
-    // every set switch regardless of which tab is active.
+    // The only component that renders the 365-day series is Market's
+    // SetValueTrendCard, and it is rendered exclusively inside the
+    // `setDetailTab === "market"` branch. The other three tabs read Set Value
+    // only through the title card, which takes its current value, 30D delta and
+    // sparkline from `setShellContract.setValueSummary.compact` — derived by
+    // adaptSetShell from the shell payload's own setValueHistoriesByScope, which
+    // rides a request the page makes regardless. Verified against the live shell
+    // for ascendedHeroes / shroudedFable / prismaticEvolutions /
+    // scarletAndViolet151: all four yield 30 visiblePoints plus currentValue and
+    // delta30dAmount with no value-history fetch at all.
+    //
+    // So the gate is deliberately NOT a bare `tab === "market"`. A set whose
+    // shell genuinely carries no compact points must still fetch the canonical
+    // scope, or its title-card sparkline and 30D delta would silently degrade to
+    // the placeholder — a visible-output regression, which this fallback exists
+    // to prevent. Sets with a normal shell skip the request entirely.
+    //
+    // "hits"/"top10" are only needed once Market's Set Value Trend card is
+    // actually visible (or the user has picked that scope there).
+    const titleCardNeedsCanonicalScopeFetch = shellSetValueVisiblePoints.length === 0;
     const desiredScopes = Array.from(
       new Set([
-        CANONICAL_SET_VALUE_SCOPE,
+        ...(setDetailTab === "market" || titleCardNeedsCanonicalScopeFetch ? [CANONICAL_SET_VALUE_SCOPE] : []),
         ...(setDetailTab === "market" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : []),
       ])
     );
@@ -12208,6 +12224,11 @@ export default function RipStatisticsPageClient({
     explorePayload,
     initialSetPageDataSeed,
     activeMarketDashboardState.setId,
+    // Ordered BEFORE activeMarketDashboardDerivedState deliberately:
+    // RipStatisticsSetLoad.contract.test.js slices this effect using
+    // "activeMarketDashboardDerivedState,\n  ]);" as its end anchor, so that
+    // entry must stay last.
+    shellSetValueVisiblePoints.length,
     activeMarketDashboardDerivedState,
   ]);
 

@@ -59,8 +59,26 @@ export const CARD_ART_WIDTH = 256;
 /** Card thumbnails in rows, tickers and detail strips — 64 CSS px or less. */
 export const CARD_THUMBNAIL_WIDTH = 128;
 
-/** Every set logo slot: catalog tiles, catalog ambient wash, set hero, page atmosphere. */
+/** Large set logo slots: catalog tiles, catalog ambient wash, set hero, page atmosphere. */
 export const SET_LOGO_WIDTH = 640;
+
+/**
+ * Set logos painted into dense list/table rows — the 32 CSS px Rankings slot and
+ * the 24 CSS px Market ladder slot. 96 covers the larger of the two at DPR 3.
+ *
+ * This is deliberately NOT SET_LOGO_WIDTH. Source logos are ~440-543 px wide, so
+ * the optimizer never upscales and a w=640 request means "the whole logo,
+ * transcoded" — 17-30 kB per set. The same logo at w=96 is ~2-3.4 kB. A 32 px
+ * slot cannot show the difference, but a Rankings page paints 22 of them, so the
+ * shared-hero cache key was buying a possible cache hit for visitors who arrived
+ * from a set page at the cost of ~7x the bytes and a full-resolution cold
+ * transform for everyone else.
+ *
+ * Still ONE shared constant, not a per-call-site number: Rankings and the Market
+ * ladder paint the same set logos, so they must request the same width to share
+ * a single transform.
+ */
+export const SET_LOGO_THUMBNAIL_WIDTH = 96;
 
 /**
  * Snap a requested width up to the smallest configured bucket that covers it.

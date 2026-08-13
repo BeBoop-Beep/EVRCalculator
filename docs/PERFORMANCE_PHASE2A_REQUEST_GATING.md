@@ -1,24 +1,58 @@
 # inDex performance Phase 2A — set page request gating
 
+> ## Status correction — read this first
+>
+> **The implementation this report originally described was not present in the
+> branch.** The report and its 11 contract tests were committed; the source change
+> was not. At `c54fcc5` the symbol this document quotes,
+> `titleCardNeedsCanonicalScopeFetch`, did not exist anywhere in
+> `RipStatisticsPageClient.jsx` (`git log -S` finds no commit that ever introduced
+> it), `desiredScopes` still requested the canonical scope unconditionally, and
+> **4 of the 11 Phase 2A tests were failing**. Every "after" number in the original
+> version of this report therefore described a build that was never committed.
+>
+> The gate has now been implemented for real, and this document has been rewritten
+> against **measured** behaviour at the restored state. The audit's *reasoning* was
+> re-verified from scratch and held up; only its claim to be implemented was false.
+>
+> - Documented but absent at: `c54fcc5`
+> - Verified absent and restored during the P1-A pass (this document's current numbers)
+> - Independently re-proven before restoring: see *Consumer proof* below.
+>
+> A second, unrelated defect was found and fixed in the same pass — Top Chase was
+> issuing two identical ~542 kB requests per visit. It is recorded at the end of
+> this document because it materially changes the byte totals reported here.
+
 ## Executive summary
 
 The Phase 0 baseline listed five API requests firing eagerly on a cold RIP visit and treated all five as gating candidates. The Phase 2A audit traced each one to its actual rendered consumer and found that **four of the five are genuinely RIP-critical** — they are consumed by components the user sees on the initial RIP decision surface. Only one, the 365-day Set Value history, had no RIP consumer.
 
 That single deferral was made, and it turned out to be worth more than the RIP-only framing suggested: the request was firing on **every** set tab, not just RIP. Gating it removed it from RIP, Cards, and Pull Rates alike.
 
-Measured on `paldea-evolved` against the local production build and backend, mobile viewport, one fresh browser context per route:
+Re-measured for the restoration. Two isolated production builds (`PERF_AUDIT_DIST_DIR`),
+one at `c54fcc5` and one with the gate plus the Top Chase fix, same harness, same
+backend, one fresh 1440×900 browser context per route, 12 s settle. Figures are the
+**mean of four sets** — Ascended Heroes, Shrouded Fable, Prismatic Evolutions,
+Scarlet & Violet 151 — not a single set:
 
 | Route | API requests before → after | API bytes before → after |
 | --- | ---: | ---: |
-| RIP | 5 → **4** | 789.3 kB → **698.4 kB** (−90.9 kB) |
-| Market | 5 → 5 | 1,093.7 kB → 1,093.7 kB (unchanged, by design) |
-| Cards | 2 → **1** | 272.5 kB → **181.5 kB** (−90.9 kB) |
-| Pull Rates | 2 → **1** | 97.9 kB → **7.0 kB** (−90.9 kB) |
+| RIP | 7.3 → **4.0** | 1,447.4 kB → **710.9 kB** (−736.5 kB, −50.9%) |
+| Market | 6.0 → **5.0** | 1,475.5 kB → **1,079.8 kB** (−395.7 kB, −26.8%) |
+| Cards | 2.0 → **1.0** | 274.6 kB → **181.7 kB** (−92.9 kB, −33.8%) |
+| Pull Rates | 2.0 → **1.0** | 99.1 kB → **8.5 kB** (−90.6 kB, −91.4%) |
 
-- **Requests removed from initial RIP:** 1 of 5 (Value History, 365d, standard scope).
-- **Bytes removed from initial RIP:** 90.9 kB of 789.3 kB — a **11.5%** reduction in RIP API transfer.
-- **Backend work avoided:** one 365-day set-value history query per cold visit to RIP, Cards, or Pull Rates. Across the three affected tabs this removes 272.7 kB and three backend history queries from the concurrent burst.
-- **Direct Market is byte-identical** — the tab that actually renders the history still fetches it immediately on a direct `?tab=market` landing, with no added client delay.
+The "before" column is much worse than the original report's, for two reasons it
+did not account for: Top Chase was being fetched **twice** on both RIP and Market,
+and on RIP the value-history request was itself duplicated. Both are gone.
+
+Duplicate request kinds across the four sets fell from **13 to 0**; failed requests
+from **2 to 0**.
+
+- **Requests removed from initial RIP:** 3.3 of 7.3 — the Value History fetch (and its duplicate) plus the duplicate Top Chase.
+- **Bytes removed from initial RIP:** 736.5 kB of 1,447.4 kB — a **50.9%** reduction in RIP API transfer.
+- **Backend work avoided:** one 365-day set-value history query per cold visit to RIP, Cards, or Pull Rates, and one full Top Chase snapshot read per visit to RIP or Market.
+- **Direct Market keeps every module it renders** — Set Value Trend, Top Chase, Movers, Sealed and Overview all still fetch immediately on a direct `?tab=market` landing. Market's saving is the removed duplicate Top Chase, not a deferral.
 - **Requests that had to remain eager, unexpectedly:** four. Pull Rates, Insights Critical, Insights Secondary, and Top Chase all have proven, currently-visible RIP consumers. In particular **Insights Secondary is not below-the-fold data despite its name** — it owns `outcomeDistribution.percentiles`, which RIP renders above the fold as p50/p95 inside `RipDecisionPage`. Gating or viewport-deferring it would have visibly degraded the RIP decision surface.
 - **Did RIP performance measurably improve?** Yes, on the metric this phase targets (unnecessary network/backend work). No Lighthouse LCP/TBT re-measurement was completed — see *Measurements* below for exactly what was and was not measured.
 
@@ -55,6 +89,36 @@ Every request the set page can initiate, with its proven consumer. Ownership was
 
 **Top Chase — KEPT, per §9.** RIP renders a three-card consumer chase preview from this response and Market renders the full Top 10 table; the existing code comments this as deliberately shared data, and a shared request key means a RIP→Market switch costs one fetch, not two. Because RIP visibly requires the existing request, §9 directs leaving it eager and **not** touching the endpoint contract in this phase. Done. At 536.3 kB it is now **77% of all remaining RIP API bytes** and is the single highest-value Phase 3 target.
 
+### Consumer proof (re-verified before restoring the gate)
+
+The original audit's reasoning was not taken on trust — the gate was only restored
+after each claim was re-proven against the current source and the live backend:
+
+- **`SetValueTrendCard` is the only component that renders the 365-day series, and
+  it is rendered exclusively inside the `setDetailTab === "market"` branch.**
+  Verified at its single render site in `RipStatisticsPageClient.jsx`.
+- **The remaining readers of `activeSetValueHistory` do not render it.** They are a
+  `debugSetPagePerf` effect, a `useSectionTiming` telemetry call, and a
+  `false && setDetailTab === "overview"` branch that is dead by construction.
+- **The title card really is fully served by the shell seed.** `adaptSetShell`
+  derives `setValueSummary.compact` from the shell payload's own
+  `setValueHistoriesByScope`. Running the four sets' live `/shell` responses through
+  the real adapter yields, for every one of them, **30 visiblePoints plus a
+  currentValue and a delta30dAmount** — with no value-history request at all:
+
+  | Set | visiblePoints | currentValue | delta30d | sourceKey |
+  | --- | ---: | ---: | ---: | --- |
+  | ascendedHeroes | 30 | 6250.77 | −930.35 | `setValueHistoriesByScope.standard` |
+  | shroudedFable | 30 | 879.03 | −46.51 | `setValueHistoriesByScope.standard` |
+  | prismaticEvolutions | 30 | 5037.72 | −221.77 | `setValueHistoriesByScope.standard` |
+  | scarletAndViolet151 | 30 | 1958.33 | −151.93 | `setValueHistoriesByScope.standard` |
+
+This is why the gate keeps its shell-seed fallback rather than being a bare
+`tab === "market"`, and the fallback is not dead code: on a genuinely cold first
+paint the shell has not committed yet, so the canonical scope is fetched once and
+the title card never degrades to its placeholder. On a warm server the measured
+rate is **0 of 4 sets**.
+
 ### Justification for the one deferral
 
 **Value History 365d — DEFERRED to Market.**
@@ -81,73 +145,90 @@ Market keeps both scopes. Every other tab requests the canonical scope **only** 
 
 ## Before/after RIP waterfall
 
-Same set, same local backend, same harness; one fresh 390×844 mobile browser context per route, `networkidle` plus a 4 s settle.
+Ascended Heroes, both isolated production builds, same harness; one fresh 1440×900
+context per route, 12 s settle. Response bodies, measured per request.
 
-| API request | Phase 0 (baseline doc) | Before (re-measured) | Phase 2A | Bytes removed from initial RIP | Decision |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Pull Rates | 7.5 kB | 7.0 kB | 7.0 kB | 0 | KEPT — RIP critical |
-| Insights Critical | 117 kB | 114.0 kB | 114.0 kB | 0 | KEPT — RIP critical |
-| Insights Secondary | 42 kB | 41.1 kB | 41.1 kB | 0 | KEPT — RIP critical |
-| Value History 365d | 93 kB | 90.9 kB | — not requested — | **−90.9 kB** | DEFERRED — other tab |
-| Top Chase 365d/10 | 549 kB | 536.3 kB | 536.3 kB | 0 | KEPT — RIP critical |
-| **Total** | **~808 kB / 5 req** | **789.3 kB / 5 req** | **698.4 kB / 4 req** | **−90.9 kB / −1 req** | |
+| API request | Before (`c54fcc5`) | After | Delta | Decision |
+| --- | ---: | ---: | ---: | --- |
+| Pull Rates | 8.3 kB ×1 | 8.3 kB ×1 | 0 | KEPT — RIP critical |
+| Insights Critical | 115.1 kB ×1 | 115.1 kB ×1 | 0 | KEPT — RIP critical |
+| Insights Secondary | 39.4 kB ×1 | 39.4 kB ×1 | 0 | KEPT — RIP critical |
+| Value History 365d | 183.3 kB **×2** | — not requested — | **−183.3 kB / −2 req** | DEFERRED — other tab |
+| Top Chase 365d/10 | 1,086.0 kB **×2** | 543.0 kB **×1** | **−543.0 kB / −1 req** | KEPT — duplicate removed |
+| **Total** | **1,432.1 kB / 7 req** | **705.7 kB / 4 req** | **−726.4 kB / −3 req** | |
 
-The re-measured "before" column was captured by reverting the change, rebuilding, and re-running the identical harness, so the before/after comparison is apples-to-apples rather than a comparison against the Phase 0 document. The small deltas against the Phase 0 column (e.g. 549 → 536.3 kB) are decompressed-body vs. transfer accounting and normal data drift, and they apply equally to both columns.
+The "before" column was captured by building `c54fcc5` into its own dist dir and
+running the identical harness against the same backend, so this is apples-to-apples.
 
-No duplicate requests were observed on any route, before or after.
+**Contrary to the original report, duplicate requests were the dominant cost.** It
+claimed "no duplicate requests were observed on any route, before or after"; in fact
+RIP was issuing Top Chase twice and Value History twice, and Market was issuing Top
+Chase twice, on every single visit for every set tested.
 
 ---
 
 ## Direct-tab verification
 
-Direct URL landings, each in a fresh context — confirming the active tab still owns its data immediately and no interaction is required:
+Direct URL landings, each in a fresh context — confirming the active tab still owns
+its data immediately and no interaction is required. Means of four sets.
 
-**`?tab=market`** — 5 requests, 1,093.7 kB, **identical to before**:
+**`?tab=market`** — 5 requests, 1,079.8 kB (was 6 requests, 1,475.5 kB):
 ```
-Sealed Market      200   79.2 kB
-Market Overview    200  353.6 kB
-Market Movers      200   33.8 kB
-Top Chase          200  536.3 kB
-Value History      200   90.9 kB   <- still immediate on direct landing
+Sealed Market      200   ~46-70 kB
+Market Overview    200  ~347-357 kB
+Market Movers      200      ~34 kB
+Top Chase          200  ~539-557 kB   <- now ONE request, was two
+Value History      200      ~91-95 kB <- still immediate on direct landing
 ```
-Market got no slower. The four independent market requests still start together rather than waterfalling (§15).
+Market keeps every module it renders and got no slower; its saving is entirely the
+removed duplicate Top Chase. The independent market requests still start together
+rather than waterfalling (§15).
 
-**`?tab=cards`** — 1 request (was 2), 181.5 kB:
-```
-Cards Page         200  181.5 kB
-```
-No market-only requests, no Pull Rates. Value History no longer fires here.
+**`?tab=cards`** — 1 request, 181.7 kB (was 2, 274.6 kB). No value-history.
 
-**`?tab=pull-rates`** — 1 request (was 2), 7.0 kB:
-```
-Pull Rates         200    7.0 kB
-```
-Loads immediately without interaction. No Cards, no market-only requests. This tab's API cost fell by **93%**.
+**`?tab=pull-rates`** — 1 request, 8.5 kB (was 2, 99.1 kB). No value-history.
 
-**Initial RIP** — 4 requests: Pull Rates, Insights Critical, Insights Secondary, Top Chase. No Cards request, no market-only request, no Value History.
+**Initial RIP** — 4 requests: Pull Rates, Insights Critical, Insights Secondary, Top
+Chase. No Cards request, no market-only request, no Value History.
+
+Rendered-content verification on all four sets after the change: Top Chase network
+requests = **1**, occurrences of "Awaiting trend" = **0**, Retry buttons = **0**,
+error text = none, and the Sealed / Movers / Set Value sections all render.
 
 ---
 
-## Duplicate-request and cache-reuse verification
+## Duplicate-request verification
 
-A single session was driven through `RIP → Market → Cards → Pull Rates → RIP → Market` in one browser context:
+Per-route traces, fresh context each, four sets × four tabs, both builds:
 
-- **Value History fired exactly once** across the entire session, during the Market phase only. Precisely the intended ownership.
-- **Returning to RIP issued zero API requests** — all RIP data was reused from client-held state, confirming §17 cache reuse is intact and no refetch was forced by the tab return.
-- **Returning to Market re-fetched Sealed / Overview / Movers but not Value History.** Those three are `no-store` endpoints and this repeat behavior is pre-existing and unchanged by Phase 2A.
-- The per-route traces (fresh context each, no navigation) showed **no duplicate requests on any of the four routes**, before or after.
+| | Before (`c54fcc5`) | After |
+| --- | ---: | ---: |
+| Duplicate request kinds (16 route/set traces) | **13** | **0** |
+| Failed requests | 2 | **0** |
 
-One caveat reported honestly: in the *navigated* session the ad-hoc harness attributed three Pull Rates requests to the initial-RIP phase. The harness attributes responses to whichever phase is current when its async handler runs, so late responses can be misfiled across phase boundaries, and the clean per-route traces show Pull Rates firing exactly once on both RIP and Pull Rates. The change does not touch the pull-rates effect. This is most likely instrumentation attribution rather than a real duplicate, but it was not conclusively isolated and is **not** being claimed as verified-clean — worth a dedicated check in a later pass.
+The duplicates were Top Chase ×2 on RIP and on Market (all four sets), Value History
+×2 on RIP (all four sets), and one Pull Rates ×2 on 151.
+
+That last one is worth flagging: the original report recorded a suspected Pull Rates
+duplicate, attributed it to harness misfiling, and declined to claim it clean. It was
+**real** — it reproduced here on 151 in the before build. It no longer reproduces
+after the change, but nothing in this pass targeted the pull-rates effect, so it
+should be treated as *not yet explained* rather than fixed. It is the one open thread
+left from this document.
 
 ---
 
 ## Measurements
 
-**What was measured:** API request count, per-request transfer bytes, request identity, duplicate detection, and cache reuse across tab switches — for all four routes, in both the before and after builds, using the same harness and the same set (`paldea-evolved`). This is the primary success metric for this phase and it is fully evidenced above.
+**What was measured:** API request count, per-request response bytes, request
+identity, duplicate detection and failure count — for all four routes, across four
+sets, in both the before and after production builds, using the same harness and the
+same backend. Plus rendered-content assertions (Top Chase card charts, Sealed,
+Movers, Set Value) to confirm the byte savings did not come from losing content.
 
 **What was not measured:** the 3-run mobile Lighthouse matrix (LCP / FCP / TBT / Speed Index / total transfer) requested in §21. This is a gap in the deliverable and I am not going to substitute an estimate for it. Two things about the expected result are worth stating so the gap is interpretable:
 
-- Total mobile RIP transfer should fall by ~90.9 kB, from the Phase 0 baseline of 4.05 MB to roughly 3.96 MB — about a 2% reduction, because RIP's transfer is dominated by images (Phase 1) and the 413 kB JS bundle (Phase 2B), not by this API response.
+- Total mobile RIP transfer should fall by ~726 kB (the measured API delta), a materially larger share of the Phase 0 4.05 MB baseline than the ~90.9 kB the original report projected — because the duplicate Top Chase, which that report did not know about, was the single largest item.
 - LCP is unlikely to move measurably. Phase 0 established that RIP's mobile LCP is "more dominated by image completion than TBT," and the deferred request is a below-fold, non-render-blocking XHR that does not feed any above-fold element. A phase whose deliverable is "less unnecessary backend work" should not be judged on an LCP delta it was never positioned to produce.
 
 Set-detail first-load JS is **392 kB, unchanged**, exactly as §22 expects — JS splitting is Phase 2B.
@@ -156,15 +237,30 @@ Set-detail first-load JS is **392 kB, unchanged**, exactly as §22 expects — J
 
 ## Tests
 
+`npm run test:frontend`, same command both sides:
+
 | | Total | Pass | Fail |
 | --- | ---: | ---: | ---: |
-| Before (Phase 0 baseline) | 1,451 | 1,359 | 92 |
-| After Phase 2A | 1,462 | 1,370 | 92 |
+| Before (`c54fcc5`) | 1,515 | 1,426 | 89 |
+| After (gate restored + Top Chase fix) | 1,522 | 1,438 | 84 |
 
-- **+11 tests, +11 passing, no new failures.** The 92 remaining failures are the pre-existing red suite documented in the Phase 0 baseline and were not touched.
-- `npm run build`: **passes** (`✓ Compiled successfully`). One build attempt exited non-zero on the known flaky `revalidate: 0` targets static-generation probe for `/` and `/Market` that the Phase 0 baseline already documents as an expected dynamic-rendering fallback; a re-run succeeded.
+- **+7 tests, +12 passing, −5 failing, and zero newly-failing tests** (verified by
+  diffing the failing-test *names* between the two runs, not just the counts).
+- The 5 newly-passing tests are the 4 Phase 2A tests that had been red since the
+  implementation went missing, plus `RipStatisticsSetLoad.contract.test.js` →
+  *"set value history direct-fetch effect requests only the scopes the active tab
+  needs"*. That last one had been failing at HEAD because it pinned the trend scope
+  to `setDetailTab === "overview"`, a render site that no longer exists —
+  `SetValueTrendCard` lives in the `"market"` branch. The tab name in that assertion
+  was corrected; the contract it checks is unchanged.
+- The 84 remaining failures are the pre-existing red suite and were not touched.
+- `npx next build`: **passes** (`✓ Compiled successfully`), exit 0. It logs the known
+  `revalidate: 0` dynamic-rendering fallback for `/` and `/Market`, which the Phase 0
+  baseline already documents as expected. Set-detail first-load JS **392 kB, unchanged**.
 
-New file: `frontend/components/explore/SetTabRequestGating.contract.test.mjs` — 11 tests asserting **what does not load**, in the repo's existing source-contract style:
+`frontend/components/explore/SetTabRequestGating.contract.test.mjs` — 11 tests
+asserting **what does not load**, in the repo's existing source-contract style. All
+11 now pass; 4 of them had never passed before this restoration:
 
 - Value History is gated to Market plus the shell-seed fallback, and no longer requests the canonical scope unconditionally.
 - Market still requests both its canonical and selected trend scopes.
@@ -175,15 +271,52 @@ New file: `frontend/components/explore/SetTabRequestGating.contract.test.mjs` �
 - The legacy full-page snapshot set remains empty and inert.
 - Every tab-gated fetch is evaluated inside a `useEffect`, so a direct `?tab=` landing fetches on mount rather than waiting for interaction (§12).
 
-One pre-existing test, `RipStatisticsSetLoad.contract.test.js` → *"Phase 6B: set value history direct-fetch effect skips scopes…"*, briefly broke: it slices the effect using `"activeMarketDashboardDerivedState,\n  ]);"` as an end anchor, and appending a new dependency after that line invalidated the anchor. Rather than weaken the existing assertion, the new dependency was **ordered before** `activeMarketDashboardDerivedState` so the anchor stays intact. The test passes unmodified.
+`RipStatisticsSetLoad.contract.test.js` slices the effect using
+`"activeMarketDashboardDerivedState,\n  ]);"` as an end anchor, so appending a new
+dependency after that line would invalidate the anchor. The new dependency
+(`shellSetValueVisiblePoints.length`) is therefore **ordered before**
+`activeMarketDashboardDerivedState`, with a comment at the call site saying why.
+
+---
+
+## Part B — the Top Chase duplicate request
+
+Found while measuring this phase, and reported here because it dominates the byte
+figures above.
+
+Every Market and RIP visit issued **two byte-identical Top Chase requests** ~400 ms
+apart, on every set. The first returned HTTP 200 with a healthy payload.
+
+The cause was in `validateTopChasePayload`'s cross-set card check. It compared each
+card's `setId` against `requested` — the normalized form of the identifier the
+*caller* used. The set page asks by slug (`ascendedheroes`) while cards carry the set
+UUID (`75cd439d-…`), so the two could never be equal and **every card of a healthy
+payload was classified foreign**. That produced `cross_set_card_history` →
+`IDENTITY_MISMATCH`, which is retryable, so the helper spent a second identical
+~542 kB request and reached the same verdict again. Verified against live payloads for
+all four sets: every one returned `identity_mismatch / priced=0 / renderable=0` before
+the fix and `complete / priced=10 / renderable=10 / 124–128 history points` after.
+
+The payload-level identity check immediately above it already compares against a
+*candidate list* (`id` / `slug` / `canonicalKey`) precisely because callers use
+different identifier forms. The fix is one line of intent: the card-level check now
+uses those same verified candidates. A card from a genuinely different set is still
+rejected — neither its UUID nor its slug appears among them, and a test pins that.
+
+This was not only a bandwidth defect. Because both attempts failed validation and no
+last-known-good existed, the contract's own terminal behaviour was to throw — Top
+Chase was being rejected on every load for every set.
 
 ---
 
 ## Files changed
 
-- `frontend/components/explore/RipStatisticsPageClient.jsx` — value-history scope gating (one `desiredScopes` block) plus one dependency addition. ~20 lines, mostly comment.
-- `frontend/components/explore/SetTabRequestGating.contract.test.mjs` — new, 11 request-gating regression tests.
-- `PERFORMANCE_PHASE2A_REQUEST_GATING.md` — this report.
+- `frontend/components/explore/RipStatisticsPageClient.jsx` — value-history scope gating (one `desiredScopes` block) plus one dependency addition.
+- `frontend/lib/pokemon/topChasePayloadContract.mjs` — cross-set card check compares against the payload's verified identity candidates instead of the caller's identifier form.
+- `frontend/lib/pokemon/topChaseLifecycle.contract.test.mjs` — +7 tests covering the slug/UUID case and the one-request / bounded-retry / no-pointless-retry / shared-inflight / commit-once matrix.
+- `frontend/components/explore/RipStatisticsSetLoad.contract.test.js` — one obsolete tab name corrected (`"overview"` → `"market"`) plus an assertion pinning the new gate.
+- `frontend/components/explore/SetTabRequestGating.contract.test.mjs` — unchanged; all 11 now pass.
+- `docs/PERFORMANCE_PHASE2A_REQUEST_GATING.md` — this report, rewritten against measured behaviour.
 
 No changes to scores, Financial RIP, Collector Appeal, ranks, tiers, EV, simulation output, pull-rate assumptions, market calculations, payload contracts, metric names, copy, design, tab architecture, routing, SEO, auth, Phase 1 image work, Recharts imports, bundle boundaries, Cards pagination, or backend schema. No dynamic imports were introduced. No endpoint contract was modified.
 
@@ -195,13 +328,14 @@ No changes to scores, Financial RIP, Collector Appeal, ranks, tiers, EV, simulat
 
 Ranked by measured bytes, not by code ugliness.
 
-1. **Top Chase payload — 536.3 kB, `no-store`.** Now **77% of all remaining RIP API bytes** and the single largest measured item on the page. RIP renders a three-card preview from a response carrying 10 cards with full 365-day histories; Market renders the full table. A projected/windowed variant for the RIP preview is the highest-value remaining API win. Phase 3. Not touched here per §9.
-2. **Market Overview payload — 353.6 kB.** The largest single item on direct Market, larger than expected for a "slim" overview endpoint. Worth a projection audit alongside Top Chase. Phase 3.
-3. **Insights Critical payload — 114.0 kB.** RIP-critical and cannot be deferred, so payload projection is the only available lever. Phase 3.
+1. **Top Chase payload — ~543 kB per request, `no-store`.** Now fetched once instead of twice, but still **77% of all remaining RIP API bytes** and the single largest item on the page. RIP renders a three-card preview from a response carrying 10 cards with full 365-day histories; Market renders the full table. A projected/windowed variant for the RIP preview is the highest-value remaining API win. Phase 3. The endpoint contract was **not** touched here per §9 — only the client-side validator's identity comparison.
+2. **Market Overview payload — ~347–357 kB.** The largest single item on direct Market, larger than expected for a "slim" overview endpoint. Worth a projection audit alongside Top Chase. Phase 3.
+3. **Insights Critical payload — ~114–115 kB.** RIP-critical and cannot be deferred, so payload projection is the only available lever. Phase 3.
 4. **Rankings/targets endpoint — 2.62 MB, ~1.86 s.** Untouched per §2. Still the largest single payload in the application and the worst latency measured anywhere in Phase 0.
 5. **Set JS/client splitting — 392 kB first-load, unchanged.** Phase 2B.
 6. **Dead code removal.** `fetchPokemonSetPageSnapshot`, `setPageSnapshotRefreshState`, and the `false && setDetailTab === "overview"` Set Value Trend render branch are all provably unreachable. Left in place: §14 permits removal only when tightly scoped, and this phase's diff was deliberately kept minimal so the network measurement stays isolated.
-7. **The navigated-session Pull Rates duplicate observation** noted above — confirm with better instrumentation.
+7. **The Pull Rates duplicate.** Originally dismissed as harness misfiling; it **reproduced** in the before build on 151 (2 requests, 15.1 kB). It does not reproduce after this pass, but nothing here targeted the pull-rates effect, so it is unexplained rather than fixed. Confirm with dedicated instrumentation.
+8. **Top Chase 503s under load.** A 40-way concurrency test measured 6/40 (15%) `POKEMON_SET_TOP_CHASE_SNAPSHOT_READ_FAILED` before this pass and 0/40 in two runs after. **This is not claimed as fixed** — the change was client-side and cannot affect a backend read failure. The duplicate removal halves Top Chase load, which may simply have moved the sample below the threshold. Needs its own backend investigation.
 
 ---
 
@@ -211,7 +345,7 @@ Ranked by measured bytes, not by code ugliness.
 
 Post-Phase-2A measurement, on a cold mobile RIP visit:
 
-- RIP still transfers **698.4 kB of API payload** across 4 requests, of which 536.3 kB is one `no-store` response that cannot be browser-cached and is therefore re-paid on warm navigation.
+- RIP still transfers **~711 kB of API payload** across 4 requests, of which ~543 kB is one `no-store` response that cannot be browser-cached and is therefore re-paid on warm navigation.
 - RIP transfers **392 kB of JS**, which *is* cacheable and, per Phase 0's warm measurements, costs 0 additional bytes on every repeat set navigation.
 
 So the largest remaining *repeatable* network cost on the set page is API payload, and by a clear margin. Phase 3 also has a better risk profile for the byte win: Top Chase projection is a contained change behind a contract test, whereas Phase 2B's 392 kB is a medium-to-high-risk restructuring of a 14.6k-line client with loading, focus, routing, and data-cache behavior to preserve.

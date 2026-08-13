@@ -52,6 +52,7 @@ from backend.db.services.pokemon_set_cards_service import (
 )
 from backend.db.services.pokemon_set_market_service import (
     PokemonSetMarketError,
+    resolve_pokemon_set_identifier,
 )
 from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_explore_rankings_snapshot_payload,
@@ -948,22 +949,24 @@ def get_pokemon_set_top_chase(
 def get_pokemon_set_sealed_market(set_id: str):
     """Read the prepared sealed-market snapshot; never aggregates observations."""
     try:
-        resolved_set_id = set_id
-        if not _looks_like_uuid(set_id):
-            result = (
-                public_read_client.table("sets")
-                .select("id")
-                .or_(f"canonical_key.eq.{set_id},pokemon_api_set_id.eq.{set_id}")
-                .limit(1)
-                .execute()
+        # Use the SHARED resolver, exactly like page/shell/cards/market-dashboard/
+        # value-history/top-cards. This route used to hand-roll its own
+        # `canonical_key.eq.<id>,pokemon_api_set_id.eq.<id>` lookup, and `.eq.` is
+        # case-sensitive. The set page sends the NORMALIZED identifier
+        # ("ascendedheroes"), not the canonical_key ("ascendedHeroes"), so sealed
+        # 404'd on every set while every sibling module on the same Market tab
+        # resolved the same identifier fine — the user-visible "Sealed Market:
+        # unable to load / Retry". The shared resolver's normalized-slug fallback
+        # accepts that form, and it additionally runs under
+        # run_public_read_with_retry, so sealed now gets the same dead-pooled-socket
+        # protection the other routes already had and this one entirely bypassed.
+        try:
+            resolved_set_id = str(resolve_pokemon_set_identifier(set_id, client=public_read_client)["id"])
+        except PokemonSetMarketError as exc:
+            return JSONResponse(
+                content={"message": exc.message, "code": exc.code},
+                status_code=exc.status_code,
             )
-            rows = list(result.data or [])
-            if not rows:
-                return JSONResponse(
-                    content={"message": "Pokemon set not found", "code": "POKEMON_SET_NOT_FOUND"},
-                    status_code=404,
-                )
-            resolved_set_id = str(rows[0]["id"])
         payload = read_sealed_market_snapshot(public_read_client, resolved_set_id)
         if payload is None:
             return JSONResponse(
