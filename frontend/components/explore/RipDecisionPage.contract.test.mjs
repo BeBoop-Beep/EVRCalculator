@@ -120,6 +120,8 @@ test("verdict headline and qualitative label stay dynamic and per-set data drive
   assert.ok(source.includes("Modern Set to Rip Right Now"));
   assert.ok(source.includes("model.overall.rank"));
   assert.ok(source.includes("model.qualitativeLabel.label"));
+  assert.ok(source.includes("data-rip-verdict-rank"), "rank renders in its own badge");
+  assert.ok(source.includes('const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : "Modern Set to Rip Right Now"'), "headline does not interpolate the rank");
   // No per-set editorial copy anywhere on the page.
   assert.ok(!/Ascended Heroes/i.test(source));
   const strong = buildRipDecisionModel({ canonical: canonicalOf({ overallRank: 1, cohort: 22 }) });
@@ -139,7 +141,11 @@ test("Verdict and Why It Ranks form one responsive card with three canonical evi
   for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal"]) assert.equal((source.match(new RegExp(`label: "${label}"`, "g")) || []).length, 1, `${label} appears once in the unified evidence model`);
   assert.equal((source.match(/rankLabel: "Overall Rank"/g) || []).length, 1, "Overall Rank appears once in the unified evidence model");
   assert.ok(source.includes("md:grid-cols-3"));
-  assert.ok(source.includes('index ? "border-t border-[var(--border-subtle)] md:border-l md:border-t-0"'));
+  assert.ok(source.includes("styles.scoreCard"));
+  assert.ok(source.includes('<RankBadge rank={tier} format="tier" size="compact" subtle />'), "all tier pills use the shared badge");
+  assert.ok(source.includes('role="progressbar"'));
+  assert.ok(source.includes("Math.min(100, Math.max(0, Number(value)))"), "progress width is safely clamped");
+  assert.ok(source.includes("backgroundColor: presentation.style.color"), "progress color follows canonical tier presentation");
   assert.ok(!source.includes('data-rip-driver="result"'));
   assert.ok(!source.includes('data-rip-section="core-scores"'));
 });

@@ -277,6 +277,14 @@ test("ordinary public components never touch absoluteScore themselves", () => {
     "canonicalRipV7.mjs",
     "financialRipV3Selector.mjs",
     "collectorAppealBreakdownSelector.mjs",
+    // TRANSPORT, NOT A SURFACE. This module names `absoluteScore` in a
+    // server->client leaf WHITELIST; it never reads the value, formats it, or
+    // puts it on screen. It is the module that hands the contract layer to the
+    // three readers above, so it has to be able to name the layer's keys. The
+    // rule this test enforces is "no component RENDERS a second scale", and a
+    // whitelist that carries a key through to a canonical reader is the
+    // mechanism that keeps the scales separated rather than a way around it.
+    "rankingsClientProjection.mjs",
   ]);
   const offenders = [];
   const walk = (dir) => {

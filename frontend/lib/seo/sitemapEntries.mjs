@@ -46,6 +46,11 @@ export const SITEMAP_HUB_PATHS = Object.freeze([
   "/Market",
   "/Articles",
   "/Articles/how-rip-score-works",
+  "/Articles/how-we-simulated-one-million-pokemon-pack-openings",
+  "/Articles/how-we-validated-our-pokemon-pack-simulation-using-expected-value",
+  "/Articles/why-expected-value-alone-isnt-enough",
+  "/Articles/how-financial-rip-works",
+  "/Articles/how-collector-appeal-works",
   "/TCGs/Pokemon/Sets",
 ]);
 

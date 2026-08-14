@@ -362,9 +362,17 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             "053_harden_pokemon_public_rip_leaderboard_publication.sql",
             "054_fix_pokemon_public_rip_ranked_target_contract.sql",
             # The canonical V7 revision. It replaces 054's legacy `{rip,rank}`
-            # ranked-target predicate with `{overallRipV8,rank}`; it is the same
+            # ranked-target predicate with `{overallRipV7,rank}`; it is the same
             # single authoritative writer, not a second one.
             "061_update_public_rip_rpc_to_v7.sql",
+            # The canonical V8 revision, and the writer in force today. It is a
+            # forward-only CREATE OR REPLACE of the SAME function 061 defines,
+            # repointed at `{overallRipV8,rank}` and the Collector Appeal V4
+            # identity strings. Each entry above it is a superseded revision of
+            # that one function retained for history, not an additional writer -
+            # this list is "revisions of the single authoritative writer", which
+            # is why it grows by one on every RPC cutover.
+            "062_update_public_rip_rpc_to_v8.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))

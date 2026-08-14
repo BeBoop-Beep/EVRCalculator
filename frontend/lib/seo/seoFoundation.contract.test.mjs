@@ -146,6 +146,11 @@ const PRIMARY_ROUTES = [
   ["app/Market/page.js", "/Market"],
   ["app/Articles/page.js", "/Articles"],
   ["app/Articles/how-rip-score-works/page.js", "/Articles/how-rip-score-works"],
+  ["app/Articles/how-we-simulated-one-million-pokemon-pack-openings/page.js", "/Articles/how-we-simulated-one-million-pokemon-pack-openings"],
+  ["app/Articles/how-we-validated-our-pokemon-pack-simulation-using-expected-value/page.js", "/Articles/how-we-validated-our-pokemon-pack-simulation-using-expected-value"],
+  ["app/Articles/why-expected-value-alone-isnt-enough/page.js", "/Articles/why-expected-value-alone-isnt-enough"],
+  ["app/Articles/how-financial-rip-works/page.js", "/Articles/how-financial-rip-works"],
+  ["app/Articles/how-collector-appeal-works/page.js", "/Articles/how-collector-appeal-works"],
   ["app/TCGs/Pokemon/Sets/page.js", "/TCGs/Pokemon/Sets"],
 ];
 
@@ -160,8 +165,8 @@ for (const [relativePath, routePath] of PRIMARY_ROUTES) {
 test("the approved public titles are the ones shipped", () => {
   assert.ok(read("app/Rankings/page.js").includes("Best Pokémon Sets to Rip Right Now — inDex"));
   assert.ok(read("app/Market/page.js").includes("Pokémon Market Trends & Set Values — inDex"));
-  assert.ok(read("app/Articles/how-rip-score-works/page.js").includes("How the RIP Score Works — inDex"));
-  assert.ok(read("app/Articles/page.js").includes("Articles — inDex"));
+  assert.ok(read("app/Articles/how-rip-score-works/page.js").includes("How the RIP Score Works"));
+  assert.ok(read("app/Articles/page.js").includes("Articles | inDex"));
 });
 
 /* ------------------------------------------------------------------ *
@@ -369,6 +374,11 @@ test("a backend failure degrades the sitemap to the canonical hubs rather than e
       "https://www.inthedex.io/Market",
       "https://www.inthedex.io/Articles",
       "https://www.inthedex.io/Articles/how-rip-score-works",
+      "https://www.inthedex.io/Articles/how-we-simulated-one-million-pokemon-pack-openings",
+      "https://www.inthedex.io/Articles/how-we-validated-our-pokemon-pack-simulation-using-expected-value",
+      "https://www.inthedex.io/Articles/why-expected-value-alone-isnt-enough",
+      "https://www.inthedex.io/Articles/how-financial-rip-works",
+      "https://www.inthedex.io/Articles/how-collector-appeal-works",
       "https://www.inthedex.io/TCGs/Pokemon/Sets",
     ]
   );

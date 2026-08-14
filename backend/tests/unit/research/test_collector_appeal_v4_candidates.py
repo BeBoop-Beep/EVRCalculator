@@ -746,6 +746,15 @@ def test_h_only_is_research_only():
         parts = path.relative_to(REPO_ROOT).parts
         if "tests" in parts or parts[1] in {"research", "scripts"}:
             continue
+        # Only OUR modules can violate this rule, and only our modules are
+        # guaranteed to parse under the interpreter running the suite. A local
+        # virtualenv under ``backend/`` puts third-party sources in rglob's path;
+        # numpy alone carries ``match`` statements that ``ast.parse`` rejects on
+        # Python 3.8, turning an unrelated developer's venv location into a
+        # SyntaxError in a Collector Appeal test. Vendored code cannot import
+        # ``collector_appeal_v4`` anyway, so skipping it loses no coverage.
+        if any(part in {".venv", "venv", "env", "site-packages", "node_modules"} for part in parts):
+            continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             modules = []
