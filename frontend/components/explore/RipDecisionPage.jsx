@@ -73,6 +73,23 @@ function EvidenceMetric({ metric }) {
   );
 }
 
+// Mobile keeps the same metric model and canonical tier presentation as the
+// desktop cards, but compresses the three outputs into one comparison deck.
+function CompactEvidenceMetric({ metric }) {
+  const tier = metricTier(metric);
+  const presentation = getRipPageIconPresentation(metric.role, tier);
+  const percent = scorePercent(metric.score);
+  return (
+    <div data-rip-compact-evidence={metric.key} className={`${styles.compactMetric} ${metric.key === "rip" ? styles.compactMetricOverall : ""}`} style={{ "--score-accent": presentation.style.color }}>
+      <dt className={styles.compactLabel}><IconCue name={metric.icon} role={metric.role} tier={tier} className="h-3.5 w-3.5" /><span>{metric.label}</span><Help text={metric.help} href={metric.methodologyHref} label={`How ${metric.label} works`} /></dt>
+      <dd className={styles.compactScore}><span>{score(metric.score)}</span>{metric.score === null ? null : <small>/100</small>}</dd>
+      <dd className={styles.compactTier}><RankBadge rank={tier} format="tier" size="compact" subtle /></dd>
+      <dd className={styles.compactRank}>{rank(metric.rank, metric.cohortSize).replace(" of ", " / ")}</dd>
+      <dd className={styles.compactProgress}><span className={styles.compactTrack} role="progressbar" aria-label={`${metric.label} score`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} aria-valuetext={percent === null ? "Score unavailable" : `${score(metric.score)} out of 100`}>{percent === null ? null : <span style={{ width: `${percent}%`, backgroundColor: presentation.style.color }} />}</span></dd>
+    </div>
+  );
+}
+
 function ChaseCard({ card }) {
   const name = card?.name || "Card name unavailable";
   const image = optimizedImageUrl(card?.imageUrl || card?.image_url || card?.images?.small || null, CARD_THUMBNAIL_WIDTH);
@@ -111,8 +128,11 @@ export default function RipDecisionPage({ canonical, summary, chaseCards = [], c
         <div className={`${styles.decisionIntro} flex items-start gap-3.5`}><span className="inline-flex h-10 w-10 flex-none"><IconCue name="gauge" role="verdict" contained className="h-5 w-5" /></span><div className="min-w-0"><p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.16em]"><span style={{ color: verdictPresentation.style.color }}>Verdict</span>{model.qualitativeLabel ? <><span aria-hidden="true" className="text-[var(--border-subtle)]">/</span><span data-rip-qualitative-label style={{ color: model.qualitativeLabel.color || undefined }}>{model.qualitativeLabel.label}</span></> : null}</p><div className="mt-2 flex flex-wrap items-center gap-2.5 md:gap-3">{model.overall.rank === null ? null : <span data-rip-verdict-rank className={styles.verdictRank} style={{ borderColor: model.qualitativeLabel?.color || undefined }}>#{Math.round(model.overall.rank)}</span>}<h1 className={`${styles.headline} max-w-4xl text-2xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] md:text-3xl`}>{headline}</h1></div><p className="mt-2 max-w-4xl text-sm leading-snug text-[var(--text-secondary)] md:text-base">{model.verdict}</p></div></div>
         <div data-rip-section="why-it-ranks" className="mt-4 border-t border-[var(--border-subtle)] pt-4">
           <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks <Help text="This set’s overall opening verdict, based on Overall RIP, Financial RIP, and Collector Appeal relative to other ranked sets." /></h2>
-          <dl className={`${styles.whyGrid} mt-3 grid gap-3 md:grid-cols-3`}>
+          <dl data-rip-desktop-score-cards className={`${styles.whyGrid} mt-3 hidden gap-3 md:grid md:grid-cols-3`}>
             {evidenceMetrics.map((metric) => <EvidenceMetric key={metric.key} metric={metric} />)}
+          </dl>
+          <dl data-rip-mobile-score-deck className={`${styles.compactDeck} mt-2.5 grid grid-cols-3 md:hidden`}>
+            {evidenceMetrics.map((metric) => <CompactEvidenceMetric key={metric.key} metric={metric} />)}
           </dl>
           <p className={`${styles.takeaway} mt-3 flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,0.36)] px-3.5 py-3 text-xs leading-snug text-[var(--text-secondary)]`}><IconCue name="bulb" role="takeaway" className="mt-0.5 h-4 w-4" /><span><span className="font-semibold text-[var(--text-primary)]">The takeaway:</span> {model.takeaway}</span></p>
         </div>

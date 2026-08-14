@@ -150,6 +150,20 @@ test("Verdict and Why It Ranks form one responsive card with three canonical evi
   assert.ok(!source.includes('data-rip-section="core-scores"'));
 });
 
+test("mobile uses one compact three-column score deck while desktop keeps its cards", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  const css = fs.readFileSync(path.resolve(path.dirname(pagePath), "RipDecisionPage.module.css"), "utf8");
+  assert.ok(source.includes("data-rip-mobile-score-deck"));
+  assert.ok(source.includes("grid grid-cols-3 md:hidden"));
+  assert.ok(source.includes("data-rip-desktop-score-cards"));
+  assert.ok(source.includes("hidden gap-3 md:grid md:grid-cols-3"));
+  assert.ok(source.includes("evidenceMetrics.map((metric) => <CompactEvidenceMetric"));
+  assert.match(css, /\.compactDeck[^}]*overflow:\s*hidden/);
+  assert.match(css, /\.compactMetric[^}]*min-width:\s*0/);
+  assert.match(css, /color-mix\(in srgb, var\(--score-accent\) 4%, transparent\)/);
+  assert.ok(source.includes('replace(" of ", " / ")'));
+});
+
 test("stronger driver is assigned from the data, so neither factor is always Helps", () => {
   const collectorLifts = buildRipDecisionModel({ canonical: canonicalOf({ financialRank: 10, collectorRank: 3 }) });
   assert.equal(collectorLifts.drivers.mode, "contrast");

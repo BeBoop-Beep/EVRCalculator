@@ -54,5 +54,30 @@
 }
 
 @media (max-width: 767px) {
-  .scoreCard { min-height: 9.75rem; }
+  .decision { padding: 0.875rem; }
+  .decisionIntro { gap: 0.625rem; }
+  .headline { font-size: 1.25rem; }
+  .verdictRank { min-height: 2rem; padding: 0.3rem 0.55rem; font-size: 0.95rem; }
+  .takeaway { margin-top: 0.625rem; padding: 0.625rem 0.75rem; }
+}
+
+.compactDeck { min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 0.75rem; background: rgba(2, 8, 23, 0.46); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025); }
+.compactMetric { position: relative; display: grid; min-width: 0; grid-template-rows: 2.15rem 2.15rem 1.65rem 1.15rem auto; padding: 0.625rem 0.45rem 0.65rem; background: linear-gradient(to top, color-mix(in srgb, var(--score-accent) 4%, transparent), transparent 58%); }
+.compactMetric + .compactMetric { border-left: 1px solid var(--border-subtle); }
+.compactMetricOverall { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--score-accent) 28%, transparent); }
+.compactLabel { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 0.22rem; font-size: 0.58rem; font-weight: 700; line-height: 1.12; letter-spacing: 0.045em; text-transform: uppercase; color: var(--text-primary); }
+.compactScore { display: flex; min-width: 0; align-items: baseline; gap: 0.15rem; white-space: nowrap; color: var(--text-primary); }
+.compactScore > span { font-size: clamp(1.28rem, 6.2vw, 1.75rem); font-weight: 650; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.035em; }
+.compactScore small { font-size: 0.52rem; font-weight: 600; color: var(--text-secondary); }
+.compactTier { display: flex; min-width: 0; align-items: center; }
+.compactRank { overflow: hidden; white-space: nowrap; font-size: 0.66rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.compactProgress { display: flex; align-items: end; }
+.compactTrack { display: block; width: 100%; height: 0.25rem; overflow: hidden; border-radius: 9999px; background: var(--border-subtle); }
+.compactTrack > span { display: block; height: 100%; border-radius: inherit; }
+
+@media (max-width: 340px) {
+  .compactMetric { padding-inline: 0.34rem; }
+  .compactLabel { font-size: 0.53rem; gap: 0.15rem; }
+  .compactScore > span { font-size: 1.18rem; }
+  .compactScore small { font-size: 0.47rem; }
 }
