@@ -7,7 +7,7 @@
 // object handed to it is serialized into the RSC flight payload and shipped to
 // the browser. It was being handed whole Rankings targets, which made the
 // /Market document 1,415,318 bytes (194,229 gzipped) — carrying
-// `publicRipContractV7`, `financialRipV3`, `openingExperience`,
+// `publicRipContractV8`, `financialRipV3`, `openingExperience`,
 // `universalSetDesirability`, `overallRipV5/V6`, `rip`, `ripCore` and the rest
 // of the canonical Rankings document into a client bundle that reads NONE of
 // them. Measured: the ladder consumes 16,877 of 1,407,091 target bytes (1.2%).

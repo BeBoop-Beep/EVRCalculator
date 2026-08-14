@@ -47,11 +47,11 @@ function target(i, overrides = {}) {
     relative_biggest_upside_score: 60 + i, biggest_upside_rank: i, biggest_upside_tier: "S",
     p99_value_to_cost_ratio: 3 + i / 10, p99_value_to_cost_rank: i, p99_value_to_cost_tier: "A",
 
-    overallRipV7: { relativeScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
+    overallRipV8: { relativeScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
     financialRipV3: { relativeScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
     universalSetDesirability: { score: 70 - i, rank: i, rankedSetCount: 135 },
 
-    publicRipContractV7: {
+    publicRipContractV8: {
       overallRip: { relativeScore: 90 - i, rank: i, tier: "S", rankedSetCount: 22, status: "ok" },
       financialRip: { relativeScore: 80 - i, rank: i, tier: "A", rankedSetCount: 22 },
       collectorAppeal: { relativeScore: 55 - i, absoluteScore: 40 - i, rank: i, tier: "B", rankedSetCount: 22 },
@@ -137,9 +137,9 @@ test("the heavy blocks the client never reads are dropped, including contract au
   ]) {
     assert.equal(heavy in projected, false, `${heavy} still crosses the boundary`);
   }
-  assert.equal("audit" in projected.publicRipContractV7, false, "contract audit still shipped");
-  assert.equal("overallRip" in projected.publicRipContractV7, true);
-  assert.equal("collectorAppeal" in projected.publicRipContractV7, true);
+  assert.equal("audit" in projected.publicRipContractV8, false, "contract audit still shipped");
+  assert.equal("overallRip" in projected.publicRipContractV8, true);
+  assert.equal("collectorAppeal" in projected.publicRipContractV8, true);
 });
 
 test("the projection is materially smaller", () => {
@@ -157,8 +157,8 @@ test("canonical order is preserved", () => {
 
 test("a target with no canonical blocks does not gain empty ones", () => {
   const [projected] = projectRankingsTargets([{ target_type: "set", target_id: "bare", name: "Bare" }]);
-  assert.equal("overallRipV7" in projected, false);
-  assert.equal("publicRipContractV7" in projected, false);
+  assert.equal("overallRipV8" in projected, false);
+  assert.equal("publicRipContractV8" in projected, false);
   assert.equal(readCollectorAppealBlock(projected).available, false);
 });
 

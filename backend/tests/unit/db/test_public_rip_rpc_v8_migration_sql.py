@@ -1,11 +1,4 @@
-"""Structural guarantees for migration 061, the HISTORICAL V7 publish RPC.
-
-SUPERSEDED BY MIGRATION 062 (see test_public_rip_rpc_v8_migration_sql.py), which
-moved the RPC to the Collector Appeal V4 identity. This file continues to pin
-061's OWN content: a historical migration whose text drifts stops being a record
-of what production used to enforce. The directory-wide checks - which migration
-is authoritative, and that the list of publish-RPC migrations is complete - live
-in the V8 file, because they describe the CURRENT state rather than 061.
+"""Structural guarantees for migration 062, the CANONICAL V8 publish RPC.
 
 WHY A STATIC TEST
 -----------------
@@ -29,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -37,7 +30,7 @@ from backend.desirability.scoring_config import (
 )
 
 _MIGRATIONS = Path(__file__).resolve().parents[3] / "db" / "migrations"
-_MIGRATION_061 = _MIGRATIONS / "061_update_public_rip_rpc_to_v7.sql"
+_MIGRATION_062 = _MIGRATIONS / "062_update_public_rip_rpc_to_v8.sql"
 
 # Every migration that (re)defines the publish RPC, oldest first. The LAST one is
 # authoritative: it is the definition production ends up running.
@@ -46,6 +39,7 @@ _PUBLISH_RPC_MIGRATIONS = (
     "053_harden_pokemon_public_rip_leaderboard_publication.sql",
     "054_fix_pokemon_public_rip_ranked_target_contract.sql",
     "061_update_public_rip_rpc_to_v7.sql",
+    "062_update_public_rip_rpc_to_v8.sql",
 )
 
 
@@ -64,11 +58,11 @@ def _executable(text: str) -> str:
 
 @pytest.fixture(scope="module")
 def sql() -> str:
-    return _MIGRATION_061.read_text(encoding="utf-8")
+    return _MIGRATION_062.read_text(encoding="utf-8")
 
 
-def test_migration_061_exists_and_is_forward_only(sql):
-    assert _MIGRATION_061.exists()
+def test_migration_062_exists_and_is_forward_only(sql):
+    assert _MIGRATION_062.exists()
     assert sql.strip().startswith("--")
     assert "CREATE OR REPLACE FUNCTION public.publish_pokemon_public_rip_leaderboard" in sql
     assert "BEGIN;" in sql and sql.strip().endswith("COMMIT;")
@@ -77,13 +71,65 @@ def test_migration_061_exists_and_is_forward_only(sql):
 
 
 def test_canonical_ranked_targets_are_overall_rip_v7(sql):
-    assert "target #> '{overallRipV7,rank}' IS NOT NULL" in sql
-    assert "target #> '{overallRipV7,rank}' <> 'null'::JSONB" in sql
+    assert "target #> '{overallRipV8,rank}' IS NOT NULL" in sql
+    assert "target #> '{overallRipV8,rank}' <> 'null'::JSONB" in sql
 
 
 def test_legacy_v4_rank_predicate_is_gone(sql):
     """The whole point of 061. `{rip,rank}` is the Overall RIP v4 object."""
     assert "{rip,rank}" not in _executable(sql)
+
+
+def test_no_later_migration_reintroduces_the_legacy_rank_predicate():
+    """A future RPC revision may not go back to `{rip,rank}`.
+
+    Scans every migration that redefines the publish function and asserts the
+    AUTHORITATIVE one - the last by filename order - does not use the legacy v4
+    predicate. Ordered by filename rather than by a hardcoded index so adding
+    062 automatically brings it under the check.
+    """
+    redefiners = sorted(
+        path
+        for path in _MIGRATIONS.glob("*.sql")
+        if "CREATE OR REPLACE FUNCTION public.publish_pokemon_public_rip_leaderboard"
+        in path.read_text(encoding="utf-8")
+    )
+    assert redefiners, "no migration defines the publish RPC"
+    latest = redefiners[-1]
+    text = _executable(latest.read_text(encoding="utf-8"))
+    assert "{rip,rank}" not in text, (
+        f"{latest.name} reintroduces the legacy Overall RIP v4 ranked-target "
+        "predicate `target #> '{rip,rank}'`. The canonical predicate is "
+        "`target #> '{overallRipV8,rank}'`."
+    )
+    assert "{overallRipV8,rank}" in text
+
+
+def test_every_publish_rpc_migration_is_accounted_for():
+    """The list above must not fall behind the directory."""
+    observed = {
+        path.name
+        for path in _MIGRATIONS.glob("*.sql")
+        if "CREATE OR REPLACE FUNCTION public.publish_pokemon_public_rip_leaderboard"
+        in path.read_text(encoding="utf-8")
+    }
+    assert observed == set(_PUBLISH_RPC_MIGRATIONS)
+
+
+@pytest.mark.parametrize(
+    "fragment",
+    [
+        "target #> '{overallRipV8,score}' IS NOT NULL",
+        "target #> '{financialRipV3,score}' IS NOT NULL",
+        "target #> '{financialRipV3,rank}' IS NOT NULL",
+        "target #>> '{financialRipV3,status}' = 'ready'",
+        "target #> '{financialRipV3,rankable}' = 'true'::JSONB",
+        "target #>> '{publicRipContractV8,contractVersion}' = c_public_contract_version",
+    ],
+)
+def test_ranked_targets_require_a_complete_canonical_object(sql, fragment):
+    """A V7 rank without a ready/rankable V3 score is a half-published row."""
+    assert fragment in sql
 
 
 def test_cohort_size_and_id_uniqueness_are_enforced(sql):
@@ -104,22 +150,17 @@ def test_ranks_must_be_contiguous_and_unique(sql):
 
 def test_set_parity_is_checked_in_both_directions(sql):
     assert sql.count("EXCEPT") >= 2
-    assert "canonical V7 ranked target IDs are missing from the history rows" in sql
-    assert "are not canonical V7 ranked targets" in sql
+    assert "canonical V8 ranked target IDs are missing from the history rows" in sql
+    assert "are not canonical V8 ranked targets" in sql
 
 
-def test_snapshot_version_fields_are_migration_061s_own_identity(sql):
-    """Restated literals in SQL, pinned to what migration 061 ACTUALLY declares.
-
-    061 is historical. Its identity strings are the V7-era ones and must stay
-    that way, or the record of what the RPC used to enforce becomes fiction. The
-    CURRENT canonical identity is pinned by the V8 sibling of this file.
-    """
+def test_snapshot_version_fields_must_be_the_canonical_identity(sql):
+    """Restated literals in SQL, pinned to the ONE Python selection."""
     assert f"c_financial_rip_version CONSTANT TEXT := '{CANONICAL_FINANCIAL_RIP_VERSION}'" in sql
-    assert f"c_collector_appeal_version CONSTANT TEXT := '{COLLECTOR_APPEAL_V3_VERSION}'" in sql
-    assert "c_overall_rip_version CONSTANT TEXT := 'overall_rip_v7_90_financial_v3_10_collector_appeal_v3'" in sql
+    assert f"c_collector_appeal_version CONSTANT TEXT := '{COLLECTOR_APPEAL_V4_VERSION}'" in sql
+    assert f"c_overall_rip_version CONSTANT TEXT := '{CANONICAL_OVERALL_RIP_VERSION}'" in sql
     assert (
-        "c_public_contract_version CONSTANT TEXT := 'public_rip_contract_v7'"
+        f"c_public_contract_version CONSTANT TEXT := '{canonical_public_rip_contract_version()}'"
         in sql
     )
     for column in ("financial_rip_version", "overall_rip_version", "ca7_version"):

@@ -230,7 +230,7 @@ function buildRipLink(target) {
  *
  * It is deliberately absent from `exploreRankingConfig`: the canonical public
  * Collector Appeal V3 block reaches the frontend only through the packaged
- * `publicRipContractV7`, and `canonicalRipV7.mjs` is the one reader allowed to
+ * `publicRipContractV8`, and `canonicalRipV7.mjs` is the one reader allowed to
  * resolve it (see its module note — reading `openingExperience.collectorAppeal`
  * directly would be a second projection of the model in JavaScript, and the
  * flat `collector_appeal_score` on the same row is a retired CA7-era value

@@ -773,6 +773,10 @@ test("warmSetDetailResources performs route prefetch only — no cards/market/va
   // its module lazily once that tab actually renders for the active set.
   assert.ok(!warmupSource.includes("getPokemonSetValueHistory"), "warmup must not call getPokemonSetValueHistory");
   assert.ok(!warmupSource.includes("SET_VALUE_SCOPE_OPTIONS.map((scope) =>"), "warmup must not fan out over SET_VALUE_SCOPE_OPTIONS");
+  // Covers BOTH the old full-snapshot prefetch and the newer page-one intent
+  // prefetch: neither may run from the warmup path, because warmup is reached
+  // for hovered/adjacent sets the user may never open. The page-one prefetch is
+  // only ever allowed to fire for the ACTIVE set from the Cards tab control.
   assert.ok(!warmupSource.includes("prefetchPokemonSetCards"), "warmup must not prefetch cards data");
   assert.ok(!warmupSource.includes("prefetchPokemonSetMarketDashboard"), "warmup must not prefetch market dashboard data");
   assert.ok(!warmupSource.includes("getPokemonSetCards("), "warmup must not fetch cards data directly either");
@@ -783,7 +787,19 @@ test("warmSetDetailResources performs route prefetch only — no cards/market/va
 test("warmSetDetailResources data prefetch removal is not reintroduced via a background market-dashboard fetch on non-overview tabs", () => {
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
-  assert.ok(!source.includes("prefetchPokemonSetCards"), "prefetchPokemonSetCards must not be imported or called anywhere");
+  // The forbidden thing is the EAGER WHOLE-SNAPSHOT prefetch: fetching a set's
+  // full cards/market payload for sets the user has merely hovered in the
+  // switcher or that happen to be adjacent, fanning out across many set ids.
+  //
+  // `prefetchPokemonSetCardsPage` is deliberately NOT that, and is asserted
+  // separately below: it warms page one of the ACTIVE set only, on an explicit
+  // intent signal on the Cards tab control. Matched with a word boundary so the
+  // ban stays on the old symbol instead of catching every identifier that
+  // happens to start with the same characters.
+  assert.ok(
+    !/\bprefetchPokemonSetCards\b(?!Page)/.test(source),
+    "prefetchPokemonSetCards (the full-snapshot prefetch) must not be imported or called anywhere"
+  );
   assert.ok(!source.includes("prefetchPokemonSetMarketDashboard"), "prefetchPokemonSetMarketDashboard must not be imported or called anywhere");
 
   const marketEffectStart = source.indexOf("const shouldRenderMarketData = setDetailTab ===");
@@ -793,6 +809,41 @@ test("warmSetDetailResources data prefetch removal is not reintroduced via a bac
   assert.ok(
     marketEffectSource.includes("if (!shouldRenderMarketData) {"),
     "must still gate the live fetch on the overview tab being active"
+  );
+});
+
+test("the Cards page-one prefetch is intent-driven, active-set-only, and page one only", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const handlerStart = source.indexOf("const handleSetDetailTabIntent = (nextTab) => {");
+  assert.ok(handlerStart >= 0, "the Cards intent handler must exist");
+  const handlerEnd = source.indexOf("\n  };", handlerStart);
+  const handlerSource = source.slice(handlerStart, handlerEnd);
+
+  // ACTIVE SET ONLY. It reads resolvedSetResourceId — the set currently on
+  // screen — and never a hovered/adjacent target id, which is what made the
+  // removed warmup prefetch a fan-out.
+  assert.ok(handlerSource.includes("const setId = resolvedSetResourceId;"), "must warm the active set only");
+  assert.ok(!handlerSource.includes("targetId"), "must never warm a hovered/adjacent target id");
+
+  // PAGE ONE ONLY — never walks pagination, never preloads images.
+  assert.ok(/page:\s*1,/.test(handlerSource), "must request page one only");
+
+  // ONLY for the Cards tab, and gated on the same flag the render effect uses.
+  assert.ok(handlerSource.includes('!== "cards"'), "must do nothing for non-Cards tabs");
+  assert.ok(handlerSource.includes("canFetchSetDetailModules"), "must respect set-detail request gating");
+
+  // INTENT, NOT LOAD. The warm is wired to pointer/focus intent on the tab
+  // control — never to an effect, and never on page load.
+  assert.ok(
+    source.includes("onPointerEnter={() => onOptionIntent?.(option.value)}") &&
+      source.includes("onFocus={() => onOptionIntent?.(option.value)}") &&
+      source.includes("onPointerDown={() => onOptionIntent?.(option.value)}"),
+    "intent must come from pointer/focus handlers on the tab control"
+  );
+  assert.ok(
+    source.includes("onOptionIntent={handleSetDetailTabIntent}"),
+    "the set-detail tab bar must be the thing wired to the intent handler"
   );
 });
 

@@ -20,7 +20,7 @@ function publishedTarget(overrides = {}) {
     previousChecklistSetValue7d: 1200,
     setValueComparisonStatus7d: "available",
     // Everything below is canonical Rankings payload the ladder never reads.
-    publicRipContractV7: { overallRip: { relativeScore: 100, rank: 1 } },
+    publicRipContractV8: { overallRip: { relativeScore: 100, rank: 1 } },
     financialRipV3: { score: 88, components: { realisticUpside: {} } },
     openingExperience: { collectorAppeal: {} },
     universalSetDesirability: { score: 71, rank: 3 },
@@ -43,7 +43,7 @@ test("every field the Market ladder reads survives the projection", () => {
 test("the canonical Rankings blocks the ladder never reads are dropped", () => {
   const [projected] = projectMarketRankingTargets([publishedTarget()]);
   for (const heavy of [
-    "publicRipContractV7",
+    "publicRipContractV8",
     "financialRipV3",
     "openingExperience",
     "universalSetDesirability",

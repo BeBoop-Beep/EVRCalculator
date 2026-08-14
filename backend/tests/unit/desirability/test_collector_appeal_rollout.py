@@ -24,8 +24,8 @@ import pytest
 # canonical namespace. Imported under the old local name so the many call
 # sites below stay unchanged - only WHICH key they resolve to moved.
 from backend.desirability.collector_appeal import (
-    COLLECTOR_APPEAL_V3_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
-    COLLECTOR_APPEAL_V3_WEIGHTS,
+    compute_collector_appeal_v4,
+    COLLECTOR_APPEAL_V4_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
 )
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.component_source import (
@@ -413,10 +413,10 @@ def test_the_block_is_namespaced_and_declares_what_it_is():
     # canonical namespace. A balanced-sum score stored under
     # `collector_appeal_v2` or `collector_appeal_ca7` would be a block whose key
     # asserts one formula and whose value came from another.
-    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_v3"
+    assert COLLECTOR_APPEAL_DIAGNOSTICS_KEY == "collector_appeal_v4"
     assert block["metric_name"] == "collector_appeal_ca7"
     assert block["product_status"] == "internal_candidate"
-    assert block["formula"] == "COLLECTOR_APPEAL_V3"
+    assert block["formula"] == "COLLECTOR_APPEAL_V4"
 
 
 def test_no_payload_introduces_a_generic_collector_appeal_key():
@@ -718,13 +718,17 @@ def test_every_proposed_diagnostics_carries_the_current_fingerprint():
     for row in plan["rows"]:
         block = row["proposed_diagnostics"][COLLECTOR_APPEAL_DIAGNOSTICS_KEY]
         assert block["fingerprint"] == current_fingerprint()
-        assert block["formula"] == "COLLECTOR_APPEAL_V3"
-        # The canonical weights travel with the stored block, so an operator
+        assert block["formula"] == "COLLECTOR_APPEAL_V4"
+        # The canonical CONSTANTS travel with the stored block, so an operator
         # reading a row in `diagnostics_json` can tell what produced it. This is
-        # an INTERNAL diagnostics block, not a public contract - the public v7
-        # projection deliberately discloses no weight.
-        assert block["weights"] == COLLECTOR_APPEAL_V3_WEIGHTS
-        assert sum(block["weights"].values()) == pytest.approx(1.0, abs=1e-12)
+        # an INTERNAL diagnostics block, not a public contract - the public v8
+        # projection deliberately discloses no ceiling, floor or anchor.
+        #
+        # V4 has no weight vector: it is a baseline plus a bounded, ASYMMETRIC
+        # modifier, so the floor is checked separately from the ceiling.
+        assert block["modifier"]["positive_ceiling_points"] == 4.0
+        assert block["modifier"]["negative_floor_points"] == -2.0
+        assert block["dual_path_depth_is_an_input"] is False
 
 
 def test_rows_without_a_stored_fingerprint_are_reported_missing_and_updated():
@@ -965,7 +969,7 @@ def test_collector_appeal_is_none_not_zero_when_dual_path_is_unavailable():
     plan = build_update_plan(state)
     supported = next(row for row in plan["rows"] if row["set_id"] == "s1")
     assert supported["collector_appeal_value"] is None
-    assert supported["collector_appeal_unavailable_reason"] == "dual_path_depth_unavailable_no_pull_model"
+    assert supported["collector_appeal_unavailable_reason"] == "desirable_outcome_frequency_unavailable_no_pull_model"
 
 
 def test_a_pull_modeled_set_with_no_subjects_is_not_reported_as_unmodeled():
@@ -979,10 +983,10 @@ def test_a_pull_modeled_set_with_no_subjects_is_not_reported_as_unmodeled():
     )
     plan = build_update_plan(state, subject_builder=lambda sid: None)
     row = next(r for r in plan["rows"] if r["set_id"] == "s1")
-    assert row["collector_appeal_unavailable_reason"] == "dual_path_depth_unavailable_no_modeled_subject"
+    assert row["collector_appeal_unavailable_reason"] == "desirable_outcome_frequency_unavailable_no_modeled_subject"
 
     unmodeled = next(r for r in plan["rows"] if r["set_id"] == "s2")
-    assert unmodeled["collector_appeal_unavailable_reason"] != "dual_path_depth_unavailable_no_modeled_subject"
+    assert unmodeled["collector_appeal_unavailable_reason"] != "desirable_outcome_frequency_unavailable_no_modeled_subject"
 
 
 def test_collector_appeal_is_computed_when_dual_path_is_available():
@@ -994,16 +998,14 @@ def test_collector_appeal_is_computed_when_dual_path_is_available():
     inputs = block["inputs"]
     d = inputs["roster_desirability_d"] / 100.0
     f = inputs["desirable_outcome_frequency_f"]
-    p = inputs["dual_path_depth_p"]
+    p = block["diagnostics"]["dual_path_depth_p"]
     # The CANONICAL formula: a balanced weighted sum of D, H(=F) and P, with no
     # headroom factor. All three inputs are read from the block the rollout
     # proposed, so this checks the arithmetic rather than restating a fixture's
     # numbers, and the weights come from the authoritative table rather than
     # being retyped here.
     expected = (
-        COLLECTOR_APPEAL_V3_WEIGHTS["roster_desirability"] * d
-        + COLLECTOR_APPEAL_V3_WEIGHTS["desirable_outcome_frequency"] * f
-        + COLLECTOR_APPEAL_V3_WEIGHTS["dual_path_depth"] * p
+        compute_collector_appeal_v4(d, f)
     )
     assert row["collector_appeal_value"] == pytest.approx(expected, abs=1e-6)
     # And it is genuinely different from what CA7 and V2 would have produced.

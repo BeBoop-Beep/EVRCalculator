@@ -53,7 +53,7 @@ const insightsSection = pageSource.slice(
 );
 
 const V7_FIXTURE = {
-  contractVersion: "public_rip_contract_v7",
+  contractVersion: "public_rip_contract_v8",
   overallRip: { score: 57.75, absoluteScore: 57.75, relativeScore: 73.4, rank: 4, rankedSetCount: 21, tier: "A" },
   financialRip: {
     score: 46.8,
@@ -93,7 +93,7 @@ const V7_FIXTURE = {
   },
 };
 
-const CANONICAL = { publicRipContractV7: V7_FIXTURE };
+const CANONICAL = { publicRipContractV8: V7_FIXTURE };
 
 function renderSummary(props = {}) {
   let renderer;

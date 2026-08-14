@@ -8,7 +8,7 @@
 //   2. A payload carrying BOTH v4 and V7 renders V7.
 //   3. Changing the v4 value cannot move the public RIP Score.
 //   4. Removing V7 makes the public score UNAVAILABLE - never v4, never zero.
-//   5. `publicRipContractV7` wins over the equivalent top-level V7 object.
+//   5. `publicRipContractV8` wins over the equivalent top-level V7 object.
 //   6. V6 Collector Appeal cannot populate the V3 presentation.
 //   7. No public legacy toggle or RIP Core switch remains in the source.
 
@@ -53,7 +53,7 @@ const COLLECTOR_APPEAL_V3_BLOCK = {
   rank: 6,
   rankedSetCount: 21,
   tier: "B",
-  version: "collector_appeal_v3",
+  version: "collector_appeal_v4",
   weightsDisclosed: false,
   components: {
     rosterDesirability: { score: 71.2, rawValue: 0.712 },
@@ -97,7 +97,7 @@ const FINANCIAL_V3_TOP_LEVEL = {
 };
 
 const PUBLIC_CONTRACT_V7 = {
-  contractVersion: "public_rip_contract_v7",
+  contractVersion: "public_rip_contract_v8",
   overallRip: {
     score: 41.8,
     absoluteScore: 41.8,
@@ -142,42 +142,44 @@ const CRITICAL_CLIENT = readSource("../../lib/pokemon/pokemonSetInsightsCritical
 const FULL_CLIENT = readSource("../../lib/pokemon/pokemonSetInsightsClient.js");
 const PAGE_CLIENT = readSource("./RipStatisticsPageClient.jsx");
 
-test("V7 contract fields survive frontend normalization", () => {
+test("V8 contract fields survive frontend normalization", () => {
   for (const [name, source] of [["critical", CRITICAL_CLIENT], ["full", FULL_CLIENT]]) {
     assert.ok(
-      source.includes("overallRipV7: toPlainObject(payload?.overallRipV7)"),
-      `${name} client must pass overallRipV7 through`
+      source.includes("overallRipV8: toPlainObject(payload?.overallRipV8)"),
+      `${name} client must pass overallRipV8 through`
     );
     assert.ok(
-      source.includes("publicRipContractV7: toPlainObject(payload?.publicRipContractV7)"),
-      `${name} client must pass publicRipContractV7 through`
+      source.includes("publicRipContractV8: toPlainObject(payload?.publicRipContractV8)"),
+      `${name} client must pass publicRipContractV8 through`
     );
   }
 });
 
-test("the page adapters carry V7 into explorePayload", () => {
+test("the page adapters carry V8 into explorePayload", () => {
   // Both the full and the critical adapter, or the hero renders unavailable
   // until the secondary request settles.
   assert.equal(
-    (PAGE_CLIENT.match(/publicRipContractV7: (?:normalized|critical)\?\.publicRipContractV7/g) || []).length,
+    (PAGE_CLIENT.match(/publicRipContractV8: (?:normalized|critical)\?\.publicRipContractV8/g) || []).length,
     2
   );
   assert.equal(
-    (PAGE_CLIENT.match(/overallRipV7: (?:normalized|critical)\?\.overallRipV7/g) || []).length,
+    (PAGE_CLIENT.match(/overallRipV8: (?:normalized|critical)\?\.overallRipV8/g) || []).length,
     2
   );
 });
 
-test("normalization passes V7 through without deriving anything", () => {
+test("normalization passes V8 through without deriving anything", () => {
   // `toPlainObject` is the ONLY transformation applied - no defaulting to a
   // legacy object, no computed field, no rename.
   for (const source of [CRITICAL_CLIENT, FULL_CLIENT]) {
-    const v7Lines = splitLines(source)
-      .filter((line) => /RipV7|RipContractV7/.test(line) && !line.trim().startsWith("//"));
-    assert.ok(v7Lines.length >= 2);
-    for (const line of v7Lines) {
+    const canonicalLines = splitLines(source)
+      .filter((line) => /RipV8|RipContractV8/.test(line) && !line.trim().startsWith("//"));
+    assert.ok(canonicalLines.length >= 2);
+    for (const line of canonicalLines) {
       assert.match(line, /toPlainObject\(payload\?\.\w+\),$/);
-      assert.equal(/\|\||\?\?/.test(line), false, `no fallback allowed on a V7 line: ${line.trim()}`);
+      assert.equal(
+        /\|\||\?\?/.test(line), false, `no fallback allowed on a V8 line: ${line.trim()}`
+      );
     }
   }
 });
@@ -194,7 +196,7 @@ test("legacy transport fields are retained for audit consumers", () => {
 
 test("a payload carrying BOTH v4 and V7 renders V7", () => {
   const hero = selectRipHeroScoreMode({
-    payload: { rip: LEGACY_V4_RIP, ripCore: LEGACY_RIP_CORE, publicRipContractV7: PUBLIC_CONTRACT_V7 },
+    payload: { rip: LEGACY_V4_RIP, ripCore: LEGACY_RIP_CORE, publicRipContractV8: PUBLIC_CONTRACT_V7 },
   });
   assert.equal(hero.available, true);
   assert.equal(hero.publicScore, 73.4, "public score must be the V7 relative score");
@@ -206,9 +208,9 @@ test("a payload carrying BOTH v4 and V7 renders V7", () => {
 });
 
 test("changing the v4 fixture value does not affect the public RIP Score", () => {
-  const base = { publicRipContractV7: PUBLIC_CONTRACT_V7, rip: LEGACY_V4_RIP };
+  const base = { publicRipContractV8: PUBLIC_CONTRACT_V7, rip: LEGACY_V4_RIP };
   const mutated = {
-    publicRipContractV7: PUBLIC_CONTRACT_V7,
+    publicRipContractV8: PUBLIC_CONTRACT_V7,
     rip: { ...LEGACY_V4_RIP, score: 3.3, relativeScore: 99.9, rank: 1, tier: "S" },
   };
   const a = selectRipHeroScoreMode({ payload: base });
@@ -233,7 +235,7 @@ test("removing V7 makes the public score unavailable rather than showing v4", ()
 });
 
 test("an absolute-only V7 block renders unavailable rather than promoting the model score", () => {
-  const hero = selectRipHeroScoreMode({ payload: { overallRipV7: { score: 41.8, rank: 4, tier: "A" } } });
+  const hero = selectRipHeroScoreMode({ payload: { overallRipV8: { score: 41.8, rank: 4, tier: "A" } } });
   assert.equal(hero.available, false);
   assert.equal(hero.publicScore, null);
   assert.equal(hero.modelScore, 41.8, "the model score stays available for audit");
@@ -241,19 +243,19 @@ test("an absolute-only V7 block renders unavailable rather than promoting the mo
 
 // --- 5. Shape precedence ----------------------------------------------------
 
-test("publicRipContractV7 takes precedence over equivalent top-level V7 data", () => {
+test("publicRipContractV8 takes precedence over equivalent top-level V7 data", () => {
   const resolved = resolveCanonicalRipV7({
-    publicRipContractV7: PUBLIC_CONTRACT_V7,
-    overallRipV7: { ...OVERALL_V7_TOP_LEVEL, relativeScore: 11.1, rank: 20 },
+    publicRipContractV8: PUBLIC_CONTRACT_V7,
+    overallRipV8: { ...OVERALL_V7_TOP_LEVEL, relativeScore: 11.1, rank: 20 },
   });
-  assert.equal(resolved.shape, "publicRipContractV7");
+  assert.equal(resolved.shape, "publicRipContractV8");
   assert.equal(readCanonicalBlock(resolved.overall).publicScore, 73.4);
   assert.equal(readCanonicalBlock(resolved.overall).rank, 4);
 });
 
 test("the top-level V7 object is accepted as the same-model shape fallback", () => {
-  const hero = selectRipHeroScoreMode({ payload: { overallRipV7: OVERALL_V7_TOP_LEVEL, rip: LEGACY_V4_RIP } });
-  assert.equal(hero.sourceShape, "topLevelV7");
+  const hero = selectRipHeroScoreMode({ payload: { overallRipV8: OVERALL_V7_TOP_LEVEL, rip: LEGACY_V4_RIP } });
+  assert.equal(hero.sourceShape, "topLevelV8");
   assert.equal(hero.publicScore, 73.4);
   // `cohortSize` at top level, `rankedSetCount` on the contract — one backend
   // denominator read under either name, never recomputed.
@@ -276,8 +278,8 @@ test("the resolver never reads V6/V5/v4/V2 keys", () => {
 
 // --- 6. Collector Appeal V3 -------------------------------------------------
 
-test("Collector Appeal reads the V7 contract and shows exactly three factors", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: PUBLIC_CONTRACT_V7 });
+test("Collector Appeal reads the V8 contract and shows exactly two factors", () => {
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV8: PUBLIC_CONTRACT_V7 });
   assert.equal(appeal.available, true);
   assert.equal(appeal.publicScore, 70.1, "the public value is the relative score");
   assert.equal(appeal.modelScore, 62.5, "the model score stays available for audit");
@@ -286,15 +288,15 @@ test("Collector Appeal reads the V7 contract and shows exactly three factors", (
   assert.equal(appeal.rankedSetCount, 21);
   assert.deepEqual(
     appeal.rows.map((row) => row.key),
-    ["rosterDesirability", "desirableOutcomeFrequency", "dualPathDepth"]
+    ["rosterDesirability", "desirableOutcomeFrequency"]
   );
   assert.deepEqual(
     appeal.rows.map((row) => row.title),
-    ["Roster Desirability", "Desirable Outcome Frequency", "Dual-Path Depth"]
+    ["Roster Desirability", "Desirable Outcome Frequency"]
   );
 });
 
-test("V6 Collector Appeal cannot populate the V3 presentation", () => {
+test("V6 Collector Appeal cannot populate the V4 presentation", () => {
   const appeal = selectCollectorAppealBreakdown({
     publicRipContractV6: PUBLIC_CONTRACT_V7,
     overallRipV6: { components: { collectorAppeal: { score: 62.5 } } },
@@ -304,13 +306,13 @@ test("V6 Collector Appeal cannot populate the V3 presentation", () => {
   assert.equal(appeal.publicScore, null);
   assert.equal(appeal.sourceShape, null);
   // Each factor is independently unavailable and rendered as an em dash.
-  assert.deepEqual(appeal.rows.map((row) => row.available), [false, false, false]);
-  assert.deepEqual(appeal.rows.map((row) => row.value), ["—", "—", "—"]);
+  assert.deepEqual(appeal.rows.map((row) => row.available), [false, false]);
+  assert.deepEqual(appeal.rows.map((row) => row.value), ["—", "—"]);
 });
 
 test("Roster Desirability never substitutes for a missing Collector Appeal", () => {
   const appeal = selectCollectorAppealBreakdown({
-    publicRipContractV7: {
+    publicRipContractV8: {
       ...PUBLIC_CONTRACT_V7,
       collectorAppeal: {
         score: null,
@@ -329,7 +331,7 @@ test("Roster Desirability never substitutes for a missing Collector Appeal", () 
 });
 
 test("the appeal breakdown exposes no weights and no per-factor contributions", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: PUBLIC_CONTRACT_V7 });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV8: PUBLIC_CONTRACT_V7 });
   const serialized = JSON.stringify(appeal);
   for (const forbidden of ["weight", "contribution", "dContribution", "formula"]) {
     assert.equal(
@@ -341,7 +343,7 @@ test("the appeal breakdown exposes no weights and no per-factor contributions", 
 });
 
 test("the non-financial disclaimer and the subject-scope limitation are present", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: PUBLIC_CONTRACT_V7 });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV8: PUBLIC_CONTRACT_V7 });
   const frequency = appeal.rows.find((row) => row.key === "desirableOutcomeFrequency");
   assert.equal(frequency.isFinancialMetric, false);
   assert.match(frequency.disclaimer, /worth less than the pack price/i);
@@ -350,7 +352,7 @@ test("the non-financial disclaimer and the subject-scope limitation are present"
 });
 
 test("Desirable Outcome Frequency is never labelled as a financial result", () => {
-  const appeal = selectCollectorAppealBreakdown({ publicRipContractV7: PUBLIC_CONTRACT_V7 });
+  const appeal = selectCollectorAppealBreakdown({ publicRipContractV8: PUBLIC_CONTRACT_V7 });
   const text = JSON.stringify(appeal);
   for (const forbidden of [/win rate/i, /profit rate/i, /chance to beat cost/i, /break[- ]even/i, /\bhit rate\b/i]) {
     assert.equal(forbidden.test(text), false, `forbidden vocabulary: ${forbidden}`);
@@ -361,7 +363,7 @@ test("Desirable Outcome Frequency is never labelled as a financial result", () =
 
 test("Financial RIP prefers the packaged contract and shows exactly six components", () => {
   const canonical = resolveCanonicalFinancialRip({
-    publicRipContractV7: PUBLIC_CONTRACT_V7,
+    publicRipContractV8: PUBLIC_CONTRACT_V7,
     financialRipV3: { ...FINANCIAL_V3_TOP_LEVEL, score: 1.1 },
   });
   const v3 = selectFinancialRipV3Breakdown(canonical, {});
@@ -528,13 +530,13 @@ test("the hero selector reads no legacy field in any code path", () => {
 // objects — exactly what a set-page payload looks like before its snapshot
 // lands, and what the old truthiness chains choked on.
 const EMPTY_FIRST_SOURCE = {
-  publicRipContractV7: {},
-  overallRipV7: {},
+  publicRipContractV8: {},
+  overallRipV8: {},
   financialRipV3: {},
 };
 
 const POPULATED_CONTRACT = {
-  publicRipContractV7: {
+  publicRipContractV8: {
     overallRip: { relativeScore: 71.5, rank: 12, tier: "A", rankedSetCount: 240 },
     financialRip: {
       status: "ready",
@@ -567,7 +569,7 @@ const POPULATED_CONTRACT = {
 test("an empty V7 object in the first source does not block a valid later contract", () => {
   const resolved = resolveCanonicalRipV7(EMPTY_FIRST_SOURCE, POPULATED_CONTRACT, {});
 
-  assert.equal(resolved.shape, "publicRipContractV7");
+  assert.equal(resolved.shape, "publicRipContractV8");
   // Not blocked, and not partially blocked: all three blocks come through.
   assert.equal(readCanonicalBlock(resolved.overall).publicScore, 71.5);
   assert.equal(readCanonicalBlock(resolved.financialRip).publicScore, 71.9);
@@ -597,16 +599,16 @@ test("the hero, Financial RIP and Collector Appeal all read the one resolved bun
 
   assert.equal(appeal.available, true);
   assert.equal(appeal.publicScore, 90.2);
-  assert.equal(appeal.rows.length, 3);
+  assert.equal(appeal.rows.length, 2);
 
   // ...and all three agree on WHICH source answered.
-  assert.equal(hero.sourceShape, "publicRipContractV7");
-  assert.equal(appeal.sourceShape, "publicRipContractV7");
+  assert.equal(hero.sourceShape, "publicRipContractV8");
+  assert.equal(appeal.sourceShape, "publicRipContractV8");
 });
 
 test("a populated contract in the first source wins over conflicting later top-level data", () => {
   const conflictingLater = {
-    overallRipV7: { relativeScore: 11.1, rank: 999, tier: "F", cohortSize: 240 },
+    overallRipV8: { relativeScore: 11.1, rank: 999, tier: "F", cohortSize: 240 },
     financialRipV3: { status: "ready", score: 9.9, components: { true_win_frequency: { score: 1 } } },
   };
 
@@ -614,7 +616,7 @@ test("a populated contract in the first source wins over conflicting later top-l
   const hero = selectRipHeroScoreMode({ canonical });
 
   // Contract-over-top-level precedence, unchanged by the single-bundle work.
-  assert.equal(canonical.shape, "publicRipContractV7");
+  assert.equal(canonical.shape, "publicRipContractV8");
   assert.equal(hero.publicScore, 71.5);
   assert.equal(hero.tier, "A");
   assert.equal(selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)).publicScore, 71.9);
@@ -623,13 +625,13 @@ test("a populated contract in the first source wins over conflicting later top-l
 test("resolving an already-resolved bundle returns it unchanged", () => {
   // The page resolves once and passes the bundle down; selectors still call the
   // resolver. If a bundle were treated as a raw source it would be searched for
-  // a `publicRipContractV7` key it does not have, resolve to unavailable, and
+  // a `publicRipContractV8` key it does not have, resolve to unavailable, and
   // blank every downstream surface.
   const canonical = resolveCanonicalRipV7(POPULATED_CONTRACT);
 
   assert.equal(resolveCanonicalRipV7(canonical), canonical);
   // ...and it wins over later raw sources, because it IS the resolution.
-  assert.equal(resolveCanonicalRipV7(canonical, { publicRipContractV7: { overallRip: { relativeScore: 3 } } }), canonical);
+  assert.equal(resolveCanonicalRipV7(canonical, { publicRipContractV8: { overallRip: { relativeScore: 3 } } }), canonical);
   assert.equal(selectRipHeroScoreMode({ canonical }).publicScore, 71.5);
 });
 

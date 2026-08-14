@@ -68,7 +68,7 @@ export function selectRipHeroScoreMode({ canonical = null, summary = {}, target 
     // renders that state rather than substituting a legacy score.
     status: overall.status,
     statusReason: overall.statusReason,
-    // Which canonical shape answered — "publicRipContractV7", "topLevelV7", or
+    // Which canonical shape answered — "publicRipContractV8", "topLevelV8", or
     // null. Diagnostic only; both shapes are the same model.
     sourceShape: resolved.shape,
   };

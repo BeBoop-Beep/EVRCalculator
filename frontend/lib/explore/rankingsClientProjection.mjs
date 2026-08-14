@@ -76,20 +76,20 @@ const SCALAR_FIELDS = Object.freeze([
 /**
  * Nested blocks, projected leaf-by-leaf.
  *
- * `overallRipV7` / `financialRipV3` are read at TOP LEVEL by
+ * `overallRipV8` / `financialRipV3` are read at TOP LEVEL by
  * exploreRankingConfig's dot-paths, and are also what `resolveCanonicalRipV7`
- * falls back to. `publicRipContractV7` is read by `resolveCanonicalRipV7`, which
+ * falls back to. `publicRipContractV8` is read by `resolveCanonicalRipV7`, which
  * is the ONLY source of Collector Appeal — there is no top-level V3 appeal block.
  *
  * All three contract blocks are kept together rather than just `collectorAppeal`:
- * the resolver picks `publicRipContractV7` whenever it has ANY content and then
+ * the resolver picks `publicRipContractV8` whenever it has ANY content and then
  * reads overall/financialRip from it, so shipping a contract containing only the
  * appeal block would hand any future resolver caller an empty Overall RIP. The
  * contract's `audit` block is NOT projected — `readCanonicalBlock` never reads
  * it, and it is the single heaviest thing in the contract.
  */
 const BLOCK_LEAVES = Object.freeze({
-  overallRipV7: ["relativeScore", "rank", "cohortSize", "tier"],
+  overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
 });
@@ -141,8 +141,8 @@ function projectTarget(target) {
     if (projected !== undefined) out[block] = projected;
   }
 
-  const contract = projectContract(target.publicRipContractV7);
-  if (contract !== undefined) out.publicRipContractV7 = contract;
+  const contract = projectContract(target.publicRipContractV8);
+  if (contract !== undefined) out.publicRipContractV8 = contract;
 
   return out;
 }
@@ -163,7 +163,7 @@ export function projectRankingsTargets(targets) {
 export const RANKINGS_CLIENT_FIELDS = Object.freeze([
   ...SCALAR_FIELDS,
   ...Object.entries(BLOCK_LEAVES).flatMap(([b, ls]) => ls.map((l) => `${b}.${l}`)),
-  ...CONTRACT_BLOCKS.flatMap((b) => CONTRACT_LEAVES.map((l) => `publicRipContractV7.${b}.${l}`)),
+  ...CONTRACT_BLOCKS.flatMap((b) => CONTRACT_LEAVES.map((l) => `publicRipContractV8.${b}.${l}`)),
 ]);
 
 export { SCALAR_FIELDS, BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };

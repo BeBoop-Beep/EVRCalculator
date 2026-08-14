@@ -65,8 +65,8 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     // under the "RIP Score" label. Pass-through only - like every block above,
     // each score, rank, tier and denominator is backend-computed and nothing
     // here derives one.
-    overallRipV7: toPlainObject(payload?.overallRipV7),
-    publicRipContractV7: toPlainObject(payload?.publicRipContractV7),
+    overallRipV8: toPlainObject(payload?.overallRipV8),
+    publicRipContractV8: toPlainObject(payload?.publicRipContractV8),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

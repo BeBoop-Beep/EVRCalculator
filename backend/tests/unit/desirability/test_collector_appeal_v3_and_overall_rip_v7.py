@@ -61,7 +61,8 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V7_WEIGHTS,
     canonical_collector_appeal_formula_version,
     canonical_collector_appeal_version,
-    canonical_overall_rip_is_v7,
+    legacy_collector_appeal_v3_version,
+    canonical_overall_rip_is_v8,
     canonical_public_rip_contract_version,
     canonical_scoring_selection,
 )
@@ -367,16 +368,20 @@ def test_the_canonical_identifiers_are_the_specified_strings():
 
 def test_there_is_exactly_one_authoritative_source_for_each_canonical_version():
     """Every accessor resolves to the SAME string. A second source is a second cutover."""
-    assert canonical_collector_appeal_version() == COLLECTOR_APPEAL_V3_VERSION
-    assert canonical_collector_appeal_formula_version() == COLLECTOR_APPEAL_V3_FORMULA_VERSION
-    assert canonical_public_rip_contract_version() == PUBLIC_RIP_CONTRACT_V7_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V7_VERSION
-    assert canonical_overall_rip_is_v7() is True
+    # V3 is SUPERSEDED. Its own strings must not move - a stored V3 row has to
+    # stay reproducible - but the canonical accessors now resolve to V4.
+    assert legacy_collector_appeal_v3_version() == COLLECTOR_APPEAL_V3_VERSION
+    assert canonical_collector_appeal_version() != COLLECTOR_APPEAL_V3_VERSION
+    assert canonical_public_rip_contract_version() != PUBLIC_RIP_CONTRACT_V7_VERSION
+    # V7 is SUPERSEDED: its string must not move, and it must no longer be canonical.
+    assert OVERALL_RIP_V7_VERSION == "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
+    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V7_VERSION
+    assert canonical_overall_rip_is_v8() is True
 
     selection = canonical_scoring_selection()
-    assert selection["canonicalCollectorAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V7_VERSION
-    assert selection["canonicalPublicRipContractVersion"] == PUBLIC_RIP_CONTRACT_V7_VERSION
+    assert selection["legacyCollectorAppealV3Version"] == COLLECTOR_APPEAL_V3_VERSION
+    assert selection["legacyOverallRipV7Version"] == OVERALL_RIP_V7_VERSION
+    assert selection["canonicalPublicRipContractVersion"] != PUBLIC_RIP_CONTRACT_V7_VERSION
     assert selection["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V3_VERSION
 
 

@@ -4,7 +4,7 @@ WHAT THIS PUBLISHES, AND WHAT IT USED TO
 ----------------------------------------
 It publishes the CANONICAL models:
 
-    overall_rip_score  <- target['overallRipV7']  (0.90 V3 + 0.10 Collector Appeal V3)
+    overall_rip_score  <- target['overallRipV8']  (0.90 V3 + 0.10 Collector Appeal V4)
     financial_rip_score<- target['financialRipV3'] (six-component, fixed anchors)
 
 It previously read ``target['rip']`` (Overall RIP v4, off the Financial RIP V2
@@ -67,8 +67,8 @@ logger = logging.getLogger(__name__)
 #   * the set page keeps them - `_merge_canonical_rip_contract_into_set_payload`
 #     lifts V4/V5/V6 from `get_rip_statistics_targets_payload()`, the LIVE builder,
 #     so set Insights is unaffected by what this artifact stores;
-#   * `_score_contract_problems` validates `publicRipContractV7` only;
-#   * `attach_daily_rip_rank_movements` reads ids plus `overallRipV7.rank` /
+#   * `_score_contract_problems` validates `publicRipContractV8` only;
+#   * `attach_daily_rip_rank_movements` reads ids plus `overallRipV8.rank` /
 #     `financialRipV3.rank`;
 #   * `canonicalRipV7.mjs` has "deliberately no third step" and never falls back to
 #     V5/V6 - they are different models, not shape variants;
@@ -93,7 +93,7 @@ LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST = (
 #       -> _build_financial_rip_v3(target)           score / status / components
 #         -> target["financialRipV3"]
 #           -> _rank_financial_rip_v3                rank / tier / relativeScore / cohortSize
-#             -> publicRipContractV7.financialRip    public packaging
+#             -> publicRipContractV8.financialRip    public packaging
 #
 # That lineage is also the 34-vs-22 coverage answer: 22 targets have a V3 run, and
 # the remaining 12 carry `financialRipV3.status == "unavailable"` with
@@ -188,10 +188,10 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
     rest.
     """
     label = target.get("canonical_key") or target.get("set_id") or target.get("target_id")
-    contract = target.get("publicRipContractV7") or {}
+    contract = target.get("publicRipContractV8") or {}
     problems = []
     if not contract:
-        return [f"{label}: publicRipContractV7 is missing"]
+        return [f"{label}: publicRipContractV8 is missing"]
     for pillar in CANONICAL_PILLARS:
         block = contract.get(pillar) or {}
         for field in REQUIRED_PILLAR_FIELDS:
@@ -220,8 +220,8 @@ def publication_contract(row):
     financial_count = int(cohort.get("eligibleSetCount") or 0)
 
     all_targets = list(payload.get("targets") or [])
-    # The canonical ranked cohort: targets carrying an Overall RIP V7 rank.
-    targets = [target for target in all_targets if _ranked(target, "overallRipV7")]
+    # The canonical ranked cohort: targets carrying an Overall RIP V8 rank.
+    targets = [target for target in all_targets if _ranked(target, "overallRipV8")]
     appeal_versions = sorted({
         str(((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version"))
         for target in targets
@@ -241,7 +241,7 @@ def publication_contract(row):
         problems.append("missing built timestamp")
     if ranked_count <= 0 or len(targets) != ranked_count:
         problems.append(
-            f"incomplete Overall RIP V7 cohort expected={ranked_count} actual={len(targets)}"
+            f"incomplete Overall RIP V8 cohort expected={ranked_count} actual={len(targets)}"
         )
     if financial_count <= 0:
         problems.append("missing Financial RIP cohort count")
@@ -272,16 +272,16 @@ def publication_contract(row):
             f"cohort of {supported['count']} sets"
         )
     # The transitional legacy-cohort precondition stood here. It required the
-    # Overall RIP v4 ranked cohort to match the canonical V7 one, because
-    # migration 054's RPC counted ranked targets by `rip.rank` and would
-    # otherwise have thrown an opaque exception from inside the transaction.
+    # Overall RIP v4 ranked cohort to match the canonical one, because migration
+    # 054's RPC counted ranked targets by `rip.rank` and would otherwise have
+    # thrown an opaque exception from inside the transaction.
     #
     # Migration 061 repointed the RPC at `overallRipV7.rank` and made it check
-    # `publicRipContractV7.contractVersion` itself; it is applied in production
-    # (the live function body reads `overallRipV7` and no longer contains
-    # `{rip,rank}`). The database is now authoritative about the canonical
-    # cohort, so this check no longer guards anything - it only kept a retired
-    # model load-bearing for a publication that does not consult it.
+    # `publicRipContractV7.contractVersion` itself; migration 062 moves both to
+    # `overallRipV8` and `publicRipContractV8` for the Collector Appeal V4
+    # cutover. The database is authoritative about the canonical cohort, so this
+    # check no longer guards anything - it only kept a retired model
+    # load-bearing for a publication that does not consult it.
     #
     # Both score layers, on every pillar and every weighted component, for every
     # supported set. Reported in full rather than as a count so one rerun fixes
@@ -337,8 +337,8 @@ def publication_contract(row):
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
         "set_canonical_key": target.get("canonical_key") or target.get("slug"),
-        "overall_rip_score": (target.get("overallRipV7") or {}).get("score"),
-        "overall_rip_rank": (target.get("overallRipV7") or {}).get("rank"),
+        "overall_rip_score": (target.get("overallRipV8") or {}).get("score"),
+        "overall_rip_rank": (target.get("overallRipV8") or {}).get("rank"),
         "financial_rip_score": (target.get("financialRipV3") or {}).get("score"),
         "financial_rip_rank": (target.get("financialRipV3") or {}).get("rank"),
         "overall_ranked_cohort_count": ranked_count,
@@ -415,7 +415,7 @@ def validate_publication_payload(
     expected = int(snapshot.get("eligible_cohort_count") or 0)
     ranked_targets = [
         target for target in targets
-        if isinstance(target, dict) and (target.get("overallRipV7") or {}).get("rank") is not None
+        if isinstance(target, dict) and (target.get("overallRipV8") or {}).get("rank") is not None
     ]
     if expected <= 0 or len(ranked_targets) != expected:
         raise RuntimeError(

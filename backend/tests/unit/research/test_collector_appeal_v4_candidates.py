@@ -285,7 +285,7 @@ def test_no_search_loop_over_any_constant():
 # ---------------------------------------------------------------------------
 
 
-def test_canonical_collector_appeal_is_still_v3_and_unchanged():
+def test_collector_appeal_v3_is_unchanged_now_that_it_is_legacy():
     assert canonical.COLLECTOR_APPEAL_V3_VERSION == "collector_appeal_v3_balanced_d40_h35_p25"
     assert canonical.COLLECTOR_APPEAL_V3_WEIGHTS == {
         "roster_desirability": 0.40,
@@ -307,11 +307,19 @@ def test_legacy_models_are_unchanged():
 
 
 def test_overall_rip_v7_is_unchanged_and_guardrails_are_read_not_restated():
-    assert scoring_config.CANONICAL_OVERALL_RIP_VERSION == scoring_config.OVERALL_RIP_V7_VERSION
+    """V7 is SUPERSEDED by V8, and must still be exactly what it always was.
+
+    A superseded version that quietly drifts is worse than a deleted one: every
+    row ever stored under it becomes irreproducible while still looking valid.
+    """
+    assert scoring_config.OVERALL_RIP_V7_VERSION == (
+        "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
+    )
     assert scoring_config.OVERALL_RIP_V7_WEIGHTS == {
         "financial_rip": 0.90,
         "collector_appeal": 0.10,
     }
+    assert scoring_config.CANONICAL_OVERALL_RIP_VERSION == scoring_config.OVERALL_RIP_V8_VERSION
     audit = (REPO_ROOT / "backend" / "scripts" / "audit_collector_appeal_v4_candidates.py").read_text(
         encoding="utf-8"
     )
@@ -750,8 +758,8 @@ def test_h_only_is_research_only():
     assert offenders == []
 
 
-def test_h_only_does_not_disturb_canonical_v3():
-    """(10) Current V3 canonical constants unchanged."""
+def test_h_only_does_not_disturb_v3():
+    """(10) V3's constants unchanged, and V4 is what canonical now resolves to."""
     assert canonical.COLLECTOR_APPEAL_V3_VERSION == "collector_appeal_v3_balanced_d40_h35_p25"
     assert canonical.COLLECTOR_APPEAL_V3_WEIGHTS == {
         "roster_desirability": 0.40,
@@ -761,15 +769,44 @@ def test_h_only_does_not_disturb_canonical_v3():
     assert canonical.compute_collector_appeal_v3(0.8, 0.2, 0.3) == pytest.approx(
         0.40 * 0.8 + 0.35 * 0.2 + 0.25 * 0.3
     )
+    assert scoring_config.canonical_collector_appeal_version() == (
+        canonical.COLLECTOR_APPEAL_V4_VERSION
+    )
+    assert scoring_config.legacy_collector_appeal_v3_version() == (
+        canonical.COLLECTOR_APPEAL_V3_VERSION
+    )
+
+
+def test_production_v4_matches_the_frozen_research_candidate_exactly():
+    """The promoted model must be the model that was validated.
+
+    Every number in the study, the ablation and the historical replay was
+    produced by the research function. If production drifted from it by so much
+    as a rounding rule, the evidence would describe a model that is not shipping.
+    """
+    for d, h in itertools.product(D_GRID, H_GRID):
+        research = v4.collector_appeal_v4_candidate_h_only(d, h)
+        production = canonical.compute_collector_appeal_v4(d, h)
+        if research is None:
+            assert production is None
+            continue
+        assert production is not None
+        assert production * 100.0 == pytest.approx(research)
 
 
 def test_h_only_does_not_disturb_overall_rip_v7():
-    """(11) Overall RIP V7 canonical constants unchanged."""
-    assert scoring_config.CANONICAL_OVERALL_RIP_VERSION == scoring_config.OVERALL_RIP_V7_VERSION
+    """(11) Overall RIP V7's constants unchanged, and V8 keeps the same split.
+
+    The cutover changed the appeal INPUT, not the ratio. If V8 had also moved the
+    weight, any post-cutover leaderboard movement would be unattributable between
+    "the appeal metric changed" and "its weight changed".
+    """
     assert scoring_config.OVERALL_RIP_V7_WEIGHTS == {
         "financial_rip": 0.90,
         "collector_appeal": 0.10,
     }
+    assert scoring_config.OVERALL_RIP_V8_WEIGHTS == scoring_config.OVERALL_RIP_V7_WEIGHTS
+    assert scoring_config.CANONICAL_OVERALL_RIP_VERSION == scoring_config.OVERALL_RIP_V8_VERSION
     assert scoring_config.OVERALL_RIP_PRODUCTION_GUARDRAILS == {
         "min_spearman_vs_financial_only": 0.95,
         "min_top5_overlap": 0.80,

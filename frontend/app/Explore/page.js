@@ -27,8 +27,8 @@ function toNumber(value) {
  */
 function rankTargets(targets) {
   return [...targets].sort((left, right) => {
-    const leftRank = toNumber(left?.overallRipV7?.rank);
-    const rightRank = toNumber(right?.overallRipV7?.rank);
+    const leftRank = toNumber(left?.overallRipV8?.rank);
+    const rightRank = toNumber(right?.overallRipV8?.rank);
 
     if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
       return leftRank - rightRank;
@@ -42,8 +42,8 @@ function rankTargets(targets) {
       return 1;
     }
 
-    const leftScore = toNumber(left?.overallRipV7?.relativeScore) ?? -Infinity;
-    const rightScore = toNumber(right?.overallRipV7?.relativeScore) ?? -Infinity;
+    const leftScore = toNumber(left?.overallRipV8?.relativeScore) ?? -Infinity;
+    const rightScore = toNumber(right?.overallRipV8?.relativeScore) ?? -Infinity;
     if (leftScore !== rightScore) {
       return rightScore - leftScore;
     }

@@ -137,6 +137,7 @@ import {
 import {
   getCachedPokemonSetCards,
   getPokemonSetCardsPage,
+  prefetchPokemonSetCardsPage,
   getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
@@ -560,8 +561,8 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     overallRipV6: normalized?.overallRipV6 || null,
     publicRipContractV6: normalized?.publicRipContractV6 || null,
     // CANONICAL: what every current public surface reads (see canonicalRipV7).
-    overallRipV7: normalized?.overallRipV7 || null,
-    publicRipContractV7: normalized?.publicRipContractV7 || null,
+    overallRipV8: normalized?.overallRipV8 || null,
+    publicRipContractV8: normalized?.publicRipContractV8 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -595,8 +596,8 @@ function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
     publicRipContractV5: critical?.publicRipContractV5 || null,
     overallRipV6: critical?.overallRipV6 || null,
     publicRipContractV6: critical?.publicRipContractV6 || null,
-    overallRipV7: critical?.overallRipV7 || null,
-    publicRipContractV7: critical?.publicRipContractV7 || null,
+    overallRipV8: critical?.overallRipV8 || null,
+    publicRipContractV8: critical?.publicRipContractV8 || null,
   };
 }
 
@@ -3712,7 +3713,7 @@ function normalizePullRateAssumptions(explorePayload) {
 // before), touch the inactive tabs, touch tab order, routing, aria-pressed or
 // hit area, or leak into any other segmented control on the site — a control
 // that does not pass the prop cannot receive the treatment.
-function SectionViewTabs({ value, onChange, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, mobileEmphasisValue = null, ariaLabel = "Section view" }) {
+function SectionViewTabs({ value, onChange, onOptionIntent, options, className = "", variant = "default", mobileScroll = false, equalWidth = false, mobileFullWidth = false, mobileEmphasisValue = null, ariaLabel = "Section view" }) {
   const tabOptions = Array.isArray(options) ? options : [];
   if (tabOptions.length === 0) {
     return null;
@@ -3739,6 +3740,13 @@ function SectionViewTabs({ value, onChange, options, className = "", variant = "
                 key={option.value}
                 type="button"
                 onClick={() => onChange(option.value)}
+                /* Intent, not navigation. Hover/focus warm the destination's
+                   data; pointerdown covers touch, where there is no hover. All
+                   three are idempotent - the warm is keyed and de-duplicated
+                   inside getPokemonSetCardsPage. */
+                onPointerEnter={() => onOptionIntent?.(option.value)}
+                onFocus={() => onOptionIntent?.(option.value)}
+                onPointerDown={() => onOptionIntent?.(option.value)}
                 aria-pressed={isActive}
                 className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${
                   isActive
@@ -9613,7 +9621,7 @@ export default function RipStatisticsPageClient({
   // This replaced three independent `explorePayload?.x || selectedTarget?.x ||
   // summary?.x` memos, one per canonical object. Those were unsafe for two
   // reasons. First, a normalized-but-empty `{}` is TRUTHY, so an empty
-  // `explorePayload.publicRipContractV7` won the chain and blocked a populated
+  // `explorePayload.publicRipContractV8` won the chain and blocked a populated
   // contract on `selectedTarget` — the page then rendered "unavailable" while
   // holding perfectly good canonical data. Second, three chains can settle on
   // three different sources, so the hero could show one snapshot's RIP Score
@@ -11343,6 +11351,49 @@ export default function RipStatisticsPageClient({
     }
   };
 
+  /**
+   * Intent-driven warm of the Cards tab.
+   *
+   * WHY CARDS AND NOT THE ROUTE. Measured on this build, a tab hop issues the
+   * RSC navigation and the Cards request very nearly together — the Cards
+   * request starts ~60 ms after the click and the RSC round-trip has already
+   * finished by ~150-180 ms, while the Cards response does not land until
+   * ~440-480 ms. The RSC leg is NOT what gates first usable Cards content; the
+   * page-1 data request is. So this warms the DATA, and does not touch routing.
+   *
+   * THE ARGUMENTS ARE THE RENDER PATH'S ARGUMENTS. Every value below is the same
+   * expression the cards-page effect passes, so the prefetch and the subsequent
+   * render derive an identical cache key inside getPokemonSetCardsPage and the
+   * click reuses the warmed entry instead of re-requesting. Page 1 only: this
+   * never walks pagination and never preloads images.
+   *
+   * Gated on the same `canFetchSetDetailModules` the effect is gated on, so a
+   * hover cannot start work the page is deliberately holding back, and it is
+   * fire-and-forget — a failed prefetch leaves the render path to own the error
+   * and the retry.
+   */
+  const handleSetDetailTabIntent = (nextTab) => {
+    if (!setDetailMode || normalizeSetDetailTab(nextTab) !== "cards") {
+      return;
+    }
+    const setId = resolvedSetResourceId;
+    if (!setId || !canFetchSetDetailModules) {
+      return;
+    }
+    prefetchPokemonSetCardsPage(setId, {
+      page: 1,
+      pageSize: CARDS_PAGE_SIZE,
+      sort: effectiveCardSortMode,
+      sortDirection: cardsRequest.sortDirection,
+      query: cardSearchQuery.trim() || null,
+      rarity: effectiveCardRarityFilter,
+      movementFilter: effectiveCardMovementFilter,
+      movementSort: effectiveCardMovementSort,
+      movementMetric: effectiveCardMovementMetric,
+      section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
+    });
+  };
+
   useEffect(() => {
     setPendingTargetId(null);
     debugLoadingTiming("critical_data_ready", {
@@ -12915,6 +12966,7 @@ export default function RipStatisticsPageClient({
                     className={`transition-opacity duration-150 ${isTabNavPending ? "opacity-60" : ""}`}
                     value={setDetailTab}
                     onChange={handleSetDetailTabChange}
+                    onOptionIntent={handleSetDetailTabIntent}
                     variant="primary"
                     /* Scoped, mobile-only emphasis for the active Insights
                        segment. Desktop tabs, tab order, routing and

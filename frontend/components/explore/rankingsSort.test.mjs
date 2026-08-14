@@ -45,9 +45,9 @@ function makeTarget({
     name,
     target_type: "pokemon_set",
     target_id: name,
-    overallRipV7: { relativeScore: overall, rank: overallRank, cohortSize: 4, tier: "B" },
+    overallRipV8: { relativeScore: overall, rank: overallRank, cohortSize: 4, tier: "B" },
     financialRipV3: { relativeScore: financial, rank: overallRank, cohortSize: 4, tier: "B" },
-    publicRipContractV7: {
+    publicRipContractV8: {
       overallRip: { relativeScore: overall, rank: overallRank, rankedSetCount: 4 },
       financialRip: { relativeScore: financial, rank: overallRank, rankedSetCount: 4 },
       collectorAppeal: {
@@ -144,7 +144,7 @@ test("all seven required Rankings metrics are sortable columns", () => {
 /* ------------------------------------------------------- the data contract --- */
 
 test("each column reads its authoritative field and derives nothing new", () => {
-  assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is overallRipV7.relativeScore");
+  assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is overallRipV8.relativeScore");
   assert.equal(readSortValue(ALPHA, "financial"), 100, "Financial RIP is financialRipV3.relativeScore");
   assert.equal(readSortValue(ALPHA, "ev"), 9.8, "EV is the published mean_value");
   assert.equal(readSortValue(ALPHA, "marketPrice"), 100.5, "Market price is the published pack_cost");
@@ -209,7 +209,7 @@ test("Collector Appeal comes from the canonical public contract, not the retired
 });
 
 test("a target with no canonical Collector Appeal reports unavailable rather than a substitute", () => {
-  const noContract = { ...DELTA, publicRipContractV7: undefined, collector_appeal_score: 44 };
+  const noContract = { ...DELTA, publicRipContractV8: undefined, collector_appeal_score: 44 };
   const block = readCollectorAppealBlock(noContract);
   assert.equal(block.available, false);
   assert.equal(block.publicScore, null, "no fallback to the retired flat score");
@@ -365,7 +365,7 @@ test("sorting never mutates a target's score, rank, tier or cohort", () => {
   assert.equal(JSON.stringify(CANONICAL), before, "no canonical field may be written during a sort");
   // The canonical Overall RIP rank on each row is exactly what it was.
   assert.deepEqual(
-    CANONICAL.map((row) => row.overallRipV7.rank),
+    CANONICAL.map((row) => row.overallRipV8.rank),
     [1, 2, 3, 4]
   );
 });

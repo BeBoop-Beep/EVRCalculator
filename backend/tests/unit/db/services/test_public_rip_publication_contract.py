@@ -44,13 +44,13 @@ from backend.db.services.public_rip_publication_contract import (
 from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_CA7_VERSION,
     COLLECTOR_APPEAL_V2_VERSION,
-    COLLECTOR_APPEAL_V3_VERSION,
+    COLLECTOR_APPEAL_V4_VERSION,
 )
 from backend.desirability.scoring_config import (
     FINANCIAL_RIP_V2_VERSION,
     OVERALL_RIP_V4_VERSION,
     OVERALL_RIP_V6_VERSION,
-    OVERALL_RIP_V7_VERSION,
+    OVERALL_RIP_V8_VERSION,
 )
 
 CANONICAL = canonical_publication_identity()
@@ -104,9 +104,9 @@ def _codes(reasons):
 def test_the_canonical_identity_is_read_from_the_one_cutover_switch():
     assert CANONICAL == {
         "financialRipVersion": "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
-        "collectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
-        "overallRipVersion": OVERALL_RIP_V7_VERSION,
-        "publicRipContractVersion": "public_rip_contract_v7",
+        "collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
+        "overallRipVersion": OVERALL_RIP_V8_VERSION,
+        "publicRipContractVersion": "public_rip_contract_v8",
     }
 
 
@@ -307,12 +307,12 @@ def test_the_historical_ca7_column_is_read_as_the_collector_appeal_version():
     row = _snapshot()
     row["diagnostics_json"].pop(DIAGNOSTICS_COLLECTOR_APPEAL_VERSION_KEY)
     identity = read_published_identity(row)
-    assert identity["collectorAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert identity["collectorAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
 
 
 def test_the_diagnostics_copy_wins_over_the_historical_column():
     row = _snapshot(ca7_version="something-stale")
-    assert read_published_identity(row)["collectorAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert read_published_identity(row)["collectorAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
 
 
 def test_a_round_trip_through_the_diagnostics_block_reports_current():
@@ -389,7 +389,7 @@ def test_the_public_reader_does_not_restate_any_version_literal():
     source = Path(reader.__file__).read_text(encoding="utf-8")
     for identifier, version in canonical_publication_identity().items():
         # Quoted forms only. The bare text also matches ordinary Python
-        # identifiers (the module has a local `public_rip_contract_v7`, which is
+        # identifiers (the module has a local `public_rip_contract_v8`, which is
         # a variable name and not a second copy of the cutover switch).
         for literal in (f'"{version}"', f"'{version}'"):
             assert literal not in source, (

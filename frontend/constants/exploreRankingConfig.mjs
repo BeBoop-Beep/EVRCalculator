@@ -2,7 +2,7 @@
  * Configuration for Explore page ranking mode dropdown.
  *
  * The two CANONICAL product modes read the current models:
- *   - `overall` ("RIP SCORE")   -> `overallRipV7` — the canonical Overall RIP.
+ *   - `overall` ("RIP SCORE")   -> `overallRipV8` — the canonical Overall RIP.
  *   - `financial` ("FINANCIAL RIP") -> `financialRipV3` — the canonical
  *     Financial RIP.
  * Both previously read superseded objects under those exact public names:
@@ -86,10 +86,10 @@ export const EXPLORE_RANKING_MODES = {
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
     // absolute/model field here: it is not a public number.
-    publicScoreField: "overallRipV7.relativeScore",
-    rankField: "overallRipV7.rank",
-    rankedSetCountField: "overallRipV7.cohortSize",
-    tierField: "overallRipV7.tier",
+    publicScoreField: "overallRipV8.relativeScore",
+    rankField: "overallRipV8.rank",
+    rankedSetCountField: "overallRipV8.cohortSize",
+    tierField: "overallRipV8.tier",
     description: "Overall RIP combines financial opening performance with collector appeal.",
   },
   financial: {
@@ -242,7 +242,7 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "overallRipV7.tier";
+  return getModeConfig(modeId).tierField || "overallRipV8.tier";
 }
 
 export function getScoreForMode(target, modeId) {

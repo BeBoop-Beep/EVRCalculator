@@ -147,10 +147,10 @@ def test_overall_weight_grid_is_complete_and_ordered():
 
     from backend.desirability.scoring_config import (
         OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS,
-        OVERALL_RIP_V7_WEIGHTS,
+        OVERALL_RIP_V8_WEIGHTS,
     )
 
-    assert grid == (0.00, 0.10, 0.13, 0.14, 0.15, 0.20)
+    assert grid == (0.00, 0.05, 0.075, 0.10, 0.13, 0.14, 0.15, 0.20)
     assert list(grid) == sorted(grid)
     # READ from config, not restated: the study and production must not be able
     # to disagree about which weights are candidates and which one ships.
@@ -159,9 +159,9 @@ def test_overall_weight_grid_is_complete_and_ordered():
     # production weight has to be in the grid or the study cannot report the
     # shipping configuration.
     assert grid[0] == 0.00
-    assert OVERALL_RIP_V7_WEIGHTS["collector_appeal"] in grid
+    assert OVERALL_RIP_V8_WEIGHTS["collector_appeal"] in grid
     # 0.13 and 0.14 are RESEARCH sensitivity points, never production.
-    assert OVERALL_RIP_V7_WEIGHTS["collector_appeal"] not in (0.13, 0.14)
+    assert OVERALL_RIP_V8_WEIGHTS["collector_appeal"] not in (0.13, 0.14)
 
 
 def test_leave_one_out_uses_the_intended_weight_treatment():

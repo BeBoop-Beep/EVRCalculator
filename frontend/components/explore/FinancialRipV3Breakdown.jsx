@@ -141,7 +141,7 @@ function DepthAndRobustnessPanel({ diagnostic }) {
 // `canonical` is the ALREADY-RESOLVED bundle from resolveCanonicalRipV7, owned
 // by the set page and shared with the hero, the Overview summary and Collector
 // Appeal. This component deliberately takes no raw sources: when it resolved
-// its own `publicRipContractV7`/`overallRipV7`/`financialRipV3` props it could
+// its own `publicRipContractV8`/`overallRipV8`/`financialRipV3` props it could
 // land on a different source than the hero did, which is the exact split this
 // pass removes.
 export default function FinancialRipV3Breakdown({ canonical, requestTimeout = false }) {
