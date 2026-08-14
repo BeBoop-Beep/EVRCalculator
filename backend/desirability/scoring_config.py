@@ -198,8 +198,13 @@ OVERALL_RIP_V6_EFFECTIVE_WEIGHTS: Dict[str, float] = {
 
 
 # ---------------------------------------------------------------------------
-# Overall RIP V7: 90% Financial RIP V3 + 10% Collector Appeal V3 — CANONICAL
+# Overall RIP V7: 90% Financial RIP V3 + 10% Collector Appeal V3 — SUPERSEDED
 # ---------------------------------------------------------------------------
+# HISTORICAL / COMPARISON ONLY, and UNCHANGED in every constant below. It is the
+# V3-BACKED composition and must keep meaning exactly that, so any row ever
+# written under `overall_rip_v7_...` stays reproducible. Superseded by V8, which
+# keeps the 90/10 split and swaps the appeal input to Collector Appeal V4.
+#
 #     Overall RIP = 0.90 * Financial RIP V3 + 0.10 * Collector Appeal V3
 #
 # The financial input is UNCHANGED from V5 and V6: the same absolute
@@ -254,6 +259,66 @@ OVERALL_RIP_V7_EFFECTIVE_WEIGHTS: Dict[str, float] = {
     "collector_appeal": OVERALL_RIP_V7_WEIGHTS["collector_appeal"],
 }
 
+
+# ---------------------------------------------------------------------------
+# Overall RIP V8: 90% Financial RIP V3 + 10% Collector Appeal V4 — CANONICAL
+# ---------------------------------------------------------------------------
+#     Overall RIP = 0.90 * Financial RIP V3 + 0.10 * Collector Appeal V4
+#
+# EXACTLY ONE THING MOVES FROM V7: the appeal INPUT, from Collector Appeal V3
+# (the balanced 0.40D + 0.35H + 0.25P sum) to Collector Appeal V4 (D plus a
+# centred, asymmetric H modifier, with P removed). The split is UNCHANGED at
+# 90/10 and the financial input is the same absolute fixed-anchor six-component
+# Financial RIP V3 with the same weights.
+#
+# WHY A NEW IDENTIFIER FOR AN UNCHANGED SPLIT
+# -------------------------------------------
+# Because the version string names the INPUTS, not just the ratio. V7 reads
+# `..._90_financial_v3_10_collector_appeal_v3` - a statement that is true of
+# every row ever written under it. Repointing V7 at a V4-backed composition
+# would make that string false for new rows while leaving old rows unmarked, so
+# a stored `overall_rip_v7...` row would mean two different things depending on
+# when it was written, with nothing in the row to say which. That is the exact
+# failure V7 itself was created to avoid when it declined to repoint V5.
+#
+# The number can be identical and the identity still has to move: two rows that
+# happen to agree numerically are not the same measurement if they consumed
+# different constructs.
+#
+# THE WEIGHT IS DELIBERATELY NOT CHANGED HERE
+# -------------------------------------------
+# The V4 validation recommended 7.5% as the largest appeal weight that clears
+# the Spearman and 5-plus-rank-share guardrails on every compatible historical
+# date, but that recommendation is PROVISIONAL: its worst-state Spearman margin
+# is +0.000311 across only about six distinct Financial RIP configurations. The
+# evidence gate is to re-measure once roughly twenty further distinct financial
+# states have accumulated. Moving the weight now, merely because the appeal
+# input was already being changed, would be spending a decision the evidence has
+# not yet paid for - and would also make any post-cutover leaderboard movement
+# unattributable between "the appeal metric changed" and "its weight changed".
+#
+# 7.5% remains a separately tracked follow-up. It is registered as a research
+# sensitivity value below, NOT as production configuration.
+
+OVERALL_RIP_V8_VERSION = "overall_rip_v8_90_financial_v3_10_collector_appeal_v4"
+
+OVERALL_RIP_V8_WEIGHTS: Dict[str, float] = {
+    "financial_rip": 0.90,
+    "collector_appeal": 0.10,
+}
+
+# The effective per-input weights after expanding Financial RIP V3's six
+# components across its 0.90 share. Numerically identical to V7's by
+# construction - the split did not move - and held separately anyway so a future
+# change to one cannot silently be read through the other.
+OVERALL_RIP_V8_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V8_WEIGHTS["financial_rip"] * weight
+        for component, weight in FINANCIAL_RIP_V3_WEIGHTS.items()
+    },
+    "collector_appeal": OVERALL_RIP_V8_WEIGHTS["collector_appeal"],
+}
+
 # ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
@@ -265,8 +330,13 @@ OVERALL_RIP_V7_EFFECTIVE_WEIGHTS: Dict[str, float] = {
 # has a pre-registered grid instead of an ad-hoc one, and so 0.13 has a declared
 # home as a research candidate rather than drifting toward production by sitting
 # in the same dict as the shipping weight.
+# 0.075 is the V4 validation's PROVISIONAL recommendation and lives here, in the
+# research grid, precisely so it cannot drift into production by sitting beside
+# the shipping weight. Adopting it is gated on re-measuring the historical
+# replay once roughly twenty further distinct Financial RIP states exist; the
+# margin on the worst state observed so far is +0.000311.
 OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS: tuple = (
-    0.00, 0.10, 0.13, 0.14, 0.15, 0.20,
+    0.00, 0.05, 0.075, 0.10, 0.13, 0.14, 0.15, 0.20,
 )
 
 # The predeclared production guardrails, versus a Financial-only ranking. Held
@@ -282,25 +352,26 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 
 
 CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-# Promoted from V6 to V7. This single constant is the cutover; no publication
+# Promoted from V7 to V8. This single constant is the cutover; no publication
 # surface decides for itself which Overall model it serves.
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V7_VERSION
-CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V7_WEIGHTS)
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V8_VERSION
+CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_WEIGHTS)
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
 LEGACY_OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION
 LEGACY_OVERALL_RIP_V6_VERSION = OVERALL_RIP_V6_VERSION
+LEGACY_OVERALL_RIP_V7_VERSION = OVERALL_RIP_V7_VERSION
 
 
 def canonical_collector_appeal_version() -> str:
-    """The canonical Collector Appeal formula version (the balanced D/H/P sum).
+    """The canonical Collector Appeal score version (D + asymmetric H modifier).
 
     Lazily imported to break the `collector_appeal` -> `factorized_opening_appeal`
     -> `scoring_config` cycle. The string is defined once, in `collector_appeal`.
     """
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
 
-    return COLLECTOR_APPEAL_V3_VERSION
+    return COLLECTOR_APPEAL_V4_VERSION
 
 
 def canonical_collector_appeal_formula_version() -> str:
@@ -310,9 +381,16 @@ def canonical_collector_appeal_formula_version() -> str:
     model, the formula version names its arithmetic shape. A future change that
     keeps the shape but moves an input would move one and not the other.
     """
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_FORMULA_VERSION
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_FORMULA_VERSION
 
-    return COLLECTOR_APPEAL_V3_FORMULA_VERSION
+    return COLLECTOR_APPEAL_V4_FORMULA_VERSION
+
+
+def legacy_collector_appeal_v3_version() -> str:
+    """Collector Appeal V3's version. Superseded by V4; comparison and rollback only."""
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+
+    return COLLECTOR_APPEAL_V3_VERSION
 
 
 def legacy_collector_appeal_v2_version() -> str:
@@ -332,15 +410,15 @@ def legacy_collector_appeal_version() -> str:
 def canonical_public_rip_contract_version() -> str:
     """The canonical public RIP contract version.
 
-    Lazily imported: `public_rip_contract_v7` imports this module, so a
+    Lazily imported: `public_rip_contract_v8` imports this module, so a
     module-scope import would be a cycle. The string is defined once, in the
     contract module that implements it.
     """
-    from backend.desirability.public_rip_contract_v7 import (
-        PUBLIC_RIP_CONTRACT_V7_VERSION,
+    from backend.desirability.public_rip_contract_v8 import (
+        PUBLIC_RIP_CONTRACT_V8_VERSION,
     )
 
-    return PUBLIC_RIP_CONTRACT_V7_VERSION
+    return PUBLIC_RIP_CONTRACT_V8_VERSION
 
 
 def canonical_financial_rip_is_v3() -> bool:
@@ -349,8 +427,18 @@ def canonical_financial_rip_is_v3() -> bool:
 
 
 def canonical_overall_rip_is_v7() -> bool:
-    """True when Overall RIP V7 (90/10 over Collector Appeal V3) is canonical."""
+    """True when Overall RIP V7 (90/10 over Collector Appeal V3) is canonical.
+
+    RETAINED AND NOW FALSE. V8 is canonical. The predicate is kept rather than
+    deleted so any caller still asking the V7 question gets a truthful ``False``
+    instead of an ImportError that a `try/except` might swallow into a default.
+    """
     return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V7_VERSION
+
+
+def canonical_overall_rip_is_v8() -> bool:
+    """True when Overall RIP V8 (90/10 over Collector Appeal V4) is canonical."""
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V8_VERSION
 
 
 def canonical_scoring_selection() -> Dict[str, object]:
@@ -367,15 +455,20 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyOverallRipVersion": LEGACY_OVERALL_RIP_VERSION,
         "legacyOverallRipV5Version": LEGACY_OVERALL_RIP_V5_VERSION,
         "legacyOverallRipV6Version": LEGACY_OVERALL_RIP_V6_VERSION,
+        "legacyOverallRipV7Version": LEGACY_OVERALL_RIP_V7_VERSION,
+        "legacyCollectorAppealV3Version": legacy_collector_appeal_v3_version(),
         "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
-        "overallRipWeights": dict(OVERALL_RIP_V7_WEIGHTS),
-        "overallRipEffectiveWeights": dict(OVERALL_RIP_V7_EFFECTIVE_WEIGHTS),
+        "overallRipWeights": dict(OVERALL_RIP_V8_WEIGHTS),
+        "overallRipEffectiveWeights": dict(OVERALL_RIP_V8_EFFECTIVE_WEIGHTS),
         "note": (
-            "Overall RIP is 90% Financial RIP V3 + 10% Collector Appeal V3. "
-            "Financial RIP V2, Overall RIP v4/V5/V6, Collector Appeal V2 and "
-            "legacy CA7 remain identifiable under explicitly legacy labels and "
-            "are never selected by fallback."
+            "Overall RIP is 90% Financial RIP V3 + 10% Collector Appeal V4. "
+            "Financial RIP V2, Overall RIP v4/V5/V6/V7, Collector Appeal V3, "
+            "Collector Appeal V2 and legacy CA7 remain identifiable under "
+            "explicitly legacy labels and are never selected by fallback."
+        ),
+        "dualPathDepthStatus": (
+            "retained_as_diagnostic_not_a_collector_appeal_input"
         ),
     }
 

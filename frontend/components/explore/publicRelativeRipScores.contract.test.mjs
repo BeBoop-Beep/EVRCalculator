@@ -93,7 +93,7 @@ function financialFixture() {
 
 function canonicalFixture() {
   return {
-    publicRipContractV7: {
+    publicRipContractV8: {
       overallRip: {
         score: 50.0,
         absoluteScore: 50.0,
@@ -168,7 +168,10 @@ test("Collector Appeal factor values stay on their native units", () => {
   const byKey = new Map(selected.rows.map((row) => [row.key, row]));
   assert.equal(byKey.get("rosterDesirability").value, "84.0");
   assert.equal(byKey.get("desirableOutcomeFrequency").value, "19.0%");
-  assert.equal(byKey.get("dualPathDepth").value, "42.0%");
+  // D is published 0-100 and H is a 0-1 share rendered as a percentage. Neither
+  // is rescaled into the other. Dual-Path Depth is absent because Collector
+  // Appeal V4 does not consume it.
+  assert.equal(byKey.has("dualPathDepth"), false);
 });
 
 test("a missing Financial relativeScore renders unavailable, never the model score", () => {
@@ -194,7 +197,7 @@ test("a missing Financial relativeScore renders unavailable, never the model sco
 
 test("a missing Collector Appeal relativeScore renders unavailable, never the model score", () => {
   const stale = canonicalFixture();
-  delete stale.publicRipContractV7.collectorAppeal.relativeScore;
+  delete stale.publicRipContractV8.collectorAppeal.relativeScore;
 
   const selected = selectCollectorAppealBreakdown(stale);
   assert.equal(selected.publicScore, null);

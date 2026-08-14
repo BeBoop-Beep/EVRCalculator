@@ -3,6 +3,7 @@ import ExploreTableClient from "@/components/explore/ExploreTableClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
+import { projectRankingsTargets } from "@/lib/explore/rankingsClientProjection.mjs";
 import styles from "@/components/explore/explore.module.css";
 
 function toNumber(value) {
@@ -26,8 +27,8 @@ function toNumber(value) {
  */
 function rankTargets(targets) {
   return [...targets].sort((left, right) => {
-    const leftRank = toNumber(left?.overallRipV7?.rank);
-    const rightRank = toNumber(right?.overallRipV7?.rank);
+    const leftRank = toNumber(left?.overallRipV8?.rank);
+    const rightRank = toNumber(right?.overallRipV8?.rank);
 
     if (leftRank !== null && rightRank !== null && leftRank !== rightRank) {
       return leftRank - rightRank;
@@ -41,8 +42,8 @@ function rankTargets(targets) {
       return 1;
     }
 
-    const leftScore = toNumber(left?.overallRipV7?.relativeScore) ?? -Infinity;
-    const rightScore = toNumber(right?.overallRipV7?.relativeScore) ?? -Infinity;
+    const leftScore = toNumber(left?.overallRipV8?.relativeScore) ?? -Infinity;
+    const rightScore = toNumber(right?.overallRipV8?.relativeScore) ?? -Infinity;
     if (leftScore !== rightScore) {
       return rightScore - leftScore;
     }
@@ -69,7 +70,16 @@ export default async function ExplorePage({ searchParams }) {
   // only ever sees eligible sets; this never touches how any score is computed.
   const eligibleTargets = targets.filter(isPublicAnalyticsEligiblePokemonSet);
   const sortedTargets = rankTargets(eligibleTargets);
-  const leaderboardTargets = sortedTargets;
+  // Eligibility and the canonical rank sort BOTH run on the complete targets
+  // above — this projects only what crosses into ExploreTableClient ("use
+  // client"), which otherwise serializes every canonical block into the RSC
+  // flight payload and ships it to the browser. Measured on the current cohort:
+  // 1,118,440 -> 41,141 bytes (-96.3%) with zero behavioural difference across
+  // all eight ranking modes, all seven sortable columns in both directions,
+  // Collector Appeal, 1D movement and routing. See rankingsClientProjection.mjs
+  // — it does NOT narrow the backend fetch, which stays the shared canonical
+  // cohort read.
+  const leaderboardTargets = projectRankingsTargets(sortedTargets);
   // requestFailed marks a genuine fetch/backend failure (see
   // ripStatisticsServer.js's withTargetsRequestFailureMeta) as distinct from
   // a real "no ranked sets yet" empty result — payload === null covers the

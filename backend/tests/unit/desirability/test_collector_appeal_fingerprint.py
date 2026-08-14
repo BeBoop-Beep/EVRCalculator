@@ -258,19 +258,19 @@ def test_the_module_version_is_the_production_candidate_identity():
     # formula, or it would certify mathematics the service no longer performs.
     from backend.desirability.collector_appeal import (
         COLLECTOR_APPEAL_V2_VERSION,
-        COLLECTOR_APPEAL_V3_VERSION,
+        COLLECTOR_APPEAL_V4_VERSION,
     )
 
     assumptions = collect_assumptions()
     assert assumptions["dependencies"]["collector_appeal_module_version"] == (
-        COLLECTOR_APPEAL_V3_VERSION
+        COLLECTOR_APPEAL_V4_VERSION
     )
     assert assumptions["legacy_ca7"]["version"] == COLLECTOR_APPEAL_VERSION
-    assert assumptions["legacy_ca7"]["status"] == "superseded_by_collector_appeal_v3"
+    assert assumptions["legacy_ca7"]["status"] == "superseded_by_collector_appeal_v4"
     # V2 stays identifiable in the hash for exactly the same reason CA7 does.
     assert assumptions["legacy_collector_appeal_v2"]["version"] == COLLECTOR_APPEAL_V2_VERSION
     assert assumptions["legacy_collector_appeal_v2"]["status"] == (
-        "superseded_by_collector_appeal_v3"
+        "superseded_by_collector_appeal_v4"
     )
 
 
@@ -466,12 +466,23 @@ def test_collect_assumptions_is_a_pure_snapshot_of_live_constants():
     from backend.desirability.opening_appeal import EASY_PROBABILITY, ELITE_PROBABILITY
     from backend.desirability.rarity_buckets import HIT_POLICY_VERSION
 
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_WEIGHTS
 
     assumptions = collect_assumptions()
     # The canonical formula's constants, read live from their defining module.
-    assert assumptions["weights"] == COLLECTOR_APPEAL_V3_WEIGHTS
-    assert sum(assumptions["weights"].values()) == pytest.approx(1.0, abs=1e-12)
+    # V4 carries no weight vector. Its score-moving constants are the modifier
+    # ceiling, the downside damping and the derived floor - all hashed, and the
+    # damping SEPARATELY, so a symmetric variant cannot wear this hash.
+    assert assumptions["modifier"]["positive_ceiling_points"] == 4.0
+    assert assumptions["modifier"]["downside_damping"] == 0.5
+    assert assumptions["modifier"]["negative_floor_points"] == -2.0
+    assert assumptions["dual_path_depth_is_an_input"] is False
+    # The H anchors are hashed as VALUES, not only as a transform name: a
+    # recalibrated anchor changes every score without changing any version.
+    assert assumptions["h_transform"]["anchor_neutral_one_in_n"] == 8.0
+    # V3's weights moved into its superseded block, and still sum to 1.
+    assert sum(assumptions["legacy_collector_appeal_v3"]["weights"].values()) == pytest.approx(
+        1.0, abs=1e-12
+    )
     # V2's and CA7's constants moved into their superseded blocks: they no longer
     # describe what is computed, but are still tracked so a row written under
     # either stays identifiable.
@@ -485,11 +496,10 @@ def test_collect_assumptions_is_a_pure_snapshot_of_live_constants():
 
 
 def test_identity_payload_matches_the_requested_diagnostics_shape():
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_WEIGHTS
 
     identity = build_collector_appeal_identity()
-    assert identity["formula"] == "COLLECTOR_APPEAL_V3"
-    assert identity["weights"] == COLLECTOR_APPEAL_V3_WEIGHTS
+    assert identity["formula"] == "COLLECTOR_APPEAL_V4"
+    assert identity["modifier"]["negative_floor_points"] == -2.0
     # The superseded formulas keep their exact prior descriptions.
     assert identity["legacy_collector_appeal_v2"]["formula_expression"] == (
         "CA = D + 0.50 * (0.60F + 0.40P) * (1 - D)"

@@ -47,7 +47,7 @@ import {
 // `canonical` is the ALREADY-RESOLVED bundle from resolveCanonicalRipV7, owned
 // by the set page and shared with the hero, the Overview summary and Financial
 // RIP. This component deliberately takes no raw sources: when it resolved its
-// own `publicRipContractV7`/`overallRipV7` props it could land on a different
+// own `publicRipContractV8`/`overallRipV8` props it could land on a different
 // source than the hero did, which is the exact split this pass removes.
 export default function CollectorAppealBreakdown({ canonical }) {
   const appeal = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);

@@ -520,6 +520,56 @@ def axis_position(a_star: Any, m_star: Any) -> Optional[float]:
 
 # ---------------------------------------------------------------------------
 # Dual-Path Depth: the taste-free second axis
+#
+# STATUS: LIVE AND MAINTAINED. NOT DEPRECATED. DO NOT DELETE.
+# ---------------------------------------------------------------------------
+# Dual-Path Depth (P) is intentionally EXCLUDED from universal Collector Appeal
+# V4, and that exclusion is a scoping decision about one score - not a judgement
+# that the metric is wrong, stale, or unwanted.
+#
+# WHY IT LEFT UNIVERSAL COLLECTOR APPEAL
+# --------------------------------------
+# The V4 ablation held every other assumption identical (same D, same H
+# transform and anchors, same neutral point, same +4.0/-2.0 asymmetric modifier,
+# same clamp) and varied only whether P entered the structural index. P changed
+# 3 of 231 pairwise orderings, moved six sets by exactly one rank each, and left
+# Spearman(with P, without P) = 0.9966. For a UNIVERSAL, set-level appeal score
+# that is not useful discrimination beyond Desirable Outcome Frequency. See
+# docs/research/collector_appeal_v4_promotion_validation.md section 2.
+#
+# WHY IT STAYS
+# ------------
+# "Adds little at the population level" and "measures nothing useful" are
+# different claims, and only the first is supported. P asks a question whose
+# answer plausibly depends on WHO is asking: do the desirable subjects in this
+# set offer both an attainable printing and a genuine elite chase? That is a
+# strong candidate feature for future PERSONAL FIT / collector-goal models,
+# where rarity structure can matter differently depending on the user's stated
+# objective. Illustrative cases:
+#
+#   * master-set collectors, for whom accessible + elite printing paths may
+#     change the progression and completion experience;
+#   * collectors chasing one specific Pokemon, where SUBJECT-LEVEL dual-path
+#     depth (``subject_dual_path`` below already computes exactly this) could
+#     measure whether that Pokemon has both an attainable and a premium chase
+#     printing;
+#   * other personalized collecting profiles where a stated preference makes
+#     this structure relevant.
+#
+# WHAT THIS NOTE DOES NOT AUTHORIZE
+# ---------------------------------
+# It is NOT permission to add P back to universal Collector Appeal, and it is
+# NOT permission to build Personal Fit. Any future personalization work must
+# validate P's appropriate use and weighting independently, on its own evidence.
+# The bucket separation this preserves is documented in
+# docs/research/collector_appeal_v2_validation/three_bucket_architecture.md:
+# General Collector Appeal is a set-level property; Personal Fit is a set-user
+# interaction; collapsing them is the failure mode that document exists to
+# prevent.
+#
+# The mathematics below is UNCHANGED and must stay that way while it carries
+# ``DUAL_PATH_DEPTH_VERSION``: stored P values and the V4 ablation evidence both
+# depend on it meaning exactly what it has always meant.
 # ---------------------------------------------------------------------------
 
 def subject_dual_path(
@@ -917,6 +967,410 @@ def collector_appeal_v3_public_identity() -> Dict[str, Any]:
             "market_rank_proxy",
             "scarcity_price_proxy",
         ],
+        "subjectScope": {
+            "modeled": ["pokemon"],
+            "notYetModeled": ["trainer", "artist"],
+        },
+        "weightsDisclosed": False,
+    }
+
+
+# ---------------------------------------------------------------------------
+# THE CANONICAL COLLECTOR APPEAL: V4, desirability with an asymmetric H modifier
+# ---------------------------------------------------------------------------
+# The PUBLIC PRODUCT NAME REMAINS "Collector Appeal". As with V2 and V3, the
+# version lives here, in the code, and never in the product name.
+#
+#     sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16)))
+#        = clamp01((log2(H) + 4) / 2)
+#     z  = 2*sH - 1
+#     m  = +4.0*z   if z >= 0          (points, on the 0-100 scale)
+#     m  = +2.0*z   if z <  0
+#     CA = clamp(100*D + m, 0, 100)
+#
+# THE CONSTRUCT
+# -------------
+#     D = underlying collector desirability   -> the dominant baseline
+#     H = desirable outcome accessibility     -> a modest tiebreaker
+#     "D ranks the neighbourhood. H settles many close calls."
+#
+# WHY V3's SHAPE HAD TO GO
+# ------------------------
+# V3 was ``0.40D + 0.35H + 0.25P``: three peer addends. A nominal coefficient is
+# not influence - what orders a weighted sum is the DISPERSION of each weighted
+# contribution - and on the 22-set cohort D's contribution range (0.178) barely
+# exceeded H's and P's combined (0.162), and was carried almost entirely by a
+# single low outlier. Measured: Spearman(V3, D) = 0.589 against
+# Spearman(V3, H) = 0.832, with the median set landing three places off the
+# desirability order and 41% moving five or more. A metric named for how
+# desirable a set's content is was ordering by hit frequency.
+#
+# V4 restores D as the baseline and gives structure a fixed, small budget.
+#
+# WHY THE MODIFIER IS CENTRED, NOT FLOORED
+# ----------------------------------------
+# CA7 and V2 floored the structural term at zero and bounded it by ``(1 - D)``.
+# For the sets anyone argues about ``(1 - D)`` is 0.05-0.13, so the whole term
+# was scaled down by an order of magnitude exactly where it was meant to break
+# ties - which is why V2 tracked D at rho 0.991 while claiming three inputs. A
+# floored bonus can only add, so the only way to make it matter is to make it
+# big, and a big one-sided bonus is what lets a mediocre roster climb. Centring
+# at NEUTRAL structure lets good accessibility add and poor accessibility
+# subtract while the total span stays small. That is what "tiebreaker" means
+# arithmetically, and it is why neutral H returns exactly D.
+#
+# WHY THE ASYMMETRY (+4.0 UP, ONLY -2.0 DOWN)
+# -------------------------------------------
+# Strong accessibility genuinely delivers something: a pack that regularly hands
+# you a Pokemon you care about is a better box to open. Difficulty costs only
+# half as much, because a hard chase can itself be the appeal - punishing it
+# symmetrically would encode "easier is better", which is a taste, not a
+# measurement. Phantasmal Flames is the case in point: brutal chase odds, yet it
+# earns the cohort's second-largest positive modifier, because H measures how
+# often a pack delivers A desirable card, not how easy the top card is.
+#
+# WHY H IS ANCHORED ON LOG2 WAIT TIME
+# -----------------------------------
+# Frequency is perceived multiplicatively: the felt difference between "every 4
+# packs" and "every 8" is the same as between "every 8" and "every 16". The
+# anchors are FIXED and stated in collector language, never cohort percentiles,
+# so adding or removing a set can never move another set's score.
+#
+# WHY P IS GONE
+# -------------
+# See the retention note above ``subject_dual_path``. In short: the ablation held
+# every other assumption identical and varied only whether P entered, and P
+# changed 3 of 231 pairwise orderings while leaving Spearman(with P, without P)
+# = 0.9966. The calculation is RETAINED and maintained as a diagnostic and as a
+# candidate Personal Fit feature; it is simply not an input to the universal
+# score.
+#
+# WHAT IS UNCHANGED FROM V3
+# -------------------------
+#   * D and H are the same two constructs, computed by the same modules.
+#   * Desirability enters EXACTLY ONCE, as D. H's eligibility uses desirability
+#     but never multiplies its magnitude in.
+#   * No price, EV, pack cost, profitability or market proxy is read.
+#   * A missing input makes the score unavailable, never 0 and never D.
+#   * D is passed through UNCHANGED - not rescaled, not min-maxed, not ranked.
+
+COLLECTOR_APPEAL_V4_VERSION = "collector_appeal_v4_h_only_d_baseline_up4_down2"
+COLLECTOR_APPEAL_V4_FORMULA_VERSION = "collector_appeal_h_only_centred_asymmetric_modifier_v1"
+
+# Authoritative constants. Nothing in the calculation, persistence, publication,
+# audit or test path is permitted to restate these literals, and nothing in the
+# PUBLIC payload is permitted to disclose the ceiling or floor - see
+# ``collector_appeal_v4_public_identity``.
+#
+# H transform anchors, expressed as "one desirable card per N packs".
+COLLECTOR_APPEAL_V4_H_ANCHOR_ZERO_ONE_IN_N = 16.0      # sH = 0.0
+COLLECTOR_APPEAL_V4_H_ANCHOR_NEUTRAL_ONE_IN_N = 8.0    # sH = 0.5  (NEUTRAL)
+COLLECTOR_APPEAL_V4_H_ANCHOR_ONE_ONE_IN_N = 4.0        # sH = 1.0
+
+# The modifier, in PUBLIC POINTS on the 0-100 scale.
+COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS = 4.0
+COLLECTOR_APPEAL_V4_DOWNSIDE_DAMPING = 0.50
+COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS = (
+    -COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS * COLLECTOR_APPEAL_V4_DOWNSIDE_DAMPING
+)  # = -2.0
+
+# The single behavioural promise: the widest D gap accessibility can overturn is
+# the FULL SPAN of the modifier - best-structured challenger (+4.0) against
+# worst-structured incumbent (-2.0). Derived, not measured, and verified by
+# exhaustive search in the tests.
+COLLECTOR_APPEAL_V4_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE_POINTS = (
+    COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS - COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS
+)  # = 6.0
+
+COLLECTOR_APPEAL_V4_INPUT_ORDER: Tuple[str, ...] = (
+    "roster_desirability",
+    "desirable_outcome_frequency",
+)
+
+# snake_case input key -> the camelCase label a public surface may show.
+COLLECTOR_APPEAL_V4_PUBLIC_INPUT_KEYS: Dict[str, str] = {
+    "roster_desirability": "rosterDesirability",
+    "desirable_outcome_frequency": "desirableOutcomeFrequency",
+}
+
+# The canonical diagnostics namespace for V4. A new key, for the same reason V2
+# and V3 each took one: leaving a `collector_appeal_v3` block carrying a
+# different formula would make the stored identity a lie that nothing could
+# detect.
+COLLECTOR_APPEAL_V4_DIAGNOSTICS_KEY = "collector_appeal_v4"
+
+# The exact formula, as one unambiguous string. BOTH branches are written out,
+# because a single-branch summary would misstate the model: this must never be
+# described as ``D + 4*(2*sH - 1)``, which overstates the downside by a factor of
+# two and misstates the inversion boundary by 2 points.
+COLLECTOR_APPEAL_V4_FORMULA_EXPRESSION = (
+    "sH = clamp01((log2(H) - log2(1/16)) / (log2(1/4) - log2(1/16))); "
+    "z = 2*sH - 1; "
+    "m = 4.0*z if z >= 0 else 2.0*z; "
+    "CA = clamp(100*D + m, 0, 100)"
+)
+
+# THE MONOTONICITY CONTRACT, STATED RATHER THAN IMPLIED.
+#
+#   NON-DECREASING in D everywhere on [0, 1];
+#   STRICTLY INCREASING in D wherever ``100*D + m`` lies strictly inside
+#   (0, 100).
+#
+# Ties can arise ONLY where the clamp binds, which needs D above 0.96 or below
+# 0.02. No set in the eligible cohort is in either region (observed range
+# 0.5107 to 0.9548), so on real data the score is strictly increasing in D
+# throughout - but that is a fact about the DATA, not about the FORMULA, and the
+# two are recorded separately on purpose. A test asserts the data fact and fails
+# loudly if a future set enters the region, rather than letting it tie silently.
+#
+# The clamp is retained rather than engineered away. Tapering the bonus into the
+# last points of headroom would reintroduce exactly the ``(1 - D)`` shrinkage
+# that made V2 a restatement of D, and precisely for the elite sets the
+# tiebreaker exists to separate; letting the score exceed 100 would break the
+# published "out of 100" claim. Clamping, with the region named and monitored,
+# is the least dishonest of the three.
+COLLECTOR_APPEAL_V4_MONOTONICITY_CONTRACT: Dict[str, Any] = {
+    "in_d": "non_decreasing_everywhere_strictly_increasing_off_the_clamp",
+    "in_h": "non_decreasing_everywhere",
+    "in_p": "not_an_input",
+    "upper_saturation_begins_above_d": (
+        (100.0 - COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS) / 100.0
+    ),
+    "lower_saturation_begins_below_d": -COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS / 100.0,
+    "ties_possible_only_inside_saturation": True,
+}
+
+COLLECTOR_APPEAL_V4_RECONSTRUCTION_TOLERANCE = 1e-9
+
+
+def _audit_collector_appeal_v4_constants() -> None:
+    """A V4 whose constants contradict its documented contract must not import.
+
+    The asymmetry is the property most likely to be broken by a well-meaning
+    edit - "surely the floor should be -4" - and an asymmetry silently turned
+    symmetric would change every below-neutral score while leaving the version
+    string, the formula string and the tests' names intact.
+    """
+    if COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS <= 0:
+        raise ValueError("Collector Appeal V4 modifier ceiling must be positive.")
+    if not 0.0 <= COLLECTOR_APPEAL_V4_DOWNSIDE_DAMPING <= 1.0:
+        raise ValueError("Collector Appeal V4 downside damping must be in [0, 1].")
+    expected_floor = (
+        -COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS * COLLECTOR_APPEAL_V4_DOWNSIDE_DAMPING
+    )
+    if abs(COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS - expected_floor) > 1e-12:
+        raise ValueError(
+            "Collector Appeal V4 floor must equal -ceiling * damping; got "
+            f"{COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS!r}, expected {expected_floor!r}."
+        )
+    if COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS >= 0:
+        raise ValueError("Collector Appeal V4 floor must be negative.")
+    span = (
+        COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS - COLLECTOR_APPEAL_V4_MODIFIER_FLOOR_POINTS
+    )
+    if abs(COLLECTOR_APPEAL_V4_MAX_PAIRWISE_STRUCTURAL_ADVANTAGE_POINTS - span) > 1e-12:
+        raise ValueError("Collector Appeal V4 pairwise span must equal ceiling - floor.")
+    # The anchors must be strictly ordered as wait times, or the log2 map inverts
+    # and a rarer desirable outcome would score as MORE accessible.
+    if not (
+        COLLECTOR_APPEAL_V4_H_ANCHOR_ZERO_ONE_IN_N
+        > COLLECTOR_APPEAL_V4_H_ANCHOR_NEUTRAL_ONE_IN_N
+        > COLLECTOR_APPEAL_V4_H_ANCHOR_ONE_ONE_IN_N
+        > 0
+    ):
+        raise ValueError("Collector Appeal V4 H anchors must be strictly decreasing wait times.")
+    if set(COLLECTOR_APPEAL_V4_PUBLIC_INPUT_KEYS) != set(COLLECTOR_APPEAL_V4_INPUT_ORDER):
+        raise ValueError("Every Collector Appeal V4 input needs exactly one public key.")
+    if "dual_path_depth" in COLLECTOR_APPEAL_V4_INPUT_ORDER:
+        raise ValueError("Collector Appeal V4 must not consume dual_path_depth.")
+
+
+_audit_collector_appeal_v4_constants()
+
+
+def collector_appeal_v4_frequency_index(h: Any) -> Optional[float]:
+    """Map H onto [0, 1] against the FIXED wait-time anchors. 0.5 == neutral.
+
+    Plain English: 0.0 means a desirable card turns up about once every 16 packs
+    or worse, 0.5 means about once every 8, 1.0 means about once every 4 or
+    better. Nothing about the cohort enters, so a set scores the same whoever
+    else happens to be measured alongside it.
+
+    Returns None - never 0.0 - for a missing, non-positive or out-of-range H.
+    ``H = 0`` exactly would mean "no modeled pack can produce a desirable card",
+    which is a data condition rather than a weak set, and ``log2(0)`` is
+    undefined; scoring it as the worst possible accessibility would be a claim
+    the absence does not support.
+    """
+    value = _unit_input(h)
+    if value is None or value <= 0.0:
+        return None
+    weak = math.log2(1.0 / COLLECTOR_APPEAL_V4_H_ANCHOR_ZERO_ONE_IN_N)
+    strong = math.log2(1.0 / COLLECTOR_APPEAL_V4_H_ANCHOR_ONE_ONE_IN_N)
+    return _clamp((math.log2(value) - weak) / (strong - weak))
+
+
+def collector_appeal_v4_modifier_points(h: Any) -> Optional[float]:
+    """The signed accessibility adjustment in PUBLIC POINTS, centred at neutral.
+
+        z = 2*sH - 1
+        m = ceiling * z             for z >= 0
+        m = ceiling * z * damping   for z <  0
+
+    Bounded to ``[-2.0, +4.0]``. Returns None - never 0.0 - when H is
+    unavailable: zero is the value for NEUTRAL accessibility, and reporting
+    "neutral" for "unknown" would be a measurement the data does not support.
+    """
+    index = collector_appeal_v4_frequency_index(h)
+    if index is None:
+        return None
+    centred = 2.0 * index - 1.0
+    damping = 1.0 if centred >= 0.0 else COLLECTOR_APPEAL_V4_DOWNSIDE_DAMPING
+    return COLLECTOR_APPEAL_V4_MODIFIER_CEILING_POINTS * centred * damping
+
+
+def compute_collector_appeal_v4(d: Any, h: Any) -> Optional[float]:
+    """THE canonical Collector Appeal, on [0, 1].
+
+    ONE entry point, so every surface computes the same number. Returns the UNIT
+    score, exactly as :func:`compute_collector_appeal_v3` did, so a caller that
+    multiplies by 100 to publish keeps working unchanged.
+
+    Takes NO ``p`` argument. A signature that accepted and ignored dual-path
+    depth would let a caller pass it and believe it had been used.
+
+    ``h`` is the Desirable Outcome Frequency:
+    ``P(a modeled pack contains at least one card tied to an eligible desirable
+    Pokemon subject)``. It is NOT a financial win rate; a desirable hit may still
+    be a financial loss.
+
+    Properties, all exact and all asserted in the unit tests:
+      * ``0 <= CA <= 1`` for every admissible input
+      * neutral H (one desirable card per 8 packs) -> ``CA = D`` EXACTLY
+      * ``dCA/dD = 1`` off the clamp; non-decreasing in D everywhere
+      * non-decreasing in H everywhere
+      * the widest D gap H can overturn is 6.00 public points, at any D
+
+    Returns None - never 0.0, never 0.5, never D, never a previous version's
+    score - when either D or H is missing or malformed.
+    """
+    d_value = _unit_input(d)
+    if d_value is None:
+        return None
+    modifier = collector_appeal_v4_modifier_points(h)
+    if modifier is None:
+        return None
+    return _clamp(d_value + modifier / 100.0)
+
+
+def collector_appeal_v4_missing_inputs(d: Any, h: Any) -> List[str]:
+    """Which of D/H are unavailable, in canonical input order.
+
+    Named individually rather than reported as one "inputs missing" flag: "no
+    desirability coverage" and "no pull model" call for different fixes, and
+    collapsing them sends an operator to the wrong one.
+    """
+    values = {
+        "roster_desirability": _unit_input(d),
+        "desirable_outcome_frequency": collector_appeal_v4_frequency_index(h),
+    }
+    return [key for key in COLLECTOR_APPEAL_V4_INPUT_ORDER if values[key] is None]
+
+
+def collector_appeal_v4_decomposition(d: Any, h: Any) -> Dict[str, Any]:
+    """INTERNAL breakdown of the V4 score: inputs, the modifier, and the check.
+
+    Derived from the SAME arithmetic the score uses, so the decomposition can
+    never drift from the number it explains.
+
+    NOT FOR THE PUBLIC PAYLOAD. ``frequencyIndex`` and ``modifierPoints`` between
+    them disclose the ceiling and the damping exactly - two points of the curve
+    determine the line - and V4's budget is internal by decision. The public
+    projection carries the score, the status, the factor VALUES and the version;
+    see :func:`collector_appeal_v4_public_identity`.
+
+    ``reconstructsScore`` is computed, not assumed: a constant edited without
+    updating the audit would otherwise produce a decomposition that quietly does
+    not add up.
+    """
+    score = compute_collector_appeal_v4(d, h)
+    d_value = _unit_input(d)
+    index = collector_appeal_v4_frequency_index(h)
+    modifier = collector_appeal_v4_modifier_points(h)
+
+    reconstructs: Optional[bool] = None
+    if score is not None and d_value is not None and modifier is not None:
+        expected = _clamp(d_value + modifier / 100.0)
+        reconstructs = abs(expected - score) <= COLLECTOR_APPEAL_V4_RECONSTRUCTION_TOLERANCE
+
+    return {
+        "version": COLLECTOR_APPEAL_V4_VERSION,
+        "formulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+        "unitScore": score,
+        "publicScore": None if score is None else score * 100.0,
+        "inputs": {"d": d_value, "h": _as_float(h)},
+        "frequencyIndex": index,
+        "modifierPoints": modifier,
+        "modifierDirection": (
+            None if modifier is None else ("positive" if modifier >= 0 else "negative")
+        ),
+        "baselinePublicScore": None if d_value is None else d_value * 100.0,
+        "clamped": (
+            None
+            if score is None or d_value is None or modifier is None
+            else not (0.0 <= d_value + modifier / 100.0 <= 1.0)
+        ),
+        "reconstructsScore": reconstructs,
+        "missingInputs": collector_appeal_v4_missing_inputs(d, h),
+    }
+
+
+def collector_appeal_v4_public_identity() -> Dict[str, Any]:
+    """What a PUBLIC surface may say about the V4 model.
+
+    Version identifiers and high-level factor labels only. Deliberately absent:
+    the modifier ceiling and floor, the damping, the H anchors, an executable
+    formula string, and any validation statistic. Publishing the ceiling and the
+    anchors together is publishing the formula - the arithmetic is a one-liner -
+    and this model's budget is internal by decision, not by oversight.
+
+    ``dualPathDepth`` is named in ``excludedInputs`` rather than omitted. A
+    surface that previously showed three factors needs to be able to say WHY it
+    now shows two, and silence would read as an outage.
+    """
+    return {
+        "version": COLLECTOR_APPEAL_V4_VERSION,
+        "formulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+        "factors": [
+            {
+                "key": COLLECTOR_APPEAL_V4_PUBLIC_INPUT_KEYS[key],
+                "label": label,
+                "interpretation": interpretation,
+            }
+            for key, label, interpretation in (
+                (
+                    "roster_desirability",
+                    "Roster Desirability",
+                    "How desirable this set's Pokemon are, before pull difficulty.",
+                ),
+                (
+                    "desirable_outcome_frequency",
+                    "Desirable Outcome Frequency",
+                    "How often a modeled pack delivers a card tied to a desirable Pokemon.",
+                ),
+            )
+        ],
+        "excludedInputs": [
+            "dual_path_depth",
+            "market_price",
+            "expected_value",
+            "pack_cost",
+            "profitability",
+            "financial_score",
+            "market_rank_proxy",
+            "scarcity_price_proxy",
+        ],
+        "dualPathDepthStatus": "retained_as_diagnostic_not_a_collector_appeal_input",
         "subjectScope": {
             "modeled": ["pokemon"],
             "notYetModeled": ["trainer", "artist"],

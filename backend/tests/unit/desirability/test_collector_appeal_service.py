@@ -26,7 +26,7 @@ from backend.desirability.collector_appeal import (
     compute_chase_appeal,
     compute_collector_appeal,
     compute_collector_appeal_candidates,
-    compute_collector_appeal_v3,
+    compute_collector_appeal_v4,
 )
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.collector_appeal_inputs import (
@@ -53,7 +53,7 @@ from backend.desirability.universal_set_desirability import COVERAGE_FULL
 # v1 read the pack model only from pokemon_set_page_snapshot_latest - the table
 # the set-page build writes - so a newly onboarded set was invisible to its own
 # pull model until a second rebuild, and CA7 reported
-# dual_path_depth_unavailable_no_pull_model for a set whose simulation had
+# desirable_outcome_frequency_unavailable_no_pull_model for a set whose simulation had
 # already produced a complete pack model. v2 adds a live fallback consulted ONLY
 # for sets the snapshot does not carry yet. That is a source change, and the
 # fingerprint is required to move with it.
@@ -92,7 +92,7 @@ from backend.desirability.universal_set_desirability import COVERAGE_FULL
 #
 # The GOLDEN CA7 values below are STILL UNCHANGED and still pass, which is the
 # evidence that both legacy calculations survived this change intact.
-FROZEN_FINGERPRINT = "6d13be79004c432fe281afc8c77b6d87d8fffecea1f6fe17c9b40a393ff15593"
+FROZEN_FINGERPRINT = "95bc037c90b894feb509deb220be29c6445b0b1363846c58fc812878ba1d7e36"
 
 # The identity the D/F/P (Collector Appeal V2) artifacts were produced under.
 # Kept named so a V2-era row can still be recognised as V2-era rather than
@@ -246,17 +246,16 @@ def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(na
         pull_modeled=True,
     )
     canonical = payload["collectorAppeal"]
-    assert canonical["version"] == "collector_appeal_v3_balanced_d40_h35_p25"
+    assert canonical["version"] == "collector_appeal_v4_h_only_d_baseline_up4_down2"
     assert canonical["rawValue"] is not None
     assert 0.0 <= canonical["rawValue"] <= 1.0
     # The published factors are the exact numbers the formula consumed, so the
     # score can be reconstructed from the payload alone.
     factors = canonical["factors"]
-    assert compute_collector_appeal_v3(
+    assert compute_collector_appeal_v4(
         factors["rosterDesirability"],
         factors["desirableOutcomeFrequency"],
-        factors["dualPathDepth"],
-    ) == pytest.approx(canonical["rawValue"], abs=1e-9)
+        ) == pytest.approx(canonical["rawValue"], abs=1e-9)
     # Distinct from BOTH superseded formulas, and both remain published for
     # comparison under their own version strings.
     assert payload["legacyCollectorAppealCA7"]["version"] == "collector_appeal_ca7_v1"
@@ -313,8 +312,13 @@ def test_artifact_fingerprint_records_the_run_it_was_produced_under():
 # No fallback
 # ---------------------------------------------------------------------------
 
-def test_missing_dual_path_yields_unavailable_not_desirability():
-    """The 10% pillar must never silently become Universal Desirability."""
+def test_missing_frequency_yields_unavailable_not_desirability():
+    """The 10% pillar must never silently become Universal Desirability.
+
+    A set with no modeled pull data has no H, and therefore no Collector Appeal.
+    D is still reported as its own supporting metric - but never AS Collector
+    Appeal, which is the substitution this guards against.
+    """
     payload = service._build_set_payload(
         set_id="no-pull-model",
         universal_row={"set_name": "X", "score": 88.0, "coverage": {"status": COVERAGE_FULL}},
@@ -324,8 +328,36 @@ def test_missing_dual_path_yields_unavailable_not_desirability():
     assert payload["status"] == "unavailable"
     assert payload["collectorAppeal"]["score"] is None
     assert payload["coverage"]["reasons"] == [service.REASON_NO_PULL_MODEL]
-    # D is still reported as its own supporting metric - but not AS Collector Appeal.
     assert payload["rosterDesirability"]["score"] == 88.0
+
+
+def test_missing_dual_path_no_longer_withholds_a_score():
+    """V4 does not consume P, so a missing P must not suppress the metric.
+
+    Under V3 this set had no Collector Appeal at all, because P was one of three
+    required inputs. Withholding a score for an input the formula does not read
+    would be refusing to publish a number whose every input exists.
+    """
+    # Built from the SAME fixture helper the other tests use, then trimmed to a
+    # single printing so dual-path depth is structurally weak. Hand-rolling a
+    # subject here would risk the roster failing eligibility for an unrelated
+    # reason and the test passing for the wrong one.
+    subjects = _subjects_with_dual_path_depth(0.4)
+    subjects[0]["cards"] = subjects[0]["cards"][:1]
+    payload = service._build_set_payload(
+        set_id="single-printing",
+        universal_row={"set_name": "X", "score": 88.0, "coverage": {"status": COVERAGE_FULL}},
+        subjects=subjects,
+        pull_modeled=True,
+    )
+    assert payload["status"] == "available"
+    assert payload["collectorAppeal"]["score"] is not None
+    assert payload["coverage"]["reasons"] == []
+    # P is still measured and still published - just not as an appeal input.
+    assert "dualPathDepth" in payload
+    assert payload["dualPathDepth"]["role"] == "diagnostic_not_a_collector_appeal_input"
+    assert "dualPathDepth" not in payload["collectorAppeal"]["factors"]
+    assert payload["collectorAppeal"]["excludedInputs"] == ["dualPathDepth"]
 
 
 def test_pull_model_present_but_no_modeled_subject_is_a_distinct_reason():
@@ -569,6 +601,8 @@ def test_payload_exposes_the_explicit_new_fields():
         pull_modeled=True,
     )
     for field in ("rosterDesirability", "dualPathDepth", "collectorAppeal", "chaseAppeal"):
+        # dualPathDepth is still PUBLISHED (as a diagnostic) even though it is no
+        # longer a Collector Appeal input, so it still belongs in this list.
         assert field in payload, field
 
 

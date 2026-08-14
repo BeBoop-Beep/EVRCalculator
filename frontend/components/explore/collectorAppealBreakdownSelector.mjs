@@ -1,4 +1,4 @@
-// Collector Appeal V3, explained through its three parallel factors.
+// Collector Appeal V4, explained through its two parallel factors.
 //
 // WHAT THIS READS
 // ---------------
@@ -10,26 +10,38 @@
 // name. There is now no path here that reads V6, V5, V2, legacy CA7 or
 // Universal/Roster Desirability. A missing canonical block renders unavailable.
 //
-// THREE PARALLEL FACTORS, NOT A PIPELINE
-// --------------------------------------
-//   Roster Desirability · Desirable Outcome Frequency · Dual-Path Depth
+// TWO PARALLEL FACTORS, NOT A PIPELINE
+// ------------------------------------
+//   Roster Desirability · Desirable Outcome Frequency
 //
 // They are explanatory factors of one score, presented side by side. The old
 // surface drew them as a sequential chain (Set Desirability -> Collector Appeal
 // -> RIP Score Contribution), which claimed Roster Desirability is a first
-// stage feeding the other two. It is not: all three are inputs to a single
-// weighted combination, and the arrows described arithmetic the backend does
-// not perform.
+// stage feeding the other. It is not: both are inputs to a single combination,
+// and the arrows described arithmetic the backend does not perform.
+//
+// WHY DUAL-PATH DEPTH IS NO LONGER A ROW
+// --------------------------------------
+// Collector Appeal V4 does not consume it. The ablation held every other
+// assumption identical and found P changed 3 of 231 pairwise orderings, leaving
+// Spearman(with P, without P) = 0.9966 for a universal set-level score.
+//
+// It is NOT deleted from the product: the backend still computes and publishes
+// it, under `collectorAppeal.diagnostics.dualPathDepth`, and it remains a
+// candidate input for future Personal Fit models. It is simply not a factor of
+// THIS score, and a factor row is a claim that it fed the number. A surface that
+// wants to show it must read it from `diagnostics` and label it as a diagnostic
+// — never add it back to `rows`.
 //
 // WHAT IS DELIBERATELY NOT PUBLISHED
 // ----------------------------------
-// Collector Appeal V3's internal D/H/P weights, any per-factor contribution,
-// and any formula string. The arithmetic is a one-line weighted sum, so
-// publishing the weights would be publishing the formula — and publishing a
-// contribution would be the same thing by division. The backend withholds them
-// from the contract (`weightsDisclosed: false`); this module must not
-// reconstruct them. The Overall RIP composition weights are likewise not shown:
-// there is no composition block here any more.
+// Collector Appeal V4's modifier ceiling, its downside damping, its H anchors,
+// the computed modifier, and any formula string. Two points of the curve
+// determine the line, so publishing the ceiling beside the anchors would be
+// publishing the formula. The backend withholds them from the contract
+// (`weightsDisclosed: false`); this module must not reconstruct them. The
+// Overall RIP composition weights are likewise not shown: there is no
+// composition block here any more.
 //
 // THE VOCABULARY RULE
 // -------------------
@@ -140,12 +152,10 @@ export function selectCollectorAppealBreakdown(...sources) {
   const components = toObject(appeal.components);
   const roster = toObject(components.rosterDesirability);
   const frequency = toObject(components.desirableOutcomeFrequency);
-  const dualPath = toObject(components.dualPathDepth);
 
   const scores = readScoreLayers(appeal);
   const rosterScore = toOptionalNumber(roster.score);
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
-  const dualPathRaw = toOptionalNumber(dualPath.rawValue);
 
   const rows = [
     {
@@ -208,24 +218,6 @@ export function selectCollectorAppealBreakdown(...sources) {
         },
       ],
       statusReason: frequency.statusReason ?? UNAVAILABLE,
-    },
-    {
-      key: "dualPathDepth",
-      title: "Dual-Path Depth",
-      value: dualPathRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(dualPathRaw),
-      available: dualPathRaw !== UNAVAILABLE,
-      railPercent: dualPathRaw === UNAVAILABLE ? null : dualPathRaw * 100,
-      interpretation:
-        "Whether desirable Pokémon offer both an attainable printing and a true elite chase.",
-      metrics: [
-        {
-          label: "Subjects with both paths",
-          value:
-            toOptionalNumber(dualPath.subjectsWithMultiplePaths) === UNAVAILABLE
-              ? "—"
-              : String(Math.round(Number(dualPath.subjectsWithMultiplePaths))),
-        },
-      ],
     },
   ];
 

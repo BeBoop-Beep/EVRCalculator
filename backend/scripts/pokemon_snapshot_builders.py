@@ -433,6 +433,7 @@ def _merge_canonical_rip_contract_into_set_payload(
         # Lifted verbatim from the same ranked target, so the set page and
         # Explore cannot disagree about a Collector Appeal score or its rank.
         "overallRipV7",
+        "overallRipV8",
         "publicRipContractV7",
         "openingExperience",
         "publicAnalyticsStatus",
@@ -3447,7 +3448,7 @@ def attach_daily_rip_rank_movements(
 
     ONE MODEL ON BOTH SIDES OF EVERY SUBTRACTION
     --------------------------------------------
-    Overall movement compares ``overallRipV7.rank`` against ``overallRipV7.rank``.
+    Overall movement compares ``overallRipV8.rank`` against ``overallRipV8.rank``.
     Financial movement compares ``financialRipV3.rank`` against
     ``financialRipV3.rank``. Nothing here ever reads the legacy ``rip`` (Overall
     RIP v4) or ``ripCore`` (Financial RIP V2) objects.
@@ -3516,7 +3517,7 @@ def attach_daily_rip_rank_movements(
         elif previous is None:
             status, rank = "new", None
         else:
-            rank = ((previous.get("overallRipV7") or {}).get("rank"))
+            rank = ((previous.get("overallRipV8") or {}).get("rank"))
             status = "available" if rank is not None else "unavailable"
         financial_rank = (
             ((previous or {}).get("financialRipV3") or {}).get("rank")
@@ -3524,7 +3525,7 @@ def attach_daily_rip_rank_movements(
         )
         financial_status = ("new" if compatible and previous is None else
                             "available" if compatible and financial_rank is not None else "unavailable")
-        current_rank = ((target.get("overallRipV7") or {}).get("rank"))
+        current_rank = ((target.get("overallRipV8") or {}).get("rank"))
         current_financial_rank = ((target.get("financialRipV3") or {}).get("rank"))
         movement = rank - current_rank if status == "available" and current_rank is not None else None
         financial_movement = (

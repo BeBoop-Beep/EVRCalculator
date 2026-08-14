@@ -6289,6 +6289,7 @@ def _empty_insights_critical_payload(
         "overallRipV6": {},
         "publicRipContractV6": {},
         "overallRipV7": {},
+        "overallRipV8": {},
         "publicRipContractV7": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
@@ -6401,19 +6402,33 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV6"), dict)
         else {}
     )
-    # CANONICAL after the 90/10 V3 cutover. `overallRipV5`/`overallRipV6` above
-    # stay published as the superseded blends the comparison surfaces read;
-    # these two are the current Overall RIP and the Collector Appeal V3 contract.
-    # A missing V7 block renders as an explicit unavailable state on the client;
-    # it is never back-filled from V6 or V5, which are different models.
+    # CANONICAL after the Collector Appeal V4 cutover. `overallRipV5` and
+    # `overallRipV6` above stay published as the superseded blends the comparison
+    # surfaces read; `overallRipV7` joins them for the same reason. These two are
+    # the current Overall RIP and the Collector Appeal V4 contract.
+    #
+    # A missing V8 block renders as an explicit unavailable state on the client;
+    # it is NEVER back-filled from V7, V6 or V5, which are different models -
+    # V7 in particular is the same 90/10 split over a different appeal construct,
+    # so it would be the easiest wrong answer to reach for.
     overall_rip_v7 = (
         payload_json.get("overallRipV7")
         if isinstance(payload_json.get("overallRipV7"), dict)
         else {}
     )
+    overall_rip_v8 = (
+        payload_json.get("overallRipV8")
+        if isinstance(payload_json.get("overallRipV8"), dict)
+        else {}
+    )
     public_rip_contract_v7 = (
         payload_json.get("publicRipContractV7")
         if isinstance(payload_json.get("publicRipContractV7"), dict)
+        else {}
+    )
+    public_rip_contract_v8 = (
+        payload_json.get("publicRipContractV8")
+        if isinstance(payload_json.get("publicRipContractV8"), dict)
         else {}
     )
     opening_experience = (
@@ -6466,6 +6481,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "publicRipContractV6": public_rip_contract_v6,
         "overallRipV7": overall_rip_v7,
         "publicRipContractV7": public_rip_contract_v7,
+        "overallRipV8": overall_rip_v8,
+        "publicRipContractV8": public_rip_contract_v8,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

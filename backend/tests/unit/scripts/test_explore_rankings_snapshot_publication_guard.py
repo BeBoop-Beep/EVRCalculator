@@ -78,7 +78,7 @@ def test_daily_rank_movement_compares_v7_against_v7_and_v3_against_v3():
         "meta": _canonical_meta("2026-08-01"),
         "targets": [{
             "set_id": "stable-1",
-            "overallRipV7": {"rank": 2},
+            "overallRipV8": {"rank": 2},
             "financialRipV3": {"rank": 4},
             # Legacy objects carry DIFFERENT ranks on purpose: if either is read,
             # the movement below changes and this test fails.
@@ -90,7 +90,7 @@ def test_daily_rank_movement_compares_v7_against_v7_and_v3_against_v3():
         "meta": _canonical_meta("2026-07-31"),
         "targets": [{
             "set_id": "stable-1",
-            "overallRipV7": {"rank": 5},
+            "overallRipV8": {"rank": 5},
             "financialRipV3": {"rank": 3},
             "rip": {"rank": 17},
             "ripCore": {"rank": 19},
@@ -120,7 +120,7 @@ def test_a_set_that_did_not_move_publishes_zero_movement():
             "meta": _canonical_meta(market_date),
             "targets": [{
                 "set_id": "sv151",
-                "overallRipV7": {"rank": v7_rank},
+                "overallRipV8": {"rank": v7_rank},
                 "financialRipV3": {"rank": v7_rank},
                 "rip": {"rank": v4_rank},
                 "ripCore": {"rank": v4_rank},
@@ -142,7 +142,7 @@ def test_movement_is_unavailable_across_a_scoring_model_boundary():
     """V4 -> V7 and V2 -> V3 are never subtracted from one another."""
     current = {
         "meta": _canonical_meta("2026-08-05"),
-        "targets": [{"set_id": "s", "overallRipV7": {"rank": 2}, "financialRipV3": {"rank": 2}}],
+        "targets": [{"set_id": "s", "overallRipV8": {"rank": 2}, "financialRipV3": {"rank": 2}}],
     }
     legacy_previous = {
         "meta": {
@@ -181,7 +181,7 @@ def test_two_matched_but_superseded_snapshots_still_publish_no_movement():
                 },
                 "publicAnalyticsCohort": {"version": "cohort-v1"},
             },
-            "targets": [{"set_id": "s", "rip": {"rank": rank}, "overallRipV7": {"rank": rank}}],
+            "targets": [{"set_id": "s", "rip": {"rank": rank}, "overallRipV8": {"rank": rank}}],
         }
 
     target = builders.attach_daily_rip_rank_movements(
@@ -195,11 +195,11 @@ def test_two_matched_but_superseded_snapshots_still_publish_no_movement():
 def test_a_set_absent_from_the_previous_publication_is_new_not_moved():
     current = {
         "meta": _canonical_meta("2026-08-05"),
-        "targets": [{"set_id": "fresh", "overallRipV7": {"rank": 3}, "financialRipV3": {"rank": 3}}],
+        "targets": [{"set_id": "fresh", "overallRipV8": {"rank": 3}, "financialRipV3": {"rank": 3}}],
     }
     previous = {
         "meta": _canonical_meta("2026-08-04"),
-        "targets": [{"set_id": "other", "overallRipV7": {"rank": 1}, "financialRipV3": {"rank": 1}}],
+        "targets": [{"set_id": "other", "overallRipV8": {"rank": 1}, "financialRipV3": {"rank": 1}}],
     }
 
     target = builders.attach_daily_rip_rank_movements(current, previous)["targets"][0]
@@ -213,7 +213,7 @@ def test_rank_history_failure_is_unavailable_not_new():
     """A failed read of yesterday is not the same claim as "this set is new"."""
     current = {
         "meta": _canonical_meta("2026-08-01"),
-        "targets": [{"set_id": "stable-1", "overallRipV7": {"rank": 2}, "financialRipV3": {"rank": 2}}],
+        "targets": [{"set_id": "stable-1", "overallRipV8": {"rank": 2}, "financialRipV3": {"rank": 2}}],
     }
 
     result = builders.attach_daily_rip_rank_movements(current, None)
@@ -226,11 +226,11 @@ def test_older_snapshot_is_not_substituted_for_previous_day():
     """A five-day-old publication is not "yesterday", even on the same model."""
     current = {
         "meta": _canonical_meta("2026-08-01"),
-        "targets": [{"set_id": "stable-1", "overallRipV7": {"rank": 2}, "financialRipV3": {"rank": 2}}],
+        "targets": [{"set_id": "stable-1", "overallRipV8": {"rank": 2}, "financialRipV3": {"rank": 2}}],
     }
     older = {
         "meta": _canonical_meta("2026-07-27"),
-        "targets": [{"set_id": "stable-1", "overallRipV7": {"rank": 8}, "financialRipV3": {"rank": 8}}],
+        "targets": [{"set_id": "stable-1", "overallRipV8": {"rank": 8}, "financialRipV3": {"rank": 8}}],
     }
     result = builders.attach_daily_rip_rank_movements(current, older)
     assert result["targets"][0]["overallRipRankComparisonStatus1d"] == "unavailable"

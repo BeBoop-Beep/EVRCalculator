@@ -15,7 +15,7 @@ import { resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const V7 = {
-  contractVersion: "public_rip_contract_v7",
+  contractVersion: "public_rip_contract_v8",
   overallRip: {
     score: 57.75,
     absoluteScore: 57.75,
@@ -94,7 +94,7 @@ function scoreOf(renderer, id) {
 }
 
 test("exactly three canonical metrics render, and nothing else", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
   const metrics = renderer.root.findAll((n) => n.props?.["data-rip-summary-metric"] !== undefined);
 
   assert.equal(metrics.length, 3);
@@ -105,7 +105,7 @@ test("exactly three canonical metrics render, and nothing else", () => {
 });
 
 test("each metric carries its label, tier, rank/cohort and one plain sentence", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
 
   const overall = metricOf(renderer, "overall");
   assert.ok(overall.includes("Overall RIP"));
@@ -127,7 +127,7 @@ test("each metric carries its label, tier, rank/cohort and one plain sentence", 
 });
 
 test("all three public scores use their own cohort-relative 0–100 values", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
 
   assert.equal(scoreOf(renderer, "overall"), "73.4");
   assert.equal(scoreOf(renderer, "financial"), "88.8");
@@ -141,7 +141,7 @@ test("all three public scores use their own cohort-relative 0–100 values", () 
 
 test("an Overall block with only an absolute score renders unavailable", () => {
   const renderer = render({
-    publicRipContractV7: { ...V7, overallRip: { ...V7.overallRip, relativeScore: null } },
+    publicRipContractV8: { ...V7, overallRip: { ...V7.overallRip, relativeScore: null } },
   });
   assert.equal(scoreOf(renderer, "overall"), "—");
   assert.ok(!metricOf(renderer, "overall").includes("57.75"));
@@ -149,7 +149,7 @@ test("an Overall block with only an absolute score renders unavailable", () => {
 
 test("a Financial block with only an absolute score renders unavailable", () => {
   const renderer = render({
-    publicRipContractV7: { ...V7, financialRip: { ...V7.financialRip, relativeScore: null } },
+    publicRipContractV8: { ...V7, financialRip: { ...V7.financialRip, relativeScore: null } },
   });
   assert.equal(scoreOf(renderer, "financial"), "—");
   assert.ok(!metricOf(renderer, "financial").includes("61.2"));
@@ -157,7 +157,7 @@ test("a Financial block with only an absolute score renders unavailable", () => 
 
 test("a Collector block with only an absolute score renders unavailable", () => {
   const renderer = render({
-    publicRipContractV7: { ...V7, collectorAppeal: { ...V7.collectorAppeal, relativeScore: null } },
+    publicRipContractV8: { ...V7, collectorAppeal: { ...V7.collectorAppeal, relativeScore: null } },
   });
   assert.equal(scoreOf(renderer, "collector"), "—");
   assert.ok(!metricOf(renderer, "collector").includes("65.7"));
@@ -165,7 +165,7 @@ test("a Collector block with only an absolute score renders unavailable", () => 
 
 test("a missing metric renders an em dash — never zero, never a neighbour", () => {
   const renderer = render({
-    publicRipContractV7: { ...V7, collectorAppeal: {} },
+    publicRipContractV8: { ...V7, collectorAppeal: {} },
   });
 
   assert.equal(scoreOf(renderer, "collector"), "—");
@@ -197,7 +197,7 @@ test("a legacy payload cannot fill the summary", () => {
 });
 
 test("no weights, formulas, contributions, versions or retired lenses appear", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
   const text = ["overall", "financial", "collector"].map((id) => metricOf(renderer, id)).join(" ");
 
   for (const banned of [
@@ -227,7 +227,7 @@ test("no weights, formulas, contributions, versions or retired lenses appear", (
 
 test("View analysis is one restrained action that calls the page's navigator", () => {
   const calls = [];
-  const renderer = render({ publicRipContractV7: V7 }, { onViewAnalysis: () => calls.push("nav") });
+  const renderer = render({ publicRipContractV8: V7 }, { onViewAnalysis: () => calls.push("nav") });
 
   const buttons = renderer.root.findAllByType("button");
   assert.equal(buttons.length, 1, "one action for the module, not one per metric");
@@ -240,12 +240,12 @@ test("View analysis is one restrained action that calls the page's navigator", (
 });
 
 test("no navigator means no dead control", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
   assert.equal(renderer.root.findAllByType("button").length, 0);
 });
 
 test("the summary is one grouped surface, not three nested cards", () => {
-  const renderer = render({ publicRipContractV7: V7 });
+  const renderer = render({ publicRipContractV8: V7 });
   const glass = renderer.root.findAll((n) =>
     typeof n.props?.className === "string" && n.props.className.includes("set-glass-surface")
   );

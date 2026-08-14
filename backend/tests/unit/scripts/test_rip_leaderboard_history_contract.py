@@ -9,7 +9,7 @@ to carry. That is why the newest published leaderboard reported
 ``overall_rip_v4_90_financial_10_ca7`` / ``financial_rip_v2_60_25_15`` while 22
 fresh Financial RIP V3 simulations sat underneath it.
 
-It now publishes ``overallRipV7`` and ``financialRipV3``, and VERIFIES the
+It now publishes ``overallRipV8`` and ``financialRipV3``, and VERIFIES the
 version strings against the one canonical selection in ``scoring_config`` before
 writing anything. So the fixture below carries the canonical objects and the
 canonical versions - a fixture on the legacy shape would now be testing that the
@@ -116,14 +116,14 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "set_id": f"00000000-0000-0000-0000-{index:012d}",
         "canonical_key": f"set-{index}",
         # The CANONICAL objects the publisher now reads.
-        "overallRipV7": {"score": 80 - index, "rank": index + 1},
+        "overallRipV8": {"score": 80 - index, "rank": index + 1},
         "financialRipV3": {"score": 75 - index, "rank": index + 1},
         # The legacy objects, still present. The publish RPC counts ranked
         # targets by `rip.rank`, so they must select the same rows.
         "rip": {"score": 78 - index, "rank": index + 1},
         "ripCore": {"score": 70 - index, "rank": index + 1},
         "openingExperience": {"collectorAppeal": {"version": appeal_version}},
-        "publicRipContractV7": _contract_v7(index, contract_version),
+        "publicRipContractV8": _contract_v7(index, contract_version),
         "cohortFingerprint": "stub-fingerprint",
         "calculation_run_id": f"run-{index}",
         "pack_cost": 5,
@@ -214,7 +214,7 @@ def test_a_superseded_version_refuses_to_publish(kwargs, expected):
 
 
 def test_incomplete_cohort_fails_closed():
-    with pytest.raises(RuntimeError, match="incomplete Overall RIP V7 cohort"):
+    with pytest.raises(RuntimeError, match="incomplete Overall RIP V8 cohort"):
         command.publication_contract(_row(target_count=2, ranked_count=1))
 
 
@@ -240,8 +240,8 @@ def test_a_legacy_v4_rank_no_longer_gates_canonical_publication():
 
     Migration 054's RPC counted ranked targets by the LEGACY ``rip.rank``, so the
     publisher carried a precondition requiring the Overall RIP v4 cohort to match
-    the canonical V7 one. Migration 061 repointed the RPC at ``overallRipV7.rank``
-    and made it verify ``publicRipContractV7.contractVersion`` itself; it is
+    the canonical V7 one. Migration 061 repointed the RPC at ``overallRipV8.rank``
+    and made it verify ``publicRipContractV8.contractVersion`` itself; it is
     applied in production, so the database is now authoritative about the
     canonical cohort.
 
@@ -271,8 +271,8 @@ def test_history_rows_carry_the_canonical_v7_and_v3_scores():
     }
     for row in rows:
         target = targets[str(row["set_id"])]
-        assert row["overall_rip_score"] == target["overallRipV7"]["score"]
-        assert row["overall_rip_rank"] == target["overallRipV7"]["rank"]
+        assert row["overall_rip_score"] == target["overallRipV8"]["score"]
+        assert row["overall_rip_rank"] == target["overallRipV8"]["rank"]
         assert row["financial_rip_score"] == target["financialRipV3"]["score"]
         assert row["financial_rip_rank"] == target["financialRipV3"]["rank"]
         # Never the legacy objects, which the fixture gives different values.
@@ -283,22 +283,22 @@ def test_history_rows_carry_the_canonical_v7_and_v3_scores():
 @pytest.mark.parametrize(
     ("mutate", "expected"),
     [
-        (lambda t: t["publicRipContractV7"]["overallRip"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV8"]["overallRip"].pop("relativeScore"),
          "overallRip.relativeScore is missing"),
-        (lambda t: t["publicRipContractV7"]["overallRip"].pop("absoluteScore"),
+        (lambda t: t["publicRipContractV8"]["overallRip"].pop("absoluteScore"),
          "overallRip.absoluteScore is missing"),
-        (lambda t: t["publicRipContractV7"]["overallRip"].pop("cohortFingerprint"),
+        (lambda t: t["publicRipContractV8"]["overallRip"].pop("cohortFingerprint"),
          "overallRip.cohortFingerprint is missing"),
-        (lambda t: t["publicRipContractV7"]["financialRip"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV8"]["financialRip"].pop("relativeScore"),
          "financialRip.relativeScore is missing"),
-        (lambda t: t["publicRipContractV7"]["collectorAppeal"].pop("relativeScore"),
+        (lambda t: t["publicRipContractV8"]["collectorAppeal"].pop("relativeScore"),
          "collectorAppeal.relativeScore is missing"),
-        (lambda t: t["publicRipContractV7"]["collectorAppeal"].pop("rankedSetCount"),
+        (lambda t: t["publicRipContractV8"]["collectorAppeal"].pop("rankedSetCount"),
          "collectorAppeal.rankedSetCount is missing"),
-        (lambda t: t["publicRipContractV7"]["financialRip"]["components"]["jackpotUpside"]
+        (lambda t: t["publicRipContractV8"]["financialRip"]["components"]["jackpotUpside"]
          .pop("relativeScore"),
          r"components\.jackpotUpside\.relativeScore is missing"),
-        (lambda t: t.pop("publicRipContractV7"), "publicRipContractV7 is missing"),
+        (lambda t: t.pop("publicRipContractV8"), "publicRipContractV8 is missing"),
     ],
 )
 def test_a_supported_set_missing_a_canonical_score_fails_publication(mutate, expected):
@@ -323,7 +323,7 @@ def test_a_complete_cohort_reports_no_score_contract_problems():
 def test_a_zero_relative_score_is_not_treated_as_missing():
     """The bottom-ranked set's relative score IS 0.0, and 0.0 is a value."""
     payload = _row(target_count=2)
-    payload["ranking_payload_json"]["targets"][1]["publicRipContractV7"]["overallRip"][
+    payload["ranking_payload_json"]["targets"][1]["publicRipContractV8"]["overallRip"][
         "relativeScore"
     ] = 0.0
     assert command._score_contract_problems(
@@ -365,6 +365,14 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             # ranked-target predicate with `{overallRipV7,rank}`; it is the same
             # single authoritative writer, not a second one.
             "061_update_public_rip_rpc_to_v7.sql",
+            # The canonical V8 revision, and the writer in force today. It is a
+            # forward-only CREATE OR REPLACE of the SAME function 061 defines,
+            # repointed at `{overallRipV8,rank}` and the Collector Appeal V4
+            # identity strings. Each entry above it is a superseded revision of
+            # that one function retained for history, not an additional writer -
+            # this list is "revisions of the single authoritative writer", which
+            # is why it grows by one on every RPC cutover.
+            "062_update_public_rip_rpc_to_v8.sql",
         }
         if writes and not approved:
             offenders.append(str(path.relative_to(root)))
@@ -514,12 +522,12 @@ def test_application_preflight_rejects_ranked_count_mismatch():
     """The preflight counts the CANONICAL rank, matching what the publisher wrote.
 
     It used to count ``rip.rank`` (Overall RIP v4). Leaving it there after the
-    publisher moved to ``overallRipV7`` would have made the preflight validate a
+    publisher moved to ``overallRipV8`` would have made the preflight validate a
     different cohort from the one being published - the two could disagree and
     nothing would notice.
     """
     row, snapshot, history = _publication_parameters()
-    row["ranking_payload_json"]["targets"][0]["overallRipV7"]["rank"] = None
+    row["ranking_payload_json"]["targets"][0]["overallRipV8"]["rank"] = None
     with pytest.raises(RuntimeError, match="ranked target count"):
         command.validate_publication_payload(row, snapshot, history)
 
@@ -562,7 +570,7 @@ def test_shared_publisher_sends_complete_discovery_payload(monkeypatch):
 
 def _mutate_targets(row, mutate, *, ranked_only=True):
     for target in row["ranking_payload_json"]["targets"]:
-        if ranked_only and (target.get("overallRipV7") or {}).get("rank") is None:
+        if ranked_only and (target.get("overallRipV8") or {}).get("rank") is None:
             continue
         mutate(target)
     return row

@@ -20,9 +20,9 @@ that row consumes them:
   * the set page still gets them - `_merge_canonical_rip_contract_into_set_payload`
     lifts them from `get_rip_statistics_targets_payload()`, the LIVE builder, not
     from this persisted artifact, so set Insights keeps V4/V5/V6 verbatim;
-  * publication validation requires `publicRipContractV7` only
+  * publication validation requires `publicRipContractV8` only
     (`_score_contract_problems`);
-  * 1D rank movement reads only ids plus `overallRipV7.rank` /
+  * 1D rank movement reads only ids plus `overallRipV8.rank` /
     `financialRipV3.rank` (`attach_daily_rip_rank_movements`);
   * `canonicalRipV7.mjs` declares "deliberately no third step" - it never falls back
     to V5/V6, they are different models;
@@ -53,9 +53,9 @@ def _target(name="ascendedHeroes"):
         "id": "s-1",
         "name": "Ascended Heroes",
         "slug": name,
-        "overallRipV7": {"rank": 3, "absoluteScore": 71.2},
+        "overallRipV8": {"rank": 3, "absoluteScore": 71.2},
         "financialRipV3": {"rank": 5, "absoluteScore": 64.0},
-        "publicRipContractV7": {"overallRip": {"rank": 3}, "financialRip": {"components": {}}},
+        "publicRipContractV8": {"overallRip": {"rank": 3}, "financialRip": {"components": {}}},
         "publicRipContractV6": {"overallRip": {"rank": 4}},
         "publicRipContractV5": {"overallRip": {"rank": 6}},
         "publicRipContractV4": {"overallRip": {"rank": 9}},
@@ -89,9 +89,9 @@ def test_canonical_and_movement_fields_survive_the_projection():
     projected = project_latest_rankings_payload(_payload())
     for target in projected["targets"]:
         # Publication validation (_score_contract_problems) requires this.
-        assert target["publicRipContractV7"] == {"overallRip": {"rank": 3}, "financialRip": {"components": {}}}
+        assert target["publicRipContractV8"] == {"overallRip": {"rank": 3}, "financialRip": {"components": {}}}
         # attach_daily_rip_rank_movements requires these plus a stable id.
-        assert target["overallRipV7"]["rank"] == 3
+        assert target["overallRipV8"]["rank"] == 3
         assert target["financialRipV3"]["rank"] == 5
         assert target["set_id"] == "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
         # Identity/routing fields the set route and sitemap resolve on.
@@ -149,7 +149,7 @@ def test_projection_tolerates_degenerate_payloads(payload):
 #         -> _build_financial_rip_v3(target)      (score/status/components)
 #             -> target["financialRipV3"]
 #                 -> _rank_financial_rip_v3       (rank/tier/relativeScore/cohortSize)
-#                     -> publicRipContractV7.financialRip
+#                     -> publicRipContractV8.financialRip
 #
 # That lineage also explains the 34-vs-22 coverage: 22 targets have a V3 run, and
 # the other 12 carry `financialRipV3.status == "unavailable"` with
@@ -182,7 +182,7 @@ def test_the_computed_financial_rip_v3_object_is_retained():
 
     exploreRankingConfig.mjs reads financialRipV3.relativeScore / .rank /
     .cohortSize / .tier straight off the target row, and `cohortSize` has no
-    equivalent in publicRipContractV7.financialRip (which spells it
+    equivalent in publicRipContractV8.financialRip (which spells it
     `rankedSetCount`), so V7 cannot stand in for it.
     """
     projected = project_latest_rankings_payload(_payload())

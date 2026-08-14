@@ -33,6 +33,49 @@ function joinCardsClientRequest(key, factory) {
   return request;
 }
 
+// A SHORT-LIVED RESULT CACHE FOR COMPLETED cards-page RESPONSES.
+//
+// The in-flight join above only merges requests that OVERLAP. Intent prefetch
+// (hovering/focusing the Cards tab) deliberately finishes BEFORE the click, so
+// without this the prefetched response would be thrown away and the click would
+// re-request the identical URL — measured at ~380-400 ms on a 266-card set, and
+// it is the leg that gates first usable Cards content.
+//
+// KEYED BY THE SAME `cacheKey` THE REQUEST ITSELF USES, which already encodes
+// set id, contract version, page, page size, sort, direction, query, rarity and
+// every movement/section parameter. Prefetch and render therefore cannot land on
+// different identities: they call the same function and derive the same key from
+// the same arguments. A test pins this.
+//
+// 60s, and successful responses only. Card prices move, so this is deliberately
+// far shorter than the 24h full-snapshot cache above; it exists to bridge a
+// hover-to-click gap, not to hold a page. Caching failures would defeat the
+// Retry nonce, which re-enters with the same request key.
+const CARDS_PAGE_RESULT_TTL_MS = 60_000;
+const cardsPageResultCache = new Map();
+
+function readCardsPageResult(key) {
+  const entry = cardsPageResultCache.get(key);
+  if (!entry) {
+    return null;
+  }
+  if (entry.expiresAt <= nowMs()) {
+    cardsPageResultCache.delete(key);
+    return null;
+  }
+  return entry.payload;
+}
+
+function writeCardsPageResult(key, payload) {
+  cardsPageResultCache.set(key, { payload, expiresAt: nowMs() + CARDS_PAGE_RESULT_TTL_MS });
+}
+
+/** Test/diagnostic hook — never called by product code. */
+export function __resetCardsPageResultCache() {
+  cardsPageResultCache.clear();
+  cardsClientInflight.clear();
+}
+
 function nowMs() {
   return Date.now();
 }
@@ -655,6 +698,11 @@ export async function getPokemonSetCardsPage(
   }
 
   const cacheKey = `cards-page:${resolvedSetId}:${params.toString()}`;
+  const cached = readCardsPageResult(cacheKey);
+  if (cached) {
+    debugTiming("cards_page.result_cache_hit", { setId: resolvedSetId, page });
+    return cached;
+  }
   return joinCardsClientRequest(cacheKey, async () => {
     const startedAt = performance.now();
     const response = await fetch(
@@ -704,6 +752,28 @@ export async function getPokemonSetCardsPage(
       count: normalized.cards.length,
       totalCards: normalized.pagination.totalCards,
     });
+    writeCardsPageResult(cacheKey, normalized);
     return normalized;
   });
+}
+
+/**
+ * Warm ONE cards page ahead of an explicit user intent signal (hovering or
+ * focusing the Cards tab).
+ *
+ * Calls `getPokemonSetCardsPage` itself rather than reimplementing the request,
+ * so the prefetched entry is stored under exactly the key the subsequent render
+ * will look up. Errors are swallowed: a prefetch is an optimization, and a
+ * failed one must leave the render path to do its own request, its own error
+ * state and its own retry.
+ *
+ * Deliberately warms only the page the caller asks for — the first page of the
+ * current scope. It never walks pagination and never preloads images.
+ */
+export function prefetchPokemonSetCardsPage(setId, options = {}) {
+  try {
+    return getPokemonSetCardsPage(setId, options).catch(() => null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }

@@ -29,8 +29,8 @@ from backend.db.services import explore_rip_statistics_service as service
 from backend.desirability.public_rip_contract_v5 import (
     FINANCIAL_RIP_V3_PUBLIC_COMPONENT_KEYS,
 )
-from backend.desirability.public_rip_contract_v7 import build_public_rip_contract_v7
-from backend.desirability.scoring_config import OVERALL_RIP_V7_WEIGHTS
+from backend.desirability.public_rip_contract_v8 import build_public_rip_contract_v8
+from backend.desirability.scoring_config import OVERALL_RIP_V8_WEIGHTS
 
 
 def _target(index, *, appeal, financial, overall):
@@ -46,7 +46,7 @@ def _target(index, *, appeal, financial, overall):
                 for position, component in enumerate(FINANCIAL_RIP_V3_COMPONENT_ORDER)
             },
         },
-        "overallRipV7": {"score": overall},
+        "overallRipV8": {"score": overall},
         "overallRipV5": {"score": overall},
         "overallRipV6": {"score": overall},
         "rip": {"score": overall, "financialRip": {"components": {}}},
@@ -84,7 +84,7 @@ def test_collector_appeal_carries_its_own_relative_score(ranked_cohort):
 @pytest.mark.parametrize(
     ("block_path", "score_path"),
     [
-        (("overallRipV7",), ("overallRipV7", "score")),
+        (("overallRipV8",), ("overallRipV8", "score")),
         (("financialRipV3",), ("financialRipV3", "score")),
         (
             ("openingExperience", "collectorAppeal"),
@@ -160,7 +160,7 @@ def test_component_relative_scores_are_computed_from_their_own_absolute_score(
 def test_relative_scores_never_overwrite_absolute_scores(ranked_cohort):
     """The absolute score is the formula output and stays untouched."""
     assert [row["financialRipV3"]["score"] for row in ranked_cohort] == [40.0, 70.0, 95.0]
-    assert [row["overallRipV7"]["score"] for row in ranked_cohort] == [38.0, 69.0, 94.5]
+    assert [row["overallRipV8"]["score"] for row in ranked_cohort] == [38.0, 69.0, 94.5]
     assert [
         row["openingExperience"]["collectorAppeal"]["score"] for row in ranked_cohort
     ] == [20.0, 60.0, 90.0]
@@ -198,21 +198,21 @@ def test_overall_absolute_is_the_blend_of_ABSOLUTE_inputs(ranked_cohort):
     different number for the middle set, which is what makes this assertion able
     to fail.
     """
-    from backend.desirability.weighted_rip import compute_overall_rip_v7
+    from backend.desirability.weighted_rip import compute_overall_rip_v8
 
     for row in ranked_cohort:
         absolute_financial = row["financialRipV3"]["score"]
         absolute_appeal = row["openingExperience"]["collectorAppeal"]["score"]
-        expected = compute_overall_rip_v7(absolute_financial, absolute_appeal)["score"]
+        expected = compute_overall_rip_v8(absolute_financial, absolute_appeal)["score"]
         blended = (
-            OVERALL_RIP_V7_WEIGHTS["financial_rip"] * absolute_financial
-            + OVERALL_RIP_V7_WEIGHTS["collector_appeal"] * absolute_appeal
+            OVERALL_RIP_V8_WEIGHTS["financial_rip"] * absolute_financial
+            + OVERALL_RIP_V8_WEIGHTS["collector_appeal"] * absolute_appeal
         )
         assert expected == pytest.approx(blended, abs=1e-6)
 
         relative_blend = (
-            OVERALL_RIP_V7_WEIGHTS["financial_rip"] * row["financialRipV3"]["relativeScore"]
-            + OVERALL_RIP_V7_WEIGHTS["collector_appeal"]
+            OVERALL_RIP_V8_WEIGHTS["financial_rip"] * row["financialRipV3"]["relativeScore"]
+            + OVERALL_RIP_V8_WEIGHTS["collector_appeal"]
             * row["openingExperience"]["collectorAppeal"]["relativeScore"]
         )
         if row["financialRipV3"]["relativeScore"] != absolute_financial:
@@ -225,7 +225,7 @@ def test_overall_absolute_is_the_blend_of_ABSOLUTE_inputs(ranked_cohort):
 
 @pytest.fixture
 def contract(ranked_cohort):
-    return build_public_rip_contract_v7(ranked_cohort[1])
+    return build_public_rip_contract_v8(ranked_cohort[1])
 
 
 @pytest.mark.parametrize("pillar", ["overallRip", "financialRip", "collectorAppeal"])

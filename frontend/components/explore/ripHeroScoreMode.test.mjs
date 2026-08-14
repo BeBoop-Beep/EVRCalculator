@@ -21,7 +21,7 @@ import {
 } from "./ripHeroScoreMode.mjs";
 
 const CANONICAL_TARGET = {
-  publicRipContractV7: {
+  publicRipContractV8: {
     overallRip: {
       score: 41.8,
       absoluteScore: 41.8,
@@ -54,7 +54,7 @@ test("the hero resolves the canonical V7 score, rank, tier and cohort", () => {
   assert.equal(selected.rank, 4);
   assert.equal(selected.tier, "A");
   assert.equal(selected.cohortSize, 21);
-  assert.equal(selected.sourceShape, "publicRipContractV7");
+  assert.equal(selected.sourceShape, "publicRipContractV8");
 });
 
 test("the public score is the relative score; the absolute stays a diagnostic", () => {
@@ -109,10 +109,10 @@ test("a legacy-only payload renders unavailable, never a legacy score", () => {
 
 test("source precedence is payload -> target -> summary within the one model", () => {
   const payload = {
-    publicRipContractV7: { overallRip: { relativeScore: 90.0, rank: 1, tier: "S", rankedSetCount: 21 } },
+    publicRipContractV8: { overallRip: { relativeScore: 90.0, rank: 1, tier: "S", rankedSetCount: 21 } },
   };
-  const target = { publicRipContractV7: { overallRip: { relativeScore: 50.0, rank: 10, tier: "C" } } };
-  const summary = { publicRipContractV7: { overallRip: { relativeScore: 10.0, rank: 20, tier: "F" } } };
+  const target = { publicRipContractV8: { overallRip: { relativeScore: 50.0, rank: 10, tier: "C" } } };
+  const summary = { publicRipContractV8: { overallRip: { relativeScore: 10.0, rank: 20, tier: "F" } } };
 
   assert.equal(selectRipHeroScoreMode({ payload, target, summary }).publicScore, 90.0);
   assert.equal(selectRipHeroScoreMode({ target, summary }).publicScore, 50.0);
@@ -122,10 +122,10 @@ test("source precedence is payload -> target -> summary within the one model", (
 test("the backend's unavailable reason is carried, not replaced by a number", () => {
   const selected = selectRipHeroScoreMode({
     target: {
-      overallRipV7: {
+      overallRipV8: {
         score: null,
         status: "unavailable_missing_input",
-        statusReason: "collector_appeal_v3_unavailable",
+        statusReason: "collector_appeal_v4_unavailable",
       },
       rip: LEGACY_ONLY_TARGET.rip,
     },
@@ -133,7 +133,7 @@ test("the backend's unavailable reason is carried, not replaced by a number", ()
   assert.equal(selected.available, false);
   assert.equal(selected.publicScore, null);
   assert.equal(selected.status, "unavailable_missing_input");
-  assert.equal(selected.statusReason, "collector_appeal_v3_unavailable");
+  assert.equal(selected.statusReason, "collector_appeal_v4_unavailable");
 });
 
 test("no arguments at all is safe and unavailable", () => {

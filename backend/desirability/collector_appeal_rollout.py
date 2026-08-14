@@ -69,8 +69,8 @@ from backend.desirability.collector_appeal import (
     # actually computes; writing the D/F/P score under the legacy
     # `collector_appeal_ca7` key would leave a stored block whose name asserts
     # one formula and whose value came from another.
-    COLLECTOR_APPEAL_V3_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
-    compute_collector_appeal_v3,
+    COLLECTOR_APPEAL_V4_DIAGNOSTICS_KEY as COLLECTOR_APPEAL_DIAGNOSTICS_KEY,
+    compute_collector_appeal_v4,
     compute_dual_path_depth,
 )
 from backend.desirability.desirable_outcome_frequency import (
@@ -441,29 +441,48 @@ def _plan_row(
     f_value = frequency.get("rawValue")
 
     d_unit = (d_raw / 100.0) if d_raw is not None else None
-    collector_appeal = compute_collector_appeal_v3(d_unit, f_value, p_value)
+    # CANONICAL V4: D plus a centred, asymmetric modifier from H alone. P is
+    # deliberately not passed - V4 does not take it.
+    collector_appeal = compute_collector_appeal_v4(d_unit, f_value)
 
+    # P NO LONGER GATES AVAILABILITY. Under V3 a set with no dual-path data had
+    # no Collector Appeal, because P was a required input. V4 does not consume
+    # it, so withholding a score for a missing P would refuse to publish a
+    # number whose every input exists. A set now needs D and H.
     unavailable_reason = None
     if not support["supported"]:
         unavailable_reason = "unsupported_product_type"
     elif d_raw is None:
         unavailable_reason = "desirability_coverage_not_full"
-    elif p_value is None:
-        # These two reasons are kept apart because they call for different
-        # fixes. "No pack model exists for this set" is a data-coverage gap;
-        # "a pack model exists but no desirable subject matched it" is a
-        # JOIN failure - a rarity key that does not map, or hit-eligible cards
-        # with no desirability link. Reporting the second as the first sends
-        # someone to build a pull model that is already there.
-        unavailable_reason = (
-            "dual_path_depth_unavailable_no_modeled_subject"
-            if pull_modeled
-            else "dual_path_depth_unavailable_no_pull_model"
-        )
     elif f_value is None:
         # F's own reason vocabulary, surfaced verbatim - "no eligible desirable
-        # card" and "insufficient coverage" call for different fixes.
+        # card" and "insufficient coverage" call for different fixes. The
+        # pull-model reasons remain as the fallback when F declines to give one,
+        # so an operator is never left with "unavailable" and no diagnosis.
+        # They are kept apart because they call for different fixes: "no pack
+        # model exists for this set" is a data-coverage gap; "a pack model
+        # exists but no desirable subject matched it" is a JOIN failure - a
+        # rarity key that does not map, or hit-eligible cards with no
+        # desirability link. Reporting the second as the first sends someone to
+        # build a pull model that is already there.
         unavailable_reason = frequency.get("statusReason")
+        # F cannot tell "no pull model" apart from "a pull model exists but no
+        # desirable subject matched it" - it sees an empty subject list either
+        # way. Only this layer knows `pull_modeled`, and the two call for
+        # opposite fixes, so the more precise diagnosis is substituted here.
+        if (
+            unavailable_reason == "desirable_outcome_frequency_unavailable_no_pull_model"
+            and pull_modeled
+        ):
+            unavailable_reason = (
+                "desirable_outcome_frequency_unavailable_no_modeled_subject"
+            )
+        if unavailable_reason is None:
+            unavailable_reason = (
+                "desirable_outcome_frequency_unavailable_no_modeled_subject"
+                if pull_modeled
+                else "desirable_outcome_frequency_unavailable_no_pull_model"
+            )
 
     if collector_appeal is None and unavailable_reason is None:
         warnings.append("collector_appeal is None with no recorded reason")
@@ -476,7 +495,7 @@ def _plan_row(
     appeal_block: Dict[str, Any] = {
         "metric_name": COLLECTOR_APPEAL_METRIC_NAME,
         "product_status": COLLECTOR_APPEAL_PRODUCT_STATUS,
-        "formula": "COLLECTOR_APPEAL_V3",
+        "formula": "COLLECTOR_APPEAL_V4",
         "not_the_public_collector_appeal_score": (
             "The public collector_appeal_score field is Pure/Universal "
             "Desirability, a different construct. This block is an internal "
@@ -491,7 +510,15 @@ def _plan_row(
     appeal_block["inputs"] = {
         "roster_desirability_d": d_raw,
         "desirable_outcome_frequency_f": round(f_value, 8) if f_value is not None else None,
+    }
+    # RECORDED, NOT CONSUMED. P is still measured and still worth storing beside
+    # the score - it is a real metric and a candidate input for future Personal
+    # Fit models - but it is not a Collector Appeal V4 input and must not be
+    # read as one. It sits outside `inputs` so the distinction survives anyone
+    # reading the stored row without the surrounding documentation.
+    appeal_block["diagnostics"] = {
         "dual_path_depth_p": round(p_value, 6) if p_value is not None else None,
+        "dual_path_depth_role": "diagnostic_not_a_collector_appeal_input",
     }
 
     proposed_diagnostics = copy.deepcopy(current_diagnostics)

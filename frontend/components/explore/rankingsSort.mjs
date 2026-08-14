@@ -8,7 +8,7 @@
  * the authoritative field the corresponding cell already displays, so a column's
  * sort key and its rendered value can never disagree:
  *
- *   Overall RIP          overallRipV7.relativeScore      (via exploreRankingConfig)
+ *   Overall RIP          overallRipV8.relativeScore      (via exploreRankingConfig)
  *   Financial RIP        financialRipV3.relativeScore    (via exploreRankingConfig)
  *   Collector Appeal     canonical CA V3 relativeScore   (via canonicalRipV7)
  *   EV                   mean_value                      (simulation mean pack value)
@@ -26,7 +26,7 @@
  * again by `sortTargetsByMode`) is the INPUT to this module, never its output.
  * Callers pass the canonically ordered array; the returned array is a
  * presentation permutation of exactly those same target objects. Nothing here
- * writes to a target, so `overallRipV7.rank` and every score on the row are the
+ * writes to a target, so `overallRipV8.rank` and every score on the row are the
  * same values after a sort as before it.
  *
  * NULLS ARE LAST IN BOTH DIRECTIONS

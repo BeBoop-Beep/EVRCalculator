@@ -196,9 +196,15 @@ def run_audit(client: Any) -> AuditReport:
     # --- version assertions ------------------------------------------------
     for name, key in (
         ("financial_rip_is_v3", "financialRipVersion"),
-        ("collector_appeal_is_v3", "collectorAppealVersion"),
-        ("overall_rip_is_v7", "overallRipVersion"),
-        ("public_contract_is_v7", "publicRipContractVersion"),
+        # Named for the QUESTION, not for a version number. The previous labels
+        # hard-coded "v3"/"v7" while the value beside them was compared against
+        # whatever `scoring_config` currently selects, so after the V4 cutover
+        # the audit printed "PASS collector_appeal_is_v3: published='...v4...'".
+        # A check whose name contradicts its own output teaches a reader to stop
+        # reading the name.
+        ("collector_appeal_is_canonical", "collectorAppealVersion"),
+        ("overall_rip_is_canonical", "overallRipVersion"),
+        ("public_contract_is_canonical", "publicRipContractVersion"),
     ):
         report.add(
             name,

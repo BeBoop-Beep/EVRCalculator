@@ -64,12 +64,16 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V2_VERSION,
     COLLECTOR_APPEAL_V3_FORMULA_VERSION,
     COLLECTOR_APPEAL_V3_VERSION,
+    COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V4_VERSION,
     DUAL_PATH_DEPTH_VERSION,
     collector_appeal_v3_missing_inputs,
+    collector_appeal_v4_missing_inputs,
     compute_chase_appeal,
     compute_collector_appeal_ca7,
     compute_collector_appeal_v2,
     compute_collector_appeal_v3,
+    compute_collector_appeal_v4,
     compute_dual_path_depth,
 )
 from backend.desirability.desirable_outcome_frequency import (
@@ -102,8 +106,13 @@ CACHE_TTL_SECONDS = 6 * 60 * 60
 # reading the API and an operator reading the dry run see one vocabulary.
 REASON_UNSUPPORTED = "unsupported_product_type"
 REASON_COVERAGE = "desirability_coverage_not_full"
-REASON_NO_PULL_MODEL = "dual_path_depth_unavailable_no_pull_model"
-REASON_NO_MODELED_SUBJECT = "dual_path_depth_unavailable_no_modeled_subject"
+# Renamed from the `dual_path_depth_...` spellings when V4 dropped P. The
+# CONDITION is unchanged - "this set has no modeled pull data at all" versus "it
+# has a pull model but no desirable subject matched it" - but naming it after
+# dual-path depth would now point an operator at a metric that no longer gates
+# anything. It is the desirable-outcome frequency that is missing.
+REASON_NO_PULL_MODEL = "desirable_outcome_frequency_unavailable_no_pull_model"
+REASON_NO_MODELED_SUBJECT = "desirable_outcome_frequency_unavailable_no_modeled_subject"
 
 STATUS_AVAILABLE = "available"
 STATUS_UNAVAILABLE = "unavailable"
@@ -196,32 +205,49 @@ def _build_set_payload(
     magnetism = compute_m_star_m1(subjects) if subjects else None
     m_value = (magnetism or {}).get("value")
 
-    # CANONICAL: the balanced weighted sum of D, H and P. H is the SAME quantity
-    # this file already computed as `f_value`; production names it F and the
-    # validation brief names it H, and there is one implementation of it.
-    collector_appeal = compute_collector_appeal_v3(d_unit, f_value, p_value)
-    missing_inputs = collector_appeal_v3_missing_inputs(d_unit, f_value, p_value)
-    # SUPERSEDED, computed alongside for the comparison audit and regression
-    # tests only. Neither is the published Collector Appeal and neither is ever
-    # used as a fallback when the canonical formula is unavailable.
+    # CANONICAL: D plus a centred, asymmetric modifier built from H alone. H is
+    # the SAME quantity this file already computed as `f_value`; production names
+    # it F and the validation brief names it H, and there is one implementation
+    # of it. P is deliberately NOT passed - V4 does not take it.
+    collector_appeal = compute_collector_appeal_v4(d_unit, f_value)
+    missing_inputs = collector_appeal_v4_missing_inputs(d_unit, f_value)
+    # SUPERSEDED, computed alongside for the comparison audits and regression
+    # tests only. None is the published Collector Appeal and none is ever used as
+    # a fallback when the canonical formula is unavailable.
+    legacy_v3 = compute_collector_appeal_v3(d_unit, f_value, p_value)
     legacy_v2 = compute_collector_appeal_v2(d_unit, f_value, p_value)
     legacy_ca7 = compute_collector_appeal_ca7(d_unit, p_value)
     chase_appeal = compute_chase_appeal(d_unit, m_value)
 
+    # AVAILABILITY NO LONGER DEPENDS ON P. Under V3 a set with no dual-path data
+    # had no Collector Appeal at all, because P was one of three required
+    # inputs. V4 does not consume P, so withholding a score for a missing P
+    # would be refusing to publish a number every input for which exists. A set
+    # now needs D and H, and nothing else.
+    #
+    # The pull model is still REQUIRED in practice, because H is computed from
+    # modeled pull probabilities - but it is reported through H's own failure,
+    # where the diagnosis is precise, rather than through P's.
     reason: Optional[str] = None
     if d_score is None:
         reason = REASON_COVERAGE
-    elif p_value is None:
-        # Kept apart because they call for different fixes: "no pack model for
-        # this set" is a coverage gap, while "a pack model exists but no
-        # desirable subject matched it" is a join failure. Reporting the second
-        # as the first sends someone to build a model that already exists.
-        reason = REASON_NO_PULL_MODEL if not pull_modeled else REASON_NO_MODELED_SUBJECT
     elif f_value is None:
         # F's own reason vocabulary, surfaced verbatim: "no eligible desirable
         # card" and "insufficient coverage" call for different fixes, and
         # collapsing them into one Collector Appeal reason would lose that.
         reason = frequency.get("statusReason")
+        # ONE refinement. F cannot tell "there is no pull model for this set"
+        # apart from "a pull model exists but no desirable subject matched it" -
+        # it sees an empty subject list either way and reports the first. Only
+        # this layer knows `pull_modeled`, and the two call for opposite fixes:
+        # the first is a coverage gap, the second a JOIN failure (a rarity key
+        # that does not map, or hit-eligible cards with no desirability link).
+        # Reporting the second as the first sends someone to build a pull model
+        # that is already there.
+        if reason == REASON_NO_PULL_MODEL and pull_modeled:
+            reason = REASON_NO_MODELED_SUBJECT
+        if reason is None:
+            reason = REASON_NO_PULL_MODEL if not pull_modeled else REASON_NO_MODELED_SUBJECT
 
     available = collector_appeal is not None
     if available and reason is not None:  # pragma: no cover - defensive
@@ -244,6 +270,14 @@ def _build_set_payload(
         # F: how often the modeled pack delivers a desirable card. NOT a
         # financial statistic - see the module's financialDistinction field.
         "desirableOutcomeFrequency": frequency,
+        # RETAINED AS A DIAGNOSTIC, NOT AN INPUT. Collector Appeal V4 does not
+        # consume Dual-Path Depth (see the retention note in
+        # `desirability/collector_appeal.py` above `subject_dual_path`): the
+        # ablation found it changed 3 of 231 pairwise orderings and left
+        # Spearman(with P, without P) = 0.9966 for a universal set-level score.
+        # The calculation is still run and still published because it remains a
+        # real measurement and a candidate feature for future Personal Fit work.
+        # It must NOT be read as a Collector Appeal factor by any surface.
         "dualPathDepth": {
             # P is structurally compressed: it is a coverage share, not a grade
             # out of 100, and a frontend must not rescale it into one.
@@ -253,28 +287,50 @@ def _build_set_payload(
             "modeledSubjectCount": (depth or {}).get("subject_count"),
             "coveredDemandShare": (depth or {}).get("covered_demand_share"),
             "version": DUAL_PATH_DEPTH_VERSION,
+            "role": "diagnostic_not_a_collector_appeal_input",
+            "note": (
+                "Dual-Path Depth is not an input to Collector Appeal V4. It is "
+                "retained as a diagnostic and as a candidate input for future "
+                "Personal Fit models."
+            ),
         },
         "collectorAppeal": {
             "score": round(collector_appeal * 100.0, 4) if collector_appeal is not None else None,
             "rawValue": collector_appeal,
-            "version": COLLECTOR_APPEAL_V3_VERSION,
-            "formulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
-            # The three factor VALUES the score consumed, so a reader can see
-            # what drove it. Deliberately NOT the weights, the per-factor
-            # contributions or a formula string: the arithmetic is a one-line
-            # weighted sum, so any of those would disclose the model. The
-            # internal decomposition lives in
-            # `collector_appeal.collector_appeal_v3_decomposition` and is used by
+            "version": COLLECTOR_APPEAL_V4_VERSION,
+            "formulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+            # The TWO factor VALUES the score consumed, so a reader can see what
+            # drove it. Deliberately NOT the modifier ceiling, the damping, the H
+            # anchors, the computed modifier or a formula string: two points of
+            # the curve determine the line, so any of those would disclose the
+            # model. The internal decomposition lives in
+            # `collector_appeal.collector_appeal_v4_decomposition` and is used by
             # the audits and tests, never by a payload.
+            #
+            # `dualPathDepth` is ABSENT here on purpose. It is still published
+            # above as a diagnostic, but listing it among the factors would say
+            # it fed the score, which it does not.
             "factors": {
                 "rosterDesirability": d_unit,
                 "desirableOutcomeFrequency": f_value,
-                "dualPathDepth": p_value,
             },
             # Named individually rather than as one flag: "no desirability
-            # coverage", "no pull model" and "no dual-path data" call for three
-            # different fixes.
+            # coverage" and "no desirable-outcome frequency" call for different
+            # fixes.
             "missingInputs": missing_inputs,
+            "excludedInputs": ["dualPathDepth"],
+        },
+        # Superseded. Published so the V4-vs-V3 comparison has a real number and
+        # a rollback has something to compare against. Never read as a fallback.
+        "legacyCollectorAppealV3": {
+            "score": round(legacy_v3 * 100.0, 4) if legacy_v3 is not None else None,
+            "rawValue": legacy_v3,
+            "version": COLLECTOR_APPEAL_V3_VERSION,
+            "status": "superseded_by_collector_appeal_v4",
+            "note": (
+                "Collector Appeal V3 (0.40D + 0.35H + 0.25P). Retained for "
+                "comparison and rollback only; not the published Collector Appeal."
+            ),
         },
         # Superseded. Published so the V3-vs-V2 and V3-vs-CA7 comparisons have
         # real numbers and a rollback has something to compare against. Neither
@@ -284,7 +340,7 @@ def _build_set_payload(
             "score": round(legacy_v2 * 100.0, 4) if legacy_v2 is not None else None,
             "rawValue": legacy_v2,
             "version": COLLECTOR_APPEAL_V2_VERSION,
-            "status": "superseded_by_collector_appeal_v3",
+            "status": "superseded_by_collector_appeal_v4",
             "note": (
                 "Collector Appeal V2 (bounded headroom over D). Retained for "
                 "comparison and rollback only; not the published Collector Appeal."
@@ -294,7 +350,7 @@ def _build_set_payload(
             "score": round(legacy_ca7 * 100.0, 4) if legacy_ca7 is not None else None,
             "rawValue": legacy_ca7,
             "version": COLLECTOR_APPEAL_CA7_VERSION,
-            "status": "superseded_by_collector_appeal_v3",
+            "status": "superseded_by_collector_appeal_v4",
             "note": (
                 "Legacy CA7 (D + 0.50 * P * (1 - D)). Retained for comparison and "
                 "rollback only; not the published Collector Appeal."
@@ -457,8 +513,8 @@ def _build_bundle() -> Dict[str, Any]:
         # repeated on every set payload: a weight restated per set is a weight
         # that can disagree with itself across a bundle.
         "identity": {
-            "collectorAppealVersion": COLLECTOR_APPEAL_V3_VERSION,
-            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V3_FORMULA_VERSION,
+            "collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
+            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
             # Weights and the formula expression are deliberately ABSENT. They
             # are internal to the model, and this bundle travels to callers that
             # project it outward. The full weighted identity is available to
@@ -468,6 +524,7 @@ def _build_bundle() -> Dict[str, Any]:
             "desirableOutcomeFrequencyVersion": DESIRABLE_OUTCOME_FREQUENCY_VERSION,
             "dualPathDepthVersion": DUAL_PATH_DEPTH_VERSION,
             "chaseAppealVersion": CHASE_APPEAL_VERSION,
+            "legacyCollectorAppealV3Version": COLLECTOR_APPEAL_V3_VERSION,
             "legacyCollectorAppealV2Version": COLLECTOR_APPEAL_V2_VERSION,
             "legacyCollectorAppealCA7Version": COLLECTOR_APPEAL_CA7_VERSION,
             "formulaFingerprint": current_fingerprint(),

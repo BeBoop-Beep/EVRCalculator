@@ -66,7 +66,7 @@ function financialComponent(score, relativeScore, rank, raw) {
 }
 
 const CONTRACT = {
-  contractVersion: "public_rip_contract_v7",
+  contractVersion: "public_rip_contract_v8",
   overallRip: {
     score: MODEL_RIP_SCORE,
     absoluteScore: MODEL_RIP_SCORE,
@@ -130,8 +130,8 @@ const TARGET = {
   target_type: "set",
   target_id: "set-1",
   name: "Fixture Set",
-  publicRipContractV7: CONTRACT,
-  overallRipV7: {
+  publicRipContractV8: CONTRACT,
+  overallRipV8: {
     score: MODEL_RIP_SCORE,
     relativeScore: PUBLIC_RIP_SCORE,
     rank: 2,
@@ -277,6 +277,14 @@ test("ordinary public components never touch absoluteScore themselves", () => {
     "canonicalRipV7.mjs",
     "financialRipV3Selector.mjs",
     "collectorAppealBreakdownSelector.mjs",
+    // TRANSPORT, NOT A SURFACE. This module names `absoluteScore` in a
+    // server->client leaf WHITELIST; it never reads the value, formats it, or
+    // puts it on screen. It is the module that hands the contract layer to the
+    // three readers above, so it has to be able to name the layer's keys. The
+    // rule this test enforces is "no component RENDERS a second scale", and a
+    // whitelist that carries a key through to a canonical reader is the
+    // mechanism that keeps the scales separated rather than a way around it.
+    "rankingsClientProjection.mjs",
   ]);
   const offenders = [];
   const walk = (dir) => {
@@ -386,7 +394,7 @@ test("the public metric view models carry no weight a component could render", (
 
 test("a payload with only the model score renders unavailable, never the model score", () => {
   const absoluteOnly = {
-    publicRipContractV7: {
+    publicRipContractV8: {
       overallRip: { score: MODEL_RIP_SCORE, absoluteScore: MODEL_RIP_SCORE, rank: 2, tier: "S", rankedSetCount: COHORT },
       financialRip: { status: "ready", score: MODEL_FINANCIAL_RIP, absoluteScore: MODEL_FINANCIAL_RIP, components: CONTRACT.financialRip.components },
       collectorAppeal: { score: MODEL_COLLECTOR_APPEAL, absoluteScore: MODEL_COLLECTOR_APPEAL, components: CONTRACT.collectorAppeal.components },
@@ -408,7 +416,7 @@ test("a payload with only the model score renders unavailable, never the model s
   assert.equal(appeal.publicScoreLabel, "—");
 
   // Home skips the set rather than publishing a differently-scaled number.
-  assert.deepEqual(selectLandingHeroEntries([{ ...TARGET, publicRipContractV7: absoluteOnly.publicRipContractV7, overallRipV7: {}, financialRipV3: {} }]), []);
+  assert.deepEqual(selectLandingHeroEntries([{ ...TARGET, publicRipContractV8: absoluteOnly.publicRipContractV8, overallRipV8: {}, financialRipV3: {} }]), []);
 });
 
 // =============================================================================
@@ -661,7 +669,7 @@ test("every canonical public score formats to one decimal on every surface", () 
 
 test("a cohort leader reads 100.0, not 100", () => {
   const leader = resolveCanonicalRipV7({
-    publicRipContractV7: {
+    publicRipContractV8: {
       ...CONTRACT,
       overallRip: { ...CONTRACT.overallRip, relativeScore: 100, rank: 1 },
     },

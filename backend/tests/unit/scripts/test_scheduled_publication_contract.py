@@ -72,7 +72,7 @@ def test_public_rip_audit_failure_sends_a_distinct_message(script_text):
 
 def test_the_canonical_versions_named_in_the_message_are_the_real_ones(script_text):
     """The shell restates four version strings; they must be THE four."""
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
     from backend.desirability.scoring_config import (
         CANONICAL_FINANCIAL_RIP_VERSION,
         CANONICAL_OVERALL_RIP_VERSION,
@@ -81,7 +81,7 @@ def test_the_canonical_versions_named_in_the_message_are_the_real_ones(script_te
 
     for version in (
         CANONICAL_FINANCIAL_RIP_VERSION,
-        COLLECTOR_APPEAL_V3_VERSION,
+        COLLECTOR_APPEAL_V4_VERSION,
         CANONICAL_OVERALL_RIP_VERSION,
         canonical_public_rip_contract_version(),
     ):

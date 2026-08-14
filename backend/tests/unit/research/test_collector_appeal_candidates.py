@@ -46,7 +46,10 @@ def test_grids_are_exactly_the_pre_registered_values():
     """Pinned literally. A new cell must fail here before it can reach a report."""
     assert COLLECTOR_APPEAL_FREQUENCY_WEIGHT_GRID == (0.50, 0.60, 0.70)
     assert COLLECTOR_APPEAL_HEADROOM_GAIN_GRID == (0.25, 0.50, 0.75)
-    assert OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID == (0.00, 0.10, 0.13, 0.14, 0.15, 0.20)
+    # 0.05 and 0.075 joined the RESEARCH grid with the V4 cutover: 0.075 is the
+    # provisional weighting recommendation and lives here, not beside the
+    # shipping weight, so it cannot drift into production by proximity.
+    assert OVERALL_COLLECTOR_APPEAL_WEIGHT_GRID == (0.00, 0.05, 0.075, 0.10, 0.13, 0.14, 0.15, 0.20)
     assert len(CANDIDATE_GRID) == 9
     assert len(CANDIDATE_KEYS) == 9
     assert len(set(CANDIDATE_KEYS)) == 9

@@ -60,7 +60,7 @@ const UNAVAILABLE = null;
 /**
  * The canonical Financial RIP block for a set, from the one shared resolver.
  *
- * Prefers `publicRipContractV7.financialRip` because that block travels with
+ * Prefers `publicRipContractV8.financialRip` because that block travels with
  * the Overall RIP and Collector Appeal it was blended with, so a surface taking
  * all three cannot mix bundles. Falls back only to the top-level
  * `financialRipV3` — the SAME model in the shape the ranked target rows carry.

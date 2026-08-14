@@ -5,6 +5,7 @@ import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
+import { projectMarketRankingTargets } from "@/lib/explore/marketRankingsProjection.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
 
@@ -28,8 +29,14 @@ export default async function MarketPage() {
   const moversPayload = moversResult.status === "fulfilled"
     ? moversResult.value
     : { marketMovers: { window: "7D", all: [] }, meta: { requestFailed: true } };
-  const targets = (Array.isArray(rankingsPayload?.targets) ? rankingsPayload.targets : [])
-    .filter(isPublicAnalyticsEligiblePokemonSet);
+  // Eligibility is decided on the COMPLETE target (the coverage predicate reads
+  // fields the ladder never renders), and only the survivors are projected — so
+  // the client boundary carries the ladder's ~1.2% of each target instead of the
+  // whole canonical Rankings document. See marketRankingsProjection.mjs.
+  const targets = projectMarketRankingTargets(
+    (Array.isArray(rankingsPayload?.targets) ? rankingsPayload.targets : [])
+      .filter(isPublicAnalyticsEligiblePokemonSet)
+  );
   const loadError = rankingsPayload === null || Boolean(rankingsPayload?.meta?.requestFailed);
 
   return (

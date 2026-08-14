@@ -35,12 +35,12 @@ from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_VERSION,
     FINANCIAL_RIP_V3_WEIGHTS,
 )
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
 from backend.desirability.scoring_config import (
     FINANCIAL_RIP_WEIGHTS,
     OVERALL_RIP_V4_VERSION,
-    OVERALL_RIP_V7_VERSION,
-    OVERALL_RIP_V7_WEIGHTS,
+    OVERALL_RIP_V8_VERSION,
+    OVERALL_RIP_V8_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
 )
 
@@ -99,7 +99,7 @@ def _collector_payload(name, appeal_x100):
         "collectorAppeal": {
             "score": appeal_x100,
             "rawValue": appeal_x100 / 100.0,
-            "version": COLLECTOR_APPEAL_V3_VERSION,
+            "version": COLLECTOR_APPEAL_V4_VERSION,
             "factors": {
                 "rosterDesirability": appeal_x100 / 100.0,
                 "desirableOutcomeFrequency": 0.31,
@@ -519,23 +519,23 @@ def test_overall_ranked_cohort_is_complete_when_all_21_have_collector_appeal(tar
     assert audit["status"] == "overall_ranked_ok"
     assert audit["rankedSetCount"] == 21
     assert audit["missingAppealCount"] == 0
-    assert audit["appealVersion"] == COLLECTOR_APPEAL_V3_VERSION
-    assert audit["expectedAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert audit["appealVersion"] == COLLECTOR_APPEAL_V4_VERSION
+    assert audit["expectedAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
     assert audit["appealVersionMatchesCanonical"] is True
-    assert audit["expectedOverallRipVersion"] == OVERALL_RIP_V7_VERSION
+    assert audit["expectedOverallRipVersion"] == OVERALL_RIP_V8_VERSION
     assert audit["publishable"] is True
 
 
 def test_overall_rip_v7_is_financial_v3_90_plus_collector_appeal_10(targets):
     _attach(targets)
     row = _row(targets, "Ascended Heroes")
-    v7 = row["overallRipV7"]
+    v7 = row["overallRipV8"]
     expected = (
-        OVERALL_RIP_V7_WEIGHTS["financial_rip"] * 90.0
-        + OVERALL_RIP_V7_WEIGHTS["collector_appeal"] * 96.0942
+        OVERALL_RIP_V8_WEIGHTS["financial_rip"] * 90.0
+        + OVERALL_RIP_V8_WEIGHTS["collector_appeal"] * 96.0942
     )
     assert v7["score"] == pytest.approx(expected, abs=1e-3)
-    assert v7["version"] == OVERALL_RIP_V7_VERSION
+    assert v7["version"] == OVERALL_RIP_V8_VERSION
     assert v7["rank"] is not None
     assert v7["cohortSize"] == 21
     assert v7["components"]["financialRipV3"]["weight"] == pytest.approx(0.90)
@@ -544,7 +544,7 @@ def test_overall_rip_v7_is_financial_v3_90_plus_collector_appeal_10(targets):
 
 def test_v7_ranks_run_1_to_21_with_no_gaps(targets):
     _attach(targets)
-    ranks = sorted(row["overallRipV7"]["rank"] for row in targets if row["name"] in READY)
+    ranks = sorted(row["overallRipV8"]["rank"] for row in targets if row["name"] in READY)
     assert ranks == list(range(1, 22))
 
 
@@ -564,8 +564,8 @@ def test_eligible_set_without_collector_appeal_is_flagged_out_of_overall_ranking
     chaos = _row(rows, "Chaos Rising")
     # No Overall RIP - and crucially the appeal is NOT treated as zero, which
     # would have ranked the set last on a construct it was never measured on.
-    assert chaos["overallRipV7"]["score"] is None
-    assert "collector_appeal_v3" in chaos["overallRipV7"]["missingInputs"]
+    assert chaos["overallRipV8"]["score"] is None
+    assert "collector_appeal_v4" in chaos["overallRipV8"]["missingInputs"]
     # Financial RIP and Universal Set Desirability survive.
     assert chaos["financialRipV3"]["score"] is not None
     assert chaos["ripCore"]["score"] is not None
@@ -589,7 +589,7 @@ def test_a_superseded_collector_appeal_version_is_never_fed_into_v7(monkeypatch)
     cohort, warnings = _attach(rows)
     assert cohort["overallRanked"]["rankedSetCount"] == 0
     for row in (r for r in rows if r["name"] in READY):
-        assert row["overallRipV7"]["score"] is None
+        assert row["overallRipV8"]["score"] is None
         # ...while the SUPERSEDED V6 blend still computes from that same V2 score,
         # so a rollback comparison keeps working.
         assert row["overallRipV6"]["score"] is not None
@@ -609,7 +609,7 @@ def test_mixed_collector_appeal_versions_fail_closed(monkeypatch):
     # cohort rather than contaminating it - which is the fail-closed outcome.
     assert audit["rankedSetCount"] == 20
     assert "Black Bolt" in audit["missingAppealSetIds"]
-    assert audit["appealVersion"] == COLLECTOR_APPEAL_V3_VERSION
+    assert audit["appealVersion"] == COLLECTOR_APPEAL_V4_VERSION
     assert cohort["status"] != "integrity_error"
 
 
@@ -625,7 +625,7 @@ def test_the_version_resolver_is_the_single_guard_on_the_ranked_cohort(targets):
     """
     cohort, _ = _attach(targets)
     audit = cohort["overallRanked"]
-    assert audit["appealVersions"] == [COLLECTOR_APPEAL_V3_VERSION]
+    assert audit["appealVersions"] == [COLLECTOR_APPEAL_V4_VERSION]
     assert audit["appealVersionMatchesCanonical"] is True
     assert audit["rankedSetCount"] > 0
 

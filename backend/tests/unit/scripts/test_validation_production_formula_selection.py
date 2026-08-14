@@ -112,6 +112,10 @@ def test_the_fixture_cohort_actually_separates_the_two_formulas():
 
 
 def test_production_candidate_key_is_the_canonical_collector_appeal_version():
+    # The RESEARCH validation harness's production key still names V3: that
+    # harness describes the study that selected V3, and repointing it would
+    # rewrite what the study concluded. What must hold is that it is a real,
+    # identifiable Collector Appeal version - not that it is the current one.
     from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
 
     assert PRODUCTION_CANDIDATE_KEY == COLLECTOR_APPEAL_V3_VERSION
