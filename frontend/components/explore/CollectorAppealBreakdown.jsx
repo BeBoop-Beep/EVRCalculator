@@ -83,11 +83,8 @@ export default function CollectorAppealBreakdown({ canonical }) {
               meta={row.rank === null ? null : `Rank #${Math.round(row.rank)}${row.cohortSize === null ? "" : ` of ${Math.round(row.cohortSize)}`}`}
               tier={row.tier}
               interpretation={row.interpretation}
-              // The QUIET rail in the purple family — the same restraint as
-              // Financial RIP's six, never the summary glow. `railPercent` is
-              // the selector's presentation-only reading of the value already
-              // printed on the row; an unavailable factor draws an empty track
-              // rather than a zero-length fill that reads as a real zero.
+              // The same quiet tier-colored rail as Financial RIP. Its width is
+              // the backend's cohort-relative standing, never the raw value.
               railPercent={row.railPercent ?? null}
               // Visible WITHOUT expanding. This is the sentence that stops a
               // probability under an appeal heading from reading as a promise

@@ -1,15 +1,15 @@
 .page { display: grid; min-width: 0; gap: 1rem; }
 .panel { min-width: 0; border: 1px solid var(--border-subtle); border-radius: 1rem; padding: 1.25rem; }
 .verdictRank { display: inline-flex; min-height: 2.25rem; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: .625rem; background: rgba(2,8,23,.62); padding: .35rem .7rem; color: var(--text-primary); font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.anatomy { display: grid; justify-items: center; margin-top: .75rem; }
-.overallProductRow { display: grid; width: min(100%,66rem); grid-template-columns: minmax(0,52rem) 9rem; align-items: center; justify-content: center; gap: 1rem; }
+.anatomy { position: relative; display: grid; justify-items: center; margin-top: .75rem; }
+.overallProductRow { width: min(100%,52rem); }
 .scoreSurface { position: relative; display: flex; min-width: 0; width: 100%; overflow: hidden; flex-direction: column; border: 1px solid var(--tier-border); border-radius: .875rem; background: linear-gradient(128deg,var(--tier-surface),rgba(2,8,23,.76) 68%); padding: .85rem 1rem; box-shadow: inset 0 1px 0 color-mix(in srgb,var(--tier-color) 12%,rgba(255,255,255,.04)); }
 .scoreSurfaceOverall { width: min(100%,52rem); min-height: 8.25rem; justify-content: center; background: linear-gradient(115deg,var(--tier-surface),rgba(2,8,23,.84) 72%); box-shadow: inset 0 1px 0 color-mix(in srgb,var(--tier-color) 22%,rgba(255,255,255,.04)),0 12px 32px rgba(0,0,0,.14); }
 .scoreContent { position: relative; z-index: 1; min-width: 0; }
 .scoreFacts { display: flex; min-width: 0; align-items: center; gap: 1rem; margin-top: .7rem; }
 .scoreCta { display: inline-flex; min-height: 2.25rem; align-items: center; gap: .45rem; margin-top: .45rem; border-radius: .5rem; padding: .25rem .35rem; color: var(--tier-color); font-size: .78rem; font-weight: 650; }
 .productArt { display: none; position: absolute; top: .3rem; right: 1.25rem; bottom: .3rem; width: clamp(4.8rem,10vw,7.25rem); opacity: .92; filter: drop-shadow(0 10px 12px rgba(0,0,0,.38)); }
-.desktopProductArt { position: relative; width: 9rem; height: 9.25rem; filter: drop-shadow(0 12px 14px rgba(0,0,0,.35)); }
+.desktopProductArt { position: absolute; top: .2rem; left: calc(50% - 26rem - clamp(9.5rem,12vw,13rem)); width: clamp(8.75rem,11vw,11.875rem); height: 15rem; opacity: .96; filter: drop-shadow(0 14px 16px rgba(0,0,0,.35)); }
 .scoreCta:hover { background: rgba(255,255,255,.04); }
 .scoreCta:focus-visible,.disclosureButton:focus-visible,.pullRatesCta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .connector { position: relative; display: flex; height: 2.5rem; width: min(75%,36rem); align-items: center; justify-content: center; color: var(--text-secondary); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -81,6 +81,14 @@
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }
   .fullReportGroup header { align-items: flex-start; flex-direction: column; gap: .15rem; }
   .fullReportRow { grid-template-columns: minmax(0,1fr) minmax(4.5rem,auto); }
+}
+
+@media (min-width:768px) and (max-width:1179px) {
+  .desktopProductArt { display: none; }
+}
+
+@media (min-width:1180px) and (max-width:1399px) {
+  .desktopProductArt { left: calc(50% - 26rem - 9.25rem); width: 8.75rem; height: 13rem; }
 }
 
 @media (prefers-reduced-motion:reduce) { .scoreCta,.disclosureButton { scroll-behavior: auto; transition: none; } }

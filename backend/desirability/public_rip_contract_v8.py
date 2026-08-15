@@ -217,6 +217,9 @@ def _build_collector_appeal_v4(
     frequency = _obj(collector.get("desirableOutcomeFrequency"))
     dual_path = _obj(collector.get("dualPathDepth"))
     factors = _obj(appeal.get("factors"))
+    factor_standings = _obj(appeal.get("factorStandings"))
+    roster_standing = _obj(factor_standings.get("rosterDesirability"))
+    frequency_standing = _obj(factor_standings.get("desirableOutcomeFrequency"))
     identity = collector_appeal_v4_public_identity()
 
     absolute = _num(appeal.get("score"))
@@ -243,6 +246,10 @@ def _build_collector_appeal_v4(
                 "score": _num(roster.get("score")),
                 "rawValue": _num(factors.get("rosterDesirability")),
                 "version": roster.get("version"),
+                "rank": _int(roster_standing.get("rank")),
+                "rankedSetCount": _int(roster_standing.get("cohortSize")),
+                "relativeScore": _num(roster_standing.get("relativeScore")),
+                "tier": roster_standing.get("tier"),
                 "interpretation": (
                     "How desirable the Pokemon roster is before pull difficulty is "
                     "considered."
@@ -259,6 +266,10 @@ def _build_collector_appeal_v4(
                 "status": frequency.get("status"),
                 "statusReason": frequency.get("statusReason"),
                 "version": frequency.get("version"),
+                "rank": _int(frequency_standing.get("rank")),
+                "rankedSetCount": _int(frequency_standing.get("cohortSize")),
+                "relativeScore": _num(frequency_standing.get("relativeScore")),
+                "tier": frequency_standing.get("tier"),
                 # Carried on the block itself, not only in documentation. This
                 # number has the same shape as True Win Frequency and would
                 # otherwise be read as a financial claim.

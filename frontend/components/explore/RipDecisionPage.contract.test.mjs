@@ -48,6 +48,11 @@ test("product art separates on desktop and remains in-card on mobile", () => {
   assert.match(css, /\.productArt \{ display: none;/);
   assert.match(css, /@media \(max-width:767px\)[\s\S]*\.productArt \{ display: block;/);
   assert.match(css, /\.desktopProductArt \{ display: none; \}/);
+  assert.match(css, /\.anatomy \{ position: relative;/);
+  assert.match(css, /\.overallProductRow \{ width: min\(100%,52rem\); \}/);
+  assert.doesNotMatch(css, /\.overallProductRow[^}]*grid-template-columns/);
+  assert.match(css, /left: calc\(50% - 26rem -/);
+  assert.match(css, /@media \(min-width:768px\) and \(max-width:1179px\)[\s\S]*\.desktopProductArt \{ display: none;/);
 });
 
 test("canonical public scores preserve zero and never fall back to legacy summary values", () => {

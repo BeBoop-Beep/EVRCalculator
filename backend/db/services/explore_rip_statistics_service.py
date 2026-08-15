@@ -632,6 +632,8 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     ("_rank_safety", "safety"),
     ("_rank_stability", "stability"),
     ("_rank_collector_appeal", "collectorAppeal"),
+    ("_rank_collector_roster_desirability", "collectorAppeal.rosterDesirability"),
+    ("_rank_collector_desirable_outcome_frequency", "collectorAppeal.desirableOutcomeFrequency"),
     ("_rank_chase_appeal", "chaseAppeal"),
     ("_rank_dual_path_depth", "dualPathDepth"),
     # Canonical V3/V5 ranks. Ranked by the ABSOLUTE fixed-anchor V3 score, never
@@ -1234,6 +1236,19 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 relative = relatives.get(str(row.get("target_id")))
                 component["relativeScore"] = round(relative, 2) if relative is not None else None
 
+    for factor_key, extractor in (
+        ("rosterDesirability", _rank_collector_roster_desirability),
+        ("desirableOutcomeFrequency", _rank_collector_desirable_outcome_frequency),
+    ):
+        scratch = [{"target_id": row.get("target_id"), "_score": extractor(row)} for row in cohort_rows]
+        relatives = _compute_relative_scores(scratch, "_score")
+        for row in cohort_rows:
+            appeal = ((row.get("openingExperience") or {}).get("collectorAppeal") or {})
+            if isinstance(appeal, dict):
+                standing = appeal.setdefault("factorStandings", {}).setdefault(factor_key, {})
+                relative = relatives.get(str(row.get("target_id")))
+                standing["relativeScore"] = round(relative, 2) if relative is not None else None
+
     # The three Financial RIP pillars also carry a cohort-relative public score,
     # restoring main's `relative_profit_score`/`relative_safety_score`/
     # `relative_stability_score` presentation. Each pillar lives in TWO places
@@ -1296,6 +1311,14 @@ def _apply_rank(
             component["tier"] = entry.get("tier")
             component["cohortSize"] = cohort_size
         return
+    if contract_key.startswith("collectorAppeal."):
+        factor_key = contract_key.split(".", 1)[1]
+        appeal = ((row.get("openingExperience") or {}).get("collectorAppeal") or {})
+        if isinstance(appeal, dict):
+            appeal.setdefault("factorStandings", {})[factor_key] = {
+                "rank": entry.get("rank"), "tier": entry.get("tier"), "cohortSize": cohort_size,
+            }
+        return
     if contract_key in ("profit", "safety", "stability"):
         # The pillars live on Financial RIP now. Overall RIP carries the same
         # Financial RIP object under `financialRip`, so both surfaces are ranked
@@ -1350,6 +1373,19 @@ def _opening_metric(row: Mapping[str, Any], key: str, field: str = "score") -> O
 
 def _rank_collector_appeal(row: Mapping[str, Any]) -> Optional[float]:
     return _opening_metric(row, "collectorAppeal")
+
+
+def _collector_factor(row: Mapping[str, Any], key: str) -> Optional[float]:
+    appeal = (row.get("openingExperience") or {}).get("collectorAppeal") or {}
+    return _to_optional_float((appeal.get("factors") or {}).get(key))
+
+
+def _rank_collector_roster_desirability(row: Mapping[str, Any]) -> Optional[float]:
+    return _collector_factor(row, "rosterDesirability")
+
+
+def _rank_collector_desirable_outcome_frequency(row: Mapping[str, Any]) -> Optional[float]:
+    return _collector_factor(row, "desirableOutcomeFrequency")
 
 
 def _rank_chase_appeal(row: Mapping[str, Any]) -> Optional[float]:

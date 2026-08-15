@@ -48,6 +48,15 @@ def _row(target_id, *, overall, financial, profit, safety, stability):
         "stability_score": stability,
         "rip": {"score": overall, "financialRip": {"components": financial_components}},
         "ripCore": {"score": financial, "components": components},
+        "openingExperience": {
+            "collectorAppeal": {
+                "score": 50 + profit,
+                "factors": {
+                    "rosterDesirability": safety,
+                    "desirableOutcomeFrequency": stability,
+                },
+            }
+        },
     }
 
 
@@ -152,6 +161,21 @@ def test_pillar_relatives_attached_to_both_component_locations():
     # Best/worst profit pillar → 100 / 0.
     assert by_id["A"]["ripCore"]["components"]["profit"]["relativeScore"] == 100.0
     assert by_id["E"]["ripCore"]["components"]["profit"]["relativeScore"] == 0.0
+
+
+def test_collector_factor_standings_are_backend_owned_and_independent_of_raw_scale():
+    rows = _cohort()
+    _rank_within_cohort(rows, cohort_size=len(rows))
+    by_id = _by_id(rows)
+
+    best = by_id["A"]["openingExperience"]["collectorAppeal"]["factorStandings"]
+    worst = by_id["E"]["openingExperience"]["collectorAppeal"]["factorStandings"]
+    for factor in ("rosterDesirability", "desirableOutcomeFrequency"):
+        assert best[factor] == {"rank": 1, "tier": "S", "cohortSize": 5, "relativeScore": 100.0}
+        assert worst[factor]["rank"] == 5
+        assert worst[factor]["cohortSize"] == 5
+        assert worst[factor]["relativeScore"] == 0.0
+        assert worst[factor]["tier"] == "F"
 
 
 def test_rank_bucket_tiers_match_production():

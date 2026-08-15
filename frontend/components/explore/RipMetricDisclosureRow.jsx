@@ -53,11 +53,9 @@ import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 // Deliberately NOT the summary treatment. The three Insights Summary cards own
 // the elevated, glowing rail; these nine rows get a low-contrast fill with no
 // bloom, no end dot and no shadow, so a breakdown reads as supporting evidence
-// rather than as nine competing headlines. Only the accent hue changes between
-// the two sections — blue/cyan for Financial RIP, purple/magenta for Collector
-// Appeal — and both are drawn at the same restraint.
+// rather than as competing headlines. The backend factor tier selects the hue.
 /**
- * A rail is drawn ONLY from a real, finite value the row is already showing.
+ * A rail is drawn ONLY from a real, finite backend-owned relative score.
  * There is no fabricated history, no sparkline and no placeholder fill: an
  * unavailable metric renders the empty track, which reads as "no value" rather
  * than as zero. Zero itself IS a real value on a cohort-relative scale, so a
