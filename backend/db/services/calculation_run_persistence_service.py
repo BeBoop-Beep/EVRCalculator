@@ -864,6 +864,9 @@ def persist_parent_run_with_price_snapshots(
         "config_id": config_row["id"],
         "config_hash": config_hash,
         "run_id": run_row["id"],
+        # Additive: the resolved set id is already in hand here, so downstream
+        # additive layers (Stage 1 sealed products) do not need a second lookup.
+        "set_id": target_id,
         "snapshot_count": snapshot_count,
     }
 
