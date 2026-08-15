@@ -150,8 +150,11 @@ def build_global_set_value_row(
             "symbolUrl": pokemon_set.get("symbol_image_url"),
             "currentSetValue": current["value"],
             "setValueAsOf": current["date"],
-            "pricedCardCount": (prepared[-1] if prepared else {}).get("pricedCardCount"),
-            "totalCardCount": (prepared[-1] if prepared else {}).get("totalCardCount"),
+            # pricedCardCount/totalCardCount are deliberately NOT published. They
+            # were read off `prepared[-1]`, but `_points()` normalizes every point
+            # to {date, value} and strips that metadata, so both keys were always
+            # None. No consumer reads them, so the compact snapshot omits them
+            # rather than advertising two permanently-null fields.
             "windows": windows,
             "trend": compact_trend(canonical, preserve_dates=[window["startDate"] for window in windows.values()] + [current["date"]]),
             "historyStartDate": canonical[0]["date"],

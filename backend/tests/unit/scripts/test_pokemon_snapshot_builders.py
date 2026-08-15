@@ -1417,6 +1417,27 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                         "components": {"desirability": {"score": 96.09, "weight": 0.10}},
                     },
                     "ripCore": {"score": 74.25, "rank": 3, "tier": "A", "cohortSize": 21},
+                    "overallRipV8": {"score": 73.0, "rank": 15, "tier": "D", "cohortSize": 22},
+                    "publicRipContractV8": {
+                        "collectorAppeal": {
+                            "components": {
+                                "rosterDesirability": {
+                                    "score": 81.6,
+                                    "rank": 5,
+                                    "rankedSetCount": 22,
+                                    "relativeScore": 82.0,
+                                    "tier": "A",
+                                },
+                                "desirableOutcomeFrequency": {
+                                    "rawValue": 0.266,
+                                    "rank": 17,
+                                    "rankedSetCount": 22,
+                                    "relativeScore": 28.0,
+                                    "tier": "F",
+                                },
+                            }
+                        }
+                    },
                     "openingExperience": {
                         "status": "available",
                         "collectorAppeal": {"score": 96.09, "rank": 1, "cohortSize": 21},
@@ -1473,11 +1494,66 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     assert payload["rip"]["cohortSize"] == 21
     assert payload["ripCore"]["score"] == 74.25
     assert payload["openingExperience"]["collectorAppeal"]["score"] == 96.09
+    assert payload["publicRipContractV8"] == {
+        "collectorAppeal": {
+            "components": {
+                "rosterDesirability": {
+                    "score": 81.6,
+                    "rank": 5,
+                    "rankedSetCount": 22,
+                    "relativeScore": 82.0,
+                    "tier": "A",
+                },
+                "desirableOutcomeFrequency": {
+                    "rawValue": 0.266,
+                    "rank": 17,
+                    "rankedSetCount": 22,
+                    "relativeScore": 28.0,
+                    "tier": "F",
+                },
+            }
+        }
+    }
     assert payload["publicAnalyticsStatus"] == "analytics_ready"
     assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
     # The legacy validation payload is retired: new snapshots never carry it.
     assert "desirabilityValidation" not in payload
     assert "desirability_validation" not in payload
+
+
+def test_canonical_set_page_completeness_rejects_ranked_v8_without_contract():
+    with pytest.raises(RuntimeError, match="publicRipContractV8 is missing"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            {"overallRipV8": {"rank": 1}}, set_id="set-1"
+        )
+
+
+def test_canonical_set_page_completeness_rejects_missing_collector_factor_metadata():
+    payload = {
+        "overallRipV8": {"rank": 1},
+        "publicRipContractV8": {
+            "collectorAppeal": {
+                "components": {
+                    "rosterDesirability": {
+                        "rank": 1, "tier": "S", "rankedSetCount": 2, "relativeScore": 100.0
+                    },
+                    "desirableOutcomeFrequency": {
+                        "rank": 2, "tier": "F", "rankedSetCount": 2
+                    },
+                }
+            }
+        },
+    }
+    with pytest.raises(RuntimeError, match="desirableOutcomeFrequency.relativeScore"):
+        pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+            payload, set_id="set-1"
+        )
+
+
+def test_canonical_set_page_completeness_allows_unsupported_historical_set():
+    pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
+        {"overallRipV8": {"rank": None}}, set_id="historical-set"
+    )
 
 
 def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(monkeypatch):

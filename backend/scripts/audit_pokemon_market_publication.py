@@ -52,6 +52,7 @@ SECTION_SEALED_MARKET = "sealed_market"
 SECTION_CARD_PRICES = "card_prices"
 SECTION_HEADER_SUMMARY = "header_summary"
 SECTION_EXPLORE_SET_VALUE = "explore_set_value"
+SECTION_GLOBAL_SET_VALUE = "global_market_set_value"
 
 ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_SET_VALUE,
@@ -60,8 +61,11 @@ ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_SEALED_MARKET,
     SECTION_CARD_PRICES,
     SECTION_EXPLORE_SET_VALUE,
+    SECTION_GLOBAL_SET_VALUE,
     SECTION_HEADER_SUMMARY,
 )
+
+GLOBAL_SET_VALUE_TABLE = "pokemon_explore_set_value_snapshot_latest"
 
 # Audit phases.
 #
@@ -866,6 +870,175 @@ def explore_snapshot_problem(market_date: str, explore_row: Optional[Dict[str, A
             f"does not match promoted market date {market_date}"
         )
     return None
+
+
+def global_set_value_targets(snapshot_row: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """The persisted global Set Value rows, or ``None`` when malformed.
+
+    ``None`` and ``[]`` are different answers, exactly as in ``explore_targets``:
+    a payload whose ``sets`` is not an array is a MALFORMED publication, while an
+    empty array is readable and simply publishes nobody.
+    """
+    if not snapshot_row:
+        return None
+    payload = snapshot_row.get("payload_json")
+    if not isinstance(payload, dict):
+        payload = _as_obj(payload)
+        if not payload:
+            return None
+    sets = payload.get("sets")
+    if not isinstance(sets, list):
+        return None
+    return [row for row in sets if isinstance(row, dict)]
+
+
+def global_set_value_snapshot_problem(
+    market_date: str,
+    snapshot_row: Optional[Dict[str, Any]],
+    *,
+    expected_set_ids: Sequence[str] = (),
+) -> Optional[str]:
+    """Snapshot-wide defect in the global Market Set Value artifact, or ``None``.
+
+    This is the artifact ExploreTopRankings now renders on /Market. The Explore
+    RIP rankings snapshot is a DIFFERENT public surface and its health says
+    nothing about this one — treating it as proof is how a completely absent
+    global Set Value snapshot (row_count = 0) coexisted with a passing market
+    publication audit while /Market showed "temporarily unavailable".
+    """
+    if not snapshot_row:
+        return f"no published global Market Set Value snapshot row (tcg=pokemon, scope=market) in {GLOBAL_SET_VALUE_TABLE}"
+
+    payload = snapshot_row.get("payload_json")
+    if not isinstance(payload, dict) and not _as_obj(payload):
+        return "global Market Set Value payload_json is not an object"
+
+    targets = global_set_value_targets(snapshot_row)
+    if targets is None:
+        return "global Market Set Value payload_json.sets is not an array"
+
+    # Freshness is taken from the row's own market_date AND the payload's own
+    # advertised date; updated_at is never accepted, since a rebuild that
+    # republishes yesterday's numbers still bumps it.
+    row_date = _date_key(snapshot_row.get("market_date"))
+    if row_date != market_date:
+        return (
+            f"global Market Set Value snapshot market_date {row_date or 'missing'} "
+            f"does not match promoted market date {market_date}"
+        )
+    payload_date = _date_key(_dig(_as_obj(payload), "meta.snapshot.marketDate"))
+    if payload_date != market_date:
+        return (
+            f"global Market Set Value payload meta.snapshot.marketDate {payload_date or 'missing'} "
+            f"does not match promoted market date {market_date}"
+        )
+
+    declared = snapshot_row.get("set_count")
+    if not isinstance(declared, int) or declared != len(targets):
+        return (
+            f"global Market Set Value set_count {declared!r} disagrees with the "
+            f"{len(targets)} published set(s) in payload_json.sets"
+        )
+
+    seen: Dict[str, int] = {}
+    for target in targets:
+        identity = _to_text(target.get("setId") or target.get("set_id"))
+        if not identity:
+            return "global Market Set Value publishes a row with no setId"
+        seen[identity] = seen.get(identity, 0) + 1
+    duplicates = sorted(key for key, count in seen.items() if count > 1)
+    if duplicates:
+        return f"global Market Set Value publishes duplicate setId(s): {duplicates[:5]}"
+
+    expected = {str(key) for key in expected_set_ids}
+    if expected:
+        unexpected = sorted(set(seen) - expected)
+        if unexpected:
+            return f"global Market Set Value publishes out-of-cohort setId(s): {unexpected[:5]}"
+        absent = sorted(expected - set(seen))
+        if absent:
+            return (
+                f"global Market Set Value is missing {len(absent)} eligible cohort set(s): {absent[:5]}"
+            )
+    return None
+
+
+def _audit_global_set_value(
+    market_date: str,
+    *,
+    target: Optional[Dict[str, Any]],
+    canonical_set_value: Optional[float],
+    in_cohort: bool,
+    snapshot_problem: Optional[str] = None,
+) -> SectionVerdict:
+    """Per-set verdict on the compact global Market Set Value snapshot.
+
+    ``in_cohort`` is the builder's OWN eligibility rule (simulation-supported and
+    public-analytics eligible), so a publication-required set that the snapshot
+    legitimately never covers is non-applicable rather than failed — while an
+    eligible set that is absent is a hard failure.
+    """
+    verdict = SectionVerdict(section=SECTION_GLOBAL_SET_VALUE)
+    if snapshot_problem:
+        verdict.passed = False
+        verdict.detail = snapshot_problem
+        return verdict
+
+    if not in_cohort:
+        verdict.applicable = False
+        verdict.detail = "set is outside the global Market Set Value cohort"
+        return verdict
+
+    if target is None:
+        verdict.passed = False
+        verdict.detail = "set is in the global Market Set Value cohort but publishes no snapshot row"
+        return verdict
+
+    as_of = _date_key(target.get("setValueAsOf") or target.get("set_value_as_of"))
+    verdict.observed_date = as_of
+    if as_of != market_date:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value row is dated {as_of or 'nowhere'}, "
+            f"not the promoted market date {market_date}"
+        )
+        return verdict
+
+    value = _finite(target.get("currentSetValue") or target.get("current_set_value"))
+    if value is None or value <= 0:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value currentSetValue {target.get('currentSetValue')!r} "
+            f"is not a finite positive number"
+        )
+        return verdict
+
+    # Every window the client can select must already be present: the /Market
+    # timeframe pills are pure client-side slices of this payload, so a missing
+    # window key is a dead control, not a lazily-computed one.
+    windows = target.get("windows")
+    windows = windows if isinstance(windows, dict) else {}
+    missing_windows = [key for key, _ in EXPECTED_WINDOW_KEYS if key not in windows]
+    if missing_windows:
+        verdict.passed = False
+        verdict.detail = f"global Set Value row is missing window metadata: {missing_windows}"
+        return verdict
+
+    if canonical_set_value is None:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value advertises a value for {market_date} but no canonical "
+            f"standard set-value row exists for that date"
+        )
+        return verdict
+
+    if round(value, 2) != round(canonical_set_value, 2):
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value {round(value, 2)} disagrees with the canonical standard "
+            f"set value {round(canonical_set_value, 2)} for {market_date}"
+        )
+    return verdict
 
 
 def _audit_header_summary(

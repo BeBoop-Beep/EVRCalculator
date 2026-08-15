@@ -2,7 +2,7 @@
 //
 // WHAT THIS READS
 // ---------------
-// The canonical V7 contract's Collector Appeal block, and nothing else — see
+// The canonical V8 contract's Collector Appeal V4 block, and nothing else — see
 // canonicalRipV7.mjs for the resolver and its precedence rules. This module
 // previously read `publicRipContractV6` / `overallRipV6` / a hand-rebuilt shape
 // off `openingExperience`, which published Collector Appeal **V2** (the bounded
@@ -136,7 +136,7 @@ const SUBJECT_SCOPE_NOTE =
 
 /**
  * The Collector Appeal breakdown: Roster Desirability, Desirable Outcome
- * Frequency, Dual-Path Depth — three parallel factors of one score.
+ * Roster Desirability and Desirable Outcome Frequency — two scored factors.
  *
  * Trainer and artist desirability are NOT rendered as zero or as "not
  * desirable": they are not modeled yet, so they are omitted and the omission is
