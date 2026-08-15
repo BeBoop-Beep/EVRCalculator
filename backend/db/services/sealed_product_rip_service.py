@@ -256,16 +256,20 @@ def score_stage1_sealed_products(
     an optimization detail - regenerating Y per SKU would make two identical
     products differ by Monte Carlo noise alone.
     """
+    extract_started = time.perf_counter()
     x = normalize_pack_outcome_vector(pack_values)
+    extract_ms = (time.perf_counter() - extract_started) * 1000.0
     if not candidates:
         return {
             "status": "empty",
             "reason": REASON_NO_SUPPORTED_PRODUCTS,
             "products": [],
             "distributionMeta": None,
+            "timings": {},
         }
 
     required_counts = sorted({int(c["composition"].pack_count) for c in candidates})
+    bootstrap_started = time.perf_counter()
     built = build_stage1_product_distributions(
         x,
         pack_counts=required_counts,
@@ -273,21 +277,45 @@ def score_stage1_sealed_products(
         run_fingerprint=run_fingerprint,
         chunk_size=chunk_size,
     )
+    bootstrap_ms = (time.perf_counter() - bootstrap_started) * 1000.0
     distributions = built["distributions"]
 
     appeal_score = collector_appeal.get("score") if isinstance(collector_appeal, Mapping) else None
     appeal_version = collector_appeal.get("version") if isinstance(collector_appeal, Mapping) else None
 
     products: List[Dict[str, Any]] = []
+    # Per-SKU phase timings. Kept as plain accumulators so profiling never needs
+    # a second, differently-shaped code path to measure.
+    financial_ms_by_sku: List[Dict[str, Any]] = []
+    stats_ms_total = 0.0
+    overall_ms_total = 0.0
+
     for candidate in candidates:
         composition = candidate["composition"]
         pack_count = int(composition.pack_count)
         y = distributions[pack_count]
         cost = float(candidate["product_market_cost"])
 
+        financial_started = time.perf_counter()
         financial = build_financial_rip_v3(y, cost, min_simulation_count=min_simulation_count)
+        financial_ms = (time.perf_counter() - financial_started) * 1000.0
+
+        overall_started = time.perf_counter()
         overall = compute_overall_rip_v8(financial.get("score"), appeal_score)
+        overall_ms_total += (time.perf_counter() - overall_started) * 1000.0
+
+        stats_started = time.perf_counter()
         stats = _distribution_statistics(y, cost)
+        stats_ms_total += (time.perf_counter() - stats_started) * 1000.0
+
+        financial_ms_by_sku.append(
+            {
+                "sealedProductId": candidate["sealed_product_id"],
+                "productFamily": candidate["product_family"],
+                "packCount": pack_count,
+                "elapsedMs": round(financial_ms, 3),
+            }
+        )
 
         products.append(
             {
@@ -322,6 +350,14 @@ def score_stage1_sealed_products(
         "reason": None,
         "products": products,
         "distributionMeta": built["meta"],
+        "timings": {
+            "packVectorValidationMs": round(extract_ms, 3),
+            "bootstrapMs": round(bootstrap_ms, 3),
+            "financialRipV3TotalMs": round(sum(e["elapsedMs"] for e in financial_ms_by_sku), 3),
+            "financialRipV3BySku": financial_ms_by_sku,
+            "productStatisticsMs": round(stats_ms_total, 3),
+            "overallRipMs": round(overall_ms_total, 3),
+        },
     }
 
 
@@ -406,7 +442,11 @@ def run_stage1_sealed_product_rip(
     if collector_appeal_fn is None:
         collector_appeal_fn = resolve_set_collector_appeal
 
+    phase_ms: Dict[str, Any] = {}
+
+    snapshot_started = time.perf_counter()
     snapshot = read_snapshot_fn(str(set_id))
+    phase_ms["sealedSnapshotReadMs"] = round((time.perf_counter() - snapshot_started) * 1000.0, 3)
     if not snapshot:
         return _summary(
             status="skipped",
@@ -415,7 +455,9 @@ def run_stage1_sealed_product_rip(
             started=started,
         )
 
+    selection_started = time.perf_counter()
     selection = select_stage1_products(snapshot)
+    phase_ms["productDiscoveryMs"] = round((time.perf_counter() - selection_started) * 1000.0, 3)
     candidates = selection["candidates"]
     skipped = selection["skipped"]
     if not candidates:
@@ -427,8 +469,13 @@ def run_stage1_sealed_product_rip(
             started=started,
         )
 
+    extract_started = time.perf_counter()
     pack_values = extract_pack_outcome_vector(sim_results)
+    phase_ms["packVectorExtractionMs"] = round((time.perf_counter() - extract_started) * 1000.0, 3)
+
+    appeal_started = time.perf_counter()
     appeal = collector_appeal_fn(set_id)
+    phase_ms["collectorAppealMs"] = round((time.perf_counter() - appeal_started) * 1000.0, 3)
     if not appeal.get("available"):
         # Financial RIP stays available; Overall RIP does not. A missing appeal
         # is never converted to zero.
@@ -451,7 +498,10 @@ def run_stage1_sealed_product_rip(
         _to_row(product, calculation_run_id=calculation_run_id, set_id=set_id)
         for product in scored["products"]
     ]
+    persist_started = time.perf_counter()
     persisted = persist_fn(rows)
+    phase_ms["persistenceMs"] = round((time.perf_counter() - persist_started) * 1000.0, 3)
+    phase_ms.update(scored.get("timings") or {})
 
     summary = _summary(
         status="ok",
@@ -463,6 +513,7 @@ def run_stage1_sealed_product_rip(
         distribution_meta=scored["distributionMeta"],
         persisted_count=len(persisted) if persisted is not None else len(rows),
         collector_appeal=appeal,
+        phase_ms=phase_ms,
     )
     logger.info(
         "Stage 1 sealed-product RIP: set=%s pack_outcomes=%s pack_counts=%s "
@@ -490,6 +541,7 @@ def _summary(
     distribution_meta: Optional[Mapping[str, Any]] = None,
     persisted_count: int = 0,
     collector_appeal: Optional[Mapping[str, Any]] = None,
+    phase_ms: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Compact, machine-readable Stage 1 summary. Never carries raw vectors."""
     skipped_list = list(skipped or [])
@@ -546,4 +598,7 @@ def _summary(
             for product in product_list
         ],
         "elapsedMs": round((time.perf_counter() - started) * 1000.0, 3),
+        # Per-phase wall time. Diagnostic only: nothing branches on it, and it is
+        # never persisted.
+        "phaseTimingsMs": dict(phase_ms or {}),
     }

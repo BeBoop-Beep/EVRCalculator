@@ -80,6 +80,16 @@ def stage1_distribution_seed(
     version, the set, the size of the empirical vector, and any stable run
     fingerprint that is already available.
 
+    WHAT "REPRODUCIBLE" DOES AND DOES NOT MEAN HERE
+    -----------------------------------------------
+    This seed makes ``Y`` a deterministic function of ``X`` - same ``X``, same
+    identity, same ``Y``, forever. It does NOT make ``Y`` recoverable from the
+    database: the million-outcome ``X`` is not persisted, so a historical product
+    distribution cannot be rebuilt from Postgres alone. Re-deriving it means
+    re-running the pack simulation, which reproduces ``X`` bit-for-bit only if
+    every simulation input and the simulator itself are unchanged. Closing that
+    gap is future outcome-artifact work and is deliberately not done here.
+
     Deliberately EXCLUDED:
       * product price - price must never change a simulated opening outcome, and
       * ``sealed_product_id`` - two SKUs with the same composition must receive
