@@ -1,6 +1,6 @@
 "use client";
 
-// The canonical Collector Appeal V3 section: one score, three parallel factors.
+// The canonical Collector Appeal V4 section: one score, two scored factors.
 //
 // SCOPE
 // -----

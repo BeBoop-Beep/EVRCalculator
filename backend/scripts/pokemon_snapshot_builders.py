@@ -428,13 +428,17 @@ def _merge_canonical_rip_contract_into_set_payload(
         # V6-vs-V7 comparison surfaces have both numbers.
         "overallRipV6",
         "publicRipContractV6",
-        # CANONICAL after the 90/10 V3 cutover: Overall RIP V7 and the v7 public
-        # contract, which carries Collector Appeal V3 as a first-class block.
+        # Superseded 90/10 blend over Collector Appeal V3, retained for legacy
+        # comparison surfaces.
         # Lifted verbatim from the same ranked target, so the set page and
         # Explore cannot disagree about a Collector Appeal score or its rank.
         "overallRipV7",
+        # CANONICAL after the Collector Appeal V4 cutover. Copy the packaged V8
+        # contract verbatim: it is the only authoritative source for the two
+        # Collector factor standings consumed by the set page.
         "overallRipV8",
         "publicRipContractV7",
+        "publicRipContractV8",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The
@@ -452,6 +456,47 @@ def _merge_canonical_rip_contract_into_set_payload(
     if isinstance(cohort, dict):
         next_payload["publicAnalyticsCohort"] = cohort
     return next_payload
+
+
+COLLECTOR_FACTOR_STANDING_FIELDS = ("rank", "tier", "rankedSetCount", "relativeScore")
+COLLECTOR_FACTOR_NAMES = ("rosterDesirability", "desirableOutcomeFrequency")
+
+
+def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set_id: str) -> None:
+    """Reject an incomplete canonical contract for a V8-ranked set page.
+
+    Historical and unsupported sets legitimately have no Overall RIP V8 rank and
+    bypass this invariant. Zero is a valid relative score, so presence is tested
+    with ``is None`` rather than truthiness.
+    """
+    overall = payload.get("overallRipV8")
+    if not isinstance(overall, dict) or overall.get("rank") is None:
+        return
+
+    contract = payload.get("publicRipContractV8")
+    if not isinstance(contract, dict) or not contract:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
+            "publicRipContractV8 is missing"
+        )
+
+    collector = contract.get("collectorAppeal")
+    if not isinstance(collector, dict) or not collector:
+        return
+    components = collector.get("components")
+    components = components if isinstance(components, dict) else {}
+    problems = []
+    for name in COLLECTOR_FACTOR_NAMES:
+        component = components.get(name)
+        component = component if isinstance(component, dict) else {}
+        for field in COLLECTOR_FACTOR_STANDING_FIELDS:
+            if component.get(field) is None:
+                problems.append(f"collectorAppeal.components.{name}.{field}")
+    if problems:
+        raise RuntimeError(
+            f"Refusing incomplete canonical set-page snapshot set_id={set_id}: missing "
+            + ", ".join(problems)
+        )
 
 
 def _merge_rip_desirability_comparison_into_set_payload(
@@ -1373,6 +1418,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         available=simulation_available,
         reason=simulation_unavailable_reason,
     )
+    _assert_canonical_set_page_contract_complete(payload, set_id=set_id)
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
     set_identity = {

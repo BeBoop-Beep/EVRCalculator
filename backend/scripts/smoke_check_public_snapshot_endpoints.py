@@ -5,7 +5,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
@@ -77,6 +77,75 @@ def _print_result(label: str, status: int, elapsed_ms: float, payload: Optional[
             }
         )
     )
+
+
+def _expected_set_value_cohort_size(client: Any) -> Optional[int]:
+    """How many sets the global Set Value snapshot owes, or None if undeterminable.
+
+    Reuses the builder's own eligibility rule so the smoke test cannot drift into
+    demanding a different cohort than the one that gets published.
+    """
+    try:
+        from backend.desirability.public_analytics_policy import is_public_analytics_eligible
+
+        rows = list(
+            (
+                client.table("sets")
+                .select("id,name,canonical_key,era_id,supports_opening_simulation")
+                .eq("supports_opening_simulation", True)
+                .execute()
+            ).data
+            or []
+        )
+        return len([row for row in rows if is_public_analytics_eligible(row)]) or None
+    except Exception:
+        return None
+
+
+def _check_set_value_market(
+    status: int, payload: Optional[Dict[str, Any]], expected_count: Optional[int]
+) -> List[str]:
+    """Contract checks for GET /explore/set-value-market."""
+    if status != 200:
+        code = (payload or {}).get("code") if isinstance(payload, dict) else None
+        return [f"explore_set_value_market status={status} code={code or 'unknown'}"]
+
+    if not isinstance(payload, dict):
+        return ["explore_set_value_market payload is not an object"]
+
+    sets = payload.get("sets")
+    if not isinstance(sets, list):
+        return ["explore_set_value_market payload.sets is not an array"]
+    if not sets:
+        return ["explore_set_value_market published zero sets"]
+
+    problems: List[str] = []
+    if expected_count is not None and len(sets) != expected_count:
+        problems.append(
+            f"explore_set_value_market published {len(sets)} set(s), expected cohort of {expected_count}"
+        )
+
+    market_date = (((payload.get("meta") or {}).get("snapshot")) or {}).get("marketDate")
+    if not market_date:
+        problems.append("explore_set_value_market meta.snapshot.marketDate is missing")
+
+    missing_id = [index for index, row in enumerate(sets) if not (isinstance(row, dict) and row.get("setId"))]
+    if missing_id:
+        problems.append(f"explore_set_value_market has {len(missing_id)} row(s) with no setId")
+
+    def _positive(row: Any) -> bool:
+        try:
+            return isinstance(row, dict) and float(row.get("currentSetValue")) > 0
+        except (TypeError, ValueError):
+            return False
+
+    non_positive = [row for row in sets if not _positive(row)]
+    if non_positive:
+        ids = [str((row or {}).get("setId")) for row in non_positive[:5] if isinstance(row, dict)]
+        problems.append(
+            f"explore_set_value_market has {len(non_positive)} row(s) without a positive currentSetValue: {ids}"
+        )
+    return problems
 
 
 def _has_db_top_hits(set_id: str) -> bool:
@@ -156,6 +225,15 @@ def main() -> None:
         top_cards = payload.get("topChaseCards") or payload.get("top_chase_cards") or []
         if not isinstance(top_cards, list):
             failures.append("market_dashboard top chase cards payload malformed")
+
+    # Global Market Set Value: the single prepared snapshot /Market's Set Value
+    # ladder renders. A 404 POKEMON_EXPLORE_SET_VALUE_UNAVAILABLE means the
+    # aggregate was never published and the page shows its unavailable fallback,
+    # so it must FAIL here rather than pass silently.
+    status, elapsed_ms, set_value_payload, body = _get_json(f"{base_url}/explore/set-value-market")
+    _print_result("explore_set_value_market", status, elapsed_ms, set_value_payload)
+    for failure in _check_set_value_market(status, set_value_payload, _expected_set_value_cohort_size(client)):
+        failures.append(failure)
 
     if isinstance(payload, dict) and isinstance(correlation, dict):
         plotted_count = correlation.get("plottedCount") or correlation.get("plotted_count")

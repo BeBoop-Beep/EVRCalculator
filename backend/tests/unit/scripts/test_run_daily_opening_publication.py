@@ -65,7 +65,9 @@ class UnknownColumn(Exception):
 TABLE_COLUMNS = {
     "sets": {
         "id", "name", "canonical_key", "catalog_only", "supports_opening_simulation",
-        "has_sealed_details_url", "ready_for_daily_scrape",
+        # era_id backs the public-analytics eligibility rule the market
+        # publication audit uses to derive the global Set Value cohort.
+        "era_id", "has_sealed_details_url", "ready_for_daily_scrape",
     },
     "calculation_history_trend": {
         "target_type", "target_id", "snapshot_date", "calculation_run_id",
@@ -90,6 +92,10 @@ TABLE_COLUMNS = {
     "sealed_product_price_observations": {"sealed_product_id", "captured_at"},
     "pokemon_explore_rankings_snapshot_latest": {
         "tcg", "scope", "ranking_payload_json", "updated_at",
+    },
+    "pokemon_explore_set_value_snapshot_latest": {
+        "tcg", "scope", "payload_json", "market_date", "set_count",
+        "payload_size_bytes", "updated_at",
     },
     "pokemon_public_rip_leaderboard_snapshots": {
         "id", "market_date", "built_at", "published_at", "publication_status",
@@ -325,6 +331,35 @@ def _market_fixtures(market_date=MARKET_DATE):
                         }
                     ],
                 },
+                "updated_at": f"{market_date}T12:00:00+00:00",
+            }
+        ],
+        # The compact global artifact /Market's Set Value ladder renders. It is a
+        # DIFFERENT public surface from the RIP rankings snapshot above, and the
+        # audit requires it independently.
+        "pokemon_explore_set_value_snapshot_latest": [
+            {
+                "tcg": "pokemon",
+                "scope": "market",
+                "payload_json": {
+                    "meta": {"snapshot": {"marketDate": market_date}},
+                    "sets": [
+                        {
+                            "setId": SET_ID,
+                            "canonicalKey": SET_KEY,
+                            "name": "Alpha",
+                            "currentSetValue": SET_VALUE,
+                            "setValueAsOf": market_date,
+                            "windows": {
+                                key: {"amount": 1.0, "percent": 1.0}
+                                for key in ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
+                            },
+                        }
+                    ],
+                },
+                "market_date": market_date,
+                "set_count": 1,
+                "payload_size_bytes": 512,
                 "updated_at": f"{market_date}T12:00:00+00:00",
             }
         ],

@@ -55,7 +55,20 @@ def _target(name="ascendedHeroes"):
         "slug": name,
         "overallRipV8": {"rank": 3, "absoluteScore": 71.2},
         "financialRipV3": {"rank": 5, "absoluteScore": 64.0},
-        "publicRipContractV8": {"overallRip": {"rank": 3}, "financialRip": {"components": {}}},
+        "publicRipContractV8": {
+            "overallRip": {"rank": 3},
+            "financialRip": {"components": {}},
+            "collectorAppeal": {
+                "components": {
+                    "rosterDesirability": {
+                        "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0
+                    },
+                    "desirableOutcomeFrequency": {
+                        "rank": 17, "tier": "F", "rankedSetCount": 22, "relativeScore": 28.0
+                    },
+                }
+            },
+        },
         "publicRipContractV6": {"overallRip": {"rank": 4}},
         "publicRipContractV5": {"overallRip": {"rank": 6}},
         "publicRipContractV4": {"overallRip": {"rank": 9}},
@@ -89,7 +102,13 @@ def test_canonical_and_movement_fields_survive_the_projection():
     projected = project_latest_rankings_payload(_payload())
     for target in projected["targets"]:
         # Publication validation (_score_contract_problems) requires this.
-        assert target["publicRipContractV8"] == {"overallRip": {"rank": 3}, "financialRip": {"components": {}}}
+        collector = target["publicRipContractV8"]["collectorAppeal"]["components"]
+        assert collector["rosterDesirability"] == {
+            "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0
+        }
+        assert collector["desirableOutcomeFrequency"] == {
+            "rank": 17, "tier": "F", "rankedSetCount": 22, "relativeScore": 28.0
+        }
         # attach_daily_rip_rank_movements requires these plus a stable id.
         assert target["overallRipV8"]["rank"] == 3
         assert target["financialRipV3"]["rank"] == 5

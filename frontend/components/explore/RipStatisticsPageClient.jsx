@@ -22,6 +22,7 @@ import ChartEdgeDateTick from "@/components/explore/ChartEdgeDateTick";
 import ChartFrame from "@/components/explore/ChartFrame";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
 import MarketTrendTooltipCard from "@/components/explore/MarketTrendTooltipCard";
+import MarketSparkline from "@/components/explore/MarketSparkline";
 import SimulationSectionSelector from "@/components/explore/SimulationSectionSelector";
 import {
   MINIMAL_Y_AXIS_PROPS,
@@ -3205,7 +3206,7 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
     <div
       data-top-chase-row
       data-trend-source={windowState.source}
-      className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 max-desk:px-0 desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] desk:items-center desk:gap-3 desk:px-3 desk:py-3"
+      className="grid min-w-0 grid-cols-1 gap-y-1.5 px-3 py-2.5 max-desk:px-0 desk:grid-cols-[3rem_minmax(0,1fr)_minmax(11rem,17rem)_minmax(8rem,10rem)] desk:items-center desk:gap-4 desk:px-3 desk:py-3"
     >
       <NavigationRegion
         {...(href ? { href, "aria-label": `${name} — open in Cards` } : {})}
@@ -3261,19 +3262,15 @@ function TopMarketCardRow({ card, index, selectedWindowKey, marketAsOfDate = nul
       <div data-row-chart className="flex min-w-0 flex-col items-stretch desk:col-start-3 desk:row-start-1 desk:items-center">
         {/* ~48px of plot below desktop (was 32px, which flattened real
             movement into a decorative line); the restored 56px on desktop. */}
-        <CompactSparkline
+        <MarketSparkline
           points={sparklinePoints}
           trendDirection={sparklineTone}
-          className="h-12 w-full desk:h-14 desk:max-w-[13.75rem]"
+          label={`${name} market-price trend`}
+          className="w-full desk:max-w-[16rem]"
+          plotClassName="h-12 desk:h-16"
         />
-        {sparklinePoints.length >= 2 ? (
-          <div className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-[9px] text-[var(--text-secondary)] desk:max-w-[13.75rem] desk:text-[10px]">
-            <span className="truncate">{formatShortDate(sparklinePoints[0]?.date)}</span>
-            <span className="truncate text-right">{formatShortDate(sparklinePoints[sparklinePoints.length - 1]?.date)}</span>
-          </div>
-        ) : null}
         {trendStatusMessage ? (
-          <p className="mt-1 truncate text-[10px] text-[var(--text-secondary)] opacity-80 desk:max-w-[13.75rem]" title={trendStatusMessage}>
+          <p className="mt-1 truncate text-[10px] text-[var(--text-secondary)] opacity-80 desk:max-w-[16rem]" title={trendStatusMessage}>
             {trendStatusMessage}
           </p>
         ) : null}
@@ -3391,7 +3388,7 @@ function TopMarketCardsContent({
         {/* Column labels follow the desktop row grid, so they move to `desk:`
             with it — in the 1024-1199px tablet band the rows are compact and
             these labels would sit over the wrong columns. */}
-        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)] items-center gap-3 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] desk:grid">
+        <div className="hidden grid-cols-[3rem_minmax(0,1fr)_minmax(11rem,17rem)_minmax(8rem,10rem)] items-center gap-4 border-b border-[var(--border-subtle)] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)] desk:grid">
           <span>Rank</span>
           <span>Card</span>
           <span className="text-center">Trend</span>

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from backend.scripts.audit_pokemon_market_publication import (
+    EXPECTED_WINDOW_KEYS,
     SECTION_CARD_PRICES,
     SECTION_EXPLORE_SET_VALUE,
+    SECTION_GLOBAL_SET_VALUE,
     SECTION_HEADER_SUMMARY,
     SECTION_OPENING_PROFIT_VS_COST,
     SECTION_SEALED_MARKET,
@@ -84,6 +86,40 @@ def _explore_row(targets=None, **payload_overrides):
             "updated_at": f"{DATE}T12:00:00Z"}
 
 
+def _global_set_value_target(**overrides):
+    """A published global Market Set Value row, as ExploreTopRankings consumes it."""
+    target = {
+        "setId": "set-1",
+        "canonicalKey": "testSet",
+        "name": "Test Set",
+        "currentSetValue": 100.0,
+        "setValueAsOf": DATE,
+        "windows": {key: {"amount": 1.0, "percent": 1.0} for key in EXPECTED_WINDOW_KEYS},
+        "trend": [[PRIOR, 99.0], [DATE, 100.0]],
+    }
+    target.update(overrides)
+    return target
+
+
+def _global_set_value_row(sets=None, **overrides):
+    """A pokemon_explore_set_value_snapshot_latest row."""
+    published = [_global_set_value_target()] if sets is None else sets
+    payload = {"sets": published, "meta": {"snapshot": {"marketDate": DATE}}}
+    if "payload_json" in overrides:
+        payload = overrides.pop("payload_json")
+    row = {
+        "tcg": "pokemon",
+        "scope": "market",
+        "payload_json": payload,
+        "market_date": DATE,
+        "set_count": len(payload.get("sets") or []) if isinstance(payload, dict) else 0,
+        "payload_size_bytes": 1024,
+        "updated_at": f"{DATE}T12:00:00Z",
+    }
+    row.update(overrides)
+    return row
+
+
 def _audit(**overrides):
     kwargs = {
         "canonical_key": "testSet",
@@ -98,6 +134,8 @@ def _audit(**overrides):
         "supports_simulation": True,
         "has_sealed_product": True,
         "explore_target": _explore_target(),
+        "global_set_value_target": _global_set_value_target(),
+        "in_global_set_value_cohort": True,
         "canonical_set_value": 100.0,
     }
     kwargs.update(overrides)
@@ -111,7 +149,7 @@ def _section(row, name):
 def test_fully_current_set_passes_every_section():
     row = _audit()
     assert row.passed, row.failed_sections
-    assert len(row.sections) == 7
+    assert len(row.sections) == 8
 
 
 def test_set_value_behind_promoted_date_fails():
@@ -481,6 +519,7 @@ def _publication_db(**overrides):
             {"sealed_product_id": "sp-1", "captured_at": f"{DATE}T09:00:00Z"}
         ],
         "pokemon_explore_rankings_snapshot_latest": [_explore_row()],
+        "pokemon_explore_set_value_snapshot_latest": [_global_set_value_row()],
     }
     tables.update(overrides)
     return _FakeClient(tables)
@@ -647,6 +686,11 @@ def test_cards_snapshot_projection_selects_cards_json():
     run_market_publication_audit(client)
 
     assert "cards_json" in selected["pokemon_set_cards_snapshot_latest"]
+    # The global Market Set Value artifact is its OWN source table.
+    assert "payload_json" in selected["pokemon_explore_set_value_snapshot_latest"]
+    assert "set_count" in selected["pokemon_explore_set_value_snapshot_latest"]
+    # era_id backs the global Set Value cohort rule.
+    assert "era_id" in selected["sets"]
 
 
 def test_audit_still_passes_using_only_the_cards_json_fallback_end_to_end():
@@ -1011,3 +1055,213 @@ def test_deferred_sections_are_stated_in_the_text_report():
     assert report.passed, report.to_dict()["failed_by_section"]
     assert "DEFERRED" in text
     assert SECTION_OPENING_PROFIT_VS_COST in text
+
+
+# --------------------------------------------------------------------------
+# Global Market Set Value snapshot - the artifact /Market's Set Value ladder
+# actually renders. The Explore RIP rankings artifact above is a different
+# public surface, and its health proves nothing about this one.
+# --------------------------------------------------------------------------
+def test_global_set_value_window_keys_match_the_builder_contract():
+    """The audit's mirrored window list must never drift from the builder's."""
+    from backend.db.services.pokemon_explore_set_value_service import WINDOWS
+
+    assert EXPECTED_WINDOW_KEYS == tuple(key for key, _ in WINDOWS)
+
+
+def test_missing_global_set_value_snapshot_fails_the_audit():
+    """The exact production state: the table exists but holds zero rows."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[])
+    )
+
+    assert not report.passed
+    assert SECTION_GLOBAL_SET_VALUE in report.to_dict()["failed_by_section"]
+    detail = _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+    assert "no published global Market Set Value snapshot row" in detail
+
+
+def test_explore_rankings_health_cannot_vouch_for_the_global_set_value_artifact():
+    """A perfectly current RIP rankings snapshot must not excuse an absent one."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[])
+    )
+
+    assert _section(report.rows[0], SECTION_EXPLORE_SET_VALUE).passed is True
+    assert _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).passed is False
+    assert not report.passed
+
+
+def test_global_set_value_snapshot_on_the_wrong_market_date_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(market_date=PRIOR)
+        ])
+    )
+
+    assert not report.passed
+    assert "does not match promoted market date" in _section(
+        report.rows[0], SECTION_GLOBAL_SET_VALUE
+    ).detail
+
+
+def test_global_set_value_payload_date_behind_the_row_date_fails():
+    """updated_at and the row column cannot vouch for a stale payload."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    stale_payload = {
+        "sets": [_global_set_value_target()],
+        "meta": {"snapshot": {"marketDate": PRIOR}},
+    }
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(payload_json=stale_payload, set_count=1)
+        ])
+    )
+
+    assert not report.passed
+    assert "meta.snapshot.marketDate" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_incomplete_cohort_fails():
+    """An eligible set absent from the payload is a hard failure."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(sets=[])
+        ])
+    )
+
+    assert not report.passed
+    assert "missing 1 eligible cohort set" in _section(
+        report.rows[0], SECTION_GLOBAL_SET_VALUE
+    ).detail
+
+
+def test_global_set_value_out_of_cohort_set_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(sets=[
+                _global_set_value_target(),
+                _global_set_value_target(setId="intruder-1", canonicalKey="intruder"),
+            ])
+        ])
+    )
+
+    assert not report.passed
+    assert "out-of-cohort" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_duplicate_set_id_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(sets=[_global_set_value_target(), _global_set_value_target()])
+        ])
+    )
+
+    assert not report.passed
+    assert "duplicate setId" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_set_count_disagreeing_with_payload_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(set_count=99)
+        ])
+    )
+
+    assert not report.passed
+    assert "set_count" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_malformed_sets_array_fails():
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    report = run_market_publication_audit(
+        _publication_db(pokemon_explore_set_value_snapshot_latest=[
+            _global_set_value_row(payload_json={"sets": {}, "meta": {}})
+        ])
+    )
+
+    assert not report.passed
+    assert "is not an array" in _section(report.rows[0], SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_non_positive_current_value_fails():
+    row = _audit(global_set_value_target=_global_set_value_target(currentSetValue=0))
+    assert SECTION_GLOBAL_SET_VALUE in row.failed_sections
+    assert "not a finite positive number" in _section(row, SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_stale_as_of_fails():
+    row = _audit(global_set_value_target=_global_set_value_target(setValueAsOf=PRIOR))
+    assert SECTION_GLOBAL_SET_VALUE in row.failed_sections
+    assert "not the promoted market date" in _section(row, SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_set_value_must_agree_with_canonical_history():
+    row = _audit(
+        global_set_value_target=_global_set_value_target(currentSetValue=123.45),
+        canonical_set_value=100.0,
+    )
+    assert SECTION_GLOBAL_SET_VALUE in row.failed_sections
+    assert "disagrees with the canonical" in _section(row, SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_every_client_selectable_window_must_survive_into_the_snapshot():
+    """A missing window key is a dead /Market pill, not a lazy computation."""
+    for missing in EXPECTED_WINDOW_KEYS:
+        windows = {key: {"amount": 1.0} for key in EXPECTED_WINDOW_KEYS if key != missing}
+        row = _audit(global_set_value_target=_global_set_value_target(windows=windows))
+        assert SECTION_GLOBAL_SET_VALUE in row.failed_sections, missing
+        assert missing in _section(row, SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_set_outside_the_global_cohort_is_non_applicable_not_failed():
+    row = _audit(global_set_value_target=None, in_global_set_value_cohort=False)
+    assert _section(row, SECTION_GLOBAL_SET_VALUE).applicable is False
+    assert SECTION_GLOBAL_SET_VALUE not in row.failed_sections
+
+
+def test_eligible_set_with_no_published_row_fails():
+    row = _audit(global_set_value_target=None, in_global_set_value_cohort=True)
+    assert SECTION_GLOBAL_SET_VALUE in row.failed_sections
+    assert "publishes no snapshot row" in _section(row, SECTION_GLOBAL_SET_VALUE).detail
+
+
+def test_global_cohort_is_computed_before_the_set_filter_is_applied():
+    """`--set one-set` must not make an incomplete global snapshot look complete."""
+    from backend.scripts.audit_pokemon_market_publication import run_market_publication_audit
+
+    tables = dict(_publication_db().tables)
+    tables["sets"] = list(tables["sets"]) + [
+        {
+            "id": "set-2",
+            "name": "Second Set",
+            "canonical_key": "secondSet",
+            "ready_for_daily_scrape": True,
+            "catalog_only": False,
+            "supports_opening_simulation": True,
+            "has_sealed_details_url": False,
+        }
+    ]
+    report = run_market_publication_audit(_FakeClient(tables), canonical_keys=["testSet"])
+
+    assert len(report.rows) == 1
+    assert not report.passed
+    assert "missing 1 eligible cohort set" in _section(
+        report.rows[0], SECTION_GLOBAL_SET_VALUE
+    ).detail

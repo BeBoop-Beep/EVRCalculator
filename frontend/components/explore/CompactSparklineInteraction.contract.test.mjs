@@ -8,17 +8,14 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // RipStatisticsPageClient.jsx has mixed CRLF/LF endings; normalise before any
 // multi-line anchor.
 const source = fs
-  .readFileSync(path.resolve(here, "RipStatisticsPageClient.jsx"), "utf8")
+  .readFileSync(path.resolve(here, "MarketSparkline.jsx"), "utf8")
   .replace(/\r\n/g, "\n");
 
-const sparkline = source.slice(
-  source.indexOf("function CompactSparkline("),
-  source.indexOf("function normalizeSetValueHistoryPoints(")
-);
+const sparkline = source;
 
 test("the sparkline listens on pointer events, not mouse-only events", () => {
-  assert.ok(sparkline.length > 0, "CompactSparkline must be locatable");
-  assert.ok(sparkline.includes("onPointerDown={handlePointerDown}"));
+  assert.ok(sparkline.includes("function MarketSparkline"), "MarketSparkline must be locatable");
+  assert.ok(sparkline.includes("onPointerDown="));
   assert.ok(sparkline.includes("onPointerMove={handlePointerMove}"));
   assert.ok(sparkline.includes("onPointerUp={handlePointerUp}"));
   assert.ok(sparkline.includes("onPointerCancel="), "a cancelled gesture must drop its tracking state");
@@ -32,15 +29,12 @@ test("vertical page scrolling is handed back to the browser", () => {
 
 test("desktop hover is untouched", () => {
   // The mouse branch selects on move exactly as before and still clears on leave.
-  assert.ok(sparkline.includes('if (event.pointerType === "mouse") {\n      selectAtClientX(event.clientX);'));
-  assert.ok(sparkline.includes('if (event?.pointerType === "mouse" || !isCoarsePointer) {\n      clearSelection();'));
+  assert.ok(sparkline.includes('event.pointerType === "mouse"'));
+  assert.ok(sparkline.includes('pointerMode !== POINTER_MODE_COARSE'));
 });
 
 test("a touch selection survives the finger leaving the screen", () => {
-  assert.ok(
-    sparkline.includes("// Touch selections must survive the finger leaving the screen"),
-    "the leave handler documents and implements the touch exemption"
-  );
+  assert.ok(sparkline.includes('if (event.pointerType === "mouse" || pointerMode !== POINTER_MODE_COARSE) clearSelection()'));
 });
 
 test("keyboard inspection is preserved and extended", () => {

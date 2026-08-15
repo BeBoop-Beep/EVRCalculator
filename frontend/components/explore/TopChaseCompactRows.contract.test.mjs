@@ -31,7 +31,7 @@ test("the desktop row is the four-column table again: rank | card | trend | pric
   // the price had moved inside the link and the chart could only be placed after
   // it. The row now declares the historical four-column template directly.
   assert.ok(
-    row.includes("desk:grid-cols-[3rem_minmax(0,1fr)_minmax(9rem,14.5rem)_minmax(8rem,10rem)]"),
+    row.includes("desk:grid-cols-[3rem_minmax(0,1fr)_minmax(11rem,17rem)_minmax(8rem,10rem)]"),
     "the restored desktop column template"
   );
   assert.ok(!row.includes("desk:grid-cols-[minmax(0,1fr)_minmax(9rem,14.5rem)]"), "the two-column regression is gone");
@@ -55,19 +55,20 @@ test("the desktop price column never holds the chart, and the trend column never
   const chartEnd = row.indexOf('data-row-price="table"');
   assert.ok(chartStart >= 0 && chartEnd > chartStart, "both regions must be locatable and ordered");
   const chartRegion = row.slice(chartStart, chartEnd);
-  assert.ok(chartRegion.includes("<CompactSparkline"), "the sparkline lives in the trend region");
+  assert.ok(chartRegion.includes("<MarketSparkline"), "the sparkline lives in the trend region");
   assert.ok(!chartRegion.includes("MarketValueChange"), "no price or delta may render in the trend column");
   const priceRegion = row.slice(chartEnd);
   assert.ok(priceRegion.includes("priceCell"), "the price region renders the shared price cell");
-  assert.ok(!priceRegion.includes("CompactSparkline"), "no sparkline may render in the price column");
+  assert.ok(!priceRegion.includes("MarketSparkline"), "no sparkline may render in the price column");
 });
 
 test("the desktop sparkline dimensions are the restored ones", () => {
   // 56px tall, capped at 13.75rem, centred in its column — the pre-mobile values
   // recovered from f310ee8.
-  assert.ok(row.includes('className="h-12 w-full desk:h-14 desk:max-w-[13.75rem]"'), "restored desktop plot box");
+  assert.ok(row.includes('className="w-full desk:max-w-[16rem]"'), "standardized desktop plot box");
+  assert.ok(row.includes('plotClassName="h-12 desk:h-16"'), "64px desktop plot height");
   assert.ok(row.includes("desk:items-center"), "the plot is centred in the trend column");
-  assert.ok(row.includes("desk:max-w-[13.75rem] desk:text-[10px]"), "the start/end dates keep the plot's width and desktop size");
+  assert.ok(row.includes("desk:max-w-[16rem]"), "the status text keeps the plot's width");
   assert.ok(row.includes("desk:px-3 desk:py-3"), "the restored desktop row padding");
   assert.ok(row.includes("h-[4.875rem] w-14"), "the restored desktop card image box");
 });
@@ -81,7 +82,7 @@ test("the price cell is computed once and rendered per composition", () => {
 });
 
 test("every field the brief lists survives in the row", () => {
-  for (const token of ["#{index + 1}", "{name}", "{rarity", "MarketValueChange", "CompactSparkline"]) {
+  for (const token of ["#{index + 1}", "{name}", "{rarity", "MarketValueChange", "MarketSparkline"]) {
     assert.ok(row.includes(token), `${token} must remain in the row`);
   }
   // Price, dollar movement and percentage movement all still flow through the
@@ -102,10 +103,10 @@ test("the information region is the link and the sparkline is its sibling", () =
   const navEnd = row.indexOf("</NavigationRegion>");
   assert.ok(navStart >= 0 && navEnd > navStart, "the navigation region must be locatable");
   assert.ok(
-    !row.slice(navStart, navEnd).includes("CompactSparkline"),
+    !row.slice(navStart, navEnd).includes("MarketSparkline"),
     "the sparkline must not be rendered inside the anchor"
   );
-  assert.ok(row.indexOf("CompactSparkline") > navEnd, "the chart region is a sibling that follows the link");
+  assert.ok(row.indexOf("MarketSparkline") > navEnd, "the chart region is a sibling that follows the link");
   assert.ok(row.includes("min-h-11"), "the row keeps a usable touch height");
 });
 
@@ -132,7 +133,7 @@ test("the row destination keeps the set and the timeframe context", () => {
 test("rows 6-10 are never discarded", () => {
   // Five rows is a preview only because the existing expand control still
   // reveals the full fetched list in place. Parity spec section 6.
-  assert.ok(module_.includes("showAllChaseCards ? 10 : TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "the preview is five rows and the expansion is ten");
+  assert.ok(source.includes("maxRows={10}"), "all ten fetched rows remain rendered");
   assert.ok(module_.includes("Show ${hiddenRowCount} more"), "the reveal control survives");
   assert.ok(module_.includes("Show fewer chase cards"), "the collapse control survives");
   assert.ok(module_.includes("totalRows > TOP_CHASE_MOBILE_PREVIEW_LIMIT"), "the control appears whenever there is more than the preview");

@@ -106,6 +106,16 @@ def main() -> None:
             ],
         ),
         (
+            # MUST follow the coordinated dashboard step: the global Set Value
+            # aggregate validates every candidate against those prepared 365d
+            # dashboard histories, so running it earlier would validate against
+            # the previous generation. Without this step a full public build
+            # could publish every surrounding artifact and still leave /Market's
+            # Set Value ladder empty.
+            "global market set value",
+            ["backend/scripts/build_pokemon_explore_set_value_snapshot.py", mode_flag, *gate_forward],
+        ),
+        (
             "global explore card movers",
             ["backend/scripts/build_pokemon_explore_card_movers_snapshot.py", mode_flag, *gate_forward],
         ),

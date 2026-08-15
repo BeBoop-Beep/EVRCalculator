@@ -52,6 +52,7 @@ SECTION_SEALED_MARKET = "sealed_market"
 SECTION_CARD_PRICES = "card_prices"
 SECTION_HEADER_SUMMARY = "header_summary"
 SECTION_EXPLORE_SET_VALUE = "explore_set_value"
+SECTION_GLOBAL_SET_VALUE = "global_market_set_value"
 
 ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_SET_VALUE,
@@ -60,8 +61,20 @@ ALL_SECTIONS: Tuple[str, ...] = (
     SECTION_SEALED_MARKET,
     SECTION_CARD_PRICES,
     SECTION_EXPLORE_SET_VALUE,
+    SECTION_GLOBAL_SET_VALUE,
     SECTION_HEADER_SUMMARY,
 )
+
+GLOBAL_SET_VALUE_TABLE = "pokemon_explore_set_value_snapshot_latest"
+
+# Every timeframe pill /Market can select. These are pure client-side slices of
+# the published payload, so a window absent here is a DEAD control on the page.
+#
+# Mirrored from pokemon_explore_set_value_service.WINDOWS rather than imported:
+# that module builds a Supabase client at import time, and this audit's pure
+# layer must stay importable without credentials. A contract test asserts the two
+# lists never drift.
+EXPECTED_WINDOW_KEYS: Tuple[str, ...] = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 
 # Audit phases.
 #
@@ -868,6 +881,175 @@ def explore_snapshot_problem(market_date: str, explore_row: Optional[Dict[str, A
     return None
 
 
+def global_set_value_targets(snapshot_row: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """The persisted global Set Value rows, or ``None`` when malformed.
+
+    ``None`` and ``[]`` are different answers, exactly as in ``explore_targets``:
+    a payload whose ``sets`` is not an array is a MALFORMED publication, while an
+    empty array is readable and simply publishes nobody.
+    """
+    if not snapshot_row:
+        return None
+    payload = snapshot_row.get("payload_json")
+    if not isinstance(payload, dict):
+        payload = _as_obj(payload)
+        if not payload:
+            return None
+    sets = payload.get("sets")
+    if not isinstance(sets, list):
+        return None
+    return [row for row in sets if isinstance(row, dict)]
+
+
+def global_set_value_snapshot_problem(
+    market_date: str,
+    snapshot_row: Optional[Dict[str, Any]],
+    *,
+    expected_set_ids: Sequence[str] = (),
+) -> Optional[str]:
+    """Snapshot-wide defect in the global Market Set Value artifact, or ``None``.
+
+    This is the artifact ExploreTopRankings now renders on /Market. The Explore
+    RIP rankings snapshot is a DIFFERENT public surface and its health says
+    nothing about this one — treating it as proof is how a completely absent
+    global Set Value snapshot (row_count = 0) coexisted with a passing market
+    publication audit while /Market showed "temporarily unavailable".
+    """
+    if not snapshot_row:
+        return f"no published global Market Set Value snapshot row (tcg=pokemon, scope=market) in {GLOBAL_SET_VALUE_TABLE}"
+
+    payload = snapshot_row.get("payload_json")
+    if not isinstance(payload, dict) and not _as_obj(payload):
+        return "global Market Set Value payload_json is not an object"
+
+    targets = global_set_value_targets(snapshot_row)
+    if targets is None:
+        return "global Market Set Value payload_json.sets is not an array"
+
+    # Freshness is taken from the row's own market_date AND the payload's own
+    # advertised date; updated_at is never accepted, since a rebuild that
+    # republishes yesterday's numbers still bumps it.
+    row_date = _date_key(snapshot_row.get("market_date"))
+    if row_date != market_date:
+        return (
+            f"global Market Set Value snapshot market_date {row_date or 'missing'} "
+            f"does not match promoted market date {market_date}"
+        )
+    payload_date = _date_key(_dig(_as_obj(payload), "meta.snapshot.marketDate"))
+    if payload_date != market_date:
+        return (
+            f"global Market Set Value payload meta.snapshot.marketDate {payload_date or 'missing'} "
+            f"does not match promoted market date {market_date}"
+        )
+
+    declared = snapshot_row.get("set_count")
+    if not isinstance(declared, int) or declared != len(targets):
+        return (
+            f"global Market Set Value set_count {declared!r} disagrees with the "
+            f"{len(targets)} published set(s) in payload_json.sets"
+        )
+
+    seen: Dict[str, int] = {}
+    for target in targets:
+        identity = _to_text(target.get("setId") or target.get("set_id"))
+        if not identity:
+            return "global Market Set Value publishes a row with no setId"
+        seen[identity] = seen.get(identity, 0) + 1
+    duplicates = sorted(key for key, count in seen.items() if count > 1)
+    if duplicates:
+        return f"global Market Set Value publishes duplicate setId(s): {duplicates[:5]}"
+
+    expected = {str(key) for key in expected_set_ids}
+    if expected:
+        unexpected = sorted(set(seen) - expected)
+        if unexpected:
+            return f"global Market Set Value publishes out-of-cohort setId(s): {unexpected[:5]}"
+        absent = sorted(expected - set(seen))
+        if absent:
+            return (
+                f"global Market Set Value is missing {len(absent)} eligible cohort set(s): {absent[:5]}"
+            )
+    return None
+
+
+def _audit_global_set_value(
+    market_date: str,
+    *,
+    target: Optional[Dict[str, Any]],
+    canonical_set_value: Optional[float],
+    in_cohort: bool,
+    snapshot_problem: Optional[str] = None,
+) -> SectionVerdict:
+    """Per-set verdict on the compact global Market Set Value snapshot.
+
+    ``in_cohort`` is the builder's OWN eligibility rule (simulation-supported and
+    public-analytics eligible), so a publication-required set that the snapshot
+    legitimately never covers is non-applicable rather than failed — while an
+    eligible set that is absent is a hard failure.
+    """
+    verdict = SectionVerdict(section=SECTION_GLOBAL_SET_VALUE)
+    if snapshot_problem:
+        verdict.passed = False
+        verdict.detail = snapshot_problem
+        return verdict
+
+    if not in_cohort:
+        verdict.applicable = False
+        verdict.detail = "set is outside the global Market Set Value cohort"
+        return verdict
+
+    if target is None:
+        verdict.passed = False
+        verdict.detail = "set is in the global Market Set Value cohort but publishes no snapshot row"
+        return verdict
+
+    as_of = _date_key(target.get("setValueAsOf") or target.get("set_value_as_of"))
+    verdict.observed_date = as_of
+    if as_of != market_date:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value row is dated {as_of or 'nowhere'}, "
+            f"not the promoted market date {market_date}"
+        )
+        return verdict
+
+    value = _finite(target.get("currentSetValue") or target.get("current_set_value"))
+    if value is None or value <= 0:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value currentSetValue {target.get('currentSetValue')!r} "
+            f"is not a finite positive number"
+        )
+        return verdict
+
+    # Every window the client can select must already be present: the /Market
+    # timeframe pills are pure client-side slices of this payload, so a missing
+    # window key is a dead control, not a lazily-computed one.
+    windows = target.get("windows")
+    windows = windows if isinstance(windows, dict) else {}
+    missing_windows = [key for key in EXPECTED_WINDOW_KEYS if key not in windows]
+    if missing_windows:
+        verdict.passed = False
+        verdict.detail = f"global Set Value row is missing window metadata: {missing_windows}"
+        return verdict
+
+    if canonical_set_value is None:
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value advertises a value for {market_date} but no canonical "
+            f"standard set-value row exists for that date"
+        )
+        return verdict
+
+    if round(value, 2) != round(canonical_set_value, 2):
+        verdict.passed = False
+        verdict.detail = (
+            f"global Set Value {round(value, 2)} disagrees with the canonical standard "
+            f"set value {round(canonical_set_value, 2)} for {market_date}"
+        )
+    return verdict
+
+
 def _audit_header_summary(
     market_date: str,
     page_row: Optional[Dict[str, Any]],
@@ -930,6 +1112,9 @@ def audit_market_set_row(
     explore_target: Optional[Dict[str, Any]] = None,
     explore_snapshot_problem_detail: Optional[str] = None,
     canonical_set_value: Optional[float] = None,
+    global_set_value_target: Optional[Dict[str, Any]] = None,
+    global_set_value_problem_detail: Optional[str] = None,
+    in_global_set_value_cohort: bool = False,
     phase: str = PHASE_FULL,
 ) -> MarketSetAuditRow:
     """Pure per-set verdict across every publication-required market surface.
@@ -942,6 +1127,7 @@ def audit_market_set_row(
       sealed       -> pokemon_set_sealed_market_snapshot_latest
       card_prices  -> pokemon_set_cards_snapshot_latest
       explore      -> pokemon_explore_rankings_snapshot_latest (+ daily history)
+      global_sv    -> pokemon_explore_set_value_snapshot_latest (+ daily history)
       header       -> pokemon_set_page_snapshot_latest
     """
     row = MarketSetAuditRow(canonical_key=canonical_key, set_id=set_id, set_name=set_name)
@@ -951,6 +1137,13 @@ def audit_market_set_row(
         explore_target=explore_target,
         canonical_set_value=canonical_set_value,
         snapshot_problem=explore_snapshot_problem_detail,
+    )
+    global_set_value_verdict = _audit_global_set_value(
+        market_date,
+        target=global_set_value_target,
+        canonical_set_value=canonical_set_value,
+        in_cohort=in_global_set_value_cohort,
+        snapshot_problem=global_set_value_problem_detail,
     )
 
     if dashboard_row is None:
@@ -979,6 +1172,7 @@ def audit_market_set_row(
             ),
             _audit_card_prices(market_date, cards_row),
             explore_verdict,
+            global_set_value_verdict,
         ]
         row.sections.extend(dependent)
         row.sections.append(_audit_header_summary(market_date, page_row, dependent))
@@ -994,6 +1188,7 @@ def audit_market_set_row(
         ),
         _audit_card_prices(market_date, cards_row),
         explore_verdict,
+        global_set_value_verdict,
     ]
     row.sections.extend(dependent)
     row.sections.append(_audit_header_summary(market_date, page_row, dependent))
@@ -1030,7 +1225,9 @@ def _load_publication_required_sets(client: Any) -> Tuple[List[Dict[str, Any]], 
     try:
         result = (
             client.table("sets")
-            .select("id,name,canonical_key,supports_opening_simulation,has_sealed_details_url")
+            # era_id is required: is_public_analytics_eligible gates on it, and the
+            # global Set Value cohort is derived from that same rule.
+            .select("id,name,canonical_key,era_id,supports_opening_simulation,has_sealed_details_url")
             .eq("ready_for_daily_scrape", True)
             .eq("catalog_only", False)
             .execute()
@@ -1169,6 +1366,52 @@ def _load_explore_rankings_row(client: Any) -> Optional[Dict[str, Any]]:
     return rows[0] if rows else None
 
 
+def _load_global_set_value_row(client: Any) -> Optional[Dict[str, Any]]:
+    """The persisted global Set Value payload /Market's ladder actually serves."""
+    result = (
+        client.table(GLOBAL_SET_VALUE_TABLE)
+        .select("tcg,scope,payload_json,market_date,set_count,payload_size_bytes,updated_at")
+        .eq("tcg", "pokemon")
+        .eq("scope", "market")
+        .limit(1)
+        .execute()
+    )
+    rows = list((result.data if result else []) or [])
+    return rows[0] if rows else None
+
+
+def index_global_set_value_targets(targets: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Index published Set Value rows by every identity a set row can match on."""
+    index: Dict[str, Dict[str, Any]] = {}
+    for target in targets:
+        for key in ("setId", "set_id", "canonicalKey", "canonical_key"):
+            identity = _to_text(target.get(key))
+            if identity:
+                index.setdefault(identity, target)
+    return index
+
+
+def global_set_value_cohort_ids(sets: Sequence[Dict[str, Any]]) -> List[str]:
+    """Set ids the global Set Value BUILDER would publish, via its own rule.
+
+    Reuses ``is_public_analytics_eligible`` rather than restating the cohort, so
+    the audit and the builder can never disagree about who is owed a row.
+    """
+    from backend.desirability.public_analytics_policy import is_public_analytics_eligible
+
+    cohort: List[str] = []
+    for set_row in sets or []:
+        set_id = _to_text(set_row.get("id"))
+        if not set_id or set_row.get("supports_opening_simulation") is not True:
+            continue
+        try:
+            if is_public_analytics_eligible(set_row):
+                cohort.append(set_id)
+        except Exception:  # pragma: no cover - a broken row must not hide the rest
+            continue
+    return cohort
+
+
 def run_market_publication_audit(
     client: Any,
     *,
@@ -1188,6 +1431,10 @@ def run_market_publication_audit(
     sets, set_error = _load_publication_required_sets(client)
     if set_error:
         return MarketAuditReport(market_date=resolved_date, phase=phase, error=set_error)
+    # The global Set Value cohort is derived from the FULL publication-required
+    # list, never the `--set` filtered view: auditing a single set must not be
+    # able to make an incomplete global snapshot look complete.
+    all_sets = list(sets)
     if canonical_keys is not None:
         wanted = {str(k) for k in canonical_keys}
         sets = [row for row in sets if _to_text(row.get("canonical_key")) in wanted]
@@ -1233,6 +1480,10 @@ def run_market_publication_audit(
         sealed_source_dates = _load_sealed_source_latest_dates(client, sealed_products, resolved_date)
         # The persisted Explore payload ExploreTopRankings actually renders.
         explore_row = _load_explore_rankings_row(client)
+        # The artifact /Market's Set Value ladder renders. The Explore RIP
+        # rankings row above is a DIFFERENT public surface and proves nothing
+        # about this one.
+        global_set_value_row = _load_global_set_value_row(client)
     except Exception as exc:
         return MarketAuditReport(
             market_date=resolved_date, phase=phase, error=f"publication surface read failed ({exc})"
@@ -1240,6 +1491,12 @@ def run_market_publication_audit(
 
     explore_problem = explore_snapshot_problem(resolved_date, explore_row)
     explore_index = index_explore_targets(explore_targets(explore_row) or [])
+
+    global_cohort = set(global_set_value_cohort_ids(all_sets))
+    global_problem = global_set_value_snapshot_problem(
+        resolved_date, global_set_value_row, expected_set_ids=sorted(global_cohort)
+    )
+    global_index = index_global_set_value_targets(global_set_value_targets(global_set_value_row) or [])
 
     report = MarketAuditReport(market_date=resolved_date, phase=phase)
     for set_row in sorted(sets, key=lambda r: str(r.get("canonical_key") or "")):
@@ -1278,6 +1535,11 @@ def run_market_publication_audit(
                 ),
                 explore_snapshot_problem_detail=explore_problem,
                 canonical_set_value=canonical_value,
+                global_set_value_target=(
+                    global_index.get(set_id or "") or global_index.get(canonical_key or "")
+                ),
+                global_set_value_problem_detail=global_problem,
+                in_global_set_value_cohort=(set_id or "") in global_cohort,
                 phase=phase,
             )
         )
