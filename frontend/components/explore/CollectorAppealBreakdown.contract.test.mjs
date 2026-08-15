@@ -82,7 +82,7 @@ const V7_FIXTURE = {
     version: "collector_appeal_v4",
     weightsDisclosed: false,
     components: {
-      rosterDesirability: { score: 62.0, rawValue: 0.62, version: "universal_set_desirability_v3" },
+      rosterDesirability: { score: 62.0, rawValue: 0.62, rank: 5, rankedSetCount: 21, relativeScore: 84.2, tier: "A", version: "universal_set_desirability_v3" },
       desirableOutcomeFrequency: {
         rawValue: 0.031,
         displayPercent: 3.1,
@@ -93,6 +93,10 @@ const V7_FIXTURE = {
         slotGroupCount: 3,
         status: "available",
         isFinancialMetric: false,
+        rank: 14,
+        rankedSetCount: 21,
+        relativeScore: 31.4,
+        tier: "D",
       },
       dualPathDepth: { rawValue: 0.4385, displayPercent: 43.8, subjectsWithMultiplePaths: 5 },
     },
@@ -164,6 +168,20 @@ test("the score, rank, tier and denominator are the backend's own", () => {
   assert.equal(appeal.rank, 3);
   assert.equal(appeal.rankedSetCount, 21);
   assert.equal(appeal.tier, "A");
+});
+
+test("both Collector factors expose canonical standings and rails never use raw values", () => {
+  const { rows } = selectCollectorAppealBreakdown({ publicRipContractV8: V7_FIXTURE });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(
+    rows.map(({ rank, cohortSize, tier, relativeScore, railPercent }) => ({ rank, cohortSize, tier, relativeScore, railPercent })),
+    [
+      { rank: 5, cohortSize: 21, tier: "A", relativeScore: 84.2, railPercent: 84.2 },
+      { rank: 14, cohortSize: 21, tier: "D", relativeScore: 31.4, railPercent: 31.4 },
+    ]
+  );
+  assert.notEqual(rows[0].railPercent, 62.0, "roster raw value is not its cohort standing");
+  assert.notEqual(rows[1].railPercent, 3.1, "frequency percentage is not its cohort standing");
 });
 
 test("the three factors are presented in parallel, not as a sequential chain", () => {

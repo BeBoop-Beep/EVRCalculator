@@ -46,29 +46,23 @@
 // of being checked by reading its source.
 
 import React, { useId } from "react";
+import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 
 // THE QUIET RAIL.
 //
 // Deliberately NOT the summary treatment. The three Insights Summary cards own
 // the elevated, glowing rail; these nine rows get a low-contrast fill with no
 // bloom, no end dot and no shadow, so a breakdown reads as supporting evidence
-// rather than as nine competing headlines. Only the accent hue changes between
-// the two sections — blue/cyan for Financial RIP, purple/magenta for Collector
-// Appeal — and both are drawn at the same restraint.
-const RAIL_ACCENTS = {
-  financial: "56,189,248",
-  collector: "192,132,252",
-};
-
+// rather than as competing headlines. The backend factor tier selects the hue.
 /**
- * A rail is drawn ONLY from a real, finite value the row is already showing.
+ * A rail is drawn ONLY from a real, finite backend-owned relative score.
  * There is no fabricated history, no sparkline and no placeholder fill: an
  * unavailable metric renders the empty track, which reads as "no value" rather
  * than as zero. Zero itself IS a real value on a cohort-relative scale, so a
  * 0/100 metric remains available even though its fill has zero width.
  */
-function MetricRail({ percent, accentFamily }) {
-  const accent = RAIL_ACCENTS[accentFamily] || RAIL_ACCENTS.financial;
+function MetricRail({ percent, tier }) {
+  const presentation = getRipTierPresentation(tier);
   const parsed = Number(percent);
   const width = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : null;
   const hasValue = width !== null;
@@ -85,7 +79,7 @@ function MetricRail({ percent, accentFamily }) {
           className="h-full rounded-full"
           style={{
             width: `${width}%`,
-            background: `linear-gradient(90deg, rgba(${accent},0.26) 0%, rgba(${accent},0.5) 100%)`,
+            background: presentation.color,
           }}
         />
       ) : null}
@@ -146,7 +140,7 @@ export default function RipMetricDisclosureRow({
   // (or a non-finite value) draws the empty track. `accentFamily` selects the
   // section hue and nothing else — it never changes the rail's emphasis.
   railPercent = null,
-  accentFamily = null,
+  tier = null,
   statusNote = null,
   isOpen = false,
   onToggle,
@@ -172,26 +166,29 @@ export default function RipMetricDisclosureRow({
          two sections can lay their rows out on a grid without the dividers
          running into each other between columns. Nothing about the markup, the
          controls or the disclosure wiring changes with width. */
-      className="min-w-0 rounded-xl border border-[rgba(255,255,255,0.09)] bg-[linear-gradient(145deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.08)] transition-colors hover:border-[rgba(255,255,255,0.15)]"
+      className="min-w-0 border-b border-[var(--border-subtle)] bg-transparent px-1 py-3 transition-colors last:border-b-0 desk:rounded-lg desk:border desk:bg-[rgba(2,8,23,0.22)] desk:p-3.5 desk:hover:border-[var(--tier-border)]"
+      style={getRipTierPresentation(tier).style}
     >
-      <div className="flex min-w-0 items-baseline justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <h4 className="min-w-0 text-sm font-semibold text-[var(--text-primary)]">{title}</h4>
-        <p className="flex-none text-base font-semibold leading-none tabular-nums text-[var(--text-primary)]">
+      </div>
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="flex-none text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">
           {value}
           {valueSuffix ? (
             <span className="pl-0.5 text-[10px] font-medium text-[var(--text-secondary)]">{valueSuffix}</span>
           ) : null}
         </p>
+        {meta ? <p className="text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">{meta}</p> : null}
+        {tier ? <span data-factor-tier className="inline-flex flex-none rounded-full border border-[var(--tier-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--tier-color)]">{tier} Tier</span> : null}
       </div>
 
       {railPercent !== null && railPercent !== undefined ? (
-        <MetricRail percent={railPercent} accentFamily={accentFamily} />
+        <MetricRail percent={railPercent} tier={tier} />
       ) : null}
 
-      {meta ? <p className="mt-1 text-[11px] font-medium text-[var(--text-secondary)]">{meta}</p> : null}
-
       {interpretation ? (
-        <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{interpretation}</p>
+        <p data-rip-metric-interpretation className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{interpretation}</p>
       ) : null}
 
       {disclaimer ? (
@@ -214,9 +211,11 @@ export default function RipMetricDisclosureRow({
             aria-expanded={isOpen}
             aria-controls={panelId}
             onClick={() => onToggle?.(rowKey)}
+            aria-label={`${isOpen ? "Hide" : "Show"} ${title} details`}
+            data-rip-metric-disclosure
             className="mt-1.5 inline-flex items-center gap-1 rounded text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            {isOpen ? "Hide details" : "Details"}
+            <span className="max-md:sr-only">{isOpen ? "Hide details" : "Details"}</span>
             <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m2.5 4.25 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
 

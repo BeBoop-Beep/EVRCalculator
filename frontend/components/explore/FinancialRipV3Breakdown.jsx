@@ -66,7 +66,6 @@ function formatComponentMeta(row) {
   return [
     `Rank #${row.rankValue}`,
     row.cohortSize ? ` of ${row.cohortSize}` : "",
-    row.rankTier ? ` · Tier ${row.rankTier}` : "",
   ].join("");
 }
 
@@ -157,13 +156,6 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
 
   return (
     <section data-financial-rip-breakdown="v3" className="min-w-0">
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Financial RIP</h3>
-        <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-          Built from the simulated pack-value distribution and the pack price.
-        </p>
-      </div>
-
       {v3.diagnostics.status === "ready" ? (
         <>
           {/* SIX SCANNABLE ROWS, not six open reports. Every supporting metric
@@ -176,7 +168,7 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                 what a phone can actually read. `items-start` lets one expanded
                 card grow without stretching its neighbours, and no cell carries
                 a fixed height, so an expanded panel can never be clipped. */}
-            <div className="grid min-w-0 grid-cols-1 items-start gap-2.5 md:grid-cols-2 desk:grid-cols-3 desk:gap-3">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-0 desk:grid-cols-2 desk:gap-3">
               {v3.rows.map((row) => (
                 <RipMetricDisclosureRow
                   key={row.key}
@@ -195,7 +187,7 @@ export default function FinancialRipV3Breakdown({ canonical, requestTimeout = fa
                   // unlabelled reinforcement of that rank, never a second
                   // reading of the outcome figure printed as the value.
                   railPercent={row.publicAvailable ? row.publicScore : null}
-                  accentFamily="financial"
+                  tier={row.rankTier}
                   isOpen={disclosure.openKeys.includes(row.key)}
                   onToggle={disclosure.toggle}
                 />

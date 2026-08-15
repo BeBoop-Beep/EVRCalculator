@@ -61,13 +61,6 @@ export default function CollectorAppealBreakdown({ canonical }) {
           Score headline above; repeating them here put the same four values on
           screen twice, a few centimetres apart, in two different treatments.
           The factors below are what this section adds. */}
-      <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)]">Collector Appeal</h3>
-      </div>
-      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
-        How desirable the modeled cards are, and how often the pack can deliver one.
-      </p>
-
       {appeal.available ? (
         // THREE PEERS. A flat stack of identical rows: no arrows, no numbered
         // stages, no ordering device that reads as one factor feeding the next.
@@ -79,7 +72,7 @@ export default function CollectorAppealBreakdown({ canonical }) {
               arrows, no numbering and no ordering device that reads as one
               factor feeding the next. `items-start` keeps an expanded factor
               from stretching the other two, and no cell has a fixed height. */}
-          <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-3 desk:gap-3">
+          <div className="grid min-w-0 grid-cols-1 items-start gap-y-0 desk:grid-cols-2 desk:gap-3">
           {appeal.rows.map((row) => (
             <RipMetricDisclosureRow
               key={row.key}
@@ -87,14 +80,12 @@ export default function CollectorAppealBreakdown({ canonical }) {
               dataAttribute="data-collector-appeal-factor"
               title={row.title}
               value={row.value}
+              meta={row.rank === null ? null : `Rank #${Math.round(row.rank)}${row.cohortSize === null ? "" : ` of ${Math.round(row.cohortSize)}`}`}
+              tier={row.tier}
               interpretation={row.interpretation}
-              // The QUIET rail in the purple family — the same restraint as
-              // Financial RIP's six, never the summary glow. `railPercent` is
-              // the selector's presentation-only reading of the value already
-              // printed on the row; an unavailable factor draws an empty track
-              // rather than a zero-length fill that reads as a real zero.
+              // The same quiet tier-colored rail as Financial RIP. Its width is
+              // the backend's cohort-relative standing, never the raw value.
               railPercent={row.railPercent ?? null}
-              accentFamily="collector"
               // Visible WITHOUT expanding. This is the sentence that stops a
               // probability under an appeal heading from reading as a promise
               // about money, so it can never be behind a disclosure.

@@ -13,9 +13,16 @@ const routingSource = read("ripStatisticsRouting.js").replace(
   /^import \{[^}]*\} from "@\/utils\/slugify";\n/m,
   ""
 );
-const { buildTcgSetHrefFromTarget } = await import(
+const { buildTcgSetHrefFromSlug, buildTcgSetHrefFromTarget } = await import(
   `data:text/javascript;base64,${Buffer.from(`${slugifySource}\n${routingSource}`, "utf8").toString("base64")}`
 );
+
+test("set slug routes preserve the requested set and default to RIP", () => {
+  assert.equal(
+    buildTcgSetHrefFromSlug("perfect-order"),
+    "/TCGs/Pokemon/Sets/perfect-order"
+  );
+});
 
 const setTarget = (name) => ({
   target_type: "set",

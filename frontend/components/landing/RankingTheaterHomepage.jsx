@@ -57,7 +57,11 @@ function Theater({ set, rows, boosterPackImage }) {
         </div>
       ))}
       <div className={styles.productGlow} aria-hidden="true" />
-      <div className={styles.productStage}>
+      <Link
+        className={styles.productStage}
+        href={set?.href || "/Explore/rip-statistics"}
+        aria-label={`View ${set?.name || "featured set"} RIP analysis`}
+      >
         {boosterPackImage ? (
           <Image
             className={styles.packImage}
@@ -71,7 +75,7 @@ function Theater({ set, rows, boosterPackImage }) {
         ) : (
           <div className={styles.logoStage}><SetMark set={set} className={styles.heroLogo} /></div>
         )}
-      </div>
+      </Link>
     </div>
   );
 }

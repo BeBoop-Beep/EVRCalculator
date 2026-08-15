@@ -103,6 +103,24 @@ export default function SetIdentity({
     setShowImage(false);
   };
 
+  if (variant === "mobileRanking") {
+    return (
+      <div className="flex min-w-0 items-center gap-3.5">
+        <div className="flex h-14 w-14 flex-none items-center justify-center">
+          {activeSrc ? (
+            <img src={activeSrc} alt="" className="h-full w-full object-contain" loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" onError={handleImageError} />
+          ) : (
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">{getInitials(name)}</span>
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="line-clamp-2 text-[14px] font-semibold leading-tight text-[var(--text-primary)]">{name}</p>
+          {target?.era ? <p className="mt-1 text-xs leading-tight text-[var(--text-secondary)]">{target.era}</p> : null}
+        </div>
+      </div>
+    );
+  }
+
   if (variant === "compact") {
     return (
       <div className="flex min-w-0 items-center gap-2.5">

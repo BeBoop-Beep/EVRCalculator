@@ -156,6 +156,8 @@ export function selectCollectorAppealBreakdown(...sources) {
   const scores = readScoreLayers(appeal);
   const rosterScore = toOptionalNumber(roster.score);
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
+  const rosterRelative = toOptionalNumber(roster.relativeScore);
+  const frequencyRelative = toOptionalNumber(frequency.relativeScore);
 
   const rows = [
     {
@@ -165,11 +167,13 @@ export function selectCollectorAppealBreakdown(...sources) {
       // own formatted value so the surface never rescales one into the other.
       value: formatScore(rosterScore),
       available: rosterScore !== UNAVAILABLE,
-      // Presentation-only 0-100 reading of the value already on the row, used
-      // to draw the quiet rail. D is published 0-100 so it is passed through
-      // untouched; nothing is rescaled, inferred or invented, and an
-      // unavailable factor carries null rather than 0.
-      railPercent: rosterScore === UNAVAILABLE ? null : rosterScore,
+      // Backend-owned cohort-relative standing. The raw desirability
+      // measurement is not interchangeable with quality versus other sets.
+      relativeScore: rosterRelative,
+      railPercent: rosterRelative,
+      rank: toOptionalNumber(roster.rank),
+      cohortSize: toOptionalNumber(roster.rankedSetCount ?? roster.cohortSize),
+      tier: roster.tier ?? UNAVAILABLE,
       interpretation:
         "How desirable the Pokémon roster is before pull difficulty is considered.",
       metrics: [],
@@ -179,9 +183,12 @@ export function selectCollectorAppealBreakdown(...sources) {
       title: "Desirable Outcome Frequency",
       value: frequencyRaw === UNAVAILABLE ? "—" : formatPercentFromUnit(frequencyRaw),
       available: frequencyRaw !== UNAVAILABLE,
-      // A 0-1 share expressed on the rail's 0-100 track. This is the same
-      // number the row prints as a percentage, not a second measurement.
-      railPercent: frequencyRaw === UNAVAILABLE ? null : frequencyRaw * 100,
+      // Backend-owned cohort-relative standing, not the raw probability.
+      relativeScore: frequencyRelative,
+      railPercent: frequencyRelative,
+      rank: toOptionalNumber(frequency.rank),
+      cohortSize: toOptionalNumber(frequency.rankedSetCount ?? frequency.cohortSize),
+      tier: frequency.tier ?? UNAVAILABLE,
       interpretation:
         "How often the modeled pack can deliver at least one card tied to a currently desirable Pokémon.",
       disclaimer: DESIRABLE_OUTCOME_DISCLAIMER,

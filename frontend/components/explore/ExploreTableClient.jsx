@@ -351,6 +351,32 @@ function MobileScoreBlock({ target, modeId, label }) {
   );
 }
 
+function ActiveMobileMetric({ target, columnId }) {
+  if (columnId === "overall" || columnId === "financial" || columnId === COLLECTOR_APPEAL_COLUMN) {
+    const { value, kind, isPublic } = readModeScore(target, columnId);
+    return (
+      <div className="flex-none text-right" title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}>
+        <div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">
+          {value === null ? UNAVAILABLE_LABEL : formatModeScore(value, kind)}
+          {value !== null && isPublic ? <span className="pl-1 text-xs font-medium text-[var(--text-secondary)]">/ 100</span> : null}
+        </div>
+      </div>
+    );
+  }
+
+  const values = {
+    ev: formatCurrency(target?.mean_value),
+    averageLoss: formatLossCurrency(readAverageLoss(target)),
+    marketPrice: formatCurrency(target?.pack_cost),
+    chanceToBeatCost: formatPercent(target?.prob_profit, true),
+  };
+  return (
+    <div className="flex-none text-right">
+      <div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">{values[columnId] ?? UNAVAILABLE_LABEL}</div>
+    </div>
+  );
+}
+
 /**
  * Sort targets by the selected ranking mode.
  *
@@ -575,6 +601,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     setSort((current) => nextSortState(current, columnId));
   }
 
+  function selectMobileSort(columnId) {
+    setSort({ column: columnId, direction: RANKINGS_DEFAULT_SORT.direction });
+    setSortMenuOpen(false);
+  }
+
   const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
@@ -590,9 +621,39 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-labelledby="explore-best-sets-heading">
+    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-label="Best Sets to Rip Right Now">
+      <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Best Sets to Rip Right Now</h2>
+          <div className="relative flex-none" ref={sortMenuContainerRef}>
+            <button
+              type="button"
+              onClick={() => setSortMenuOpen((open) => !open)}
+              aria-expanded={sortMenuOpen}
+              aria-haspopup="listbox"
+              aria-label="Choose which metric the rankings are sorted by"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] text-xl leading-none text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              <span aria-hidden="true">⇅</span>
+            </button>
+            {sortMenuOpen ? (
+              <div className="fixed inset-x-3 bottom-20 z-30 max-h-[min(28rem,calc(100dvh-7rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64" role="listbox">
+                <div className="p-1.5">
+                  {Object.values(RANKINGS_SORT_COLUMNS).map((column) => (
+                    <button key={column.id} type="button" role="option" aria-selected={sort.column === column.id} onClick={() => selectMobileSort(column.id)} className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${sort.column === column.id ? "bg-[var(--surface-page)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"}`}>
+                      <span>{column.id === "ev" ? "Expected Value" : column.label}</span>
+                      {sort.column === column.id ? <span aria-hidden="true" className="font-bold text-[var(--accent)]">✓</span> : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{sortedTargets.length}</span> ranked sets</p>
+      </div>
       {/* One compact control row: title menu, definition, hint, cohort size. */}
-      <div className={`${styles.divider} flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 desk:py-2.5 sm:px-4`}>
+      <div className={`${styles.divider} hidden flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 desk:py-2.5 sm:px-4 md:flex`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative min-w-0" ref={dropdownContainerRef}>
             <h2
@@ -670,7 +731,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             control system and not a filter bar. Selecting the active metric
             flips its direction, exactly as clicking its header does.
           */}
-          <div className="relative md:hidden" ref={sortMenuContainerRef}>
+          <div className="relative hidden">
             <button
               type="button"
               onClick={() => setSortMenuOpen((open) => !open)}
@@ -690,7 +751,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             </button>
             {sortMenuOpen ? (
               <div
-                className="absolute right-0 top-full z-30 mt-2 w-[min(13rem,calc(100vw-2.5rem))] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)]"
+                className="fixed inset-x-3 bottom-20 z-30 max-h-[min(28rem,calc(100dvh-7rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64"
                 role="listbox"
               >
                 <div className="p-1.5">
@@ -702,7 +763,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         type="button"
                         role="option"
                         aria-selected={Boolean(columnAriaSort)}
-                        onClick={() => handleSort(column.id)}
+                        onClick={() => {
+                          handleSort(column.id);
+                          setSortMenuOpen(false);
+                        }}
                         className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
                           columnAriaSort
                             ? "bg-[var(--surface-page)] text-[var(--text-primary)]"
@@ -871,12 +935,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-              const modeRank =
-                getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
-              const isLead = modeRank <= LEAD_RANK_LIMIT;
-              const averageLoss = readAverageLoss(target);
-              const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
+              const activeRank = index + 1;
+              const tier = sort.column === "overall"
+                ? (getTierForMode(target, "overall") || "").toString().toUpperCase() || null
+                : null;
 
               return (
                 <Link
@@ -884,45 +946,16 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   href={buildRipLink(target)}
                   className={styles.mobileRow}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-5 flex-none text-right">
-                      <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
+                  <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5">
+                    <span className="text-right text-sm font-bold tabular-nums text-[var(--text-primary)]">
+                      #{activeRank}
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
-                    </div>
-                    <RankBadge rank={tier} title={tierLabel} format="tier" />
-                  </div>
-                  {/*
-                    Seven metrics instead of four. A fixed 4-column grid rather
-                    than a wider flex row: the columns wrap onto a second line
-                    inside the card, so nothing is clipped and the page itself
-                    never gains a horizontal scrollbar. Same row frame, same
-                    label/value typography, same treatment per metric.
-                  */}
-                  <div className="mt-2 grid grid-cols-4 items-start gap-x-3 gap-y-2 pl-[1.95rem]">
-                    <MobileScoreBlock target={target} modeId="overall" label="Overall" />
-                    <MobileScoreBlock target={target} modeId="financial" label="Financial" />
-                    <MobileScoreBlock target={target} modeId="collectorAppeal" label="Appeal" />
                     <div className="min-w-0">
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">EV</div>
-                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.mean_value)}</div>
+                      <SetIdentity variant="mobileRanking" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
-                        Avg loss
-                      </div>
-                      <div className="mt-0.5 text-[13px] font-semibold" style={getDangerValueStyle()}>
-                        {formatLossCurrency(averageLoss)}
-                      </div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Market price</div>
-                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatCurrency(target?.pack_cost)}</div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">Beat cost</div>
-                      <div className="mt-0.5 text-[13px] text-[var(--text-primary)]">{formatPercent(target?.prob_profit, true)}</div>
+                    <div className="flex flex-none flex-col items-end gap-1">
+                      <ActiveMobileMetric target={target} columnId={sort.column} />
+                      {tier ? <RankBadge rank={tier} title="Overall RIP Tier" format="tier" /> : null}
                     </div>
                   </div>
                 </Link>

@@ -33,6 +33,13 @@ test("hero has exact answer, locked metrics, local pack image, and neutral fallb
   assert.doesNotMatch(component, /https?:\/\/.*booster/i);
 });
 
+test("the dynamic number-one product links directly to its canonical RIP view", () => {
+  assert.match(component, /className=\{styles\.productStage\}[\s\S]*href=\{set\?\.href \|\| "\/Explore\/rip-statistics"\}/);
+  assert.match(component, /aria-label=\{`View \$\{set\?\.name \|\| "featured set"\} RIP analysis`\}/);
+  assert.match(server, /buildTcgSetHrefFromTarget\(target, \{ tab: "overview" \}\)/);
+  assert.match(server, /href: ripHref/);
+});
+
 test("personalization uses the waitlist because no Personal RIP route exists", () => {
   assert.match(component, /Join the Personal RIP beta/);
   assert.doesNotMatch(component, /href=["']\/.*personal/i);
@@ -49,7 +56,7 @@ test("phone hero keeps the complete decision snapshot compact above the fixed na
   const phone = css.slice(css.indexOf("@media(max-width:560px)"), css.indexOf("@media(prefers-reduced-motion:reduce)"));
   assert.match(phone, /\.heroShell\{padding:14px 0 24px\}/);
   assert.match(phone, /\.hero h1\{font-size:39px;line-height:\.94;margin:8px 0 12px\}/);
-  assert.match(phone, /\.theater\{height:178px;margin-top:0\}/);
+  assert.match(phone, /\.theater\{height:286px;margin-top:4px\}/);
   assert.match(phone, /\.metricGrid\{gap:6px;margin:8px 0 16px\}/);
   assert.match(phone, /\.metricGrid div\{min-height:64px;padding:9px 10px\}/);
 });
@@ -63,7 +70,7 @@ test("simulation proof reuses the Insights distribution with canonical landmarks
   assert.doesNotMatch(visual, /<svg|<rect|<line|<canvas|monotone|interpolat|bell curve/i);
 });
 
-test("live number two and three cards use dynamic imagery around a centered foreground product", () => {
+test("desktop keeps number two and three while mobile focuses on a larger foreground product", () => {
   assert.match(component, /rows\.slice\(1, 3\)/);
   assert.match(component, /className=\{styles\.supportLockup\}/);
   assert.match(component, /<SupportingSetVisual row=\{row\}[\s\S]*className=\{styles\.supportRank\}>#\{row\.rank\}<\/span>/);
@@ -75,12 +82,10 @@ test("live number two and three cards use dynamic imagery around a centered fore
   assert.match(css, /\.supportLogo\{position:absolute;inset:0;[^}]*object-fit:contain/);
   assert.match(css, /\.supportLockup\{display:flex;align-items:center;justify-content:flex-end;gap:10px/);
   const phone = css.slice(css.indexOf("@media(max-width:560px)"), css.indexOf("@media(prefers-reduced-motion:reduce)"));
-  assert.match(phone, /\.productStage\{inset:0;width:68%;margin-inline:auto\}/);
-  assert.match(phone, /\.supportLockup\{gap:7px;padding:4px 6px\}/);
-  assert.match(phone, /\.rankTwo \.supportLockup\{justify-content:flex-start\}/);
-  assert.match(phone, /\.rankThree \.supportLockup\{justify-content:flex-end\}/);
-  assert.match(phone, /\.rankTwo\{left:0;right:auto/);
-  assert.match(phone, /\.rankThree\{left:auto;right:0/);
+  const tablet = css.slice(css.indexOf("@media(max-width:900px)"), css.indexOf("@media(max-width:560px)"));
+  assert.match(tablet, /\.rankPlane\{display:none\}/);
+  assert.match(phone, /\.productStage\{inset:0;width:min\(82%,300px\);margin-inline:auto\}/);
+  assert.match(phone, /\.packImage\{width:100%;max-height:282px\}/);
 });
 
 test("both full-ranking links use the canonical Rankings route", () => {

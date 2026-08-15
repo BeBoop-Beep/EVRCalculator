@@ -1176,7 +1176,8 @@ body::-webkit-scrollbar-thumb:hover {
     padding-block: 0;
   }
 
-  [data-mobile-section] {
+  [data-mobile-section],
+  [data-rip-decision-page] > [data-rip-section]:not(:first-child) {
     position: relative;
     margin-top: 1rem;
     padding-top: 1.25rem;
@@ -1192,7 +1193,8 @@ body::-webkit-scrollbar-thumb:hover {
      box, so the crisp edge and the soft edge never separate into two rules.
      Static by design — these sit next to a moving ticker and live charts, and
      anything that shimmers would compete with the data. */
-  [data-mobile-section]::before {
+  [data-mobile-section]::before,
+  [data-rip-decision-page] > [data-rip-section]:not(:first-child)::before {
     position: absolute;
     inset: 0 0 auto;
     height: 3px;
@@ -1242,6 +1244,36 @@ body::-webkit-scrollbar-thumb:hover {
   [data-mobile-feed] {
     margin-inline: auto;
     width: 100%;
+  }
+
+  [data-rip-metric-row] {
+    position: relative;
+    min-height: 3.5rem;
+    padding-block: .55rem;
+    padding-right: 2.5rem;
+  }
+
+  [data-rip-metric-row] h4 { font-size: .8rem; line-height: 1.15; }
+  [data-rip-metric-row] [data-rip-metric-rail] { height: 3px; margin-top: .35rem; }
+  [data-rip-metric-interpretation] { display: none; }
+  [data-financial-collector-distinction] {
+    margin-top: .55rem;
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+  [data-financial-collector-distinction]::after {
+    content: "Desirable \2260  financial break-even";
+    font-size: .7rem;
+    line-height: 1.4;
+    font-style: italic;
+  }
+  [data-rip-metric-disclosure] {
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 2.75rem;
+    height: 3.5rem;
+    justify-content: center;
+    margin: 0;
   }
 
   /* The selected row in a compact mobile analytical list — the RIP Score

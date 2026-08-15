@@ -205,6 +205,12 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
         for field in REQUIRED_SCORE_FIELDS:
             if component.get(field) is None:
                 problems.append(f"{label}: financialRip.components.{name}.{field} is missing")
+    collector_components = (contract.get("collectorAppeal") or {}).get("components") or {}
+    for name in ("rosterDesirability", "desirableOutcomeFrequency"):
+        component = collector_components.get(name) or {}
+        for field in ("rank", "tier", "rankedSetCount", "relativeScore"):
+            if component.get(field) is None:
+                problems.append(f"{label}: collectorAppeal.components.{name}.{field} is missing")
     return problems
 
 
