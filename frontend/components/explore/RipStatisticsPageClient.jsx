@@ -119,6 +119,7 @@ import { buildSetHeaderSummary } from "./setHeaderSummarySelector.mjs";
 import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -13133,15 +13134,22 @@ export default function RipStatisticsPageClient({
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
                     pullRateAssumptions={pullRateAssumptions}
-                    cardsHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "cards" })}
                     pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
+                    productType="booster_pack"
+                    productLabel="Booster Pack"
+                    productImage={resolvePokemonBoosterPackAsset(selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey)}
                     distributionBins={distributionBins}
                     thresholdBins={thresholdBins}
                     chartMarkers={chartMarkers}
+                    percentiles={percentiles}
                     p50={percentileP50}
                     p95={percentileP95}
                     p99={percentileP99}
                     simulationPending={activeInsightsSecondaryStatus === "idle" || activeInsightsSecondaryStatus === "loading"}
+                    simulationDrivers={topHits}
+                    rankings={rankings}
+                    packPaths={ripStatistics?.pack_paths}
+                    normalStateRows={normalStateRows}
                   />
                 ) : null}
 
@@ -14049,7 +14057,7 @@ export default function RipStatisticsPageClient({
             </section>
             ) : null}
 
-            {setDetailMode ? (
+            {setDetailMode && setDetailTab === "insights" ? (
               // Below 1200px Insights is the same continuous analytical feed
               // Overview already is: the three sections drop their outer cards
               // and are separated by a divider plus breathing room instead. The

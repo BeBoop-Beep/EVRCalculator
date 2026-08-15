@@ -1,166 +1,79 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import Image from "next/image";
 import { buildRipDecisionModel } from "./ripDecisionModel.mjs";
-import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
-import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
-import RipDistributionChart from "./RipDistributionChart";
+import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
+import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
+import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
+import RipDistributionChart from "./RipDistributionChart";
+import SimulationFullReport from "./SimulationFullReport.jsx";
 import InfoPopover from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
-import { topPercentToTier } from "@/constants/rankConfig";
-import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
+import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
+import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
+import { selectCollectorDiagnostic, selectCollectorDriverSubjects, selectCollectorRankDrivers, selectFinancialRankDrivers } from "./ripStorySelectors.mjs";
+import { CollectorDriverSubjects, SimulationDriverCards } from "./RipStoryEvidence.jsx";
+import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 import styles from "./RipDecisionPage.module.css";
 
-// A reader who opens a metric bubble wants the methodology, not a content hub,
-// so this deep-links straight to the article rather than to /Articles.
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
-
-function Help({ text, href = METHODOLOGY_ARTICLE_HREF, label = "How the RIP Score works" }) {
-  return <InfoPopover text={text} learnMoreHref={href} learnMoreLabel={label} />;
-}
-
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
-
-function money(value) { return value === null ? "—" : currency.format(value); }
-// One decimal, always. The canonical public scores are formatted identically on
-// every surface, so the same set cannot read 88 here and 88.4 in the summary.
+function Help({ text, href = METHODOLOGY_ARTICLE_HREF, label = "How the RIP Score works" }) { return <InfoPopover text={text} learnMoreHref={href} learnMoreLabel={label} />; }
+function money(value) { return value === null || value === undefined ? "—" : currency.format(Number(value)); }
 function score(value) { return value === null || value === undefined ? "—" : Number(value).toFixed(1); }
-function rank(value, cohort) { return value === null ? "—" : `#${Math.round(value)}${cohort === null ? "" : ` of ${Math.round(cohort)}`}`; }
-function probability(value) {
-  if (value === null) return "—";
-  const normalized = value <= 1 ? value * 100 : value;
-  return `${normalized.toFixed(1).replace(/\.0$/, "")}%`;
-}
+function rank(value, cohort) { return value === null || value === undefined ? "Rank unavailable" : `#${Math.round(value)}${cohort === null || cohort === undefined ? "" : ` of ${Math.round(cohort)}`}`; }
+function probability(value) { if (value === null || value === undefined) return "—"; const normalized = Number(value) <= 1 ? Number(value) * 100 : Number(value); return `${normalized.toFixed(1).replace(/\.0$/, "")}%`; }
 
-function metricTier(metric) {
-  if (metric?.tier) return String(metric.tier).toUpperCase();
-  if (metric?.rank === null || metric?.cohortSize === null || metric.cohortSize <= 0) return null;
-  return topPercentToTier((metric.rank / metric.cohortSize) * 100);
-}
+function IconCue({ name, role = "neutral", className = "h-4 w-4" }) { const presentation = getRipPageIconPresentation(role); return <span className={`inline-flex items-center justify-center ${presentation.iconClassName}`} style={presentation.style}><SetPageIcon name={name} className={className} /></span>; }
 
-function scorePercent(value) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
-  return Math.min(100, Math.max(0, Number(value)));
-}
-
-function IconCue({ name, role = "neutral", tier = null, contained = false, className = "h-4 w-4" }) {
-  const presentation = getRipPageIconPresentation(role, tier);
-  return <span className={`${contained ? `inline-flex h-10 w-10 items-center justify-center rounded-lg border ${presentation.containerClassName}` : "inline-flex items-center justify-center"} ${presentation.iconClassName}`} style={presentation.style}><SetPageIcon name={name} className={className} /></span>;
-}
-
-// One canonical public metric in the unified Verdict -> Why It Ranks card.
-// Scores and ranks come directly from buildRipDecisionModel; the bar is a
-// visual rendering of the same published relative score, not a new scale.
-function EvidenceMetric({ metric }) {
-  const tier = metricTier(metric);
-  const presentation = getRipPageIconPresentation(metric.role, tier);
-  const percent = scorePercent(metric.score);
-  return (
-    <div data-rip-evidence={metric.key} className={`${styles.scoreCard} ${metric.key === "rip" ? styles.scoreCardOverall : ""}`} style={metric.key === "rip" ? { "--score-accent": presentation.style.color } : undefined}>
-      <dt className="flex min-w-0 items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-[0.07em] text-[var(--text-primary)]"><IconCue name={metric.icon} role={metric.role} tier={tier} className="h-3.5 w-3.5" /><span>{metric.label}</span><Help text={metric.help} href={metric.methodologyHref} label={`How ${metric.label} works`} /></span>
-        <RankBadge rank={tier} format="tier" size="compact" subtle />
-      </dt>
-      <dd className="mt-5 flex items-baseline gap-1"><span className={`${metric.key === "rip" ? "text-[2rem]" : "text-3xl"} font-semibold leading-none tabular-nums text-[var(--text-primary)]`}>{score(metric.score)}</span>{metric.score === null ? null : <span className="text-xs font-medium text-[var(--text-secondary)]">/100</span>}</dd>
-      <dd className="mt-3 text-xs tabular-nums text-[var(--text-secondary)]">{metric.rankLabel ? `${metric.rankLabel} ` : ""}{rank(metric.rank, metric.cohortSize)}</dd>
-      <dd className="mt-auto flex items-center gap-2 pt-4">
-        <span className={`${styles.driverTrack} h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--border-subtle)]`} role="progressbar" aria-label={`${metric.label} score`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} aria-valuetext={percent === null ? "Score unavailable" : `${score(metric.score)} out of 100`}>
-          {percent === null ? null : <span className="block h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: presentation.style.color }} />}
-        </span>
-        <span className="w-8 text-right text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">{percent === null ? "—" : `${Math.round(percent)}%`}</span>
-      </dd>
+function ScoreSurface({ metric, prominent = false, onActivate, expanded, controls, productContext = null }) {
+  const tier = getRipTierPresentation(metric.tier, { strength: prominent ? "hero" : "supporting" });
+  return <div data-rip-score={metric.key} data-score-tier={tier.tier || "unavailable"} className={`${styles.scoreSurface} ${prominent ? styles.scoreSurfaceOverall : ""}`} style={tier.style}>
+    <div className={styles.scoreContent}>
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]"><IconCue name={metric.icon} />{metric.label}<Help text={metric.help} href={metric.href} label={`How ${metric.label} works`} /></div>
+      <div className={styles.scoreFacts}><p className={`${prominent ? "text-4xl" : "text-3xl"} font-semibold leading-none tabular-nums text-[var(--text-primary)]`}>{score(metric.score)}{metric.score === null ? null : <span className="ml-1 text-xs text-[var(--text-secondary)]">/100</span>}</p><p className="text-xs tabular-nums text-[var(--text-secondary)]">{rank(metric.rank, metric.cohortSize)}</p>{metric.tier ? <RankBadge rank={metric.tier} format="tier" size="compact" subtle /> : null}</div>
+      <button type="button" onClick={onActivate} aria-expanded={expanded} aria-controls={controls} className={styles.scoreCta}>{metric.cta}<span aria-hidden="true">→</span></button>
     </div>
-  );
+    {prominent && productContext?.productImage ? <div className={styles.productArt}><Image src={productContext.productImage.src || productContext.productImage} alt={`${productContext.productLabel || "Booster Pack"} being scored`} fill sizes="(max-width: 767px) 68px, 116px" className="object-contain" /></div> : null}
+  </div>;
 }
 
-// Mobile keeps the same metric model and canonical tier presentation as the
-// desktop cards, but compresses the three outputs into one comparison deck.
-function CompactEvidenceMetric({ metric }) {
-  const tier = metricTier(metric);
-  const presentation = getRipPageIconPresentation(metric.role, tier);
-  const percent = scorePercent(metric.score);
-  return (
-    <div data-rip-compact-evidence={metric.key} className={`${styles.compactMetric} ${metric.key === "rip" ? styles.compactMetricOverall : ""}`} style={{ "--score-accent": presentation.style.color }}>
-      <dt className={styles.compactLabel}><IconCue name={metric.icon} role={metric.role} tier={tier} className="h-3.5 w-3.5" /><span>{metric.label}</span><Help text={metric.help} href={metric.methodologyHref} label={`How ${metric.label} works`} /></dt>
-      <dd className={styles.compactScore}><span>{score(metric.score)}</span>{metric.score === null ? null : <small>/100</small>}</dd>
-      <dd className={styles.compactTier}><RankBadge rank={tier} format="tier" size="compact" subtle /></dd>
-      <dd className={styles.compactRank}>{rank(metric.rank, metric.cohortSize).replace(" of ", " / ")}</dd>
-      <dd className={styles.compactProgress}><span className={styles.compactTrack} role="progressbar" aria-label={`${metric.label} score`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} aria-valuetext={percent === null ? "Score unavailable" : `${score(metric.score)} out of 100`}>{percent === null ? null : <span style={{ width: `${percent}%`, backgroundColor: presentation.style.color }} />}</span></dd>
-    </div>
-  );
+function SectionMeta({ metric }) { return <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1"><strong className="text-lg tabular-nums text-[var(--text-primary)]">{score(metric.publicScore)} <small className="text-xs font-medium text-[var(--text-secondary)]">/100</small></strong><span className="text-xs tabular-nums text-[var(--text-secondary)]">{rank(metric.rank, metric.cohortSize)}</span>{metric.tier ? <RankBadge rank={metric.tier} format="tier" size="compact" subtle /> : null}</div>; }
+
+function scrollToSection(id) { const target = document.getElementById(id); if (!target) return; const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); target.focus({ preventScroll: true }); }
+
+function FinancialDriverSummary({ drivers }) {
+  if (!drivers.available) return null;
+  const Row = ({ item }) => <li className="flex items-center justify-between gap-3"><span className="truncate">{item.title}</span><span className="flex flex-none items-center gap-2"><strong className="tabular-nums text-[var(--text-primary)]">#{Math.round(item.rank)}</strong>{item.tier ? <RankBadge rank={item.tier} format="tier" size="compact" subtle /> : null}</span></li>;
+  return <aside className={styles.rankDrivers}><p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Why it ranks this way</p><div className={styles.driverStrip}><div><h3 className="text-xs font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">↑ Strengths</h3><ul className="mt-1.5 space-y-1 text-sm text-[var(--text-secondary)]">{drivers.strengths.map((item) => <Row key={item.key} item={item} />)}</ul></div><div><h3 className="text-xs font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">↓ Main drag</h3><ul className="mt-1.5 space-y-1 text-sm text-[var(--text-secondary)]">{drivers.drags.map((item) => <Row key={item.key} item={item} />)}</ul></div></div></aside>;
 }
 
-function ChaseCard({ card }) {
-  const name = card?.name || "Card name unavailable";
-  const image = optimizedImageUrl(card?.imageUrl || card?.image_url || card?.images?.small || null, CARD_THUMBNAIL_WIDTH);
-  const price = card?.marketPrice ?? card?.market_price ?? card?.currentPrice ?? card?.current_price ?? card?.price ?? null;
-  const odds = card?.specificCardOddsDenominator ?? card?.specific_card_odds_denominator ?? card?.pullOddsDenominator ?? card?.pull_odds_denominator ?? null;
-  const validOdds = Number.isFinite(Number(odds)) && Number(odds) > 0;
-  return (
-    <li className={`${styles.chaseRow} grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-[var(--border-subtle)] py-3 first:border-t-0`}>
-      <div className={`${styles.chaseImage} flex h-16 w-14 items-center justify-center overflow-hidden rounded-lg bg-[var(--surface-page)]/55`}>
-        {image ? <img src={image} alt={`${name} card`} className="h-full w-full object-contain" loading="lazy" /> : null}
-      </div>
-      <div className="min-w-0"><p className="truncate font-semibold text-[var(--text-primary)]">{name}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{card?.rarity || "Rarity unavailable"}</p></div>
-      <div className={`${styles.chasePrice} text-right`}><p className="font-semibold tabular-nums text-[var(--text-primary)]">{money(price === null ? null : Number(price))}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{validOdds ? `1 in ${Math.round(Number(odds)).toLocaleString("en-US")} packs` : "Odds unavailable"}</p></div>
-    </li>
-  );
-}
-
-export default function RipDecisionPage({ canonical, summary, chaseCards = [], cardCount = null, pullRateAssumptions, cardsHref, pullRatesHref, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, methodologyHref = METHODOLOGY_ARTICLE_HREF }) {
+export default function RipDecisionPage({ canonical, summary, percentiles = [], pullRateAssumptions, pullRatesHref, productType = "booster_pack", productLabel = "Booster Pack", productImage = null, distributionBins = [], thresholdBins = [], chartMarkers = [], p50 = null, p95 = null, p99 = null, simulationPending = false, simulationDrivers = [], rankings = [], packPaths = {}, normalStateRows = [] }) {
+  const [overallOpen, setOverallOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const model = buildRipDecisionModel({ canonical, summary, pullRateAssumptions });
+  const financial = useMemo(() => selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)), [canonical]);
+  const financialDrivers = useMemo(() => selectFinancialRankDrivers(financial.rows), [financial.rows]);
+  const collectorBreakdown = useMemo(() => selectCollectorAppealBreakdown(canonical), [canonical]);
+  const collectorDrivers = useMemo(() => selectCollectorRankDrivers(collectorBreakdown.rows), [collectorBreakdown.rows]);
+  const collectorSubjects = useMemo(() => selectCollectorDriverSubjects(canonical), [canonical]);
+  const collectorDiagnostic = useMemo(() => selectCollectorDiagnostic(canonical), [canonical]);
   const verdictPresentation = getRipPageIconPresentation("verdict");
-  const headline = model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : "Modern Set to Rip Right Now";
-  const evidenceMetrics = [
-    { key: "rip", label: "Overall RIP", help: "The overall relative ranking score for opening this set, combining opening economics and collector appeal on a 0–100 scale.", rankLabel: "Overall Rank", icon: "gauge", role: "overall", tier: model.overall.tier, score: model.overall.publicScore, rank: model.overall.rank, cohortSize: model.overall.cohortSize },
-    { key: "financial", label: "Financial RIP", help: "Measures opening economics across normal outcomes, downside protection, upside potential, and efficiency.", methodologyHref: "/Articles/how-financial-rip-works", icon: "shield", role: "financial", tier: null, score: model.financial.publicScore, rank: model.financial.rank, cohortSize: model.financial.cohortSize },
-    { key: "collector", label: "Collector Appeal", help: "Reflects how desirable the set is to collectors and how often the modeled pack can deliver a desirable Pokémon.", methodologyHref: "/Articles/how-collector-appeal-works", icon: "star", role: "collector", tier: null, score: model.collector.publicScore, rank: model.collector.rank, cohortSize: model.collector.cohortSize },
-  ];
-  const openingMetrics = [
-    ["Expected Value", money(model.expectedValue), "long-run mean", "The long-run average return per pack. It is useful for averages, but an average pack is not the same as a typical pack."],
-    ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median", "The median simulated result: half of openings landed above this level and half below it."],
-    ["Strong Upside", money(p95), "P95 threshold", "A meaningfully good outcome at the upper end of non-jackpot results."],
-    ["Jackpot Upside", money(p99), "top-1% threshold", "Rare, exceptional high-end outcomes—not what normally happens."],
-  ];
-  return (
-    <section id="set-detail-overview" data-rip-decision-page className={`${styles.page} scroll-mt-24 space-y-3 md:scroll-mt-28 md:space-y-3.5`}>
-      <article data-rip-section="decision" className={`${styles.decision} set-glass-surface rounded-2xl border p-4 md:p-5`}>
-        <div className={`${styles.decisionIntro} flex items-start gap-3.5`}><span className="inline-flex h-10 w-10 flex-none"><IconCue name="gauge" role="verdict" contained className="h-5 w-5" /></span><div className="min-w-0"><p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-bold uppercase tracking-[0.16em]"><span style={{ color: verdictPresentation.style.color }}>Verdict</span>{model.qualitativeLabel ? <><span aria-hidden="true" className="text-[var(--border-subtle)]">/</span><span data-rip-qualitative-label style={{ color: model.qualitativeLabel.color || undefined }}>{model.qualitativeLabel.label}</span></> : null}</p><div className="mt-2 flex flex-wrap items-center gap-2.5 md:gap-3">{model.overall.rank === null ? null : <span data-rip-verdict-rank className={styles.verdictRank} style={{ borderColor: model.qualitativeLabel?.color || undefined }}>#{Math.round(model.overall.rank)}</span>}<h1 className={`${styles.headline} max-w-4xl text-2xl font-semibold leading-tight tracking-tight text-[var(--text-primary)] md:text-3xl`}>{headline}</h1></div><p className="mt-2 max-w-4xl text-sm leading-snug text-[var(--text-secondary)] md:text-base">{model.verdict}</p></div></div>
-        <div data-rip-section="why-it-ranks" className="mt-4 border-t border-[var(--border-subtle)] pt-4">
-          <h2 className="flex items-center gap-2.5 text-xl font-semibold text-[var(--text-primary)]"><IconCue name="analysis" />Why It Ranks <Help text="This set’s overall opening verdict, based on Overall RIP, Financial RIP, and Collector Appeal relative to other ranked sets." /></h2>
-          <dl data-rip-desktop-score-cards className={`${styles.whyGrid} mt-3 hidden gap-3 md:grid md:grid-cols-3`}>
-            {evidenceMetrics.map((metric) => <EvidenceMetric key={metric.key} metric={metric} />)}
-          </dl>
-          <dl data-rip-mobile-score-deck className={`${styles.compactDeck} mt-2.5 grid grid-cols-3 md:hidden`}>
-            {evidenceMetrics.map((metric) => <CompactEvidenceMetric key={metric.key} metric={metric} />)}
-          </dl>
-          <p className={`${styles.takeaway} mt-3 flex items-start gap-2 rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,0.36)] px-3.5 py-3 text-xs leading-snug text-[var(--text-secondary)]`}><IconCue name="bulb" role="takeaway" className="mt-0.5 h-4 w-4" /><span><span className="font-semibold text-[var(--text-primary)]">The takeaway:</span> {model.takeaway}</span></p>
-        </div>
-      </article>
-
-      <article id="set-detail-outcome-distribution" data-rip-section="simulation-evidence" className="set-glass-surface min-w-0 scroll-mt-24 rounded-2xl border p-4 md:scroll-mt-28 md:p-5">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-[var(--text-primary)]">What Do the Simulated Openings Actually Look Like? <Help text="This modeled pack-return distribution shows typical outcomes, better-than-normal results, and how often value reaches key thresholds." /></h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">The modeled return distribution, with today&apos;s pack price plotted on the same value axis.</p>
-        <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--border-subtle)] lg:grid-cols-4">
-          {openingMetrics.map(([label, value, helper, help]) => <div key={label} className="min-w-0 bg-[var(--surface-panel)] p-3"><dt className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}<Help text={help} /></dt><dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd><dd className="text-[11px] text-[var(--text-secondary)]">{helper}</dd></div>)}
-        </dl>
-        <div className="mt-4 min-w-0">
-          {distributionBins.length || thresholdBins.length ? <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush /> : <p className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">{simulationPending ? "Loading simulated opening evidenceâ€¦" : "Outcome distribution data is not available for this set yet."}</p>}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-sm"><span className="text-[var(--text-secondary)]">Current pack price: <strong className="font-semibold text-[var(--text-primary)]">{money(model.packCost)}</strong></span><span className="text-[var(--text-secondary)]">Chance of recovering pack price: <strong className="font-semibold text-[var(--text-primary)]">{probability(model.recoverCostProbability)}</strong></span></div>
-      </article>
-
-      <article id="set-detail-financial-rip" data-rip-section="financial-evidence" className="set-glass-surface min-w-0 scroll-mt-24 rounded-2xl border p-4 md:scroll-mt-28 md:p-5">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-[var(--text-primary)]">Why Financial RIP Scores This Way <Help text="These factors explain the kinds of opening economics that make a set stronger or weaker as an opening option." /></h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">These factors highlight the main opening-economics signals used to evaluate Financial RIP.</p>
-        <div className="mt-4"><FinancialRipV3Breakdown canonical={canonical} requestTimeout={false} /></div>
-        <a href="/Articles/how-financial-rip-works" className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-semibold text-[var(--accent)] transition-colors hover:border-[var(--accent)] hover:bg-[rgba(255,255,255,0.03)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">View Financial RIP methodology <span aria-hidden="true">→</span></a>
-      </article>
-
-      <div className={`${styles.lowerGrid} grid gap-5 lg:grid-cols-2 lg:items-start`}>
-        <article data-rip-section="chase-cards" className={`${styles.lowerPanel} set-glass-surface flex min-h-0 flex-col rounded-2xl border p-4`}><h2 className="flex items-center gap-2.5 text-lg font-semibold text-[var(--text-primary)]"><IconCue name="cards" />What Can I Actually Pull?</h2>{chaseCards.length ? <ul className={`${styles.chaseList} mt-1`}>{chaseCards.slice(0, 3).map((card, index) => <ChaseCard key={card?.id || card?.canonicalCardId || `${card?.name}:${index}`} card={card} />)}</ul> : <p className="mt-3 text-sm text-[var(--text-secondary)]">Chase-card data is unavailable for this set.</p>}<a href={cardsHref} className={`${styles.cta} mt-auto inline-flex min-h-9 items-end justify-center pt-2 text-sm font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]`}>{Number.isFinite(Number(cardCount)) && Number(cardCount) > 0 ? `View all ${Number(cardCount).toLocaleString("en-US")} cards →` : "View all cards →"}</a></article>
-        <article data-rip-section="opening-odds" className={`${styles.lowerPanel} set-glass-surface flex min-h-0 flex-col rounded-2xl border p-4`}><h2 className="flex items-center gap-2.5 text-lg font-semibold text-[var(--text-primary)]"><IconCue name="target" role="odds" />Your Opening Odds</h2>{model.openingOdds.length ? <dl className="mt-2">{model.openingOdds.map((row) => <div key={row.label} className={`${styles.oddsRow} flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] py-3 first:border-t-0`}><dt className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"><IconCue name="target" role="odds" />{row.label}</dt><dd className="font-semibold tabular-nums text-[var(--text-primary)]">1 in {Number(row.denominator).toLocaleString("en-US", { maximumFractionDigits: 1 })} packs</dd></div>)}</dl> : <p className="mt-3 text-sm text-[var(--text-secondary)]">Consumer-summary odds are unavailable for this set.</p>}<a href={pullRatesHref} className={`${styles.cta} mt-auto inline-flex min-h-9 items-end justify-center pt-2 text-sm font-semibold text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]`}>View full pull rates →</a></article>
-      </div>
-    </section>
-  );
+  const metrics = {
+    overall: { key: "overall", label: "Overall RIP", role: "overall", icon: "gauge", score: model.overall.publicScore, rank: model.overall.rank, cohortSize: model.overall.cohortSize, tier: model.overall.tier, cta: overallOpen ? "Hide explanation" : "How Overall RIP works", help: "The current canonical overall score for opening this set relative to ranked sets." },
+    financial: { key: "financial", label: "Financial RIP", role: "financial", icon: "shield", score: model.financial.publicScore, rank: model.financial.rank, cohortSize: model.financial.cohortSize, cta: "Explore Financial RIP", href: "/Articles/how-financial-rip-works", help: "Opening economics across typical outcomes, losses, upside, and efficiency." },
+    collector: { key: "collector", label: "Collector Appeal", role: "collector", icon: "star", score: model.collector.publicScore, rank: model.collector.rank, cohortSize: model.collector.cohortSize, cta: "Explore Collector Appeal", href: "/Articles/how-collector-appeal-works", help: "Roster desirability and the frequency of desirable modeled outcomes." },
+  };
+  const openingMetrics = [["Expected Value", money(model.expectedValue), "Long-run mean"], ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median"], ["Chance to Beat Cost", probability(model.recoverCostProbability), "Financial break-even"], ["Strong Upside", money(p95), "P95 threshold"], ["Jackpot Upside", money(p99), "P99 / top 1% threshold"]];
+  return <section id="set-detail-overview" data-rip-decision-page className={`${styles.page} scroll-mt-24 md:scroll-mt-28`}>
+    <article data-rip-section="decision" className={`${styles.panel} set-glass-surface`}><p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: verdictPresentation.style.color }}>Verdict</p><div className="mt-2 flex flex-wrap items-center gap-3">{model.overall.rank !== null ? <span className={styles.verdictRank}>#{Math.round(model.overall.rank)}</span> : null}<h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] md:text-3xl">{model.overall.rank === null ? "Modern Set RIP Ranking Unavailable" : "Modern Set to Rip Right Now"}</h1></div><p className="mt-2 max-w-4xl text-sm leading-relaxed text-[var(--text-secondary)] md:text-base">{model.verdict}</p></article>
+    <article data-rip-section="why-it-ranks" className={`${styles.panel} set-glass-surface`}><h2 className="text-xl font-semibold text-[var(--text-primary)]">Why It Ranks</h2><div className={styles.anatomy}><div className={styles.overallProductRow}><ScoreSurface metric={metrics.overall} prominent productContext={{ productType, productLabel, productImage }} onActivate={() => setOverallOpen((value) => !value)} expanded={overallOpen} controls="overall-rip-explanation" />{productImage ? <div className={styles.desktopProductArt}><Image src={productImage.src || productImage} alt={`${productLabel || "Product"} being scored`} fill sizes="150px" className="object-contain" /></div> : null}</div><div aria-hidden="true" className={styles.connector}><span>Built from</span></div><div className={styles.supportingScores}><ScoreSurface metric={metrics.financial} onActivate={() => scrollToSection("set-detail-financial-rip")} /><ScoreSurface metric={metrics.collector} onActivate={() => scrollToSection("set-detail-collector-appeal")} /></div></div>{overallOpen ? <div id="overall-rip-explanation" className={styles.overallDisclosure}>Overall RIP combines the set&apos;s opening economics, represented by Financial RIP, with its collector-oriented desirability and desirable pull opportunities, represented by Collector Appeal.</div> : null}</article>
+    <article id="set-detail-financial-rip" tabIndex={-1} data-rip-section="financial-explanation" className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}><p className={styles.eyebrow}>Financial RIP</p><h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">Why Financial RIP Is {score(model.financial.publicScore)}</h2><SectionMeta metric={model.financial} /><p className="mt-2 text-sm text-[var(--text-secondary)]">Six dimensions explain this set&apos;s modeled opening economics.</p><FinancialDriverSummary drivers={financialDrivers} /><div className="mt-3"><FinancialRipV3Breakdown canonical={canonical} requestTimeout={false} /></div></article>
+    <article id="set-detail-outcome-distribution" data-rip-section="simulation-evidence" className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}><p className={styles.eyebrow}>Simulation evidence</p><h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">What One Million Simulated Openings Look Like</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">The evidence behind Financial RIP, with today&apos;s pack price plotted on the same value axis.</p><div className={styles.simulationLayout}><dl className={styles.metricPanel}>{openingMetrics.map(([label, value, helper]) => <div key={label}><dt className="text-xs font-semibold text-[var(--text-secondary)]">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-[var(--text-primary)]">{value}</dd><dd className="text-[11px] text-[var(--text-secondary)]">{helper}</dd></div>)}</dl><div className="min-w-0">{distributionBins.length || thresholdBins.length ? <RipDistributionChart bins={distributionBins} thresholdBins={thresholdBins} markers={chartMarkers} showTitle={false} flush /> : <p className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-12 text-center text-sm text-[var(--text-secondary)]">{simulationPending ? "Loading simulated opening evidence…" : "Outcome distribution data is not available for this set yet."}</p>}</div></div><SimulationFullReport canonical={canonical} summary={summary} percentiles={percentiles} /></article>
+    <article data-rip-section="simulation-drivers" className={`${styles.panel} set-glass-surface`}><p className={styles.eyebrow}>What creates the distribution</p><h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">Cards Driving Pack Value</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">These cards contribute most to modeled Expected Value; they do not directly add Financial RIP points.</p><SimulationDriverCards drivers={simulationDrivers} rankings={rankings} packPaths={packPaths} normalStateRows={normalStateRows} /></article>
+    <article id="set-detail-collector-appeal" tabIndex={-1} data-rip-section="collector-explanation" className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}><p className={styles.eyebrow}>Collector Appeal</p><h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">Why Collector Appeal Is {score(model.collector.publicScore)}</h2><SectionMeta metric={model.collector} /><p className="mt-2 text-sm text-[var(--text-secondary)]">Two parallel factors describe the roster and how often a desirable card can appear.</p><FinancialDriverSummary drivers={collectorDrivers} /><div className="mt-3"><CollectorAppealBreakdown canonical={canonical} /></div>{collectorDiagnostic.available ? <div className="mt-4 border-t border-[var(--border-subtle)] pt-3"><button type="button" aria-expanded={diagnosticsOpen} aria-controls="collector-diagnostics" onClick={() => setDiagnosticsOpen((value) => !value)} className={styles.disclosureButton}><span>Additional collector diagnostics</span><span aria-hidden="true">{diagnosticsOpen ? "−" : "+"}</span></button>{diagnosticsOpen ? <div id="collector-diagnostics" className="mt-3 rounded-xl border border-[var(--border-subtle)] p-3 text-sm text-[var(--text-secondary)]"><strong className="text-[var(--text-primary)]">Dual-Path Depth</strong> — Not part of the current Collector Appeal score. {collectorDiagnostic.note}</div> : null}</div> : null}</article>
+    <article data-rip-section="collector-drivers" className={`${styles.panel} set-glass-surface`}><p className={`${styles.eyebrow} ${styles.collectorEyebrow}`}>Collector evidence</p><h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">What Are You Chasing?</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">The desirable Pokémon and representative pull paths currently supplied by the canonical model.</p><CollectorDriverSubjects subjects={collectorSubjects} /><a href={pullRatesHref} className={styles.pullRatesCta}>View all modeled pull rates <span aria-hidden="true">→</span></a></article>
+  </section>;
 }

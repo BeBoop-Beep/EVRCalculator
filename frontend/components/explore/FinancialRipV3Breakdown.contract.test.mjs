@@ -241,8 +241,9 @@ test("there is no model toggle: Financial RIP means V3 and nothing else", () => 
   assert.doesNotMatch(code, /function ModelToggle/);
   assert.doesNotMatch(code, /function LegacyV2Cards/);
   assert.doesNotMatch(code, /"Legacy Financial RIP V2"/);
-  // One heading, carrying the canonical name with no model version number.
-  assert.match(code, />Financial RIP</);
+  // The parent story heading owns the canonical name; the breakdown does not
+  // repeat it or introduce a model-version toggle.
+  assert.doesNotMatch(code, /<h3[^>]*>Financial RIP</);
   assert.doesNotMatch(code, /Financial RIP V3</);
 });
 

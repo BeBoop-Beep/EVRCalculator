@@ -340,7 +340,8 @@
 .mobileRow {
   position: relative;
   display: block;
-  padding: 9px 12px 10px;
+  min-height: 4.75rem;
+  padding: 9px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   transition: background-color 140ms ease;
 }

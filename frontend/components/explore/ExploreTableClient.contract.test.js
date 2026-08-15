@@ -102,19 +102,12 @@ test("the desktop table surfaces all seven required metrics", () => {
   assert.ok(source.includes("formatPercent(target?.prob_profit, true)"), "Chance to Beat Cost cell");
 });
 
-test("mobile surfaces the same seven metrics", () => {
+test("mobile renders one active metric while retaining all seven sort choices", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const mobileSource = source.slice(source.indexOf("{/* Mobile rows"));
-  assert.ok(mobileSource.includes('modeId="overall" label="Overall"'));
-  assert.ok(mobileSource.includes('modeId="financial" label="Financial"'));
-  assert.ok(mobileSource.includes('modeId="collectorAppeal" label="Appeal"'));
-  assert.ok(mobileSource.includes(">EV</div>"), "mobile must show EV");
-  assert.ok(mobileSource.includes("formatLossCurrency(averageLoss)"), "mobile must show Average Loss");
-  assert.ok(mobileSource.includes("formatCurrency(target?.pack_cost)"), "mobile must show Market Price");
-  assert.ok(mobileSource.includes("formatPercent(target?.prob_profit, true)"), "mobile must show Chance to Beat Cost");
-  // The extra metrics must wrap inside the card rather than widen the row, so
-  // the page cannot gain a horizontal scrollbar on a phone.
-  assert.ok(mobileSource.includes("grid grid-cols-4"), "mobile metrics must wrap in a fixed grid, not a wider flex row");
+  assert.ok(mobileSource.includes('<ActiveMobileMetric target={target} columnId={sort.column} />'));
+  assert.equal((mobileSource.match(/<ActiveMobileMetric/g) || []).length, 1);
+  assert.ok(!mobileSource.includes("grid grid-cols-4"));
 });
 
 test("Collector Appeal reads the canonical public contract, never a frontend substitute", () => {
@@ -187,12 +180,12 @@ test("every quantitative header is a keyboard-operable sort control that announc
 
 test("mobile keeps a tappable sort control even though it has no header row", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes('className="relative md:hidden" ref={sortMenuContainerRef}'), "mobile sort control exists");
+  assert.ok(source.includes('aria-label="Choose which metric the rankings are sorted by"'), "mobile sort control exists");
   assert.ok(source.includes("setSortMenuOpen"), "it opens the existing menu pattern");
   assert.ok(source.includes("min-h-11"), "its targets must stay tappable");
   assert.ok(
-    source.includes("onClick={() => handleSort(column.id)}"),
-    "mobile options must go through the same nextSortState rule as a header click"
+    source.includes("selectMobileSort(column.id)") && source.includes("direction: RANKINGS_DEFAULT_SORT.direction"),
+    "mobile options must select a best-first metric without toggling direction"
   );
 });
 
@@ -286,16 +279,12 @@ test("a tooltip explains what the displayed score means", () => {
   );
 });
 
-test("mobile always renders both Overall and Financial score families", () => {
+test("mobile active score presentation has no secondary rank or score", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(
-    source.includes('<MobileScoreBlock target={target} modeId="overall" label="Overall" />'),
-    "mobile card must always show the Overall score block"
-  );
-  assert.ok(
-    source.includes('<MobileScoreBlock target={target} modeId="financial" label="Financial" />'),
-    "mobile card must always show the Financial score block (never hidden on mobile)"
-  );
+  const start = source.indexOf("function ActiveMobileMetric");
+  const activeSource = source.slice(start, source.indexOf("function sortTargetsByMode", start));
+  assert.ok(activeSource.includes("readModeScore(target, columnId)"));
+  assert.ok(!activeSource.includes("rankText"));
 });
 
 // Explore refinement Phase 2 — presentation only. Every assertion below is
@@ -420,14 +409,14 @@ test("the ranking-mode picker is hidden behind a flag, not removed", () => {
   assert.ok(source.includes("sortTargetsByMode(targets, selectedMode)"), "mode-driven sorting must be untouched");
 });
 
-test("mobile keeps identity, both score families, tier and the headline financial signal", () => {
+test("mobile keeps a larger unframed identity and one active metric", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const start = source.indexOf("{/* Mobile rows");
   const mobileSource = source.slice(start);
   assert.ok(mobileSource.includes("className={styles.mobileRow}"), "mobile must use the purpose-built compact row");
-  assert.ok(mobileSource.includes('variant="compact"'), "mobile must use the compact set identity");
-  assert.ok(mobileSource.includes("<RankBadge rank={tier}"), "mobile must keep the tier badge");
-  assert.ok(mobileSource.includes("formatLossCurrency(averageLoss)"), "mobile must keep the average-loss signal");
+  assert.ok(mobileSource.includes('variant="mobileRanking"'), "mobile must use the larger ranking identity");
+  assert.ok(mobileSource.includes('<ActiveMobileMetric target={target} columnId={sort.column} />'));
+  assert.ok(mobileSource.includes("{tier ? <RankBadge"), "tier must be conditional");
 });
 
 test("Best Sets heading is stronger below desktop and resets at desk width", () => {
@@ -467,17 +456,17 @@ test("canonical sort contract is rank -> the mode's one score -> name", () => {
   assert.ok(nameIndex > scoreIndex, "name tie-break must be last");
 });
 
-test("the canonical rank column is unaffected by the presentation sort", () => {
+test("desktop keeps canonical rank while mobile rank follows active sort order", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   // The "#" cell keeps reading the backend rank. Its only fallback is the row's
   // position in the CANONICAL array — never its position in the current sort,
   // which would turn a presentation choice into a fabricated rank.
   assert.equal(
     (source.match(/getRankForMode\(target, selectedMode\) \?\? \(canonicalIndexByTarget\.get\(target\) \?\? index\) \+ 1/g) || []).length,
-    2,
-    "both desktop and mobile rank fallbacks must come from the canonical order"
+    1,
+    "desktop rank fallback must come from the canonical order"
   );
-  assert.ok(!source.includes("getRankForMode(target, selectedMode) ?? index + 1"), "no render-order rank fallback");
+  assert.ok(source.includes("const activeRank = index + 1"), "mobile ordinal must follow sorted render order");
 });
 
 /* ------------------------------------------- no interpretation-engine leak --- */

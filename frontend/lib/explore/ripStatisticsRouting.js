@@ -90,6 +90,13 @@ export function buildTcgSetHrefFromTarget(target, options = {}) {
   return appendSetDetailParams(`${TCG_SETS_BASE_PATH}/${encodeURIComponent(slug)}`, options);
 }
 
+export function buildTcgSetHrefFromSlug(setSlug, options = {}) {
+  const slug = normaliseString(setSlug);
+  return slug
+    ? appendSetDetailParams(`${TCG_SETS_BASE_PATH}/${encodeURIComponent(slug)}`, options)
+    : TCG_SETS_BASE_PATH;
+}
+
 export function findTargetBySetSlug(targets, setSlug) {
   const resolvedSlug = normaliseString(setSlug).toLowerCase();
   if (!resolvedSlug) {

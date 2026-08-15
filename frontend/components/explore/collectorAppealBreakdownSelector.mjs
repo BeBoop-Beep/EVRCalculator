@@ -170,6 +170,9 @@ export function selectCollectorAppealBreakdown(...sources) {
       // untouched; nothing is rescaled, inferred or invented, and an
       // unavailable factor carries null rather than 0.
       railPercent: rosterScore === UNAVAILABLE ? null : rosterScore,
+      rank: toOptionalNumber(roster.rank),
+      cohortSize: toOptionalNumber(roster.rankedSetCount ?? roster.cohortSize),
+      tier: roster.tier ?? UNAVAILABLE,
       interpretation:
         "How desirable the Pokémon roster is before pull difficulty is considered.",
       metrics: [],
@@ -182,6 +185,9 @@ export function selectCollectorAppealBreakdown(...sources) {
       // A 0-1 share expressed on the rail's 0-100 track. This is the same
       // number the row prints as a percentage, not a second measurement.
       railPercent: frequencyRaw === UNAVAILABLE ? null : frequencyRaw * 100,
+      rank: toOptionalNumber(frequency.rank),
+      cohortSize: toOptionalNumber(frequency.rankedSetCount ?? frequency.cohortSize),
+      tier: frequency.tier ?? UNAVAILABLE,
       interpretation:
         "How often the modeled pack can deliver at least one card tied to a currently desirable Pokémon.",
       disclaimer: DESIRABLE_OUTCOME_DISCLAIMER,

@@ -36,7 +36,8 @@ function render(props) {
         title: "Chance to Win",
         value: "72.1",
         valueSuffix: "/100",
-        meta: "Rank #3 of 21 · Tier A",
+        meta: "Rank #3 of 21",
+        tier: "A",
         interpretation: "How often a pack comes back worth at least what it cost.",
         metrics: METRICS,
         ...props,
@@ -74,7 +75,8 @@ test("the collapsed row shows label, value, tier/rank and one explanation", () =
   assert.ok(text.includes("Chance to Win"), "label");
   assert.ok(text.includes("72.1"), "score");
   assert.ok(text.includes("/100"), "scale");
-  assert.ok(text.includes("Rank #3 of 21 · Tier A"), "tier and rank");
+  assert.ok(text.includes("Rank #3 of 21"), "rank");
+  assert.ok(text.includes("A"), "tier pill");
   assert.ok(text.includes("How often a pack comes back worth at least what it cost."), "explanation");
 });
 
