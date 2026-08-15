@@ -3,9 +3,7 @@ import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
-import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
-import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
-import { projectMarketRankingTargets } from "@/lib/explore/marketRankingsProjection.mjs";
+import { getExploreSetValueMarket } from "@/lib/explore/exploreSetValueMarketServer";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
 
@@ -21,11 +19,11 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketPage() {
-  const [rankingsResult, moversResult] = await Promise.allSettled([
-    getRipStatisticsTargets({ limit: 60 }),
+  const [setValueResult, moversResult] = await Promise.allSettled([
+    getExploreSetValueMarket(),
     getExploreMarketMovers(),
   ]);
-  const rankingsPayload = rankingsResult.status === "fulfilled" ? rankingsResult.value : null;
+  const setValuePayload = setValueResult.status === "fulfilled" ? setValueResult.value : null;
   const moversPayload = moversResult.status === "fulfilled"
     ? moversResult.value
     : { marketMovers: { window: "7D", all: [] }, meta: { requestFailed: true } };
@@ -33,11 +31,8 @@ export default async function MarketPage() {
   // fields the ladder never renders), and only the survivors are projected — so
   // the client boundary carries the ladder's ~1.2% of each target instead of the
   // whole canonical Rankings document. See marketRankingsProjection.mjs.
-  const targets = projectMarketRankingTargets(
-    (Array.isArray(rankingsPayload?.targets) ? rankingsPayload.targets : [])
-      .filter(isPublicAnalyticsEligiblePokemonSet)
-  );
-  const loadError = rankingsPayload === null || Boolean(rankingsPayload?.meta?.requestFailed);
+  const targets = Array.isArray(setValuePayload?.sets) ? setValuePayload.sets : [];
+  const loadError = setValuePayload === null || Boolean(setValuePayload?.meta?.requestFailed);
 
   return (
     <div className={`${styles.dashboard} explore-glass-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>

@@ -76,6 +76,10 @@ from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
     read_explore_card_movers_snapshot,
 )
+from backend.db.services.pokemon_explore_set_value_service import (
+    ExploreSetValueUnavailable,
+    read_explore_set_value_snapshot,
+)
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot as read_sealed_market_snapshot
 
 
@@ -480,6 +484,18 @@ def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
                      "code": "POKEMON_EXPLORE_CARD_MOVERS_FAILED"},
             status_code=500,
         )
+
+
+@app.get("/explore/set-value-market")
+def get_explore_set_value_market():
+    """Serve the compact, prepared global Market Set Value snapshot."""
+    try:
+        return read_explore_set_value_snapshot()
+    except ExploreSetValueUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "POKEMON_EXPLORE_SET_VALUE_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/explore/set-value-market unexpected error")
+        return JSONResponse(content={"message": "Unable to load global Market Set Values", "code": "POKEMON_EXPLORE_SET_VALUE_FAILED"}, status_code=500)
 
 
 @app.get("/auth/me")

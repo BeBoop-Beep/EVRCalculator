@@ -424,6 +424,33 @@ Do not run production simulations as part of code changes; the above is the
 operator deployment step.
 # Global Explore card movers
 
+## Global Market Set Value rankings
+
+`pokemon_explore_set_value_snapshot_latest` is the independent Market-domain
+read model for `/Market` Set Value Rankings. It is refreshed after coordinated
+per-set Cards + `365d` Market Dashboard snapshots and before other global
+consumers. The route never reads Set Value from the RIP rankings publication.
+
+The builder reads canonical `standard` rows from
+`pokemon_set_value_daily_history`, verifies that every eligible set's latest
+date and value exactly match the final `standard` point prepared in the current
+`365d` Market Dashboard split column, and refuses promotion on missing, stale,
+or mismatched inputs. A stale `30d` dashboard row is never selected: UI ranges
+are slices of the single current long history.
+
+The persisted client contract contains the latest value, exact precomputed
+1D/7D/30D/3M/6M/1Y/LT movements and coverage status, plus at most 48 compact
+trend points per set. Exact movement never comes from downsampled chart points.
+
+```bash
+python backend/scripts/build_pokemon_explore_set_value_snapshot.py --dry-run --market-date YYYY-MM-DD
+python backend/scripts/build_pokemon_explore_set_value_snapshot.py --commit --market-date YYYY-MM-DD
+```
+
+The read-only endpoint is `GET /explore/set-value-market`. `/Market` performs
+one server-side request for this entire snapshot; timeframe changes are local
+and make no requests.
+
 `pokemon_explore_card_movers_snapshot_latest` is an independent public read
 model for Explore's fixed seven-day card ticker. It is built only after the
 coordinated per-set Cards/Market Dashboard snapshots and before Explore RIP
