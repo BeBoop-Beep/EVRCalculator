@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Line, LineChart, ResponsiveContainer } from "recharts";
 import MarketWindowSelector from "./MarketWindowSelector";
+import MarketSparkline from "./MarketSparkline";
 import { getStandardDeltaWindowDefinitions } from "@/lib/explore/marketDeltaWindows.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { SET_LOGO_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
@@ -22,9 +22,7 @@ function SetLogo({ target, name }) {
 }
 
 function Sparkline({ points, direction }) {
-  if (points.length < 2) return <span className="text-[10px] text-[var(--text-secondary)]">History unavailable</span>;
-  const color = direction === "positive" ? POSITIVE_VALUE_COLOR : direction === "negative" ? NEGATIVE_VALUE_COLOR : "var(--text-secondary)";
-  return <div className="h-11 min-w-0" aria-hidden="true"><ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 5, right: 2, bottom: 5, left: 2 }}><Line type="linear" dataKey="setValue" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></div>;
+  return <MarketSparkline points={points} valueKey="setValue" trendDirection={direction} label="Set Value trend" plotClassName="h-11 desk:h-[4.25rem]" />;
 }
 
 function buildRows(targets, selectedWindowKey) {
@@ -53,12 +51,14 @@ export default function ExploreTopRankings({ targets = [], loadError = false }) 
         const direction = amount > 0 ? "positive" : amount < 0 ? "negative" : "neutral";
         const color = direction === "positive" ? POSITIVE_VALUE_COLOR : direction === "negative" ? NEGATIVE_VALUE_COLOR : "var(--text-secondary)";
         const routeTarget = { target_type: "set", target_id: target.canonicalKey || target.setId, name };
-        return <li key={target.setId} className={!showAllMobileRows && index >= MOBILE_PREVIEW_LIMIT ? "hidden desk:list-item" : undefined}><Link href={buildTcgSetHrefFromTarget(routeTarget, { tab: "market", section: "set-value" })} className={styles.ladderRow} style={{ "--ex-rank-strength": position <= 3 ? 0.7 : 0.22 }}>
+        return <li key={target.setId} className={!showAllMobileRows && index >= MOBILE_PREVIEW_LIMIT ? "hidden desk:list-item" : undefined}><div className={styles.ladderRow} style={{ "--ex-rank-strength": position <= 3 ? 0.7 : 0.22 }}>
+          <Link data-ranking-nav href={buildTcgSetHrefFromTarget(routeTarget, { tab: "market", section: "set-value" })} className={styles.ladderNav} aria-label={`${name} — open Set Market`}>
           <span className="text-[13px] font-semibold tabular-nums text-[var(--text-secondary)]">#{position}</span>
           <span className="flex min-w-0 items-center gap-2.5"><SetLogo target={target} name={name} /><span className="min-w-0"><span className="block truncate text-sm font-medium text-[var(--text-primary)]">{name}</span><span className="block truncate text-[10px] text-[var(--text-secondary)]">{target?.era || "Pokémon"}</span></span></span>
-          <Sparkline points={trend} direction={direction} />
+          </Link>
+          <div data-ranking-chart className="min-w-0"><Sparkline points={trend} direction={direction} /></div>
           <span className="min-w-0 text-right"><span className="block text-sm font-semibold tabular-nums text-[var(--text-primary)]">{currency.format(value)}</span><span className="block truncate text-[10px] font-medium tabular-nums" style={{ color }}>{amount === null || percent === null ? `N/A · ${selectedWindowKey === "lifetime" ? "LT" : selectedWindowKey}` : `${amount > 0 ? "▲" : amount < 0 ? "▼" : "—"} ${signedCurrency.format(amount)} (${percent >= 0 ? "+" : ""}${percent.toFixed(1)}%)`}</span>{movement?.coverage === "partial" ? <span className="block text-[9px] text-[var(--text-secondary)]">Since first available</span> : null}</span>
-        </Link></li>;
+        </div></li>;
       })}{hiddenCount ? <li className="px-3 py-2 desk:hidden"><button type="button" className="min-h-11 text-xs font-medium text-[var(--text-primary)]" onClick={() => setShowAllMobileRows((open) => !open)}>{showAllMobileRows ? "Show less" : `Show ${hiddenCount} more`}</button></li> : null}</ol>
     </div> : loadError ? <p role="alert" className="px-4 py-6 text-sm text-[var(--text-secondary)]">Set Value rankings are temporarily unavailable.</p> : <p className="px-4 py-6 text-sm text-[var(--text-secondary)]">Rankings appear once the current Market snapshot is available.</p>}
   </section>;
