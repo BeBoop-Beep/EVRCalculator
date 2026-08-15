@@ -188,7 +188,7 @@ export default function RipMetricDisclosureRow({
       ) : null}
 
       {interpretation ? (
-        <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{interpretation}</p>
+        <p data-rip-metric-interpretation className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">{interpretation}</p>
       ) : null}
 
       {disclaimer ? (
@@ -211,9 +211,11 @@ export default function RipMetricDisclosureRow({
             aria-expanded={isOpen}
             aria-controls={panelId}
             onClick={() => onToggle?.(rowKey)}
+            aria-label={`${isOpen ? "Hide" : "Show"} ${title} details`}
+            data-rip-metric-disclosure
             className="mt-1.5 inline-flex items-center gap-1 rounded text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
           >
-            {isOpen ? "Hide details" : "Details"}
+            <span className="max-md:sr-only">{isOpen ? "Hide details" : "Details"}</span>
             <svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m2.5 4.25 3.5 3.5 3.5-3.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
 

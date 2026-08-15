@@ -99,7 +99,29 @@ function SubjectPath({ label, path }) {
   );
 }
 
-export function CollectorDriverSubjects({ subjects = [] }) {
+function CollectorDriverSubjectsDesktop({ subjects = [] }) {
   if (!subjects.length) return <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">Top collector subjects are not available for this set yet.</p>;
   return <div data-collector-driver-subjects className="mt-4 grid gap-3 xl:grid-cols-3">{subjects.map((subject) => <article key={subject.subjectName} className={styles.subjectCard}><div className="flex items-start justify-between gap-3"><h3 className="text-lg font-semibold text-[var(--text-primary)]">{subject.subjectName}</h3>{subject.demandShareLabel ? <div className="text-right"><p data-demand-share-value className="text-xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel}</p><p data-demand-share-label className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">Share of set demand <InfoPopover text="Estimates how much of this set's modeled Pokémon-subject demand is associated with this Pokémon. It is not pull probability, market value, or Collector Appeal points." /></p></div> : null}</div><div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"><SubjectPath label="More attainable" path={subject.accessiblePath} /><SubjectPath label="Elite chase" path={subject.elitePath} /></div></article>)}</div>;
+}
+
+export function CollectorDriverSubjects({ subjects = [] }) {
+  const [openSubject, setOpenSubject] = useState(null);
+  if (!subjects.length) return <CollectorDriverSubjectsDesktop subjects={subjects} />;
+  return <div data-collector-driver-subjects-responsive>
+    <div className={styles.subjectDesktopGrid}><CollectorDriverSubjectsDesktop subjects={subjects} /></div>
+    <div className={styles.subjectMobileList}>{subjects.map((subject, index) => {
+      const panelId = `collector-subject-${index}`;
+      const isOpen = openSubject === index;
+      const representative = subject.accessiblePath || subject.elitePath;
+      return <div key={subject.subjectName} className={styles.subjectMobileItem}>
+        <button type="button" aria-expanded={isOpen} aria-controls={panelId} onClick={() => setOpenSubject(isOpen ? null : index)} className={styles.subjectMobileButton}>
+          <span className={styles.subjectMobileImage}><CardImage src={representative?.imageUrl} name={representative?.cardName || subject.subjectName} compact /></span>
+          <span className="min-w-0"><strong className="block truncate text-sm text-[var(--text-primary)]">{subject.subjectName}</strong><small className="text-[11px] text-[var(--text-secondary)]">Top collector subject</small></span>
+          <span className="text-right"><strong data-demand-share-value className="block text-lg tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel || "—"}</strong><small data-demand-share-label className="text-[10px] text-[var(--text-secondary)]">set demand</small></span>
+          <span aria-hidden="true" className={`text-lg text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
+        </button>
+        {isOpen ? <div id={panelId} className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}><SubjectPath label="More attainable" path={subject.accessiblePath} /><SubjectPath label="Elite chase" path={subject.elitePath} /></div> : null}
+      </div>;
+    })}</div>
+  </div>;
 }

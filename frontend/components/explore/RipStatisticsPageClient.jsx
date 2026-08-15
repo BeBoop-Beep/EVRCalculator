@@ -13446,7 +13446,7 @@ export default function RipStatisticsPageClient({
                       revealMobileSetContext();
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom)+0.75rem)] right-4 z-[60] inline-flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:bottom-6 desk:right-6"
+                    className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom)+0.75rem)] right-4 z-[60] hidden h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:bottom-6 desk:right-6 desk:inline-flex"
                     aria-label="Return to top"
                   >
                     <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">

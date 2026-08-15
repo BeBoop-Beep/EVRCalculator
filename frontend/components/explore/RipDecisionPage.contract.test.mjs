@@ -111,3 +111,26 @@ test("responsive structure avoids fixed-width overflow and keeps supporting scor
   assert.match(css, /\.scoreSurface[^}]*min-width:\s*0/);
   assert.ok(!css.includes("overflow-x: auto"));
 });
+
+test("mobile rebuild flattens context shells while preserving meaningful inner cards", () => {
+  const css = fs.readFileSync(cssPath, "utf8");
+  assert.match(css, /\.page > \.panel:not\(:first-child\)[^}]*border:\s*0/);
+  assert.match(css, /\.page > \.panel:not\(:first-child\)[^}]*background:\s*transparent/);
+  assert.match(css, /\.scoreSurface[^}]*border:/, "score cards remain bounded objects");
+  assert.match(css, /\.driverCard[^}]*border:/, "driver cards remain bounded objects");
+});
+
+test("mobile analytical rows and collector subjects use compact disclosures", () => {
+  const rowSource = fs.readFileSync(path.resolve(directory, "RipMetricDisclosureRow.jsx"), "utf8");
+  const evidence = fs.readFileSync(evidencePath, "utf8");
+  const chart = fs.readFileSync(path.resolve(directory, "RipDistributionChart.jsx"), "utf8");
+  assert.ok(rowSource.includes("data-rip-metric-interpretation"));
+  assert.ok(rowSource.includes("aria-expanded={isOpen}"));
+  assert.ok(rowSource.includes("aria-controls={panelId}"));
+  assert.ok(evidence.includes("subjectMobileList"));
+  assert.ok(evidence.includes("representative = subject.accessiblePath || subject.elitePath"));
+  assert.ok(evidence.includes('<SubjectPath label="More attainable"'));
+  assert.ok(evidence.includes('<SubjectPath label="Elite chase"'));
+  assert.ok(chart.includes("data-mobile-chart-layout"));
+  assert.ok(chart.includes("compact={isMobile}"));
+});

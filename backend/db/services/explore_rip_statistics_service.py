@@ -564,7 +564,7 @@ def _calculate_score_ranks_and_tiers(
     if not scored_rows_with_valid_scores:
         # All rows have null scores for this score_key
         for target_id, _ in scored_rows:
-            result[target_id] = {"rank": None, "tier": None}
+            result[target_id] = {"rank": None, "tier": None, "cohortSize": 0}
         return result
     
     # Sort by score descending, breaking exact ties on the target id.
@@ -592,12 +592,12 @@ def _calculate_score_ranks_and_tiers(
         else:
             tier = "F"
         
-        result[target_id] = {"rank": rank, "tier": tier}
+        result[target_id] = {"rank": rank, "tier": tier, "cohortSize": total}
     
     # Rows without scores get None
     for target_id, _ in scored_rows:
         if target_id not in result:
-            result[target_id] = {"rank": None, "tier": None}
+            result[target_id] = {"rank": None, "tier": None, "cohortSize": total}
     
     return result
 
@@ -1289,6 +1289,10 @@ def _apply_rank(
     it was computed against is the ambiguity this phase is removing, so the two
     always travel together.
     """
+    # Each metric's denominator is its actual valid comparison population. It
+    # normally equals the eligible public cohort, but a null factor is omitted
+    # rather than counted as a measured zero.
+    metric_cohort_size = entry.get("cohortSize", cohort_size)
     if contract_key in (
         "rip", "ripCore", "financialRipV3",
         "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8",
@@ -1296,7 +1300,7 @@ def _apply_rank(
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
         target["tier"] = entry.get("tier")
-        target["cohortSize"] = cohort_size
+        target["cohortSize"] = metric_cohort_size
         return
     if contract_key.startswith("financialRipV3."):
         # A per-component rank on the V3 breakdown. Depth and Robustness is
@@ -1309,14 +1313,14 @@ def _apply_rank(
         if isinstance(component, dict):
             component["rank"] = entry.get("rank")
             component["tier"] = entry.get("tier")
-            component["cohortSize"] = cohort_size
+            component["cohortSize"] = metric_cohort_size
         return
     if contract_key.startswith("collectorAppeal."):
         factor_key = contract_key.split(".", 1)[1]
         appeal = ((row.get("openingExperience") or {}).get("collectorAppeal") or {})
         if isinstance(appeal, dict):
             appeal.setdefault("factorStandings", {})[factor_key] = {
-                "rank": entry.get("rank"), "tier": entry.get("tier"), "cohortSize": cohort_size,
+                "rank": entry.get("rank"), "tier": entry.get("tier"), "cohortSize": metric_cohort_size,
             }
         return
     if contract_key in ("profit", "safety", "stability"):
@@ -1332,13 +1336,13 @@ def _apply_rank(
             if isinstance(component, dict):
                 component["rank"] = entry.get("rank")
                 component["tier"] = entry.get("tier")
-                component["cohortSize"] = cohort_size
+                component["cohortSize"] = metric_cohort_size
         return
     opening = row.get("openingExperience") or {}
     block = opening.get(contract_key)
     if isinstance(block, dict):
         block["rank"] = entry.get("rank")
-        block["cohortSize"] = cohort_size
+        block["cohortSize"] = metric_cohort_size
         # Dual-Path Depth is a structural index, not a graded 0-100 metric, so it
         # gets a rank but deliberately no tier: a "D tier" on a scale whose
         # maximum is not attainable would read as a verdict on the set.

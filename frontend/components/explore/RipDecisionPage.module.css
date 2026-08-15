@@ -54,10 +54,15 @@
 .subjectPath { min-width: 0; border-top: 1px solid var(--border-subtle); padding: .7rem 0 0; }
 .subjectCardImage { display: flex; width: 3rem; height: 4.25rem; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: .4rem; background: rgba(0,0,0,.18); }
 .pullRatesCta { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; margin-top: 1rem; border-radius: .5rem; color: var(--accent); font-size: .875rem; font-weight: 650; }
+.subjectMobileList { display: none; }
 
 @media (max-width:767px) {
-  .page { gap: .75rem; }
+  .page { gap: 0; }
   .panel { padding: .9rem; }
+  .page > .panel:not(:first-child) { margin-top: 1.25rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 1.5rem 0 0; }
+  .page > [data-rip-section="financial-explanation"] > h2 + div + p,
+  .page > [data-rip-section="collector-explanation"] > h2 + div + p { display: none; }
+  .page [data-collector-appeal-subject-scope] { display: none; }
   .supportingScores { gap: .5rem; }
   .scoreSurface { padding: .7rem .55rem; }
   .scoreSurfaceOverall { width: 100%; min-height: 7.25rem; padding-right: 4.8rem; }
@@ -68,15 +73,27 @@
   .scoreFacts { flex-wrap: wrap; gap: .4rem .65rem; }
   .connector { height: 2rem; width: 68%; }
   .scoreCta { min-height: 2.75rem; padding-inline: .2rem; font-size: .7rem; }
-  .driverStrip { grid-template-columns: minmax(0,1fr); gap: .65rem; }
-  .driverStrip > div + div { border-top: 1px solid var(--border-subtle); border-left: 0; padding-top: .65rem; padding-left: 0; }
-  .simulationLayout { grid-template-columns: minmax(0,1fr); }
-  .metricPanel { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .rankDrivers { margin-top: .65rem; padding-block: .5rem; }
+  .driverStrip { grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: .65rem; margin-top: .35rem; }
+  .driverStrip > div + div { border-top: 0; border-left: 1px solid var(--border-subtle); padding-top: 0; padding-left: .65rem; }
+  .driverStrip li { font-size: .72rem; line-height: 1.2; }
+  .simulationLayout { grid-template-columns: minmax(0,1fr); gap: .7rem; margin-top: .8rem; }
+  .metricPanel { grid-template-columns: repeat(2,minmax(0,1fr)); border: 0; border-radius: 0; background: transparent; }
   .metricPanel > div { border-top: 1px solid var(--border-subtle); border-left: 1px solid var(--border-subtle); }
   .metricPanel > div:nth-child(odd) { border-left: 0; }
   .metricPanel > div:first-child,.metricPanel > div:nth-child(2) { border-top: 0; }
-  .driverCard { grid-template-columns: 3.5rem minmax(0,1fr); }
-  .driverImage { width: 3.5rem; height: 5rem; }
+  .metricPanel > div { min-height: 3.45rem; padding: .45rem .6rem; }
+  .metricPanel > div dd:first-of-type { margin-top: .1rem; font-size: 1.15rem; line-height: 1.15; }
+  .driverCard { min-height: 4.75rem; grid-template-columns: 3rem minmax(0,1fr); gap: .65rem; padding: .55rem; }
+  .driverImage { width: 3rem; height: 4.25rem; }
+  .driverCard p { display: none; }
+  .driverCard dl { margin-top: .35rem; }
+  .subjectDesktopGrid { display: none; }
+  .subjectMobileList { display: block; margin-top: .75rem; border-top: 1px solid var(--border-subtle); }
+  .subjectMobileItem { border-bottom: 1px solid var(--border-subtle); }
+  .subjectMobileButton { display: grid; width: 100%; min-height: 4rem; grid-template-columns: 2.5rem minmax(0,1fr) auto auto; align-items: center; gap: .65rem; padding: .45rem .2rem; text-align: left; }
+  .subjectMobileImage { display: flex; width: 2.5rem; height: 3.25rem; align-items: center; justify-content: center; overflow: hidden; border-radius: .3rem; background: rgba(0,0,0,.18); }
+  .subjectMobilePanel { padding: .25rem .2rem .75rem 3.15rem; }
   .fullReportGroups { grid-template-columns: minmax(0,1fr); }
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }
   .fullReportGroup header { align-items: flex-start; flex-direction: column; gap: .15rem; }

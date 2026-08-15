@@ -178,6 +178,35 @@ def test_collector_factor_standings_are_backend_owned_and_independent_of_raw_sca
         assert worst[factor]["tier"] == "F"
 
 
+def test_collector_factor_null_is_excluded_from_its_denominator_not_ranked_as_zero():
+    rows = _cohort()
+    rows[2]["openingExperience"]["collectorAppeal"]["factors"]["desirableOutcomeFrequency"] = None
+    _rank_within_cohort(rows, cohort_size=len(rows))
+    standings = {
+        row["target_id"]: row["openingExperience"]["collectorAppeal"]["factorStandings"]
+        for row in rows
+    }
+
+    assert standings["C"]["desirableOutcomeFrequency"]["rank"] is None
+    assert standings["C"]["desirableOutcomeFrequency"]["relativeScore"] is None
+    assert standings["C"]["desirableOutcomeFrequency"]["cohortSize"] == 4
+    assert standings["A"]["desirableOutcomeFrequency"]["cohortSize"] == 4
+    assert standings["A"]["rosterDesirability"]["cohortSize"] == 5
+
+
+def test_collector_factor_ties_use_the_same_deterministic_ordinal_semantics_as_financial():
+    rows = _cohort()
+    rows[0]["openingExperience"]["collectorAppeal"]["factors"]["rosterDesirability"] = 10.0
+    rows[1]["openingExperience"]["collectorAppeal"]["factors"]["rosterDesirability"] = 10.0
+    _rank_within_cohort(rows, cohort_size=len(rows))
+    by_id = _by_id(rows)
+
+    # Exact ties are ordered by target id and receive consecutive ordinal
+    # ranks. This is the existing shared Financial/public ranking behavior.
+    assert by_id["A"]["openingExperience"]["collectorAppeal"]["factorStandings"]["rosterDesirability"]["rank"] == 1
+    assert by_id["B"]["openingExperience"]["collectorAppeal"]["factorStandings"]["rosterDesirability"]["rank"] == 2
+
+
 def test_rank_bucket_tiers_match_production():
     # 20 sets, descending scores 100..5, so percentile buckets are exact.
     rows = [

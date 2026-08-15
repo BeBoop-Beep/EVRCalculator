@@ -174,7 +174,7 @@ function CombinedTooltip({ active, payload }) {
   );
 }
 
-function MarkerChips({ markers, activeMarkerKey, onMarkerClick }) {
+function MarkerChips({ markers, activeMarkerKey, onMarkerClick, compact = false }) {
   const markerRows = useMemo(
     () =>
       (Array.isArray(markers) ? markers : [])
@@ -187,7 +187,12 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick }) {
     [markers]
   );
 
-  if (markerRows.length === 0) {
+  const preferredRows = compact
+    ? markerRows.filter((marker) => /pack.*(price|market)|typical|p50|p95|strong upside|p99|jackpot/i.test(`${marker.key} ${marker.label}`)).slice(0, 4)
+    : markerRows;
+  const visibleRows = compact && preferredRows.length < 3 ? markerRows.slice(0, 4) : preferredRows;
+
+  if (visibleRows.length === 0) {
     return null;
   }
 
@@ -201,7 +206,7 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick }) {
           accidental. Two even columns fix both. From 600px up the wrap already
           fits several per row, so it is left alone. */}
       <div className="mt-4 flex flex-wrap gap-2 max-desk:mt-2 max-desk:gap-1 max-tab:grid max-tab:grid-cols-2">
-        {markerRows.map((marker) => (
+        {visibleRows.map((marker) => (
           <button
             key={marker.key}
             type="button"
@@ -216,7 +221,7 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick }) {
             // 40px instead of 44px, and centred: in the phone grid the chip is
             // stretched to its column, so the target is the full cell and the
             // height can come down a step without becoming hard to hit.
-            className={`inline-flex h-7 items-center rounded-full border px-3 text-xs transition-colors max-desk:h-auto max-desk:min-h-10 max-desk:justify-center max-desk:px-2 max-desk:text-[11px] ${
+            className={`inline-flex h-7 items-center rounded-full border px-3 text-xs transition-colors max-desk:h-auto max-desk:min-h-11 max-desk:justify-center max-desk:px-2 max-desk:text-[11px] ${
               activeMarkerKey === marker.key
                 ? "border-[var(--brand)] bg-[color:color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--text-primary)]"
                 : "border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
@@ -707,7 +712,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
               type="button"
               onClick={() => setShowBars(!showBars)}
               aria-pressed={showBars}
-              className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors max-desk:min-h-11 ${
                 showBars
                   ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   : "text-[var(--text-secondary)]/50 hover:text-[var(--text-secondary)]"
@@ -725,7 +730,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
                 type="button"
                 onClick={() => setShowLine(!showLine)}
                 aria-pressed={showLine}
-                className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors max-desk:min-h-11 ${
                   showLine
                     ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     : "text-[var(--text-secondary)]/50 hover:text-[var(--text-secondary)]"
@@ -745,7 +750,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
 
       {/* The plot's own height is unchanged at every width — only the air above
           it comes in below 1200px, which lifts the whole control set. */}
-      <div ref={chartContainerRef} className="mt-4 h-[20rem] w-full max-w-full min-w-0 max-desk:mt-2 sm:h-[23rem]">
+      <div ref={chartContainerRef} data-mobile-chart-layout className="mt-4 h-[13.5rem] w-full max-w-full min-w-0 max-desk:mt-2 md:h-[23rem]">
         <ChartFrame className="h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           {/* The 56px right inset existed to hold the percentage axis. Below
@@ -894,6 +899,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
 
       <MarkerChips
         markers={markerRows}
+        compact={isMobile}
         activeMarkerKey={activeMarkerKey}
         onMarkerClick={(markerKey) => setActiveMarkerKey((current) => (current === markerKey ? null : markerKey))}
       />

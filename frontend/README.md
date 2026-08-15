@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
+## inDex Mobile UI Invariants
+
+1. Mobile is a dedicated composition, not desktop stacked vertically.
+2. Large desktop context/container cards normally disappear on mobile; major sections use the established thin divider treatment instead.
+3. Mobile cards represent discrete data, entities, or actions—not containers whose only purpose is holding other cards.
+4. Preserve usable horizontal width with one consistent page gutter.
+5. Secondary explanatory copy collapses before primary metrics, ranks, or tiers do.
+6. Analytical summaries should communicate in roughly one viewport where practical.
+7. Interactive targets are at least 44px high and preferably 48px.
+8. QA mobile UI at 375px, 390px, and 430px, plus the 768px transition.
+9. A mobile UI pass is not complete until screenshots have been visually reviewed.
+
 ## Getting Started
 
 First, run the development server:
