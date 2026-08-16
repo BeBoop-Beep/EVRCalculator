@@ -16,6 +16,7 @@ from backend.calculations.evr.sealed_product_distribution import (
 from backend.db.services import sealed_product_rip_service as service
 from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
 from backend.desirability.scoring_config import OVERALL_RIP_V8_VERSION
+from backend.domain.pokemon import sealed_product_stage2_composition as stage2
 from backend.domain.pokemon.sealed_product_composition import (
     STAGE1_COMPOSITION_VERSION,
     SUPPORTED_STAGE1_FAMILIES,
@@ -460,6 +461,10 @@ def _run_stage1(products, *, appeal=None, captured=None):
         read_snapshot_fn=lambda _set_id: _snapshot(products),
         persist_fn=_persist,
         collector_appeal_fn=lambda _set_id: appeal or _APPEAL,
+        # Stage 2 discovery is a real dependency of the orchestrator now. These
+        # Stage 1 tests declare "no verified Stage 2 composition exists" the same
+        # way they already declare the snapshot and the persistence sink.
+        stage2_compositions_fn=lambda _ids: [],
     )
 
 
@@ -477,7 +482,11 @@ def test_persisted_rows_are_one_per_run_and_product_with_full_provenance():
     assert summary["status"] == "ok"
     assert summary["scoredProductCount"] == 2
     assert summary["persistedProductCount"] == 2
-    assert summary["skippedReasons"] == {service.REASON_UNSUPPORTED_FAMILY: 1}
+    # The Enhanced Booster Box is a STAGE 2 family, so its skip reason is now the
+    # specific one ("nobody has verified what is in this SKU") rather than the
+    # generic "Stage 1 does not model this family". Stage 2 owning the verdict for
+    # its own families is what keeps a SKU from carrying two different reasons.
+    assert summary["skippedReasons"] == {stage2.REASON_NO_VERIFIED_COMPOSITION: 1}
     assert len({(r["calculation_run_id"], r["sealed_product_id"]) for r in captured}) == 2
 
     row = next(r for r in captured if r["sealed_product_id"] == "101")

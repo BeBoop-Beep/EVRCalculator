@@ -15,7 +15,10 @@ UNIQUE_KEY = "calculation_run_id,sealed_product_id"
 
 _SELECT_FIELDS = (
     "id,calculation_run_id,sealed_product_id,set_id,product_family,product_name,pack_count,"
-    "composition_version,distribution_model_version,pack_independence_assumption,"
+    "composition_version,composition_id,distribution_model_version,pack_independence_assumption,"
+    "random_pack_count,random_pack_expected_value,guaranteed_component_count,"
+    "guaranteed_component_market_value,guaranteed_value_share_of_expected_value,"
+    "accessory_value_included,"
     "product_market_cost,price_as_of,price_source,simulation_count,"
     "expected_value,median_value,p05_value,p95_value,p99_value,min_value,max_value,"
     "standard_deviation,chance_to_recover_cost,expected_loss_when_losing,"

@@ -2,8 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const source = fs.readFileSync(path.resolve(__dirname, "ExploreTopRankings.jsx"), "utf8");
-const css = fs.readFileSync(path.resolve(__dirname, "explore.module.css"), "utf8");
+// Mixed CRLF/LF in this checkout — normalize before any multi-line anchor.
+const read = (name) => fs.readFileSync(path.resolve(__dirname, name), "utf8").replace(/\r\n/g, "\n");
+const source = read("ExploreTopRankings.jsx");
+const sparkline = read("MarketSparkline.jsx");
+const css = read("explore.module.css");
 
 test("ranking uses the compact Market snapshot without another request", () => {
   assert.ok(source.includes("target?.currentSetValue"));
@@ -29,14 +32,16 @@ test("rows open the existing set Market Set Value section", () => {
   assert.ok(source.includes('buildTcgSetHrefFromTarget(routeTarget, { tab: "market", section: "set-value" })'));
 });
 test("limited history is explicit and never fabricated", () => {
-  assert.ok(source.includes("points.length < 2"));
-  assert.ok(source.includes("History unavailable"));
+  // The "not enough points to draw" case now lives in the shared sparkline.
+  assert.ok(sparkline.includes("numericPoints.length < 2"));
+  assert.ok(sparkline.includes("emptyLabel"));
   assert.ok(source.includes("N/A"));
   assert.ok(source.includes("Since first available"));
 });
-test("mobile keeps the chart subordinate to identity and value", () => {
+test("mobile keeps the chart on its own full-width row below identity and value", () => {
   assert.ok(source.includes("MOBILE_PREVIEW_LIMIT = 5"));
-  assert.ok(css.includes(".ladderRow > :nth-child(3)"));
-  assert.ok(css.includes("grid-column: 2 / 4"));
+  assert.ok(css.includes(".ladderRow > [data-ranking-chart]"));
+  assert.ok(css.includes("grid-row: 2;"));
+  assert.ok(css.includes("grid-column: 1 / -1;"));
   assert.ok(css.includes(".rankingHeader { display: none; }"));
 });

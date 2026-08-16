@@ -271,19 +271,27 @@
   transition: background-color 140ms ease, box-shadow 140ms ease;
 }
 
+/* The chart is the row's one interactive exception: raised above the stretched
+   navigation link so hovering, scrubbing and reading its edge dates never
+   triggers navigation. */
+.ladderRow > [data-ranking-chart] {
+  position: relative;
+  z-index: 2;
+}
+
+/* Stretched navigation surface for the whole ranking row. It is absolutely
+   positioned so it does not take a grid cell, and sits above the row's static
+   text but below the chart, which raises itself out of the way. */
 .ladderNav {
-  display: grid;
-  grid-column: 1 / 3;
-  grid-template-columns: 2.25rem minmax(9rem, 1.35fr);
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   border-radius: 6px;
 }
 
 .ladderNav:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .rankingHeader {
@@ -359,15 +367,14 @@
     padding-bottom: 10px;
   }
 
-  .ladderNav {
-    grid-column: 1 / 3;
-    grid-template-columns: 2rem minmax(0, 1fr);
-  }
-
+  /* The trend is its own full-bleed row under the identity line. It previously
+     inherited a fixed viewport-relative width cap and started at column
+     2, which cut the plot off well short of the card. It now spans every column
+     and takes the row's full content width, matching Top Chase Cards. */
   .ladderRow > [data-ranking-chart] {
-    grid-column: 2 / 4;
+    grid-column: 1 / -1;
     grid-row: 2;
-    width: min(10rem, 42vw);
+    width: auto;
   }
 
   .rankingHeader { display: none; }

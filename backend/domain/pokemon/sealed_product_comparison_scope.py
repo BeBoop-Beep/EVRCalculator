@@ -50,6 +50,17 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from backend.domain.pokemon.sealed_product_composition import SUPPORTED_STAGE1_FAMILIES
+from backend.domain.pokemon.sealed_product_stage2_composition import STAGE2_FAMILIES
+
+#: Every family that has a validated WITHIN-family comparison. Stage 2 widens the
+#: set of comparable families; it does NOT widen the policy. An Elite Trainer Box
+#: may be ranked against another Elite Trainer Box for exactly the reason a
+#: Booster Box may be ranked against another Booster Box - same composition, same
+#: pack count, same guaranteed-component structure, so the only thing that
+#: differs is what is being measured. Nothing here makes an ETB comparable to a
+#: Pokemon Center ETB (different pack count AND different guaranteed contents),
+#: to a booster box, or to a bundle.
+COMPARABLE_FAMILIES = frozenset(SUPPORTED_STAGE1_FAMILIES) | frozenset(STAGE2_FAMILIES)
 
 #: Version of the comparison-scope POLICY itself, so a stored/published payload
 #: can be attributed to the rule that produced it.
@@ -78,7 +89,7 @@ def sealed_product_comparison_scope_contract() -> Dict[str, Any]:
         "crossFormatComparable": SEALED_PRODUCT_CROSS_FORMAT_COMPARABLE,
         "comparisonScopeVersion": SEALED_PRODUCT_COMPARISON_SCOPE_VERSION,
         "comparisonScopeReason": SEALED_PRODUCT_COMPARISON_SCOPE_REASON,
-        "comparableFamilies": sorted(SUPPORTED_STAGE1_FAMILIES),
+        "comparableFamilies": sorted(COMPARABLE_FAMILIES),
     }
 
 
@@ -91,7 +102,7 @@ def may_compare_products(left_family: Any, right_family: Any) -> bool:
     """
     left = str(left_family or "").strip()
     right = str(right_family or "").strip()
-    if left not in SUPPORTED_STAGE1_FAMILIES or right not in SUPPORTED_STAGE1_FAMILIES:
+    if left not in COMPARABLE_FAMILIES or right not in COMPARABLE_FAMILIES:
         return False
     if left == right:
         return True
