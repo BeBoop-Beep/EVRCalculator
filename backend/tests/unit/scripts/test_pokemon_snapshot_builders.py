@@ -1427,6 +1427,15 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                                     "rankedSetCount": 22,
                                     "relativeScore": 82.0,
                                     "tier": "A",
+                                    "modeledPokemon": [
+                                        {
+                                            "name": "Pikachu",
+                                            "desirabilityScore": 86.6,
+                                            "speciesRank": 2,
+                                            "rosterWeight": 0.5,
+                                            "frequencyEligible": True,
+                                        }
+                                    ],
                                 },
                                 "desirableOutcomeFrequency": {
                                     "rawValue": 0.266,
@@ -1503,6 +1512,15 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                     "rankedSetCount": 22,
                     "relativeScore": 82.0,
                     "tier": "A",
+                    "modeledPokemon": [
+                        {
+                            "name": "Pikachu",
+                            "desirabilityScore": 86.6,
+                            "speciesRank": 2,
+                            "rosterWeight": 0.5,
+                            "frequencyEligible": True,
+                        }
+                    ],
                 },
                 "desirableOutcomeFrequency": {
                     "rawValue": 0.266,
@@ -1535,7 +1553,8 @@ def test_canonical_set_page_completeness_rejects_missing_collector_factor_metada
             "collectorAppeal": {
                 "components": {
                     "rosterDesirability": {
-                        "rank": 1, "tier": "S", "rankedSetCount": 2, "relativeScore": 100.0
+                        "rank": 1, "tier": "S", "rankedSetCount": 2, "relativeScore": 100.0,
+                        "modeledPokemon": [{"name": "Pikachu", "desirabilityScore": 90.0}],
                     },
                     "desirableOutcomeFrequency": {
                         "rank": 2, "tier": "F", "rankedSetCount": 2

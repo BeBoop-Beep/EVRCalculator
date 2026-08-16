@@ -211,6 +211,25 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
         for field in ("rank", "tier", "rankedSetCount", "relativeScore"):
             if component.get(field) is None:
                 problems.append(f"{label}: collectorAppeal.components.{name}.{field} is missing")
+    modeled_pokemon = (collector_components.get("rosterDesirability") or {}).get("modeledPokemon")
+    if not isinstance(modeled_pokemon, list) or not modeled_pokemon:
+        problems.append(
+            f"{label}: collectorAppeal.components.rosterDesirability.modeledPokemon is missing"
+        )
+    else:
+        for index, pokemon in enumerate(modeled_pokemon):
+            if not isinstance(pokemon, dict):
+                problems.append(
+                    f"{label}: collectorAppeal.components.rosterDesirability."
+                    f"modeledPokemon[{index}] is malformed"
+                )
+                continue
+            for field in ("name", "desirabilityScore"):
+                if pokemon.get(field) is None:
+                    problems.append(
+                        f"{label}: collectorAppeal.components.rosterDesirability."
+                        f"modeledPokemon[{index}].{field} is missing"
+                    )
     return problems
 
 

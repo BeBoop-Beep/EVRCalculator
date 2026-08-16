@@ -106,7 +106,12 @@ def _contract_v7(index, contract_version):
         "collectorAppeal": {
             **_score_block(index),
             "components": {
-                "rosterDesirability": _score_block(index, fingerprint=False),
+                "rosterDesirability": {
+                    **_score_block(index, fingerprint=False),
+                    "modeledPokemon": [
+                        {"name": "Pikachu", "desirabilityScore": 90.0, "speciesRank": 1}
+                    ],
+                },
                 "desirableOutcomeFrequency": _score_block(index, fingerprint=False),
             },
         },
@@ -310,6 +315,9 @@ def test_history_rows_carry_the_canonical_v7_and_v3_scores():
         (lambda t: t["publicRipContractV8"]["collectorAppeal"]["components"]
          ["desirableOutcomeFrequency"].pop("tier"),
          r"collectorAppeal\.components\.desirableOutcomeFrequency\.tier is missing"),
+        (lambda t: t["publicRipContractV8"]["collectorAppeal"]["components"]
+         ["rosterDesirability"].pop("modeledPokemon"),
+         r"collectorAppeal\.components\.rosterDesirability\.modeledPokemon is missing"),
         (lambda t: t.pop("publicRipContractV8"), "publicRipContractV8 is missing"),
     ],
 )

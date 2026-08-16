@@ -326,8 +326,25 @@ test("each row keeps exactly one real link, stretched over the row", () => {
 test("desktop and mobile ranking rows route to the canonical set RIP tab", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(source.includes('buildTcgSetHrefFromTarget(target, { tab: "overview" })'));
-  assert.equal((source.match(/href=\{buildRipLink\(target\)\}/g) || []).length, 2);
+  assert.equal((source.match(/href=\{buildRipLink\(target\)\}/g) || []).length, 3);
   assert.ok(!source.includes('tab: "insights", section: "rip-score"'));
+});
+
+test("top three render as compact linked answer cards before the full comparison", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes("const topThree = canonicalTargets.slice(0, 3)"));
+  assert.ok(source.includes("<TopRankedCard"));
+  assert.ok(source.includes("Why #1?"));
+  assert.ok(source.indexOf("Top ranked sets") < source.indexOf('aria-label="Compare all sets"'));
+});
+
+test("top cards use authoritative economics and optional chase data", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  assert.ok(source.includes("getScoreForMode(target, \"overall\")"));
+  assert.ok(source.includes("getTierForMode(target, \"overall\")"));
+  assert.ok(source.includes("formatCurrency(target?.pack_cost)"));
+  assert.ok(source.includes("formatPercent(target?.prob_profit, true)"));
+  assert.ok(source.includes("readOptionalRankingsChase(target)"));
 });
 
 test("rank is a scannable column driven by the canonical mode rank", () => {

@@ -213,7 +213,7 @@ def _build_collector_appeal_v4(
     but it did not feed this score, and ``components`` states what did.
     """
     appeal = _obj(collector.get("collectorAppeal"))
-    roster = {"score": _obj(universal).get("score"), "version": _obj(universal).get("version")}
+    roster = _obj(collector.get("rosterDesirability"))
     frequency = _obj(collector.get("desirableOutcomeFrequency"))
     dual_path = _obj(collector.get("dualPathDepth"))
     factors = _obj(appeal.get("factors"))
@@ -246,6 +246,7 @@ def _build_collector_appeal_v4(
                 "score": _num(roster.get("score")),
                 "rawValue": _num(factors.get("rosterDesirability")),
                 "version": roster.get("version"),
+                "modeledPokemon": list(roster.get("modeledPokemon") or []),
                 "rank": _int(roster_standing.get("rank")),
                 "rankedSetCount": _int(roster_standing.get("cohortSize")),
                 "relativeScore": _num(roster_standing.get("relativeScore")),

@@ -170,12 +170,12 @@ test("the score, rank, tier and denominator are the backend's own", () => {
   assert.equal(appeal.tier, "A");
 });
 
-test("Roster Desirability details preserve the authoritative Pokémon order and deduplicate names", () => {
+test("Roster Desirability details rank by desirability, cap at ten, and deduplicate names", () => {
   const fixture = structuredClone(V7_FIXTURE);
   fixture.collectorAppeal.components.rosterDesirability.modeledPokemon = [
-    { name: "Charizard", desirabilityScore: 97.4, globalRank: 2 },
-    { name: "Mewtwo", desirabilityScore: 94.1, globalRank: 5 },
-    { name: "charizard", desirabilityScore: 97.4, globalRank: 2 },
+    { name: "Mewtwo", desirabilityScore: 94.1, speciesRank: 5, rosterWeight: 0.9 },
+    { name: "Charizard", desirabilityScore: 97.4, speciesRank: 2, rosterWeight: 0.1 },
+    { name: "charizard", desirabilityScore: 97.4, speciesRank: 2, rosterWeight: 1.0 },
     ...Array.from({ length: 12 }, (_, index) => ({ name: `Pokemon ${index}`, desirabilityScore: 80 - index })),
   ];
   const roster = selectCollectorAppealBreakdown({ publicRipContractV8: fixture }).rows[0];
@@ -185,6 +185,7 @@ test("Roster Desirability details preserve the authoritative Pokémon order and 
     { label: "#2 Mewtwo", value: "Desirability Score: 94.1 · Overall Pokémon Rank: #5" },
   ]);
   assert.equal(roster.metrics.some((metric) => /contribution/i.test(metric.label + metric.value)), false);
+  assert.equal(roster.metrics.filter((metric) => /charizard/i.test(metric.label)).length, 1);
 });
 
 test("Roster Desirability gets a Details control with a precise missing-contract explanation", () => {

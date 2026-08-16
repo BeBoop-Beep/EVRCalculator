@@ -31,10 +31,12 @@ from backend.desirability.component_source import (
     selector_columns,
 )
 from backend.desirability.scoring_config import UNIVERSAL_SET_DESIRABILITY_VERSION
+from backend.desirability.composite import COMPOSITE_SCORING_VERSION
 from backend.desirability.universal_set_desirability import (
     COVERAGE_FULL,
     assess_desirability_coverage,
     compute_universal_set_desirability,
+    eligible_subject_rollups,
     rank_universal_scores,
 )
 from backend.desirability.weighted_rip import evaluate_set_value_association, spearman
@@ -64,6 +66,7 @@ READ_MAX_ATTEMPTS = 4
 # `get_universal_desirability_bundle` on why the two must stay distinguishable.
 STATUS_OK = "ok"
 STATUS_FAILED = "failed"
+COMPOSITE_SCORE_TABLE = "pokemon_desirability_composite_scores"
 
 T = TypeVar("T")
 
@@ -284,15 +287,77 @@ def _load_latest_set_values(set_ids: Sequence[str]) -> Dict[str, float]:
     return latest
 
 
+def _load_authoritative_species_ranks() -> Dict[int, int]:
+    """Global Pokemon desirability rank from the canonical composite snapshot."""
+    rows = _paged_select(
+        lambda: (
+            public_read_client.table(COMPOSITE_SCORE_TABLE)
+            .select("pokemon_reference_id,desirability_rank")
+            .eq("scoring_version", COMPOSITE_SCORING_VERSION)
+            .order("pokemon_reference_id", desc=False)
+        )
+    )
+    ranks: Dict[int, int] = {}
+    for row in rows:
+        try:
+            reference_id = int(row.get("pokemon_reference_id"))
+            rank = int(row.get("desirability_rank"))
+        except (TypeError, ValueError):
+            continue
+        if rank > 0:
+            ranks[reference_id] = rank
+    return ranks
+
+
+def _modeled_pokemon(
+    subject_rollups: Sequence[Mapping[str, Any]],
+    *,
+    species_ranks: Mapping[int, int],
+    top_subjects: Sequence[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Public projection of the distinct species the roster model actually used."""
+    weights = {
+        int(row["pokemon_reference_id"]): row.get("slot_weight")
+        for row in top_subjects
+        if row.get("pokemon_reference_id") is not None
+    }
+    modeled: List[Dict[str, Any]] = []
+    for row in eligible_subject_rollups(subject_rollups):
+        try:
+            reference_id = int(row.get("pokemon_reference_id"))
+        except (TypeError, ValueError):
+            continue
+        modeled.append(
+            {
+                "name": row.get("subject_name"),
+                "pokemonReferenceId": reference_id,
+                "desirabilityScore": _to_optional_float(row.get("max_desirability_score")),
+                # Verified global rank from pokemon_desirability_composite_scores,
+                # not a set-local position.
+                "speciesRank": species_ranks.get(reference_id),
+                # Only the top-three strength slots have a model weight. Null is
+                # truthful for every other eligible roster subject.
+                "rosterWeight": _to_optional_float(weights.get(reference_id)),
+            }
+        )
+    return modeled
+
+
 def _build_payloads() -> Dict[str, Any]:
     selection = _load_current_component_rows()
     v2_rows = selection["selected"]
+    species_ranks = _load_authoritative_species_ranks()
     computed: List[Dict[str, Any]] = []
     for set_id, v2_row in v2_rows.items():
         diagnostics = v2_row.get("diagnostics_json") or {}
         coverage_audit = diagnostics.get("coverage_audit") or {}
         link_counts = diagnostics.get("hit_link_category_counts") or {}
         v3 = compute_universal_set_desirability(v2_row.get("subject_rollups_json") or [])
+        modeled_pokemon = _modeled_pokemon(
+            v2_row.get("subject_rollups_json") or [],
+            species_ranks=species_ranks,
+            top_subjects=v3["top_subjects"],
+        )
         coverage = assess_desirability_coverage(
             canonical_card_count=coverage_audit.get("canonical_card_count") or diagnostics.get("canonical_cards_seen"),
             hit_eligible_card_count=v2_row.get("hit_eligible_card_count"),
@@ -311,6 +376,7 @@ def _build_payloads() -> Dict[str, Any]:
                 "component_weights": v3["component_weights"],
                 "weights_label": v3["weights_label"],
                 "top_subjects": v3["top_subjects"],
+                "modeled_pokemon": modeled_pokemon,
                 "distinct_eligible_subject_count": v3["distinct_eligible_subject_count"],
                 # The compact depth diagnostics only. The raw rollups behind them
                 # are megabytes and stay server-side; a public payload carries the

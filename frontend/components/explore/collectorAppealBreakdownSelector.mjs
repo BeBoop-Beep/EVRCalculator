@@ -135,8 +135,9 @@ const SUBJECT_SCOPE_NOTE =
   "Trainer and artist desirability are not yet modeled and are not counted.";
 
 function selectRosterPokemonMetrics(roster = {}) {
-  // The backend owns both membership and order. The UI only deduplicates an
-  // already-ranked canonical list and caps its presentation at ten rows.
+  // The backend owns membership and authoritative scores/ranks. The visible
+  // "Top Pokemon" order is desirability-first; rosterWeight is an internal
+  // model field and must never determine this presentation.
   const modeledPokemon = Array.isArray(roster.modeledPokemon) ? roster.modeledPokemon : null;
   if (!modeledPokemon) {
     return {
@@ -147,7 +148,7 @@ function selectRosterPokemonMetrics(roster = {}) {
   }
 
   const seen = new Set();
-  const rows = [];
+  const unique = [];
   for (const pokemon of modeledPokemon) {
     const name = String(pokemon?.name ?? pokemon?.pokemonName ?? "").trim();
     const desirabilityScore = toOptionalNumber(pokemon?.desirabilityScore);
@@ -155,15 +156,27 @@ function selectRosterPokemonMetrics(roster = {}) {
     const key = name.toLocaleLowerCase("en-US");
     if (seen.has(key)) continue;
     seen.add(key);
-    const globalRank = toOptionalNumber(pokemon?.globalRank);
-    rows.push({
-      label: `#${rows.length + 1} ${name}`,
-      value: `Desirability Score: ${formatScore(desirabilityScore)}${
-        globalRank === UNAVAILABLE ? "" : ` · Overall Pokémon Rank: #${Math.round(globalRank)}`
-      }`,
-    });
-    if (rows.length === 10) break;
+    const speciesRank = toOptionalNumber(pokemon?.speciesRank ?? pokemon?.globalRank);
+    unique.push({ name, desirabilityScore, speciesRank });
   }
+
+  unique.sort((left, right) => {
+    if (right.desirabilityScore !== left.desirabilityScore) {
+      return right.desirabilityScore - left.desirabilityScore;
+    }
+    const leftRank = left.speciesRank === UNAVAILABLE ? Number.POSITIVE_INFINITY : left.speciesRank;
+    const rightRank = right.speciesRank === UNAVAILABLE ? Number.POSITIVE_INFINITY : right.speciesRank;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return left.name.localeCompare(right.name, "en-US");
+  });
+  const rows = unique.slice(0, 10).map((pokemon, index) => ({
+    label: `#${index + 1} ${pokemon.name}`,
+    value: `Desirability Score: ${formatScore(pokemon.desirabilityScore)}${
+      pokemon.speciesRank === UNAVAILABLE
+        ? ""
+        : ` · Overall Pokémon Rank: #${Math.round(pokemon.speciesRank)}`
+    }`,
+  }));
 
   return rows.length
     ? { metrics: rows, statusReason: null }

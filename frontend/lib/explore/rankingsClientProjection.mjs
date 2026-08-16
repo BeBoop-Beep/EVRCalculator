@@ -54,6 +54,8 @@ const SCALAR_FIELDS = Object.freeze([
   "prob_profit",                // Chance to Beat Cost
   "expected_loss_when_losing",  // Average Loss
   "expectedLossWhenLosing",
+  "top_chase_name", "top_chase_market_value", "top_chase_one_in_packs",
+  "modeled_packs_to_50", "modeled_spend_to_50",
 
   // 1D rank movement: ExploreTableClient -> formatRankMovement
   "previousOverallRipRank1d",
@@ -92,6 +94,9 @@ const BLOCK_LEAVES = Object.freeze({
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
+  rankingsChase: ["name", "marketValue", "oneInPacks", "packsTo50", "spendTo50"],
+  topChase: ["name", "marketValue", "oneInPacks", "packsTo50", "spendTo50"],
+  top_chase: ["name", "market_value", "one_in_packs", "packs_to_50", "spend_to_50"],
 });
 
 /** The canonical-contract blocks `readCanonicalBlock` consumes, leaf by leaf. */

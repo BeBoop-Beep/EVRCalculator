@@ -493,6 +493,24 @@ def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set
         for field in COLLECTOR_FACTOR_STANDING_FIELDS:
             if component.get(field) is None:
                 problems.append(f"collectorAppeal.components.{name}.{field}")
+    roster = components.get("rosterDesirability")
+    roster = roster if isinstance(roster, dict) else {}
+    modeled_pokemon = roster.get("modeledPokemon")
+    if not isinstance(modeled_pokemon, list) or not modeled_pokemon:
+        problems.append("collectorAppeal.components.rosterDesirability.modeledPokemon")
+    else:
+        for index, pokemon in enumerate(modeled_pokemon):
+            if not isinstance(pokemon, dict):
+                problems.append(
+                    f"collectorAppeal.components.rosterDesirability.modeledPokemon[{index}]"
+                )
+                continue
+            for field in ("name", "desirabilityScore"):
+                if pokemon.get(field) is None:
+                    problems.append(
+                        "collectorAppeal.components.rosterDesirability."
+                        f"modeledPokemon[{index}].{field}"
+                    )
     if problems:
         raise RuntimeError(
             f"Refusing incomplete canonical set-page snapshot set_id={set_id}: missing "

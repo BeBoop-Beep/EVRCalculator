@@ -43,6 +43,46 @@ from backend.desirability.public_analytics_policy import (
     is_public_analytics_eligible,
     public_analytics_status,
 )
+
+
+def test_set_payload_preserves_roster_species_and_only_annotates_frequency_eligibility():
+    universal = {
+        "score": 90.0,
+        "version": "universal_set_desirability_v3",
+        "coverage": {"status": "full"},
+        "modeled_pokemon": [
+            {
+                "name": "Charizard", "pokemonReferenceId": 6,
+                "desirabilityScore": 95.0, "speciesRank": 2, "rosterWeight": 0.5,
+            },
+            {
+                "name": "Pikachu", "pokemonReferenceId": 25,
+                "desirabilityScore": 90.0, "speciesRank": 4, "rosterWeight": None,
+            },
+        ],
+    }
+    subjects = [
+        {
+            "subject_key": "ref:6", "subject_name": "Charizard",
+            "subject_demand": 95.0, "pull_probability": 0.01,
+            "slot_group": "rare", "cards": [],
+        }
+    ]
+    payload = service._build_set_payload(
+        set_id="set-1", universal_row=universal, subjects=subjects, pull_modeled=True
+    )
+    assert payload["rosterDesirability"]["modeledPokemon"] == [
+        {
+            "name": "Charizard", "pokemonReferenceId": 6,
+            "desirabilityScore": 95.0, "speciesRank": 2, "rosterWeight": 0.5,
+            "frequencyEligible": True,
+        },
+        {
+            "name": "Pikachu", "pokemonReferenceId": 25,
+            "desirabilityScore": 90.0, "speciesRank": 4, "rosterWeight": None,
+            "frequencyEligible": False,
+        },
+    ]
 from backend.desirability.universal_set_desirability import COVERAGE_FULL
 
 # The frozen identity from the phase brief. Any change here is a stop condition.

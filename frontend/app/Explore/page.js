@@ -98,22 +98,12 @@ export default async function ExplorePage({ searchParams }) {
       />
       {/*
         No outer context box: the modules sit directly on the application
-        canvas. The page heading stays in the document for structure but is
-        visually hidden — the first thing on screen is the ranked data.
-
-        The sentence below it is the same accessibility affordance, not SEO
-        filler: a screen-reader user landing here otherwise gets a heading and
-        then a table with no statement of what the page is for. It says only
-        what the module beneath it already shows (sets ordered by Overall RIP,
-        each linking to its own analysis) and names no weight, coefficient or
-        formula.
+        canvas. The visible heading answers the page question immediately; the
+        one-line context names inputs without putting methodology before data.
       */}
-      <header className="sr-only">
-        <h1>Best Pokémon Sets to Rip Right Now</h1>
-        <p>
-          Every Pokémon set inDex currently ranks, ordered by Overall RIP. Open a set for its
-          Financial RIP, Collector Appeal and modeled opening outcomes.
-        </p>
+      <header className="mx-auto mb-5 w-full max-w-5xl">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Best Pokémon Sets to Rip Right Now</h1>
+        <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Current prices, simulated opening outcomes, and collector appeal — compared in one place.</p>
       </header>
 
       {/*

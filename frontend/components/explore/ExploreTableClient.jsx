@@ -69,6 +69,7 @@ import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTo
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
+import { explainRankingsLeader, readOptionalRankingsChase } from "./rankingsPresentation.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -99,6 +100,28 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
+
+function OptionalChaseLine({ target }) {
+  const chase = readOptionalRankingsChase(target);
+  if (!chase) return null;
+  const detail = chase.oneInPacks ? `1 in ${Math.round(chase.oneInPacks).toLocaleString()} packs` : chase.marketValue ? formatCurrency(chase.marketValue) : null;
+  return <p className="mt-1 truncate text-[10px] text-[var(--text-secondary)]"><span className="font-semibold">Top Chase:</span> {chase.name}{detail ? ` · ${detail}` : ""}</p>;
+}
+
+function TopRankedCard({ target, rank }) {
+  const tier = (getTierForMode(target, "overall") || "").toUpperCase() || null;
+  const score = getScoreForMode(target, "overall");
+  const tone = tier ? getTierTone(tier) : null;
+  return <Link href={buildRipLink(target)} className={`${styles.topRankCard} ${rank === 1 ? styles.topRankCardFirst : ""}`} style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}>
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="text-xl font-bold tabular-nums" style={tone ? { color: tone.textColor } : undefined}>#{rank}</span>
+      <div className="min-w-0 flex-1"><SetIdentity variant="mobileRanking" target={target} eager /></div>
+      <div className="flex-none text-right"><div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Overall RIP</div><div className="text-lg font-bold tabular-nums text-[var(--text-primary)]">{score === null ? UNAVAILABLE_LABEL : formatModeScore(score, SCORE_KIND_PUBLIC)}</div>{tier ? <RankBadge rank={tier} title="Overall RIP Tier" format="tier" /> : null}</div>
+    </div>
+    <div className="mt-2 flex items-center justify-between gap-3 border-t border-white/5 pt-2 text-[11px] text-[var(--text-secondary)]"><span>Pack {formatCurrency(target?.pack_cost)}</span><span>Beat cost {formatPercent(target?.prob_profit, true)}</span></div>
+    <OptionalChaseLine target={target} />
+  </Link>;
+}
 
 /**
  * Day-over-day RANK movement, and only for the two canonical modes.
@@ -618,13 +641,17 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
       ? sortedTargets
       : sortedTargets.slice(0, MOBILE_PREVIEW_LIMIT);
   const hiddenMobileCount = Math.max(0, sortedTargets.length - visibleMobileTargets.length);
+  const topThree = canonicalTargets.slice(0, 3);
+  const leaderExplanation = explainRankingsLeader(canonicalTargets);
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-label="Best Sets to Rip Right Now">
+    <div className="space-y-5">
+    {topThree.length ? <section aria-labelledby="top-ranked-sets-heading"><div className="mb-2"><h2 id="top-ranked-sets-heading" className="text-lg font-semibold text-[var(--text-primary)]">Top ranked sets</h2><p className="text-xs text-[var(--text-secondary)]">The current Overall RIP leaders.</p></div><div className={styles.topRankGrid}>{topThree.map((target, index) => <TopRankedCard key={`${target.target_type}:${target.target_id}`} target={target} rank={index + 1} />)}</div>{leaderExplanation ? <div className={styles.whyLeader}><span className="font-semibold text-[var(--text-primary)]">Why #1?</span> {leaderExplanation} <span className="text-[var(--text-secondary)]">Overall RIP is relative, not a promise of profit.</span></div> : null}</section> : null}
+    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets">
       <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Best Sets to Rip Right Now</h2>
+          <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare all sets</h2>
           <div className="relative flex-none" ref={sortMenuContainerRef}>
             <button
               type="button"
@@ -632,9 +659,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               aria-expanded={sortMenuOpen}
               aria-haspopup="listbox"
               aria-label="Choose which metric the rankings are sorted by"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-subtle)] text-xl leading-none text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border-subtle)] px-3 leading-none text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              <span aria-hidden="true">⇅</span>
+              <span className="text-xs font-semibold">Metric</span>
             </button>
             {sortMenuOpen ? (
               <div className="fixed inset-x-3 bottom-20 z-30 max-h-[min(28rem,calc(100dvh-7rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64" role="listbox">
@@ -993,6 +1020,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
         </p>
       )}
     </section>
+    </div>
     </RankColumnModeContext.Provider>
   );
 }

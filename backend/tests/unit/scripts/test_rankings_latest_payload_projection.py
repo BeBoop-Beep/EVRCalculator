@@ -61,7 +61,10 @@ def _target(name="ascendedHeroes"):
             "collectorAppeal": {
                 "components": {
                     "rosterDesirability": {
-                        "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0
+                        "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0,
+                        "modeledPokemon": [
+                            {"name": "Pikachu", "desirabilityScore": 86.6, "speciesRank": 2}
+                        ],
                     },
                     "desirableOutcomeFrequency": {
                         "rank": 17, "tier": "F", "rankedSetCount": 22, "relativeScore": 28.0
@@ -104,7 +107,10 @@ def test_canonical_and_movement_fields_survive_the_projection():
         # Publication validation (_score_contract_problems) requires this.
         collector = target["publicRipContractV8"]["collectorAppeal"]["components"]
         assert collector["rosterDesirability"] == {
-            "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0
+            "rank": 5, "tier": "A", "rankedSetCount": 22, "relativeScore": 82.0,
+            "modeledPokemon": [
+                {"name": "Pikachu", "desirabilityScore": 86.6, "speciesRank": 2}
+            ],
         }
         assert collector["desirableOutcomeFrequency"] == {
             "rank": 17, "tier": "F", "rankedSetCount": 22, "relativeScore": 28.0

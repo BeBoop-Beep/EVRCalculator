@@ -95,6 +95,20 @@ def _collector_payload(name, appeal_x100):
         "status": "available",
         "asOf": "2026-07-16T00:00:00Z",
         "dualPathDepth": {"rawValue": 0.27143, "displayPercent": 27.1, "version": "dual_path_depth_v1"},
+        "rosterDesirability": {
+            "score": appeal_x100,
+            "version": "universal_set_desirability_v3",
+            "modeledPokemon": [
+                {
+                    "name": "Pikachu",
+                    "pokemonReferenceId": 25,
+                    "desirabilityScore": 86.6,
+                    "speciesRank": 2,
+                    "rosterWeight": 0.5,
+                    "frequencyEligible": True,
+                }
+            ],
+        },
         "desirableOutcomeFrequency": {"rawValue": 0.31, "displayPercent": 31.0},
         "collectorAppeal": {
             "score": appeal_x100,
@@ -156,6 +170,7 @@ def _unavailable_payload(name):
         "setName": name,
         "status": "unavailable",
         "dualPathDepth": {"rawValue": None, "displayPercent": None},
+        "rosterDesirability": {"score": None, "modeledPokemon": []},
         "collectorAppeal": {"score": None, "rawValue": None},
         "chaseAppeal": {"score": None, "rawValue": None},
         "topSubjects": [],

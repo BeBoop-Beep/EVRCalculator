@@ -8,10 +8,10 @@ const rankingsSource = fs.readFileSync(path.resolve(__dirname, "../Rankings/page
 const marketSource = fs.readFileSync(path.resolve(__dirname, "../Market/page.js"), "utf8");
 
 test("Rankings is the public name and /Explore remains backwards compatible", () => {
-  // The heading is still in the document and still visually hidden; it now
-  // carries the page's public intent rather than a bare section label.
-  assert.ok(exploreSource.includes('<header className="sr-only">'));
-  assert.ok(exploreSource.includes("<h1>Best Pokémon Sets to Rip Right Now</h1>"));
+  // The public question is visible before the rankings data.
+  assert.ok(exploreSource.includes('<header className="mx-auto mb-5 w-full max-w-5xl">'));
+  assert.ok(exploreSource.includes("Best Pokémon Sets to Rip Right Now"));
+  assert.ok(exploreSource.includes(">Best Pokémon Sets to Rip Right Now</h1>"));
   assert.ok(rankingsSource.includes('export { default } from "../Explore/page"'));
 });
 

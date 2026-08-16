@@ -256,6 +256,22 @@ def _build_set_payload(
             set_id, reason,
         )
 
+    frequency_eligible_subjects = {
+        str(row.get("subject_key"))
+        for row in (subjects or [])
+        if row.get("subject_key")
+    }
+    modeled_pokemon = []
+    for pokemon in universal_row.get("modeled_pokemon") or []:
+        copied = dict(pokemon)
+        reference_id = copied.get("pokemonReferenceId")
+        copied["frequencyEligible"] = (
+            f"ref:{reference_id}" in frequency_eligible_subjects
+            if reference_id is not None and pull_modeled
+            else None
+        )
+        modeled_pokemon.append(copied)
+
     return {
         "setId": set_id,
         "setName": universal_row.get("set_name"),
@@ -266,6 +282,7 @@ def _build_set_payload(
         "rosterDesirability": {
             "score": d_score,
             "version": universal_row.get("version"),
+            "modeledPokemon": modeled_pokemon,
         },
         # F: how often the modeled pack delivers a desirable card. NOT a
         # financial statistic - see the module's financialDistinction field.

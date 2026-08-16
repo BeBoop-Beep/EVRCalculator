@@ -42,6 +42,36 @@ CHAOS_EXACT_ROW_ID = "6e4cf65f-6846-4e7a-91dd-346550d31dca"
 CHAOS_V1_ROW_ID = "23ad1e53-11c0-422e-beed-6ef2afcfcf63"
 
 
+def test_modeled_pokemon_uses_authoritative_scores_ranks_and_existing_slot_weights():
+    rollups = [
+        {
+            "subject_key": "ref:25", "subject_name": "Pikachu",
+            "pokemon_reference_id": 25, "max_desirability_score": 90.0,
+            "rarity_buckets_present": ["major_hit"],
+        },
+        {
+            "subject_key": "ref:6", "subject_name": "Charizard",
+            "pokemon_reference_id": 6, "max_desirability_score": 95.0,
+            "rarity_buckets_present": ["major_hit"],
+        },
+    ]
+    modeled = service._modeled_pokemon(
+        rollups,
+        species_ranks={6: 2, 25: 4},
+        top_subjects=[{"pokemon_reference_id": 6, "slot_weight": 0.625}],
+    )
+    assert modeled == [
+        {
+            "name": "Charizard", "pokemonReferenceId": 6,
+            "desirabilityScore": 95.0, "speciesRank": 2, "rosterWeight": 0.625,
+        },
+        {
+            "name": "Pikachu", "pokemonReferenceId": 25,
+            "desirabilityScore": 90.0, "speciesRank": 4, "rosterWeight": None,
+        },
+    ]
+
+
 def _rollups(count=6, top=95.0):
     """Subject rollups that produce a real, non-zero v3 score."""
     return [
@@ -161,6 +191,7 @@ def _reset_cache():
 def _bundle(monkeypatch, rows):
     client = _Client(rows)
     monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "_load_authoritative_species_ranks", lambda: {})
     return service.get_universal_desirability_bundle(force_refresh=True)
 
 
