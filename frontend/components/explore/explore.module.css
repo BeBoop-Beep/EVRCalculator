@@ -271,27 +271,41 @@
   transition: background-color 140ms ease, box-shadow 140ms ease;
 }
 
-/* The chart is the row's one interactive exception: raised above the stretched
-   navigation link so hovering, scrubbing and reading its edge dates never
-   triggers navigation. */
-.ladderRow > [data-ranking-chart] {
-  position: relative;
-  z-index: 2;
-}
-
-/* Stretched navigation surface for the whole ranking row. It is absolutely
-   positioned so it does not take a grid cell, and sits above the row's static
-   text but below the chart, which raises itself out of the way. */
+/* The navigation region is a real link wrapping the information it describes,
+   with the chart as its sibling — TopMarketCardRow's composition. At desktop it
+   owns columns one and two and splits into rank | logo | set. */
 .ladderNav {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  display: grid;
+  grid-column: 1 / 3;
+  grid-template-columns: 2.25rem 2.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
   border-radius: 6px;
 }
 
-.ladderNav:focus-visible {
+.ladderNav:focus-visible,
+.ladderValueNav:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: 2px;
+}
+
+/* Column three. Explicit rather than auto-placed so the trend can never drift
+   into the value column if a child is added or hidden. */
+.ladderRow > [data-ranking-chart] {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+/* Column four. A SIBLING link, not a nested one: the value and change area is
+   navigable without the chart between it and the identity link ever having to
+   live inside an anchor. */
+.ladderValueNav {
+  display: block;
+  grid-column: 4;
+  grid-row: 1;
+  min-width: 0;
+  border-radius: 6px;
 }
 
 .rankingHeader {
@@ -360,22 +374,39 @@
     display: none;
   }
 
+  /* Below desktop the row stops being a narrowed four-column table. It is two
+     stacked full-width bands — the compact information line, then the trend —
+     exactly as TopMarketCardRow composes itself. Adapting the desktop ladder
+     template here is what forced the chart into a fraction of the card. */
   .ladderRow {
-      min-height: 4.25rem;
-      grid-template-columns: 2rem minmax(0, 1fr) minmax(7.5rem, auto);
+    min-height: 4.25rem;
+    grid-template-columns: minmax(0, 1fr);
     padding-top: 10px;
     padding-bottom: 10px;
   }
 
-  /* The trend is its own full-bleed row under the identity line. It previously
-     inherited a fixed viewport-relative width cap and started at column
-     2, which cut the plot off well short of the card. It now spans every column
-     and takes the row's full content width, matching Top Chase Cards. */
+  /* The whole compact line: rank | logo | set name + era | value + change.
+     Every one of those four regions is inside the link, so the entire
+     information row navigates. */
+  .ladderNav {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: 1.75rem 2.25rem minmax(0, 1fr) auto;
+    min-height: 2.75rem;
+    gap: 0.5rem;
+  }
+
+  /* The trend band. Full row width with no cap of any kind — it takes whatever
+     the row's content box gives it and reflows with the viewport. */
   .ladderRow > [data-ranking-chart] {
     grid-column: 1 / -1;
     grid-row: 2;
-    width: auto;
+    width: 100%;
   }
+
+  /* The value lives inside the link on this composition, so the column-four
+     link has nothing to render. */
+  .ladderValueNav { display: none; }
 
   .rankingHeader { display: none; }
 }

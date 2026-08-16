@@ -27,19 +27,20 @@ test("canonical visual language includes frame, gradient, line, guide, marker, a
 
 test("ranking navigation and chart are siblings without event suppression", () => {
   const row = rankings.slice(rankings.indexOf("return <li key={target.setId}"), rankings.indexOf("</div></li>;"));
-  const linkEnd = row.indexOf("aria-label={`${name} — open Set Market`} />");
-  assert.ok(linkEnd > 0, "the row link is a self-closing stretched anchor, not a wrapper");
+  const linkEnd = row.indexOf("</Link>");
+  assert.ok(linkEnd > 0, "the information region is a link wrapping what it describes");
   assert.ok(row.indexOf("data-ranking-chart") > linkEnd, "the chart is a sibling of the link, never nested inside it");
   assert.ok(!rankings.includes("stopPropagation"));
 });
 
-test("the whole ranking row navigates while the chart opts out via stacking", () => {
-  // The link covers the row instead of occupying the identity columns, so rank,
-  // logo, name, era, value and change are all clickable from one anchor.
-  assert.ok(rankingsCss.includes(".ladderNav {\n  position: absolute;\n  inset: 0;"));
-  assert.ok(!rankingsCss.includes("grid-column: 1 / 3;"), "the link no longer claims grid cells");
-  // ...and the chart sits above it rather than suppressing its events.
-  assert.ok(rankingsCss.includes(".ladderRow > [data-ranking-chart] {\n  position: relative;\n  z-index: 2;\n}"));
+test("the ranking row navigates from real links, never a stretched overlay", () => {
+  // Composition follows TopMarketCardRow: the identity link holds rank, logo and
+  // set (plus the value below desktop), and the value gets its own sibling link
+  // in desktop column four. Detailed placement is covered by
+  // ExploreTopRankingsCompactRows.contract.test.mjs.
+  assert.ok(rankingsCss.includes(".ladderNav {\n  display: grid;\n  grid-column: 1 / 3;"));
+  assert.ok(!rankingsCss.includes(".ladderNav {\n  position: absolute;"), "no empty stretched anchor");
+  assert.ok(rankings.includes("data-ranking-value-nav"), "the value area is its own sibling link");
 });
 
 test("tooltip delta uses the caller's selected-window baseline when given one", () => {

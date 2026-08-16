@@ -1,4 +1,7 @@
+<<<<<<< Updated upstream
 import httpcore
+=======
+>>>>>>> Stashed changes
 import pytest
 
 from backend.db.services import pokemon_set_market_service
@@ -624,6 +627,153 @@ def test_single_stale_observation_at_t_minus_26_days_is_still_excluded_from_1d(m
 
     movers = _movers_by_card_id(payload)
     assert "card-5" not in movers, "a 26-day-old single observation must still be excluded from a 1D window"
+
+
+# ---------------------------------------------------------------------------
+# resolve_pokemon_set_identifier — shared resolver
+# ---------------------------------------------------------------------------
+
+
+class _RecordingSetsHandler:
+    """A `sets` table handler that actually filters by eq(), and records every
+    query issued so tests can assert which lookup strategy was used (unlike
+    the fixed-row lambdas above, which ignore filters entirely)."""
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.calls = []
+
+    def __call__(self, query):
+        self.calls.append(query)
+        if query.eq_filters:
+            field, value = query.eq_filters[-1]
+            matches = [row for row in self.rows if row.get(field) == value]
+            return matches[: query.limit_value] if query.limit_value else matches
+        return self.rows
+
+
+def _set_row(set_id, name, canonical_key, api_id):
+    return {"id": set_id, "name": name, "canonical_key": canonical_key, "pokemon_api_set_id": api_id}
+
+
+_PRISMATIC_EVOLUTIONS_UUID = "11111111-1111-1111-1111-111111111111"
+
+
+def test_resolve_pokemon_set_identifier_resolves_by_uuid(monkeypatch):
+    rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    row = pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
+
+    assert row["id"] == _PRISMATIC_EVOLUTIONS_UUID
+    assert len(sets_handler.calls) == 1, "UUID fast path must issue exactly one indexed lookup"
+    assert sets_handler.calls[0].eq_filters == [("id", _PRISMATIC_EVOLUTIONS_UUID)]
+
+
+def test_resolve_pokemon_set_identifier_uuid_fast_path_skips_normalized_scan(monkeypatch):
+    rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
+
+    assert all(call.eq_filters for call in sets_handler.calls), (
+        "UUID fast path must never fall back to a full-table scan"
+    )
+
+
+def test_resolve_pokemon_set_identifier_resolves_by_canonical_key(monkeypatch):
+    rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismaticEvolutions")
+
+    assert row["id"] == "set-uuid-1"
+
+
+def test_resolve_pokemon_set_identifier_resolves_by_pokemon_api_set_id(monkeypatch):
+    rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    row = pokemon_set_market_service.resolve_pokemon_set_identifier("sv8pt5")
+
+    assert row["id"] == "set-uuid-1"
+
+
+def test_resolve_pokemon_set_identifier_resolves_hyphenated_slug_via_normalized_fallback(monkeypatch):
+    rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismatic-evolutions")
+
+    assert row["id"] == "set-uuid-1"
+    # id/canonical_key/pokemon_api_set_id eq attempts all miss, then a
+    # full-table scan (no eq_filters) normalizes and matches by name.
+    full_scan_calls = [call for call in sets_handler.calls if not call.eq_filters]
+    assert len(full_scan_calls) == 1
+
+
+def test_resolve_pokemon_set_identifier_raises_not_found_for_unknown_slug(monkeypatch):
+    rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+
+    with pytest.raises(pokemon_set_market_service.PokemonSetMarketError) as exc_info:
+        pokemon_set_market_service.resolve_pokemon_set_identifier("totally-unknown-set")
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.code == "POKEMON_SET_NOT_FOUND"
+
+
+def test_get_pokemon_set_value_history_payload_resolves_hyphenated_slug(monkeypatch):
+    """Regression test: get_pokemon_set_value_history_payload previously 404'd
+    on hyphen slugs like prismatic-evolutions because it used a weaker
+    resolver with no normalized-slug fallback."""
+    rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    sets_handler = _RecordingSetsHandler(rows)
+    client = _Client(
+        {
+            "sets": sets_handler,
+            "pokemon_set_value_daily_history": lambda _q: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
+
+    assert payload["set"]["id"] == "set-uuid-1"
+    assert payload["history"] == []
+
+
+def test_build_pokemon_set_card_movement_payload_resolves_hyphenated_slug(monkeypatch):
+    """Regression test: the live movers builder previously 404'd on hyphen
+    slugs for the same reason as value-history."""
+    canonical_cards = [_canonical_card("card-1", name="Sylveon", api_id="api-1")]
+    legacy_cards = [_legacy_card("legacy-1", name="Sylveon", api_id="api-1")]
+    variants = [_variant("variant-1", legacy_card_id="legacy-1", api_id="api-1")]
+    sets_handler = _RecordingSetsHandler(
+        [_set_row("set-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
+    )
+    client = _Client(
+        {
+            "sets": sets_handler,
+            "pokemon_canonical_cards": lambda _q: canonical_cards,
+            "cards": lambda _q: legacy_cards,
+            "card_variants": lambda _q: variants,
+            "conditions": lambda _q: [{"id": _CONDITION_ID, "name": "Near Mint"}],
+            "card_market_usd_latest_by_condition": lambda _q: [],
+            "card_variant_price_observations": lambda _q: [],
+        }
+    )
+    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+
+    payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="prismatic-evolutions")
+
+    assert payload["set"]["id"] == "set-1"
     assert payload["movements"] == []
 
 

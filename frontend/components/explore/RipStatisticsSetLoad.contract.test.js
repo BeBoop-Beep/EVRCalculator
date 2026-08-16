@@ -1622,6 +1622,7 @@ test("proxy routes do not cache failed snapshot responses", () => {
   }
 });
 
+<<<<<<< Updated upstream
 test("overview proxy route serves no-store on failure and public cache on success", () => {
   // The overview route now delegates to the shared slim-module proxy, so the
   // cache-control policy is asserted where it lives (one implementation for
@@ -1674,6 +1675,22 @@ test("backend set resolver accepts URL slugs like journey-together, shared acros
   assert.ok(marketSource.includes('row.get("name")'));
   assert.ok(marketSource.includes('row.get("canonical_key")'));
 
+=======
+test("backend set resolver accepts URL slugs like journey-together, shared across page/shell/cards/market/value-history", () => {
+  // The normalized-slug resolver lives once in pokemon_set_market_service.py
+  // (resolve_pokemon_set_identifier) and is shared by every set route,
+  // including pokemon_public_snapshot_service.py (page/shell/cards/market
+  // dashboard/top-cards) — it must not be reimplemented per module.
+  const marketSource = fs.readFileSync(marketServicePath, "utf8");
+  const snapshotSource = fs.readFileSync(snapshotServicePath, "utf8");
+
+  assert.ok(marketSource.includes("def resolve_pokemon_set_identifier"));
+  assert.ok(marketSource.includes("def _normalise_set_lookup_key"));
+  assert.ok(marketSource.includes("resolved set identifier by normalized slug"));
+  assert.ok(marketSource.includes('row.get("name")'));
+  assert.ok(marketSource.includes('row.get("canonical_key")'));
+
+>>>>>>> Stashed changes
   assert.ok(!snapshotSource.includes("def _normalise_set_lookup_key"), "must not reimplement the normalized-slug fallback locally");
   assert.ok(snapshotSource.includes("resolve_pokemon_set_identifier(set_id, client=public_read_client)"));
 });
@@ -2397,7 +2414,164 @@ test("shallow-only same-set tab navigation helper does not exist", () => {
   );
 });
 
+<<<<<<< Updated upstream
 test("title/header card keeps stable Set Value data while its score follows the hero mode contract", () => {
+=======
+// ---------------------------------------------------------------------------
+// Regression: a pushState/cached-full-page-snapshot patch (since reverted)
+// changed same-set tab navigation to window.history.pushState and applied a
+// cached full /page snapshot straight into explorePayload, bypassing page.js.
+// That broke the tightly-coupled derived state below because explorePayload,
+// shellPayload, and the market dashboard/set-value state are meant to be
+// reconciled through a real route render, not merged ad hoc client-side. It
+// surfaced as: the title-card set value sparkline/30D delta reverting to
+// "History pending", the Overview Set Value Trend chart disappearing, the
+// market dashboard/Performance vs Cost card behaving inconsistently, and
+// Desirability Validation rendering oddly until a hard refresh. These tests
+// guard the underlying invariants directly so the same regression can't slip
+// back in through a different mechanism.
+// ---------------------------------------------------------------------------
+
+test("title-card set value/market dashboard state do not key off explorePayload's identity", () => {
+  // Overview's set value + market dashboard derivation must stay anchored to
+  // resolvedSetResourceId (and the shell's own compact history fallback),
+  // never to whether/what explorePayload currently holds — otherwise a tab
+  // visit that populates explorePayload (Insights/Pull Rates) can blank out
+  // Overview's title-card sparkline/30D delta and Set Value Trend chart when
+  // the user switches back.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  const marketStateStart = source.indexOf("const activeMarketDashboardState =");
+  const marketStateEnd = source.indexOf("const activeMarketDashboardDerivedState = useMemo(", marketStateStart);
+  const marketStateSource = source.slice(marketStateStart, marketStateEnd);
+
+  assert.ok(marketStateStart >= 0, "activeMarketDashboardState must exist");
+  assert.ok(
+    marketStateSource.includes("marketDashboardState.setId === resolvedSetResourceId"),
+    "market dashboard state must be keyed by resolvedSetResourceId"
+  );
+  assert.ok(
+    !marketStateSource.includes("explorePayload"),
+    "market dashboard state selection must not branch on explorePayload"
+  );
+
+  const shellFallbackStart = source.indexOf("const shellSetValueVisiblePoints = Array.isArray(");
+  const shellFallbackEnd = source.indexOf("const activeSetValueStandardHistory =", shellFallbackStart);
+  const shellFallbackSource = source.slice(shellFallbackStart, shellFallbackEnd);
+
+  assert.ok(shellFallbackStart >= 0, "shell set-value compact-history fallback must exist");
+  assert.ok(
+    shellFallbackSource.includes("setShellContract.setValueSummary.compact.visiblePoints"),
+    "must still fall back to the shell contract's compact history"
+  );
+  assert.ok(
+    !shellFallbackSource.includes("explorePayload"),
+    "the shell set-value fallback must not be gated on explorePayload's presence"
+  );
+});
+
+test("Overview market dashboard fetch effect never resets already-loaded state just because explorePayload changed", () => {
+  // Line endings are mixed in this file (some regions CRLF, some LF) — this
+  // effect's region is CRLF, so normalize before searching for multi-line
+  // anchors.
+  const source = fs.readFileSync(ripPageClientPath, "utf8").split("\r\n").join("\n");
+  const effectStart = source.indexOf("const dashboardSourceWindow = DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW;\n    if (!setId) {");
+  const effectEnd = source.indexOf("]);", effectStart) + 3;
+  const effectSource = source.slice(effectStart, effectEnd);
+
+  assert.ok(effectStart >= 0, "market dashboard fetch effect must exist");
+  assert.ok(effectSource.includes("explorePayload,"), "effect still re-syncs when explorePayload changes (e.g. a tab switch)");
+
+  // Both reset dispatches must stay gated behind !setId / !canFetchSetDetailModules,
+  // never fire unconditionally when explorePayload changes.
+  assert.ok(
+    effectSource.includes('if (!setId) {\n      dispatchMarketDashboard({ type: "reset"'),
+    "reset must be gated on !setId"
+  );
+  assert.ok(
+    effectSource.includes('if (!canFetchSetDetailModules) {\n      dispatchMarketDashboard({\n        type: "reset",'),
+    "reset must be gated on !canFetchSetDetailModules"
+  );
+
+  // When the tab isn't overview and nothing needs a live fetch, the effect
+  // must bail out without touching state that a prior successful fetch set.
+  const shouldRenderGuardIndex = effectSource.indexOf("if (!shouldRenderMarketData) {");
+  assert.ok(shouldRenderGuardIndex >= 0, "must gate the live fetch on the overview tab being active");
+  assert.ok(
+    effectSource.indexOf("return undefined;", shouldRenderGuardIndex) < effectSource.indexOf("let isCancelled = false;"),
+    "must return early for a non-overview tab instead of resetting state"
+  );
+});
+
+test("Desirability Validation derives purely from explorePayload and cannot poison other Overview state", () => {
+  const source = fs.readFileSync(ripPageClientPath, "utf8").split("\r\n").join("\n");
+
+  const fnStart = source.indexOf("function getDesirabilityValidationPayload(explorePayload) {");
+  const fnEnd = source.indexOf("\n}\n", fnStart);
+  const fnSource = source.slice(fnStart, fnEnd);
+  assert.ok(fnStart >= 0, "getDesirabilityValidationPayload must exist");
+  assert.ok(
+    fnSource.includes('return payload && typeof payload === "object" ? payload : null;'),
+    "must safely return null for a missing/invalid payload instead of throwing or defaulting to a stale object"
+  );
+
+  const memoStart = source.indexOf("const desirabilityValidationPayload = useMemo(");
+  const memoEnd = source.indexOf(");", memoStart) + 2;
+  const memoSource = source.slice(memoStart, memoEnd);
+  assert.ok(memoStart >= 0, "desirabilityValidationPayload memo must exist");
+  assert.ok(memoSource.includes("getDesirabilityValidationPayload(explorePayload)"));
+  assert.ok(
+    !memoSource.includes("marketDashboardState") && !memoSource.includes("setValueHistoryState"),
+    "desirability validation must not be entangled with market dashboard/set-value state"
+  );
+
+  const cardsFnStart = source.indexOf("function DesirabilityProofCards({ validation }) {");
+  const cardsFnEnd = source.indexOf("\n}\n", cardsFnStart);
+  const cardsFnSource = source.slice(cardsFnStart, cardsFnEnd);
+  assert.ok(cardsFnStart >= 0, "DesirabilityProofCards must exist");
+  assert.ok(
+    cardsFnSource.includes("if (!validation) {\n    return null;\n  }"),
+    "must render nothing (not a broken/partial card) when validation is unavailable"
+  );
+});
+
+test("same-set tab changes keep route-seeded initialModuleSnapshots (shellPayload/cardsPayload/marketDashboardPayload) in sync via a real navigation", () => {
+  // This is the other half of the router.push regression guard above: a real
+  // Next.js navigation is what refreshes initialExplorePayload/
+  // initialCardsPayload/initialMarketDashboardPayload (the page.js-provided,
+  // tab-scoped props) — a pushState-only URL change never does, since page.js
+  // never re-renders. This effect is what re-seeds local state from those
+  // props, so it must key off the route-provided props, not off any
+  // client-only cache.
+  const source = fs.readFileSync(ripPageClientPath, "utf8");
+
+  assert.ok(
+    source.includes("explorePayload: initialExplorePayload,"),
+    "explorePayload prop (fresh per route render) must be aliased to initialExplorePayload"
+  );
+  assert.ok(source.includes("const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;"));
+  assert.ok(source.includes("const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;"));
+
+  const reseedStart = source.indexOf("setExplorePayload(initialExplorePayload || null);");
+  const reseedEffectStart = source.lastIndexOf("useEffect(() => {", reseedStart);
+  const reseedEffectEnd = source.indexOf("]);", reseedStart) + 3;
+  const reseedEffectSource = source.slice(reseedEffectStart, reseedEffectEnd);
+
+  assert.ok(reseedStart >= 0, "route-seed resync effect must exist");
+  assert.ok(
+    reseedEffectSource.includes("buildInitialSetPageDataSeed({"),
+    "must rebuild the route-seeded module data (cards/market dashboard/explore) from the fresh props"
+  );
+  assert.ok(
+    reseedEffectSource.includes("initialExplorePayload,") &&
+      reseedEffectSource.includes("initialCardsPayload,") &&
+      reseedEffectSource.includes("initialMarketDashboardPayload,"),
+    "resync effect must depend on the route-provided props, which only change on a real navigation"
+  );
+});
+
+test("title/header card renders from the Set Header Summary Contract, not activeSetDetailTab", () => {
+>>>>>>> Stashed changes
   const source = fs.readFileSync(ripPageClientPath, "utf8");
 
   assert.ok(
