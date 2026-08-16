@@ -97,6 +97,8 @@ class PublicationSummary:
     rip_contract_audit_status: str = "not_attempted"
     rip_contract_audit_failures: List[str] = field(default_factory=list)
     rip_contract_audit_report: Optional[Dict[str, Any]] = None
+    sealed_product_finalization_status: str = "not_attempted"
+    sealed_product_finalization_report: Optional[Dict[str, Any]] = None
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -114,6 +116,22 @@ class PublicationSummary:
         out.append(f"{TAG} latest_simulation_date_by_set:")
         for set_key in sorted(self.latest_simulation_date_by_set):
             out.append(f"{TAG}   {set_key}={self.latest_simulation_date_by_set[set_key] or '-'}")
+        out.append(
+            f"{TAG} sealed_product_finalization_status={self.sealed_product_finalization_status}"
+        )
+        if self.sealed_product_finalization_report:
+            report = self.sealed_product_finalization_report
+            out.append(
+                f"{TAG}   sealed_product_rows_considered={report.get('rowsConsidered')} "
+                f"finalized={report.get('rowsFinalized')} "
+                f"ca_unavailable={report.get('rowsCollectorAppealUnavailable')} "
+                f"skipped={report.get('rowsSkipped')} sets={report.get('setCount')}"
+            )
+            out.append(
+                f"{TAG}   collector_appeal_bundle_builds={report.get('collectorAppealBundleBuilds')} "
+                f"bundle_ms={report.get('collectorAppealBundleMs')} "
+                f"total_ms={report.get('elapsedMs')}"
+            )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
         out.append(f"{TAG} verification_passed={self.verification_passed}")
         out.append(f"{TAG} publication_audit_status={self.publication_audit_status}")
@@ -284,6 +302,21 @@ def orchestrate(
     for line in after.report_lines(entry_point="daily opening publication"):
         print(line)
 
+    # ---- Step 3b: finalize sealed-product Collector Appeal / Overall RIP ----
+    # Placed at the narrowest correct point: AFTER every required simulation has
+    # completed and freshness has been verified (so the cohort is whole), and
+    # BEFORE snapshot publication (so nothing downstream can publish a product
+    # row whose Overall RIP is still pending). It runs in ONE process, which is
+    # the entire reason it exists - the per-set subprocesses no longer build the
+    # Collector Appeal bundle at all, so this is the only build in the day.
+    summary.sealed_product_finalization_status = _finalize_sealed_products(
+        client,
+        summary,
+        market_date=resolved_market_date,
+        unsupported_keys=unsupported_keys,
+        dry_run=dry_run,
+    )
+
     # ---- Step 4: publish snapshots ----------------------------------------
     # Snapshots still rebuild when verification failed: the market sections are
     # legitimately fresh and must not be held hostage to a stale simulation.
@@ -395,6 +428,47 @@ def orchestrate(
 
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _finalize_sealed_products(
+    client: Any,
+    summary: PublicationSummary,
+    *,
+    market_date: str,
+    unsupported_keys: Sequence[str],
+    dry_run: bool,
+) -> str:
+    """Attach Collector Appeal + Overall RIP to today's Stage 1 product rows.
+
+    Deliberately NON-FATAL to the publication. Stage 1 sealed-product results
+    have no public consumer yet, and Financial RIP - the part that IS complete
+    after simulation - is already persisted and correct. Failing the whole daily
+    opening publication over an enrichment pass would trade a live, working
+    loose-pack publication for an internal table's completeness. The status is
+    reported instead, so the failure is visible rather than absorbed.
+    """
+    if dry_run:
+        print(f"{TAG} DRY-RUN would finalize sealed-product Collector Appeal / Overall RIP")
+        return "skipped_dry_run"
+    if summary.simulation_failed or not summary.verification_passed:
+        # An incomplete cohort is not enriched as though it were complete.
+        return "skipped_cohort_not_verified"
+
+    from backend.db.services.sealed_product_rip_finalization_service import (
+        finalize_sealed_product_rip,
+    )
+
+    try:
+        report = finalize_sealed_product_rip(
+            client, market_date=market_date, unsupported_keys=unsupported_keys
+        )
+    except Exception as exc:  # noqa: BLE001 - reported, never silently absorbed
+        logger.warning("%s sealed-product finalization raised", TAG, exc_info=True)
+        summary.sealed_product_finalization_report = None
+        return f"failed_{type(exc).__name__}"
+
+    summary.sealed_product_finalization_report = report
+    return str(report.get("status") or "unknown")
 
 
 def _run_rip_contract_audit(

@@ -10,6 +10,8 @@ import {
   filterHistoryPointsForDeltaWindow,
   getDeltaWindowLabel,
   getDeltaTrendDirection,
+  resolveDeltaWindowBaselineValue,
+  computeChangeFromBaseline,
   getPreferredDeltaWindowKey,
   getSelectedDeltaWindowFromHistory,
   getStandardDeltaWindowDefinitions,
@@ -622,4 +624,38 @@ test("delta trend triangle direction maps values consistently", () => {
   assert.equal(getDeltaTrendDirection(-1), "down");
   assert.equal(getDeltaTrendDirection(0), "neutral");
   assert.equal(getDeltaTrendDirection(null), "neutral");
+});
+
+test("the window baseline is recovered from the published movement, not re-derived", () => {
+  // The reported #1 row: $6,077.94 today, 6M movement -$221.30 (-3.5%).
+  const baseline = resolveDeltaWindowBaselineValue({ amount: -221.3, percent: -3.5 }, 6077.94);
+  assert.equal(Number(baseline.toFixed(2)), 6299.24);
+
+  const latest = computeChangeFromBaseline(6077.94, baseline);
+  assert.equal(Number(latest.amount.toFixed(2)), -221.3);
+  assert.equal(Number(latest.percent.toFixed(1)), -3.5);
+});
+
+test("intermediate points measure against the same window baseline", () => {
+  const baseline = resolveDeltaWindowBaselineValue({ amount: -221.3 }, 6077.94);
+
+  // A mid-window point that is only $62.71 below the point before it must still
+  // report its distance from the window baseline, not the day-over-day step.
+  const midpoint = computeChangeFromBaseline(6140.65, baseline);
+  assert.equal(Number(midpoint.amount.toFixed(2)), -158.59);
+  assert.ok(midpoint.percent < 0);
+
+  // The baseline point itself is a zero change, never a null.
+  assert.deepEqual(computeChangeFromBaseline(baseline, baseline), { amount: 0, percent: 0 });
+});
+
+test("positive windows and unusable baselines are handled without fabricating a delta", () => {
+  const upBaseline = resolveDeltaWindowBaselineValue({ amount: 250 }, 1250);
+  assert.equal(upBaseline, 1000);
+  assert.deepEqual(computeChangeFromBaseline(1250, upBaseline), { amount: 250, percent: 25 });
+
+  assert.equal(resolveDeltaWindowBaselineValue(null, 1250), null);
+  assert.equal(resolveDeltaWindowBaselineValue({ amount: null }, 1250), null);
+  assert.equal(resolveDeltaWindowBaselineValue({ amount: 1250 }, 1250), null, "a zero baseline has no percent");
+  assert.deepEqual(computeChangeFromBaseline(1250, null), { amount: null, percent: null });
 });

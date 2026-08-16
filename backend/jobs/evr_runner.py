@@ -29,6 +29,7 @@ from backend.db.services.calculation_run_persistence_service import (
     persist_simulation_outputs,
 )
 from backend.db.services.evr_input_preparation_service import EVRInputPreparationService
+from backend.db.services.sealed_product_rip_service import run_stage1_sealed_product_rip
 from backend.db.services.set_desirability_service import get_latest_set_hit_desirability_score
 from backend.simulations import calculate_pack_simulations
 
@@ -659,6 +660,28 @@ class EVRRunOrchestrator:
         if etb_enabled:
             persisted_etb = persist_simulation_etb_summary(run_id=run_id, etb_metrics=etb_metrics)
 
+        # Stage 1 sealed products. Strictly ADDITIVE and strictly downstream: it
+        # consumes the pack simulation that already finished and the parent run
+        # that is already persisted, so the loose-pack result above does not
+        # depend on it in any way. It never reruns card-level simulation.
+        parent_set_id = persisted_parent.get("set_id")
+        if parent_set_id:
+            sealed_product_stage1 = run_stage1_sealed_product_rip(
+                sim_results=sim_results,
+                set_id=parent_set_id,
+                canonical_set_key=canonical_key,
+                calculation_run_id=run_id,
+                run_fingerprint=str(persisted_parent.get("config_hash") or ""),
+            )
+        else:
+            # Sealed products are discovered by set id. Without one there is
+            # nothing to discover; say so rather than inventing a lookup.
+            logger.warning(
+                "Skipping Stage 1 sealed-product RIP for %s: parent run did not expose a set id.",
+                canonical_key,
+            )
+            sealed_product_stage1 = {"status": "skipped", "reason": "parent_run_set_id_unavailable"}
+
         result = {
             "canonical_key": canonical_key,
             "set_name": set_name,
@@ -680,6 +703,7 @@ class EVRRunOrchestrator:
                 "etb_summary": persisted_etb,
             },
             "derived": derived,
+            "sealed_product_stage1": sealed_product_stage1,
         }
 
         logger.info(

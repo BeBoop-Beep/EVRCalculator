@@ -312,6 +312,41 @@ export function getVisibleHistoryWindowMetrics(
   };
 }
 
+/**
+ * The one definition of "what does this window compare against".
+ *
+ * A published movement is `latest - baseline` over the selected window, so the
+ * baseline it was measured from is recoverable exactly as `latest - amount`.
+ * Deriving it this way — rather than re-reading the first trend point — keeps
+ * the summary chip and anything else that renders the same window (the
+ * sparkline tooltip) on ONE number. Re-deriving from the compacted trend array
+ * would be a second definition that can drift from the published one.
+ */
+export function resolveDeltaWindowBaselineValue(movement, latestValue) {
+  const latest = toNumber(latestValue);
+  const amount = toNumber(movement?.amount);
+  if (latest === null || amount === null) {
+    return null;
+  }
+  const baseline = latest - amount;
+  return baseline === 0 ? null : baseline;
+}
+
+/**
+ * Change of `value` against a fixed window baseline. Used for every point the
+ * user can hover, so an intermediate point reads as "change since the start of
+ * the selected window", never as a day-over-day step.
+ */
+export function computeChangeFromBaseline(value, baselineValue) {
+  const current = toNumber(value);
+  const baseline = toNumber(baselineValue);
+  if (current === null || baseline === null || baseline === 0) {
+    return { amount: null, percent: null };
+  }
+  const amount = current - baseline;
+  return { amount, percent: (amount / baseline) * 100 };
+}
+
 export function filterHistoryPointsForDeltaWindow(points, window, { dateKey = "date" } = {}) {
   const rows = Array.isArray(points) ? points : [];
   const startDate = window?.startDate || null;

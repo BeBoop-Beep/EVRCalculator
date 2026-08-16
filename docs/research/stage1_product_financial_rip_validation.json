@@ -1,0 +1,1529 @@
+{
+  "source": "file",
+  "financialRipV3Version": "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
+  "normalizationVersion": "financial_rip_v3_fixed_absolute_piecewise_v1",
+  "compositionVersion": "sealed-product-composition-stage1-v1",
+  "rowCount": 53,
+  "byFamily": {
+    "sleeved_booster_pack": {
+      "productCount": 15,
+      "setCount": 15,
+      "readyCount": 15,
+      "packCounts": [
+        1
+      ],
+      "financialRipScore": {
+        "n": 15,
+        "min": 19.5312,
+        "p25": 28.2303,
+        "median": 29.9412,
+        "p75": 31.43735,
+        "max": 38.3953,
+        "mean": 29.182573,
+        "iqr": 3.20705,
+        "range": 18.8641
+      },
+      "productMarketCost": {
+        "n": 15,
+        "min": 6.87,
+        "p25": 9.26,
+        "median": 10.64,
+        "p75": 11.895,
+        "max": 16.24,
+        "mean": 10.594667,
+        "iqr": 2.635,
+        "range": 9.37
+      },
+      "rawInputs": {
+        "true_win_probability": {
+          "n": 15,
+          "min": 0.030261,
+          "p25": 0.050991,
+          "median": 0.060131,
+          "p75": 0.07096,
+          "max": 0.098545,
+          "mean": 0.059901,
+          "iqr": 0.019969,
+          "range": 0.068284
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "min": 0.107759,
+          "p25": 0.141622,
+          "median": 0.166222,
+          "p75": 0.193169,
+          "max": 0.208852,
+          "mean": 0.16596,
+          "iqr": 0.051547,
+          "range": 0.101093
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "min": 0.151119,
+          "p25": 0.18512,
+          "median": 0.217768,
+          "p75": 0.245505,
+          "max": 0.270239,
+          "mean": 0.215986,
+          "iqr": 0.060384,
+          "range": 0.11912
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "min": 0.02628,
+          "p25": 0.047741,
+          "median": 0.057292,
+          "p75": 0.084213,
+          "max": 0.115464,
+          "mean": 0.06526,
+          "iqr": 0.036471,
+          "range": 0.089185
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "min": 0.545098,
+          "p25": 1.007532,
+          "median": 1.190684,
+          "p75": 1.433507,
+          "max": 1.992437,
+          "mean": 1.217904,
+          "iqr": 0.425976,
+          "range": 1.447339
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "min": 1.178422,
+          "p25": 1.83362,
+          "median": 2.108399,
+          "p75": 2.421444,
+          "max": 3.345536,
+          "mean": 2.110577,
+          "iqr": 0.587825,
+          "range": 2.167114
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "min": 1.821961,
+          "p25": 3.258859,
+          "median": 4.174672,
+          "p75": 5.373611,
+          "max": 10.253644,
+          "mean": 4.497705,
+          "iqr": 2.114752,
+          "range": 8.431683
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "min": 5.479838,
+          "p25": 6.594751,
+          "median": 10.230449,
+          "p75": 12.184173,
+          "max": 17.200102,
+          "mean": 10.050098,
+          "iqr": 5.589422,
+          "range": 11.720264
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "min": 0.200728,
+          "p25": 0.282783,
+          "median": 0.310565,
+          "p75": 0.328943,
+          "max": 0.402525,
+          "mean": 0.304301,
+          "iqr": 0.046161,
+          "range": 0.201797
+        }
+      },
+      "normalizedInputs": {
+        "true_win_probability": {
+          "n": 15,
+          "min": 12.1044,
+          "p25": 20.3964,
+          "median": 24.0524,
+          "p75": 28.3842,
+          "max": 39.418,
+          "mean": 23.960507,
+          "iqr": 7.9878,
+          "range": 27.3136
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "min": 11.034533,
+          "p25": 15.549667,
+          "median": 18.8296,
+          "p75": 22.4226,
+          "max": 24.5136,
+          "mean": 18.794711,
+          "iqr": 6.872933,
+          "range": 13.479067
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "min": 15.111949,
+          "p25": 18.512026,
+          "median": 21.776842,
+          "p75": 24.550463,
+          "max": 27.023917,
+          "mean": 21.598637,
+          "iqr": 6.038438,
+          "range": 11.911968
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "min": 2.627956,
+          "p25": 4.774145,
+          "median": 5.729182,
+          "p75": 8.42126,
+          "max": 11.54643,
+          "mean": 6.525986,
+          "iqr": 3.647115,
+          "range": 8.918474
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "min": 21.80392,
+          "p25": 40.225945,
+          "median": 45.72052,
+          "p75": 53.005225,
+          "max": 69.77311,
+          "mean": 46.09037,
+          "iqr": 12.77928,
+          "range": 47.96919
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "min": 31.424587,
+          "p25": 46.67239,
+          "median": 52.16798,
+          "p75": 58.42889,
+          "max": 72.303573,
+          "mean": 51.65736,
+          "iqr": 11.7565,
+          "range": 40.878987
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "min": 20.36728,
+          "p25": 33.320591,
+          "median": 40.65688,
+          "p75": 48.914687,
+          "max": 72.243649,
+          "mean": 41.486995,
+          "iqr": 15.594096,
+          "range": 51.876369
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "min": 19.683373,
+          "p25": 23.186518,
+          "median": 33.583055,
+          "p75": 38.565056,
+          "max": 49.742183,
+          "mean": 32.474402,
+          "iqr": 15.378537,
+          "range": 30.05881
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "min": 12.5455,
+          "p25": 17.673906,
+          "median": 19.410312,
+          "p75": 20.558969,
+          "max": 25.315625,
+          "mean": 19.029358,
+          "iqr": 2.885062,
+          "range": 12.770125
+        }
+      },
+      "clipping": {
+        "true_win_probability": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        }
+      },
+      "components": {
+        "true_win_frequency": {
+          "weight": 0.25,
+          "score": {
+            "n": 15,
+            "min": 12.1044,
+            "p25": 20.3964,
+            "median": 24.0524,
+            "p75": 28.3842,
+            "max": 39.418,
+            "mean": 23.960507,
+            "iqr": 7.9878,
+            "range": 27.3136
+          },
+          "contribution": {
+            "n": 15,
+            "min": 3.0261,
+            "p25": 5.0991,
+            "median": 6.0131,
+            "p75": 7.09605,
+            "max": 9.8545,
+            "mean": 5.990127,
+            "iqr": 1.99695,
+            "range": 6.8284
+          }
+        },
+        "typical_retention": {
+          "weight": 0.2,
+          "score": {
+            "n": 15,
+            "min": 11.0345,
+            "p25": 15.54965,
+            "median": 18.8296,
+            "p75": 22.4226,
+            "max": 24.5136,
+            "mean": 18.794707,
+            "iqr": 6.87295,
+            "range": 13.4791
+          },
+          "contribution": {
+            "n": 15,
+            "min": 2.2069,
+            "p25": 3.10995,
+            "median": 3.7659,
+            "p75": 4.4845,
+            "max": 4.9027,
+            "mean": 3.758947,
+            "iqr": 1.37455,
+            "range": 2.6958
+          }
+        },
+        "loss_resilience": {
+          "weight": 0.15,
+          "score": {
+            "n": 15,
+            "min": 11.9774,
+            "p25": 14.5363,
+            "median": 16.9625,
+            "p75": 19.63485,
+            "max": 21.858,
+            "mean": 17.07682,
+            "iqr": 5.09855,
+            "range": 9.8806
+          },
+          "contribution": {
+            "n": 15,
+            "min": 1.7966,
+            "p25": 2.18045,
+            "median": 2.5444,
+            "p75": 2.94525,
+            "max": 3.2787,
+            "mean": 2.561533,
+            "iqr": 0.7648,
+            "range": 1.4821
+          }
+        },
+        "realistic_upside": {
+          "weight": 0.25,
+          "score": {
+            "n": 15,
+            "min": 27.5763,
+            "p25": 44.63525,
+            "median": 51.8095,
+            "p75": 55.90135,
+            "max": 71.2914,
+            "mean": 49.430567,
+            "iqr": 11.2661,
+            "range": 43.7151
+          },
+          "contribution": {
+            "n": 15,
+            "min": 6.8941,
+            "p25": 11.1588,
+            "median": 12.9524,
+            "p75": 13.97535,
+            "max": 17.8228,
+            "mean": 12.35764,
+            "iqr": 2.81655,
+            "range": 10.9287
+          }
+        },
+        "jackpot_upside": {
+          "weight": 0.1,
+          "score": {
+            "n": 15,
+            "min": 24.3638,
+            "p25": 28.23495,
+            "median": 34.1764,
+            "p75": 41.08935,
+            "max": 48.5378,
+            "mean": 35.628807,
+            "iqr": 12.8544,
+            "range": 24.174
+          },
+          "contribution": {
+            "n": 15,
+            "min": 2.4364,
+            "p25": 2.8235,
+            "median": 3.4176,
+            "p75": 4.10895,
+            "max": 4.8538,
+            "mean": 3.562893,
+            "iqr": 1.28545,
+            "range": 2.4174
+          }
+        },
+        "base_economic_efficiency": {
+          "weight": 0.05,
+          "score": {
+            "n": 15,
+            "min": 12.5455,
+            "p25": 17.6739,
+            "median": 19.4103,
+            "p75": 20.55895,
+            "max": 25.3156,
+            "mean": 19.029353,
+            "iqr": 2.88505,
+            "range": 12.7701
+          },
+          "contribution": {
+            "n": 15,
+            "min": 0.6273,
+            "p25": 0.88365,
+            "median": 0.9705,
+            "p75": 1.02795,
+            "max": 1.2658,
+            "mean": 0.951467,
+            "iqr": 0.1443,
+            "range": 0.6385
+          }
+        }
+      }
+    },
+    "booster_bundle": {
+      "productCount": 23,
+      "setCount": 22,
+      "readyCount": 23,
+      "packCounts": [
+        6
+      ],
+      "financialRipScore": {
+        "n": 23,
+        "min": 13.5829,
+        "p25": 22.33,
+        "median": 27.1449,
+        "p75": 33.3527,
+        "max": 50.8739,
+        "mean": 28.609796,
+        "iqr": 11.0227,
+        "range": 37.291
+      },
+      "productMarketCost": {
+        "n": 23,
+        "min": 36.37,
+        "p25": 61.245,
+        "median": 80.83,
+        "p75": 93.11,
+        "max": 181.25,
+        "mean": 83.948261,
+        "iqr": 31.865,
+        "range": 144.88
+      },
+      "rawInputs": {
+        "true_win_probability": {
+          "n": 23,
+          "min": 0.004525,
+          "p25": 0.02825,
+          "median": 0.049533,
+          "p75": 0.066789,
+          "max": 0.218948,
+          "mean": 0.055957,
+          "iqr": 0.038539,
+          "range": 0.214423
+        },
+        "typical_retention_ratio": {
+          "n": 23,
+          "min": 0.126914,
+          "p25": 0.164605,
+          "median": 0.219506,
+          "p75": 0.270115,
+          "max": 0.467186,
+          "mean": 0.233292,
+          "iqr": 0.10551,
+          "range": 0.340272
+        },
+        "average_retention_given_loss": {
+          "n": 23,
+          "min": 0.159153,
+          "p25": 0.238708,
+          "median": 0.274932,
+          "p75": 0.333657,
+          "max": 0.437753,
+          "mean": 0.28224,
+          "iqr": 0.094949,
+          "range": 0.2786
+        },
+        "soft_loss_share_given_loss": {
+          "n": 23,
+          "min": 0.020856,
+          "p25": 0.091126,
+          "median": 0.107533,
+          "p75": 0.150986,
+          "max": 0.33235,
+          "mean": 0.123452,
+          "iqr": 0.05986,
+          "range": 0.311495
+        },
+        "p95_threshold_ratio": {
+          "n": 23,
+          "min": 0.481999,
+          "p25": 0.766579,
+          "median": 0.995579,
+          "p75": 1.312138,
+          "max": 2.121834,
+          "mean": 1.062988,
+          "iqr": 0.545559,
+          "range": 1.639835
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 23,
+          "min": 0.73777,
+          "p25": 1.372702,
+          "median": 1.697425,
+          "p75": 1.972879,
+          "max": 3.863313,
+          "mean": 1.778487,
+          "iqr": 0.600178,
+          "range": 3.125543
+        },
+        "p99_threshold_ratio": {
+          "n": 23,
+          "min": 0.880119,
+          "p25": 2.35956,
+          "median": 3.227254,
+          "p75": 4.867317,
+          "max": 10.845913,
+          "mean": 3.799625,
+          "iqr": 2.507757,
+          "range": 9.965794
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 23,
+          "min": 1.030166,
+          "p25": 2.712993,
+          "median": 4.268352,
+          "p75": 6.248196,
+          "max": 24.647403,
+          "mean": 5.54084,
+          "iqr": 3.535203,
+          "range": 23.617237
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 23,
+          "min": 0.207983,
+          "p25": 0.278482,
+          "median": 0.33821,
+          "p75": 0.392879,
+          "max": 0.647183,
+          "mean": 0.351301,
+          "iqr": 0.114397,
+          "range": 0.4392
+        }
+      },
+      "normalizedInputs": {
+        "true_win_probability": {
+          "n": 23,
+          "min": 1.81,
+          "p25": 11.3,
+          "median": 19.8132,
+          "p75": 26.7154,
+          "max": 62.5264,
+          "mean": 21.293357,
+          "iqr": 15.4154,
+          "range": 60.7164
+        },
+        "typical_retention_ratio": {
+          "n": 23,
+          "min": 13.588533,
+          "p25": 18.614,
+          "median": 25.934133,
+          "p75": 32.681933,
+          "max": 56.7186,
+          "mean": 27.674884,
+          "iqr": 14.067933,
+          "range": 43.130067
+        },
+        "average_retention_given_loss": {
+          "n": 23,
+          "min": 15.915326,
+          "p25": 23.87082,
+          "median": 27.493166,
+          "p75": 33.365736,
+          "max": 43.775296,
+          "mean": 28.22395,
+          "iqr": 9.494916,
+          "range": 27.85997
+        },
+        "soft_loss_share_given_loss": {
+          "n": 23,
+          "min": 2.085551,
+          "p25": 9.112611,
+          "median": 10.753281,
+          "p75": 15.098633,
+          "max": 33.235047,
+          "mean": 12.345234,
+          "iqr": 5.986022,
+          "range": 31.149496
+        },
+        "p95_threshold_ratio": {
+          "n": 23,
+          "min": 19.27996,
+          "p25": 30.66314,
+          "median": 39.82316,
+          "p75": 49.36414,
+          "max": 71.21834,
+          "mean": 40.501841,
+          "iqr": 18.701,
+          "range": 51.93838
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 23,
+          "min": 19.673867,
+          "p25": 36.605373,
+          "median": 43.9485,
+          "p75": 49.45759,
+          "max": 75.75542,
+          "mean": 43.839146,
+          "iqr": 12.852217,
+          "range": 56.081553
+        },
+        "p99_threshold_ratio": {
+          "n": 23,
+          "min": 10.417919,
+          "p25": 25.542729,
+          "median": 33.195968,
+          "p75": 45.096124,
+          "max": 74.224329,
+          "mean": 35.243418,
+          "iqr": 19.553395,
+          "range": 63.80641
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 23,
+          "min": 4.036919,
+          "p25": 10.283879,
+          "median": 15.695427,
+          "p75": 22.114287,
+          "max": 62.689527,
+          "mean": 18.424699,
+          "iqr": 11.830408,
+          "range": 58.652608
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 23,
+          "min": 12.998937,
+          "p25": 17.405125,
+          "median": 21.138125,
+          "p75": 24.554938,
+          "max": 55.897875,
+          "mean": 23.504867,
+          "iqr": 7.149813,
+          "range": 42.898937
+        }
+      },
+      "clipping": {
+        "true_win_probability": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "typical_retention_ratio": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "average_retention_given_loss": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "soft_loss_share_given_loss": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p95_threshold_ratio": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p99_threshold_ratio": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 23,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        }
+      },
+      "components": {
+        "true_win_frequency": {
+          "weight": 0.25,
+          "score": {
+            "n": 23,
+            "min": 1.81,
+            "p25": 11.3,
+            "median": 19.8132,
+            "p75": 26.7154,
+            "max": 62.5264,
+            "mean": 21.293357,
+            "iqr": 15.4154,
+            "range": 60.7164
+          },
+          "contribution": {
+            "n": 23,
+            "min": 0.4525,
+            "p25": 2.825,
+            "median": 4.9533,
+            "p75": 6.67885,
+            "max": 15.6316,
+            "mean": 5.323339,
+            "iqr": 3.85385,
+            "range": 15.1791
+          }
+        },
+        "typical_retention": {
+          "weight": 0.2,
+          "score": {
+            "n": 23,
+            "min": 13.5885,
+            "p25": 18.614,
+            "median": 25.9341,
+            "p75": 32.68195,
+            "max": 56.7186,
+            "mean": 27.674883,
+            "iqr": 14.06795,
+            "range": 43.1301
+          },
+          "contribution": {
+            "n": 23,
+            "min": 2.7177,
+            "p25": 3.7228,
+            "median": 5.1868,
+            "p75": 6.53635,
+            "max": 11.3437,
+            "mean": 5.53497,
+            "iqr": 2.81355,
+            "range": 8.626
+          }
+        },
+        "loss_resilience": {
+          "weight": 0.15,
+          "score": {
+            "n": 23,
+            "min": 11.7664,
+            "p25": 19.33015,
+            "median": 22.481,
+            "p75": 28.3791,
+            "max": 40.6132,
+            "mean": 23.46033,
+            "iqr": 9.04895,
+            "range": 28.8468
+          },
+          "contribution": {
+            "n": 23,
+            "min": 1.765,
+            "p25": 2.8995,
+            "median": 3.3722,
+            "p75": 4.2569,
+            "max": 6.092,
+            "mean": 3.519061,
+            "iqr": 1.3574,
+            "range": 4.327
+          }
+        },
+        "realistic_upside": {
+          "weight": 0.25,
+          "score": {
+            "n": 23,
+            "min": 22.0698,
+            "p25": 35.1321,
+            "median": 39.486,
+            "p75": 51.4795,
+            "max": 72.8114,
+            "mean": 42.50423,
+            "iqr": 16.3474,
+            "range": 50.7416
+          },
+          "contribution": {
+            "n": 23,
+            "min": 5.5174,
+            "p25": 8.78305,
+            "median": 9.8715,
+            "p75": 12.86985,
+            "max": 18.2028,
+            "mean": 10.626052,
+            "iqr": 4.0868,
+            "range": 12.6854
+          }
+        },
+        "jackpot_upside": {
+          "weight": 0.1,
+          "score": {
+            "n": 23,
+            "min": 6.2703,
+            "p25": 15.69295,
+            "median": 21.5445,
+            "p75": 30.1488,
+            "max": 60.1918,
+            "mean": 24.311257,
+            "iqr": 14.45585,
+            "range": 53.9215
+          },
+          "contribution": {
+            "n": 23,
+            "min": 0.627,
+            "p25": 1.5693,
+            "median": 2.1544,
+            "p75": 3.0149,
+            "max": 6.0192,
+            "mean": 2.43113,
+            "iqr": 1.4456,
+            "range": 5.3922
+          }
+        },
+        "base_economic_efficiency": {
+          "weight": 0.05,
+          "score": {
+            "n": 23,
+            "min": 12.9989,
+            "p25": 17.4051,
+            "median": 21.1381,
+            "p75": 24.5549,
+            "max": 55.8979,
+            "mean": 23.504857,
+            "iqr": 7.1498,
+            "range": 42.899
+          },
+          "contribution": {
+            "n": 23,
+            "min": 0.6499,
+            "p25": 0.87025,
+            "median": 1.0569,
+            "p75": 1.22775,
+            "max": 2.7949,
+            "mean": 1.175239,
+            "iqr": 0.3575,
+            "range": 2.145
+          }
+        }
+      }
+    },
+    "booster_box": {
+      "productCount": 15,
+      "setCount": 15,
+      "readyCount": 15,
+      "packCounts": [
+        36
+      ],
+      "financialRipScore": {
+        "n": 15,
+        "min": 21.7049,
+        "p25": 27.45885,
+        "median": 31.6373,
+        "p75": 40.9402,
+        "max": 51.1428,
+        "mean": 33.987573,
+        "iqr": 13.48135,
+        "range": 29.4379
+      },
+      "productMarketCost": {
+        "n": 15,
+        "min": 168.39,
+        "p25": 288.695,
+        "median": 306.36,
+        "p75": 365.76,
+        "max": 460.03,
+        "mean": 312.240667,
+        "iqr": 77.065,
+        "range": 291.64
+      },
+      "rawInputs": {
+        "true_win_probability": {
+          "n": 15,
+          "min": 0.003046,
+          "p25": 0.03481,
+          "median": 0.045682,
+          "p75": 0.094468,
+          "max": 0.149944,
+          "mean": 0.060566,
+          "iqr": 0.059658,
+          "range": 0.146898
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "min": 0.25844,
+          "p25": 0.35133,
+          "median": 0.38691,
+          "p75": 0.473363,
+          "max": 0.633816,
+          "mean": 0.419047,
+          "iqr": 0.122033,
+          "range": 0.375376
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "min": 0.26177,
+          "p25": 0.393705,
+          "median": 0.420548,
+          "p75": 0.492734,
+          "max": 0.621383,
+          "mean": 0.443457,
+          "iqr": 0.099028,
+          "range": 0.359612
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "min": 0.0075,
+          "p25": 0.172162,
+          "median": 0.263464,
+          "p75": 0.396619,
+          "max": 0.723222,
+          "mean": 0.31253,
+          "iqr": 0.224458,
+          "range": 0.715722
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "min": 0.688699,
+          "p25": 0.900125,
+          "median": 0.973331,
+          "p75": 1.229026,
+          "max": 2.053308,
+          "mean": 1.112245,
+          "iqr": 0.328901,
+          "range": 1.364609
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "min": 0.754378,
+          "p25": 1.032837,
+          "median": 1.212926,
+          "p75": 1.370989,
+          "max": 2.097475,
+          "mean": 1.252322,
+          "iqr": 0.338152,
+          "range": 1.343097
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "min": 0.860449,
+          "p25": 1.198964,
+          "median": 1.394363,
+          "p75": 1.60251,
+          "max": 2.173095,
+          "mean": 1.430646,
+          "iqr": 0.403546,
+          "range": 1.312646
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "min": 0.970781,
+          "p25": 1.346429,
+          "median": 1.633484,
+          "p75": 1.855055,
+          "max": 3.010234,
+          "mean": 1.690827,
+          "iqr": 0.508625,
+          "range": 2.039453
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "min": 0.363518,
+          "p25": 0.418096,
+          "median": 0.450316,
+          "p75": 0.548964,
+          "max": 0.681981,
+          "mean": 0.490227,
+          "iqr": 0.130868,
+          "range": 0.318463
+        }
+      },
+      "normalizedInputs": {
+        "true_win_probability": {
+          "n": 15,
+          "min": 1.2184,
+          "p25": 13.924,
+          "median": 18.2728,
+          "p75": 37.0555,
+          "max": 49.9888,
+          "mean": 23.003733,
+          "iqr": 23.1315,
+          "range": 48.7704
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "min": 31.125333,
+          "p25": 43.5106,
+          "median": 48.254667,
+          "p75": 57.3363,
+          "max": 72.5362,
+          "mean": 50.838744,
+          "iqr": 13.8257,
+          "range": 41.410867
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "min": 26.177049,
+          "p25": 39.370542,
+          "median": 42.054798,
+          "p75": 49.273389,
+          "max": 62.138282,
+          "mean": 44.345738,
+          "iqr": 9.902848,
+          "range": 35.961233
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "min": 0.749988,
+          "p25": 17.216185,
+          "median": 26.346383,
+          "p75": 39.661942,
+          "max": 72.322193,
+          "mean": 31.252952,
+          "iqr": 22.445757,
+          "range": 71.572205
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "min": 27.54796,
+          "p25": 36.005,
+          "median": 38.93324,
+          "p75": 46.870795,
+          "max": 70.53308,
+          "mean": 42.534105,
+          "iqr": 10.865795,
+          "range": 42.98512
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "min": 20.116747,
+          "p25": 27.542333,
+          "median": 32.344693,
+          "p75": 36.55972,
+          "max": 51.9495,
+          "mean": 32.907499,
+          "iqr": 9.017387,
+          "range": 31.832753
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "min": 10.197388,
+          "p25": 13.916967,
+          "median": 15.995127,
+          "p75": 18.149435,
+          "max": 23.786904,
+          "mean": 16.274651,
+          "iqr": 4.232468,
+          "range": 13.589516
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "min": 3.808697,
+          "p25": 5.243105,
+          "median": 6.325049,
+          "p75": 7.150934,
+          "max": 11.344256,
+          "mean": 6.515988,
+          "iqr": 1.907829,
+          "range": 7.535559
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "min": 22.719875,
+          "p25": 27.262,
+          "median": 31.2895,
+          "p75": 43.6205,
+          "max": 60.247625,
+          "mean": 36.470567,
+          "iqr": 16.3585,
+          "range": 37.52775
+        }
+      },
+      "clipping": {
+        "true_win_probability": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "typical_retention_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "average_retention_given_loss": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "soft_loss_share_given_loss": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p95_threshold_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "realistic_tail_mean_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "p99_threshold_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "jackpot_tail_mean_ratio": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        },
+        "base_rtp_excluding_top_1pct": {
+          "n": 15,
+          "clippedLowerPct": 0.0,
+          "clippedUpperPct": 0.0,
+          "clippedAnyPct": 0.0
+        }
+      },
+      "components": {
+        "true_win_frequency": {
+          "weight": 0.25,
+          "score": {
+            "n": 15,
+            "min": 1.2184,
+            "p25": 13.924,
+            "median": 18.2728,
+            "p75": 37.0555,
+            "max": 49.9888,
+            "mean": 23.003733,
+            "iqr": 23.1315,
+            "range": 48.7704
+          },
+          "contribution": {
+            "n": 15,
+            "min": 0.3046,
+            "p25": 3.481,
+            "median": 4.5682,
+            "p75": 9.26385,
+            "max": 12.4972,
+            "mean": 5.750927,
+            "iqr": 5.78285,
+            "range": 12.1926
+          }
+        },
+        "typical_retention": {
+          "weight": 0.2,
+          "score": {
+            "n": 15,
+            "min": 31.1253,
+            "p25": 43.5106,
+            "median": 48.2547,
+            "p75": 57.3363,
+            "max": 72.5362,
+            "mean": 50.83874,
+            "iqr": 13.8257,
+            "range": 41.4109
+          },
+          "contribution": {
+            "n": 15,
+            "min": 6.2251,
+            "p25": 8.7021,
+            "median": 9.6509,
+            "p75": 11.46725,
+            "max": 14.5072,
+            "mean": 10.16774,
+            "iqr": 2.76515,
+            "range": 8.2821
+          }
+        },
+        "loss_resilience": {
+          "weight": 0.15,
+          "score": {
+            "n": 15,
+            "min": 18.5489,
+            "p25": 32.86025,
+            "median": 37.3423,
+            "p75": 46.367,
+            "max": 65.1935,
+            "mean": 40.4179,
+            "iqr": 13.50675,
+            "range": 46.6446
+          },
+          "contribution": {
+            "n": 15,
+            "min": 2.7823,
+            "p25": 4.92905,
+            "median": 5.6013,
+            "p75": 6.95505,
+            "max": 9.779,
+            "mean": 6.06268,
+            "iqr": 2.026,
+            "range": 6.9967
+          }
+        },
+        "realistic_upside": {
+          "weight": 0.25,
+          "score": {
+            "n": 15,
+            "min": 23.0892,
+            "p25": 31.663,
+            "median": 34.74,
+            "p75": 40.44365,
+            "max": 59.3829,
+            "mean": 36.758133,
+            "iqr": 8.78065,
+            "range": 36.2937
+          },
+          "contribution": {
+            "n": 15,
+            "min": 5.7723,
+            "p25": 7.91575,
+            "median": 8.685,
+            "p75": 10.1109,
+            "max": 14.8457,
+            "mean": 9.189533,
+            "iqr": 2.19515,
+            "range": 9.0734
+          }
+        },
+        "jackpot_upside": {
+          "weight": 0.1,
+          "score": {
+            "n": 15,
+            "min": 6.0447,
+            "p25": 8.27895,
+            "median": 9.7096,
+            "p75": 11.0004,
+            "max": 15.6992,
+            "mean": 9.931507,
+            "iqr": 2.72145,
+            "range": 9.6545
+          },
+          "contribution": {
+            "n": 15,
+            "min": 0.6045,
+            "p25": 0.8279,
+            "median": 0.971,
+            "p75": 1.10005,
+            "max": 1.5699,
+            "mean": 0.99316,
+            "iqr": 0.27215,
+            "range": 0.9654
+          }
+        },
+        "base_economic_efficiency": {
+          "weight": 0.05,
+          "score": {
+            "n": 15,
+            "min": 22.7199,
+            "p25": 27.262,
+            "median": 31.2895,
+            "p75": 43.6205,
+            "max": 60.2476,
+            "mean": 36.470553,
+            "iqr": 16.3585,
+            "range": 37.5277
+          },
+          "contribution": {
+            "n": 15,
+            "min": 1.136,
+            "p25": 1.36305,
+            "median": 1.5645,
+            "p75": 2.181,
+            "max": 3.0124,
+            "mean": 1.823527,
+            "iqr": 0.81795,
+            "range": 1.8764
+          }
+        }
+      }
+    }
+  },
+  "crossFamily": {
+    "familiesPresent": [
+      "sleeved_booster_pack",
+      "booster_bundle",
+      "booster_box"
+    ],
+    "scoreCompression": {
+      "sleeved_booster_pack": {
+        "scoreIqr": 3.20705,
+        "scoreRange": 18.8641,
+        "scoreMedian": 29.9412
+      },
+      "booster_bundle": {
+        "scoreIqr": 11.0227,
+        "scoreRange": 37.291,
+        "scoreMedian": 27.1449
+      },
+      "booster_box": {
+        "scoreIqr": 13.48135,
+        "scoreRange": 29.4379,
+        "scoreMedian": 31.6373
+      }
+    },
+    "componentSeparationIqr": {
+      "true_win_frequency": {
+        "sleeved_booster_pack": 7.9878,
+        "booster_bundle": 15.4154,
+        "booster_box": 23.1315
+      },
+      "typical_retention": {
+        "sleeved_booster_pack": 6.87295,
+        "booster_bundle": 14.06795,
+        "booster_box": 13.8257
+      },
+      "loss_resilience": {
+        "sleeved_booster_pack": 5.09855,
+        "booster_bundle": 9.04895,
+        "booster_box": 13.50675
+      },
+      "realistic_upside": {
+        "sleeved_booster_pack": 11.2661,
+        "booster_bundle": 16.3474,
+        "booster_box": 8.78065
+      },
+      "jackpot_upside": {
+        "sleeved_booster_pack": 12.8544,
+        "booster_bundle": 14.45585,
+        "booster_box": 2.72145
+      },
+      "base_economic_efficiency": {
+        "sleeved_booster_pack": 2.88505,
+        "booster_bundle": 7.1498,
+        "booster_box": 16.3585
+      }
+    },
+    "dominantComponentBySpread": {
+      "sleeved_booster_pack": {
+        "ranked": [
+          {
+            "component": "realistic_upside",
+            "contributionIqr": 2.8165,
+            "shareOfSpread": 33.6
+          },
+          {
+            "component": "true_win_frequency",
+            "contributionIqr": 1.997,
+            "shareOfSpread": 23.82
+          },
+          {
+            "component": "typical_retention",
+            "contributionIqr": 1.3745,
+            "shareOfSpread": 16.4
+          },
+          {
+            "component": "jackpot_upside",
+            "contributionIqr": 1.2854,
+            "shareOfSpread": 15.33
+          },
+          {
+            "component": "loss_resilience",
+            "contributionIqr": 0.7648,
+            "shareOfSpread": 9.12
+          },
+          {
+            "component": "base_economic_efficiency",
+            "contributionIqr": 0.1443,
+            "shareOfSpread": 1.72
+          }
+        ],
+        "top": "realistic_upside",
+        "topShareOfSpreadPct": 33.6
+      },
+      "booster_bundle": {
+        "ranked": [
+          {
+            "component": "realistic_upside",
+            "contributionIqr": 4.0868,
+            "shareOfSpread": 29.37
+          },
+          {
+            "component": "true_win_frequency",
+            "contributionIqr": 3.8538,
+            "shareOfSpread": 27.7
+          },
+          {
+            "component": "typical_retention",
+            "contributionIqr": 2.8136,
+            "shareOfSpread": 20.22
+          },
+          {
+            "component": "jackpot_upside",
+            "contributionIqr": 1.4456,
+            "shareOfSpread": 10.39
+          },
+          {
+            "component": "loss_resilience",
+            "contributionIqr": 1.3574,
+            "shareOfSpread": 9.76
+          },
+          {
+            "component": "base_economic_efficiency",
+            "contributionIqr": 0.3575,
+            "shareOfSpread": 2.57
+          }
+        ],
+        "top": "realistic_upside",
+        "topShareOfSpreadPct": 29.37
+      },
+      "booster_box": {
+        "ranked": [
+          {
+            "component": "true_win_frequency",
+            "contributionIqr": 5.7828,
+            "shareOfSpread": 41.73
+          },
+          {
+            "component": "typical_retention",
+            "contributionIqr": 2.7652,
+            "shareOfSpread": 19.95
+          },
+          {
+            "component": "realistic_upside",
+            "contributionIqr": 2.1951,
+            "shareOfSpread": 15.84
+          },
+          {
+            "component": "loss_resilience",
+            "contributionIqr": 2.026,
+            "shareOfSpread": 14.62
+          },
+          {
+            "component": "base_economic_efficiency",
+            "contributionIqr": 0.8179,
+            "shareOfSpread": 5.9
+          },
+          {
+            "component": "jackpot_upside",
+            "contributionIqr": 0.2722,
+            "shareOfSpread": 1.96
+          }
+        ],
+        "top": "true_win_frequency",
+        "topShareOfSpreadPct": 41.73
+      }
+    },
+    "clipPressure": {
+      "sleeved_booster_pack": {},
+      "booster_bundle": {},
+      "booster_box": {}
+    },
+    "rawRatioMediansByFamily": {
+      "sleeved_booster_pack": {
+        "p95ThresholdRatioMedian": 1.190684,
+        "realisticTailMeanRatioMedian": 2.108399,
+        "p99ThresholdRatioMedian": 4.174672,
+        "jackpotTailMeanRatioMedian": 10.230449,
+        "typicalRetentionRatioMedian": 0.166222,
+        "trueWinProbabilityMedian": 0.060131,
+        "baseRtpExcludingTop1PctMedian": 0.310565
+      },
+      "booster_bundle": {
+        "p95ThresholdRatioMedian": 0.995579,
+        "realisticTailMeanRatioMedian": 1.697425,
+        "p99ThresholdRatioMedian": 3.227254,
+        "jackpotTailMeanRatioMedian": 4.268352,
+        "typicalRetentionRatioMedian": 0.219506,
+        "trueWinProbabilityMedian": 0.049533,
+        "baseRtpExcludingTop1PctMedian": 0.33821
+      },
+      "booster_box": {
+        "p95ThresholdRatioMedian": 0.973331,
+        "realisticTailMeanRatioMedian": 1.212926,
+        "p99ThresholdRatioMedian": 1.394363,
+        "jackpotTailMeanRatioMedian": 1.633484,
+        "typicalRetentionRatioMedian": 0.38691,
+        "trueWinProbabilityMedian": 0.045682,
+        "baseRtpExcludingTop1PctMedian": 0.450316
+      }
+    }
+  }
+}

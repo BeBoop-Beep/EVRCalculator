@@ -1,0 +1,254 @@
+[
+  {
+    "canonicalKey": "surgingSparks",
+    "packCost": 7.8,
+    "entries": [
+      {
+        "packCount": 1,
+        "cost": 7.8,
+        "score": 31.7176,
+        "components": {
+          "true_win_frequency": 27.2824,
+          "typical_retention": 23.6752,
+          "loss_resilience": 18.8423,
+          "realistic_upside": 49.5346,
+          "jackpot_upside": 39.2188,
+          "base_economic_efficiency": 20.6017
+        },
+        "rawInputs": {
+          "true_win_probability": 0.068206,
+          "typical_retention_ratio": 0.202564,
+          "average_retention_given_loss": 0.24200006,
+          "soft_loss_share_given_loss": 0.06340887,
+          "p95_threshold_ratio": 1.30641,
+          "realistic_tail_mean_ratio": 1.988138,
+          "p99_threshold_ratio": 4.310256,
+          "jackpot_tail_mean_ratio": 11.913637,
+          "base_rtp_excluding_top_1pct": 0.329628
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.445468
+      },
+      {
+        "packCount": 6,
+        "cost": 46.8,
+        "score": 30.6007,
+        "components": {
+          "true_win_frequency": 19.938,
+          "typical_retention": 33.7892,
+          "loss_resilience": 27.1574,
+          "realistic_upside": 43.4656,
+          "jackpot_upside": 26.9082,
+          "base_economic_efficiency": 24.5515
+        },
+        "rawInputs": {
+          "true_win_probability": 0.049845,
+          "typical_retention_ratio": 0.278419,
+          "average_retention_given_loss": 0.33410669,
+          "soft_loss_share_given_loss": 0.12566371,
+          "p95_threshold_ratio": 0.999145,
+          "realistic_tail_mean_ratio": 1.789942,
+          "p99_threshold_ratio": 3.957694,
+          "jackpot_tail_mean_ratio": 5.698751,
+          "base_rtp_excluding_top_1pct": 0.392824
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.445883
+      },
+      {
+        "packCount": 36,
+        "cost": 280.8,
+        "score": 30.7438,
+        "components": {
+          "true_win_frequency": 21.068,
+          "typical_retention": 44.6819,
+          "loss_resilience": 32.2633,
+          "realistic_upside": 36.8762,
+          "jackpot_upside": 10.3081,
+          "base_economic_efficiency": 29.0211
+        },
+        "rawInputs": {
+          "true_win_probability": 0.05267,
+          "typical_retention_ratio": 0.360114,
+          "average_retention_given_loss": 0.39431565,
+          "soft_loss_share_given_loss": 0.15537247,
+          "p95_threshold_ratio": 1.019516,
+          "realistic_tail_mean_ratio": 1.290126,
+          "p99_threshold_ratio": 1.487251,
+          "jackpot_tail_mean_ratio": 1.740118,
+          "base_rtp_excluding_top_1pct": 0.432169
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.445248
+      }
+    ]
+  },
+  {
+    "canonicalKey": "destinedRivals",
+    "packCost": 9.22,
+    "entries": [
+      {
+        "packCount": 1,
+        "cost": 9.22,
+        "score": 33.5517,
+        "components": {
+          "true_win_frequency": 25.16,
+          "typical_retention": 23.7093,
+          "loss_resilience": 18.3088,
+          "realistic_upside": 55.0109,
+          "jackpot_upside": 49.5855,
+          "base_economic_efficiency": 21.2444
+        },
+        "rawInputs": {
+          "true_win_probability": 0.0629,
+          "typical_retention_ratio": 0.20282,
+          "average_retention_given_loss": 0.23606842,
+          "soft_loss_share_given_loss": 0.05946857,
+          "p95_threshold_ratio": 1.235358,
+          "realistic_tail_mean_ratio": 2.515549,
+          "p99_threshold_ratio": 6.629067,
+          "jackpot_tail_mean_ratio": 15.381921,
+          "base_rtp_excluding_top_1pct": 0.339911
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.490331
+      },
+      {
+        "packCount": 6,
+        "cost": 55.32,
+        "score": 35.1111,
+        "components": {
+          "true_win_frequency": 29.4568,
+          "typical_retention": 31.6872,
+          "loss_resilience": 26.8794,
+          "realistic_upside": 51.0649,
+          "jackpot_upside": 32.5071,
+          "base_economic_efficiency": 27.213
+        },
+        "rawInputs": {
+          "true_win_probability": 0.073642,
+          "typical_retention_ratio": 0.262654,
+          "average_retention_given_loss": 0.32504456,
+          "soft_loss_share_given_loss": 0.13754186,
+          "p95_threshold_ratio": 1.33026,
+          "realistic_tail_mean_ratio": 2.091812,
+          "p99_threshold_ratio": 4.693601,
+          "jackpot_tail_mean_ratio": 7.565445,
+          "base_rtp_excluding_top_1pct": 0.417704
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.489181
+      },
+      {
+        "packCount": 36,
+        "cost": 331.92,
+        "score": 35.7687,
+        "components": {
+          "true_win_frequency": 28.3328,
+          "typical_retention": 47.3375,
+          "loss_resilience": 35.3133,
+          "realistic_upside": 43.5089,
+          "jackpot_upside": 13.4207,
+          "base_economic_efficiency": 34.035
+        },
+        "rawInputs": {
+          "true_win_probability": 0.070832,
+          "typical_retention_ratio": 0.380031,
+          "average_retention_given_loss": 0.40858069,
+          "soft_loss_share_given_loss": 0.22375609,
+          "p95_threshold_ratio": 1.150337,
+          "realistic_tail_mean_ratio": 1.642075,
+          "p99_threshold_ratio": 1.996294,
+          "jackpot_tail_mean_ratio": 2.290813,
+          "base_rtp_excluding_top_1pct": 0.47228
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.490466
+      }
+    ]
+  },
+  {
+    "canonicalKey": "prismaticEvolutions",
+    "packCost": 14.64,
+    "entries": [
+      {
+        "packCount": 1,
+        "cost": 14.64,
+        "score": 24.3895,
+        "components": {
+          "true_win_frequency": 13.3224,
+          "typical_retention": 11.7851,
+          "loss_resilience": 11.2211,
+          "realistic_upside": 36.9287,
+          "jackpot_upside": 71.5049,
+          "base_economic_efficiency": 12.7212
+        },
+        "rawInputs": {
+          "true_win_probability": 0.033306,
+          "typical_retention_ratio": 0.113388,
+          "average_retention_given_loss": 0.14852213,
+          "soft_loss_share_given_loss": 0.02748646,
+          "p95_threshold_ratio": 0.60724,
+          "realistic_tail_mean_ratio": 1.767736,
+          "p99_threshold_ratio": 7.116803,
+          "jackpot_tail_mean_ratio": 38.176182,
+          "base_rtp_excluding_top_1pct": 0.20354
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.583266
+      },
+      {
+        "packCount": 6,
+        "cost": 87.84,
+        "score": 37.2586,
+        "components": {
+          "true_win_frequency": 26.7272,
+          "typical_retention": 16.3692,
+          "loss_resilience": 15.3454,
+          "realistic_upside": 72.1324,
+          "jackpot_upside": 58.8503,
+          "base_economic_efficiency": 21.6611
+        },
+        "rawInputs": {
+          "true_win_probability": 0.066818,
+          "typical_retention_ratio": 0.147769,
+          "average_retention_given_loss": 0.19483876,
+          "soft_loss_share_given_loss": 0.05688922,
+          "p95_threshold_ratio": 2.05806,
+          "realistic_tail_mean_ratio": 3.475036,
+          "p99_threshold_ratio": 6.214369,
+          "jackpot_tail_mean_ratio": 23.833808,
+          "base_rtp_excluding_top_1pct": 0.346578
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.581451
+      },
+      {
+        "packCount": 36,
+        "cost": 527.04,
+        "score": 43.5507,
+        "components": {
+          "true_win_frequency": 40.5276,
+          "typical_retention": 27.336,
+          "loss_resilience": 26.4363,
+          "realistic_upside": 72.5369,
+          "jackpot_upside": 39.4642,
+          "base_economic_efficiency": 38.11
+        },
+        "rawInputs": {
+          "true_win_probability": 0.102638,
+          "typical_retention_ratio": 0.23002,
+          "average_retention_given_loss": 0.30217809,
+          "soft_loss_share_given_loss": 0.17612847,
+          "p95_threshold_ratio": 1.86058,
+          "realistic_tail_mean_ratio": 4.052473,
+          "p99_threshold_ratio": 7.558781,
+          "jackpot_tail_mean_ratio": 8.143306,
+          "base_rtp_excluding_top_1pct": 0.50488
+        },
+        "clippedInputs": [],
+        "totalRtpRatio": 0.581264
+      }
+    ]
+  }
+]
