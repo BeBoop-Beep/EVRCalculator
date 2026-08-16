@@ -32,10 +32,13 @@ def _latest_runs(set_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
 
 def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     cards: List[Dict[str, Any]] = []
-    for chunk in _chunked(list(run_ids), 20):
-        cards.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("simulation_input_cards")
+    # Read each run independently. A multi-run unordered range can split a
+    # run at a PostgREST page boundary and silently omit another run entirely.
+    for run_id in sorted({str(value) for value in run_ids if value}):
+        cards.extend(_paged_select(lambda run_id=run_id: public_read_client.table("simulation_input_cards")
                                    .select("calculation_run_id,card_id,card_variant_id,card_name,rarity_bucket,price_used,effective_pull_rate,ev_contribution")
-                                   .in_("calculation_run_id", chunk)))
+                                   .eq("calculation_run_id", run_id)
+                                   .order("ev_contribution", desc=True)))
     # simulation_input_cards.card_id is the legacy ``cards`` UUID, while the
     # desirability link table keys the canonical-card UUID. Resolve through the
     # shared Pokemon TCG API identity; never fuzzy-match names here.
@@ -130,7 +133,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
 
 def build_contextual_desirability_bundle(
     *, min_subject_share: float = 0.01, minimum_subject_fallback: int = 0,
-    denominator: str = "all_positive_modeled_card_ev", max_unresolved_ev_share: float = 1.0,
+    denominator: str = "all_positive_modeled_card_ev", max_unresolved_ev_share: float = 0.10,
 ) -> Dict[str, Any]:
     selection = _load_current_component_rows()
     source_rows = selection["selected"]

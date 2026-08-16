@@ -45,7 +45,7 @@ from backend.desirability.scoring_config import (
 )
 
 CONTEXTUAL_CHASE_MIN_CARD_SHARE = 0.01
-CONTEXTUAL_CHASE_MAX_UNRESOLVED_EV_SHARE = 1.0  # audit first; finalized after cohort distribution
+CONTEXTUAL_CHASE_MAX_UNRESOLVED_EV_SHARE = 0.10
 CONTEXTUAL_CHASE_DENOMINATOR = "all_positive_modeled_card_ev"
 
 

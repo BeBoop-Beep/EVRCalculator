@@ -29,7 +29,7 @@ def test_accessible_popular_subject_cannot_displace_actual_chases():
                 card(248, "Tyranitar 222", 1.5), card(959, "Tinkaton 262", 1.2),
                 card(6, "Charizard ex", 1.0), card(25, "Pikachu ex", .001, 4, "Double Rare", .10)]
     result = compute_universal_set_desirability_v4(rollups, evidence)
-    assert [row["pokemon_reference_id"] for row in result["top_subjects"]] == [129, 26, 248]
+    assert [row["pokemon_reference_id"] for row in result["top_subjects"]] == [6, 26, 248]
     pikachu = next(row for row in result["modeled_subjects"] if row["pokemon_reference_id"] == 25)
     assert pikachu["role"] == "supporting_roster"
     assert pikachu["max_desirability_score"] == 96
@@ -66,3 +66,65 @@ def test_missing_chase_distribution_is_explicitly_unavailable_and_v3_reproducibl
     assert result["score"] is None
     assert result["reason"] == "missing_canonical_chase_evidence"
     assert before == after
+
+
+def test_subject_level_share_aggregates_multiple_subthreshold_cards():
+    rollups = [subject(94, "Gengar", 84), subject(1, "Bulbasaur", 70)]
+    evidence = [card(94, f"Gengar {i}", .007) for i in range(3)]
+    evidence += [card(1, "Bulbasaur", .979)]
+    context = build_contextual_chase_subjects(rollups, evidence, min_subject_share=.01)
+    gengar = next(x for x in context["all_subjects"] if x["pokemon_reference_id"] == 94)
+    assert gengar["subject_ev_share"] == .021
+    assert gengar["role"] == "meaningful_chase"
+    assert gengar["eligible_card_count"] == 3
+
+
+def test_desirability_not_ev_assigns_strength_slot_order():
+    rollups = [subject(1, "High EV", 82), subject(2, "High Demand", 88)]
+    evidence = [card(1, "High EV card", .8), card(2, "High Demand card", .2)]
+    result = compute_universal_set_desirability_v4(rollups, evidence)
+    assert [x["pokemon_reference_id"] for x in result["top_subjects"]] == [2, 1]
+    assert result["top_subjects"][0]["slot_weight"] > result["top_subjects"][1]["slot_weight"]
+
+
+def test_no_unconditional_top_five_and_trainer_cannot_consume_subject_slot():
+    rollups = [subject(i, f"P{i}", 60 + i) for i in range(1, 7)]
+    evidence = [{"card_name": "Trainer", "ev_contribution": 95,
+                 "mapping_status": "intentional_non_pokemon"}]
+    evidence += [card(i, f"P{i}", .5) for i in range(1, 7)]
+    result = compute_universal_set_desirability_v4(rollups, evidence)
+    assert result["score"] is None
+    assert result["reason"] == "no_meaningful_chase_subjects"
+    assert result["chase_evidence"]["intentional_non_pokemon_card_count"] == 1
+
+
+def test_representative_card_is_highest_ev_card_for_aggregated_subject():
+    rollups = [subject(25, "Pikachu", 90)]
+    context = build_contextual_chase_subjects(
+        rollups, [card(25, "Small", .02), card(25, "Flagship", .08), card(25, "Medium", .04)]
+    )
+    pikachu = context["all_subjects"][0]
+    assert pikachu["representative_chase_card"]["card_name"] == "Flagship"
+    assert pikachu["eligible_card_count"] == 3
+
+
+def test_mapping_reliability_gate_blocks_normal_score_but_not_non_pokemon_ev():
+    rollups = [subject(25, "Pikachu", 90)]
+    evidence = [card(25, "Pikachu", .4),
+                {"card_name": "Broken", "ev_contribution": .4, "mapping_status": "unresolved"},
+                {"card_name": "Trainer", "ev_contribution": .2, "mapping_status": "intentional_non_pokemon"}]
+    blocked = compute_universal_set_desirability_v4(rollups, evidence, max_unresolved_ev_share=.10)
+    assert blocked["score"] is None
+    assert blocked["reason"] == "insufficient_canonical_mapping_coverage"
+    assert blocked["chase_evidence"]["unresolved_ev_share"] == .4
+    assert blocked["chase_evidence"]["intentional_non_pokemon_ev"] == .2
+
+
+def test_public_explanation_is_backend_structured_and_ev_is_context_only():
+    result = compute_universal_set_desirability_v4(
+        [subject(25, "Pikachu", 90)], [card(25, "Pikachu SIR", 1)]
+    )
+    assert "pokemon_desirability" in result["direct_score_inputs"]
+    assert "card_ev_contribution" in result["chase_priority_inputs"]
+    assert "ev_contribution" in result["directly_excluded_inputs"]
+    assert result["modeled_subjects"][0]["representative_chase_card"]["card_name"] == "Pikachu SIR"
