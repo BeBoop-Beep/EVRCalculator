@@ -21,6 +21,10 @@ Usage examples:
 
     # Scrape without writing to DB (price data only)
     python backend/scripts/run_pokemon_set_scrape.py --run --no-db-ingest
+
+    # Manually refresh ONE catalog-only set (not part of the daily cohort)
+    python backend/scripts/run_pokemon_set_scrape.py --run \
+        --catalog-set svScarletAndVioletPromoCards
 """
 
 from __future__ import annotations
@@ -467,6 +471,128 @@ def _build_unresolved_filter_report(
 
 
 # ---------------------------------------------------------------------------
+# Catalog-only manual target mode
+# ---------------------------------------------------------------------------
+# Catalog-only sets are deliberately excluded from the coordinated daily cohort
+# (ready_for_daily_scrape = false), so `get_scrape_ready_sets_by_tcg_id` will
+# never return them and the ordinary --set path cannot reach them. This mode is
+# the explicit, manual way to refresh one of them, and it is eligibility-gated
+# on DATA: both the runtime config and the sets row must independently agree the
+# set is catalog-only and non-simulating. Any disagreement fails closed. Nothing
+# here writes a lifecycle flag — the mode reads them and refuses, never mutates.
+TARGET_MODE_DAILY = "daily_scrape_ready"
+TARGET_MODE_CATALOG = "catalog_set_manual"
+
+
+class CatalogSetResolutionError(RuntimeError):
+    """Raised when a --catalog-set target cannot be safely resolved."""
+
+
+def _default_set_row_loader(canonical_key: str) -> Optional[Dict[str, Any]]:
+    from backend.db.repositories.sets_repository import get_set_by_canonical_key
+
+    return get_set_by_canonical_key(canonical_key)
+
+
+def resolve_catalog_set_target(
+    requested_key: str,
+    registry: Dict[str, Any],
+    load_set_row: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Resolve exactly one catalog-only scrape target, or fail closed.
+
+    Returns a target dict shaped exactly like an ordinary daily target so it can
+    be handed to the same `_scrape_one_set` / TCGScraper execution path.
+    """
+    config_map: Dict[str, Any] = registry.get("config_map", {})
+    resolution = normalize_set_key_filter(requested_key, registry)
+    canonical_key = resolution.get("resolved_set_key_filter")
+
+    if not canonical_key:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {requested_key!r} is not a key in the constants registry "
+            f"(registry_source={resolution.get('registry_source')}, "
+            f"SET_CONFIG_MAP keys checked={resolution.get('valid_key_count')}, "
+            f"nearby_matches={resolution.get('nearby_matches')})"
+        )
+
+    config_cls = config_map[canonical_key]
+    config_catalog_only = bool(get_config_attr(config_cls, "CATALOG_ONLY", False))
+    config_supports_sim = bool(get_config_attr(config_cls, "SUPPORTS_OPENING_SIMULATION", False))
+    card_details_url = get_config_attr(config_cls, "CARD_DETAILS_URL", None)
+
+    row = (load_set_row or _default_set_row_loader)(canonical_key)
+    if not row:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r} resolved in constants but has no sets row in the database"
+        )
+
+    row_catalog_only = bool(row.get("catalog_only"))
+    row_supports_sim = bool(row.get("supports_opening_simulation"))
+    row_ready_for_daily = bool(row.get("ready_for_daily_scrape"))
+
+    if config_catalog_only != row_catalog_only or config_supports_sim != row_supports_sim:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r}: runtime config and database row disagree "
+            f"(config catalog_only={config_catalog_only}, supports_opening_simulation={config_supports_sim}; "
+            f"db catalog_only={row_catalog_only}, supports_opening_simulation={row_supports_sim}). "
+            "Refusing to scrape on a contradictory lifecycle state."
+        )
+
+    if not row_catalog_only:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r} is not catalog_only "
+            f"(catalog_only={row_catalog_only}). This mode only targets catalog-only sets; "
+            "use --set for sets in the daily cohort."
+        )
+
+    if row_supports_sim:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r} has supports_opening_simulation=true; refusing."
+        )
+
+    if row_ready_for_daily:
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r} has ready_for_daily_scrape=true, so it is already "
+            "in the daily cohort; use --set instead."
+        )
+
+    if not isinstance(card_details_url, str) or not card_details_url.strip():
+        raise CatalogSetResolutionError(
+            f"--catalog-set {canonical_key!r} has no usable CARD_DETAILS_URL in its runtime config; "
+            "a catalog refresh has nothing to scrape."
+        )
+
+    return {
+        **row,
+        "canonical_key": canonical_key,
+        "_config_cls": config_cls,
+    }
+
+
+def _target_mode_report_fields(
+    catalog_set_key: Optional[str],
+    target: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Report fields that state which cohort a run targeted, and that it stayed there."""
+    if not catalog_set_key:
+        return {
+            "target_mode": TARGET_MODE_DAILY,
+            "catalog_set": None,
+            "daily_cohort_modified": False,
+        }
+    row = target or {}
+    return {
+        "target_mode": TARGET_MODE_CATALOG,
+        "catalog_set": row.get("canonical_key", catalog_set_key),
+        "catalog_only": bool(row.get("catalog_only")),
+        "ready_for_daily_scrape": bool(row.get("ready_for_daily_scrape")),
+        "supports_opening_simulation": bool(row.get("supports_opening_simulation")),
+        "daily_cohort_modified": False,
+    }
+
+
+# ---------------------------------------------------------------------------
 # DB target loading
 # ---------------------------------------------------------------------------
 def _load_scrape_targets(
@@ -659,6 +785,8 @@ def run_scraper(
     shuffle_within_date: bool,
     report_path: Path = DEFAULT_REPORT_PATH,
     queue_job_id: Optional[int] = None,
+    catalog_set_key: Optional[str] = None,
+    set_row_loader: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Orchestrate the full scrape run: select targets, execute, throttle, report.
 
@@ -690,6 +818,48 @@ def run_scraper(
     alias_map = set_key_registry["alias_map"]
     loaded_eras = set_key_registry["loaded_eras"]
     available_set_keys = set_key_registry["valid_keys"]
+
+    # 1b. Catalog-only manual mode resolves its single target up front and fails
+    #     closed, so an ineligible key never reaches the scraper.
+    catalog_target: Optional[Dict[str, Any]] = None
+    if catalog_set_key:
+        try:
+            catalog_target = resolve_catalog_set_target(
+                catalog_set_key, set_key_registry, load_set_row=set_row_loader
+            )
+        except CatalogSetResolutionError as exc:
+            error_message = str(exc)
+            logger.error("%s %s", RUNNER_TAG, error_message)
+            report = _build_unresolved_filter_report(
+                started_at=started_at,
+                dry_run=dry_run,
+                era_filter=era_filter,
+                set_key_filter=catalog_set_key,
+                limit=limit,
+                enable_db_ingestion=enable_db_ingestion,
+                shuffle_within_date=shuffle_within_date,
+                loaded_eras=loaded_eras,
+                available_keys=available_set_keys,
+                aliases_checked=True,
+                alias_match=None,
+                reason="invalid_catalog_set",
+                error_message=error_message,
+            )
+            report.update(_target_mode_report_fields(catalog_set_key))
+            _write_report(report, report_path)
+            return report
+
+        logger.info(
+            "%s catalog-only manual target resolved: %s (catalog_only=%s, "
+            "ready_for_daily_scrape=%s, supports_opening_simulation=%s)",
+            RUNNER_TAG,
+            catalog_target.get("canonical_key"),
+            catalog_target.get("catalog_only"),
+            catalog_target.get("ready_for_daily_scrape"),
+            catalog_target.get("supports_opening_simulation"),
+        )
+
+    target_mode_fields = _target_mode_report_fields(catalog_set_key, catalog_target)
 
     set_resolution: Optional[Dict[str, Any]] = None
     effective_set_key_filter = set_key_filter
@@ -743,8 +913,9 @@ def run_scraper(
 
     canonical_by_norm = {_normalize_key(key): key for key in config_map.keys()}
 
-    # 2. Fetch targets from DB
-    db_sets = _load_scrape_targets(effective_set_key_filter)
+    # 2. Fetch targets from DB. Catalog mode already has its single target and
+    #    must NOT consult the daily-cohort accessor.
+    db_sets = [] if catalog_target else _load_scrape_targets(effective_set_key_filter)
 
     # 3. Resolve each DB row to a config class; warn on any missing.
     #    era filtering is implicit: the config_map only contains sets from the
@@ -797,6 +968,9 @@ def run_scraper(
         _write_report(report, report_path)
         return report
 
+    if catalog_target:
+        targets = [catalog_target]
+
     targets, deduped_targets_removed = _dedupe_targets(targets)
     if deduped_targets_removed:
         logger.info(
@@ -826,6 +1000,16 @@ def run_scraper(
     logger.info("%s -------------------------------------------", RUNNER_TAG)
     logger.info("%s  Pokémon Set Scrape Runner", RUNNER_TAG)
     logger.info("%s  mode          : %s", RUNNER_TAG, "DRY-RUN" if dry_run else "APPLY")
+    logger.info("%s  target mode   : %s", RUNNER_TAG, target_mode_fields["target_mode"])
+    if catalog_set_key:
+        logger.info("%s  catalog set   : %s", RUNNER_TAG, target_mode_fields["catalog_set"])
+        logger.info("%s  catalog only  : %s", RUNNER_TAG, target_mode_fields["catalog_only"])
+        logger.info(
+            "%s  daily cohort  : unmodified (ready_for_daily_scrape=%s, supports_opening_simulation=%s)",
+            RUNNER_TAG,
+            target_mode_fields["ready_for_daily_scrape"],
+            target_mode_fields["supports_opening_simulation"],
+        )
     logger.info("%s  era filter    : %s", RUNNER_TAG, era_filter or "all")
     logger.info("%s  set filter    : %s", RUNNER_TAG, set_key_filter or "all")
     logger.info("%s  limit         : %s", RUNNER_TAG, str(limit) if limit else "none")
@@ -907,6 +1091,7 @@ def run_scraper(
             "kill_switch_enabled": False,
             "run_aborted_early": True,
             "run_abort_reason": "kill_switch_disabled",
+            **target_mode_fields,
         }
         if diag_run_id:
             update_scrape_job_run(diag_run_id, {
@@ -965,6 +1150,7 @@ def run_scraper(
             "kill_switch_enabled": kill_switch_enabled,
             "run_aborted_early": False,
             "run_abort_reason": None,
+            **target_mode_fields,
         }
         _write_report(report, report_path)
         return report
@@ -1148,6 +1334,7 @@ def run_scraper(
         "diag_run_id": diag_run_id,
         "market_date": market_date_iso,
         "queue_job_id": queue_job_id,
+        **target_mode_fields,
     }
     _write_report(report, report_path)
 
@@ -1267,6 +1454,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Only scrape a single set by its canonical key (e.g. blackBolt).",
     )
     parser.add_argument(
+        "--catalog-set",
+        dest="catalog_set_key",
+        default=None,
+        metavar="CANONICAL_KEY",
+        help=(
+            "Manually refresh ONE catalog-only set that is excluded from the daily cohort "
+            "(e.g. svScarletAndVioletPromoCards). Cannot be combined with --set, --era or "
+            "--limit. Reads lifecycle flags; never changes them."
+        ),
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -1292,7 +1490,24 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    args = _build_parser().parse_args()
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    if args.catalog_set_key:
+        # --catalog-set names ONE exact target. Combining it with a cohort
+        # filter would make the selected target ambiguous, so it is rejected
+        # rather than silently resolved by precedence.
+        conflicting = [
+            flag
+            for flag, value in (("--set", args.set_key), ("--era", args.era), ("--limit", args.limit))
+            if value is not None
+        ]
+        if conflicting:
+            parser.error(
+                f"--catalog-set cannot be combined with {', '.join(conflicting)}; "
+                "it names exactly one target set."
+            )
+
     _load_backend_env()
     _apply_safe_runtime_defaults()
 
@@ -1304,12 +1519,16 @@ def main() -> int:
         enable_db_ingestion=not args.no_db_ingest,
         shuffle_within_date=args.shuffle_within_date,
         report_path=Path(args.report_path),
+        catalog_set_key=args.catalog_set_key,
     )
 
     print(
         json.dumps(
             {
                 "mode": report["mode"],
+                "target_mode": report.get("target_mode"),
+                "catalog_set": report.get("catalog_set"),
+                "daily_cohort_modified": report.get("daily_cohort_modified", False),
                 "sets_selected": report["sets_selected"],
                 "sets_attempted": report.get("sets_attempted", 0),
                 "sets_succeeded": report.get("sets_succeeded", 0),
