@@ -61,15 +61,16 @@ import {
   SORT_ASC,
   ariaSortFor,
   nextSortState,
-  readAverageLoss,
   readCollectorAppealBlock,
+  readModelBreakEven,
+  readTypicalOpening,
   sortRankingsRows,
 } from "./rankingsSort.mjs";
-import { getDangerValueStyle, getTierTone } from "@/lib/explore/interpretationTone";
+import { getTierTone } from "@/lib/explore/interpretationTone";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
-import { explainRankingsLeader, readOptionalRankingsChase } from "./rankingsPresentation.mjs";
+import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -100,27 +101,12 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
+const MOBILE_DECISION_COLUMN_IDS = ["overall", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
 
-function OptionalChaseLine({ target }) {
+function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
-  if (!chase) return null;
-  const detail = chase.oneInPacks ? `1 in ${Math.round(chase.oneInPacks).toLocaleString()} packs` : chase.marketValue ? formatCurrency(chase.marketValue) : null;
-  return <p className="mt-1 truncate text-[10px] text-[var(--text-secondary)]"><span className="font-semibold">Top Chase:</span> {chase.name}{detail ? ` · ${detail}` : ""}</p>;
-}
-
-function TopRankedCard({ target, rank }) {
-  const tier = (getTierForMode(target, "overall") || "").toUpperCase() || null;
-  const score = getScoreForMode(target, "overall");
-  const tone = tier ? getTierTone(tier) : null;
-  return <Link href={buildRipLink(target)} className={`${styles.topRankCard} ${rank === 1 ? styles.topRankCardFirst : ""}`} style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}>
-    <div className="flex min-w-0 items-center gap-3">
-      <span className="text-xl font-bold tabular-nums" style={tone ? { color: tone.textColor } : undefined}>#{rank}</span>
-      <div className="min-w-0 flex-1"><SetIdentity variant="mobileRanking" target={target} eager /></div>
-      <div className="flex-none text-right"><div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Overall RIP</div><div className="text-lg font-bold tabular-nums text-[var(--text-primary)]">{score === null ? UNAVAILABLE_LABEL : formatModeScore(score, SCORE_KIND_PUBLIC)}</div>{tier ? <RankBadge rank={tier} title="Overall RIP Tier" format="tier" /> : null}</div>
-    </div>
-    <div className="mt-2 flex items-center justify-between gap-3 border-t border-white/5 pt-2 text-[11px] text-[var(--text-secondary)]"><span>Pack {formatCurrency(target?.pack_cost)}</span><span>Beat cost {formatPercent(target?.prob_profit, true)}</span></div>
-    <OptionalChaseLine target={target} />
-  </Link>;
+  if (!chase) return <span className="text-[11px] text-[var(--text-secondary)]">{UNAVAILABLE_LABEL}</span>;
+  return <span className={`block min-w-0 ${compact ? "max-w-32 text-right" : "text-left"}`}><span className="block truncate text-[12px] font-medium text-[var(--text-primary)]">{chase.name}</span><span className="block whitespace-nowrap text-[10px] tabular-nums text-[var(--text-secondary)]">{chase.marketValue !== null ? formatCurrency(chase.marketValue) : UNAVAILABLE_LABEL}{chase.oneInPacks !== null ? ` · 1 in ${Math.round(chase.oneInPacks).toLocaleString()} packs` : ""}</span></span>;
 }
 
 /**
@@ -388,11 +374,12 @@ function ActiveMobileMetric({ target, columnId }) {
   }
 
   const values = {
-    ev: formatCurrency(target?.mean_value),
-    averageLoss: formatLossCurrency(readAverageLoss(target)),
+    typicalOpening: formatCurrency(readTypicalOpening(target)),
+    modelBreakEven: formatCurrency(readModelBreakEven(target)),
     marketPrice: formatCurrency(target?.pack_cost),
     chanceToBeatCost: formatPercent(target?.prob_profit, true),
   };
+  if (columnId === "topChase") return <TopChaseCell target={target} compact />;
   return (
     <div className="flex-none text-right">
       <div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">{values[columnId] ?? UNAVAILABLE_LABEL}</div>
@@ -488,7 +475,7 @@ function RankMarker({ rank, tier, isLead, movement }) {
  * caret is drawn by the `[aria-sort]` rule in explore.module.css — the same
  * indicator the table already used — so no new visual language is introduced.
  */
-function SortableHeader({ columnId, label, sort, onSort, note }) {
+function SortableHeader({ columnId, label, sort, onSort, note, infoText = null }) {
   const ariaSort = ariaSortFor(sort, columnId);
   const isActive = Boolean(ariaSort);
   return (
@@ -510,6 +497,7 @@ function SortableHeader({ columnId, label, sort, onSort, note }) {
       >
         <span>{label}</span>
       </button>
+      {infoText ? <span className="ml-1 inline-flex normal-case"><InfoPopover text={infoText} /></span> : null}
     </th>
   );
 }
@@ -641,13 +629,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
       ? sortedTargets
       : sortedTargets.slice(0, MOBILE_PREVIEW_LIMIT);
   const hiddenMobileCount = Math.max(0, sortedTargets.length - visibleMobileTargets.length);
-  const topThree = canonicalTargets.slice(0, 3);
-  const leaderExplanation = explainRankingsLeader(canonicalTargets);
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <div className="space-y-5">
-    {topThree.length ? <section aria-labelledby="top-ranked-sets-heading"><div className="mb-2"><h2 id="top-ranked-sets-heading" className="text-lg font-semibold text-[var(--text-primary)]">Top ranked sets</h2><p className="text-xs text-[var(--text-secondary)]">The current Overall RIP leaders.</p></div><div className={styles.topRankGrid}>{topThree.map((target, index) => <TopRankedCard key={`${target.target_type}:${target.target_id}`} target={target} rank={index + 1} />)}</div>{leaderExplanation ? <div className={styles.whyLeader}><span className="font-semibold text-[var(--text-primary)]">Why #1?</span> {leaderExplanation} <span className="text-[var(--text-secondary)]">Overall RIP is relative, not a promise of profit.</span></div> : null}</section> : null}
     <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets">
       <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
         <div className="flex items-center justify-between gap-3">
@@ -666,9 +650,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             {sortMenuOpen ? (
               <div className="fixed inset-x-3 bottom-20 z-30 max-h-[min(28rem,calc(100dvh-7rem))] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-panel)] shadow-[0_12px_30px_rgba(0,0,0,0.42)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64" role="listbox">
                 <div className="p-1.5">
-                  {Object.values(RANKINGS_SORT_COLUMNS).map((column) => (
+                  {MOBILE_DECISION_COLUMN_IDS.map((columnId) => RANKINGS_SORT_COLUMNS[columnId]).map((column) => (
                     <button key={column.id} type="button" role="option" aria-selected={sort.column === column.id} onClick={() => selectMobileSort(column.id)} className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${sort.column === column.id ? "bg-[var(--surface-page)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-page)]/70 hover:text-[var(--text-primary)]"}`}>
-                      <span>{column.id === "ev" ? "Expected Value" : column.label}</span>
+                      <span>{column.label}</span>
                       {sort.column === column.id ? <span aria-hidden="true" className="font-bold text-[var(--accent)]">✓</span> : null}
                     </button>
                   ))}
@@ -847,14 +831,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     but squeezed below it at the md breakpoint, clipping "S Tier".
                     4.2rem is what the badge measures at full width, so this
                     changes nothing on desktop and only stops the md clip. */}
-                <col style={{ width: "4.2rem" }} />
-                <col style={{ width: "9.5%" }} />
-                {isOverallMode ? <col style={{ width: "9.5%" }} /> : null}
-                <col style={{ width: "9.5%" }} />
-                <col style={{ width: "7.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "8.5%" }} />
-                <col style={{ width: "9%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "18%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -863,28 +844,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <span className="sr-only">Rank</span>
                   </th>
                   <th scope="col">Set</th>
-                  <th scope="col">{tierLabel}</th>
-                  {isOverallMode ? (
-                    <>
-                      <SortableHeader columnId="overall" label="Overall RIP" sort={sort} onSort={handleSort} note={sortNote} />
-                      <SortableHeader columnId="financial" label="Financial RIP" sort={sort} onSort={handleSort} note={sortNote} />
-                    </>
-                  ) : (
-                    // The alternate lenses are behind RANKING_MODE_PICKER_ENABLED.
-                    // Their single mode-scoped column keeps the same sort id as
-                    // the Overall column so the sort state survives a mode change.
-                    <SortableHeader columnId="overall" label={scoreLabel} sort={sort} onSort={handleSort} note={sortNote} />
-                  )}
-                  <SortableHeader
-                    columnId="collectorAppeal"
-                    label="Collector Appeal"
-                    sort={sort}
-                    onSort={handleSort}
-                    note={sortNote}
-                  />
-                  <SortableHeader columnId="ev" label="EV" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="averageLoss" label="Average Loss" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="marketPrice" label="Market Pack Price" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="marketPrice" label="Market Price" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="typicalOpening" label="Typical Opening" sort={sort} onSort={handleSort} note={sortNote} />
+                  <SortableHeader columnId="modelBreakEven" label="Model Break-Even" sort={sort} onSort={handleSort} note={sortNote} />
                   <SortableHeader
                     columnId="chanceToBeatCost"
                     label="Chance to Beat Cost"
@@ -892,16 +854,23 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     onSort={handleSort}
                     note={sortNote}
                   />
+                  <SortableHeader
+                    columnId="topChase"
+                    label="Top Chase"
+                    sort={sort}
+                    onSort={handleSort}
+                    note={sortNote}
+                    infoText="Top Chase is the highest-value card in the set that has a valid modeled pull probability. Value uses the current Near Mint market price. It may not be the card that contributes the most EV."
+                  />
                 </tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
-                  const averageLoss = readAverageLoss(target);
                   const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
                   const modeRank =
                     getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
-                  const tone = isLead && tier ? getTierTone(tier) : null;
+                  const tone = tier ? getTierTone(tier) : null;
                   const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
 
                   return (
@@ -916,40 +885,22 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
                           <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
+                          <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">{tier ? `${tier} Tier · ` : ""}Overall RIP {formatModeScore(getScoreForMode(target, "overall"), SCORE_KIND_PUBLIC)}</span>
                         </Link>
-                      </td>
-                      <td>
-                        <RankBadge rank={tier} title={tierLabel} format="tier" />
-                      </td>
-                      {isOverallMode ? (
-                        <>
-                          <td className={styles.numeric}>
-                            <ScoreCell target={target} modeId="overall" />
-                          </td>
-                          <td className={styles.numeric}>
-                            <ScoreCell target={target} modeId="financial" />
-                          </td>
-                        </>
-                      ) : (
-                        <td className={styles.numeric}>
-                          <ScoreCell target={target} modeId={selectedMode} />
-                        </td>
-                      )}
-                      <td className={styles.numeric}>
-                        <ScoreCell target={target} modeId="collectorAppeal" />
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatCurrency(target?.mean_value)}
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] font-semibold`} style={getDangerValueStyle()}>
-                        {formatLossCurrency(averageLoss)}
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
                         {formatCurrency(target?.pack_cost)}
                       </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`} title="Median simulated opening value. Half of modeled openings finish above this value and half below.">
+                        {formatCurrency(readTypicalOpening(target))}
+                      </td>
+                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
+                        {formatCurrency(readModelBreakEven(target))}
+                      </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
                         {formatPercent(target?.prob_profit, true)}
                       </td>
+                      <td><TopChaseCell target={target} /></td>
                     </tr>
                   );
                 })}
@@ -963,15 +914,16 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
               const activeRank = index + 1;
-              const tier = sort.column === "overall"
-                ? (getTierForMode(target, "overall") || "").toString().toUpperCase() || null
-                : null;
+              const overallTier = (getTierForMode(target, "overall") || "").toString().toUpperCase() || null;
+              const tier = sort.column === "overall" ? overallTier : null;
+              const tierTone = overallTier ? getTierTone(overallTier) : null;
 
               return (
                 <Link
                   key={`${target.target_type}:${target.target_id}`}
                   href={buildRipLink(target)}
                   className={styles.mobileRow}
+                  style={tierTone ? { "--ex-rank-accent": tierTone.accentColor } : undefined}
                 >
                   <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5">
                     <span className="text-right text-sm font-bold tabular-nums text-[var(--text-primary)]">
@@ -1020,7 +972,6 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
         </p>
       )}
     </section>
-    </div>
     </RankColumnModeContext.Provider>
   );
 }

@@ -49,18 +49,11 @@ test("ExploreTableClient renders a distinct error message when loadError is true
 
 // Phase 2-4: absolute / relative / rank presentation, both score families.
 
-test("desktop default mode renders Overall RIP and Financial RIP columns", () => {
+test("desktop default mode embeds Overall RIP context and removes standalone score columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes('label="Overall RIP"'), "desktop header must include an Overall RIP column");
-  assert.ok(source.includes('label="Financial RIP"'), "desktop header must include a Financial RIP column");
-  assert.ok(
-    source.includes('<ScoreCell target={target} modeId="overall" />'),
-    "desktop overall column must render the Overall RIP score cell"
-  );
-  assert.ok(
-    source.includes('<ScoreCell target={target} modeId="financial" />'),
-    "desktop financial column must render the Financial RIP score cell"
-  );
+  assert.ok(source.includes("Overall RIP {formatModeScore(getScoreForMode(target, \"overall\")"));
+  assert.ok(!source.includes('label="Financial RIP"'));
+  assert.ok(!source.includes('label="Collector Appeal"'));
 });
 
 /* ------------------------------------ Rankings completeness: seven metrics --- */
@@ -69,36 +62,21 @@ test("desktop default mode renders Overall RIP and Financial RIP columns", () =>
 // asserted behaviourally in rankingsSort.test.mjs against the real module; what
 // can only be checked here is that each one actually reaches the markup.
 
-test("the desktop table surfaces all seven required metrics", () => {
+test("the desktop table surfaces the decision-scanner columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   for (const label of [
-    "Overall RIP",
-    "Financial RIP",
-    "Collector Appeal",
-    "EV",
-    "Average Loss",
-    "Market Pack Price",
+    "Market Price",
+    "Typical Opening",
+    "Model Break-Even",
     "Chance to Beat Cost",
   ]) {
     assert.ok(source.includes(`label="${label}"`), `${label} must be a column heading`);
   }
-
-  // …and that each has a value cell, not just a heading.
-  assert.ok(source.includes('<ScoreCell target={target} modeId="collectorAppeal" />'), "Collector Appeal cell");
-  assert.ok(source.includes("formatCurrency(target?.mean_value)"), "EV cell reads the published mean_value");
-  assert.ok(source.includes("formatLossCurrency(averageLoss)"), "Average Loss cell");
-  // Average Loss must come from the shared reader (the simulation's published
-  // conditional loss), never from an inline EV-based expression.
-  assert.ok(source.includes("readAverageLoss(target)"), "Average Loss must use the shared reader");
-  const code = source
-    .split(/\r?\n/)
-    .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
-    .join("\n");
-  assert.ok(
-    !/pack_cost\s*\)?\s*-\s*.*mean_value/.test(code) && !code.includes("estimateAverageLoss"),
-    "the retired unconditional pack_cost - mean_value expression must not return"
-  );
-  assert.ok(source.includes("formatCurrency(target?.pack_cost)"), "Market Pack Price cell");
+  assert.ok(source.includes("readTypicalOpening(target)"));
+  assert.ok(source.includes("readModelBreakEven(target)"));
+  assert.ok(source.includes("<TopChaseCell target={target} />"));
+  assert.ok(!source.includes('label="EV"'));
+  assert.ok(!source.includes('label="Average Loss"'));
   assert.ok(source.includes("formatPercent(target?.prob_profit, true)"), "Chance to Beat Cost cell");
 });
 
@@ -189,12 +167,10 @@ test("mobile keeps a tappable sort control even though it has no header row", ()
   );
 });
 
-test("non-default modes render a single mode-scoped score cell", () => {
+test("hidden ranking modes remain configured without adding default score columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(
-    source.includes("<ScoreCell target={target} modeId={selectedMode} />"),
-    "non-overall modes must render one ScoreCell bound to the selected mode"
-  );
+  assert.ok(source.includes("EXPLORE_RANKING_MODES"));
+  assert.ok(!source.includes("<ScoreCell target={target} modeId={selectedMode} />"));
 });
 
 test("ScoreCell reads authoritative absolute/relative/rank/cohort fields, never derives", () => {
@@ -326,23 +302,63 @@ test("each row keeps exactly one real link, stretched over the row", () => {
 test("desktop and mobile ranking rows route to the canonical set RIP tab", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(source.includes('buildTcgSetHrefFromTarget(target, { tab: "overview" })'));
-  assert.equal((source.match(/href=\{buildRipLink\(target\)\}/g) || []).length, 3);
+  assert.equal((source.match(/href=\{buildRipLink\(target\)\}/g) || []).length, 2);
   assert.ok(!source.includes('tab: "insights", section: "rip-score"'));
 });
 
-test("top three render as compact linked answer cards before the full comparison", () => {
+test("the redundant top-three and Why #1 sections are absent", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes("const topThree = canonicalTargets.slice(0, 3)"));
-  assert.ok(source.includes("<TopRankedCard"));
-  assert.ok(source.includes("Why #1?"));
-  assert.ok(source.indexOf("Top ranked sets") < source.indexOf('aria-label="Compare all sets"'));
+  for (const removed of ["Top ranked sets", "TopRankedCard", "Why #1?", "topThree", "leaderExplanation"]) assert.ok(!source.includes(removed));
+  assert.ok(source.includes('<section className={`${styles.surface}'));
 });
 
-test("top cards use authoritative economics and optional chase data", () => {
+test("the Rankings table is the first ranking content after the page title", () => {
+  const page = fs.readFileSync(path.resolve(__dirname, "../../app/Explore/page.js"), "utf8");
+  assert.ok(page.indexOf("<ExploreTableClient") > page.indexOf("Pokémon RIP Rankings"));
+  assert.ok(!page.includes("Top ranked sets"));
+});
+
+test("missing Top Chase data renders an explicit unavailable state", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const start = source.indexOf("function TopChaseCell");
+  const end = source.indexOf("/**", start);
+  assert.ok(source.slice(start, end).includes("UNAVAILABLE_LABEL"));
+});
+
+test("decision columns keep semantic header and cell order", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const head = source.slice(source.indexOf("<thead"), source.indexOf("</thead>"));
+  const row = source.slice(source.indexOf("{formatCurrency(target?.pack_cost)"), source.indexOf("</tr>", source.indexOf("{formatCurrency(target?.pack_cost)")));
+  assert.ok(head.indexOf('columnId="chanceToBeatCost"') < head.indexOf('columnId="topChase"'));
+  assert.ok(row.indexOf("formatPercent(target?.prob_profit, true)") < row.indexOf("<TopChaseCell target={target} />"));
+  assert.ok(source.includes('infoText="Top Chase is the highest-value card'));
+});
+
+test("every desktop ranked row receives its canonical tier rail without another tier pill", () => {
+  const source = fs.readFileSync(componentPath, "utf8");
+  const tableRows = source.slice(source.indexOf("{sortedTargets.map"), source.indexOf("{/* Mobile rows"));
+  assert.ok(tableRows.includes("const tone = tier ? getTierTone(tier) : null;"));
+  assert.ok(!tableRows.includes("const tone = isLead && tier ? getTierTone(tier) : null;"));
+  assert.ok(source.includes('style={tierTone ? { "--ex-rank-accent": tierTone.accentColor } : undefined}'));
+  assert.equal((source.match(/Overall RIP Tier/g) || []).length, 1, "no new tier badge was added");
+});
+
+test("page and module headings remain distinct", () => {
+  const page = fs.readFileSync(path.resolve(__dirname, "../../app/Explore/page.js"), "utf8");
+  assert.ok(page.includes(">Pokémon RIP Rankings</h1>"));
+  assert.ok(sourceForHeading().includes("Best Sets to Rip Right Now"));
+});
+
+function sourceForHeading() {
+  return fs.readFileSync(componentPath, "utf8");
+}
+
+test("the single table uses authoritative decision fields and optional chase data", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(source.includes("getScoreForMode(target, \"overall\")"));
-  assert.ok(source.includes("getTierForMode(target, \"overall\")"));
   assert.ok(source.includes("formatCurrency(target?.pack_cost)"));
+  assert.ok(source.includes("readTypicalOpening(target)"));
+  assert.ok(source.includes("readModelBreakEven(target)"));
   assert.ok(source.includes("formatPercent(target?.prob_profit, true)"));
   assert.ok(source.includes("readOptionalRankingsChase(target)"));
 });
@@ -529,8 +545,7 @@ test("identity, tier, rank, scores and navigation all survive the badge removal"
   assert.ok(source.includes("<SetIdentity variant=\"compact\" target={target}"), "identity still renders");
   assert.ok(source.includes("<RankBadge rank={tier}"), "tier still renders");
   assert.ok(source.includes("<RankMarker rank={modeRank}"), "rank still renders");
-  assert.ok(source.includes('<ScoreCell target={target} modeId="overall" />'), "RIP Score still renders");
-  assert.ok(source.includes('<ScoreCell target={target} modeId="financial" />'), "Financial RIP still renders");
+  assert.ok(source.includes('getScoreForMode(target, "overall")'), "Overall RIP remains compact set context");
   assert.ok(source.includes("href={buildRipLink(target)}"), "row navigation still renders");
   assert.ok(source.includes("getRipMovementForMode"), "rank movement still renders");
 });

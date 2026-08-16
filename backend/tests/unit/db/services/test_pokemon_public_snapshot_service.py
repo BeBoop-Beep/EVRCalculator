@@ -5282,6 +5282,24 @@ def _ascended_heroes_snapshot_payload_json():
             ],
             "coverage": {"status": "available", "reasons": [], "pullModelAvailable": True},
         },
+        "publicRipContractV8": {
+            "collectorAppeal": {
+                "components": {
+                    "rosterDesirability": {
+                        "modeledPokemon": [
+                            {
+                                "name": "Charizard",
+                                "pokemonReferenceId": 6,
+                                "desirabilityScore": 87.9598,
+                                "speciesRank": 1,
+                                "rosterWeight": 0.5,
+                                "frequencyEligible": True,
+                            }
+                        ]
+                    }
+                }
+            }
+        },
         "publicAnalyticsStatus": "analytics_ready",
         "publicAnalyticsCohort": {"version": "public_analytics_policy_v1_era_gated", "eligibleSetCount": 21, "status": "analytics_ready"},
         "meta": {},
@@ -5299,6 +5317,12 @@ def test_insights_critical_payload_serves_the_canonical_contract(monkeypatch):
     monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
+
+    assert payload["publicRipContractV8"]["collectorAppeal"]["components"][
+        "rosterDesirability"
+    ]["modeledPokemon"] == _ascended_heroes_snapshot_payload_json()["publicRipContractV8"][
+        "collectorAppeal"
+    ]["components"]["rosterDesirability"]["modeledPokemon"]
 
     # The hero: canonical rip, not the legacy relative presentation.
     assert payload["rip"]["score"] == 82.20942

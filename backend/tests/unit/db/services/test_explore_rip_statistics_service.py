@@ -92,6 +92,36 @@ class _Client:
         return _Query(table_name, self.handlers, self.calls)
 
 
+def test_rankings_top_chase_is_batched_and_uses_canonical_selector(monkeypatch):
+    handlers = {
+        "simulation_input_cards": lambda _q: [
+            {"calculation_run_id": "run-1", "card_variant_id": "cheap", "effective_pull_rate": 0.1},
+            {"calculation_run_id": "run-1", "card_variant_id": "chase", "effective_pull_rate": 0.002},
+            {"calculation_run_id": "run-1", "card_variant_id": "unmodeled", "effective_pull_rate": 0},
+        ],
+        "simulation_input_cards_with_near_mint_price": lambda _q: [
+            {"calculation_run_id": "run-1", "card_id": "1", "card_variant_id": "cheap", "card_name": "Cheap", "current_near_mint_price": 5},
+            {"calculation_run_id": "run-1", "card_id": "2", "card_variant_id": "chase", "card_name": "Canonical Chase", "current_near_mint_price": 250},
+            {"calculation_run_id": "run-1", "card_id": "3", "card_variant_id": "unmodeled", "card_name": "Not Eligible", "current_near_mint_price": 999},
+        ],
+    }
+    client = _Client(handlers)
+    monkeypatch.setattr(service, "public_read_client", client)
+    sources, warnings = {}, []
+
+    lookup = service._load_rankings_top_chase_lookup(["run-1", "run-1"], sources=sources, warnings=warnings)
+
+    assert lookup["run-1"]["cardName"] == "Canonical Chase"
+    assert lookup["run-1"]["currentMarketPrice"] == 250.0
+    assert lookup["run-1"]["impliedOddsOneInN"] == 500.0
+    assert [call.table_name for call in client.calls] == [
+        "simulation_input_cards",
+        "simulation_input_cards_with_near_mint_price",
+    ]
+    assert sources["rankings_top_chase"] == "OK"
+    assert warnings == []
+
+
 def _build_handlers():
     return {
         "explore_rip_statistics_latest": lambda _q: [

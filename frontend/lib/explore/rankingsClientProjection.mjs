@@ -50,6 +50,10 @@ const SCALAR_FIELDS = Object.freeze([
 
   // sortable columns: rankingsSort.RANKINGS_SORT_COLUMNS
   "mean_value",                 // EV
+  "median_value",               // Typical Opening / P50
+  "medianValue",
+  "modelBreakEvenPrice",
+  "model_break_even_price",
   "pack_cost",                  // Market Pack Price
   "prob_profit",                // Chance to Beat Cost
   "expected_loss_when_losing",  // Average Loss
@@ -94,9 +98,11 @@ const BLOCK_LEAVES = Object.freeze({
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
-  rankingsChase: ["name", "marketValue", "oneInPacks", "packsTo50", "spendTo50"],
-  topChase: ["name", "marketValue", "oneInPacks", "packsTo50", "spendTo50"],
-  top_chase: ["name", "market_value", "one_in_packs", "packs_to_50", "spend_to_50"],
+  rankingsChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
+  topChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
+  top_chase: ["card_name", "current_market_price", "implied_odds_one_in_n", "packs_for_50_percent_chance"],
+  ripDecision: ["topChase"],
+  rip_decision: ["top_chase"],
 });
 
 /** The canonical-contract blocks `readCanonicalBlock` consumes, leaf by leaf. */

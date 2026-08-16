@@ -60,6 +60,8 @@ OVERALL_RIP_V4_VERSION = "overall_rip_v4_90_financial_10_ca7"
 # retained, computed and published as a clearly-labelled LEGACY block.
 OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION_FROM_CONFIG
 UNIVERSAL_SET_DESIRABILITY_VERSION = "universal_set_desirability_v3"
+UNIVERSAL_SET_DESIRABILITY_V4_VERSION = "universal_set_desirability_v4_contextual_chase"
+CONTEXTUAL_CHASE_PRIORITY_VERSION = "contextual_chase_priority_ev_distribution_v2_top5_or_1pct"
 UNIVERSAL_ELIGIBILITY_POLICY_VERSION = "universal_desirability_eligibility_v2"
 SIMULATION_OPENING_DETAILS_VERSION = "simulation_opening_details_v1"
 SCORING_CONFIG_VERSION = "scoring_config_v1"

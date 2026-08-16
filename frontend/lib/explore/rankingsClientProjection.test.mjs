@@ -124,6 +124,14 @@ test("Average Loss survives under both spellings", () => {
   assert.equal(readAverageLoss(projectRankingsTargets([target(1)])[0]), readAverageLoss(target(1)));
 });
 
+test("decision-scanner median, break-even aliases, and canonical chase survive projection", () => {
+  const source = { median_value: 2.5, modelBreakEvenPrice: 4.25, ripDecision: { topChase: { cardName: "Example", currentMarketPrice: 100, impliedOddsOneInN: 500 } } };
+  const [projected] = projectRankingsTargets([source]);
+  assert.equal(projected.median_value, 2.5);
+  assert.equal(projected.modelBreakEvenPrice, 4.25);
+  assert.deepEqual(projected.ripDecision.topChase, source.ripDecision.topChase);
+});
+
 test("the heavy blocks the client never reads are dropped, including contract audit", () => {
   const [projected] = projectRankingsTargets([target(1)]);
   for (const heavy of [

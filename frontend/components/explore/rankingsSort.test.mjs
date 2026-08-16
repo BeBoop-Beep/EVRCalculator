@@ -20,7 +20,9 @@ import {
   nextSortState,
   readAverageLoss,
   readCollectorAppealBlock,
+  readModelBreakEven,
   readSortValue,
+  readTypicalOpening,
   sortRankingsRows,
 } from "./rankingsSort.mjs";
 
@@ -37,8 +39,10 @@ function makeTarget({
   collectorAppeal = null,
   collectorAppealRank = null,
   meanValue = null,
+  medianValue = null,
   packCost = null,
   probProfit = null,
+  topChaseMarketValue = null,
   averageLossWhenLosing = null,
 }) {
   return {
@@ -59,8 +63,10 @@ function makeTarget({
       },
     },
     mean_value: meanValue,
+    median_value: medianValue,
     pack_cost: packCost,
     prob_profit: probProfit,
+    rankingsChase: topChaseMarketValue === null ? undefined : { cardName: `${name} chase`, currentMarketPrice: topChaseMarketValue, impliedOddsOneInN: 100 },
     // Average Loss When Losing, published by the simulation. Deliberately NOT
     // consistent with pack_cost - mean_value in these fixtures, so any test that
     // passes would fail the moment the old unconditional expression came back.
@@ -78,9 +84,11 @@ const ALPHA = makeTarget({
   collectorAppeal: 9,
   collectorAppealRank: 3,
   meanValue: 9.8,
+  medianValue: 9.5,
   packCost: 100.5,
   probProfit: 0.098,
   averageLossWhenLosing: 9.5,
+  topChaseMarketValue: 9,
 });
 const BRAVO = makeTarget({
   name: "bravo",
@@ -90,9 +98,11 @@ const BRAVO = makeTarget({
   collectorAppeal: 95,
   collectorAppealRank: 1,
   meanValue: 100.25,
+  medianValue: 100.25,
   packCost: 9.8,
   probProfit: 0.741,
   averageLossWhenLosing: 100.25,
+  topChaseMarketValue: 100,
 });
 const CHARLIE = makeTarget({
   name: "charlie",
@@ -102,9 +112,11 @@ const CHARLIE = makeTarget({
   collectorAppeal: 100,
   collectorAppealRank: 2,
   meanValue: 95.5,
+  medianValue: 95.5,
   packCost: 9.75,
   probProfit: 0.041,
   averageLossWhenLosing: 95.5,
+  topChaseMarketValue: 95,
 });
 // Every sortable metric unavailable. Not zero — absent.
 const DELTA = makeTarget({ name: "delta", overallRank: 4 });
@@ -117,15 +129,16 @@ function names(rows) {
 
 /* ------------------------------------------------ the seven metrics exist --- */
 
-test("all seven required Rankings metrics are sortable columns", () => {
+test("all required Rankings metrics are sortable columns", () => {
   assert.deepEqual(RANKINGS_SORT_COLUMN_IDS, [
     "overall",
     "financial",
     "collectorAppeal",
-    "ev",
-    "averageLoss",
+    "typicalOpening",
+    "modelBreakEven",
     "marketPrice",
     "chanceToBeatCost",
+    "topChase",
   ]);
   assert.deepEqual(
     RANKINGS_SORT_COLUMN_IDS.map((id) => RANKINGS_SORT_COLUMNS[id].label),
@@ -133,10 +146,11 @@ test("all seven required Rankings metrics are sortable columns", () => {
       "Overall RIP",
       "Financial RIP",
       "Collector Appeal",
-      "EV",
-      "Average Loss",
-      "Market Pack Price",
+      "Typical Opening",
+      "Model Break-Even",
+      "Market Price",
       "Chance to Beat Cost",
+      "Top Chase Market Value",
     ]
   );
 });
@@ -146,12 +160,15 @@ test("all seven required Rankings metrics are sortable columns", () => {
 test("each column reads its authoritative field and derives nothing new", () => {
   assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is overallRipV8.relativeScore");
   assert.equal(readSortValue(ALPHA, "financial"), 100, "Financial RIP is financialRipV3.relativeScore");
-  assert.equal(readSortValue(ALPHA, "ev"), 9.8, "EV is the published mean_value");
+  assert.equal(readSortValue(ALPHA, "typicalOpening"), 9.5, "Typical Opening is the published median_value");
+  assert.equal(readSortValue(ALPHA, "modelBreakEven"), 9.8, "Model Break-Even is the unchanged published mean_value");
   assert.equal(readSortValue(ALPHA, "marketPrice"), 100.5, "Market price is the published pack_cost");
   assert.equal(readSortValue(ALPHA, "chanceToBeatCost"), 0.098, "Chance to beat cost is prob_profit");
+  assert.equal(readSortValue(ALPHA, "topChase"), 9, "Top Chase sorting is canonical chase market value");
   // Average Loss is the simulation's conditional statistic, lifted verbatim.
   assert.equal(readAverageLoss(ALPHA), 9.5, "Average Loss is expected_loss_when_losing");
-  assert.equal(readSortValue(ALPHA, "averageLoss"), 9.5);
+  assert.equal(readTypicalOpening(ALPHA), 9.5);
+  assert.equal(readModelBreakEven(ALPHA), 9.8);
 });
 
 /* ------------------------------------------- Average Loss When Losing --- */
@@ -241,7 +258,7 @@ test("the default sort returns the canonical order untouched", () => {
 test("first click on an unselected metric sorts descending, second click ascending", () => {
   for (const columnId of RANKINGS_SORT_COLUMN_IDS) {
     // Start from a state where this column is NOT selected.
-    const other = columnId === "ev" ? "marketPrice" : "ev";
+    const other = columnId === "modelBreakEven" ? "marketPrice" : "modelBreakEven";
     const first = nextSortState({ column: other, direction: SORT_ASC }, columnId);
     assert.deepEqual(first, { column: columnId, direction: SORT_DESC }, `${columnId} first click must be descending`);
 
@@ -253,22 +270,22 @@ test("first click on an unselected metric sorts descending, second click ascendi
   }
 });
 
-test("Average Loss uses the same non-reversed rule as every other metric", () => {
-  const first = nextSortState({ column: "ev", direction: SORT_DESC }, "averageLoss");
+test("Typical Opening uses the same sorting rule as every other metric", () => {
+  const first = nextSortState({ column: "modelBreakEven", direction: SORT_DESC }, "typicalOpening");
   assert.equal(first.direction, SORT_DESC);
   const rows = sortRankingsRows(CANONICAL, first);
   // bravo 100.25, charlie 95.5, alpha 9.5 → largest average loss first.
   assert.deepEqual(names(rows), ["bravo", "charlie", "alpha", "delta"]);
 
-  const second = nextSortState(first, "averageLoss");
+  const second = nextSortState(first, "typicalOpening");
   assert.equal(second.direction, SORT_ASC);
   assert.deepEqual(names(sortRankingsRows(CANONICAL, second)), ["alpha", "charlie", "bravo", "delta"]);
 });
 
 test("aria-sort is exposed only on the active column, in the active direction", () => {
-  assert.equal(ariaSortFor({ column: "ev", direction: SORT_DESC }, "ev"), "descending");
-  assert.equal(ariaSortFor({ column: "ev", direction: SORT_ASC }, "ev"), "ascending");
-  assert.equal(ariaSortFor({ column: "ev", direction: SORT_ASC }, "marketPrice"), undefined);
+  assert.equal(ariaSortFor({ column: "modelBreakEven", direction: SORT_DESC }, "modelBreakEven"), "descending");
+  assert.equal(ariaSortFor({ column: "modelBreakEven", direction: SORT_ASC }, "modelBreakEven"), "ascending");
+  assert.equal(ariaSortFor({ column: "modelBreakEven", direction: SORT_ASC }, "marketPrice"), undefined);
 });
 
 /* ----------------------------------------------------------- numeric sorting --- */
@@ -280,11 +297,11 @@ test("sorting is numeric, not lexicographic, for every metric", () => {
     overall: ["alpha", "bravo", "charlie"],
     financial: ["alpha", "charlie", "bravo"],
     collectorAppeal: ["charlie", "bravo", "alpha"],
-    ev: ["bravo", "charlie", "alpha"],
-    // 100.25 / 95.5 / 9.5 — lexicographically "100.25" sorts below "9.5".
-    averageLoss: ["bravo", "charlie", "alpha"],
+    typicalOpening: ["bravo", "charlie", "alpha"],
+    modelBreakEven: ["bravo", "charlie", "alpha"],
     marketPrice: ["alpha", "bravo", "charlie"],
     chanceToBeatCost: ["bravo", "alpha", "charlie"],
+    topChase: ["bravo", "charlie", "alpha"],
   };
 
   for (const [columnId, expected] of Object.entries(expectations)) {
@@ -324,7 +341,7 @@ test("unavailable values sort last in BOTH directions and never become zero", ()
 
 test("a null value is not treated as the smallest number", () => {
   const negativeEv = makeTarget({ name: "negative", overallRank: 5, meanValue: -50, packCost: 1 });
-  const rows = sortRankingsRows([...CANONICAL, negativeEv], { column: "ev", direction: SORT_ASC });
+  const rows = sortRankingsRows([...CANONICAL, negativeEv], { column: "modelBreakEven", direction: SORT_ASC });
   // Ascending: the genuinely smallest number is first; the ABSENT one is last.
   assert.equal(rows[0].name, "negative");
   assert.equal(rows[rows.length - 1].name, "delta");
@@ -340,7 +357,7 @@ test("tied values fall back to the canonical order, deterministically", () => {
 
   for (const direction of [SORT_DESC, SORT_ASC]) {
     for (let run = 0; run < 5; run += 1) {
-      const rows = sortRankingsRows(canonical, { column: "ev", direction });
+      const rows = sortRankingsRows(canonical, { column: "modelBreakEven", direction });
       assert.deepEqual(names(rows), ["tied-a", "tied-b", "tied-c"], "ties must never reshuffle between renders");
     }
   }

@@ -102,7 +102,7 @@ export default async function ExplorePage({ searchParams }) {
         one-line context names inputs without putting methodology before data.
       */}
       <header className="mx-auto mb-5 w-full max-w-5xl">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Best Pokémon Sets to Rip Right Now</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Pokémon RIP Rankings</h1>
         <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Current prices, simulated opening outcomes, and collector appeal — compared in one place.</p>
       </header>
 

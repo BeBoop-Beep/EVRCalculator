@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
 from backend.db.services.public_read_retry import run_batch_read_with_retry
+from backend.db.services.rip_decision_service import select_top_chase_card
+from backend.domain.pokemon.rip_decision_metrics import exact_card_probability_contract
 from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
 from backend.db.services.universal_set_desirability_service import (
     get_universal_desirability_bundle,
@@ -1459,6 +1461,80 @@ def _build_opening_experience(
     }
 
 
+def _load_rankings_top_chase_lookup(
+    run_ids: Iterable[Any], *, sources: Dict[str, str], warnings: List[str]
+) -> Dict[str, Dict[str, Any]]:
+    """Project the canonical decision-contract chase for all ranking runs.
+
+    This is two cohort-wide reads, not one decision-contract build per row. The
+    selection itself is delegated to the same selector used by the set detail
+    decision contract, so Rankings cannot acquire a second definition of chase.
+    """
+    resolved_run_ids = sorted({_to_optional_str(run_id) for run_id in run_ids if _to_optional_str(run_id)})
+    if not resolved_run_ids:
+        sources["rankings_top_chase"] = "SKIPPED"
+        return {}
+
+    def read_population(table: str, fields: str) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        page_size = 1000
+        for start in range(0, 100_000, page_size):
+            result = (
+                public_read_client.table(table)
+                .select(fields)
+                .in_("calculation_run_id", resolved_run_ids)
+                .range(start, start + page_size - 1)
+                .execute()
+            )
+            batch = list(result.data or [])
+            rows.extend(batch)
+            if len(batch) < page_size:
+                return rows
+        raise ValueError(f"{table} rankings Top Chase population exceeded safety limit")
+
+    try:
+        rate_rows = read_population(
+            "simulation_input_cards",
+            "calculation_run_id,card_variant_id,effective_pull_rate",
+        )
+        price_rows = read_population(
+            "simulation_input_cards_with_near_mint_price",
+            "calculation_run_id,card_id,card_variant_id,card_name,rarity_bucket,current_near_mint_price",
+        )
+    except Exception as exc:
+        logger.warning("[rip-statistics-targets] rankings Top Chase enrichment failed: %s", exc)
+        warnings.append("Failed to load Top Chase data for one or more RIP targets")
+        sources["rankings_top_chase"] = "FAILED"
+        return {}
+
+    rates_by_run: Dict[str, Dict[str, float]] = {}
+    for row in rate_rows:
+        run_id = _to_optional_str(row.get("calculation_run_id"))
+        variant_id = _to_optional_str(row.get("card_variant_id"))
+        probability = _to_optional_float(row.get("effective_pull_rate"))
+        if run_id and variant_id and probability is not None and 0.0 < probability <= 1.0:
+            rates_by_run.setdefault(run_id, {})[variant_id] = probability
+
+    prices_by_run: Dict[str, List[Dict[str, Any]]] = {}
+    for row in price_rows:
+        run_id = _to_optional_str(row.get("calculation_run_id"))
+        if run_id:
+            prices_by_run.setdefault(run_id, []).append(row)
+
+    lookup: Dict[str, Dict[str, Any]] = {}
+    for run_id in resolved_run_ids:
+        chosen = select_top_chase_card(prices_by_run.get(run_id, []), rates_by_run.get(run_id, {}))
+        if chosen is None:
+            continue
+        lookup[run_id] = {
+            "cardName": _to_optional_str(chosen.get("card_name")),
+            "currentMarketPrice": _to_optional_float(chosen.get("current_near_mint_price")),
+            **exact_card_probability_contract(chosen.get("effective_pull_rate")),
+        }
+    sources["rankings_top_chase"] = "OK"
+    return lookup
+
+
 def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data."""
     total_started = time.perf_counter()
@@ -1505,6 +1581,12 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         )
 
     ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
+
+    rankings_top_chase_lookup = _load_rankings_top_chase_lookup(
+        (row.get("calculation_run_id") for row in ranked_rows),
+        sources=sources,
+        warnings=warnings,
+    )
 
     set_lookup_by_target_id: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}
@@ -1836,6 +1918,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                 # contract builder never mixes a score from one run with raw
                 # metrics from another.
                 "calculation_run_id": row.get("calculation_run_id"),
+                "rankingsChase": rankings_top_chase_lookup.get(str(row.get("calculation_run_id"))),
                 "financial_rip_v3_payload": row.get("financial_rip_v3_payload"),
                 "financial_rip_v3_score": row.get("financial_rip_v3_score"),
                 "financial_rip_v3_status": row.get("financial_rip_v3_status"),

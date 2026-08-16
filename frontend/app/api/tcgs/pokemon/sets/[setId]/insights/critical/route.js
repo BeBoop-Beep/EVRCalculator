@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
-const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
+const PUBLIC_ANALYTICS_CACHE_CONTROL = "no-store";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
 
 export async function GET(request, { params }) {

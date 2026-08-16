@@ -45,6 +45,7 @@
 
 import { getScoreForMode } from "../../constants/exploreRankingConfig.mjs";
 import { readCanonicalBlock, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
+import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
 
 export const SORT_DESC = "desc";
 export const SORT_ASC = "asc";
@@ -117,6 +118,16 @@ export function readAverageLoss(target) {
   return toNumber(target?.expected_loss_when_losing ?? target?.expectedLossWhenLosing);
 }
 
+export function readTypicalOpening(target) {
+  return toNumber(target?.median_value ?? target?.medianValue);
+}
+
+// The decision contract defines modelBreakEvenPrice as the unchanged expected
+// modeled opening value. Prefer the explicit alias, then the existing mean.
+export function readModelBreakEven(target) {
+  return toNumber(target?.modelBreakEvenPrice ?? target?.model_break_even_price ?? target?.mean_value);
+}
+
 /**
  * The canonical PUBLIC Collector Appeal for a target.
  *
@@ -150,25 +161,30 @@ export const RANKINGS_SORT_COLUMNS = {
     label: "Collector Appeal",
     read: (target) => readCollectorAppealBlock(target).publicScore,
   },
-  ev: {
-    id: "ev",
-    label: "EV",
-    read: (target) => toNumber(target?.mean_value),
+  typicalOpening: {
+    id: "typicalOpening",
+    label: "Typical Opening",
+    read: readTypicalOpening,
   },
-  averageLoss: {
-    id: "averageLoss",
-    label: "Average Loss",
-    read: readAverageLoss,
+  modelBreakEven: {
+    id: "modelBreakEven",
+    label: "Model Break-Even",
+    read: readModelBreakEven,
   },
   marketPrice: {
     id: "marketPrice",
-    label: "Market Pack Price",
+    label: "Market Price",
     read: (target) => toNumber(target?.pack_cost),
   },
   chanceToBeatCost: {
     id: "chanceToBeatCost",
     label: "Chance to Beat Cost",
     read: (target) => normalizeProbability(target?.prob_profit),
+  },
+  topChase: {
+    id: "topChase",
+    label: "Top Chase Market Value",
+    read: (target) => readOptionalRankingsChase(target)?.marketValue ?? null,
   },
 };
 
