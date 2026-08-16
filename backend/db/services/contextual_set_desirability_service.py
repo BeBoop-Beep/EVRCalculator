@@ -58,12 +58,12 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     canonical_rows: List[Dict[str, Any]] = []
     for chunk in _chunked(api_ids, 200):
         canonical_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("pokemon_canonical_cards")
-                                            .select("id,pokemon_tcg_api_card_id,rarity")
+                                            .select("id,pokemon_tcg_api_card_id,rarity,supertype")
                                             .in_("pokemon_tcg_api_card_id", chunk)))
     set_ids = sorted({str(row["set_id"]) for row in legacy_rows if row.get("set_id")})
     for chunk in _chunked(set_ids, 100):
         canonical_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("pokemon_canonical_cards")
-                                            .select("id,set_id,name,pokemon_tcg_api_card_id,rarity")
+                                            .select("id,set_id,name,pokemon_tcg_api_card_id,rarity,supertype")
                                             .in_("set_id", chunk)))
     canonical_by_api = {str(row["pokemon_tcg_api_card_id"]): row for row in canonical_rows
                         if row.get("pokemon_tcg_api_card_id")}
@@ -80,8 +80,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
                                    .in_("pokemon_canonical_card_id", chunk)))
     links_by_card: Dict[str, List[Mapping[str, Any]]] = defaultdict(list)
     for link in links:
-        if link.get("is_hit_eligible") is not False:
-            links_by_card[str(link.get("pokemon_canonical_card_id"))].append(link)
+        links_by_card[str(link.get("pokemon_canonical_card_id"))].append(link)
     by_run: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for card in cards:
         api_id = api_by_variant.get(str(card.get("card_variant_id"))) or api_by_legacy.get(str(card.get("card_id")))
@@ -104,12 +103,24 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
                 continue
             if weight > 0:
                 usable.append((weight, -ref, ref))
-        reference_id = max(usable)[2] if usable else None
+        chosen = max(usable) if usable else None
+        reference_id = chosen[2] if chosen else None
+        chosen_link = next((link for link in candidates if str(link.get("pokemon_reference_id")) == str(reference_id)), None)
+        supertype = str(canonical.get("supertype") or "").strip().lower()
+        if canonical and supertype and supertype != "pokémon" and supertype != "pokemon":
+            mapping_status = "intentional_non_pokemon"
+            reference_id = None
+        elif canonical and reference_id is not None:
+            mapping_status = "mapped_pokemon"
+        else:
+            mapping_status = "unresolved"
         by_run[str(card.get("calculation_run_id"))].append({
             "pokemon_reference_id": reference_id,
             "card_id": canonical_id, "card_name": card.get("card_name"),
             "rarity": canonical.get("rarity"),
             "rarity_bucket": card.get("rarity_bucket"),
+            "mapping_status": mapping_status,
+            "is_hit_eligible": (chosen_link or {}).get("is_hit_eligible"),
             "market_value": _to_optional_float(card.get("price_used")),
             "modeled_probability": normalize_pull_probability(card.get("effective_pull_rate")),
             "ev_contribution": _to_optional_float(card.get("ev_contribution")),
@@ -117,7 +128,10 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     return by_run
 
 
-def build_contextual_desirability_bundle(*, min_card_share: float = 0.01, always_include_top_n: int = 5) -> Dict[str, Any]:
+def build_contextual_desirability_bundle(
+    *, min_subject_share: float = 0.01, minimum_subject_fallback: int = 0,
+    denominator: str = "all_positive_modeled_card_ev", max_unresolved_ev_share: float = 1.0,
+) -> Dict[str, Any]:
     selection = _load_current_component_rows()
     source_rows = selection["selected"]
     runs = _latest_runs(list(source_rows))
@@ -129,7 +143,10 @@ def build_contextual_desirability_bundle(*, min_card_share: float = 0.01, always
         evidence = evidence_by_run.get(str((run or {}).get("calculation_run_id")), [])
         result = compute_universal_set_desirability_v4(
             source.get("subject_rollups_json") or [], evidence,
-            min_card_share=min_card_share, always_include_top_n=always_include_top_n,
+            min_subject_share=min_subject_share,
+            minimum_subject_fallback=minimum_subject_fallback,
+            denominator=denominator,
+            max_unresolved_ev_share=max_unresolved_ev_share,
         )
         modeled = []
         for position, subject in enumerate(result.get("modeled_subjects") or [], start=1):
@@ -141,9 +158,12 @@ def build_contextual_desirability_bundle(*, min_card_share: float = 0.01, always
                 "speciesRank": ranks.get(int(ref)) if ref is not None else None,
                 "setRosterPosition": position, "role": subject.get("role"),
                 "chasePriorityRank": subject.get("chase_priority_rank"),
+                "subjectEvContribution": subject.get("subject_ev_contribution"),
+                "subjectEvShare": subject.get("subject_ev_share"),
                 "representativeCard": {
                     "id": representative.get("card_id"), "name": representative.get("card_name"),
                     "rarity": representative.get("rarity") or representative.get("rarity_bucket"),
+                    "marketValue": representative.get("market_value"),
                     "modeledProbability": representative.get("modeled_probability"),
                     "evContribution": representative.get("ev_contribution"),
                     "evShare": representative.get("ev_share"),

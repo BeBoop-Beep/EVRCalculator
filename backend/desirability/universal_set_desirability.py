@@ -45,7 +45,8 @@ from backend.desirability.scoring_config import (
 )
 
 CONTEXTUAL_CHASE_MIN_CARD_SHARE = 0.01
-CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N = 5
+CONTEXTUAL_CHASE_MAX_UNRESOLVED_EV_SHARE = 1.0  # audit first; finalized after cohort distribution
+CONTEXTUAL_CHASE_DENOMINATOR = "all_positive_modeled_card_ev"
 
 
 # ---------------------------------------------------------------------------
@@ -474,18 +475,20 @@ def build_contextual_chase_subjects(
     subject_rollups: Sequence[Mapping[str, Any]],
     card_evidence: Sequence[Mapping[str, Any]],
     *,
-    min_card_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
-    always_include_top_n: int = CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N,
+    min_subject_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
+    minimum_subject_fallback: int = 0,
+    denominator: str = CONTEXTUAL_CHASE_DENOMINATOR,
+    max_unresolved_ev_share: float = CONTEXTUAL_CHASE_MAX_UNRESOLVED_EV_SHARE,
 ) -> Dict[str, Any]:
-    """Join the canonical run's card EV distribution to distinct Pokemon.
+    """Aggregate the exact run's card evidence, then classify Pokemon subjects.
 
-    Membership deliberately reuses the repository's existing chase-definition
-    distribution rule: top five cards or any card contributing at least 1% of
-    card EV. The earlier audit's cumulative-80% diagnostic is deliberately not
-    binary membership: on broad sets it admitted dozens of accessible cards and
-    reproduced the exact false equivalence V4 corrects. EV establishes priority
-    only; Pokemon demand remains the value that is scored.
+    EV answers only whether a canonical Pokemon meaningfully represents this
+    set. Membership is evaluated on the *aggregated subject share*, never on an
+    individual printing. The strength component later reorders qualifying
+    subjects by Pokemon desirability, so EV cannot assign the 50/30/20 slots.
     """
+    if denominator not in {"all_positive_modeled_card_ev", "mapped_pokemon_positive_ev"}:
+        raise ValueError(f"unsupported contextual chase denominator: {denominator}")
     eligible = eligible_subject_rollups(subject_rollups)
     by_ref: Dict[int, Dict[str, Any]] = {}
     for row in eligible:
@@ -494,7 +497,7 @@ def build_contextual_chase_subjects(
         except (TypeError, ValueError):
             continue
 
-    normalized = []
+    normalized: List[Tuple[Mapping[str, Any], Optional[int], float]] = []
     for card in card_evidence:
         try:
             reference_id = int(card.get("pokemon_reference_id"))
@@ -509,28 +512,35 @@ def build_contextual_chase_subjects(
         reverse=True,
     )
     total_ev = sum(item[2] for item in normalized)
-    cumulative = 0.0
+    mapped_eligible_ev = non_pokemon_ev = unresolved_ev = ineligible_pokemon_ev = 0.0
+    mapped_count = non_pokemon_count = unresolved_count = ineligible_pokemon_count = 0
     aggregated: Dict[int, Dict[str, Any]] = {}
     for rank, (card, reference_id, ev) in enumerate(normalized, start=1):
-        share = ev / total_ev if total_ev > 0 else 0.0
-        cumulative += share
-        meaningful = (
-            rank <= always_include_top_n
-            or share >= min_card_share
-        )
-        if reference_id not in by_ref:
+        mapping_status = str(card.get("mapping_status") or "")
+        is_hit_eligible = card.get("is_hit_eligible") is not False
+        if mapping_status == "intentional_non_pokemon":
+            non_pokemon_ev += ev
+            non_pokemon_count += 1
             continue
+        if reference_id is None or mapping_status == "unresolved":
+            unresolved_ev += ev
+            unresolved_count += 1
+            continue
+        if reference_id not in by_ref or not is_hit_eligible:
+            ineligible_pokemon_ev += ev
+            ineligible_pokemon_count += 1
+            continue
+        mapped_eligible_ev += ev
+        mapped_count += 1
         current = aggregated.setdefault(reference_id, {
             **by_ref[reference_id],
             "subject_ev_contribution": 0.0,
             "subject_ev_share": 0.0,
-            "meaningful_card_count": 0,
+            "eligible_card_count": 0,
             "representative_chase_card": None,
         })
         current["subject_ev_contribution"] += ev
-        current["subject_ev_share"] += share
-        if meaningful:
-            current["meaningful_card_count"] += 1
+        current["eligible_card_count"] += 1
         if current["representative_chase_card"] is None:
             current["representative_chase_card"] = {
                 "card_id": card.get("card_id"),
@@ -540,12 +550,16 @@ def build_contextual_chase_subjects(
                 "market_value": _as_float(card.get("market_value")),
                 "modeled_probability": _as_float(card.get("modeled_probability")),
                 "ev_contribution": _round(ev),
-                "ev_share": _round(share),
+                "ev_share": None,
                 "card_chase_rank": rank,
-                "meaningful": meaningful,
             }
 
+    denominator_ev = total_ev if denominator == "all_positive_modeled_card_ev" else mapped_eligible_ev
     contextual = list(aggregated.values())
+    for row in contextual:
+        row["subject_ev_share"] = (
+            row["subject_ev_contribution"] / denominator_ev if denominator_ev > 0 else 0.0
+        )
     contextual.sort(
         key=lambda row: (
             row["subject_ev_contribution"],
@@ -555,9 +569,17 @@ def build_contextual_chase_subjects(
     )
     for rank, row in enumerate(contextual, start=1):
         row["chase_priority_rank"] = rank
-        row["role"] = "meaningful_chase" if row["meaningful_card_count"] > 0 else "supporting_roster"
+        row["role"] = "meaningful_chase" if row["subject_ev_share"] >= min_subject_share else "supporting_roster"
         row["subject_ev_contribution"] = _round(row["subject_ev_contribution"])
         row["subject_ev_share"] = _round(row["subject_ev_share"])
+        representative = row.get("representative_chase_card") or {}
+        representative["ev_share"] = _round(
+            (representative.get("ev_contribution") or 0.0) / denominator_ev
+        ) if denominator_ev > 0 else None
+
+    if minimum_subject_fallback > 0:
+        for row in contextual[:minimum_subject_fallback]:
+            row["role"] = "meaningful_chase"
 
     evidenced_refs = set(aggregated)
     supporting = []
@@ -570,12 +592,40 @@ def build_contextual_chase_subjects(
             supporting.append({**row, "role": "supporting_roster", "chase_priority_rank": None,
                                "representative_chase_card": None})
     meaningful_subjects = [row for row in contextual if row["role"] == "meaningful_chase"]
+    unresolved_share = unresolved_ev / total_ev if total_ev > 0 else 0.0
+    evidence_status = "available"
+    evidence_reason = None
+    if not normalized:
+        evidence_status, evidence_reason = "unavailable", "missing_canonical_chase_evidence"
+    elif unresolved_share > max_unresolved_ev_share:
+        evidence_status, evidence_reason = "unavailable", "insufficient_canonical_mapping_coverage"
+    elif not meaningful_subjects:
+        evidence_status, evidence_reason = "unavailable", "no_meaningful_chase_subjects"
+    diagnostics = {
+        "denominator": denominator,
+        "denominator_ev": _round(denominator_ev),
+        "total_positive_modeled_card_ev": _round(total_ev),
+        "mapped_eligible_pokemon_ev": _round(mapped_eligible_ev),
+        "intentional_non_pokemon_ev": _round(non_pokemon_ev),
+        "resolved_ineligible_pokemon_ev": _round(ineligible_pokemon_ev),
+        "unresolved_ev": _round(unresolved_ev),
+        "mapped_pokemon_ev_share": _round(mapped_eligible_ev / total_ev) if total_ev else 0.0,
+        "unresolved_ev_share": _round(unresolved_share),
+        "positive_ev_card_count": len(normalized),
+        "mapped_eligible_pokemon_card_count": mapped_count,
+        "intentional_non_pokemon_card_count": non_pokemon_count,
+        "resolved_ineligible_pokemon_card_count": ineligible_pokemon_count,
+        "unresolved_card_count": unresolved_count,
+        "max_unresolved_ev_share": max_unresolved_ev_share,
+    }
     return {
         "meaningful_subjects": meaningful_subjects,
         "all_subjects": meaningful_subjects + [row for row in contextual if row["role"] != "meaningful_chase"] + supporting,
         "total_card_ev": _round(total_ev),
         "priority_version": CONTEXTUAL_CHASE_PRIORITY_VERSION,
-        "evidence_status": "available" if meaningful_subjects else "unavailable",
+        "evidence_status": evidence_status,
+        "evidence_reason": evidence_reason,
+        "evidence_diagnostics": diagnostics,
     }
 
 
@@ -583,23 +633,36 @@ def compute_universal_set_desirability_v4(
     subject_rollups: Sequence[Mapping[str, Any]],
     card_evidence: Sequence[Mapping[str, Any]],
     *,
-    min_card_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
-    always_include_top_n: int = CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N,
+    min_subject_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
+    minimum_subject_fallback: int = 0,
+    denominator: str = CONTEXTUAL_CHASE_DENOMINATOR,
+    max_unresolved_ev_share: float = CONTEXTUAL_CHASE_MAX_UNRESOLVED_EV_SHARE,
 ) -> Dict[str, Any]:
     """Contextual V4; V3 entry points remain untouched and reproducible."""
     context = build_contextual_chase_subjects(
         subject_rollups, card_evidence,
-        min_card_share=min_card_share, always_include_top_n=always_include_top_n,
+        min_subject_share=min_subject_share,
+        minimum_subject_fallback=minimum_subject_fallback,
+        denominator=denominator,
+        max_unresolved_ev_share=max_unresolved_ev_share,
     )
     if context["evidence_status"] != "available":
         return {
             "score": None, "version": UNIVERSAL_SET_DESIRABILITY_V4_VERSION,
             "eligibility_policy_version": UNIVERSAL_ELIGIBILITY_POLICY_VERSION,
-            "status": "unavailable", "reason": "missing_canonical_chase_evidence",
+            "status": "unavailable", "reason": context.get("evidence_reason"),
             "chase_priority_version": CONTEXTUAL_CHASE_PRIORITY_VERSION,
             "top_subjects": [], "modeled_subjects": context["all_subjects"],
+            "chase_evidence": context.get("evidence_diagnostics"),
         }
-    meaningful = context["meaningful_subjects"]
+    meaningful = sorted(
+        context["meaningful_subjects"],
+        key=lambda row: (
+            -(_as_float(row.get("max_desirability_score")) or 0.0),
+            -(_as_float(row.get("subject_ev_contribution")) or 0.0),
+            _as_int(row.get("pokemon_reference_id"), 2**31 - 1),
+        ),
+    )
     strength, strength_inputs = compute_chase_subject_strength_v3(meaningful)
     depth, depth_inputs = compute_chase_subject_depth_v3(meaningful)
     all_eligible = eligible_subject_rollups(subject_rollups)
@@ -632,9 +695,12 @@ def compute_universal_set_desirability_v4(
                              "supporting_roster_breadth": coverage_inputs},
         "top_subjects": strength_inputs.get("top_subjects", []),
         "modeled_subjects": context["all_subjects"],
-        "chase_evidence": {"total_card_ev": context["total_card_ev"],
+        "chase_evidence": {**context["evidence_diagnostics"],
                            "same_canonical_distribution_required": True},
-        "excluded_score_inputs": ["market_price", "pull_probability", "ev_contribution"],
+        "direct_score_inputs": ["pokemon_desirability", "component_transforms", "component_weights"],
+        "chase_priority_inputs": ["card_ev_contribution", "subject_ev_share", "authoritative_run_identity", "canonical_card_to_pokemon_mapping"],
+        "directly_excluded_inputs": ["raw_market_price", "pull_probability", "ev_contribution"],
+        "priority_input_note": "EV contribution identifies meaningful chase representation; it is not multiplied into Pokemon desirability or directly added to the roster score.",
     }
 
 
