@@ -99,9 +99,20 @@ def get_sealed_product_results_for_runs(calculation_run_ids: Sequence[Any]) -> L
     return list(response.data or [])
 
 
-def get_sealed_product_results_for_run(calculation_run_id: Any) -> List[Dict[str, Any]]:
+def _client(client: Optional[Any] = None) -> Any:
+    """The caller's client, or the module default.
+
+    A snapshot build runs on an injected service-role client and every section
+    of one published payload should come from that same connection.
+    """
+    return client if client is not None else supabase
+
+
+def get_sealed_product_results_for_run(
+    calculation_run_id: Any, *, client: Optional[Any] = None
+) -> List[Dict[str, Any]]:
     response = (
-        supabase.table(TABLE)
+        _client(client).table(TABLE)
         .select(_SELECT_FIELDS)
         .eq("calculation_run_id", str(calculation_run_id))
         .order("pack_count")
@@ -110,7 +121,9 @@ def get_sealed_product_results_for_run(calculation_run_id: Any) -> List[Dict[str
     return list(response.data or [])
 
 
-def get_latest_sealed_product_results_for_set(set_id: Any) -> List[Dict[str, Any]]:
+def get_latest_sealed_product_results_for_set(
+    set_id: Any, *, client: Optional[Any] = None
+) -> List[Dict[str, Any]]:
     """Every Stage 1 product row from the set's most recent scored run.
 
     "Latest" is resolved by run, not by row: taking the newest row per product
@@ -118,7 +131,7 @@ def get_latest_sealed_product_results_for_set(set_id: Any) -> List[Dict[str, Any
     one comparison table, which is exactly the thing a ranking must not do.
     """
     newest = (
-        supabase.table(TABLE)
+        _client(client).table(TABLE)
         .select("calculation_run_id,created_at")
         .eq("set_id", str(set_id))
         .order("created_at", desc=True)
@@ -128,7 +141,7 @@ def get_latest_sealed_product_results_for_set(set_id: Any) -> List[Dict[str, Any
     rows = list(newest.data or [])
     if not rows:
         return []
-    return get_sealed_product_results_for_run(rows[0]["calculation_run_id"])
+    return get_sealed_product_results_for_run(rows[0]["calculation_run_id"], client=client)
 
 
 def get_latest_sealed_product_result_for_family(set_id: Any, product_family: str) -> Optional[Dict[str, Any]]:

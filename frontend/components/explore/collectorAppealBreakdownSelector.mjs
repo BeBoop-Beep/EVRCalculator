@@ -134,6 +134,45 @@ export const DESIRABLE_OUTCOME_DISCLAIMER =
 const SUBJECT_SCOPE_NOTE =
   "Trainer and artist desirability are not yet modeled and are not counted.";
 
+function selectRosterPokemonMetrics(roster = {}) {
+  // The backend owns both membership and order. The UI only deduplicates an
+  // already-ranked canonical list and caps its presentation at ten rows.
+  const modeledPokemon = Array.isArray(roster.modeledPokemon) ? roster.modeledPokemon : null;
+  if (!modeledPokemon) {
+    return {
+      metrics: [{ label: "Required contract field", value: "modeledPokemon unavailable" }],
+      statusReason:
+        "Per-Pokémon roster details are not published yet. The RIP contract needs components.rosterDesirability.modeledPokemon with Pokémon name, desirability score, and optional global rank.",
+    };
+  }
+
+  const seen = new Set();
+  const rows = [];
+  for (const pokemon of modeledPokemon) {
+    const name = String(pokemon?.name ?? pokemon?.pokemonName ?? "").trim();
+    const desirabilityScore = toOptionalNumber(pokemon?.desirabilityScore);
+    if (!name || desirabilityScore === UNAVAILABLE) continue;
+    const key = name.toLocaleLowerCase("en-US");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const globalRank = toOptionalNumber(pokemon?.globalRank);
+    rows.push({
+      label: `#${rows.length + 1} ${name}`,
+      value: `Desirability Score: ${formatScore(desirabilityScore)}${
+        globalRank === UNAVAILABLE ? "" : ` · Overall Pokémon Rank: #${Math.round(globalRank)}`
+      }`,
+    });
+    if (rows.length === 10) break;
+  }
+
+  return rows.length
+    ? { metrics: rows, statusReason: null }
+    : {
+        metrics: [{ label: "Modeled Pokémon", value: "Unavailable" }],
+        statusReason: "No renderable per-Pokémon desirability rows were published for this set.",
+      };
+}
+
 /**
  * The Collector Appeal breakdown: Roster Desirability, Desirable Outcome
  * Roster Desirability and Desirable Outcome Frequency — two scored factors.
@@ -158,6 +197,7 @@ export function selectCollectorAppealBreakdown(...sources) {
   const frequencyRaw = toOptionalNumber(frequency.rawValue);
   const rosterRelative = toOptionalNumber(roster.relativeScore);
   const frequencyRelative = toOptionalNumber(frequency.relativeScore);
+  const rosterPokemon = selectRosterPokemonMetrics(roster);
 
   const rows = [
     {
@@ -176,7 +216,8 @@ export function selectCollectorAppealBreakdown(...sources) {
       tier: roster.tier ?? UNAVAILABLE,
       interpretation:
         "How desirable the Pokémon roster is before pull difficulty is considered.",
-      metrics: [],
+      metrics: rosterPokemon.metrics,
+      statusReason: rosterPokemon.statusReason,
     },
     {
       key: "desirableOutcomeFrequency",

@@ -19,6 +19,7 @@ from backend.db.services.explore_page_service import (
     get_explore_page_payload,
 )
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
+from backend.db.services import rip_decision_service
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
@@ -554,6 +555,51 @@ def _merge_rank_context_into_set_payload(
             set_payload[key] = value
     next_payload["summary"] = summary
     next_payload["set"] = set_payload
+    return next_payload
+
+
+def _merge_rip_decision_contract_into_set_payload(
+    *,
+    payload: Dict[str, Any],
+    set_id: str,
+    client: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Attach the compact RIP decision contract to a set-page payload.
+
+    The snapshot is the delivery mechanism because it has to be:
+    ``simulation_sealed_product_results`` is backend-only (migration 065 revoked
+    anon/authenticated SELECT), so a browser cannot read it directly, and the set
+    page already fetches this payload - adding a section costs no extra round
+    trip, where a second endpoint would cost one per page view.
+
+    The section is written as an explicit ``None`` when it cannot be built. A
+    missing key would be indistinguishable from an older snapshot that predates
+    this contract; a null says "this build tried and could not".
+    """
+    if not isinstance(payload, dict):
+        return payload
+
+    run_id = _snapshot_payload_run_id(payload)
+    try:
+        contract: Optional[Dict[str, Any]] = rip_decision_service.build_rip_decision_contract(
+            set_id=set_id,
+            run_id=run_id,
+            client=client or get_client(),
+        )
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
+        logger.warning("RIP decision contract merge failed set_id=%s", set_id, exc_info=True)
+        contract = None
+
+    next_payload = {**payload, "ripDecision": contract}
+    if contract is None:
+        # A DEBUG warning, not a user-facing one: the null section already tells
+        # a consumer the data is absent, and `meta.warnings` is rendered on the
+        # page - a build-internal failure does not belong in a reader's face.
+        meta = dict(next_payload.get("meta") or {})
+        _append_debug_warning(meta, "RIP decision contract could not be built for this snapshot.")
+        next_payload["meta"] = meta
     return next_payload
 
 
@@ -1409,6 +1455,9 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         meta["warnings"] = warnings
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
+    payload = _merge_rip_decision_contract_into_set_payload(
+        payload=payload, set_id=set_id, client=client
+    )
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
     payload = _merge_last_known_good_snapshot_sections(payload, existing_row=existing_row, built_at=built_at)

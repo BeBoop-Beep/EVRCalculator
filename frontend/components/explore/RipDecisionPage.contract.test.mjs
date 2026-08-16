@@ -11,10 +11,22 @@ const evidencePath = path.resolve(directory, "RipStoryEvidence.jsx");
 
 test("RIP page follows the progressive decision narrative", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  const ids = ["decision", "why-it-ranks", "financial-explanation", "simulation-evidence", "simulation-drivers", "collector-explanation", "collector-drivers"];
-  const positions = ids.map((id) => source.indexOf(`data-rip-section=\"${id}\"`));
+  const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
+  const rendered = source.slice(renderStart);
+  const tokens = ['data-rip-section="decision"', 'data-rip-section="why-it-ranks"', "<Economics", "<ChaseReality", "<MaterialCards", 'data-rip-section="financial-explanation"', 'data-rip-section="simulation-evidence"', 'data-rip-section="simulation-drivers"', 'data-rip-section="collector-explanation"', 'data-rip-section="collector-drivers"'];
+  const positions = tokens.map((token) => rendered.indexOf(token));
   assert.ok(positions.every((position) => position >= 0));
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+});
+
+test("decision sections keep critical information visible and probabilistic", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  for (const label of ["Market Price", "Typical Opening", "Expected Value", "Chance to Beat Cost"]) assert.ok(source.includes(label));
+  assert.ok(source.includes("Approximately 50% chance"));
+  assert.ok(source.includes("Approximately 90% chance"));
+  assert.ok(source.includes("not guaranteed outcomes"));
+  assert.ok(source.includes('data-chase-state="unavailable"'));
+  assert.ok(!source.includes("you will pull"));
 });
 
 test("score anatomy represents Overall once above two supporting dimensions", () => {
