@@ -117,7 +117,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     return by_run
 
 
-def build_contextual_desirability_bundle() -> Dict[str, Any]:
+def build_contextual_desirability_bundle(*, min_card_share: float = 0.01, always_include_top_n: int = 5) -> Dict[str, Any]:
     selection = _load_current_component_rows()
     source_rows = selection["selected"]
     runs = _latest_runs(list(source_rows))
@@ -127,7 +127,10 @@ def build_contextual_desirability_bundle() -> Dict[str, Any]:
     for set_id, source in source_rows.items():
         run = runs.get(set_id)
         evidence = evidence_by_run.get(str((run or {}).get("calculation_run_id")), [])
-        result = compute_universal_set_desirability_v4(source.get("subject_rollups_json") or [], evidence)
+        result = compute_universal_set_desirability_v4(
+            source.get("subject_rollups_json") or [], evidence,
+            min_card_share=min_card_share, always_include_top_n=always_include_top_n,
+        )
         modeled = []
         for position, subject in enumerate(result.get("modeled_subjects") or [], start=1):
             representative = subject.get("representative_chase_card") or {}

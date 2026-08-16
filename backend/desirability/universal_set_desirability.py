@@ -473,6 +473,9 @@ def compute_universal_set_desirability(
 def build_contextual_chase_subjects(
     subject_rollups: Sequence[Mapping[str, Any]],
     card_evidence: Sequence[Mapping[str, Any]],
+    *,
+    min_card_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
+    always_include_top_n: int = CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N,
 ) -> Dict[str, Any]:
     """Join the canonical run's card EV distribution to distinct Pokemon.
 
@@ -512,8 +515,8 @@ def build_contextual_chase_subjects(
         share = ev / total_ev if total_ev > 0 else 0.0
         cumulative += share
         meaningful = (
-            rank <= CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N
-            or share >= CONTEXTUAL_CHASE_MIN_CARD_SHARE
+            rank <= always_include_top_n
+            or share >= min_card_share
         )
         if reference_id not in by_ref:
             continue
@@ -579,9 +582,15 @@ def build_contextual_chase_subjects(
 def compute_universal_set_desirability_v4(
     subject_rollups: Sequence[Mapping[str, Any]],
     card_evidence: Sequence[Mapping[str, Any]],
+    *,
+    min_card_share: float = CONTEXTUAL_CHASE_MIN_CARD_SHARE,
+    always_include_top_n: int = CONTEXTUAL_CHASE_ALWAYS_INCLUDE_TOP_N,
 ) -> Dict[str, Any]:
     """Contextual V4; V3 entry points remain untouched and reproducible."""
-    context = build_contextual_chase_subjects(subject_rollups, card_evidence)
+    context = build_contextual_chase_subjects(
+        subject_rollups, card_evidence,
+        min_card_share=min_card_share, always_include_top_n=always_include_top_n,
+    )
     if context["evidence_status"] != "available":
         return {
             "score": None, "version": UNIVERSAL_SET_DESIRABILITY_V4_VERSION,
