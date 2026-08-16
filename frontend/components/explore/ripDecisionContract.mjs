@@ -192,13 +192,24 @@ export function defaultSelectedProductKey(products) {
 
 /**
  * The loose-pack market price, used ONLY to express chase pack counts as gross
- * spend. Returns `null` when no single-pack product is modeled, in which case
- * the caller omits the spend line rather than guessing a price.
+ * spend.
+ *
+ * Returns a price only when the answer is UNAMBIGUOUS: exactly one priced
+ * single-pack SKU. Zero gives `null`, and so does more than one.
+ *
+ * The contract is SKU-level, so a set can publish two differently-priced
+ * single-pack SKUs. Taking the first row would make "gross pack spend at
+ * today's pack price" silently mean "at one of today's two pack prices,
+ * whichever the query happened to order first". We have not defined a canonical
+ * loose-pack quote across multiple SKUs, so this refuses to invent one —
+ * picking the cheapest, highest, average or first would each be a different
+ * undeclared policy. The Chase UI already omits the spend line on `null`.
  */
 export function selectLoosePackMarketPrice(products) {
-  const list = Array.isArray(products) ? products : [];
-  const pack = list.find((product) => product && product.packCount === 1 && product.marketPrice !== null);
-  return pack ? pack.marketPrice : null;
+  const packs = (Array.isArray(products) ? products : []).filter(
+    (product) => product && product.packCount === 1 && product.marketPrice !== null
+  );
+  return packs.length === 1 ? packs[0].marketPrice : null;
 }
 
 /** Shared money/percent formatting for decision copy. */

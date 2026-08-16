@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { buildRipDecisionModel, selectMarketChaseCards } from "./ripDecisionModel.mjs";
+import {
+  buildRipDecisionModel,
+  isSameChaseCard,
+  selectMarketChaseCards,
+} from "./ripDecisionModel.mjs";
 
 test("opening economics map only authoritative summary fields", () => {
   const model = buildRipDecisionModel({
@@ -45,6 +49,68 @@ test("the canonical Top Chase is removed from the secondary market chases", () =
   );
 });
 
+// --- the variant -> card -> name fallback ladder ---------------------------
+
+test("A: a market row with no variant id still matches on the shared card id", () => {
+  const topChase = { cardVariantId: "variant-a", cardId: "card-x", name: "Mega Gengar ex" };
+  const cards = selectMarketChaseCards(
+    [
+      { cardVariantId: null, cardId: "card-x", name: "Mega Gengar ex" },
+      { cardVariantId: "variant-p", cardId: "card-p", name: "Pikachu" },
+    ],
+    { excludeCard: topChase }
+  );
+
+  assert.deepEqual(
+    cards.map((card) => card.name),
+    ["Pikachu"],
+    "one side lacking variant identity must fall back to the card id both carry"
+  );
+  assert.equal(isSameChaseCard({ cardId: "card-x" }, topChase), true);
+});
+
+test("B: two known-different variants of one card never collapse", () => {
+  const topChase = { cardVariantId: "variant-a", cardId: "card-x", name: "Mega Gengar ex" };
+  const cards = selectMarketChaseCards(
+    [{ cardVariantId: "variant-b", cardId: "card-x", name: "Mega Gengar ex" }],
+    { excludeCard: topChase }
+  );
+
+  assert.equal(cards.length, 1, "differing variant ids are final; no fallback to card id or name");
+  assert.equal(
+    isSameChaseCard({ cardVariantId: "variant-b", cardId: "card-x" }, topChase),
+    false
+  );
+});
+
+test("C: with no usable ids on either side, normalized names decide", () => {
+  assert.equal(isSameChaseCard({ name: "Mega Gengar ex" }, { name: "mega  gengar EX" }), true);
+  assert.equal(isSameChaseCard({ name: "Pikachu" }, { name: "Dragonite" }), false);
+});
+
+test("D: same name but different known variants stays distinct", () => {
+  assert.equal(
+    isSameChaseCard(
+      { cardVariantId: "variant-a", name: "Mega Gengar ex" },
+      { cardVariantId: "variant-b", name: "Mega Gengar ex" }
+    ),
+    false,
+    "a coincidental name match must not override differing variant identity"
+  );
+});
+
+test("differing card ids are final and never fall through to names", () => {
+  assert.equal(
+    isSameChaseCard({ cardId: "card-x", name: "Pikachu" }, { cardId: "card-y", name: "Pikachu" }),
+    false
+  );
+});
+
+test("a nameless card cannot match another nameless card by default", () => {
+  assert.equal(isSameChaseCard({}, {}), false, "absent identity is not a match");
+  assert.equal(isSameChaseCard(null, { name: "Pikachu" }), false);
+});
+
 test("a different variant of the same Pokemon survives the Top Chase filter", () => {
   const cards = selectMarketChaseCards(
     [
@@ -61,19 +127,19 @@ test("a different variant of the same Pokemon survives the Top Chase filter", ()
   );
 });
 
-test("name matching is only a last resort when no ids exist on either side", () => {
+test("name matching is the last rung, used when ids cannot be compared on both sides", () => {
   // Both sides id-less: names are all there is, so the duplicate is removed.
   const byName = selectMarketChaseCards([{ name: "Mega Gengar" }, { name: "Pikachu" }], {
     excludeCard: { name: "mega  gengar" },
   });
   assert.deepEqual(byName.map((card) => card.name), ["Pikachu"]);
 
-  // The card carries a real variant id and the chase only a name: the kinds
-  // differ, so the card is kept rather than guessed away.
-  const idBeatsName = selectMarketChaseCards([{ cardVariantId: "variant-a", name: "Mega Gengar" }], {
+  // One side has a variant id and the other has none, so no id pair can be
+  // compared and the ladder falls through to the name — which matches.
+  const oneSidedId = selectMarketChaseCards([{ cardVariantId: "variant-a", name: "Mega Gengar" }], {
     excludeCard: { name: "Mega Gengar" },
   });
-  assert.equal(idBeatsName.length, 1);
+  assert.equal(oneSidedId.length, 0, "an uncomparable id pair falls back rather than giving up");
 });
 
 test("the obsolete invented decision-contract reader is gone", () => {

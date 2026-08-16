@@ -191,21 +191,35 @@ export default function ProductOpeningValue({ decision, setName, onSelectProduct
     ? `Which ${setName} Products Are Worth Opening at Today's Prices?`
     : "Which Products Are Worth Opening at Today's Prices?";
 
-  // An absent contract and a present contract with no current run are different
-  // facts, and the page says which one it is rather than blaming the data.
+  // THREE different facts, not one. A snapshot that predates the contract, a
+  // set with no current run, and a current run that simply models no sealed
+  // products are distinct situations, and saying "no current run" for the third
+  // is plainly false. None of them falls back to historical rows.
   if (!decision?.available || products.length === 0) {
+    const unavailableReason =
+      decision?.contractPresent === false
+        ? "not-published"
+        : decision?.available === false
+          ? "no-current-run"
+          : "no-modeled-products";
+    const unavailableCopy = {
+      "not-published":
+        "Product opening economics are not published in this set's current snapshot.",
+      "no-current-run":
+        "No current calculation run is available for this set, so product economics are not shown.",
+      "no-modeled-products":
+        "No currently modeled sealed products are available for this set.",
+    }[unavailableReason];
+
     return (
       <article
         data-rip-section="opening-value"
+        data-opening-value-state={unavailableReason}
         className={`${styles.panel} set-glass-surface`}
       >
         <p className={styles.eyebrow}>Opening value</p>
         <h2 className={styles.sectionTitle}>{heading}</h2>
-        <p className={styles.unavailableNote}>
-          {decision?.contractPresent === false
-            ? "Product opening economics are not published in this set's current snapshot."
-            : "No current calculation run is available for this set, so product economics are not shown."}
-        </p>
+        <p className={styles.unavailableNote}>{unavailableCopy}</p>
       </article>
     );
   }

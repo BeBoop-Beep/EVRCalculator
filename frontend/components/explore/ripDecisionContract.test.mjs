@@ -96,6 +96,21 @@ test("a snapshot predating the contract is distinguishable from a run-less one",
   assert.equal(noRun.available, false);
 });
 
+test("a current run that models no sealed products is its own state", () => {
+  // Distinct from both "no contract" and "no current run": the run exists and
+  // is current, it simply has no sealed product rows.
+  const decision = selectRipDecisionContract(
+    currentRunContract({
+      sealedProducts: { runStatus: "current", productCount: 0, products: [] },
+    })
+  );
+
+  assert.equal(decision.contractPresent, true);
+  assert.equal(decision.available, true, "the run IS available; only the product list is empty");
+  assert.deepEqual(decision.products, []);
+  assert.equal(decision.productCount, 0);
+});
+
 // --- F. unavailable state must not leak stale economics -------------------
 
 test("no current run never surfaces product economics or a chase", () => {
@@ -184,6 +199,58 @@ test("loose pack price is read only from a single-pack product", () => {
     null,
     "without a modeled loose pack there is no price to express spend in"
   );
+});
+
+test("two priced loose-pack SKUs yield no price rather than an arbitrary one", () => {
+  const twoPacks = selectRipDecisionContract(
+    currentRunContract({
+      sealedProducts: {
+        runStatus: "current",
+        productCount: 2,
+        products: [
+          {
+            sealedProductId: "sku-pack-a",
+            productName: "Sleeved Booster Pack",
+            productFamily: "sleeved_booster_pack",
+            packCount: 1,
+            marketPrice: 13.25,
+          },
+          {
+            sealedProductId: "sku-pack-b",
+            productName: "Booster Pack (Blister)",
+            productFamily: "sleeved_booster_pack",
+            packCount: 1,
+            marketPrice: 15.99,
+          },
+        ],
+      },
+    })
+  );
+
+  assert.equal(
+    selectLoosePackMarketPrice(twoPacks.products),
+    null,
+    "no canonical loose-pack quote exists across SKUs, so none may be invented"
+  );
+  // Specifically not any of the undeclared policies.
+  assert.notEqual(selectLoosePackMarketPrice(twoPacks.products), 13.25, "not the first or cheapest");
+  assert.notEqual(selectLoosePackMarketPrice(twoPacks.products), 15.99, "not the highest");
+});
+
+test("an unpriced loose-pack SKU does not make a single priced one ambiguous", () => {
+  const mixed = selectRipDecisionContract(
+    currentRunContract({
+      sealedProducts: {
+        runStatus: "current",
+        productCount: 2,
+        products: [
+          { sealedProductId: "sku-pack-a", productFamily: "sleeved_booster_pack", packCount: 1, marketPrice: 13.25 },
+          { sealedProductId: "sku-pack-b", productFamily: "sleeved_booster_pack", packCount: 1, marketPrice: null },
+        ],
+      },
+    })
+  );
+  assert.equal(selectLoosePackMarketPrice(mixed.products), 13.25, "only priced SKUs count");
 });
 
 // --- SKU identity: several products can share one family ------------------

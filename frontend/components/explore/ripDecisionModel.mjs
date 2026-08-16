@@ -50,21 +50,43 @@ function normalizedName(value) {
   return name ? name.toLowerCase().replace(/\s+/g, " ") : null;
 }
 
+function variantIdOf(card) {
+  return firstText(card.cardVariantId, card.card_variant_id, card.variantId, card.variant_id);
+}
+
+function cardIdOf(card) {
+  return firstText(card.cardId, card.card_id, card.id);
+}
+
 /**
- * The identity of a market-context card, most specific first.
+ * Whether two chase cards are the same card for deduplication purposes.
  *
- * Variant id before card id matters: two variants of one Pokemon are different
- * chases, and collapsing them by card id would drop a legitimately distinct
- * card from the secondary list.
+ * A TRUE fallback ladder, evaluated between the two objects rather than by
+ * reducing each to a single identity first. Reducing each side independently
+ * meant a card that had a variant id and one that only had a card id were
+ * compared as different "kinds" and never matched — so a market row missing
+ * variant identity survived alongside the Top Chase it duplicates.
+ *
+ * 1. BOTH have a variant id  -> variant ids decide, and that is final.
+ *    Two known-different variants of one Pokemon are different chases, so this
+ *    must NOT fall through to card id or name when the variants disagree.
+ * 2. Otherwise BOTH have a card id -> card ids decide.
+ * 3. Otherwise -> normalized names, the last resort for data with no stable ids.
  */
-function chaseIdentity(card) {
-  if (!card || typeof card !== "object") return null;
-  const variantId = firstText(card.cardVariantId, card.card_variant_id, card.variantId, card.variant_id);
-  if (variantId) return { kind: "variant", value: variantId };
-  const cardId = firstText(card.cardId, card.card_id, card.id);
-  if (cardId) return { kind: "card", value: cardId };
-  const name = normalizedName(card.name ?? card.cardName ?? card.card_name);
-  return name ? { kind: "name", value: name } : null;
+export function isSameChaseCard(left, right) {
+  if (!left || typeof left !== "object" || !right || typeof right !== "object") return false;
+
+  const leftVariant = variantIdOf(left);
+  const rightVariant = variantIdOf(right);
+  if (leftVariant && rightVariant) return leftVariant === rightVariant;
+
+  const leftCard = cardIdOf(left);
+  const rightCard = cardIdOf(right);
+  if (leftCard && rightCard) return leftCard === rightCard;
+
+  const leftName = normalizedName(left.name ?? left.cardName ?? left.card_name);
+  const rightName = normalizedName(right.name ?? right.cardName ?? right.card_name);
+  return Boolean(leftName) && leftName === rightName;
 }
 
 /**
@@ -78,19 +100,17 @@ function chaseIdentity(card) {
  * with exact modeled odds. Repeating it here as the #1 "other" chase is pure
  * duplication that adds no information.
  *
- * Identities are compared only when BOTH sides carry the same kind of id, so a
- * name-only match can never remove a card that has a real, differing variant id.
+ * Matching walks the variant -> card -> name ladder in `isSameChaseCard`, so two
+ * known-different variants never collapse while a row missing variant identity
+ * can still be matched on the canonical card id both sides carry.
+ *
+ * The Top Chase is removed BEFORE the limit is applied, so the section always
+ * renders the intended number of genuinely secondary cards.
  */
 export function selectMarketChaseCards(chaseCards = [], { excludeCard = null, limit = 4 } = {}) {
-  const excluded = chaseIdentity(excludeCard);
   return (Array.isArray(chaseCards) ? chaseCards : [])
     .filter((card) => card?.name || card?.cardName || card?.card_name)
-    .filter((card) => {
-      if (!excluded) return true;
-      const identity = chaseIdentity(card);
-      if (!identity || identity.kind !== excluded.kind) return true;
-      return identity.value !== excluded.value;
-    })
+    .filter((card) => !excludeCard || !isSameChaseCard(card, excludeCard))
     .slice(0, limit);
 }
 

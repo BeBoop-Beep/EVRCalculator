@@ -218,6 +218,46 @@ test("ripDecisionContract.mjs is the only decision parser on the RIP page surfac
   assert.deepEqual(offenders, [], "decision parsing must not spread across components");
 });
 
+test("opening value renders three distinct unavailable states", () => {
+  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
+
+  // Each state is separately addressable in the DOM and separately worded.
+  assert.ok(product.includes("data-opening-value-state"), "the state is exposed for QA");
+  for (const state of ["not-published", "no-current-run", "no-modeled-products"]) {
+    assert.ok(product.includes(`"${state}"`), `${state} must be a distinct branch`);
+  }
+  assert.ok(product.includes("not published in this set's current snapshot"));
+  assert.ok(product.includes("No current calculation run is available for this set"));
+  assert.ok(product.includes("No currently modeled sealed products are available for this set"));
+
+  // A current run with zero products must not be described as having no run.
+  const noRunIndex = product.indexOf('decision?.available === false');
+  const notPublishedIndex = product.indexOf("decision?.contractPresent === false");
+  assert.ok(
+    notPublishedIndex >= 0 && noRunIndex > notPublishedIndex,
+    "an absent contract is checked before the run state"
+  );
+  // No branch reaches past the normalized contract for older rows.
+  const code = product.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  for (const fallback of ["previousProducts", "lastKnown", "historicalProducts"]) {
+    assert.ok(!code.includes(fallback), "unavailable states must not reach for historical rows");
+  }
+});
+
+test("gross-spend pack price is never guessed across multiple loose-pack SKUs", () => {
+  const selector = fs.readFileSync(path.resolve(directory, "ripDecisionContract.mjs"), "utf8");
+  // Scope to the loose-pack function itself: Math.min/max are legitimate
+  // elsewhere in this module (the break-even axis clamps to its domain).
+  const start = selector.indexOf("export function selectLoosePackMarketPrice");
+  assert.ok(start >= 0, "the loose-pack selector must exist");
+  const body = selector.slice(start, selector.indexOf("\n}", start));
+
+  assert.ok(body.includes("packs.length === 1"), "exactly one priced single-pack SKU, or no price");
+  for (const policy of ["Math.min", "Math.max", "sort(", "reduce("]) {
+    assert.ok(!body.includes(policy), `${policy} would be an undeclared loose-pack quote policy`);
+  }
+});
+
 test("the secondary chase list excludes the canonical Top Chase", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   assert.ok(
