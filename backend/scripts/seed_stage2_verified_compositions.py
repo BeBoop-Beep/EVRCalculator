@@ -69,6 +69,117 @@ SOURCE_POKEMON_CENTER_ETB = (
 VERIFIED_AT = "2026-08-15"
 
 # ---------------------------------------------------------------------------
+# Batch 1 (verified 2026-08-16)
+# ---------------------------------------------------------------------------
+# Four SV-era sets whose ETB promo is a SINGLE FIXED card on the pokemon.com
+# product-gallery page. Each follows the shape SV base established: the standard
+# ETB is 9 packs + one promo, and the Pokemon Center ETB is 11 packs ("two more
+# than a usual Elite Trainer Box") + the SAME promo twice - once with a Pokemon
+# Center logo and once without.
+#
+# DELIBERATELY ABSENT: Paradox Rift, Temporal Forces and Mega Evolution. Their
+# SKUs are split by SLEEVE ART ("[Iron Valiant]" / "[Roaring Moon]") while the
+# source says the promo is "Scream Tail or Iron Bundle" - it explicitly treats
+# sleeve and promo as independent choices. No primary source ties a printing to
+# a SKU, and `card_components` names an EXACT variant, so those products stay
+# unresolved in the coverage manifest rather than entering this table as a guess.
+VERIFIED_AT_BATCH1 = "2026-08-16"
+
+JOURNEY_TOGETHER_SET_ID = "142d3869-9d39-48b6-a810-751af2aac748"
+DESTINED_RIVALS_SET_ID = "de291399-ead5-41dc-bc12-e7c587684f85"
+BLACK_BOLT_SET_ID = "41a0ac1c-27ca-444b-8665-8ba35e583a3b"
+WHITE_FLARE_SET_ID = "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
+
+SOURCE_JOURNEY_TOGETHER_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-journey-together-elite-trainer-box"
+)
+SOURCE_JOURNEY_TOGETHER_PC_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-journey-together-pokemon-center-elite-trainer-box"
+)
+SOURCE_DESTINED_RIVALS_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-destined-rivals-elite-trainer-box"
+)
+SOURCE_DESTINED_RIVALS_PC_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-destined-rivals-pokemon-center-elite-trainer-box"
+)
+# Black Bolt and White Flare share one product-gallery page per family, because
+# they released as a split expansion.
+SOURCE_BLACK_BOLT_WHITE_FLARE_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-black-bolt-elite-trainer-box-scarlet-violet-white-flare-elite-trainer-box"
+)
+SOURCE_BLACK_BOLT_WHITE_FLARE_PC_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "scarlet-violet-black-bolt-pokemon-center-elite-trainer-box-"
+    "scarlet-violet-white-flare-pokemon-center-elite-trainer-box"
+)
+
+# Exact printings, all in the SV Black Star Promo catalog and all NM-priced.
+NS_ZORUA_189 = "06613c96-c91f-4701-b25d-8613c643a176"
+NS_ZORUA_189_PC = "ac3ec399-043d-43fb-82be-601edbdd4d33"
+TR_WOBBUFFET = "d2e198a2-4f96-4d92-9289-0d2ae60d3285"
+TR_WOBBUFFET_PC = "f346066e-94a7-4a17-b38e-481852e40d2a"
+THUNDURUS_209 = "12757765-c6b1-4f9c-a2c3-70f72ba7618e"
+THUNDURUS_209_PC = "227fc031-f6ab-437e-9f01-c3144580127c"
+TORNADUS_210 = "dcfea6e5-24ea-4206-9fc2-feeb57a7634f"
+TORNADUS_210_PC = "c0a89300-34e5-4e75-8d00-0cad040b8679"
+
+
+def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id):
+    return {
+        "label": label,
+        "sealed_product_id": sealed_product_id,
+        "source_type": "pokemon_com_product_page",
+        "source_reference": source,
+        "verified_at": VERIFIED_AT_BATCH1,
+        "notes": f"9 packs + 1 full-art foil promo card featuring {promo_name}.",
+        "pack_components": [{"set_id": set_id, "pack_count": 9}],
+        "guaranteed_card_components": [
+            {
+                "card_variant_id": variant_id,
+                "canonical_card_id": None,
+                "quantity": 1,
+                "component_role": "standard_etb_promo",
+            }
+        ],
+    }
+
+
+def _pokemon_center_etb(
+    *, label, sealed_product_id, set_id, source, promo_name, stamped_variant_id, variant_id
+):
+    return {
+        "label": label,
+        "sealed_product_id": sealed_product_id,
+        "source_type": "pokemon_com_product_page",
+        "source_reference": source,
+        "verified_at": VERIFIED_AT_BATCH1,
+        "notes": (
+            f"11 packs (two more than the standard ETB) + TWO full-art foil promos "
+            f"featuring {promo_name}: one with a Pokemon Center logo and one without."
+        ),
+        "pack_components": [{"set_id": set_id, "pack_count": 11}],
+        "guaranteed_card_components": [
+            {
+                "card_variant_id": stamped_variant_id,
+                "canonical_card_id": None,
+                "quantity": 1,
+                "component_role": "pokemon_center_stamped_promo",
+            },
+            {
+                "card_variant_id": variant_id,
+                "canonical_card_id": None,
+                "quantity": 1,
+                "component_role": "pokemon_center_standard_promo",
+            },
+        ],
+    }
+
+# ---------------------------------------------------------------------------
 # Exact guaranteed printings
 # ---------------------------------------------------------------------------
 # `canonical_card_id` is None for all of these: the SV Black Star Promo catalog
@@ -164,6 +275,75 @@ VERIFIED_COMPOSITIONS: List[Dict[str, Any]] = [
             },
         ],
     },
+    # ---- Batch 1 -----------------------------------------------------------
+    _standard_etb(
+        label="Journey Together Elite Trainer Box",
+        sealed_product_id="751c3d34-5555-42bc-a98b-694ad481dd46",
+        set_id=JOURNEY_TOGETHER_SET_ID,
+        source=SOURCE_JOURNEY_TOGETHER_ETB,
+        promo_name="N's Zorua",
+        variant_id=NS_ZORUA_189,
+    ),
+    _pokemon_center_etb(
+        label="Journey Together Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="5ad414d2-9297-4995-be00-dd4f468cbd0d",
+        set_id=JOURNEY_TOGETHER_SET_ID,
+        source=SOURCE_JOURNEY_TOGETHER_PC_ETB,
+        promo_name="N's Zorua",
+        stamped_variant_id=NS_ZORUA_189_PC,
+        variant_id=NS_ZORUA_189,
+    ),
+    _standard_etb(
+        label="Destined Rivals Elite Trainer Box",
+        sealed_product_id="1de25f6a-cbc8-49e4-8092-85e549c89604",
+        set_id=DESTINED_RIVALS_SET_ID,
+        source=SOURCE_DESTINED_RIVALS_ETB,
+        promo_name="Team Rocket's Wobbuffet",
+        variant_id=TR_WOBBUFFET,
+    ),
+    _pokemon_center_etb(
+        label="Destined Rivals Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="3dc67a73-3cd3-435a-98cc-282729eff65b",
+        set_id=DESTINED_RIVALS_SET_ID,
+        source=SOURCE_DESTINED_RIVALS_PC_ETB,
+        promo_name="Team Rocket's Wobbuffet",
+        stamped_variant_id=TR_WOBBUFFET_PC,
+        variant_id=TR_WOBBUFFET,
+    ),
+    _standard_etb(
+        label="Black Bolt Elite Trainer Box",
+        sealed_product_id="ba26fc56-5ea7-4a92-97bf-816881d7e892",
+        set_id=BLACK_BOLT_SET_ID,
+        source=SOURCE_BLACK_BOLT_WHITE_FLARE_ETB,
+        promo_name="Thundurus",
+        variant_id=THUNDURUS_209,
+    ),
+    _pokemon_center_etb(
+        label="Black Bolt Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="fe2349b8-9f72-487d-b831-b58e83a05d88",
+        set_id=BLACK_BOLT_SET_ID,
+        source=SOURCE_BLACK_BOLT_WHITE_FLARE_PC_ETB,
+        promo_name="Thundurus",
+        stamped_variant_id=THUNDURUS_209_PC,
+        variant_id=THUNDURUS_209,
+    ),
+    _standard_etb(
+        label="White Flare Elite Trainer Box",
+        sealed_product_id="18ded802-ec1d-4247-b29a-2e07e41f9bf2",
+        set_id=WHITE_FLARE_SET_ID,
+        source=SOURCE_BLACK_BOLT_WHITE_FLARE_ETB,
+        promo_name="Tornadus",
+        variant_id=TORNADUS_210,
+    ),
+    _pokemon_center_etb(
+        label="White Flare Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="55dc35f0-a0ab-49ed-83b9-0a47b863a779",
+        set_id=WHITE_FLARE_SET_ID,
+        source=SOURCE_BLACK_BOLT_WHITE_FLARE_PC_ETB,
+        promo_name="Tornadus",
+        stamped_variant_id=TORNADUS_210_PC,
+        variant_id=TORNADUS_210,
+    ),
 ]
 
 
@@ -193,7 +373,7 @@ def seed(*, commit: bool) -> Dict[str, Any]:
             status="verified",
             source_type=entry["source_type"],
             source_reference=entry["source_reference"],
-            verified_at=VERIFIED_AT,
+            verified_at=entry.get("verified_at", VERIFIED_AT),
             pack_components=entry["pack_components"],
             guaranteed_card_components=entry["guaranteed_card_components"],
             notes=entry["notes"],

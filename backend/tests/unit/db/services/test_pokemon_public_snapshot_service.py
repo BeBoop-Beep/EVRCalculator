@@ -2487,7 +2487,6 @@ def test_shell_snapshot_tolerates_missing_market_dashboard_row(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-<<<<<<< Updated upstream
 # Phase 5C: shell payload slimming regression coverage
 # ---------------------------------------------------------------------------
 
@@ -2703,8 +2702,6 @@ def test_shell_snapshot_missing_row_fallback_excludes_dual_cased_duplicates(monk
 
 
 # ---------------------------------------------------------------------------
-=======
->>>>>>> Stashed changes
 # Shared resolver wiring
 # ---------------------------------------------------------------------------
 
@@ -2732,7 +2729,6 @@ def test_resolve_set_row_delegates_to_shared_resolver_with_its_own_client(monkey
 
     assert row == {"id": "resolved"}
     assert calls == [("prismatic-evolutions", sentinel_client)]
-<<<<<<< Updated upstream
 
 
 # ---------------------------------------------------------------------------
@@ -5861,5 +5857,3 @@ def test_the_reader_does_not_restate_the_set_value_contract_version():
     source = Path(pokemon_public_snapshot_service.__file__).read_text(encoding="utf-8")
     assert PUBLIC_SET_VALUE_CONTRACT_VERSION not in source
     assert "payload_guarantees_canonical_set_value" in source
-=======
->>>>>>> Stashed changes
