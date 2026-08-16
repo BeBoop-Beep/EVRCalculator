@@ -30,6 +30,7 @@ from backend.db.services.evr_input_preparation_service import EVRInputPreparatio
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot
 from backend.db.services.sealed_product_rip_service import (
     _to_row,
+    resolve_set_collector_appeal,
     run_stage1_sealed_product_rip,
 )
 from backend.jobs.evr_runner import _build_constants_config_map, _resolve_set_config
@@ -67,6 +68,11 @@ def collect_for_set(canonical_key: str) -> Dict[str, Any]:
         calculation_run_id=NIL_RUN_ID,
         read_snapshot_fn=lambda sid: read_snapshot(supabase, sid),
         persist_fn=_no_write,
+        # EXPLICIT, unlike the scheduled path. This script sweeps every set in ONE
+        # process, so the Collector Appeal bundle cache actually works here and
+        # the cold build is paid once for the whole sweep - which is exactly the
+        # condition the per-set scheduled path cannot satisfy.
+        collector_appeal_fn=resolve_set_collector_appeal,
     )
     return {
         "canonicalKey": canonical,

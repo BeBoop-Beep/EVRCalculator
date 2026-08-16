@@ -54,6 +54,9 @@ from backend.calculations.evr.sealed_product_distribution import (
 from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
 from backend.desirability.weighted_rip import compute_overall_rip_v8
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
+from backend.domain.pokemon.sealed_product_comparison_scope import (
+    sealed_product_comparison_scope_contract,
+)
 from backend.domain.pokemon.sealed_product_composition import (
     COMPOSITION_INTEGRITY_VERSION,
     STAGE1_COMPOSITION_VERSION,
@@ -72,6 +75,37 @@ REASON_INVALID_PRICE = "invalid_or_missing_market_price"
 REASON_COLLECTOR_APPEAL_UNAVAILABLE = "collector_appeal_unavailable"
 REASON_NO_SEALED_SNAPSHOT = "no_sealed_market_snapshot"
 REASON_UNSUPPORTED_FAMILY = "unsupported_product_family"
+
+# Collector Appeal lifecycle vocabulary for a Stage 1 product row.
+#
+# `pending_batch_enrichment` is the DEFAULT state of a freshly simulated product
+# and is not a failure: the per-set EVR process deliberately does not resolve
+# Collector Appeal, because the canonical Collector Appeal service builds ONE
+# bundle for ALL sets and caches it in-process, while the daily publication
+# launches every set as its own subprocess. Resolving it per set therefore threw
+# away the cache by construction and paid the full cold build (~105 s measured)
+# once per set. Collector Appeal and Overall RIP are attached later, in one
+# process, by `sealed_product_rip_finalization_service`.
+COLLECTOR_APPEAL_STATUS_PENDING = "pending_batch_enrichment"
+COLLECTOR_APPEAL_STATUS_AVAILABLE = "available"
+COLLECTOR_APPEAL_STATUS_UNAVAILABLE = "unavailable"
+
+
+def deferred_collector_appeal() -> Dict[str, Any]:
+    """The explicit "not resolved here, on purpose" Collector Appeal state.
+
+    Shaped exactly like a resolved appeal so the scoring path has ONE appeal
+    contract rather than a second nullable code path. Score and version are None,
+    which is what makes ``compute_overall_rip_v8`` return its own canonical
+    unavailable result - no placeholder score is ever invented.
+    """
+    return {
+        "score": None,
+        "version": None,
+        "available": False,
+        "status": COLLECTOR_APPEAL_STATUS_PENDING,
+        "reason": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -193,9 +227,26 @@ def resolve_set_collector_appeal(set_id: Any) -> Dict[str, Any]:
     from backend.db.services.collector_appeal_service import get_collector_appeal
 
     payload = get_collector_appeal(str(set_id)) if set_id is not None else None
+    return interpret_collector_appeal_payload(payload)
+
+
+def interpret_collector_appeal_payload(payload: Any) -> Dict[str, Any]:
+    """Turn ONE set's Collector Appeal payload into the Stage 1 appeal contract.
+
+    Split out from ``resolve_set_collector_appeal`` so the batch finalizer, which
+    already holds the whole canonical bundle, can apply the IDENTICAL version
+    check without a second per-set lookup. There is one interpretation of a
+    Collector Appeal payload in Stage 1 and this is it.
+    """
     appeal = (payload or {}).get("collectorAppeal") if isinstance(payload, Mapping) else None
     if not isinstance(appeal, Mapping):
-        return {"score": None, "version": None, "available": False, "reason": REASON_COLLECTOR_APPEAL_UNAVAILABLE}
+        return {
+            "score": None,
+            "version": None,
+            "available": False,
+            "status": COLLECTOR_APPEAL_STATUS_UNAVAILABLE,
+            "reason": REASON_COLLECTOR_APPEAL_UNAVAILABLE,
+        }
 
     version = appeal.get("version")
     score = appeal.get("score")
@@ -204,9 +255,16 @@ def resolve_set_collector_appeal(set_id: Any) -> Dict[str, Any]:
             "score": None,
             "version": version,
             "available": False,
+            "status": COLLECTOR_APPEAL_STATUS_UNAVAILABLE,
             "reason": REASON_COLLECTOR_APPEAL_UNAVAILABLE,
         }
-    return {"score": float(score), "version": version, "available": True, "reason": None}
+    return {
+        "score": float(score),
+        "version": version,
+        "available": True,
+        "status": COLLECTOR_APPEAL_STATUS_AVAILABLE,
+        "reason": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -440,7 +498,12 @@ def run_stage1_sealed_product_rip(
         )
 
     if collector_appeal_fn is None:
-        collector_appeal_fn = resolve_set_collector_appeal
+        # DEFERRED BY DEFAULT. Not an omission: see COLLECTOR_APPEAL_STATUS_PENDING.
+        # A caller that genuinely wants an inline resolution (a single-set dry run
+        # already paying for the bundle) passes `resolve_set_collector_appeal`
+        # explicitly, which makes the 105-second cost a decision rather than a
+        # side effect of running a simulation.
+        collector_appeal_fn = lambda _set_id: deferred_collector_appeal()  # noqa: E731
 
     phase_ms: Dict[str, Any] = {}
 
@@ -476,7 +539,19 @@ def run_stage1_sealed_product_rip(
     appeal_started = time.perf_counter()
     appeal = collector_appeal_fn(set_id)
     phase_ms["collectorAppealMs"] = round((time.perf_counter() - appeal_started) * 1000.0, 3)
-    if not appeal.get("available"):
+    appeal_status = appeal.get("status") or (
+        COLLECTOR_APPEAL_STATUS_AVAILABLE if appeal.get("available") else COLLECTOR_APPEAL_STATUS_UNAVAILABLE
+    )
+    if appeal_status == COLLECTOR_APPEAL_STATUS_PENDING:
+        # The expected path. Financial RIP is complete and final right now;
+        # Overall RIP is deliberately absent until coordinated finalization.
+        logger.info(
+            "Stage 1 sealed products for set=%s persist with collector_appeal_status=%s; "
+            "Collector Appeal and Overall RIP are attached by the batch finalizer.",
+            canonical_set_key,
+            appeal_status,
+        )
+    elif not appeal.get("available"):
         # Financial RIP stays available; Overall RIP does not. A missing appeal
         # is never converted to zero.
         logger.warning(
@@ -574,6 +649,16 @@ def _summary(
         "skipped": skipped_list,
         "collectorAppealVersion": (collector_appeal or {}).get("version"),
         "collectorAppealAvailable": bool((collector_appeal or {}).get("available")),
+        # Explicit lifecycle state, never inferred from a null score by a reader.
+        "collectorAppealStatus": (collector_appeal or {}).get("status")
+        or (
+            COLLECTOR_APPEAL_STATUS_AVAILABLE
+            if (collector_appeal or {}).get("available")
+            else COLLECTOR_APPEAL_STATUS_PENDING
+        ),
+        # Comparison scope travels with EVERY Stage 1 result summary so no reader
+        # has to know the policy to obey it. Sourced from the one contract module.
+        **sealed_product_comparison_scope_contract(),
         "products": [
             {
                 key: product.get(key)

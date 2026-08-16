@@ -37,6 +37,65 @@ def upsert_sealed_product_results(rows: Sequence[Dict[str, Any]]) -> List[Dict[s
     return list(response.data or [])
 
 
+# ---------------------------------------------------------------------------
+# Enrichment (batch finalization)
+# ---------------------------------------------------------------------------
+# Finalization is ENRICHMENT, not recomputation. The columns below are the ONLY
+# ones it may write. Everything else on the row - the distribution statistics,
+# the product market cost and its provenance, the whole Financial RIP V3 block,
+# `calculation_run_id`, `sealed_product_id`, `pack_count` and the composition
+# metadata - is the output of the simulation that produced the row and is
+# re-derivable only by re-running it. An update is used rather than an upsert
+# precisely so a partially-populated payload can never blank those columns.
+
+ENRICHMENT_FIELDS = (
+    "collector_appeal_score",
+    "collector_appeal_version",
+    "overall_rip_score",
+    "overall_rip_version",
+    "overall_rip_rankable",
+    "overall_rip_payload",
+)
+
+
+def update_sealed_product_enrichment(row_id: Any, values: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Write ONLY the enrichment columns of one product row, by primary key.
+
+    Unknown keys are refused rather than silently dropped: a typo'd column name
+    that quietly does nothing would look exactly like a successful finalization.
+    ``updated_at`` is left to the table's existing trigger.
+    """
+    unknown = sorted(set(values) - set(ENRICHMENT_FIELDS))
+    if unknown:
+        raise ValueError(
+            f"{TABLE} enrichment may only write {ENRICHMENT_FIELDS}; refused: {unknown}"
+        )
+    if not values:
+        return []
+    response = supabase.table(TABLE).update(dict(values)).eq("id", str(row_id)).execute()
+    return list(response.data or [])
+
+
+def get_sealed_product_results_for_runs(calculation_run_ids: Sequence[Any]) -> List[Dict[str, Any]]:
+    """Every product row belonging to an EXPLICIT list of calculation runs.
+
+    The run list is the cohort boundary. There is deliberately no "all rows
+    missing Collector Appeal" query here: that predicate has no date or run
+    boundary and would sweep historical rows into a current-day enrichment.
+    """
+    ids = [str(value) for value in calculation_run_ids if value is not None]
+    if not ids:
+        return []
+    response = (
+        supabase.table(TABLE)
+        .select(_SELECT_FIELDS)
+        .in_("calculation_run_id", ids)
+        .order("pack_count")
+        .execute()
+    )
+    return list(response.data or [])
+
+
 def get_sealed_product_results_for_run(calculation_run_id: Any) -> List[Dict[str, Any]]:
     response = (
         supabase.table(TABLE)
