@@ -71,17 +71,27 @@ function humanizeFamily(key) {
 
 function normalizeProduct(row, index) {
   if (!isObject(row)) return null;
-  const family = text(row.productFamily) || text(row.family) || text(row.productType);
-  const label = text(row.productLabel) || text(row.displayName) || humanizeFamily(family);
-  if (!family && !label) return null;
+  const sealedProductId = text(row.sealedProductId);
+  const productName = text(row.productName);
+  const family = text(row.productFamily);
+  if (!sealedProductId && !productName && !family) return null;
 
   return {
-    // `key` is presentation identity only (React keys, selection). It is never
-    // a rank: `index` preserves the contract's pack-count-ascending order.
-    key: family || `product-${index}`,
+    // IDENTITY IS THE SKU, NOT THE FAMILY. The contract is SKU-level and
+    // legitimately publishes several products of one family (multiple ETB
+    // artwork SKUs, for instance). Keying on `productFamily` collapsed those
+    // into duplicate React keys and made selecting one SKU resolve another.
+    //
+    // `index` is the last resort rather than the family so that a family with
+    // two SKUs can never produce two identical keys.
+    key: sealedProductId || `product-${index}`,
+    sealedProductId,
+    productName,
+    // `order` is the contract's order (pack count ascending), never a rank.
     order: index,
     family,
-    label: label || family,
+    // The SKU's own name wins: two ETB SKUs must not both render as "ETB".
+    label: productName || humanizeFamily(family) || `Product ${index + 1}`,
     packCount: number(row.packCount),
     marketPrice: number(row.marketPrice),
     modelBreakEvenPrice: number(row.modelBreakEvenPrice),
@@ -189,6 +199,42 @@ export function selectLoosePackMarketPrice(products) {
   const list = Array.isArray(products) ? products : [];
   const pack = list.find((product) => product && product.packCount === 1 && product.marketPrice !== null);
   return pack ? pack.marketPrice : null;
+}
+
+/** Shared money/percent formatting for decision copy. */
+function formatMoney(value) {
+  return `$${Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatPercent(value) {
+  return `${Math.round(Number(value) * 10) / 10}%`;
+}
+
+/**
+ * The one-sentence reading of a product's model edge.
+ *
+ * `modelEdgePercent` is `(modelBreakEvenPrice / marketPrice - 1) * 100`, so its
+ * denominator is ALWAYS the market price. Both signs must therefore be read the
+ * same way: "modeled long-run opening value is N% above/below MARKET COST".
+ *
+ * Phrasing the positive case as "market price is N% below break-even" silently
+ * re-bases the percentage on break-even and states a different number. At $100
+ * market against a $110 break-even the edge is +10%, but the market price is
+ * 9.09% below break-even — not 10%. One published percentage, one denominator,
+ * and no second metric invented to paper over the mismatch.
+ */
+export function buildEdgeSentence(product) {
+  const edge = product?.modelEdgePercent ?? null;
+  const marketPrice = product?.marketPrice ?? null;
+  if (edge === null || marketPrice === null) return null;
+  if (edge === 0) {
+    return `Today's ${formatMoney(marketPrice)} price sits exactly at modeled break-even.`;
+  }
+  const direction = edge > 0 ? "above" : "below";
+  return `At today's ${formatMoney(marketPrice)} price, modeled long-run opening value is ${formatPercent(Math.abs(edge))} ${direction} market cost.`;
 }
 
 /**

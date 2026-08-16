@@ -25,36 +25,76 @@ function firstText(...values) {
   return null;
 }
 
-function firstObject(...values) {
-  return values.find((value) => value && typeof value === "object" && !Array.isArray(value)) || null;
+/**
+ * NOTE ON SCOPE
+ * -------------
+ * A broad decision-contract reader used to live here. It searched invented
+ * canonical/summary shapes and invented snake_case chase keys that the backend
+ * has never emitted, which was the root cause of the broken decision pass:
+ * every field resolved to null while the page claimed the odds were
+ * unavailable. A regression test asserts those names never come back, so this
+ * note deliberately describes them rather than spelling them out.
+ *
+ * It is gone. Canonical decision information — the canonical chase, break-even,
+ * product economics, probability thresholds — flows ONLY through
+ * `ripDecisionContract.mjs`. Nothing in this file parses the decision contract.
+ *
+ * What remains below is deliberately narrow: market-context cards for "Other
+ * Major Value Chases", which come from the pre-existing chase-card array and
+ * carry no modeled odds.
+ */
+
+/** Case/spacing-insensitive name, the last-resort identity for a market card. */
+function normalizedName(value) {
+  const name = firstText(value);
+  return name ? name.toLowerCase().replace(/\s+/g, " ") : null;
 }
 
-// Local presentation boundary for newly published decision fields. Probability
-// thresholds and spend are read verbatim; this adapter never recalculates them.
-export function selectRipDecisionFields({ canonical, summary = {}, chaseCards = [] } = {}) {
-  const raw = firstObject(canonical?.decisionMetrics, canonical?.decision_metrics, summary?.decision_metrics, summary?.decisionMetrics) || {};
-  const source = firstObject(raw?.topChase, raw?.top_chase, canonical?.topChase, canonical?.top_chase, summary?.top_chase, summary?.topChase);
-  const topChase = source ? {
-    name: firstText(source.name, source.card_name, source.cardName),
-    imageUrl: firstText(source.image_url, source.imageUrl, source.image_small_url, source.imageSmallUrl),
-    marketValue: firstNumber(source.market_value, source.marketValue, source.market_price, source.marketPrice),
-    probability: firstNumber(source.probability, source.probability_per_opening, source.probabilityPerOpening, source.pull_probability),
-    oddsDenominator: firstNumber(source.odds_denominator, source.oddsDenominator, source.one_in_x, source.oneInX),
-    openings50: firstNumber(source.openings_for_50_percent, source.openingsFor50Percent, source.packs_for_50_percent, source.packsFor50Percent),
-    openings90: firstNumber(source.openings_for_90_percent, source.openingsFor90Percent, source.packs_for_90_percent, source.packsFor90Percent),
-    spend50: firstNumber(source.spend_for_50_percent, source.spendFor50Percent, source.cost_for_50_percent, source.costFor50Percent),
-    spend90: firstNumber(source.spend_for_90_percent, source.spendFor90Percent, source.cost_for_90_percent, source.costFor90Percent),
-  } : null;
-  return {
-    breakEvenValue: firstNumber(raw?.break_even_value, raw?.breakEvenValue, summary?.break_even_value, summary?.breakEvenValue),
-    expectedReturnRate: firstNumber(raw?.expected_return_rate, raw?.expectedReturnRate, summary?.expected_return_rate, summary?.expectedReturnRate),
-    expectedEdge: firstNumber(raw?.expected_edge, raw?.expectedEdge, summary?.expected_edge, summary?.expectedEdge),
-    topChase: topChase && (topChase.name || topChase.marketValue !== null) ? topChase : null,
-    marketChaseCards: (Array.isArray(chaseCards) ? chaseCards : []).filter((card) => card?.name || card?.cardName || card?.card_name).slice(0, 4),
-  };
+/**
+ * The identity of a market-context card, most specific first.
+ *
+ * Variant id before card id matters: two variants of one Pokemon are different
+ * chases, and collapsing them by card id would drop a legitimately distinct
+ * card from the secondary list.
+ */
+function chaseIdentity(card) {
+  if (!card || typeof card !== "object") return null;
+  const variantId = firstText(card.cardVariantId, card.card_variant_id, card.variantId, card.variant_id);
+  if (variantId) return { kind: "variant", value: variantId };
+  const cardId = firstText(card.cardId, card.card_id, card.id);
+  if (cardId) return { kind: "card", value: cardId };
+  const name = normalizedName(card.name ?? card.cardName ?? card.card_name);
+  return name ? { kind: "name", value: name } : null;
 }
 
-export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumptions = null, chaseCards = [] } = {}) {
+/**
+ * Market-context cards for "Other Major Value Chases".
+ *
+ * This helper normalizes and filters market cards ONLY. It does not read Top
+ * Chase, break-even, probability thresholds, product economics or
+ * `payload.ripDecision` — those belong to `ripDecisionContract.mjs`.
+ *
+ * `excludeCard` is the canonical Top Chase, which the page already shows above
+ * with exact modeled odds. Repeating it here as the #1 "other" chase is pure
+ * duplication that adds no information.
+ *
+ * Identities are compared only when BOTH sides carry the same kind of id, so a
+ * name-only match can never remove a card that has a real, differing variant id.
+ */
+export function selectMarketChaseCards(chaseCards = [], { excludeCard = null, limit = 4 } = {}) {
+  const excluded = chaseIdentity(excludeCard);
+  return (Array.isArray(chaseCards) ? chaseCards : [])
+    .filter((card) => card?.name || card?.cardName || card?.card_name)
+    .filter((card) => {
+      if (!excluded) return true;
+      const identity = chaseIdentity(card);
+      if (!identity || identity.kind !== excluded.kind) return true;
+      return identity.value !== excluded.value;
+    })
+    .slice(0, limit);
+}
+
+export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumptions = null } = {}) {
   const overall = readCanonicalBlock(canonical?.overall);
   const financial = readCanonicalBlock(canonical?.financialRip);
   const collector = readCanonicalBlock(canonical?.collectorAppeal);
@@ -63,7 +103,6 @@ export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumpt
   const typicalOpening = number(summary.median_value);
   const recoverCostProbability = number(summary.prob_profit);
   const expectedLoss = firstNumber(summary.expected_loss_per_pack, summary.expectedLossPerPack);
-  const decision = selectRipDecisionFields({ canonical, summary, chaseCards });
 
   let verdict = "Canonical RIP ranking is unavailable for this set.";
   if (overall.rank !== null && overall.cohortSize !== null) {
@@ -116,7 +155,6 @@ export function buildRipDecisionModel({ canonical, summary = {}, pullRateAssumpt
     typicalOpening,
     recoverCostProbability,
     expectedLoss,
-    decision,
     verdict,
     qualitativeLabel,
     drivers,

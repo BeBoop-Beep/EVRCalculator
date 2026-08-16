@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { buildRipDecisionModel } from "./ripDecisionModel.mjs";
+import { buildRipDecisionModel, selectMarketChaseCards } from "./ripDecisionModel.mjs";
 import {
   resolveCanonicalFinancialRip,
   selectFinancialRipV3Breakdown,
@@ -462,11 +462,17 @@ export default function RipDecisionPage({
     () => selectLoosePackMarketPrice(decision.products),
     [decision.products]
   );
+  // Secondary market context only, with the canonical Top Chase removed: it is
+  // already shown above with exact modeled odds, so repeating it as the #1
+  // "other" chase would be duplication that adds no information.
+  const marketChaseCards = useMemo(
+    () => selectMarketChaseCards(chaseCards, { excludeCard: decision.topChase }),
+    [chaseCards, decision.topChase]
+  );
   const model = buildRipDecisionModel({
     canonical,
     summary,
     pullRateAssumptions,
-    chaseCards,
   });
   const financial = useMemo(
     () =>
@@ -593,7 +599,7 @@ export default function RipDecisionPage({
 
       {/* E. OTHER MAJOR VALUE CHASES — market context, explicitly secondary. */}
       <MaterialCards
-        cards={model.decision.marketChaseCards}
+        cards={marketChaseCards}
         pullRatesHref={pullRatesHref}
       />
       {/* F. SIMULATION EVIDENCE — the evidence behind the decision above. */}

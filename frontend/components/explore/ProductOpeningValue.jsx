@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import styles from "./RipDecisionPage.module.css";
 import {
   buildBreakEvenAxis,
+  buildEdgeSentence,
   defaultSelectedProductKey,
 } from "./ripDecisionContract.mjs";
 
@@ -76,6 +77,7 @@ function BreakEvenRow({ product, axis, selected, onSelect }) {
         aria-pressed={selected}
         className={styles.breakEvenButton}
         data-selected={selected ? "true" : undefined}
+        data-product-key={product.key}
         data-product-family={product.family || undefined}
       >
         <span className={styles.breakEvenLabel}>{product.label}</span>
@@ -121,16 +123,7 @@ function SelectedProductPanel({ product }) {
   const edge = product.modelEdgePercent;
   // One sentence of plain arithmetic, so the market-vs-break-even relationship
   // never has to be subtracted by the reader. No recommendation is expressed.
-  let sentence = null;
-  if (edge !== null && product.marketPrice !== null) {
-    if (edge < 0) {
-      sentence = `At today's ${money(product.marketPrice)} price, modeled long-run opening value is ${percent(Math.abs(edge))} below market cost.`;
-    } else if (edge > 0) {
-      sentence = `Today's ${money(product.marketPrice)} price is ${percent(Math.abs(edge))} below modeled break-even.`;
-    } else {
-      sentence = `Today's ${money(product.marketPrice)} price sits exactly at modeled break-even.`;
-    }
-  }
+  const sentence = buildEdgeSentence(product);
 
   const facts = [
     ["Market Price", money(product.marketPrice), "What it costs today"],
@@ -149,7 +142,12 @@ function SelectedProductPanel({ product }) {
   ];
 
   return (
-    <div className={styles.selectedProduct} data-selected-product={product.family || product.key}>
+    // Keyed by SKU, not family: several SKUs can share one family.
+    <div
+      className={styles.selectedProduct}
+      data-selected-product={product.key}
+      data-product-family={product.family || undefined}
+    >
       <div className={styles.selectedProductHead}>
         <p className={styles.eyebrow}>Selected product</p>
         <h3 className={styles.selectedProductTitle}>{product.label}</h3>

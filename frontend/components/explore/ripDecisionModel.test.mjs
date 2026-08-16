@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
-import { buildRipDecisionModel, selectRipDecisionFields } from "./ripDecisionModel.mjs";
+import { buildRipDecisionModel, selectMarketChaseCards } from "./ripDecisionModel.mjs";
 
 test("opening economics map only authoritative summary fields", () => {
   const model = buildRipDecisionModel({
@@ -19,42 +21,86 @@ test("opening economics map only authoritative summary fields", () => {
   assert.equal(model.expectedLoss, 3.41);
 });
 
-test("missing optional chase fields degrade to a null presentation model", () => {
-  const decision = selectRipDecisionFields({ summary: { pack_cost: 4.99 } });
-  assert.equal(decision.topChase, null);
-  assert.equal(decision.breakEvenValue, null);
-  assert.deepEqual(decision.marketChaseCards, []);
-});
-
-test("published chase probability thresholds pass through without client calculations", () => {
-  const decision = selectRipDecisionFields({
-    canonical: {
-      top_chase: {
-        card_name: "Example ex",
-        market_value: 250,
-        probability_per_opening: 0.002,
-        odds_denominator: 500,
-        openings_for_50_percent: 347,
-        openings_for_90_percent: 1151,
-        spend_for_50_percent: 1731.53,
-        spend_for_90_percent: 5743.49,
-      },
-    },
-  });
-  assert.deepEqual(decision.topChase, {
-    name: "Example ex",
-    imageUrl: null,
-    marketValue: 250,
-    probability: 0.002,
-    oddsDenominator: 500,
-    openings50: 347,
-    openings90: 1151,
-    spend50: 1731.53,
-    spend90: 5743.49,
-  });
-});
-
 test("market chase cards are capped for a compact responsive section", () => {
   const chaseCards = Array.from({ length: 7 }, (_, index) => ({ id: index, name: `Card ${index}` }));
-  assert.equal(selectRipDecisionFields({ chaseCards }).marketChaseCards.length, 4);
+  assert.equal(selectMarketChaseCards(chaseCards).length, 4);
+});
+
+test("the canonical Top Chase is removed from the secondary market chases", () => {
+  const topChase = { cardVariantId: "variant-mega-gengar-a", name: "Mega Gengar" };
+  const cards = selectMarketChaseCards(
+    [
+      { cardVariantId: "variant-mega-gengar-a", name: "Mega Gengar" },
+      { cardVariantId: "variant-pikachu", name: "Pikachu" },
+      { cardVariantId: "variant-dragonite", name: "Dragonite" },
+      { cardVariantId: "variant-charizard", name: "Charizard" },
+    ],
+    { excludeCard: topChase }
+  );
+
+  assert.deepEqual(
+    cards.map((card) => card.name),
+    ["Pikachu", "Dragonite", "Charizard"],
+    "the section must begin with Pikachu, not repeat the Top Chase"
+  );
+});
+
+test("a different variant of the same Pokemon survives the Top Chase filter", () => {
+  const cards = selectMarketChaseCards(
+    [
+      { cardVariantId: "variant-mega-gengar-a", cardId: "card-mega-gengar", name: "Mega Gengar" },
+      { cardVariantId: "variant-mega-gengar-b", cardId: "card-mega-gengar", name: "Mega Gengar" },
+    ],
+    { excludeCard: { cardVariantId: "variant-mega-gengar-a", cardId: "card-mega-gengar", name: "Mega Gengar" } }
+  );
+
+  assert.deepEqual(
+    cards.map((card) => card.cardVariantId),
+    ["variant-mega-gengar-b"],
+    "variant identity must not collapse two genuinely different chases"
+  );
+});
+
+test("name matching is only a last resort when no ids exist on either side", () => {
+  // Both sides id-less: names are all there is, so the duplicate is removed.
+  const byName = selectMarketChaseCards([{ name: "Mega Gengar" }, { name: "Pikachu" }], {
+    excludeCard: { name: "mega  gengar" },
+  });
+  assert.deepEqual(byName.map((card) => card.name), ["Pikachu"]);
+
+  // The card carries a real variant id and the chase only a name: the kinds
+  // differ, so the card is kept rather than guessed away.
+  const idBeatsName = selectMarketChaseCards([{ cardVariantId: "variant-a", name: "Mega Gengar" }], {
+    excludeCard: { name: "Mega Gengar" },
+  });
+  assert.equal(idBeatsName.length, 1);
+});
+
+test("the obsolete invented decision-contract reader is gone", () => {
+  const source = fs.readFileSync(
+    path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), "ripDecisionModel.mjs"),
+    "utf8"
+  );
+  assert.ok(!source.includes("selectRipDecisionFields"), "the broken reader must not return");
+  // The invented shapes that made the previous pass silently render nulls.
+  for (const invented of [
+    "decisionMetrics",
+    "decision_metrics",
+    "openings_for_50_percent",
+    "break_even_value",
+    "odds_denominator",
+    "spend_for_50_percent",
+    "probability_per_opening",
+  ]) {
+    assert.ok(!source.includes(invented), `${invented} was never published by the backend`);
+  }
+  // This module must not parse the real contract either — that is one file's
+  // job. Naming the boundary module in a comment is fine; reaching into the
+  // contract's fields is not.
+  assert.doesNotMatch(
+    source,
+    /ripDecision\??\.(topChase|sealedProducts|currentRunAvailable|products)/,
+    "the decision contract must be parsed only in ripDecisionContract.mjs"
+  );
+  assert.ok(!source.includes("topChase"), "the canonical chase must not be reconstructed here");
 });

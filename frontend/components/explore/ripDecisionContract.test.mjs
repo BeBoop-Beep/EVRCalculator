@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildBreakEvenAxis,
+  buildEdgeSentence,
   defaultSelectedProductKey,
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
@@ -21,6 +22,8 @@ function currentRunContract(overrides = {}) {
       productCount: 2,
       products: [
         {
+          sealedProductId: "sku-sleeved-pack",
+          productName: "Sleeved Booster Pack",
           productFamily: "sleeved_booster_pack",
           packCount: 1,
           marketPrice: 13.25,
@@ -31,6 +34,8 @@ function currentRunContract(overrides = {}) {
           chanceToRecoverCost: 0.046,
         },
         {
+          sealedProductId: "sku-booster-box",
+          productName: "Booster Box",
           productFamily: "booster_box",
           packCount: 36,
           marketPrice: 189,
@@ -150,7 +155,7 @@ test("product order is the contract's order, not an edge or score ranking", () =
 
 test("the default selection is the first priced product, not the strongest edge", () => {
   const decision = selectRipDecisionContract(currentRunContract());
-  assert.equal(defaultSelectedProductKey(decision.products), "sleeved_booster_pack");
+  assert.equal(defaultSelectedProductKey(decision.products), "sku-sleeved-pack");
 });
 
 test("cross-format comparability is republished as false", () => {
@@ -179,6 +184,143 @@ test("loose pack price is read only from a single-pack product", () => {
     null,
     "without a modeled loose pack there is no price to express spend in"
   );
+});
+
+// --- SKU identity: several products can share one family ------------------
+
+/** Two real ETB SKUs of the SAME family, as the contract can publish them. */
+function twoEliteTrainerBoxSkus() {
+  return currentRunContract({
+    sealedProducts: {
+      runStatus: "current",
+      productCount: 2,
+      products: [
+        {
+          sealedProductId: "sku-etb-standard",
+          productName: "Elite Trainer Box (Umbreon)",
+          productFamily: "elite_trainer_box",
+          packCount: 9,
+          marketPrice: 59.99,
+          modelBreakEvenPrice: 52.0,
+          modelEdgePercent: -13.32,
+          typicalOpening: 41.5,
+          chanceToRecoverCost: 0.22,
+        },
+        {
+          sealedProductId: "sku-etb-espeon",
+          productName: "Elite Trainer Box (Espeon)",
+          productFamily: "elite_trainer_box",
+          packCount: 9,
+          marketPrice: 74.5,
+          modelBreakEvenPrice: 52.0,
+          modelEdgePercent: -30.2,
+          typicalOpening: 41.5,
+          chanceToRecoverCost: 0.14,
+        },
+      ],
+    },
+  });
+}
+
+test("two SKUs of one family both survive and stay distinct", () => {
+  const { products } = selectRipDecisionContract(twoEliteTrainerBoxSkus());
+
+  assert.equal(products.length, 2, "neither SKU may be dropped");
+  assert.deepEqual(
+    products.map((product) => product.family),
+    ["elite_trainer_box", "elite_trainer_box"],
+    "they genuinely share a family"
+  );
+  assert.deepEqual(products.map((product) => product.key), ["sku-etb-standard", "sku-etb-espeon"]);
+  assert.equal(new Set(products.map((product) => product.key)).size, 2, "keys must be unique");
+  assert.deepEqual(
+    products.map((product) => product.label),
+    ["Elite Trainer Box (Umbreon)", "Elite Trainer Box (Espeon)"],
+    "each SKU keeps its own name instead of collapsing to the family label"
+  );
+  assert.deepEqual(
+    products.map((product) => product.sealedProductId),
+    ["sku-etb-standard", "sku-etb-espeon"]
+  );
+});
+
+test("the family is never used as the product key", () => {
+  const { products } = selectRipDecisionContract(twoEliteTrainerBoxSkus());
+  for (const product of products) {
+    assert.notEqual(product.key, product.family, "keying on family collides same-family SKUs");
+  }
+});
+
+test("selecting the second SKU resolves the second SKU's economics", () => {
+  const { products } = selectRipDecisionContract(twoEliteTrainerBoxSkus());
+  // The page resolves a selection exactly this way.
+  const second = products.find((product) => product.key === "sku-etb-espeon");
+
+  assert.equal(second.productName, "Elite Trainer Box (Espeon)");
+  assert.equal(second.marketPrice, 74.5, "must not resolve the sibling SKU's price");
+  assert.equal(second.modelEdgePercent, -30.2);
+  assert.equal(second.chanceToRecoverCost, 0.14);
+});
+
+test("the default selection is still the first priced SKU, not a family", () => {
+  const { products } = selectRipDecisionContract(twoEliteTrainerBoxSkus());
+  assert.equal(defaultSelectedProductKey(products), "sku-etb-standard");
+});
+
+test("a product with no sealed product id still gets a unique fallback key", () => {
+  const { products } = selectRipDecisionContract(
+    currentRunContract({
+      sealedProducts: {
+        runStatus: "current",
+        productCount: 2,
+        products: [
+          { productFamily: "booster_box", productName: null, marketPrice: 189 },
+          { productFamily: "booster_box", productName: null, marketPrice: 205 },
+        ],
+      },
+    })
+  );
+  assert.equal(products.length, 2);
+  assert.equal(new Set(products.map((product) => product.key)).size, 2, "fallback keys stay unique");
+});
+
+// --- edge copy keeps the market-price denominator -------------------------
+
+test("a positive edge says modeled value is above MARKET COST", () => {
+  // edge = (110 / 100 - 1) * 100 = +10. The market price is 9.09% below
+  // break-even, NOT 10%, so that phrasing must never appear.
+  const sentence = buildEdgeSentence({
+    marketPrice: 100,
+    modelBreakEvenPrice: 110,
+    modelEdgePercent: 10,
+  });
+
+  assert.equal(
+    sentence,
+    "At today's $100.00 price, modeled long-run opening value is 10% above market cost."
+  );
+  assert.ok(!sentence.includes("below modeled break-even"), "that re-bases the percentage");
+  assert.ok(!sentence.includes("9.09"), "no second percentage metric is introduced");
+});
+
+test("a negative edge uses the same denominator and wording", () => {
+  assert.equal(
+    buildEdgeSentence({ marketPrice: 13.25, modelBreakEvenPrice: 9.35, modelEdgePercent: -29.4 }),
+    "At today's $13.25 price, modeled long-run opening value is 29.4% below market cost."
+  );
+});
+
+test("a zero edge sits exactly at break-even", () => {
+  assert.equal(
+    buildEdgeSentence({ marketPrice: 50, modelBreakEvenPrice: 50, modelEdgePercent: 0 }),
+    "Today's $50.00 price sits exactly at modeled break-even."
+  );
+});
+
+test("an unavailable edge or price yields no sentence rather than a guess", () => {
+  assert.equal(buildEdgeSentence({ marketPrice: 100, modelEdgePercent: null }), null);
+  assert.equal(buildEdgeSentence({ marketPrice: null, modelEdgePercent: 10 }), null);
+  assert.equal(buildEdgeSentence(null), null);
 });
 
 // --- B. break-even axis geometry ------------------------------------------

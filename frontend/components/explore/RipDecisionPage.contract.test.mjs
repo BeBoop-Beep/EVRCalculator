@@ -202,6 +202,31 @@ test("the decision contract is normalized once and reaches the page as a prop", 
   assert.ok(!source.includes("fetch("), "the decision layer must not fetch per product or per card");
 });
 
+test("ripDecisionContract.mjs is the only decision parser on the RIP page surface", () => {
+  // Scope note: Rankings (rankingsPresentation.mjs) reads its own chase paths
+  // off the rankings row and is explicitly out of scope for this pass. This
+  // guards the set-detail RIP page surface only.
+  const surface = ["RipDecisionPage.jsx", "ProductOpeningValue.jsx", "ripDecisionModel.mjs"];
+  const offenders = surface.filter((name) => {
+    const source = fs
+      .readFileSync(path.join(directory, name), "utf8")
+      // Comments may name the contract; only real property access counts.
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    return /ripDecision\??\.(sealedProducts|topChase|currentRunAvailable|products)/.test(source);
+  });
+  assert.deepEqual(offenders, [], "decision parsing must not spread across components");
+});
+
+test("the secondary chase list excludes the canonical Top Chase", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  assert.ok(
+    source.includes("selectMarketChaseCards(chaseCards, { excludeCard: decision.topChase })"),
+    "Other Major Value Chases must not repeat the Top Chase"
+  );
+  assert.ok(!source.includes("model.decision"), "the obsolete decision model block is gone");
+});
+
 test("simulation reuses one distribution chart and existing top-hit evidence", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const evidence = fs.readFileSync(evidencePath, "utf8");
