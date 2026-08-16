@@ -9,37 +9,110 @@ const pagePath = path.resolve(directory, "RipDecisionPage.jsx");
 const cssPath = path.resolve(directory, "RipDecisionPage.module.css");
 const evidencePath = path.resolve(directory, "RipStoryEvidence.jsx");
 
-test("RIP page follows the progressive decision narrative", () => {
+test("the page leads with the decision, not with the scoring model", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
   const rendered = source.slice(renderStart);
-  const tokens = ['data-rip-section="decision"', 'data-rip-section="why-it-ranks"', "<Economics", "<ChaseReality", "<MaterialCards", 'data-rip-section="financial-explanation"', 'data-rip-section="simulation-evidence"', 'data-rip-section="simulation-drivers"', 'data-rip-section="collector-explanation"', 'data-rip-section="collector-drivers"'];
+  // QUESTION -> ANSWER -> EVIDENCE -> why it scores that way. Product economics
+  // and the chase precede every methodology section.
+  const tokens = [
+    'data-rip-section="decision"',
+    "<ProductOpeningValue",
+    "<ChaseReality",
+    "<MaterialCards",
+    'data-rip-section="simulation-evidence"',
+    'data-rip-section="simulation-drivers"',
+    'data-rip-section="why-it-ranks"',
+    'data-rip-section="financial-explanation"',
+    'data-rip-section="collector-explanation"',
+    'data-rip-section="collector-drivers"',
+  ];
   const positions = tokens.map((token) => rendered.indexOf(token));
-  assert.ok(positions.every((position) => position >= 0));
+  assert.ok(positions.every((position) => position >= 0), "every section must render");
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+});
+
+test("methodology never precedes the decision surface", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
+  const rendered = source.slice(renderStart);
+  for (const methodology of [
+    'data-rip-section="financial-explanation"',
+    'data-rip-section="collector-explanation"',
+    'data-rip-section="why-it-ranks"',
+  ]) {
+    assert.ok(
+      rendered.indexOf("<ProductOpeningValue") < rendered.indexOf(methodology),
+      `${methodology} must come after product opening value`
+    );
+    assert.ok(
+      rendered.indexOf("<ChaseReality") < rendered.indexOf(methodology),
+      `${methodology} must come after the chase`
+    );
+  }
+});
+
+test("the deep dive is collapsed and accessible rather than deleted", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  assert.ok(source.includes("<FinancialRipV3Breakdown"), "existing component is reused, not rewritten");
+  assert.ok(source.includes("<CollectorAppealBreakdown"), "existing component is reused, not rewritten");
+  assert.ok(source.includes("financialDeepDiveOpen"));
+  assert.ok(source.includes("collectorDeepDiveOpen"));
+  assert.ok(source.includes('aria-controls="financial-rip-deep-dive"'));
+  assert.ok(source.includes('aria-controls="collector-appeal-deep-dive"'));
+  assert.ok(source.includes("aria-expanded={financialDeepDiveOpen}"));
+  assert.ok(source.includes("aria-expanded={collectorDeepDiveOpen}"));
 });
 
 test("decision sections keep critical information visible and probabilistic", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  for (const label of ["Market Price", "Typical Opening", "Expected Value", "Chance to Beat Cost"]) assert.ok(source.includes(label));
-  assert.ok(source.includes("Approximately 50% chance"));
-  assert.ok(source.includes("Approximately 90% chance"));
+  assert.ok(source.includes("50% modeled chance"));
+  assert.ok(source.includes("90% modeled chance"));
   assert.ok(source.includes("not guaranteed outcomes"));
   assert.ok(source.includes('data-chase-state="unavailable"'));
   assert.ok(!source.includes("you will pull"));
+  // Gross spend is spend, never an acquisition cost: each opened pack also
+  // produces other cards.
+  assert.ok(source.includes("gross pack spend"));
+  assert.ok(!source.includes("Cost to acquire"));
+  assert.ok(!source.includes("Expected cost"));
 });
 
-test("score anatomy represents Overall once above two supporting dimensions", () => {
+test("the primary decision layer uses break-even vocabulary, not valuation claims", () => {
+  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
+  assert.ok(product.includes("Model Break-Even"));
+  for (const forbidden of ["Buy Price", "Target Price", "Fair Value", "Guaranteed Value", "Recommended Price"]) {
+    assert.ok(!product.includes(forbidden), `${forbidden} overstates what the model publishes`);
+  }
+});
+
+test("no cross-format recommendation or ranking is introduced", () => {
+  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
+  const selector = fs.readFileSync(path.resolve(directory, "ripDecisionContract.mjs"), "utf8");
+  for (const forbidden of ["Best Product", "Best Buy", "Recommended", "Guaranteed profit", "Investment"]) {
+    assert.ok(!product.includes(forbidden), `${forbidden} implies an unvalidated cross-format verdict`);
+  }
+  // Products are never reordered: the contract's order is the presentation order.
+  assert.ok(!product.includes(".sort("), "product rows must not be sorted in the UI");
+  assert.ok(!selector.includes(".sort("), "the selector must not rank products");
+  assert.ok(product.includes("Above model break-even"), "edge is described economically");
+});
+
+test("score anatomy is compact and no longer the first thing on the page", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   for (const key of ["overall", "financial", "collector"]) assert.ok(source.includes(`key: "${key}"`));
   assert.equal((source.match(/label: "Overall RIP"/g) || []).length, 1);
-  assert.ok(source.indexOf("metrics.overall") < source.indexOf("styles.supportingScores"));
   for (const cta of ["How Overall RIP works", "Explore Financial RIP", "Explore Collector Appeal"]) assert.ok(source.includes(cta));
   assert.ok(source.includes("prefers-reduced-motion: reduce"));
-  assert.ok(source.includes('tabIndex={-1}'));
+  assert.ok(source.includes("tabIndex={-1}"));
   assert.ok(source.includes("getRipTierPresentation(metric.tier"));
   assert.ok(source.includes("data-score-tier"));
   assert.ok(!source.includes('"--score-accent"'), "category accent does not style score surfaces");
+  // The full-width hero anatomy (oversized Overall surface, "Built from"
+  // connector, flanking product art) is gone from the first viewport.
+  assert.ok(!source.includes("styles.anatomy"), "the giant anatomy diagram is retired");
+  assert.ok(!source.includes("styles.connector"), "the 'Built from' connector is retired");
+  assert.ok(source.includes("styles.compactScores"), "three scores render as one compact row");
 });
 
 test("Overall score hero accepts dynamic product context and degrades without art", () => {
@@ -51,20 +124,26 @@ test("Overall score hero accepts dynamic product context and degrades without ar
   assert.ok(!source.includes("Ascended Heroes"));
 });
 
-test("product art separates on desktop and remains in-card on mobile", () => {
+test("product art stays in-card on the compact score surfaces", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const css = fs.readFileSync(cssPath, "utf8");
-  assert.ok(source.includes("styles.overallProductRow"));
-  assert.ok(source.includes("styles.desktopProductArt"));
   assert.ok(source.includes("productContext.productImage"), "compact in-card image remains dynamic");
   assert.match(css, /\.productArt \{ display: none;/);
   assert.match(css, /@media \(max-width:767px\)[\s\S]*\.productArt \{ display: block;/);
-  assert.match(css, /\.desktopProductArt \{ display: none; \}/);
-  assert.match(css, /\.anatomy \{ position: relative;/);
-  assert.match(css, /\.overallProductRow \{ width: min\(100%,52rem\); \}/);
-  assert.doesNotMatch(css, /\.overallProductRow[^}]*grid-template-columns/);
-  assert.match(css, /left: calc\(50% - 26rem -/);
-  assert.match(css, /@media \(min-width:768px\) and \(max-width:1179px\)[\s\S]*\.desktopProductArt \{ display: none;/);
+});
+
+test("the break-even chart is readable without colour and never scrolls sideways", () => {
+  const css = fs.readFileSync(cssPath, "utf8");
+  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
+  // Position, sign, written percentage and a stated side all carry the meaning.
+  assert.ok(product.includes('percent(edge, { signed: true })'), "the percentage is always written out");
+  assert.ok(product.includes("edgeSideLabel"), "the side of break-even is stated in words");
+  assert.ok(product.includes("sr-only"), "each row narrates itself");
+  assert.ok(product.includes("data-direction"), "colour is a reinforcement hook, not the only channel");
+  // A real zero-line element, so it survives forced-colours and print.
+  assert.match(css, /\.breakEvenZero \{ position: absolute;[^}]*left: 50%;/);
+  assert.match(css, /@media \(max-width:767px\)[\s\S]*\.breakEvenButton[^}]*grid-template-areas/);
+  assert.ok(!css.includes("overflow-x: auto"));
 });
 
 test("canonical public scores preserve zero and never fall back to legacy summary values", () => {
@@ -82,12 +161,45 @@ test("canonical public scores preserve zero and never fall back to legacy summar
   assert.equal(buildRipDecisionModel({ canonical: { overall: {}, financialRip: {}, collectorAppeal: {} } }).overall.publicScore, null);
 });
 
-test("Financial explanation mounts the canonical six-row component before simulation evidence", () => {
+test("Financial explanation mounts the canonical component, now after the evidence", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   assert.ok(source.includes("<FinancialRipV3Breakdown"));
-  assert.ok(source.indexOf('data-rip-section="financial-explanation"') < source.indexOf('data-rip-section="simulation-evidence"'));
+  const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
+  const rendered = source.slice(renderStart);
+  assert.ok(
+    rendered.indexOf('data-rip-section="simulation-evidence"') <
+      rendered.indexOf('data-rip-section="financial-explanation"'),
+    "methodology follows the evidence rather than leading the page"
+  );
   assert.ok(!source.includes("Profit/Safety/Stability"));
   assert.ok(!source.includes("Weight "));
+});
+
+test("Chase Reality reads the canonical contract and never reconstructs odds", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  // The four published chase fields, read verbatim.
+  for (const field of [
+    "chase.currentMarketPrice",
+    "chase.impliedOddsOneInN",
+    "chase.packsFor50PercentChance",
+    "chase.packsFor90PercentChance",
+  ]) {
+    assert.ok(source.includes(field), `${field} must come straight from ripDecision.topChase`);
+  }
+  assert.ok(source.includes("chase={decision.topChase}"), "the chase is the contract's chase");
+  // EV contribution is rate x price and names a different card; it must never
+  // be used to derive pull odds.
+  assert.ok(!source.includes("ev_contribution"), "chase odds must not derive from EV contribution");
+  assert.ok(!source.includes("Modeled Chase Odds Not Yet Available"), "the stale unavailable headline is gone");
+});
+
+test("the decision contract is normalized once and reaches the page as a prop", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  const client = fs.readFileSync(path.resolve(directory, "RipStatisticsPageClient.jsx"), "utf8");
+  assert.ok(source.includes("selectRipDecisionContract(ripDecision)"), "one normalization boundary");
+  assert.ok(client.includes("ripDecision={explorePayload?.ripDecision"), "the snapshot field is actually passed");
+  // No second fetch: the snapshot already carries the contract.
+  assert.ok(!source.includes("fetch("), "the decision layer must not fetch per product or per card");
 });
 
 test("simulation reuses one distribution chart and existing top-hit evidence", () => {

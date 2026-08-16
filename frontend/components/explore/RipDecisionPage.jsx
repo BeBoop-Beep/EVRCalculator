@@ -28,6 +28,11 @@ import {
 } from "./RipStoryEvidence.jsx";
 import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 import styles from "./RipDecisionPage.module.css";
+import ProductOpeningValue from "./ProductOpeningValue.jsx";
+import {
+  selectLoosePackMarketPrice,
+  selectRipDecisionContract,
+} from "./ripDecisionContract.mjs";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -230,97 +235,68 @@ function FinancialDriverSummary({ drivers }) {
   );
 }
 
-function Economics({ model }) {
-  const rows = [
-    [
-      "Market Price",
-      money(model.packCost),
-      "Current modeled acquisition cost",
-      model.packCost,
-    ],
-    [
-      "Typical Opening",
-      money(model.typicalOpening),
-      "P50 — what a normal opening looks more like",
-      model.typicalOpening,
-    ],
-    [
-      "Expected Value",
-      money(model.expectedValue),
-      "Long-run mathematical average",
-      model.expectedValue,
-    ],
-    [
-      "Chance to Beat Cost",
-      probability(model.recoverCostProbability),
-      "Modeled probability, not a guarantee",
-      model.recoverCostProbability,
-    ],
-    [
-      "Expected Loss",
-      money(model.expectedLoss),
-      "Published average downside per opening",
-      model.expectedLoss,
-    ],
-    [
-      "Model Break-even",
-      money(model.decision.breakEvenValue),
-      "Published EV-based level",
-      model.decision.breakEvenValue,
-    ],
-  ].filter((row) => row[3] !== null && row[3] !== undefined);
-  return (
-    <article
-      data-rip-section="opening-economics"
-      className={`${styles.panel} set-glass-surface`}
-    >
-      <p className={styles.eyebrow}>Opening economics</p>
-      <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
-        What You Pay vs What You Get Back
-      </h2>
-      <div className={styles.economicsGrid}>
-        {rows.map(([label, value, helper]) => (
-          <div key={label} data-economics-metric={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-            <p>{helper}</p>
-          </div>
-        ))}
-      </div>
-    </article>
-  );
-}
+// The old "What You Pay vs What You Get Back" loose-stat grid lived here. It is
+// replaced by the selected-product panel in ProductOpeningValue, which shows the
+// same arithmetic bound to ONE product the reader picked, against that product's
+// own break-even, instead of mixing pack-level stats with no product context.
 
-function ChaseReality({ chase }) {
-  if (!chase)
+/**
+ * THE CHASE — driven ONLY by `ripDecision.topChase`.
+ *
+ * Every number here is read verbatim from the canonical contract, which selects
+ * the priciest card the run can actually produce and publishes its exact modeled
+ * odds. Nothing is reconstructed from `top_hits`, EV drivers, Collector Appeal
+ * subjects or rarity order: EV contribution is rate x price, so ordering by it
+ * answers a different question and would name a different card.
+ *
+ * `loosePackPrice` is presentation only. It converts published pack COUNTS into
+ * gross spend, and is omitted entirely when no single-pack product is modeled
+ * rather than being guessed from another format's price.
+ */
+function ChaseReality({ chase, available, contractPresent, loosePackPrice }) {
+  if (!chase) {
+    // Restrained on purpose: an absent chase is a footnote, not a headline. The
+    // two causes are genuinely different and the copy says which one applies.
     return (
       <article
         data-rip-section="chase-reality"
         data-chase-state="unavailable"
         className={`${styles.panel} set-glass-surface`}
       >
-        <p className={styles.eyebrow}>Chase Reality</p>
-        <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
-          Modeled Chase Odds Not Yet Available
-        </h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          This set does not yet publish the canonical per-opening chase
-          probability and probability-threshold costs required for an honest
-          comparison.
+        <p className={styles.eyebrow}>The Chase</p>
+        <p className={styles.unavailableNote}>
+          {contractPresent === false
+            ? "Modeled chase odds are not published in this set's current snapshot."
+            : available === false
+              ? "No current calculation run is available for this set, so modeled chase odds are not shown."
+              : "Exact modeled chase odds are unavailable for this run."}
         </p>
       </article>
     );
+  }
+
   const odds =
-    chase.oddsDenominator !== null
-      ? `1 in ${whole(chase.oddsDenominator)}`
-      : probability(chase.probability);
+    chase.impliedOddsOneInN !== null
+      ? `1 in ${whole(chase.impliedOddsOneInN)}`
+      : probability(chase.modeledProbability);
+
+  const grossSpend = (packs) =>
+    packs === null || loosePackPrice === null || loosePackPrice === undefined
+      ? null
+      : money(packs * loosePackPrice);
+
   return (
     <article
       data-rip-section="chase-reality"
       data-chase-state="available"
       className={`${styles.panel} set-glass-surface`}
     >
-      <p className={styles.eyebrow}>Chase Reality</p>
+      <p className={styles.eyebrow}>The Chase</p>
+      <h2 className={styles.sectionTitle}>Your Biggest Chase</h2>
+      <p className={styles.sectionLede}>
+        The highest-value card this set&apos;s modeled packs can actually
+        produce, with its exact modeled odds.
+      </p>
       <div className={styles.chaseLayout}>
         {chase.imageUrl ? (
           <div className={styles.chaseImage}>
@@ -337,41 +313,48 @@ function ChaseReality({ chase }) {
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
             Top Chase
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
+          <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
             {chase.name || "Top chase card"}
-          </h2>
+          </h3>
+          {chase.rarity ? (
+            <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+              {chase.rarity}
+            </p>
+          ) : null}
           <p className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
-            {money(chase.marketValue)}
+            {money(chase.currentMarketPrice)}
           </p>
           <p className="mt-2 text-xs text-[var(--text-secondary)]">
-            Modeled odds per opening:{" "}
+            Modeled pack odds:{" "}
             <strong className="text-[var(--text-primary)]">{odds}</strong>
           </p>
         </div>
         <dl className={styles.chaseThresholds}>
           <div>
-            <dt>Approximately 50% chance</dt>
-            <dd>{whole(chase.openings50)} openings</dd>
+            <dt>50% modeled chance</dt>
+            <dd>{whole(chase.packsFor50PercentChance)} packs</dd>
             <p>
-              {chase.spend50 === null
+              {grossSpend(chase.packsFor50PercentChance) === null
                 ? null
-                : `≈ ${money(chase.spend50)} in packs`}
+                : `≈ ${grossSpend(chase.packsFor50PercentChance)} gross pack spend at today's pack price`}
             </p>
           </div>
           <div>
-            <dt>Approximately 90% chance</dt>
-            <dd>{whole(chase.openings90)} openings</dd>
+            <dt>90% modeled chance</dt>
+            <dd>{whole(chase.packsFor90PercentChance)} packs</dd>
             <p>
-              {chase.spend90 === null
+              {grossSpend(chase.packsFor90PercentChance) === null
                 ? null
-                : `≈ ${money(chase.spend90)} in packs`}
+                : `≈ ${grossSpend(chase.packsFor90PercentChance)} gross pack spend at today's pack price`}
             </p>
           </div>
         </dl>
       </div>
       <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
-        Modeled probabilities describe chances, not guaranteed outcomes. Values
-        use the current published pull-rate model.
+        Modeled probabilities describe chances, not guaranteed outcomes. Gross
+        pack spend is the cost of opening that many packs at today&apos;s pack
+        price — not a cost to acquire the card, since every pack opened also
+        produces other cards.
       </p>
     </article>
   );
@@ -385,12 +368,12 @@ function MaterialCards({ cards, pullRatesHref }) {
       className={`${styles.panel} set-glass-surface`}
     >
       <p className={styles.eyebrow}>Set value concentration</p>
-      <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
-        What Actually Matters in This Set?
-      </h2>
-      <p className="mt-1 text-sm text-[var(--text-secondary)]">
-        The highest-value chase variants already published for this set. This is
-        market context, not a new desirability score.
+      <h2 className={styles.sectionTitle}>Other Major Value Chases</h2>
+      <p className={styles.sectionLede}>
+        Additional high-value cards for market context. Unlike the Top Chase
+        above — which is the canonical modeled chase with exact odds — these are
+        ranked by current market value only, and carry no modeled pull odds and
+        no desirability score.
       </p>
       <div className={styles.materialCards}>
         {cards.map((card, index) => {
@@ -447,6 +430,8 @@ function MaterialCards({ cards, pullRatesHref }) {
 export default function RipDecisionPage({
   canonical,
   summary,
+  ripDecision = null,
+  setName = null,
   chaseCards = [],
   percentiles = [],
   pullRateAssumptions,
@@ -468,6 +453,15 @@ export default function RipDecisionPage({
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+  const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
+  const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
+  // ONE normalization of the canonical decision contract for the whole page, so
+  // no section re-reads raw snapshot keys or invents its own fallbacks.
+  const decision = useMemo(() => selectRipDecisionContract(ripDecision), [ripDecision]);
+  const loosePackPrice = useMemo(
+    () => selectLoosePackMarketPrice(decision.products),
+    [decision.products]
+  );
   const model = buildRipDecisionModel({
     canonical,
     summary,
@@ -555,111 +549,54 @@ export default function RipDecisionPage({
       data-rip-decision-page
       className={`${styles.page} scroll-mt-24 md:scroll-mt-28`}
     >
+      {/* A. COMPACT VERDICT — one line of position, one line of context. The
+          canonical rank is the existing booster-pack RIP rank, so it is named
+          as such: there is no validated multi-product Set RIP Consensus, and
+          calling it one here would invent a metric. */}
       <article
         data-rip-section="decision"
-        className={`${styles.panel} set-glass-surface`}
+        className={`${styles.panel} ${styles.compactVerdict} set-glass-surface`}
       >
-        <p
-          className="text-[10px] font-bold uppercase tracking-[0.16em]"
-          style={{ color: verdictPresentation.style.color }}
-        >
-          Verdict
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <div className={styles.compactVerdictHead}>
           {model.overall.rank !== null ? (
             <span className={styles.verdictRank}>
               #{Math.round(model.overall.rank)}
             </span>
           ) : null}
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] md:text-3xl">
-            {model.overall.rank === null
-              ? "Modern Set RIP Ranking Unavailable"
-              : "Modern Set to Rip Right Now"}
-          </h1>
-        </div>
-        <p className="mt-2 max-w-4xl text-sm leading-relaxed text-[var(--text-secondary)] md:text-base">
-          {model.verdict}
-        </p>
-      </article>
-      <article
-        data-rip-section="why-it-ranks"
-        className={`${styles.panel} set-glass-surface`}
-      >
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-          Why It Ranks
-        </h2>
-        <div className={styles.anatomy}>
-          {productImage ? (
-            <div className={styles.desktopProductArt}>
-              <Image
-                src={productImage.src || productImage}
-                alt={`${productLabel || "Product"} being scored`}
-                fill
-                sizes="(min-width: 1600px) 190px, (min-width: 1280px) 160px, 140px"
-                className="object-contain"
-              />
-            </div>
-          ) : null}
-          <div className={styles.overallProductRow}>
-            <ScoreSurface
-              metric={metrics.overall}
-              prominent
-              productContext={{ productType, productLabel, productImage }}
-              onActivate={() => setOverallOpen((value) => !value)}
-              expanded={overallOpen}
-              controls="overall-rip-explanation"
-            />
-          </div>
-          <div aria-hidden="true" className={styles.connector}>
-            <span>Built from</span>
-          </div>
-          <div className={styles.supportingScores}>
-            <ScoreSurface
-              metric={metrics.financial}
-              onActivate={() => scrollToSection("set-detail-financial-rip")}
-            />
-            <ScoreSurface
-              metric={metrics.collector}
-              onActivate={() => scrollToSection("set-detail-collector-appeal")}
-            />
+          <div className="min-w-0">
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{ color: verdictPresentation.style.color }}
+            >
+              Verdict
+            </p>
+            <h1 className={styles.compactVerdictTitle}>
+              {model.overall.rank === null
+                ? "Booster Pack RIP Rank Unavailable"
+                : "Booster Pack RIP Rank"}
+            </h1>
           </div>
         </div>
-        {overallOpen ? (
-          <div
-            id="overall-rip-explanation"
-            className={styles.overallDisclosure}
-          >
-            Overall RIP combines the set&apos;s opening economics, represented
-            by Financial RIP, with its collector-oriented desirability and
-            desirable pull opportunities, represented by Collector Appeal.
-          </div>
-        ) : null}
+        <p className={styles.compactVerdictLine}>{model.verdict}</p>
       </article>
-      <Economics model={{ ...model, typicalOpening: p50 ?? model.typicalOpening }} />
-      <ChaseReality chase={model.decision.topChase} />
-      <MaterialCards cards={model.decision.marketChaseCards} pullRatesHref={pullRatesHref} />
-      <article
-        id="set-detail-financial-rip"
-        tabIndex={-1}
-        data-rip-section="financial-explanation"
-        className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}
-      >
-        <p className={styles.eyebrow}>Financial RIP</p>
-        <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
-          Why Financial RIP Is {score(model.financial.publicScore)}
-        </h2>
-        <SectionMeta metric={model.financial} />
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          Six dimensions explain this set&apos;s modeled opening economics.
-        </p>
-        <FinancialDriverSummary drivers={financialDrivers} />
-        <div className="mt-3">
-          <FinancialRipV3Breakdown
-            canonical={canonical}
-            requestTimeout={false}
-          />
-        </div>
-      </article>
+
+      {/* B. PRODUCT OPENING VALUE + C. SELECTED PRODUCT ECONOMICS. */}
+      <ProductOpeningValue decision={decision} setName={setName} />
+
+      {/* D. CHASE REALITY — canonical contract only. */}
+      <ChaseReality
+        chase={decision.topChase}
+        available={decision.available}
+        contractPresent={decision.contractPresent}
+        loosePackPrice={loosePackPrice}
+      />
+
+      {/* E. OTHER MAJOR VALUE CHASES — market context, explicitly secondary. */}
+      <MaterialCards
+        cards={model.decision.marketChaseCards}
+        pullRatesHref={pullRatesHref}
+      />
+      {/* F. SIMULATION EVIDENCE — the evidence behind the decision above. */}
       <article
         id="set-detail-outcome-distribution"
         data-rip-section="simulation-evidence"
@@ -732,12 +669,112 @@ export default function RipDecisionPage({
           normalStateRows={normalStateRows}
         />
       </article>
+      {/* G. WHY IT RANKS — compact. The full score anatomy that used to sit in
+          the first viewport is gone; the three canonical scores and one
+          interpretation sentence carry it, and the detail lives in Deep Dive. */}
+      <article
+        data-rip-section="why-it-ranks"
+        className={`${styles.panel} set-glass-surface`}
+      >
+        <p className={styles.eyebrow}>Score</p>
+        <h2 className={styles.sectionTitle}>Why It Ranks</h2>
+        {/* The existing ScoreSurface primitive, three-up. Same component the
+            old hero used — but without the full-width anatomy, connector and
+            product art, so it reads as a summary rather than a diagram. */}
+        <div className={styles.compactScores}>
+          <ScoreSurface
+            metric={metrics.overall}
+            onActivate={() => setOverallOpen((value) => !value)}
+            expanded={overallOpen}
+            controls="overall-rip-explanation"
+          />
+          <ScoreSurface
+            metric={metrics.financial}
+            onActivate={() => {
+              setFinancialDeepDiveOpen(true);
+              scrollToSection("set-detail-financial-rip");
+            }}
+          />
+          <ScoreSurface
+            metric={metrics.collector}
+            onActivate={() => {
+              setCollectorDeepDiveOpen(true);
+              scrollToSection("set-detail-collector-appeal");
+            }}
+          />
+        </div>
+        {overallOpen ? (
+          <div id="overall-rip-explanation" className={styles.overallDisclosure}>
+            Overall RIP combines the set&apos;s opening economics, represented by
+            Financial RIP, with its collector-oriented desirability and desirable
+            pull opportunities, represented by Collector Appeal.
+          </div>
+        ) : null}
+        {/* The same deterministic HELPS/HURTS decision that drives the labels
+            above, so this sentence can never contradict them. */}
+        <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
+      </article>
+
+      {/* H. DEEP DIVE — the existing detailed breakdowns, unchanged in logic,
+          reused as-is, but collapsed so they no longer dominate the page. */}
+      <article
+        id="set-detail-financial-rip"
+        tabIndex={-1}
+        data-rip-section="financial-explanation"
+        className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}
+      >
+        <p className={styles.eyebrow}>Deep dive</p>
+        <button
+          type="button"
+          aria-expanded={financialDeepDiveOpen}
+          aria-controls="financial-rip-deep-dive"
+          onClick={() => setFinancialDeepDiveOpen((value) => !value)}
+          className={styles.disclosureButton}
+        >
+          <span>
+            Financial RIP Breakdown — why Financial RIP is{" "}
+            {score(model.financial.publicScore)}
+          </span>
+          <span aria-hidden="true">{financialDeepDiveOpen ? "−" : "+"}</span>
+        </button>
+        {financialDeepDiveOpen ? (
+          <div id="financial-rip-deep-dive" className="mt-3">
+            <SectionMeta metric={model.financial} />
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Six dimensions explain this set&apos;s modeled opening economics.
+            </p>
+            <FinancialDriverSummary drivers={financialDrivers} />
+            <div className="mt-3">
+              <FinancialRipV3Breakdown
+                canonical={canonical}
+                requestTimeout={false}
+              />
+            </div>
+          </div>
+        ) : null}
+      </article>
       <article
         id="set-detail-collector-appeal"
         tabIndex={-1}
         data-rip-section="collector-explanation"
         className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}
       >
+        <p className={styles.eyebrow}>Deep dive</p>
+        <button
+          type="button"
+          aria-expanded={collectorDeepDiveOpen}
+          aria-controls="collector-appeal-deep-dive"
+          onClick={() => setCollectorDeepDiveOpen((value) => !value)}
+          className={styles.disclosureButton}
+        >
+          <span>
+            Collector Appeal Breakdown — why Collector Appeal is{" "}
+            {score(model.collector.publicScore)}
+          </span>
+          <span aria-hidden="true">{collectorDeepDiveOpen ? "−" : "+"}</span>
+        </button>
+        {collectorDeepDiveOpen ? (
+        <div id="collector-appeal-deep-dive" className="mt-3">
         <p className={styles.eyebrow}>Collector Appeal</p>
         <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
           Why Collector Appeal Is {score(model.collector.publicScore)}
@@ -776,6 +813,8 @@ export default function RipDecisionPage({
               </div>
             ) : null}
           </div>
+        ) : null}
+        </div>
         ) : null}
       </article>
       <article

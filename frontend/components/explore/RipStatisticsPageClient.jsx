@@ -13128,6 +13128,11 @@ export default function RipStatisticsPageClient({
                   <RipDecisionPage
                     canonical={canonicalRip}
                     summary={summary}
+                    // The set-page snapshot already carries the whole decision
+                    // contract, so the page needs no second client fetch. It is
+                    // passed straight through and normalized once inside.
+                    ripDecision={explorePayload?.ripDecision ?? null}
+                    setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
                     pullRateAssumptions={pullRateAssumptions}
