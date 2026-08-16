@@ -463,15 +463,13 @@ def test_ca7_is_the_authoritative_desirability_input(targets):
     assert row["openingExperience"]["collectorAppeal"]["score"] == pytest.approx(96.0942, abs=5e-4)
 
 
-def test_opening_experience_no_longer_carries_roster_desirability(targets):
-    """Roster desirability moved to `universalSetDesirability`.
-
-    It is not simulation-scoped, so routing it through a CA7-gated block is what
-    hid it whenever a pull model was missing.
-    """
+def test_opening_experience_carries_roster_detail_without_replacing_universal_score(targets):
+    """Opening carries the lossless detail projection consumed by packaged V8."""
     _attach(targets)
-    opening = _row(targets, "Ascended Heroes")["openingExperience"]
-    assert "rosterDesirability" not in opening
+    row = _row(targets, "Ascended Heroes")
+    opening = row["openingExperience"]
+    assert opening["rosterDesirability"]["modeledPokemon"][0]["name"] == "Pikachu"
+    assert row["universalSetDesirability"]["score"] == READY["Ascended Heroes"][5]
     assert opening["coverage"]["scope"] == "simulation_opening_experience"
 
 

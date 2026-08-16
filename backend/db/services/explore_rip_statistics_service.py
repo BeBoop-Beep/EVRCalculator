@@ -1410,12 +1410,10 @@ def _build_opening_experience(
     Assembled from the Collector Appeal service's payload only. Nothing is
     recomputed here; this shapes and labels what that service already decided.
 
-    This block is now CA7-SCOPED. It carries only what needs a pull model -
-    CA7, Chase Appeal, Dual-Path Depth and the per-subject printings. Roster
-    desirability is deliberately NOT sourced from here any more: it is the
-    universal score, it needs no simulation, and routing it through a block that
-    goes `unavailable` whenever a pack model is missing is what hid it. It lives
-    on `universalSetDesirability`, which every set with full coverage carries.
+    The aggregate roster score remains independently available on
+    ``universalSetDesirability``. This block also carries the Collector service's
+    roster detail projection so V8 can package the exact modeled species and its
+    frequency-eligibility annotation without recomputing either.
     """
     base = {
         "cohort": {
@@ -1445,12 +1443,7 @@ def _build_opening_experience(
         # (published as `desirableOutcomeFrequency`) is a nonfinancial frequency
         # and is NOT a win rate.
         #
-        # D is deliberately NOT re-published here. Roster desirability lives on
-        # `universalSetDesirability`, which every set with full coverage carries
-        # - routing it through this block, which goes `unavailable` whenever a
-        # pack model is missing, is what previously hid it. The exact D the
-        # Collector Appeal formula consumed is still available, on the appeal
-        # object itself, under `collectorAppeal.factors.rosterDesirability`.
+        "rosterDesirability": dict(collector.get("rosterDesirability") or {}),
         "desirableOutcomeFrequency": dict(collector.get("desirableOutcomeFrequency") or {}),
         "dualPathDepth": dict(collector.get("dualPathDepth") or {}),
         "collectorAppeal": dict(collector.get("collectorAppeal") or {}),
