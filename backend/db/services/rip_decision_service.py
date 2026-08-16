@@ -5,11 +5,18 @@ WHAT THIS IS
 A compact, publishable projection of decision data that other passes already
 computed and persisted:
 
-* the scored sealed-product SKUs for ONE set, from ONE calculation run, read via
-  ``sealed_product_results_repository.get_latest_sealed_product_results_for_set``
-  (which resolves "latest" by run, not by row, so a table can never mix SKUs
-  from two different pack models); and
-* the ONE canonical Top Chase card for that run.
+* the scored sealed-product SKUs for ONE set, from the ONE calculation run the
+  snapshot is publishing; and
+* the ONE canonical Top Chase card for that same run.
+
+ONE RUN, OR NOTHING
+-------------------
+The caller supplies the current ``calculation_run_id`` and it is the single run
+identity for every section. Nothing here resolves "the latest scored run" on its
+own: a second resolution is a chance to disagree with the page it is part of,
+and a page showing one run's product economics beside another run's opening
+model gives the reader no way to see the mismatch. When there is no current run,
+both sections publish empty and NO historical row is read.
 
 WHAT THIS DELIBERATELY IS NOT
 -----------------------------
@@ -36,10 +43,11 @@ ran with, so it is read from the same ``calculation_run_id``.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+import math
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from backend.db.repositories.sealed_product_results_repository import (
-    get_latest_sealed_product_results_for_set,
+    get_sealed_product_results_for_run,
 )
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.domain.pokemon.rip_decision_metrics import (
@@ -54,12 +62,17 @@ logger = logging.getLogger(__name__)
 
 RIP_DECISION_CONTRACT_VERSION = "rip-decision-contract-v1"
 
-#: How many priced candidates the chase read pulls before joining probabilities.
-#: The top chase is ONE card, but the priciest cards in a set are not guaranteed
-#: to be modeled (a card can be priced and carry no pull rate), so a small
-#: cushion is read and the first modeled one wins. This is a constant, not a
-#: per-card loop.
-TOP_CHASE_CANDIDATE_LIMIT = 25
+#: Page size for the two whole-run reads the Top Chase selection needs. Paging
+#: exists so a set larger than one PostgREST page cannot be silently truncated -
+#: truncation would not fail, it would return a DIFFERENT card. The page count
+#: is a function of set size, never of card count, so this is not a per-card
+#: loop: a normal set is one page per read.
+RUN_POPULATION_PAGE_SIZE = 1000
+
+#: Hard ceiling on pages per read. A run needing more than this is not a set,
+#: it is a bug or a corrupted run, and it stops the build rather than quietly
+#: publishing whatever the first 50k rows happened to contain.
+RUN_POPULATION_MAX_PAGES = 50
 
 NEAR_MINT_PRICE_VIEW = "simulation_input_cards_with_near_mint_price"
 INPUT_CARDS_TABLE = "simulation_input_cards"
@@ -67,18 +80,34 @@ INPUT_CARDS_TABLE = "simulation_input_cards"
 REASON_EXPECTED_VALUE_UNAVAILABLE = "expected_value_unavailable"
 REASON_MARKET_PRICE_UNAVAILABLE = "market_price_unavailable"
 
+#: Whether the published section describes the run the page is publishing, or
+#: nothing at all. There is deliberately no third state: this contract has no
+#: "stale but shown" mode, because product economics from an older run next to
+#: the current run's opening model is a mismatch a reader cannot see.
+RUN_STATUS_CURRENT = "current_run"
+RUN_STATUS_NO_CURRENT_RUN = "no_current_run"
+
 
 # ---------------------------------------------------------------------------
 # Sealed product decision contract
 # ---------------------------------------------------------------------------
 
 def _optional_float(value: Any) -> Optional[float]:
+    """A finite float, or ``None``.
+
+    NaN and Infinity are refused here rather than at each call site: they are
+    not JSON values, and a consumer that receives one has no way to render it
+    honestly. Zero passes through untouched - it is a legitimate measurement for
+    a probability, a loss or a score, and coercing invalid values TO zero would
+    be indistinguishable from it.
+    """
     if value is None or isinstance(value, bool):
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+    return number if math.isfinite(number) else None
 
 
 def _optional_int(value: Any) -> Optional[int]:
@@ -164,7 +193,11 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_sealed_product_decision_contract(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+def build_sealed_product_decision_contract(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    run_status: str = RUN_STATUS_CURRENT,
+) -> Dict[str, Any]:
     """The set's product decision table, from EXACTLY one calculation run.
 
     Row order is the repository's (pack count ascending) and is preserved: any
@@ -184,6 +217,7 @@ def build_sealed_product_decision_contract(rows: Sequence[Mapping[str, Any]]) ->
 
     return {
         "contractVersion": RIP_DECISION_CONTRACT_VERSION,
+        "runStatus": run_status,
         "sourceCalculationRunId": next(iter(run_ids)) if run_ids else None,
         "productCount": len(product_rows),
         "products": [_product_decision_row(row) for row in product_rows],
@@ -191,13 +225,38 @@ def build_sealed_product_decision_contract(rows: Sequence[Mapping[str, Any]]) ->
     }
 
 
-def load_sealed_product_decision_contract(
-    set_id: Any, *, client: Any = None
-) -> Dict[str, Any]:
-    """The product contract for one set, read from its latest scored run."""
-    return build_sealed_product_decision_contract(
-        get_latest_sealed_product_results_for_set(set_id, client=client)
+def _load_current_run_product_rows(
+    *, run_id: str, set_id: Any, client: Any
+) -> List[Mapping[str, Any]]:
+    """The product rows of ONE named run, checked against the set being built.
+
+    Reading by run rather than by "latest for this set" is the whole point: the
+    snapshot has already decided which run it is publishing, and any second
+    resolution is a chance to disagree with it.
+
+    The set check is defensive rather than expected. ``calculation_run_id`` is
+    per-set, so a run returning another set's rows means an identity assumption
+    has broken somewhere upstream; publishing that quietly would put one set's
+    product prices on another set's page.
+    """
+    rows = list(get_sealed_product_results_for_run(run_id, client=client))
+    expected_set_id = _optional_str(set_id)
+    if expected_set_id is None:
+        return rows
+
+    foreign = sorted(
+        {
+            row_set_id
+            for row_set_id in (_optional_str(row.get("set_id")) for row in rows)
+            if row_set_id is not None and row_set_id != expected_set_id
+        }
     )
+    if foreign:
+        raise ValueError(
+            f"calculation run {run_id} returned sealed product rows for set_id "
+            f"{foreign} while building set_id {expected_set_id}"
+        )
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -244,42 +303,72 @@ def select_top_chase_card(
     return best
 
 
-def _load_priced_chase_candidates(client: Any, *, run_id: str, limit: int) -> List[Dict[str, Any]]:
-    result = (
-        client.table(NEAR_MINT_PRICE_VIEW)
-        .select("card_id,card_variant_id,card_name,rarity_bucket,current_near_mint_price")
-        .eq("calculation_run_id", run_id)
-        .order("current_near_mint_price", desc=True)
-        .limit(limit)
-        .execute()
+def _load_run_population(
+    client: Any, *, table: str, select: str, run_id: str
+) -> List[Dict[str, Any]]:
+    """Every row of one table for one run, read in whole pages.
+
+    Both Top Chase reads are set-level rather than top-N, because the answer
+    depends on the intersection of two populations: a price-ordered prefix of
+    the priced rows can exclude the priciest MODELED card entirely. Paging keeps
+    the read complete without making the query count depend on card count.
+    """
+    rows: List[Dict[str, Any]] = []
+    for page in range(RUN_POPULATION_MAX_PAGES):
+        start = page * RUN_POPULATION_PAGE_SIZE
+        result = (
+            client.table(table)
+            .select(select)
+            .eq("calculation_run_id", run_id)
+            .range(start, start + RUN_POPULATION_PAGE_SIZE - 1)
+            .execute()
+        )
+        batch = list(result.data or [])
+        rows.extend(batch)
+        if len(batch) < RUN_POPULATION_PAGE_SIZE:
+            return rows
+    raise ValueError(
+        f"{table} returned more than "
+        f"{RUN_POPULATION_MAX_PAGES * RUN_POPULATION_PAGE_SIZE} rows for run {run_id}; "
+        "refusing to publish a possibly truncated Top Chase population"
     )
-    return list(result.data or [])
 
 
-def _load_modeled_pull_rates(
-    client: Any, *, run_id: str, variant_ids: Sequence[str]
-) -> Dict[str, Any]:
-    """The stored per-pack rates for a BOUNDED candidate list, in one query.
+def _load_modeled_pull_rates(client: Any, *, run_id: str) -> Dict[str, float]:
+    """The run's modeled per-pack rates, keyed by card variant.
 
     Read from ``simulation_input_cards`` rather than the priced view because the
     stored ``effective_pull_rate`` is the authoritative model output, and this
     keeps the probability tied to the run regardless of what the view projects.
+
+    Only rates in ``0 < p <= 1`` are kept: a rate of zero, a negative, a NaN or
+    a rate above one describes no card the model can actually produce, and
+    carrying them forward would only let them lose a comparison later.
     """
-    if not variant_ids:
-        return {}
-    result = (
-        client.table(INPUT_CARDS_TABLE)
-        .select("card_variant_id,effective_pull_rate")
-        .eq("calculation_run_id", run_id)
-        .in_("card_variant_id", list(variant_ids))
-        .execute()
-    )
-    rates: Dict[str, Any] = {}
-    for row in result.data or []:
+    rates: Dict[str, float] = {}
+    for row in _load_run_population(
+        client,
+        table=INPUT_CARDS_TABLE,
+        select="card_variant_id,effective_pull_rate",
+        run_id=run_id,
+    ):
         variant_id = _optional_str(row.get("card_variant_id"))
-        if variant_id is not None:
-            rates[variant_id] = row.get("effective_pull_rate")
+        probability = _optional_float(row.get("effective_pull_rate"))
+        if variant_id is None or probability is None:
+            continue
+        if 0.0 < probability <= 1.0:
+            rates[variant_id] = probability
     return rates
+
+
+def _load_run_near_mint_prices(client: Any, *, run_id: str) -> List[Dict[str, Any]]:
+    """Current Near Mint prices for the run's cards."""
+    return _load_run_population(
+        client,
+        table=NEAR_MINT_PRICE_VIEW,
+        select="card_id,card_variant_id,card_name,rarity_bucket,current_near_mint_price",
+        run_id=run_id,
+    )
 
 
 def _chase_image_fields(client: Any, *, card_id: Optional[str], variant_id: Optional[str]) -> Dict[str, Optional[str]]:
@@ -321,36 +410,29 @@ def _chase_image_fields(client: Any, *, card_id: Optional[str], variant_id: Opti
     return {"imageUrl": small or large, "imageSmallUrl": small, "imageLargeUrl": large}
 
 
-def build_top_chase_contract(
-    *,
-    run_id: Any,
-    client: Any,
-    candidate_limit: int = TOP_CHASE_CANDIDATE_LIMIT,
-) -> Optional[Dict[str, Any]]:
+def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, Any]]:
     """The one canonical Top Chase card for a run, or ``None``.
 
-    ``None`` is a real answer: a run whose priced cards carry no modeled pull
-    rate has no chase this contract can honestly describe, and an invented one
-    would be indistinguishable from a real one.
+    The modeled population is read FIRST and in full, then priced. Doing it the
+    other way round - taking the N priciest cards and asking which are modeled -
+    silently answers a different question, because a set's most expensive cards
+    are frequently ones these packs cannot produce.
+
+    ``None`` is a real answer: a run whose cards carry no modeled pull rate has
+    no chase this contract can honestly describe, and an invented one would be
+    indistinguishable from a real one.
     """
     resolved_run_id = _optional_str(run_id)
     if resolved_run_id is None:
         return None
 
     try:
-        candidates = _load_priced_chase_candidates(
-            client, run_id=resolved_run_id, limit=candidate_limit
-        )
-        variant_ids = [
-            variant_id
-            for variant_id in (
-                _optional_str(row.get("card_variant_id")) for row in candidates
-            )
-            if variant_id is not None
-        ]
-        pull_rates = _load_modeled_pull_rates(
-            client, run_id=resolved_run_id, variant_ids=variant_ids
-        )
+        pull_rates = _load_modeled_pull_rates(client, run_id=resolved_run_id)
+        if not pull_rates:
+            # Nothing modeled means nothing to price against; the price read is
+            # skipped rather than issued and discarded.
+            return None
+        candidates = _load_run_near_mint_prices(client, run_id=resolved_run_id)
     except Exception as exc:
         if is_transient_data_service_error(exc):
             raise
@@ -384,12 +466,41 @@ def build_top_chase_contract(
 def build_rip_decision_contract(
     *, set_id: Any, run_id: Any, client: Any
 ) -> Dict[str, Any]:
-    """Both decision sections for one set, plus the comparison policy."""
+    """Both decision sections for one set, from ONE run, plus the policy.
+
+    ``run_id`` is the snapshot's current calculation run and is the single run
+    identity for the whole contract: products and Top Chase are both read for
+    it, and neither section may resolve a run of its own.
+
+    Without a current run the contract publishes an explicitly empty current
+    state and reads nothing. Falling back to the newest historical product rows
+    would publish real, correctly-provenanced economics from a run the rest of
+    the page is not describing - which is worse than publishing nothing,
+    because it looks right.
+    """
+    resolved_run_id = _optional_str(run_id)
+    if resolved_run_id is None:
+        return {
+            "contractVersion": RIP_DECISION_CONTRACT_VERSION,
+            "sourceCalculationRunId": None,
+            "currentRunAvailable": False,
+            "sealedProducts": build_sealed_product_decision_contract(
+                [], run_status=RUN_STATUS_NO_CURRENT_RUN
+            ),
+            "topChase": None,
+            **sealed_product_comparison_scope_contract(),
+        }
+
     return {
         "contractVersion": RIP_DECISION_CONTRACT_VERSION,
+        "sourceCalculationRunId": resolved_run_id,
+        "currentRunAvailable": True,
         "sealedProducts": build_sealed_product_decision_contract(
-            get_latest_sealed_product_results_for_set(set_id, client=client)
+            _load_current_run_product_rows(
+                run_id=resolved_run_id, set_id=set_id, client=client
+            ),
+            run_status=RUN_STATUS_CURRENT,
         ),
-        "topChase": build_top_chase_contract(run_id=run_id, client=client),
+        "topChase": build_top_chase_contract(run_id=resolved_run_id, client=client),
         **sealed_product_comparison_scope_contract(),
     }

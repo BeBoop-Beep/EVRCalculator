@@ -22,6 +22,7 @@ class _Query:
     def __init__(self, table_name, client):
         self.table_name = table_name
         self.client = client
+        self.range_filter = None
 
     def select(self, _fields):
         return self
@@ -38,9 +39,17 @@ class _Query:
     def limit(self, _value):
         return self
 
+    def range(self, start, end):
+        self.range_filter = (start, end)
+        return self
+
     def execute(self):
         self.client.tables_read.append(self.table_name)
-        return _Result(self.client.handlers.get(self.table_name, lambda: [])())
+        rows = self.client.handlers.get(self.table_name, lambda: [])()
+        if self.range_filter is not None:
+            start, end = self.range_filter
+            rows = list(rows)[start:end + 1]
+        return _Result(rows)
 
 
 class _Client:
@@ -106,8 +115,8 @@ def _product_rows():
 def test_snapshot_payload_carries_the_rip_decision_contract(monkeypatch):
     monkeypatch.setattr(
         builders.rip_decision_service,
-        "get_latest_sealed_product_results_for_set",
-        lambda set_id, client=None: _product_rows(),
+        "get_sealed_product_results_for_run",
+        lambda run_id, client=None: _product_rows(),
     )
 
     merged = builders._merge_rip_decision_contract_into_set_payload(
@@ -121,11 +130,18 @@ def test_snapshot_payload_carries_the_rip_decision_contract(monkeypatch):
     assert contract["crossFormatComparable"] is False
 
 
-def test_merge_publishes_without_a_top_chase_when_the_run_id_is_unknown(monkeypatch):
+def test_a_snapshot_without_a_current_run_publishes_no_decision_economics(monkeypatch):
+    """A page with no current run must not borrow a historical run's numbers.
+
+    The previous behaviour published the latest scored product rows here. Those
+    rows are real and correctly provenanced, which is exactly what makes them
+    dangerous next to a page that is not describing that run.
+    """
+    def _must_not_be_called(run_id, client=None):
+        raise AssertionError("no product read may happen without a current run")
+
     monkeypatch.setattr(
-        builders.rip_decision_service,
-        "get_latest_sealed_product_results_for_set",
-        lambda set_id, client=None: _product_rows(),
+        builders.rip_decision_service, "get_sealed_product_results_for_run", _must_not_be_called
     )
     payload = {"target": {}, "summary": {}, "meta": {}}
     client = _client()
@@ -135,16 +151,18 @@ def test_merge_publishes_without_a_top_chase_when_the_run_id_is_unknown(monkeypa
     )
 
     assert merged["ripDecision"]["topChase"] is None
-    assert merged["ripDecision"]["sealedProducts"]["productCount"] == 1
+    assert merged["ripDecision"]["sealedProducts"]["products"] == []
+    assert merged["ripDecision"]["sealedProducts"]["productCount"] == 0
+    assert merged["ripDecision"]["currentRunAvailable"] is False
     assert client.tables_read == []
 
 
 def test_a_failed_decision_read_degrades_the_section_instead_of_the_snapshot(monkeypatch):
-    def _boom(_set_id, client=None):
+    def _boom(_run_id, client=None):
         raise ValueError("column does not exist")
 
     monkeypatch.setattr(
-        builders.rip_decision_service, "get_latest_sealed_product_results_for_set", _boom
+        builders.rip_decision_service, "get_sealed_product_results_for_run", _boom
     )
 
     merged = builders._merge_rip_decision_contract_into_set_payload(
@@ -160,11 +178,11 @@ def test_a_failed_decision_read_degrades_the_section_instead_of_the_snapshot(mon
 
 
 def test_a_transient_outage_still_fails_the_build(monkeypatch):
-    def _outage(_set_id, client=None):
+    def _outage(_run_id, client=None):
         raise ConnectionError("connection reset by peer")
 
     monkeypatch.setattr(
-        builders.rip_decision_service, "get_latest_sealed_product_results_for_set", _outage
+        builders.rip_decision_service, "get_sealed_product_results_for_run", _outage
     )
 
     with pytest.raises(ConnectionError):
@@ -189,8 +207,8 @@ def test_the_real_set_page_builder_publishes_the_section(monkeypatch):
     monkeypatch.setattr(builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
     monkeypatch.setattr(
         builders.rip_decision_service,
-        "get_latest_sealed_product_results_for_set",
-        lambda set_id, client=None: _product_rows(),
+        "get_sealed_product_results_for_run",
+        lambda run_id, client=None: _product_rows(),
     )
     client = _BuilderClient(
         {
@@ -208,6 +226,8 @@ def test_the_real_set_page_builder_publishes_the_section(monkeypatch):
         {"id": "set-1", "name": "Alpha", "canonical_key": "alpha"}, client=client
     )["payload_json"]
 
-    assert payload["ripDecision"]["sealedProducts"]["products"][0]["modeledReturnPercent"] == 75.0
-    # A set with no simulation run has no modeled chase, and says so.
+    # This set has no simulation run at all, so there is no current run to
+    # publish decision economics for - and no historical one is substituted.
+    assert payload["ripDecision"]["currentRunAvailable"] is False
+    assert payload["ripDecision"]["sealedProducts"]["products"] == []
     assert payload["ripDecision"]["topChase"] is None

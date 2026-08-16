@@ -38,6 +38,7 @@ class _Query:
         self.order_fields = []
         self.select_fields = None
         self.limit_value = None
+        self.range_filter = None
 
     def select(self, fields):
         self.select_fields = fields
@@ -59,9 +60,17 @@ class _Query:
         self.limit_value = value
         return self
 
+    def range(self, start, end):
+        self.range_filter = (start, end)
+        return self
+
     def execute(self):
         self.client.queries.append(self)
-        return _Result(self.client.handlers[self.table_name](self))
+        rows = self.client.handlers[self.table_name](self)
+        if self.range_filter is not None:
+            start, end = self.range_filter
+            rows = list(rows)[start:end + 1]
+        return _Result(rows)
 
 
 class _Client:
@@ -324,10 +333,17 @@ def test_top_chase_contract_shape_and_modeled_odds():
         _price_row(card_id="card-a", card_variant_id="variant-a", card_name="Card A", current_near_mint_price=80.0),
     ]
     input_rows = [
-        {"card_variant_id": "variant-b", "effective_pull_rate": 0.004, "captured_at": "2026-08-15T00:00:00Z"},
-        {"card_variant_id": "variant-a", "effective_pull_rate": 0.05, "captured_at": "2026-08-15T00:00:00Z"},
+        {"card_variant_id": "variant-b", "effective_pull_rate": 0.004},
+        {"card_variant_id": "variant-a", "effective_pull_rate": 0.05},
     ]
-    variant_rows = [{"id": "variant-b", "card_id": "card-b", "image_small_url": "https://img/b-small.png", "image_large_url": None}]
+    variant_rows = [
+        {
+            "id": "variant-b",
+            "card_id": "card-b",
+            "image_small_url": "https://img/b-small.png",
+            "image_large_url": None,
+        }
+    ]
     client = _top_chase_client(price_rows, input_rows, variant_rows)
 
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
@@ -345,49 +361,92 @@ def test_top_chase_contract_shape_and_modeled_odds():
     assert chase["sourceCalculationRunId"] == RUN_A
 
 
-def test_top_chase_contract_reads_a_bounded_number_of_queries():
+def test_top_chase_searches_the_whole_modeled_population_not_the_priciest_n():
+    """The 26th-priciest card wins when the 25 above it are unmodeled.
+
+    A top-N price prefilter answers "the priciest card, IF it happens to be
+    modeled". The contract's question is "the priciest MODELED card", and the
+    two answers differ exactly when a set's most expensive cards are outside the
+    modeled population - which is the normal case for promos and sealed-era alt
+    arts that never come out of these packs.
+    """
     price_rows = [
-        _price_row(card_variant_id=f"variant-{index}", current_near_mint_price=float(500 - index))
-        for index in range(50)
+        _price_row(
+            card_id="card-%d" % index,
+            card_variant_id="variant-%d" % index,
+            card_name="Card %d" % index,
+            current_near_mint_price=float(1000 - index),
+        )
+        for index in range(30)
+    ]
+    # Only the 26th-priciest card (index 25) is in the run's modeled population.
+    input_rows = [{"card_variant_id": "variant-25", "effective_pull_rate": 0.002}]
+    client = _top_chase_client(price_rows, input_rows)
+
+    chase = build_top_chase_contract(run_id=RUN_A, client=client)
+
+    assert chase["cardVariantId"] == "variant-25"
+    assert chase["currentMarketPrice"] == 975.0
+
+
+def test_top_chase_reads_a_bounded_number_of_queries_for_a_full_set():
+    price_rows = [
+        _price_row(card_variant_id="variant-%d" % index, current_near_mint_price=float(500 - index))
+        for index in range(400)
     ]
     input_rows = [
-        {"card_variant_id": f"variant-{index}", "effective_pull_rate": 0.01}
-        for index in range(50)
+        {"card_variant_id": "variant-%d" % index, "effective_pull_rate": 0.01}
+        for index in range(400)
     ]
     client = _top_chase_client(price_rows, input_rows)
 
     build_top_chase_contract(run_id=RUN_A, client=client)
 
-    # One priced-candidate read, one modeled-probability read, and the image
-    # lookups for the single chosen card. Never one query per card.
-    assert len(client.table_calls("simulation_input_cards_with_near_mint_price")) == 1
+    # One probability read, one price read, and the image lookups for the single
+    # chosen card. Never one query per card.
     assert len(client.table_calls("simulation_input_cards")) == 1
+    assert len(client.table_calls("simulation_input_cards_with_near_mint_price")) == 1
     assert len(client.queries) <= 4
 
 
-def test_top_chase_candidate_read_is_ordered_by_current_price_and_limited():
-    client = _top_chase_client([_price_row()], [{"card_variant_id": "variant-a", "effective_pull_rate": 0.01}])
+def test_both_top_chase_reads_are_scoped_to_the_same_run():
+    client = _top_chase_client(
+        [_price_row()], [{"card_variant_id": "variant-a", "effective_pull_rate": 0.01}]
+    )
     build_top_chase_contract(run_id=RUN_A, client=client)
 
-    query = client.table_calls("simulation_input_cards_with_near_mint_price")[0]
-    assert ("current_near_mint_price", True) in query.order_fields
-    assert ("calculation_run_id", RUN_A) in query.eq_filters
-    assert query.limit_value == service.TOP_CHASE_CANDIDATE_LIMIT
+    probability_query = client.table_calls("simulation_input_cards")[0]
+    price_query = client.table_calls("simulation_input_cards_with_near_mint_price")[0]
+    assert ("calculation_run_id", RUN_A) in probability_query.eq_filters
+    assert ("calculation_run_id", RUN_A) in price_query.eq_filters
 
 
-def test_top_chase_probability_read_is_scoped_to_the_same_run_and_candidates():
-    price_rows = [_price_row(card_variant_id="variant-a"), _price_row(card_variant_id="variant-b")]
-    client = _top_chase_client(price_rows, [{"card_variant_id": "variant-a", "effective_pull_rate": 0.01}])
-    build_top_chase_contract(run_id=RUN_A, client=client)
+def test_a_population_larger_than_one_page_is_read_completely():
+    """Silent truncation at the page boundary would change the answer."""
+    page = service.RUN_POPULATION_PAGE_SIZE
+    price_rows = [
+        _price_row(card_variant_id="variant-%d" % index, current_near_mint_price=float(index))
+        for index in range(page + 5)
+    ]
+    # The priciest card is the LAST row, reachable only on the second page.
+    input_rows = [{"card_variant_id": "variant-%d" % (page + 4), "effective_pull_rate": 0.01}]
+    client = _top_chase_client(price_rows, input_rows)
 
-    query = client.table_calls("simulation_input_cards")[0]
-    assert ("calculation_run_id", RUN_A) in query.eq_filters
-    assert query.in_filters == [("card_variant_id", ["variant-a", "variant-b"])]
+    chase = build_top_chase_contract(run_id=RUN_A, client=client)
+
+    assert chase["cardVariantId"] == "variant-%d" % (page + 4)
+    assert len(client.table_calls("simulation_input_cards_with_near_mint_price")) == 2
 
 
 def test_top_chase_is_none_when_the_run_has_no_priced_modeled_cards():
     client = _top_chase_client([], [])
     assert build_top_chase_contract(run_id=RUN_A, client=client) is None
+
+
+def test_no_price_read_happens_when_the_run_models_no_cards():
+    client = _top_chase_client([_price_row()], [])
+    assert build_top_chase_contract(run_id=RUN_A, client=client) is None
+    assert client.table_calls("simulation_input_cards_with_near_mint_price") == []
 
 
 def test_top_chase_never_infers_probability_from_ev_contribution():
@@ -400,6 +459,25 @@ def test_top_chase_never_infers_probability_from_ev_contribution():
     assert chase["modeledProbability"] == 0.004
 
 
+def test_top_chase_ignores_non_finite_and_out_of_domain_pull_rates():
+    price_rows = [
+        _price_row(card_variant_id="variant-nan", current_near_mint_price=900.0),
+        _price_row(card_variant_id="variant-inf", current_near_mint_price=800.0),
+        _price_row(card_variant_id="variant-high", current_near_mint_price=700.0),
+        _price_row(card_variant_id="variant-ok", current_near_mint_price=100.0),
+    ]
+    input_rows = [
+        {"card_variant_id": "variant-nan", "effective_pull_rate": float("nan")},
+        {"card_variant_id": "variant-inf", "effective_pull_rate": float("inf")},
+        {"card_variant_id": "variant-high", "effective_pull_rate": 1.4},
+        {"card_variant_id": "variant-ok", "effective_pull_rate": 0.01},
+    ]
+    client = _top_chase_client(price_rows, input_rows)
+
+    chase = build_top_chase_contract(run_id=RUN_A, client=client)
+    assert chase["cardVariantId"] == "variant-ok"
+
+
 def test_top_chase_is_unavailable_rather_than_wrong_without_a_run_id():
     client = _top_chase_client([_price_row()], [])
     assert build_top_chase_contract(run_id=None, client=client) is None
@@ -407,12 +485,116 @@ def test_top_chase_is_unavailable_rather_than_wrong_without_a_run_id():
 
 
 # ---------------------------------------------------------------------------
-# Combined contract
+# Run identity: ONE run for the whole contract
 # ---------------------------------------------------------------------------
+
+def test_products_are_read_by_the_current_run_never_by_latest(monkeypatch):
+    """The snapshot's run is the authority for EVERY section.
+
+    A second "latest scored run" lookup can resolve to a different run than the
+    page is publishing, which would put one run's product economics next to
+    another run's opening odds on a single screen, with nothing on the page to
+    reveal the mismatch.
+    """
+    seen = {}
+
+    def _by_run(run_id, client=None):
+        seen["run_id"] = run_id
+        seen["client"] = client
+        return [_product_row()]
+
+    monkeypatch.setattr(service, "get_sealed_product_results_for_run", _by_run)
+    client = _top_chase_client([], [])
+
+    contract = build_rip_decision_contract(set_id="set-1", run_id=RUN_A, client=client)
+
+    assert seen["run_id"] == RUN_A
+    assert seen["client"] is client
+    assert contract["sealedProducts"]["sourceCalculationRunId"] == RUN_A
+
+
+def test_the_decision_layer_never_resolves_latest_itself():
+    assert not hasattr(service, "get_latest_sealed_product_results_for_set")
+    assert not hasattr(service, "load_sealed_product_decision_contract")
+
+
+def test_a_historical_run_is_never_published_for_the_current_page():
+    # RUN_B rows exist and are newer, but the page is publishing RUN_A.
+    product_rows_by_run = {
+        RUN_A: [_product_row(calculation_run_id=RUN_A, product_market_cost=120.0)],
+        RUN_B: [_product_row(calculation_run_id=RUN_B, product_market_cost=999.0)],
+    }
+
+    def _products(query):
+        requested = dict(query.eq_filters).get("calculation_run_id")
+        return product_rows_by_run.get(requested, [])
+
+    client = _Client(
+        {
+            "simulation_sealed_product_results": _products,
+            "simulation_input_cards_with_near_mint_price": lambda query: [],
+            "simulation_input_cards": lambda query: [],
+        }
+    )
+
+    contract = build_rip_decision_contract(set_id="set-1", run_id=RUN_A, client=client)
+
+    assert contract["sealedProducts"]["sourceCalculationRunId"] == RUN_A
+    assert contract["sealedProducts"]["products"][0]["marketPrice"] == 120.0
+
+
+def test_no_current_run_publishes_an_empty_section_without_touching_history():
+    """No coordinated current run is not permission to publish stale economics."""
+    client = _Client(
+        {
+            "simulation_sealed_product_results": lambda query: [_product_row()],
+            "simulation_input_cards_with_near_mint_price": lambda query: [_price_row()],
+            "simulation_input_cards": lambda query: [],
+        }
+    )
+
+    contract = build_rip_decision_contract(set_id="set-1", run_id=None, client=client)
+
+    assert contract["sealedProducts"]["products"] == []
+    assert contract["sealedProducts"]["productCount"] == 0
+    assert contract["sealedProducts"]["sourceCalculationRunId"] is None
+    assert contract["sealedProducts"]["runStatus"] == service.RUN_STATUS_NO_CURRENT_RUN
+    assert contract["topChase"] is None
+    assert contract["currentRunAvailable"] is False
+    # Nothing historical was read at all.
+    assert client.queries == []
+
+
+def test_a_current_run_labels_the_section_as_current(monkeypatch):
+    monkeypatch.setattr(
+        service, "get_sealed_product_results_for_run", lambda run_id, client=None: [_product_row()]
+    )
+    contract = build_rip_decision_contract(
+        set_id="set-1", run_id=RUN_A, client=_top_chase_client([], [])
+    )
+
+    assert contract["sealedProducts"]["runStatus"] == service.RUN_STATUS_CURRENT
+    assert contract["currentRunAvailable"] is True
+    assert contract["sourceCalculationRunId"] == RUN_A
+
+
+def test_a_product_row_belonging_to_another_set_fails_loudly(monkeypatch):
+    monkeypatch.setattr(
+        service,
+        "get_sealed_product_results_for_run",
+        lambda run_id, client=None: [_product_row(set_id="set-2")],
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        build_rip_decision_contract(
+            set_id="set-1", run_id=RUN_A, client=_top_chase_client([], [])
+        )
+    assert "set_id" in str(excinfo.value)
+
 
 def test_combined_contract_carries_both_sections_and_the_scope(monkeypatch):
     monkeypatch.setattr(
-        service, "get_latest_sealed_product_results_for_set", lambda set_id, client=None: [_product_row()]
+        service, "get_sealed_product_results_for_run", lambda run_id, client=None: [_product_row()]
     )
     price_rows = [_price_row(card_variant_id="variant-b", current_near_mint_price=400.0)]
     input_rows = [{"card_variant_id": "variant-b", "effective_pull_rate": 0.004}]
@@ -427,35 +609,75 @@ def test_combined_contract_carries_both_sections_and_the_scope(monkeypatch):
     assert contract["crossFormatComparable"] is False
 
 
-def test_combined_contract_survives_a_set_with_no_sealed_product_rows(monkeypatch):
-    monkeypatch.setattr(service, "get_latest_sealed_product_results_for_set", lambda set_id, client=None: [])
+def test_combined_contract_survives_a_run_with_no_sealed_product_rows(monkeypatch):
+    monkeypatch.setattr(
+        service, "get_sealed_product_results_for_run", lambda run_id, client=None: []
+    )
     client = _top_chase_client([], [])
 
     contract = build_rip_decision_contract(set_id="set-1", run_id=RUN_A, client=client)
 
     assert contract["sealedProducts"]["products"] == []
-    assert contract["sealedProducts"]["sourceCalculationRunId"] is None
+    assert contract["sealedProducts"]["runStatus"] == service.RUN_STATUS_CURRENT
     assert contract["topChase"] is None
 
 
-def test_the_product_read_uses_the_client_it_was_given(monkeypatch):
-    """A snapshot build runs on an injected service-role client.
+# ---------------------------------------------------------------------------
+# Finite public numbers
+# ---------------------------------------------------------------------------
 
-    Silently falling back to the repository's module-level client would make the
-    product rows come from a different connection than every other section of
-    the same snapshot - and would reach for real credentials inside a unit test.
-    """
-    seen = {}
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_no_public_product_number_is_ever_nan_or_infinity(bad):
+    contract = build_sealed_product_decision_contract(
+        [
+            _product_row(
+                product_market_cost=bad,
+                median_value=bad,
+                chance_to_recover_cost=bad,
+                expected_loss_when_losing=bad,
+                financial_rip_v3_score=bad,
+                collector_appeal_score=bad,
+                overall_rip_score=bad,
+                guaranteed_component_market_value=bad,
+            )
+        ]
+    )
+    product = contract["products"][0]
 
-    def _loader(set_id, client=None):
-        seen["set_id"] = set_id
-        seen["client"] = client
-        return [_product_row()]
+    for key in (
+        "marketPrice",
+        "typicalOpening",
+        "chanceToRecoverCost",
+        "expectedLossWhenLosing",
+        "financialRipScore",
+        "collectorAppealScore",
+        "overallRipScore",
+    ):
+        assert product[key] is None, "%s published %r" % (key, product[key])
+    assert product["composition"]["guaranteedComponentMarketValue"] is None
 
-    monkeypatch.setattr(service, "get_latest_sealed_product_results_for_set", _loader)
-    client = _top_chase_client([], [])
 
-    build_rip_decision_contract(set_id="set-1", run_id=RUN_A, client=client)
+def test_a_legitimate_zero_measurement_is_still_published():
+    contract = build_sealed_product_decision_contract(
+        [_product_row(chance_to_recover_cost=0.0, expected_loss_when_losing=0.0, median_value=0.0)]
+    )
+    product = contract["products"][0]
 
-    assert seen["set_id"] == "set-1"
-    assert seen["client"] is client
+    assert product["chanceToRecoverCost"] == 0.0
+    assert product["expectedLossWhenLosing"] == 0.0
+    assert product["typicalOpening"] == 0.0
+
+
+def test_a_non_finite_chase_price_is_not_publishable():
+    price_rows = [
+        _price_row(card_variant_id="variant-bad", current_near_mint_price=float("inf")),
+        _price_row(card_variant_id="variant-ok", current_near_mint_price=50.0),
+    ]
+    input_rows = [
+        {"card_variant_id": "variant-bad", "effective_pull_rate": 0.01},
+        {"card_variant_id": "variant-ok", "effective_pull_rate": 0.01},
+    ]
+    chase = build_top_chase_contract(run_id=RUN_A, client=_top_chase_client(price_rows, input_rows))
+
+    assert chase["cardVariantId"] == "variant-ok"
+    assert chase["currentMarketPrice"] == 50.0
