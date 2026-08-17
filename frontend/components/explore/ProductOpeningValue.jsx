@@ -76,7 +76,7 @@ const NOT_MODELED = "Not modeled yet";
  * what it is rather than as profit.
  */
 export const ENTERTAINMENT_COST_HELP =
-  "The product's market price minus the expected market value of the cards you open. Think of it as the amount you're effectively paying for the opening experience. Uses gross market value before selling fees, shipping, spreads, or other transaction costs, and it is a modeled expectation rather than a guaranteed outcome. A negative figure means the model's gross expected market value of the contents is currently above the product's market price.";
+  "The product's market price minus the expected market value of the cards you open — effectively what you're paying for the opening experience. Uses gross market value, before selling fees, shipping or spreads, and is a modeled expectation rather than a guaranteed outcome. A negative figure means modeled card value currently sits above the price; it is not guaranteed profit.";
 
 export const ENTERTAINMENT_COST_PER_PACK_HELP =
   "Entertainment Cost divided by the number of packs in the product, making different sealed formats easier to compare. Same gross market value basis, so it is a modeled expectation rather than a guaranteed outcome.";
