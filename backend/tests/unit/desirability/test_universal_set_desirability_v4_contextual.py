@@ -39,7 +39,7 @@ def test_same_pokemon_gets_set_specific_role_without_changing_demand():
     rollups = [subject(25, "Pikachu", 86.64), subject(129, "Magikarp", 70)]
     flagship = build_contextual_chase_subjects(
         rollups, [card(25, "Pikachu ex SIR", 3), card(129, "Magikarp", .001)])
-    # Top-five is intentionally always meaningful; use six subjects to exercise supporting status.
+    # Use enough subjects for the low-share Pikachu representation to remain supporting.
     many = [subject(i, f"P{i}", 60 + i) for i in range(1, 7)] + [subject(25, "Pikachu", 86.64)]
     cards = [card(i, f"Chase {i}", 10 - i) for i in range(1, 7)] + [card(25, "Pikachu ex", .0001)]
     low = build_contextual_chase_subjects(many, cards)
@@ -126,5 +126,5 @@ def test_public_explanation_is_backend_structured_and_ev_is_context_only():
     )
     assert "pokemon_desirability" in result["direct_score_inputs"]
     assert "card_ev_contribution" in result["chase_priority_inputs"]
-    assert "ev_contribution" in result["directly_excluded_inputs"]
+    assert "ev_contribution" in result["direct_arithmetic_excluded_inputs"]
     assert result["modeled_subjects"][0]["representative_chase_card"]["card_name"] == "Pikachu SIR"

@@ -138,3 +138,47 @@ def test_generated_component_version_triple_matches_public_reader_exactly():
     assert current_row["hit_policy_version"] == HIT_POLICY_VERSION
     assert matches_expected_versions(current_row) is True
     assert matches_expected_versions(legacy_row) is False
+
+
+def test_authoritative_refresh_replaces_identity_poor_fallback_metadata(monkeypatch):
+    monkeypatch.setattr(combined, "fetch_authoritative_api_set", lambda _set_id: {"printedTotal": 84})
+    monkeypatch.setattr(
+        combined, "fetch_authoritative_cards",
+        lambda _set_id: [
+            {"id": "me5-42", "name": "Morpeko ex", "number": "42",
+             "supertype": "Pokémon", "subtypes": ["Basic", "ex"],
+             "nationalPokedexNumbers": [877], "set": {"id": "me5"}},
+            {"id": "me5-118", "name": "Gladion's Final Battle", "number": "118",
+             "supertype": "Trainer", "subtypes": ["Supporter"],
+             "nationalPokedexNumbers": [], "set": {"id": "me5"}},
+        ],
+    )
+    written = []
+    monkeypatch.setattr(combined, "_upsert_canonical_rows", lambda _client, rows: written.extend(rows) or len(rows))
+
+    result = combined._refresh_authoritative_canonical_cards(
+        client=object(),
+        set_row={"id": "set-1", "canonical_key": "pitchBlack", "pokemon_api_set_id": "me5"},
+        dry_run=False,
+    )
+
+    assert result == {"status": "refreshed", "source": "pokemon_tcg_api", "rows_found": 2, "rows_upserted": 2}
+    assert written[0]["supertype"] == "Pokémon"
+    assert written[0]["national_pokedex_numbers"] == [877]
+    assert written[1]["supertype"] == "Trainer"
+    assert written[1]["subtypes"] == ["Supporter"]
+    assert all(row["source"] == "pokemon_tcg_api" for row in written)
+
+
+def test_authoritative_refresh_falls_back_cleanly_when_provider_is_not_ready(monkeypatch):
+    monkeypatch.setattr(
+        combined, "fetch_authoritative_api_set",
+        lambda _set_id: (_ for _ in ()).throw(RuntimeError("not published yet")),
+    )
+    result = combined._refresh_authoritative_canonical_cards(
+        client=object(),
+        set_row={"id": "set-1", "canonical_key": "futureSet", "pokemon_api_set_id": "future"},
+        dry_run=False,
+    )
+    assert result["status"] == "unavailable_using_fallback"
+    assert result["rows_upserted"] == 0

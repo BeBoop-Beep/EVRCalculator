@@ -42,6 +42,12 @@ from backend.scripts.run_pokemon_set_scrape import (  # noqa: E402
     build_valid_set_key_registry,
     normalize_set_key_filter,
 )
+from backend.scripts.ingest_pokemon_canonical_cards import (  # noqa: E402
+    build_canonical_row as build_authoritative_canonical_row,
+    fetch_api_set as fetch_authoritative_api_set,
+    fetch_cards_for_api_set as fetch_authoritative_cards,
+    to_optional_int as canonical_optional_int,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -164,11 +170,16 @@ def build_set_desirability_inputs_report(
         hit_policy_version=hit_policy_version,
         dry_run=dry_run,
     )
+    canonical_identity_changed = any(
+        ((row.get("authoritative_refresh") or {}).get("status") == "refreshed")
+        for row in set_reports
+    )
     components_report = _build_components(
         selected_set_key=selected_set_key,
         process_all=process_all,
         hit_policy_version=hit_policy_version,
         dry_run=dry_run,
+        force=canonical_identity_changed,
     )
     opening_report = _build_opening(
         selected_set_ids=selected_set_ids,
@@ -205,6 +216,17 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
     if not set_id:
         raise SetDesirabilityInputsError("Encountered set row without id")
 
+    canonical_before = _list_canonical_for_set(client, set_id)
+    needs_authoritative_refresh = any(
+        str(row.get("source") or "") == FALLBACK_SOURCE
+        or not str(row.get("supertype") or "").strip()
+        for row in canonical_before
+    ) or not canonical_before
+    authoritative_refresh = (
+        _refresh_authoritative_canonical_cards(client=client, set_row=set_row, dry_run=dry_run)
+        if needs_authoritative_refresh
+        else {"status": "not_needed", "rows_found": len(canonical_before), "rows_upserted": 0}
+    )
     cards = _list_cards_for_set(client, set_id)
     canonical_rows = _list_canonical_for_set(client, set_id)
     existing_by_api_id = {
@@ -315,7 +337,50 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
         "non_pokemon_cards": non_pokemon_cards,
         "unmatched_non_trainer_cards": unmatched_non_trainer_cards,
         "sample_unmatched_non_trainer_cards": sample_unmatched_non_trainer_cards,
+        "authoritative_refresh": authoritative_refresh,
     }
+
+
+def _refresh_authoritative_canonical_cards(
+    *, client: Any, set_row: Dict[str, Any], dry_run: bool,
+) -> Dict[str, Any]:
+    """Prefer complete provider metadata before falling back to TCGplayer names.
+
+    Newly announced sets can be present in TCGplayer before the authoritative
+    Pokemon card endpoint has populated its checklist. The old pipeline created
+    fallback rows at that point but never retried the authoritative source, so
+    those rows remained permanently identity-poor. Every normal desirability
+    rebuild now retries the configured Pokemon API set and replaces matching
+    fallback rows through the canonical table's ordinary upsert contract.
+    """
+    api_set_id = str(set_row.get("pokemon_api_set_id") or "").strip()
+    set_id = str(set_row.get("id") or "").strip()
+    if not api_set_id or not set_id:
+        return {"status": "unavailable_missing_set_identity", "rows_found": 0, "rows_upserted": 0}
+    try:
+        api_set = fetch_authoritative_api_set(api_set_id)
+        api_cards = fetch_authoritative_cards(api_set_id)
+        printed_total = canonical_optional_int(api_set.get("printedTotal"))
+        rows = [
+            build_authoritative_canonical_row(
+                local_set_id=set_id, api_set_id=api_set_id,
+                api_printed_total=printed_total, card=card,
+            )
+            for card in api_cards
+        ]
+    except Exception as exc:
+        logger.warning(
+            "[desirability-inputs] authoritative canonical refresh unavailable for %s: %s; "
+            "continuing with TCGplayer fallback",
+            set_row.get("canonical_key") or set_id, exc,
+        )
+        return {"status": "unavailable_using_fallback", "rows_found": 0,
+                "rows_upserted": 0, "reason": str(exc)}
+    if not rows:
+        return {"status": "unavailable_empty_checklist", "rows_found": 0, "rows_upserted": 0}
+    written = 0 if dry_run else _upsert_canonical_rows(client, rows)
+    return {"status": "dry_run" if dry_run else "refreshed", "source": "pokemon_tcg_api",
+            "rows_found": len(rows), "rows_upserted": written}
 
 
 def _build_links(
@@ -359,6 +424,7 @@ def _build_components(
     process_all: bool,
     hit_policy_version: str,
     dry_run: bool,
+    force: bool = False,
 ) -> Dict[str, Any]:
     _ = process_all
     return build_component_scores_report(
@@ -366,7 +432,7 @@ def _build_components(
         set_id=None,
         canonical_key=selected_set_key,
         limit=None,
-        force=False,
+        force=force,
         scoring_version=COMPONENT_SCORING_VERSION,
         hit_policy_version=hit_policy_version,
         composite_scoring_version=COMPOSITE_SCORING_VERSION,
@@ -512,7 +578,7 @@ def _list_canonical_for_set(client: Any, set_id: str) -> List[Dict[str, Any]]:
     while True:
         result = (
             client.table("pokemon_canonical_cards")
-            .select("id,set_id,pokemon_tcg_api_card_id,name,number,source")
+            .select("id,set_id,pokemon_tcg_api_card_id,name,number,source,supertype,national_pokedex_numbers")
             .eq("set_id", set_id)
             .range(start, start + page_size - 1)
             .execute()

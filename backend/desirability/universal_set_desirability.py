@@ -699,7 +699,7 @@ def compute_universal_set_desirability_v4(
                            "same_canonical_distribution_required": True},
         "direct_score_inputs": ["pokemon_desirability", "component_transforms", "component_weights"],
         "chase_priority_inputs": ["card_ev_contribution", "subject_ev_share", "authoritative_run_identity", "canonical_card_to_pokemon_mapping"],
-        "directly_excluded_inputs": ["raw_market_price", "pull_probability", "ev_contribution"],
+        "direct_arithmetic_excluded_inputs": ["raw_market_price", "pull_probability", "ev_contribution"],
         "priority_input_note": "EV contribution identifies meaningful chase representation; it is not multiplied into Pokemon desirability or directly added to the roster score.",
     }
 
