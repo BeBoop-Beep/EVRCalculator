@@ -217,11 +217,7 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
         raise SetDesirabilityInputsError("Encountered set row without id")
 
     canonical_before = _list_canonical_for_set(client, set_id)
-    needs_authoritative_refresh = any(
-        str(row.get("source") or "") == FALLBACK_SOURCE
-        or not str(row.get("supertype") or "").strip()
-        for row in canonical_before
-    ) or not canonical_before
+    needs_authoritative_refresh = canonical_set_needs_authoritative_refresh(canonical_before)
     authoritative_refresh = (
         _refresh_authoritative_canonical_cards(client=client, set_row=set_row, dry_run=dry_run)
         if needs_authoritative_refresh
@@ -339,6 +335,23 @@ def _process_single_set(*, client: Any, set_row: Dict[str, Any], dry_run: bool) 
         "sample_unmatched_non_trainer_cards": sample_unmatched_non_trainer_cards,
         "authoritative_refresh": authoritative_refresh,
     }
+
+
+def canonical_row_needs_authoritative_refresh(row: Dict[str, Any]) -> bool:
+    """Return whether a canonical row lacks authoritative mapping identity."""
+    source = str(row.get("source") or "").strip()
+    supertype = str(row.get("supertype") or "").strip()
+    represents_pokemon = supertype.casefold() in {"pokemon", "pokémon"}
+    return (
+        source == FALLBACK_SOURCE
+        or not supertype
+        or (represents_pokemon and not row.get("national_pokedex_numbers"))
+    )
+
+
+def canonical_set_needs_authoritative_refresh(rows: List[Dict[str, Any]]) -> bool:
+    """Preserve refreshes for empty sets and any identity-incomplete row."""
+    return not rows or any(canonical_row_needs_authoritative_refresh(row) for row in rows)
 
 
 def _refresh_authoritative_canonical_cards(

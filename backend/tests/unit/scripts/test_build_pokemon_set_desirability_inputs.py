@@ -11,6 +11,56 @@ from backend.scripts import build_pokemon_set_desirability_inputs as combined
 LEGACY_V1 = "pokemon_card_desirability_hit_policy_v1"
 
 
+def test_fallback_pokemon_row_needs_authoritative_refresh():
+    row = {
+        "source": combined.FALLBACK_SOURCE,
+        "supertype": "Pokémon",
+        "national_pokedex_numbers": [25],
+    }
+
+    assert combined.canonical_row_needs_authoritative_refresh(row) is True
+
+
+def test_missing_supertype_row_needs_authoritative_refresh():
+    row = {"source": "pokemon_tcg_api", "national_pokedex_numbers": [25]}
+
+    assert combined.canonical_row_needs_authoritative_refresh(row) is True
+
+
+def test_authoritative_pokemon_row_without_pokedex_number_needs_refresh():
+    row = {
+        "source": "pokemon_tcg_api",
+        "supertype": "Pokémon",
+        "national_pokedex_numbers": [],
+    }
+
+    assert combined.canonical_row_needs_authoritative_refresh(row) is True
+
+
+def test_authoritative_pokemon_row_with_pokedex_number_does_not_need_refresh():
+    row = {
+        "source": "pokemon_tcg_api",
+        "supertype": "Pokémon",
+        "national_pokedex_numbers": [25],
+    }
+
+    assert combined.canonical_row_needs_authoritative_refresh(row) is False
+
+
+def test_authoritative_trainer_row_without_pokedex_number_does_not_need_refresh():
+    row = {
+        "source": "pokemon_tcg_api",
+        "supertype": "Trainer",
+        "national_pokedex_numbers": [],
+    }
+
+    assert combined.canonical_row_needs_authoritative_refresh(row) is False
+
+
+def test_empty_canonical_set_needs_authoritative_refresh():
+    assert combined.canonical_set_needs_authoritative_refresh([]) is True
+
+
 def test_combined_builder_default_and_explicit_override():
     default_args = combined.build_parser().parse_args(["--set", "testSet"])
     override_args = combined.build_parser().parse_args(
