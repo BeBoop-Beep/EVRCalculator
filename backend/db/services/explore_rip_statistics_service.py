@@ -39,6 +39,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V8_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V8_VERSION,
     OVERALL_RIP_V8_WEIGHTS,
+    OVERALL_RIP_V9_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V9_VERSION,
+    OVERALL_RIP_V9_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     WEIGHTS_DISCLOSURE,
     canonical_public_rip_contract_version,
@@ -59,6 +62,10 @@ from backend.desirability.public_rip_contract_v8 import (
     PUBLIC_RIP_CONTRACT_V8_KEY,
     build_public_rip_contract_v8,
 )
+from backend.desirability.public_rip_contract_v9 import (
+    PUBLIC_RIP_CONTRACT_V9_KEY,
+    build_public_rip_contract_v9,
+)
 from backend.desirability.public_rip_contract_v7 import (
     PUBLIC_RIP_CONTRACT_V7_KEY,
     build_public_rip_contract_v7,
@@ -68,6 +75,7 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V2_VERSION,
     COLLECTOR_APPEAL_V3_VERSION,
     COLLECTOR_APPEAL_V4_VERSION,
+    COLLECTOR_APPEAL_V5_VERSION,
 )
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
@@ -83,6 +91,7 @@ from backend.desirability.weighted_rip import (
     compute_overall_rip_v6,
     compute_overall_rip_v7,
     compute_overall_rip_v8,
+    compute_overall_rip_v9,
 )
 from backend.interpretation.rips import build_rip_interpretation
 
@@ -647,6 +656,7 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     # The CANONICAL Overall rank, from the absolute 90/10 V7 score.
     ("_rank_overall_rip_v7", "overallRipV7"),
     ("_rank_overall_rip_v8", "overallRipV8"),
+    ("_rank_overall_rip_v9", "overallRipV9"),
     *(
         (f"_rank_v3_{component}", f"financialRipV3.{component}")
         for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
@@ -781,6 +791,10 @@ def _rank_overall_rip_v8(row: Mapping[str, Any]) -> Optional[float]:
     return _to_optional_float((row.get("overallRipV8") or {}).get("score"))
 
 
+def _rank_overall_rip_v9(row: Mapping[str, Any]) -> Optional[float]:
+    return _to_optional_float((row.get("overallRipV9") or {}).get("score"))
+
+
 def _make_v3_component_extractor(component: str):
     def _extract(row: Mapping[str, Any]) -> Optional[float]:
         components = (row.get("financialRipV3") or {}).get("components") or {}
@@ -802,7 +816,7 @@ for _v3_component_key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
 # a `collectorAppeal` block is CA7-era and is surfaced to the mismatch audit
 # rather than dropped.
 _POST_CA7_APPEAL_VERSIONS = frozenset(
-    {COLLECTOR_APPEAL_V2_VERSION, COLLECTOR_APPEAL_V3_VERSION, COLLECTOR_APPEAL_V4_VERSION}
+    {COLLECTOR_APPEAL_V2_VERSION, COLLECTOR_APPEAL_V3_VERSION, COLLECTOR_APPEAL_V4_VERSION, COLLECTOR_APPEAL_V5_VERSION}
 )
 
 
@@ -822,7 +836,7 @@ def _resolve_canonical_collector_appeal_score(collector: Mapping[str, Any]) -> O
     version yields None, and Overall RIP V8 reports unavailable with a reason.
     """
     appeal = collector.get("collectorAppeal") or {}
-    if appeal.get("version") != COLLECTOR_APPEAL_V4_VERSION:
+    if appeal.get("version") != COLLECTOR_APPEAL_V5_VERSION:
         return None
     return appeal.get("score")
 
@@ -1008,6 +1022,10 @@ def _attach_public_rip_contract(
         # publishes under the canonical version; V3, V2 and legacy CA7 are
         # deliberately NOT used here, in either direction.
         target["overallRipV8"] = compute_overall_rip_v8(
+            financial_v3.get("score"),
+            ((collector.get("legacyCollectorAppealV4") or {}).get("score")),
+        )
+        target["overallRipV9"] = compute_overall_rip_v9(
             financial_v3.get("score"), collector_appeal_score
         )
         target["publicAnalyticsStatus"] = public_analytics_status(
@@ -1052,7 +1070,7 @@ def _attach_public_rip_contract(
     #    Collector Appeal V3 while having no canonical V8 score at all, and the
     #    denominator would count it.
     overall_available = {
-        str(target.get("target_id")): (target.get("overallRipV8") or {}).get("score") is not None
+        str(target.get("target_id")): (target.get("overallRipV9") or {}).get("score") is not None
         for target in cohort_rows
     }
     # The version OF THE NUMBER that fed the canonical blend, read from the
@@ -1064,7 +1082,7 @@ def _attach_public_rip_contract(
             (target.get("openingExperience") or {}).get("collectorAppeal") or {}
         ).get("version")
         for target in cohort_rows
-        if (target.get("overallRipV8") or {}).get("score") is not None
+        if (target.get("overallRipV9") or {}).get("score") is not None
     }
     overall_audit = audit_overall_ranked_cohort(
         cohort.get("eligibleSetIds") or [], overall_available, appeal_version_by_set
@@ -1079,10 +1097,10 @@ def _attach_public_rip_contract(
     # simply has no V7 score. It is published rather than assumed so a publication
     # audit can assert the property instead of trusting it, and so a future change
     # that loosens the resolver shows up here rather than silently.
-    overall_audit["expectedAppealVersion"] = COLLECTOR_APPEAL_V4_VERSION
-    overall_audit["expectedOverallRipVersion"] = OVERALL_RIP_V8_VERSION
+    overall_audit["expectedAppealVersion"] = COLLECTOR_APPEAL_V5_VERSION
+    overall_audit["expectedOverallRipVersion"] = OVERALL_RIP_V9_VERSION
     overall_audit["appealVersionMatchesCanonical"] = (
-        overall_audit["appealVersion"] == COLLECTOR_APPEAL_V4_VERSION
+        overall_audit["appealVersion"] == COLLECTOR_APPEAL_V5_VERSION
     )
     cohort["overallRanked"] = overall_audit
     if overall_audit["status"] == OVERALL_RANKED_CA7_VERSION_MISMATCH:
@@ -1184,6 +1202,7 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
         (_rank_overall_rip_v6, "overallRipV6"),
         (_rank_overall_rip_v7, "overallRipV7"),
         (_rank_overall_rip_v8, "overallRipV8"),
+        (_rank_overall_rip_v9, "overallRipV9"),
     ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1295,7 +1314,7 @@ def _apply_rank(
     metric_cohort_size = entry.get("cohortSize", cohort_size)
     if contract_key in (
         "rip", "ripCore", "financialRipV3",
-        "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8",
+        "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8", "overallRipV9",
     ):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
@@ -2119,6 +2138,7 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
         # V2/v4/V5/V6/V7/CA7 preserved under `legacy`. Additive: every key above
         # is unchanged.
         target[PUBLIC_RIP_CONTRACT_V8_KEY] = build_public_rip_contract_v8(target)
+        target[PUBLIC_RIP_CONTRACT_V9_KEY] = build_public_rip_contract_v9(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
@@ -2158,14 +2178,14 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
                     "version": CANONICAL_FINANCIAL_RIP_VERSION,
                 },
                 "overallRip": {
-                    "weights": dict(OVERALL_RIP_V8_WEIGHTS),
-                    "effectiveWeights": dict(OVERALL_RIP_V8_EFFECTIVE_WEIGHTS),
+                    "weights": dict(OVERALL_RIP_V9_WEIGHTS),
+                    "effectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
                     "version": CANONICAL_OVERALL_RIP_VERSION,
                 },
                 "collectorAppeal": {
                     # Version only. Collector Appeal's internal weights are not
                     # disclosed - see public_rip_contract_v7's header.
-                    "version": COLLECTOR_APPEAL_V4_VERSION,
+                    "version": COLLECTOR_APPEAL_V5_VERSION,
                     "weightsDisclosed": False,
                 },
                 "publicContract": {

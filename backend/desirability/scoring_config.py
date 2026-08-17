@@ -321,6 +321,12 @@ OVERALL_RIP_V8_EFFECTIVE_WEIGHTS: Dict[str, float] = {
     "collector_appeal": OVERALL_RIP_V8_WEIGHTS["collector_appeal"],
 }
 
+# V9 changes only the declared Collector Appeal input (V4 -> V5).  The
+# financial model and 90/10 composition are intentionally unchanged.
+OVERALL_RIP_V9_VERSION = "overall_rip_v9_90_financial_v3_10_collector_appeal_v5"
+OVERALL_RIP_V9_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_WEIGHTS)
+OVERALL_RIP_V9_EFFECTIVE_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_EFFECTIVE_WEIGHTS)
+
 # ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
@@ -356,8 +362,8 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
 # Promoted from V7 to V8. This single constant is the cutover; no publication
 # surface decides for itself which Overall model it serves.
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V8_VERSION
-CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_WEIGHTS)
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V9_VERSION
+CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V9_WEIGHTS)
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
 LEGACY_OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION
@@ -371,9 +377,9 @@ def canonical_collector_appeal_version() -> str:
     Lazily imported to break the `collector_appeal` -> `factorized_opening_appeal`
     -> `scoring_config` cycle. The string is defined once, in `collector_appeal`.
     """
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
 
-    return COLLECTOR_APPEAL_V4_VERSION
+    return COLLECTOR_APPEAL_V5_VERSION
 
 
 def canonical_collector_appeal_formula_version() -> str:
@@ -383,9 +389,9 @@ def canonical_collector_appeal_formula_version() -> str:
     model, the formula version names its arithmetic shape. A future change that
     keeps the shape but moves an input would move one and not the other.
     """
-    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_FORMULA_VERSION
+    from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_FORMULA_VERSION
 
-    return COLLECTOR_APPEAL_V4_FORMULA_VERSION
+    return COLLECTOR_APPEAL_V5_FORMULA_VERSION
 
 
 def legacy_collector_appeal_v3_version() -> str:
@@ -416,11 +422,15 @@ def canonical_public_rip_contract_version() -> str:
     module-scope import would be a cycle. The string is defined once, in the
     contract module that implements it.
     """
-    from backend.desirability.public_rip_contract_v8 import (
-        PUBLIC_RIP_CONTRACT_V8_VERSION,
+    from backend.desirability.public_rip_contract_v9 import (
+        PUBLIC_RIP_CONTRACT_V9_VERSION,
     )
 
-    return PUBLIC_RIP_CONTRACT_V8_VERSION
+    return PUBLIC_RIP_CONTRACT_V9_VERSION
+
+
+def canonical_overall_rip_is_v9() -> bool:
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
 
 
 def canonical_financial_rip_is_v3() -> bool:

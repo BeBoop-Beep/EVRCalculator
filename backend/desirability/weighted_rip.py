@@ -54,6 +54,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V8_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V8_VERSION,
     OVERALL_RIP_V8_WEIGHTS,
+    OVERALL_RIP_V9_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V9_VERSION,
+    OVERALL_RIP_V9_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
@@ -171,6 +174,28 @@ def evaluate_set_value_association(
             "defaults and is never auto-zeroed by this correlation."
         ),
     }
+
+
+def compute_overall_rip_v9(
+    financial_rip_v3_score: Any, collector_appeal_v5_score: Any
+) -> Dict[str, Any]:
+    """Overall RIP V9; identical 90/10 arithmetic with the V5 appeal input."""
+    result = compute_overall_rip_v8(financial_rip_v3_score, collector_appeal_v5_score)
+    result["version"] = OVERALL_RIP_V9_VERSION
+    result["weights"] = dict(OVERALL_RIP_V9_WEIGHTS)
+    result["effectiveWeights"] = dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS)
+    result["formula"] = "0.90 * financial_rip_v3 + 0.10 * collector_appeal_v5"
+    if result.get("score") is None:
+        missing = [
+            "collector_appeal_v5" if value == "collector_appeal_v4" else value
+            for value in (result.get("missingInputs") or [])
+        ]
+        result["missingInputs"] = missing
+        result["statusReason"] = (
+            "Overall RIP V9 needs a valid Financial RIP V3 and Collector Appeal V5. "
+            "Missing: " + ", ".join(missing) + ". No legacy fallback is permitted."
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -58,6 +58,7 @@ from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.universal_set_desirability_service import (
     get_universal_desirability_bundle,
 )
+from backend.db.services.contextual_set_desirability_service import build_contextual_desirability_bundle
 from backend.desirability.collector_appeal import (
     CHASE_APPEAL_VERSION,
     COLLECTOR_APPEAL_CA7_VERSION,
@@ -66,6 +67,8 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V3_VERSION,
     COLLECTOR_APPEAL_V4_FORMULA_VERSION,
     COLLECTOR_APPEAL_V4_VERSION,
+    COLLECTOR_APPEAL_V5_FORMULA_VERSION,
+    COLLECTOR_APPEAL_V5_VERSION,
     DUAL_PATH_DEPTH_VERSION,
     collector_appeal_v3_missing_inputs,
     collector_appeal_v4_missing_inputs,
@@ -187,10 +190,11 @@ def _build_set_payload(
     universal_row: Mapping[str, Any],
     subjects: Optional[List[Mapping[str, Any]]],
     pull_modeled: bool,
+    legacy_universal_row: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     """One set's Collector Appeal, or a truthful account of why there isn't one."""
     coverage = universal_row.get("coverage") or {}
-    coverage_full = coverage.get("status") == COVERAGE_FULL
+    coverage_full = universal_row.get("status") == STATUS_AVAILABLE
 
     d_score = universal_row.get("score") if coverage_full else None
     d_unit = _to_unit(d_score)
@@ -217,6 +221,8 @@ def _build_set_payload(
     legacy_v3 = compute_collector_appeal_v3(d_unit, f_value, p_value)
     legacy_v2 = compute_collector_appeal_v2(d_unit, f_value, p_value)
     legacy_ca7 = compute_collector_appeal_ca7(d_unit, p_value)
+    legacy_v4_d = _to_unit((legacy_universal_row or {}).get("score"))
+    legacy_v4 = compute_collector_appeal_v4(legacy_v4_d, f_value)
     chase_appeal = compute_chase_appeal(d_unit, m_value)
 
     # AVAILABILITY NO LONGER DEPENDS ON P. Under V3 a set with no dual-path data
@@ -283,6 +289,9 @@ def _build_set_payload(
             "score": d_score,
             "version": universal_row.get("version"),
             "modeledPokemon": modeled_pokemon,
+            "contextualEvidenceStatus": universal_row.get("status"),
+            "chaseEvidence": universal_row.get("chase_evidence"),
+            "sourceCalculationRunId": universal_row.get("source_calculation_run_id"),
         },
         # F: how often the modeled pack delivers a desirable card. NOT a
         # financial statistic - see the module's financialDistinction field.
@@ -314,8 +323,8 @@ def _build_set_payload(
         "collectorAppeal": {
             "score": round(collector_appeal * 100.0, 4) if collector_appeal is not None else None,
             "rawValue": collector_appeal,
-            "version": COLLECTOR_APPEAL_V4_VERSION,
-            "formulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+            "version": COLLECTOR_APPEAL_V5_VERSION,
+            "formulaVersion": COLLECTOR_APPEAL_V5_FORMULA_VERSION,
             # The TWO factor VALUES the score consumed, so a reader can see what
             # drove it. Deliberately NOT the modifier ceiling, the damping, the H
             # anchors, the computed modifier or a formula string: two points of
@@ -336,6 +345,12 @@ def _build_set_payload(
             # fixes.
             "missingInputs": missing_inputs,
             "excludedInputs": ["dualPathDepth"],
+        },
+        "legacyCollectorAppealV4": {
+            "score": round(legacy_v4 * 100.0, 4) if legacy_v4 is not None else None,
+            "rawValue": legacy_v4,
+            "version": COLLECTOR_APPEAL_V4_VERSION,
+            "status": "superseded_by_collector_appeal_v5",
         },
         # Superseded. Published so the V4-vs-V3 comparison has a real number and
         # a rollback has something to compare against. Never read as a fallback.
@@ -458,7 +473,8 @@ def _build_bundle() -> Dict[str, Any]:
     is the N+1 this phase forbids.
     """
     started = time.perf_counter()
-    universal = get_universal_desirability_bundle()
+    universal = build_contextual_desirability_bundle()
+    legacy_universal = get_universal_desirability_bundle()
     payloads: Mapping[str, Any] = universal.get("payloads") or {}
 
     set_ids = sorted(payloads)
@@ -485,7 +501,7 @@ def _build_bundle() -> Dict[str, Any]:
         set_id
         for set_id in set_ids
         if set_id not in pull_model
-        and ((payloads[set_id].get("coverage") or {}).get("status") == COVERAGE_FULL)
+        and payloads[set_id].get("status") == STATUS_AVAILABLE
     ]
     if unmodeled:
         recovered = load_pull_rate_model_for_sets(unmodeled)
@@ -505,6 +521,7 @@ def _build_bundle() -> Dict[str, Any]:
             universal_row=payloads[set_id],
             subjects=subjects_by_set.get(set_id),
             pull_modeled=set_id in pull_model,
+            legacy_universal_row=(legacy_universal.get("payloads") or {}).get(set_id),
         )
 
     available = [row for row in built.values() if row["status"] == STATUS_AVAILABLE]

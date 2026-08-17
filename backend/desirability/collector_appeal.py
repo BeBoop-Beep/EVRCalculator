@@ -1056,6 +1056,10 @@ def collector_appeal_v3_public_identity() -> Dict[str, Any]:
 
 COLLECTOR_APPEAL_V4_VERSION = "collector_appeal_v4_h_only_d_baseline_up4_down2"
 COLLECTOR_APPEAL_V4_FORMULA_VERSION = "collector_appeal_h_only_centred_asymmetric_modifier_v1"
+# V5 deliberately reuses V4's arithmetic.  Its identity moves because D now
+# comes from contextual Universal Set Desirability V4 rather than roster V3.
+COLLECTOR_APPEAL_V5_VERSION = "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2"
+COLLECTOR_APPEAL_V5_FORMULA_VERSION = COLLECTOR_APPEAL_V4_FORMULA_VERSION
 
 # Authoritative constants. Nothing in the calculation, persistence, publication,
 # audit or test path is permitted to restate these literals, and nothing in the
