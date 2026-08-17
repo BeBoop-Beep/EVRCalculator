@@ -7,10 +7,12 @@ Given two sealed-product scores, may they be placed on the same ranking?
 Exactly one answer is currently validated:
 
     booster_box       vs booster_box        ALLOWED
+    half_booster_box  vs half_booster_box   ALLOWED
     booster_bundle    vs booster_bundle     ALLOWED
     sleeved_booster_pack vs sleeved_booster_pack  ALLOWED
 
     booster_box vs booster_bundle           NOT VALIDATED -> NOT ALLOWED
+    booster_box vs half_booster_box          NOT VALIDATED -> NOT ALLOWED
     booster_box vs sleeved_booster_pack     NOT VALIDATED -> NOT ALLOWED
     booster_bundle vs sleeved_booster_pack  NOT VALIDATED -> NOT ALLOWED
     one all-products leaderboard            NOT VALIDATED -> NOT ALLOWED

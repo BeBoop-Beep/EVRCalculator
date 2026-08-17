@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
-CLASSIFICATION_VERSION = "sealed-product-classification-v1"
+CLASSIFICATION_VERSION = "sealed-product-classification-v2"
 OVERVIEW_FAMILIES = frozenset(
     {
         "booster_box",
+        "half_booster_box",
         "enhanced_booster_box",
         "elite_trainer_box",
         "pokemon_center_elite_trainer_box",
@@ -20,6 +21,7 @@ OVERVIEW_FAMILIES = frozenset(
 
 FAMILY_LABELS = {
     "booster_box": "Booster Box",
+    "half_booster_box": "Half Booster Box",
     "enhanced_booster_box": "Enhanced Booster Box",
     "elite_trainer_box": "Elite Trainer Box",
     "pokemon_center_elite_trainer_box": "Pokémon Center Elite Trainer Box",
@@ -65,6 +67,8 @@ def classify_sealed_product(name: Any) -> Dict[str, Any]:
         family = "elite_trainer_box"
     elif "enhanced booster box" in text:
         family = "enhanced_booster_box"
+    elif "half booster box" in text:
+        family = "half_booster_box"
     elif "booster box" in text:
         family = "booster_box"
     elif "build & battle stadium" in text or "build and battle stadium" in text:

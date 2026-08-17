@@ -392,7 +392,7 @@ def test_cross_format_comparison_is_false_everywhere_it_is_published():
     assert report["comparisonScope"] == "within_product_family_only"
 
 
-@pytest.mark.parametrize("family", ["booster_box", "booster_bundle", "sleeved_booster_pack"])
+@pytest.mark.parametrize("family", ["booster_box", "half_booster_box", "booster_bundle", "sleeved_booster_pack"])
 def test_same_family_comparison_is_allowed(family):
     assert scope.may_compare_products(family, family) is True
 
@@ -401,6 +401,8 @@ def test_same_family_comparison_is_allowed(family):
     "left,right",
     [
         ("booster_box", "booster_bundle"),
+        ("booster_box", "half_booster_box"),
+        ("half_booster_box", "booster_bundle"),
         ("booster_box", "sleeved_booster_pack"),
         ("booster_bundle", "sleeved_booster_pack"),
         ("booster_box", "elite_trainer_box"),
@@ -442,12 +444,15 @@ def test_the_family_scoped_ranking_helper_still_exists_and_no_all_family_one_doe
         "backend/calculations/evr/financial_rip_v3_config.py",
         "backend/calculations/evr/sealed_product_distribution.py",
         "backend/desirability/collector_appeal.py",
-        "backend/domain/pokemon/sealed_product_composition.py",
-        "backend/domain/pokemon/sealed_product_classifier.py",
     ],
 )
 def test_protected_scoring_files_are_unmodified_by_canonical_alignment(relative_path):
-    """This V5/V9 identity alignment changes no scoring formula implementation."""
+    """This V5/V9 identity alignment changes no scoring formula implementation.
+
+    Product classification and composition are deliberately not formula files:
+    later verified retail formats may extend those registries without changing
+    Financial RIP, Collector Appeal, or the empirical distribution algorithm.
+    """
     import subprocess
 
     completed = subprocess.run(

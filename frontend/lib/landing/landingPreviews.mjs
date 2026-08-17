@@ -202,6 +202,7 @@ export function selectChaseCards(payload, limit = 3) {
  */
 const SEALED_FAMILY_LABELS = Object.freeze({
   booster_box: "Booster Box",
+  half_booster_box: "Half Booster Box",
   booster_bundle: "Booster Bundle",
   booster_pack: "Booster Pack",
   sleeved_booster_pack: "Sleeved Booster Pack",
@@ -212,6 +213,7 @@ const SEALED_FAMILY_LABELS = Object.freeze({
 /** Most recognizable first — a box says "sealed Pokémon" faster than a pack. */
 const SEALED_FAMILY_ORDER = [
   "booster_box",
+  "half_booster_box",
   "elite_trainer_box",
   "pokemon_center_elite_trainer_box",
   "booster_bundle",

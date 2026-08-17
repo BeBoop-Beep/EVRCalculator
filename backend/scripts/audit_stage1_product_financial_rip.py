@@ -45,7 +45,7 @@ from backend.domain.pokemon.sealed_product_composition import (
 
 logger = logging.getLogger(__name__)
 
-FAMILY_ORDER = ("sleeved_booster_pack", "booster_bundle", "booster_box")
+FAMILY_ORDER = ("sleeved_booster_pack", "booster_bundle", "half_booster_box", "booster_box")
 
 #: Raw V3 inputs, in the order a reader thinks about them.
 RAW_METRICS = [

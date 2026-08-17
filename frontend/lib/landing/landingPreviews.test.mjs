@@ -214,15 +214,17 @@ test("sealed products take the most recognizable family first, priced, one per f
         { sealedProductId: "3", productFamily: "booster_box", currentPrice: 313.53 },
         { sealedProductId: "4", productFamily: "elite_trainer_box", currentPrice: 130.83 },
         { sealedProductId: "5", productFamily: "booster_box" },
+        { sealedProductId: "6", productFamily: "half_booster_box", currentPrice: 189.81 },
       ],
     },
-    2
+    3
   );
 
   assert.deepEqual(
     products.map((p) => [p.label, p.price]),
     [
       ["Booster Box", 313.53],
+      ["Half Booster Box", 189.81],
       ["Elite Trainer Box", 130.83],
     ],
     "box before pack, highest price within a family, and an unpriced row never appears"

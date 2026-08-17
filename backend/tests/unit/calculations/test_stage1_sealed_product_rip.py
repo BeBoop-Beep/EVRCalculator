@@ -45,6 +45,7 @@ def _pack_vector(n: int = RUNS) -> np.ndarray:
     [
         ("sleeved_booster_pack", 1),
         ("booster_bundle", 6),
+        ("half_booster_box", 18),
         ("booster_box", 36),
     ],
 )
@@ -79,10 +80,11 @@ def test_out_of_scope_families_are_unsupported(family):
     assert resolve_stage1_composition(family) is None
 
 
-def test_supported_family_set_is_exactly_three():
+def test_supported_family_set_is_exactly_four():
     assert SUPPORTED_STAGE1_FAMILIES == {
         "sleeved_booster_pack",
         "booster_bundle",
+        "half_booster_box",
         "booster_box",
     }
 
@@ -140,12 +142,13 @@ def test_bundle_and_box_means_track_linear_scaling_of_the_pack_mean():
         assert float(y.mean()) == pytest.approx(count * pack_mean, abs=tolerance)
 
 
-def test_bundle_is_the_first_six_draws_of_the_box_common_random_numbers():
+def test_bundle_and_half_box_are_leading_draws_of_the_box_common_random_numbers():
     x = _pack_vector(3_000)
-    built = build_stage1_product_distributions(x, pack_counts=[6, 36], canonical_set_key="setA")
+    built = build_stage1_product_distributions(x, pack_counts=[6, 18, 36], canonical_set_key="setA")
     # The 36-pack sum must always be at least the 6-pack sum drawn alongside it,
     # which is only true when they share the same leading draws (values > 0).
     assert bool(np.all(built["distributions"][36] >= built["distributions"][6] - 1e-9))
+    assert bool(np.all(built["distributions"][36] >= built["distributions"][18] - 1e-9))
 
 
 def test_generation_is_chunked_and_never_allocates_the_full_n_by_36_matrix(monkeypatch):
@@ -240,7 +243,6 @@ def test_multiple_skus_in_one_family_remain_separate_candidates():
 @pytest.mark.parametrize(
     "name,family,reason",
     [
-        ("Surging Sparks Half Booster Box", "booster_box", "non_default_pack_count_variant"),
         ("Set Quarter Booster Box", "booster_box", "non_default_pack_count_variant"),
         (
             "Prismatic Evolutions Booster Bundle + Surprise Box Bundle (Sam's Club)",
@@ -271,6 +273,16 @@ def test_ordinary_stage1_skus_are_not_refused_by_the_integrity_guard(name, famil
         [{"sealedProductId": "51", "name": name, "productFamily": family, "currentPrice": 30.0}]
     )
     assert len(service.select_stage1_products(payload)["candidates"]) == 1
+
+
+def test_half_box_uses_its_own_price_and_18_pack_composition_despite_stale_snapshot_family():
+    payload = _snapshot(
+        [{"sealedProductId": "half", "name": "Surging Sparks Half Booster Box", "productFamily": "booster_box", "currentPrice": 189.81}]
+    )
+    candidate = service.select_stage1_products(payload)["candidates"][0]
+    assert candidate["product_family"] == "half_booster_box"
+    assert candidate["composition"].pack_count == 18
+    assert candidate["product_market_cost"] == 189.81
 
 
 def test_family_falls_back_to_the_canonical_classifier_when_absent():

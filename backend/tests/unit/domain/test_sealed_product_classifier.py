@@ -15,6 +15,8 @@ def test_classifier_precedence_and_variants():
     assert family("Booster Box Case") == "case"
     assert family("Build & Battle Box Display") == "display"
     assert family("Enhanced Booster Box") == "enhanced_booster_box"
+    assert family("Surging Sparks Half Booster Box") == "half_booster_box"
+    assert family("Surging Sparks Booster Box") == "booster_box"
     assert family("Sleeved Booster Pack") == "sleeved_booster_pack"
     assert family("Booster Pack") == "booster_pack"
 

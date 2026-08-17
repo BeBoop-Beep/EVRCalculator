@@ -17,7 +17,7 @@ price, and record what came back.
 
 WHAT MAKES A PRODUCT SCORABLE
 -----------------------------
-1. Its classified family is one of the three Stage 1 families.
+1. Its classified family is one of the four Stage 1 families.
 2. It exists in the sealed market snapshot as a real ``sealed_product_id``.
 3. It has a finite, strictly positive current market price of its OWN.
 
@@ -122,13 +122,10 @@ def deferred_collector_appeal() -> Dict[str, Any]:
 def _resolve_family(product: Mapping[str, Any]) -> str:
     """The classified family for one snapshot product row.
 
-    The snapshot already carries the canonical classifier's verdict; it is used
-    directly. Only when it is absent does this fall back to calling the SAME
-    canonical classifier on the name. No substring matching happens here.
+    Re-resolve through the canonical classifier so a snapshot produced under an
+    older classification version cannot pin a product to stale family semantics.
+    No local substring matching happens here.
     """
-    family = str(product.get("productFamily") or "").strip()
-    if family:
-        return family
     return str(classify_sealed_product(product.get("name")).get("productFamily"))
 
 

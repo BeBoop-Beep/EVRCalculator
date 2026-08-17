@@ -20,12 +20,13 @@ MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 # now driven by current market price rather than by family.
 FAMILY_PRIORITY = {
     "booster_box": 0,
-    "enhanced_booster_box": 1,
-    "elite_trainer_box": 2,
-    "pokemon_center_elite_trainer_box": 3,
-    "booster_bundle": 4,
-    "booster_pack": 5,
-    "sleeved_booster_pack": 6,
+    "half_booster_box": 1,
+    "enhanced_booster_box": 2,
+    "elite_trainer_box": 3,
+    "pokemon_center_elite_trainer_box": 4,
+    "booster_bundle": 5,
+    "booster_pack": 6,
+    "sleeved_booster_pack": 7,
 }
 
 

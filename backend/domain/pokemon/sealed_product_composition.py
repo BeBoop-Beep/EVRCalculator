@@ -20,7 +20,7 @@ WHAT THIS DELIBERATELY IS NOT
   promos) are UNSUPPORTED here on purpose - returning a pack count for them
   would silently publish a wrong opening model. They belong to Stage 2, which
   extends this module rather than editing the Stage 1 rows.
-* Not a general composition database. Three explicit rows are the whole
+* Not a general composition database. Four explicit rows are the whole
   contract; the seam for Stage 2 is a new resolver entry, not a schema.
 
 Anything outside the exact Stage 1 family set resolves to ``None`` - never to a
@@ -33,7 +33,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
-STAGE1_COMPOSITION_VERSION = "sealed-product-composition-stage1-v1"
+STAGE1_COMPOSITION_VERSION = "sealed-product-composition-stage1-v2"
 
 #: The only source-set mode Stage 1 models: every pack in the product comes from
 #: the same set the pack simulation ran for. Mixed-set products are out of scope.
@@ -69,6 +69,11 @@ _STAGE1_COMPOSITIONS: Dict[str, Stage1ProductComposition] = {
     # STANDARD booster box only. `enhanced_booster_box` is a separate family in
     # the canonical classifier and is intentionally absent from this map.
     "booster_box": Stage1ProductComposition("booster_box", 36),
+    # European half booster boxes are a definitionally uniform retail format:
+    # 18 homogeneous same-set packs and no separately modeled contents. They
+    # remain a distinct family so 18- and 36-pack products are never compared
+    # under one misleading within-family label.
+    "half_booster_box": Stage1ProductComposition("half_booster_box", 18),
 }
 
 SUPPORTED_STAGE1_FAMILIES = frozenset(_STAGE1_COMPOSITIONS)
@@ -97,18 +102,19 @@ def is_stage1_supported_family(product_family: Any) -> bool:
 # QUANTITY, and real catalogue rows exist whose family is right while their pack
 # count is not the Stage 1 default:
 #
-#     "<Set> Half Booster Box"                          -> booster_box,   18 packs
+#     "<Set> Quarter Booster Box"                       -> booster_box, non-default
 #     "<Set> Booster Bundle + Surprise Box (Sam's Club)" -> booster_bundle, 6 packs
 #                                                           PLUS other product
 #
-# Both would otherwise be scored at 36 and 6 packs against a price that buys
+# Both would otherwise be scored at a default pack count against a price that buys
 # something else. Stage 1 has no researched composition for either, so it refuses
 # them rather than publishing a confident wrong number. These are DISQUALIFIERS,
 # not a classifier: they never assign a family and never change one, they only
-# say "this SKU's pack count is not the Stage 1 default". Widening Stage 1 to
-# cover them is Stage 2 work and belongs in real composition rows, not here.
+# say "this SKU's pack count is not the Stage 1 default". Supporting another
+# homogeneous format requires a verified canonical composition; extra modeled
+# components require an exact Stage 2 composition.
 
-COMPOSITION_INTEGRITY_VERSION = "stage1-composition-integrity-v1"
+COMPOSITION_INTEGRITY_VERSION = "stage1-composition-integrity-v2"
 
 REASON_NON_DEFAULT_PACK_COUNT = "non_default_pack_count_variant"
 REASON_COMPOSITE_PRODUCT = "composite_multi_product_sku"
@@ -142,6 +148,10 @@ def stage1_composition_disqualifier(product_name: Any, *, product_family: Any = 
 
     family = str(product_family or "").strip()
     for pattern in _NON_DEFAULT_QUANTITY_PATTERNS:
+        # A canonical half booster box is definitionally the verified 18-pack
+        # family, so "half" is its identity rather than a quantity override.
+        if family == "half_booster_box" and pattern == r"\bhalf\b":
+            continue
         # A sleeved booster pack IS a single pack; "pack" in its own name is its
         # identity, not a quantity qualifier.
         if family == "sleeved_booster_pack" and pattern == r"\b\d+\s*[-\s]?pack\b":
