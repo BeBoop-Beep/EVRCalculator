@@ -1539,17 +1539,17 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     assert "desirability_validation" not in payload
 
 
-def test_canonical_set_page_completeness_rejects_ranked_v8_without_contract():
-    with pytest.raises(RuntimeError, match="publicRipContractV8 is missing"):
+def test_canonical_set_page_completeness_rejects_ranked_v9_without_contract():
+    with pytest.raises(RuntimeError, match="publicRipContractV9 is missing"):
         pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
-            {"overallRipV8": {"rank": 1}}, set_id="set-1"
+            {"overallRipV9": {"rank": 1}}, set_id="set-1"
         )
 
 
 def test_canonical_set_page_completeness_rejects_missing_collector_factor_metadata():
     payload = {
-        "overallRipV8": {"rank": 1},
-        "publicRipContractV8": {
+        "overallRipV9": {"rank": 1},
+        "publicRipContractV9": {
             "collectorAppeal": {
                 "components": {
                     "rosterDesirability": {
@@ -1571,7 +1571,7 @@ def test_canonical_set_page_completeness_rejects_missing_collector_factor_metada
 
 def test_canonical_set_page_completeness_allows_unsupported_historical_set():
     pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
-        {"overallRipV8": {"rank": None}}, set_id="historical-set"
+        {"overallRipV9": {"rank": None}}, set_id="historical-set"
     )
 
 
