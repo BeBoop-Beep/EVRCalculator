@@ -217,16 +217,16 @@ function SelectedProductPanel({ product }) {
     },
     // SUPPORTING ECONOMICS — same visual weight as the row above it, placed
     // after the decision metrics so it never competes with RIP scoring.
-    {
-      label: "Expected Value",
-      value: modeled ? money(entertainment.expectedValue) : NOT_MODELED,
-      helper: "Gross market value of modeled contents",
-      modeled,
-    },
+    //
+    // NO SEPARATE "EXPECTED VALUE" TILE. The backend is explicit that
+    // `modelBreakEvenPrice` IS the product's expected value expressed as a
+    // price, so "Model Break-Even" above already shows it. A second tile would
+    // print the identical number under a second name and invite the reader to
+    // look for a difference that does not exist.
     {
       label: "Entertainment Cost",
       value: modeled ? signedMoney(entertainment.entertainmentCost) : NOT_MODELED,
-      helper: "Price minus expected value of pulls",
+      helper: "Price minus modeled value of pulls",
       help: ENTERTAINMENT_COST_HELP,
       modeled,
     },

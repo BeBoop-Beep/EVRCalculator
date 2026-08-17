@@ -124,7 +124,6 @@ test("a supported product renders the published cost, per-pack figure and gross 
   // The backend's numbers, not a re-derivation of 180 - 105 or 75 / 36.
   assert.ok(text.includes("$75.00"), "entertainment cost is shown");
   assert.ok(text.includes("$2.08"), "per-pack equivalent is shown");
-  assert.ok(text.includes("$105.00"), "expected value is shown");
   assert.ok(text.includes("Entertainment Cost"), "the metric is labelled in plain language");
   assert.ok(text.includes("Entertainment Cost / Pack"));
   // The recovery model is stated, so the reader knows the calculation basis.
@@ -133,6 +132,23 @@ test("a supported product renders the published cost, per-pack figure and gross 
     "gross-market-value limitation is explicit",
   );
   assert.equal(nodesWith(renderer, "data-recovery-model").length, 1);
+});
+
+test("expected value is not printed a second time under its own label", () => {
+  // The backend states that `modelBreakEvenPrice` IS the expected value. The
+  // panel already shows it as "Model Break-Even", so a separate "Expected
+  // Value" tile would repeat one number under two names.
+  const renderer = render([product()]);
+  const labels = nodesWith(renderer, "data-economics-fact").map(
+    (node) => node.props["data-economics-fact"],
+  );
+  assert.ok(labels.includes("Model Break-Even"));
+  assert.ok(!labels.includes("Expected Value"), "one number, one label");
+  assert.deepEqual(
+    labels.slice(-2),
+    ["Entertainment Cost", "Entertainment Cost / Pack"],
+    "supporting economics come last, after the primary decision metrics",
+  );
 });
 
 test("the per-pack figure appears in EVERY product row, so formats compare", () => {
@@ -292,4 +308,68 @@ test("ENTERTAINMENT COST IS BACKEND-OWNED: the frontend never recomputes it", ()
       `${file} must not derive the per-pack equivalent`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// Responsive structure. Asserted against the stylesheet, because the metric's
+// whole purpose is COMPARING several products, and a mobile layout that turns
+// each product into a tall analytics card destroys that at exactly the viewport
+// where scrolling costs the most.
+// ---------------------------------------------------------------------------
+
+const css = fs.readFileSync(
+  path.resolve(directory, "RipDecisionPage.module.css"),
+  "utf8",
+);
+
+/** The `.breakEvenButton` rule inside the mobile media query. */
+function mobileRowRule() {
+  const mobile = css.slice(css.indexOf("@media (max-width:767px)"));
+  const start = mobile.indexOf(".breakEvenButton {");
+  assert.ok(start >= 0, "the row must have a mobile rule");
+  return mobile.slice(start, mobile.indexOf("}", start));
+}
+
+test("the desktop row gains a column rather than a second line", () => {
+  const desktop = css.slice(0, css.indexOf("@media (max-width:767px)"));
+  const rule = desktop.slice(desktop.indexOf(".breakEvenButton {"));
+  const columns = rule.slice(0, rule.indexOf("}")).match(/grid-template-columns:([^;]+);/);
+  assert.ok(columns, "the desktop row is a grid");
+  // label | track | model edge | entertainment cost per pack
+  assert.equal(columns[1].trim().split(/\s+/).length, 4);
+});
+
+test("the mobile row stays two columns and keeps the per-pack figure", () => {
+  const rule = mobileRowRule();
+  const areas = rule.match(/grid-template-areas:([^;]+);/);
+  assert.ok(areas, "the mobile row is laid out by named areas");
+  const named = areas[1].match(/"[^"]+"/g).map((row) => row.replace(/"/g, "").trim().split(/\s+/));
+  assert.ok(
+    named.every((row) => row.length === 2),
+    "a compact two-column arrangement, not one column per statistic",
+  );
+  assert.ok(
+    named.some((row) => row.includes("cost")),
+    "the per-pack figure is present in the mobile row",
+  );
+  // Identity, the model edge and the per-pack cost all survive the breakpoint.
+  for (const area of ["label", "value", "track", "cost"]) {
+    assert.ok(named.some((row) => row.includes(area)), `${area} survives mobile`);
+  }
+  // Three short lines, not a card: the cost shares the identity column rather
+  // than claiming a full-width row of its own.
+  assert.equal(named.length, 3);
+});
+
+test("entertainment cost is styled as supporting, never as a verdict", () => {
+  const rule = css.slice(css.indexOf(".breakEvenEntertainment {"));
+  const declarations = rule.slice(0, rule.indexOf("}"));
+  assert.ok(
+    declarations.includes("var(--text-secondary)"),
+    "secondary colour keeps it below the model edge in the hierarchy",
+  );
+  // No green/red judgement: lower is generally better, but "better" is the
+  // reader's call and the page's only evaluative colour is break-even side.
+  assert.ok(!/#[0-9a-f]{3,6}/i.test(declarations), "no bespoke colour is introduced");
+  assert.ok(!css.includes('.breakEvenEntertainment[data-direction'), "no direction colouring");
 });
