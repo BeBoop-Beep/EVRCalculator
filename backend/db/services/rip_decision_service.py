@@ -290,20 +290,52 @@ def build_sealed_product_decision_contract(
 # Unsupported products
 # ---------------------------------------------------------------------------
 
-#: Local aliases for the two composition-module reason strings used below, so
-#: this module never spells a reason a second way.
+#: Local aliases for the composition-module reason strings used below, so this
+#: module never spells a reason a second way.
 REASON_UNSUPPORTED_FAMILY = "unsupported_product_family"
-REASON_INVALID_PRICE_FALLBACK = "invalid_or_missing_market_price"
+REASON_INVALID_PRICE = "invalid_or_missing_market_price"
+
+#: Owned HERE, because it is a decision-layer condition rather than a
+#: composition one: the SKU's identity, family and price are all fine, and the
+#: only thing missing is a scored simulation result in the canonical run.
+#:
+#: This is deliberately NOT `invalid_or_missing_market_price`. That reason means
+#: what it says - the price is missing or non-positive - and broadening it to
+#: cover "we never simulated this" sends a reader to the price pipeline to look
+#: for a fault that is not there. The half booster boxes are the concrete case:
+#: `half_booster_box` is a supported Stage 1 family with a verified 18-pack
+#: composition and a real market price, and it was still reported as a price
+#: fault purely because that string was the fallthrough.
+REASON_SIMULATION_RESULT_UNAVAILABLE = "simulation_result_unavailable"
+
+#: Retained name for the pre-split alias. It always meant the price reason.
+REASON_INVALID_PRICE_FALLBACK = REASON_INVALID_PRICE
 
 
-def _unsupported_reason(product: Mapping[str, Any], family: str) -> str:
+def _unsupported_reason(
+    product: Mapping[str, Any], family: str, *, market_price: Optional[float] = None
+) -> str:
     """Why this SKU has no modeled opening value.
 
-    The reasons come from the EXISTING closed vocabulary in the composition
-    modules; none is invented here. The order matters: a "Half Booster Box" is
-    a supported family with an unsupported pack count, and reporting it as
-    `unsupported_product_family` would send someone looking for a family we
-    already model.
+    ``market_price`` is the already-validated price (``None`` when missing or
+    non-positive), so this function and the emitted row cannot disagree about
+    whether the price is usable.
+
+    PRECEDENCE, most specific first:
+
+    1. Family we do not model at all      -> `unsupported_product_family`
+    2. Stage 1 family, composition refused -> the composition disqualifier
+       (`non_default_pack_count_variant` / `composite_multi_product_sku`)
+    3. Stage 2 family with no verified composition row -> `unresolved_composition`
+    4. Stage 1 family, composition fine, price missing/invalid
+                                           -> `invalid_or_missing_market_price`
+    5. Everything above satisfied          -> `simulation_result_unavailable`
+
+    Genuine price and composition faults therefore KEEP their existing reasons:
+    the new reason is only reachable once each of them has been ruled out. The
+    order also matters in the other direction - a "Half Booster Box" is a
+    supported family, and reporting it as `unsupported_product_family` would
+    send someone looking for a family we already model.
     """
     if is_stage1_supported_family(family):
         disqualifier = stage1_composition_disqualifier(
@@ -311,7 +343,9 @@ def _unsupported_reason(product: Mapping[str, Any], family: str) -> str:
         )
         if disqualifier is not None:
             return disqualifier
-        return REASON_INVALID_PRICE_FALLBACK
+        if market_price is None:
+            return REASON_INVALID_PRICE
+        return REASON_SIMULATION_RESULT_UNAVAILABLE
     if is_stage2_family(family):
         # Stage 2 eligibility is a verified composition row keyed on
         # sealed_product_id. Absent that, this SKU was never scorable - and
@@ -359,7 +393,8 @@ def build_unsupported_products_contract(
                 "productFamily": family,
                 "marketPrice": price,
                 "entertainmentCost": unsupported_entertainment_cost(
-                    _unsupported_reason(product, family), purchase_price=price
+                    _unsupported_reason(product, family, market_price=price),
+                    purchase_price=price,
                 ),
             }
         )

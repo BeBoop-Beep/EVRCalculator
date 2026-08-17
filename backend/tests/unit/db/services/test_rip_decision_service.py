@@ -844,6 +844,86 @@ def test_unsupported_contract_is_empty_without_a_snapshot():
     assert contract["productCount"] == 0
 
 
+# ---------------------------------------------------------------------------
+# Unsupported reason precedence
+# ---------------------------------------------------------------------------
+# `simulation_result_unavailable` is the LAST resort. Each of these pins one
+# step of the precedence so a future edit cannot let the new reason swallow a
+# genuine price or composition fault.
+
+def _reasons(snapshot, scored=()):
+    contract = build_unsupported_products_contract(snapshot, set(scored))
+    return {p["sealedProductId"]: p["entertainmentCost"]["reason"] for p in contract["products"]}
+
+
+def test_supported_half_booster_box_with_a_price_but_no_score_is_simulation_unavailable():
+    # The production defect: `half_booster_box` is a supported Stage 1 family
+    # with a verified 18-pack composition and a real price. Nothing about its
+    # price or composition is wrong; it simply was not scored.
+    snapshot = {"products": [
+        {"sealedProductId": "prod-half", "name": "Half Booster Box",
+         "productFamily": "half_booster_box", "currentPrice": 79.99},
+    ]}
+    assert _reasons(snapshot) == {"prod-half": "simulation_result_unavailable"}
+
+
+def test_the_half_booster_box_keeps_its_market_price_alongside_the_new_reason():
+    snapshot = {"products": [
+        {"sealedProductId": "prod-half", "name": "Half Booster Box",
+         "productFamily": "half_booster_box", "currentPrice": 79.99},
+    ]}
+    row = build_unsupported_products_contract(snapshot, set())["products"][0]
+    assert row["marketPrice"] == 79.99
+    assert row["entertainmentCost"]["purchasePrice"] == 79.99
+
+
+@pytest.mark.parametrize("price", [None, 0.0, -1.0])
+def test_supported_product_without_a_usable_price_keeps_the_market_price_reason(price):
+    # The new reason must never displace this one: a missing or non-positive
+    # price is a real price fault and still reads as one.
+    snapshot = {"products": [
+        {"sealedProductId": "prod-half", "name": "Half Booster Box",
+         "productFamily": "half_booster_box", "currentPrice": price},
+        {"sealedProductId": "prod-box", "name": "Booster Box",
+         "productFamily": "booster_box", "currentPrice": price},
+    ]}
+    assert _reasons(snapshot) == {
+        "prod-half": "invalid_or_missing_market_price",
+        "prod-box": "invalid_or_missing_market_price",
+    }
+
+
+def test_genuinely_unsupported_family_still_reports_unsupported_product_family():
+    snapshot = {"products": [
+        {"sealedProductId": "prod-blister", "name": "3-Pack Blister",
+         "productFamily": "three_pack_blister", "currentPrice": 14.99},
+    ]}
+    assert _reasons(snapshot) == {"prod-blister": "unsupported_product_family"}
+
+
+def test_stage2_family_without_a_verified_composition_still_reports_unresolved_composition():
+    snapshot = {"products": [
+        {"sealedProductId": "prod-etb", "name": "Elite Trainer Box",
+         "productFamily": "elite_trainer_box", "currentPrice": 49.99},
+    ]}
+    assert _reasons(snapshot) == {"prod-etb": "unresolved_composition"}
+
+
+def test_composition_disqualifiers_outrank_the_new_reason():
+    # Priced, supported family, unscored - and still refused for composition
+    # reasons, because the pack count is not the Stage 1 default.
+    snapshot = {"products": [
+        {"sealedProductId": "prod-quarter", "name": "Quarter Booster Box",
+         "productFamily": "booster_box", "currentPrice": 39.99},
+        {"sealedProductId": "prod-combo", "name": "Booster Bundle + Surprise Box",
+         "productFamily": "booster_bundle", "currentPrice": 34.99},
+    ]}
+    assert _reasons(snapshot) == {
+        "prod-quarter": "non_default_pack_count_variant",
+        "prod-combo": "composite_multi_product_sku",
+    }
+
+
 def test_decision_contract_stays_json_safe_with_the_new_blocks():
     contract = build_sealed_product_decision_contract([_scored_row()])
     _json.dumps(contract, allow_nan=False)
