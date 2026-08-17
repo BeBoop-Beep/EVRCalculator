@@ -701,3 +701,158 @@ def test_a_non_finite_chase_price_is_not_publishable():
 
     assert chase["cardVariantId"] == "variant-ok"
     assert chase["currentMarketPrice"] == 50.0
+
+
+# ---------------------------------------------------------------------------
+# Entertainment Cost (additive to the existing product decision contract)
+# ---------------------------------------------------------------------------
+
+import json as _json
+
+from backend.db.services.rip_decision_service import (
+    build_sealed_product_decision_contract,
+    build_unsupported_products_contract,
+)
+
+
+def _scored_row(**overrides):
+    row = {
+        "calculation_run_id": "run-1",
+        "sealed_product_id": "prod-box",
+        "product_name": "Booster Box",
+        "product_family": "booster_box",
+        "pack_count": 36,
+        "product_market_cost": 149.99,
+        "expected_value": 107.89,
+        "median_value": 95.0,
+        "chance_to_recover_cost": 0.21,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_each_product_row_carries_an_entertainment_cost_block():
+    contract = build_sealed_product_decision_contract([_scored_row()])
+    block = contract["products"][0]["entertainmentCost"]
+    assert block["entertainmentCost"] == pytest.approx(42.10)
+    assert block["entertainmentCostPerPackEquivalent"] == pytest.approx(42.10 / 36)
+    assert block["recoveryModel"] == "gross_market_value"
+
+
+def test_entertainment_cost_marks_stage2_products_as_including_the_promo():
+    contract = build_sealed_product_decision_contract(
+        [_scored_row(guaranteed_component_market_value=5.0, random_pack_count=9)]
+    )
+    assert contract["products"][0]["entertainmentCost"]["guaranteedComponentIncluded"] is True
+
+
+def test_entertainment_cost_is_unavailable_without_a_price():
+    contract = build_sealed_product_decision_contract(
+        [_scored_row(product_market_cost=None)]
+    )
+    block = contract["products"][0]["entertainmentCost"]
+    assert block["available"] is False
+    assert block["entertainmentCost"] is None
+
+
+def test_negative_entertainment_cost_reaches_the_contract_unclamped():
+    contract = build_sealed_product_decision_contract(
+        [_scored_row(product_market_cost=100.0, expected_value=130.0)]
+    )
+    assert contract["products"][0]["entertainmentCost"]["entertainmentCost"] == pytest.approx(-30.0)
+
+
+# ---------------------------------------------------------------------------
+# Entertainment Cost: Stage 2 fail-closed on a half-populated row
+# ---------------------------------------------------------------------------
+
+def test_entertainment_cost_is_unavailable_when_only_promo_value_is_present():
+    contract = build_sealed_product_decision_contract(
+        [_scored_row(
+            product_family="elite_trainer_box",
+            pack_count=9,
+            product_market_cost=49.99,
+            expected_value=32.0,
+            guaranteed_component_market_value=5.0,
+            random_pack_count=None,
+        )]
+    )
+    block = contract["products"][0]["entertainmentCost"]
+    assert block["available"] is False
+    assert block["entertainmentCost"] is None
+    assert block["reason"] == "unresolved_composition"
+
+
+def test_entertainment_cost_is_unavailable_when_only_random_pack_count_is_present():
+    contract = build_sealed_product_decision_contract(
+        [_scored_row(
+            product_family="elite_trainer_box",
+            pack_count=9,
+            product_market_cost=49.99,
+            expected_value=32.0,
+            guaranteed_component_market_value=None,
+            random_pack_count=9,
+        )]
+    )
+    block = contract["products"][0]["entertainmentCost"]
+    assert block["available"] is False
+    assert block["entertainmentCost"] is None
+    assert block["reason"] == "guaranteed_component_market_price_unavailable"
+
+
+# ---------------------------------------------------------------------------
+# Unsupported products
+# ---------------------------------------------------------------------------
+
+_SNAPSHOT = {
+    "products": [
+        {"sealedProductId": "prod-box", "name": "Booster Box",
+         "productFamily": "booster_box", "currentPrice": 149.99},
+        {"sealedProductId": "prod-blister", "name": "3-Pack Blister",
+         "productFamily": "three_pack_blister", "currentPrice": 14.99},
+        {"sealedProductId": "prod-halfbox", "name": "Half Booster Box",
+         "productFamily": "booster_box", "currentPrice": 79.99},
+    ]
+}
+
+
+def test_unmodeled_families_are_published_explicitly_not_omitted():
+    contract = build_unsupported_products_contract(_SNAPSHOT, {"prod-box"})
+    ids = {p["sealedProductId"] for p in contract["products"]}
+    assert "prod-blister" in ids
+    assert "prod-box" not in ids
+
+
+def test_unsupported_products_carry_a_machine_readable_reason():
+    contract = build_unsupported_products_contract(_SNAPSHOT, {"prod-box"})
+    reasons = {p["sealedProductId"]: p["entertainmentCost"]["reason"] for p in contract["products"]}
+    assert reasons["prod-blister"] == "unsupported_product_family"
+    # Right family, wrong pack count: the more specific existing reason wins.
+    assert reasons["prod-halfbox"] == "non_default_pack_count_variant"
+
+
+def test_unsupported_products_keep_their_market_price():
+    contract = build_unsupported_products_contract(_SNAPSHOT, {"prod-box"})
+    blister = next(p for p in contract["products"] if p["sealedProductId"] == "prod-blister")
+    assert blister["marketPrice"] == 14.99
+    assert blister["entertainmentCost"]["entertainmentCost"] is None
+
+
+def test_unsupported_contract_is_empty_without_a_snapshot():
+    contract = build_unsupported_products_contract(None, set())
+    assert contract["products"] == []
+    assert contract["productCount"] == 0
+
+
+def test_decision_contract_stays_json_safe_with_the_new_blocks():
+    contract = build_sealed_product_decision_contract([_scored_row()])
+    _json.dumps(contract, allow_nan=False)
+    _json.dumps(build_unsupported_products_contract(_SNAPSHOT, {"prod-box"}), allow_nan=False)
+
+
+def test_the_large_chase_table_is_not_in_the_decision_contract():
+    # Chase economics lives in its own snapshot precisely so the critical set
+    # page payload does not grow by 60-90 KB per set.
+    contract = build_sealed_product_decision_contract([_scored_row()])
+    assert "chaseEconomics" not in contract
+    assert "chaseEconomics" not in contract["products"][0]

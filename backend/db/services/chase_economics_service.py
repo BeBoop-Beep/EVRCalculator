@@ -33,8 +33,12 @@ WHAT THIS DELIBERATELY IS NOT
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+from backend.domain.pokemon.sealed_product_stage2_composition import (
+    REASON_MISSING_PROMO_PRICE,
+    REASON_NO_VERIFIED_COMPOSITION,
+)
 from backend.domain.pokemon.target_chase_economics import (
     TARGET_CHASE_CONTRACT_VERSION,
     PackGroup,
@@ -136,11 +140,12 @@ def select_chase_cards(
 
 def pack_groups_for_product(
     product_row: Mapping[str, Any], *, target_probability_per_pack: Any
-) -> List[PackGroup]:
+) -> Tuple[List[PackGroup], Optional[str]]:
     """How one scored SKU decomposes into random-pack groups for the chase.
 
-    Every product modeled today produces exactly ONE group; the list shape
-    exists so a future heterogeneous product needs no contract change.
+    Returns ``(pack_groups, reason)``. Every product modeled today produces
+    exactly ONE group; the list shape exists so a future heterogeneous product
+    needs no contract change.
 
     STAGE 2 EXCLUDES THE GUARANTEED COMPONENT from the per-pack value. The
     stored ``expected_value`` already contains the promo at its exact market
@@ -148,14 +153,25 @@ def pack_groups_for_product(
     across random packs and overstate what each pack contributes to a chase.
     The promo is handed to ``target_chase_for_product`` separately, where it is
     added once per product opened.
+
+    FAIL CLOSED ON A HALF-POPULATED STAGE 2 ROW. The Stage 2 path is taken only
+    when BOTH ``guaranteed_component_market_value`` and ``random_pack_count``
+    are present and valid; when NEITHER is present this is a genuine Stage 1
+    product and the Stage 1 path applies unchanged. But a row carrying EXACTLY
+    ONE of the two is not a genuine Stage 1 product - it is an incompletely
+    populated Stage 2 row - and falling through to the Stage 1 path would
+    divide the full ``expected_value`` (promo included) across the random
+    packs, smearing a certain component across chance and producing a
+    confident wrong number with no signal. Such a row is refused outright, with
+    the reason drawn from the existing Stage 2 vocabulary.
     """
     p = _positive(target_probability_per_pack)
     if p is None:
-        return []
+        return [], None
 
     expected_value = _optional_float(product_row.get("expected_value"))
     if expected_value is None:
-        return []
+        return [], None
 
     promo_value = _positive(product_row.get("guaranteed_component_market_value"))
     random_pack_count = _positive(product_row.get("random_pack_count"))
@@ -163,28 +179,40 @@ def pack_groups_for_product(
     if promo_value is not None and random_pack_count is not None:
         pack_count = int(random_pack_count)
         random_value = expected_value - promo_value
-    else:
+    elif promo_value is None and random_pack_count is None:
         total_pack_count = _positive(product_row.get("pack_count"))
         if total_pack_count is None:
-            return []
+            return [], None
         pack_count = int(total_pack_count)
         random_value = expected_value
+    elif promo_value is None:
+        # random_pack_count present, but the promo's market value is missing or
+        # invalid: the certain component cannot be priced or excluded.
+        return [], REASON_MISSING_PROMO_PRICE
+    else:
+        # promo value present, but random_pack_count is missing or invalid: the
+        # composition needed to split random packs from the guaranteed
+        # component was never resolved.
+        return [], REASON_NO_VERIFIED_COMPOSITION
 
     if pack_count <= 0:
-        return []
+        return [], None
 
-    return [
-        PackGroup(
-            pack_count=pack_count,
-            target_probability_per_pack=p,
-            # Today's Pokemon model puts a given card in at most one slot per
-            # pack, so copies equal probability. The pure calculator does not
-            # assume this; the equality is asserted HERE, where the model that
-            # justifies it lives.
-            expected_target_copies_per_pack=p,
-            expected_pack_value=random_value / pack_count,
-        )
-    ]
+    return (
+        [
+            PackGroup(
+                pack_count=pack_count,
+                target_probability_per_pack=p,
+                # Today's Pokemon model puts a given card in at most one slot per
+                # pack, so copies equal probability. The pure calculator does not
+                # assume this; the equality is asserted HERE, where the model that
+                # justifies it lives.
+                expected_target_copies_per_pack=p,
+                expected_pack_value=random_value / pack_count,
+            )
+        ],
+        None,
+    )
 
 
 def _card_block(
@@ -199,7 +227,9 @@ def _card_block(
 
     products: List[Dict[str, Any]] = []
     for row in product_rows:
-        groups = pack_groups_for_product(row, target_probability_per_pack=probability)
+        groups, _stage2_reason = pack_groups_for_product(
+            row, target_probability_per_pack=probability
+        )
         block = target_chase_for_product(
             product_price=row.get("product_market_cost"),
             pack_groups=groups,

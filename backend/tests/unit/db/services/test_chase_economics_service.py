@@ -121,7 +121,8 @@ def test_missing_price_used_leaves_the_ev_basis_none_rather_than_borrowing_curre
 # ---------------------------------------------------------------------------
 
 def test_stage1_pack_group_uses_expected_value_over_pack_count():
-    groups = pack_groups_for_product(_stage1_product(), target_probability_per_pack=0.002)
+    groups, reason = pack_groups_for_product(_stage1_product(), target_probability_per_pack=0.002)
+    assert reason is None
     assert len(groups) == 1
     assert groups[0].pack_count == 36
     assert groups[0].expected_pack_value == pytest.approx(107.89 / 36)
@@ -129,20 +130,76 @@ def test_stage1_pack_group_uses_expected_value_over_pack_count():
 
 def test_stage2_pack_group_excludes_the_guaranteed_component():
     # 32.0 total minus a 5.0 promo, over 9 random packs.
-    groups = pack_groups_for_product(_stage2_product(), target_probability_per_pack=0.002)
+    groups, reason = pack_groups_for_product(_stage2_product(), target_probability_per_pack=0.002)
+    assert reason is None
     assert groups[0].pack_count == 9
     assert groups[0].expected_pack_value == pytest.approx((32.0 - 5.0) / 9)
 
 
 def test_pack_group_copies_default_to_the_probability():
     # Today's Pokemon model: at most one copy of a given card per pack.
-    groups = pack_groups_for_product(_stage1_product(), target_probability_per_pack=0.002)
+    groups, reason = pack_groups_for_product(_stage1_product(), target_probability_per_pack=0.002)
+    assert reason is None
     assert groups[0].expected_target_copies_per_pack == pytest.approx(0.002)
 
 
 def test_unusable_product_row_yields_no_groups():
     broken = _stage1_product(ev=None)
-    assert pack_groups_for_product(broken, target_probability_per_pack=0.002) == []
+    groups, reason = pack_groups_for_product(broken, target_probability_per_pack=0.002)
+    assert groups == []
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 fail-closed: exactly one of the two Stage 2 inputs is present
+# ---------------------------------------------------------------------------
+
+def test_promo_value_without_random_pack_count_is_unavailable_not_stage1():
+    row = {
+        "sealed_product_id": "p", "product_family": "elite_trainer_box",
+        "pack_count": 9, "product_market_cost": 49.99, "expected_value": 32.0,
+        "random_pack_count": None,              # missing
+        "guaranteed_component_market_value": 5.0,
+    }
+    groups, reason = pack_groups_for_product(row, target_probability_per_pack=0.002)
+    assert groups == []
+    assert reason == "unresolved_composition"
+
+
+def test_random_pack_count_without_promo_value_is_unavailable_not_stage1():
+    row = {
+        "sealed_product_id": "p", "product_family": "elite_trainer_box",
+        "pack_count": 9, "product_market_cost": 49.99, "expected_value": 32.0,
+        "random_pack_count": 9,
+        "guaranteed_component_market_value": None,   # missing
+    }
+    groups, reason = pack_groups_for_product(row, target_probability_per_pack=0.002)
+    assert groups == []
+    assert reason == "guaranteed_component_market_price_unavailable"
+
+
+def test_genuine_stage1_product_still_uses_the_stage1_path():
+    # Neither field present is NOT a mixed row - it is an ordinary booster box.
+    row = {
+        "sealed_product_id": "p", "product_family": "booster_box",
+        "pack_count": 36, "product_market_cost": 149.99, "expected_value": 107.89,
+        "random_pack_count": None, "guaranteed_component_market_value": None,
+    }
+    groups, reason = pack_groups_for_product(row, target_probability_per_pack=0.002)
+    assert reason is None
+    assert len(groups) == 1
+    assert groups[0].expected_pack_value == pytest.approx(107.89 / 36)
+
+
+def test_mixed_stage2_row_never_smears_the_promo_across_packs():
+    # The specific wrong answer this rule exists to prevent: 32.0/9 = 3.556,
+    # which silently includes the promo. Unavailable is the correct answer.
+    row = {
+        "sealed_product_id": "p", "product_family": "elite_trainer_box",
+        "pack_count": 9, "product_market_cost": 49.99, "expected_value": 32.0,
+        "random_pack_count": 9, "guaranteed_component_market_value": None,
+    }
+    groups, _ = pack_groups_for_product(row, target_probability_per_pack=0.002)
+    assert groups == []
 
 
 # ---------------------------------------------------------------------------
@@ -221,11 +278,12 @@ def test_eligible_card_count_reports_the_full_population_not_the_cap():
 def test_the_publication_cap_does_not_restrict_the_calculator():
     # A card ranked far outside the published 25 computes identically through
     # the pure function. The cap is policy, not a property of the math.
+    groups, _ = pack_groups_for_product(
+        _stage1_product(), target_probability_per_pack=0.0001
+    )
     block = target_chase_for_product(
         product_price=149.99,
-        pack_groups=pack_groups_for_product(
-            _stage1_product(), target_probability_per_pack=0.0001
-        ),
+        pack_groups=groups,
         target_value_used_in_ev=1.5,
         current_target_market_price=1.75,
     )

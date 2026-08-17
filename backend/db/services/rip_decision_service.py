@@ -50,12 +50,26 @@ from backend.db.repositories.sealed_product_results_repository import (
     get_sealed_product_results_for_run,
 )
 from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.domain.pokemon.entertainment_cost import (
+    entertainment_cost_contract,
+    unsupported_entertainment_cost,
+)
 from backend.domain.pokemon.rip_decision_metrics import (
     exact_card_probability_contract,
     product_decision_metrics,
 )
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
+)
+from backend.domain.pokemon.sealed_product_composition import (
+    is_stage1_supported_family,
+    stage1_composition_disqualifier,
+)
+from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
+from backend.domain.pokemon.sealed_product_stage2_composition import (
+    REASON_MISSING_PROMO_PRICE,
+    REASON_NO_VERIFIED_COMPOSITION,
+    is_stage2_family,
 )
 
 logger = logging.getLogger(__name__)
@@ -164,6 +178,33 @@ def _product_composition(row: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _stage2_mixed_row_reason(row: Mapping[str, Any]) -> Optional[str]:
+    """Why a row is a half-populated Stage 2 row, or ``None`` if it is not one.
+
+    The Stage 2 path needs BOTH ``guaranteed_component_market_value`` and
+    ``random_pack_count``; a genuine Stage 1 product carries NEITHER. A row
+    carrying EXACTLY ONE of the two is neither: it is an incompletely
+    populated Stage 2 row, and computing Entertainment Cost from its
+    ``expected_value`` (which may or may not already include the promo) would
+    publish a confident number on a mixed basis. Refused outright rather than
+    guessed at, with the reason drawn from the existing Stage 2 vocabulary -
+    the same rule ``chase_economics_service.pack_groups_for_product`` applies.
+    """
+    promo_valid = _optional_float(row.get("guaranteed_component_market_value"))
+    promo_valid = promo_valid is not None and promo_valid > 0.0
+    packs_valid = _optional_int(row.get("random_pack_count"))
+    packs_valid = packs_valid is not None and packs_valid > 0
+
+    if promo_valid == packs_valid:
+        # Both present-and-valid, or both absent/invalid: not a mixed row.
+        return None
+    if packs_valid:
+        # random_pack_count present, promo missing/invalid.
+        return REASON_MISSING_PROMO_PRICE
+    # promo present, random_pack_count missing/invalid.
+    return REASON_NO_VERIFIED_COMPOSITION
+
+
 def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     metrics = product_decision_metrics(
         expected_value=row.get("expected_value"),
@@ -172,6 +213,25 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
     market_price = _optional_float(row.get("product_market_cost"))
     if market_price is not None and market_price <= 0.0:
         market_price = None
+
+    # Entertainment Cost is derived here rather than persisted, for the same
+    # reason the ratio metrics above are: it is arithmetic on two authoritative
+    # columns, and deriving it at publication time makes drift impossible.
+    stage2_mixed_reason = _stage2_mixed_row_reason(row)
+    if stage2_mixed_reason is not None:
+        entertainment = unsupported_entertainment_cost(
+            stage2_mixed_reason, purchase_price=row.get("product_market_cost")
+        )
+    else:
+        entertainment = entertainment_cost_contract(
+            purchase_price=row.get("product_market_cost"),
+            expected_value=row.get("expected_value"),
+            pack_count=row.get("pack_count"),
+            # A Stage 2 row's stored expected_value already contains the promo at
+            # its exact market value; the flag tells a reader that, it does not
+            # change the arithmetic.
+            guaranteed_component_included=row.get("guaranteed_component_market_value") is not None,
+        )
 
     return {
         "sealedProductId": _optional_str(row.get("sealed_product_id")),
@@ -190,6 +250,7 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         "priceSource": _optional_str(row.get("price_source")),
         "composition": _product_composition(row),
         "availability": _product_availability(row, metrics),
+        "entertainmentCost": entertainment,
     }
 
 
@@ -222,6 +283,91 @@ def build_sealed_product_decision_contract(
         "productCount": len(product_rows),
         "products": [_product_decision_row(row) for row in product_rows],
         **sealed_product_comparison_scope_contract(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Unsupported products
+# ---------------------------------------------------------------------------
+
+#: Local aliases for the two composition-module reason strings used below, so
+#: this module never spells a reason a second way.
+REASON_UNSUPPORTED_FAMILY = "unsupported_product_family"
+REASON_INVALID_PRICE_FALLBACK = "invalid_or_missing_market_price"
+
+
+def _unsupported_reason(product: Mapping[str, Any], family: str) -> str:
+    """Why this SKU has no modeled opening value.
+
+    The reasons come from the EXISTING closed vocabulary in the composition
+    modules; none is invented here. The order matters: a "Half Booster Box" is
+    a supported family with an unsupported pack count, and reporting it as
+    `unsupported_product_family` would send someone looking for a family we
+    already model.
+    """
+    if is_stage1_supported_family(family):
+        disqualifier = stage1_composition_disqualifier(
+            product.get("name"), product_family=family
+        )
+        if disqualifier is not None:
+            return disqualifier
+        return REASON_INVALID_PRICE_FALLBACK
+    if is_stage2_family(family):
+        # Stage 2 eligibility is a verified composition row keyed on
+        # sealed_product_id. Absent that, this SKU was never scorable - and
+        # finding the missing composition is deliberately NOT this layer's job.
+        return REASON_NO_VERIFIED_COMPOSITION
+    return REASON_UNSUPPORTED_FAMILY
+
+
+def build_unsupported_products_contract(
+    snapshot_payload: Optional[Mapping[str, Any]],
+    scored_product_ids: Any,
+) -> Dict[str, Any]:
+    """Every sealed SKU in the market snapshot that carries NO modeled value.
+
+    Published rather than omitted. A blister that simply vanishes from the
+    table is indistinguishable from a blister that does not exist, and a reader
+    comparing "what are my options for this set" needs to see that the format
+    exists and why we cannot price its opening.
+
+    This function does NOT research compositions, classify promos or widen
+    coverage. It reports the current state of the modeled/unmodeled boundary.
+    """
+    scored = {str(pid) for pid in (scored_product_ids or set())}
+    products = (snapshot_payload or {}).get("products") or []
+
+    rows: List[Dict[str, Any]] = []
+    for product in products:
+        if not isinstance(product, Mapping):
+            continue
+        product_id = _optional_str(product.get("sealedProductId"))
+        if product_id is None or product_id in scored:
+            continue
+
+        family = _optional_str(product.get("productFamily")) or str(
+            classify_sealed_product(product.get("name")).get("productFamily")
+        )
+        price = _optional_float(product.get("currentPrice"))
+        if price is not None and price <= 0.0:
+            price = None
+
+        rows.append(
+            {
+                "sealedProductId": product_id,
+                "productName": _optional_str(product.get("name")),
+                "productFamily": family,
+                "marketPrice": price,
+                "entertainmentCost": unsupported_entertainment_cost(
+                    _unsupported_reason(product, family), purchase_price=price
+                ),
+            }
+        )
+
+    return {
+        "contractVersion": RIP_DECISION_CONTRACT_VERSION,
+        "productCount": len(rows),
+        "products": rows,
     }
 
 
@@ -468,7 +614,7 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
 # ---------------------------------------------------------------------------
 
 def build_rip_decision_contract(
-    *, set_id: Any, run_id: Any, client: Any
+    *, set_id: Any, run_id: Any, client: Any, sealed_snapshot_fn: Any = None
 ) -> Dict[str, Any]:
     """Both decision sections for one set, from ONE run, plus the policy.
 
@@ -481,6 +627,10 @@ def build_rip_decision_contract(
     would publish real, correctly-provenanced economics from a run the rest of
     the page is not describing - which is worse than publishing nothing,
     because it looks right.
+
+    ``sealed_snapshot_fn`` is an injection seam for tests (``target_set_id ->
+    snapshot payload``); production callers leave it ``None`` and get the real
+    market snapshot reader.
     """
     resolved_run_id = _optional_str(run_id)
     if resolved_run_id is None:
@@ -491,20 +641,46 @@ def build_rip_decision_contract(
             "sealedProducts": build_sealed_product_decision_contract(
                 [], run_status=RUN_STATUS_NO_CURRENT_RUN
             ),
+            "unsupportedProducts": build_unsupported_products_contract(None, set()),
             "topChase": None,
             **sealed_product_comparison_scope_contract(),
         }
+
+    product_rows = _load_current_run_product_rows(
+        run_id=resolved_run_id, set_id=set_id, client=client
+    )
+    scored_ids = {
+        _optional_str(row.get("sealed_product_id"))
+        for row in product_rows
+        if _optional_str(row.get("sealed_product_id")) is not None
+    }
+
+    if sealed_snapshot_fn is None:
+        from backend.db.services.pokemon_set_sealed_market_snapshot_service import (
+            read_snapshot,
+        )
+
+        def sealed_snapshot_fn(target_set_id):  # type: ignore[misc]
+            return read_snapshot(client, target_set_id)
+
+    try:
+        snapshot = sealed_snapshot_fn(str(set_id)) if set_id is not None else None
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
+        # A missing snapshot costs the unsupported list, not the whole contract:
+        # the scored products are already loaded and are the primary payload.
+        logger.warning("unsupported product read failed set_id=%s", set_id, exc_info=True)
+        snapshot = None
 
     return {
         "contractVersion": RIP_DECISION_CONTRACT_VERSION,
         "sourceCalculationRunId": resolved_run_id,
         "currentRunAvailable": True,
         "sealedProducts": build_sealed_product_decision_contract(
-            _load_current_run_product_rows(
-                run_id=resolved_run_id, set_id=set_id, client=client
-            ),
-            run_status=RUN_STATUS_CURRENT,
+            product_rows, run_status=RUN_STATUS_CURRENT
         ),
+        "unsupportedProducts": build_unsupported_products_contract(snapshot, scored_ids),
         "topChase": build_top_chase_contract(run_id=resolved_run_id, client=client),
         **sealed_product_comparison_scope_contract(),
     }
