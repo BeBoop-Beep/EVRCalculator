@@ -59,6 +59,7 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_card_validation_snapshot_payload,
     get_pokemon_set_cards_page_snapshot_payload,
     get_pokemon_set_cards_snapshot_payload,
+    get_pokemon_set_chase_economics_snapshot_payload,
     get_pokemon_set_insights_critical_snapshot_payload,
     get_pokemon_set_insights_secondary_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
@@ -875,6 +876,24 @@ def get_pokemon_set_page(set_id: str):
         logger.exception("/tcgs/pokemon/sets/%s/page unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set page snapshot", "code": "POKEMON_SET_PAGE_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/chase-economics")
+def get_pokemon_set_chase_economics(set_id: str):
+    """Return the dedicated target-card chase contract without page payloads."""
+    try:
+        return get_pokemon_set_chase_economics_snapshot_payload(set_id=set_id)
+    except ExplorePageError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/chase-economics unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon chase economics", "code": "POKEMON_CHASE_ECONOMICS_FAILED"},
             status_code=500,
         )
 

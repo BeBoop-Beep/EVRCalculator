@@ -11,7 +11,9 @@ import pytest
 from backend.db.services.chase_economics_service import (
     DEFAULT_PUBLISHED_CARD_LIMIT,
     build_chase_economics_contract,
+    build_chase_economics_snapshot_row,
     pack_groups_for_product,
+    read_chase_economics_snapshot,
     select_chase_cards,
 )
 from backend.domain.pokemon.target_chase_economics import (
@@ -202,6 +204,18 @@ def test_mixed_stage2_row_never_smears_the_promo_across_packs():
     assert groups == []
 
 
+def test_mixed_stage2_product_publishes_the_specific_unavailable_reason():
+    broken = {**_stage2_product(), "guaranteed_component_market_value": None}
+    contract = build_chase_economics_contract(
+        cards=select_chase_cards([_price_row("a", 10)], {"a": 100}, {"a": 9}),
+        product_rows=[broken],
+        run_id="run-1",
+    )
+    product = contract["cards"][0]["products"][0]
+    assert product["available"] is False
+    assert product["reason"] == "guaranteed_component_market_price_unavailable"
+
+
 # ---------------------------------------------------------------------------
 # Contract assembly
 # ---------------------------------------------------------------------------
@@ -301,3 +315,63 @@ def test_empty_population_publishes_an_explicit_empty_contract():
     assert contract["eligibleCardCount"] == 0
     assert contract["sourceCalculationRunId"] is None
     json.dumps(contract, allow_nan=False)
+
+
+class _Result:
+    def __init__(self, data):
+        self.data = data
+
+
+class _Query:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def select(self, *_args, **_kwargs): return self
+    def eq(self, *_args, **_kwargs): return self
+    def range(self, start, end):
+        self.rows = self.rows[start:end + 1]
+        return self
+    def limit(self, value):
+        self.rows = self.rows[:value]
+        return self
+    def execute(self): return _Result(self.rows)
+
+
+class _Client:
+    def __init__(self, tables):
+        self.tables = tables
+
+    def table(self, name): return _Query(list(self.tables.get(name, [])))
+
+
+def test_snapshot_builder_counts_full_population_before_storing_top_25(monkeypatch):
+    price_rows = [_price_row(str(i), 1000 - i) for i in range(187)]
+    inputs = [
+        {"card_variant_id": str(i), "effective_pull_rate": 100,
+         "price_used": 900 - i, "captured_at": "2026-08-15T00:00:00+00:00"}
+        for i in range(187)
+    ]
+    monkeypatch.setattr(
+        "backend.db.services.chase_economics_service._load_current_run_product_rows",
+        lambda **_kwargs: [_stage1_product()],
+    )
+    row = build_chase_economics_snapshot_row(
+        set_id="set-1", run_id="run-1",
+        client=_Client({"simulation_input_cards": inputs,
+                        "simulation_input_cards_with_near_mint_price": price_rows}),
+    )
+    assert row["card_count"] == 25
+    assert row["payload_json"]["eligibleCardCount"] == 187
+    assert row["payload_json"]["publishedCardLimit"] == 25
+    assert len(row["payload_json"]["cards"]) == 25
+    assert row["payload_json"]["cards"][0]["targetPriceBasisDelta"] == 100
+    assert row["payload_json"]["cards"][0]["evPriceBasisAsOf"] == "2026-08-15T00:00:00+00:00"
+
+
+def test_dedicated_reader_returns_payload_without_another_snapshot():
+    payload = _contract()
+    read = read_chase_economics_snapshot(
+        set_id="set-1",
+        client=_Client({"pokemon_set_chase_economics_snapshot_latest": [{"payload_json": payload}]}),
+    )
+    assert read == payload

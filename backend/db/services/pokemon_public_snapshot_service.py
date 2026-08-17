@@ -9,7 +9,8 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.clients.supabase_client import create_public_read_client, create_service_role_client, public_read_client
+from backend.db.services.chase_economics_service import read_chase_economics_snapshot
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.public_rip_publication_contract import (
@@ -1569,6 +1570,29 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         except Exception:
             set_row = {"id": resolved_set_id}
     return _build_missing_set_page_snapshot_payload(set_row, elapsed_ms)
+
+
+def get_pokemon_set_chase_economics_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Read the optional heavy chase contract independently of page payloads."""
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise ExplorePageError(400, "set_id is required", "POKEMON_CHASE_ECONOMICS_ID_REQUIRED")
+    if _looks_like_uuid(resolved):
+        resolved_set_id = resolved
+    else:
+        resolved_set_id = str(_resolve_set_row(resolved)["id"])
+    try:
+        return read_chase_economics_snapshot(
+            set_id=resolved_set_id,
+            client=create_service_role_client(),
+        )
+    except Exception:
+        logger.exception("[pokemon-snapshot] chase economics read failed set_id=%s", resolved_set_id)
+        raise ExplorePageError(
+            500,
+            "Failed to read Pokemon chase economics snapshot",
+            "POKEMON_CHASE_ECONOMICS_SNAPSHOT_FAILED",
+        )
 
 
 _TRACKED_LENS_SUMMARY_FIELDS = (

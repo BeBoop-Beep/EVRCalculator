@@ -33,7 +33,15 @@ WHAT THIS DELIBERATELY IS NOT
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+
+from backend.db.services.rip_decision_service import (
+    _load_current_run_product_rows,
+    _load_run_near_mint_prices,
+    _load_run_population,
+    INPUT_CARDS_TABLE,
+)
 
 from backend.domain.pokemon.sealed_product_stage2_composition import (
     REASON_MISSING_PROMO_PRICE,
@@ -239,6 +247,11 @@ def _card_block(
                 _positive(row.get("guaranteed_component_market_value")) or 0.0
             ),
         )
+        # The pure calculator only knows that it received no pack groups.  The
+        # integration layer knows the more useful reason: this was a partially
+        # populated Stage 2 row, not a generic absence of pack data.
+        if _stage2_reason is not None:
+            block = {**block, "available": False, "reason": _stage2_reason}
         products.append(
             {
                 "sealedProductId": _optional_str(row.get("sealed_product_id")),
@@ -305,3 +318,103 @@ def build_chase_economics_contract(
             _card_block(card, rows, run_id=resolved_run_id) for card in card_list
         ],
     }
+
+
+def build_chase_economics_snapshot_row(
+    *, set_id: Any, run_id: Any, client: Any,
+    limit: int = DEFAULT_PUBLISHED_CARD_LIMIT,
+) -> Dict[str, Any]:
+    """Build the independently persisted chase snapshot for one set/run.
+
+    Selection considers the complete run population before applying the
+    storage cap.  The EV price and its capture time come from the named run;
+    the comparison price comes from the current Near Mint projection.
+    """
+    resolved_set_id = _optional_str(set_id)
+    if resolved_set_id is None:
+        raise ValueError("set_id is required")
+    resolved_run_id = _optional_str(run_id)
+
+    if resolved_run_id is None:
+        contract = build_chase_economics_contract(
+            cards=[], product_rows=[], run_id=None, limit=limit,
+            eligible_card_count=0,
+        )
+        return {
+            "set_id": resolved_set_id,
+            "calculation_run_id": None,
+            "payload_json": contract,
+            "card_count": 0,
+            "as_of": None,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    input_rows = _load_run_population(
+        client,
+        table=INPUT_CARDS_TABLE,
+        select="card_variant_id,effective_pull_rate,price_used,captured_at",
+        run_id=resolved_run_id,
+    )
+    denominators: Dict[str, float] = {}
+    ev_prices: Dict[str, float] = {}
+    ev_as_of: Dict[str, str] = {}
+    for row in input_rows:
+        variant_id = _optional_str(row.get("card_variant_id"))
+        denominator = _positive(row.get("effective_pull_rate"))
+        if variant_id and denominator is not None:
+            denominators[variant_id] = denominator
+        price_used = _positive(row.get("price_used"))
+        if variant_id and price_used is not None:
+            ev_prices[variant_id] = price_used
+        captured_at = _optional_str(row.get("captured_at"))
+        if variant_id and captured_at:
+            ev_as_of[variant_id] = captured_at
+
+    price_rows = _load_run_near_mint_prices(client, run_id=resolved_run_id)
+    priced_with_provenance = [
+        {**row, "price_used_as_of": ev_as_of.get(_optional_str(row.get("card_variant_id")) or "")}
+        for row in price_rows
+    ]
+    # An uncapped selection supplies the true eligible population. Only the
+    # stored card list is subsequently sliced to the publication policy.
+    eligible = select_chase_cards(
+        priced_with_provenance, denominators, ev_prices,
+        limit=len(priced_with_provenance),
+    )
+    product_rows = _load_current_run_product_rows(
+        run_id=resolved_run_id, set_id=resolved_set_id, client=client,
+    )
+    contract = build_chase_economics_contract(
+        cards=eligible[: max(0, int(limit))],
+        product_rows=product_rows,
+        run_id=resolved_run_id,
+        limit=limit,
+        eligible_card_count=len(eligible),
+    )
+    as_of_values = [value for value in ev_as_of.values() if value]
+    return {
+        "set_id": resolved_set_id,
+        "calculation_run_id": resolved_run_id,
+        "payload_json": contract,
+        "card_count": len(contract["cards"]),
+        "as_of": max(as_of_values) if as_of_values else None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def read_chase_economics_snapshot(*, set_id: Any, client: Any) -> Dict[str, Any]:
+    """Read only the dedicated chase row; never inflate another snapshot."""
+    resolved_set_id = _optional_str(set_id)
+    if resolved_set_id is None:
+        raise ValueError("set_id is required")
+    result = (
+        client.table("pokemon_set_chase_economics_snapshot_latest")
+        .select("set_id,calculation_run_id,payload_json,card_count,as_of,updated_at")
+        .eq("set_id", resolved_set_id)
+        .limit(1)
+        .execute()
+    )
+    rows = list(result.data or [])
+    if rows and isinstance(rows[0].get("payload_json"), dict):
+        return rows[0]["payload_json"]
+    return build_chase_economics_contract(cards=[], product_rows=[], run_id=None)
