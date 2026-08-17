@@ -201,6 +201,7 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
 /**
  * Load the initial shell + active-tab snapshot for the Pokemon set detail page.
  *
+<<<<<<< Updated upstream
  * Only the shell (lightweight header/title-card data) is always fetched. When
  * the active tab is Market, the slim /overview snapshot (Set Value Trend +
  * scopes) is additionally server-seeded — see
@@ -247,6 +248,21 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * Cards snapshots do not use Next's data cache (nextCacheOptions) — the
  * payload can exceed the 2MB per-entry limit. Only shell uses
  * nextCacheOptions today.
+=======
+ * Only the shell (lightweight header/title-card data) is always fetched. The
+ * market dashboard snapshot is fetched only for its own tab. Cards are also
+ * fetched for the insights tab: Insights' Pure Pokémon Demand vs Market Price
+ * section is a Cards/checklist consumer (card rows + card appeal/market price
+ * correlation), and Insights already fetches the full /page payload, which
+ * doesn't carry that data — cards must be a first-class Insights dependency,
+ * not a client-side backfill that leaves the section empty on first load.
+ * Cards and market dashboard are still never both fetched together, since
+ * only one tab is visible at a time.
+ *
+ * Neither cards nor market dashboard snapshots use Next's data cache
+ * (nextCacheOptions) — both payloads can exceed the 2MB per-entry limit.
+ * Only shell uses nextCacheOptions today.
+>>>>>>> Stashed changes
  */
 export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const startedAt = Date.now();

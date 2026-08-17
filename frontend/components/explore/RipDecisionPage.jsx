@@ -431,6 +431,7 @@ export default function RipDecisionPage({
   canonical,
   summary,
   ripDecision = null,
+  setRip = null,
   setName = null,
   chaseCards = [],
   percentiles = [],
@@ -500,6 +501,14 @@ export default function RipDecisionPage({
     [canonical],
   );
   const verdictPresentation = getRipPageIconPresentation("verdict");
+  const setRipScore = Number.isFinite(Number(setRip?.score)) ? Number(setRip.score) : null;
+  const setRipRank = Number.isFinite(Number(setRip?.rank)) ? Number(setRip.rank) : null;
+  const setRipCohort = Number.isFinite(Number(setRip?.cohortSize ?? setRip?.rankedSetCount))
+    ? Number(setRip?.cohortSize ?? setRip?.rankedSetCount)
+    : 22;
+  const familyScores = Object.entries(setRip?.familyScores || {}).filter(([, value]) =>
+    Number.isFinite(Number(value)),
+  );
   const metrics = {
     overall: {
       key: "overall",
@@ -564,9 +573,9 @@ export default function RipDecisionPage({
         className={`${styles.panel} ${styles.compactVerdict} set-glass-surface`}
       >
         <div className={styles.compactVerdictHead}>
-          {model.overall.rank !== null ? (
+          {setRipRank !== null ? (
             <span className={styles.verdictRank}>
-              #{Math.round(model.overall.rank)}
+              #{Math.round(setRipRank)}
             </span>
           ) : null}
           <div className="min-w-0">
@@ -577,13 +586,34 @@ export default function RipDecisionPage({
               Verdict
             </p>
             <h1 className={styles.compactVerdictTitle}>
-              {model.overall.rank === null
-                ? "Booster Pack RIP Rank Unavailable"
-                : "Booster Pack RIP Rank"}
+              {setRipRank === null ? "Set RIP Rank Unavailable" : "Set RIP Rank"}
             </h1>
           </div>
         </div>
-        <p className={styles.compactVerdictLine}>{model.verdict}</p>
+        <p className={styles.compactVerdictLine}>
+          {setRipScore === null
+            ? "Set RIP is unavailable in this snapshot."
+            : `${setRipScore.toFixed(1)} Set RIP${setRipRank === null ? "" : ` · #${Math.round(setRipRank)} of ${Math.round(setRipCohort)}`}`}
+        </p>
+        {familyScores.length ? (
+          <div className="mt-4 border-t border-[var(--border-subtle)] pt-3" data-set-rip-family-evidence>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Set RIP averages this set&apos;s relative performance across eligible opening product families. Multiple SKUs in the same family are averaged first.
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {familyScores.map(([family, value]) => (
+                <div key={family} className="rounded-lg bg-[var(--surface-page)]/50 p-2">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                    {family.replaceAll("_", " ")}
+                  </dt>
+                  <dd className="mt-1 font-semibold tabular-nums text-[var(--text-primary)]">
+                    {(Number(value) * 100).toFixed(1)}%
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
       </article>
 
       {/* B. PRODUCT OPENING VALUE + C. SELECTED PRODUCT ECONOMICS. */}

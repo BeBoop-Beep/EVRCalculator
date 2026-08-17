@@ -101,7 +101,7 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
-const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
+const MOBILE_DECISION_COLUMN_IDS = ["setRip", "topChase"];
 
 function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
@@ -842,11 +842,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     but squeezed below it at the md breakpoint, clipping "S Tier".
                     4.2rem is what the badge measures at full width, so this
                     changes nothing on desktop and only stops the md clip. */}
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "18%" }} />
+                <col style={{ width: "14%" }} />
+                <col style={{ width: "24%" }} />
+                <col style={{ width: "22%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -855,16 +853,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <span className="sr-only">Rank</span>
                   </th>
                   <th scope="col">Set</th>
-                  <SortableHeader columnId="marketPrice" label="Market Price" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="typicalOpening" label="Typical Opening" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="modelBreakEven" label="Model Break-Even" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader
-                    columnId="chanceToBeatCost"
-                    label="Chance to Beat Cost"
-                    sort={sort}
-                    onSort={handleSort}
-                    note={sortNote}
-                  />
+                  <SortableHeader columnId="setRip" label="Set RIP" sort={sort} onSort={handleSort} note={sortNote} />
+                  <th scope="col">Product-family evidence</th>
                   <SortableHeader
                     columnId="topChase"
                     label="Top Chase"
@@ -899,16 +889,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         </Link>
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatCurrency(target?.pack_cost)}
+                        <strong className="text-lg tabular-nums">{formatModeScore(target?.setRipV1?.score, SCORE_KIND_PUBLIC)}</strong><span className="text-[10px] text-[var(--text-secondary)]"> /100</span>
                       </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`} title="Median simulated opening value. Half of modeled openings finish above this value and half below.">
-                        {formatCurrency(readTypicalOpening(target))}
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatCurrency(readModelBreakEven(target))}
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatPercent(target?.prob_profit, true)}
+                      <td className="text-xs text-[var(--text-secondary)]">
+                        {target?.setRipV1?.participatingFamilyCount ?? 0} participating product families
                       </td>
                       <td><TopChaseCell target={target} /></td>
                     </tr>

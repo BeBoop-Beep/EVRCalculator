@@ -9721,8 +9721,10 @@ export default function RipStatisticsPageClient({
   // never name a metric it is not showing.
   const setContextRipLabel = heroScoreSelection.label;
   const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
-  const setContextRipRank = toNumber(heroScoreSelection.rank);
-  const setContextRipCohort = toNumber(heroScoreSelection.cohortSize);
+  const activeSetRip = explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null;
+  const setContextRipScore = toNumber(activeSetRip?.score);
+  const setContextRipRank = toNumber(activeSetRip?.rank);
+  const setContextRipCohort = toNumber(activeSetRip?.cohortSize ?? activeSetRip?.rankedSetCount) ?? 22;
 
   // --- Mobile / tablet hero ------------------------------------------------
   // Identity only below 1200px. Set Value and RIP were duplicated readings —
@@ -13085,7 +13087,7 @@ export default function RipStatisticsPageClient({
                         setHeaderSummary still carries the value in the shell
                         contract — this is a rendering decision, not a data one. */}
                     <div data-set-context-rip className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
-                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />Set RIP</p>
                         {/* Score stays the focal point and stays neutral; the tier
                             takes the outlined pill and the verdict a lighter
                             relative of the breakdown's interpretation pill, both
@@ -13094,6 +13096,9 @@ export default function RipStatisticsPageClient({
                             third chip on this row made the compact card read as
                             three competing badges. */}
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          {setContextRipScore !== null ? (
+                            <strong className="text-xl tabular-nums text-[var(--text-primary)]">{setContextRipScore.toFixed(1)}</strong>
+                          ) : null}
                           {setContextRipTier ? (
                             <span
                               data-set-context-rip-tier
@@ -13136,6 +13141,7 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
+                    setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
