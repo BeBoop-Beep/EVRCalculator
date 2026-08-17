@@ -375,3 +375,60 @@ def test_dedicated_reader_returns_payload_without_another_snapshot():
         client=_Client({"pokemon_set_chase_economics_snapshot_latest": [{"payload_json": payload}]}),
     )
     assert read == payload
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation: the top-level calculation_run_id column must never disagree
+# with payload_json.sourceCalculationRunId. The column exists specifically so
+# a reader can tell whether this row describes the same run as the set page's
+# ripDecision without opening the payload; if the two drift, that promise is
+# silently broken.
+# ---------------------------------------------------------------------------
+
+def test_snapshot_row_calculation_run_id_matches_payload_source_run_id(monkeypatch):
+    price_rows = [_price_row("a", 100.0)]
+    inputs = [
+        {"card_variant_id": "a", "effective_pull_rate": 100,
+         "price_used": 90.0, "captured_at": "2026-08-15T00:00:00+00:00"}
+    ]
+    monkeypatch.setattr(
+        "backend.db.services.chase_economics_service._load_current_run_product_rows",
+        lambda **_kwargs: [_stage1_product()],
+    )
+    row = build_chase_economics_snapshot_row(
+        set_id="set-1", run_id="run-1",
+        client=_Client({"simulation_input_cards": inputs,
+                        "simulation_input_cards_with_near_mint_price": price_rows}),
+    )
+    assert row["calculation_run_id"] == row["payload_json"]["sourceCalculationRunId"]
+    assert row["calculation_run_id"] == "run-1"
+
+
+def test_snapshot_row_with_no_run_publishes_explicitly_empty_payload():
+    row = build_chase_economics_snapshot_row(
+        set_id="set-1", run_id=None,
+        client=_Client({}),
+    )
+    assert row["calculation_run_id"] is None
+    assert row["payload_json"]["sourceCalculationRunId"] is None
+    assert row["payload_json"]["cards"] == []
+    assert row["card_count"] == 0
+
+
+def test_snapshot_row_card_count_matches_payload_card_list_length(monkeypatch):
+    price_rows = [_price_row(str(i), float(100 - i)) for i in range(30)]
+    inputs = [
+        {"card_variant_id": str(i), "effective_pull_rate": 100,
+         "price_used": 90 - i, "captured_at": "2026-08-15T00:00:00+00:00"}
+        for i in range(30)
+    ]
+    monkeypatch.setattr(
+        "backend.db.services.chase_economics_service._load_current_run_product_rows",
+        lambda **_kwargs: [_stage1_product()],
+    )
+    row = build_chase_economics_snapshot_row(
+        set_id="set-1", run_id="run-1",
+        client=_Client({"simulation_input_cards": inputs,
+                        "simulation_input_cards_with_near_mint_price": price_rows}),
+    )
+    assert row["card_count"] == len(row["payload_json"]["cards"])
