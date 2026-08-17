@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import public_read_client
-from backend.db.services.sealed_product_rip_finalization_service import resolve_finalization_cohort
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -55,6 +54,61 @@ def _canonical(row: Mapping[str, Any]) -> bool:
     )
 
 
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _ranked_targets(set_targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Use canonical ranked targets when rank blocks are present; keep plain test/input rows usable."""
+    has_rank_contract = any(
+        "overallRipV9" in target or "publicRipContractV9" in target for target in set_targets
+    )
+    if not has_rank_contract:
+        return list(set_targets)
+    return [
+        target for target in set_targets
+        if (target.get("overallRipV9") or {}).get("rank") is not None
+        or (((target.get("publicRipContractV9") or {}).get("overallRip") or {}).get("rank") is not None)
+    ]
+
+
+def _target_run_authority(
+    set_targets: Sequence[Mapping[str, Any]],
+) -> tuple[Dict[str, str], Dict[str, Mapping[str, Any]]]:
+    """Validate and return the exact public set -> calculation-run authority."""
+    run_by_set: Dict[str, str] = {}
+    identities: Dict[str, Mapping[str, Any]] = {}
+    problems = []
+    for index, target in enumerate(_ranked_targets(set_targets)):
+        if not isinstance(target, Mapping):
+            problems.append(f"target[{index}] is not an object")
+            continue
+        set_id = _text(target.get("set_id"))
+        canonical_key = _text(target.get("canonical_key"))
+        run_id = _text(target.get("calculation_run_id"))
+        label = canonical_key or set_id or f"target[{index}]"
+        if not set_id:
+            problems.append(f"{label}: set_id is missing")
+        if not canonical_key:
+            problems.append(f"{label}: canonical_key is missing")
+        if not run_id:
+            problems.append(f"{label}: calculation_run_id is missing")
+        if not set_id or not canonical_key or not run_id:
+            continue
+        previous = run_by_set.get(set_id)
+        if previous is not None and previous != run_id:
+            problems.append(
+                f"{canonical_key}: conflicting calculation_run_id authority for set_id={set_id}: "
+                f"{previous} != {run_id}"
+            )
+            continue
+        run_by_set[set_id] = run_id
+        identities[set_id] = target
+    if problems:
+        raise ValueError("Invalid product-family target run authority: " + "; ".join(problems))
+    return run_by_set, identities
+
+
 def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
@@ -98,15 +152,11 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
 
 
 def build_product_family_rankings(
-    client: Any = None, *, market_date: Any, set_targets: Sequence[Mapping[str, Any]]
+    client: Any = None, *, set_targets: Sequence[Mapping[str, Any]]
 ) -> Dict[str, Any]:
-    """Build rankings only from result rows belonging to publication-current runs."""
+    """Build rankings only from each public target's exact calculation run."""
     client = client or public_read_client
-    identities = {
-        str(target.get("set_id") or target.get("target_id")): target
-        for target in set_targets
-        if target.get("set_id") or target.get("target_id")
-    }
+    run_id_by_set_id, identities = _target_run_authority(set_targets)
     if not identities:
         return {
             **sealed_product_comparison_scope_contract(),
@@ -114,13 +164,7 @@ def build_product_family_rankings(
             "partialToCurrentlyScoredProducts": True,
             "families": {},
         }
-    canonical_keys = [str(t.get("canonical_key")) for t in identities.values() if t.get("canonical_key")]
-    cohort = resolve_finalization_cohort(
-        client, market_date=market_date, canonical_keys=canonical_keys, unsupported_keys=()
-    )
-    if cohort.get("error"):
-        raise RuntimeError(f"Cannot build product-family rankings: {cohort['error']}")
-    current_run_ids = sorted(set((cohort.get("runIdBySetId") or {}).values()))
+    current_run_ids = sorted(set(run_id_by_set_id.values()))
     rows = []
     if current_run_ids:
         rows = list(
@@ -133,6 +177,9 @@ def build_product_family_rankings(
     scored_by_family: Dict[str, int] = {}
     rankable_by_family: Dict[str, list] = {}
     for row in rows:
+        set_id = _text(row.get("set_id"))
+        if not set_id or _text(row.get("calculation_run_id")) != run_id_by_set_id.get(set_id):
+            continue
         family = str(row.get("product_family") or "")
         if family not in COMPARABLE_FAMILIES:
             continue
@@ -161,5 +208,7 @@ def build_product_family_rankings(
         **sealed_product_comparison_scope_contract(),
         "source": "simulation_sealed_product_results_current_canonical_runs",
         "partialToCurrentlyScoredProducts": True,
+        "runAuthority": "set_targets.calculation_run_id",
+        "authorityTargetCount": len(run_id_by_set_id),
         "families": families,
     }

@@ -7,8 +7,8 @@ from backend.scripts import research_set_rip_consensus as research
 
 
 TARGETS = [
-    {"set_id": "a", "canonical_key": "alpha", "name": "Alpha", "pack_rank": 2},
-    {"set_id": "b", "canonical_key": "beta", "name": "Beta", "pack_rank": 1},
+    {"set_id": "a", "canonical_key": "alpha", "calculation_run_id": "run-a", "name": "Alpha", "pack_rank": 2},
+    {"set_id": "b", "canonical_key": "beta", "calculation_run_id": "run-b", "name": "Beta", "pack_rank": 1},
 ]
 
 
@@ -94,3 +94,18 @@ def test_production_modules_do_not_import_research_harness():
         if "research_set_rip_consensus" in path.read_text(encoding="utf-8", errors="ignore"):
             offenders.append(str(path.relative_to(root)))
     assert offenders == []
+
+
+def test_research_main_passes_exact_target_run_authority(monkeypatch, tmp_path):
+    observed = {}
+    monkeypatch.setattr(research, "get_rip_statistics_targets_payload", lambda: {"targets": TARGETS})
+    monkeypatch.setattr(research, "_catalog_by_set", lambda *_a, **_k: {})
+    monkeypatch.setattr(research, "build_report", lambda *_a, **_k: {"promotionStatus": research.PROMOTION_STATUS})
+    monkeypatch.setattr(research, "render_markdown", lambda _report: "research only")
+    def project(*, set_targets):
+        observed["authority"] = {row["set_id"]: row["calculation_run_id"] for row in set_targets}
+        return {"families": {}}
+    monkeypatch.setattr(research, "build_product_family_rankings", project)
+    monkeypatch.setattr("sys.argv", ["research_set_rip_consensus", "--output-dir", str(tmp_path)])
+    assert research.main() == 0
+    assert observed["authority"] == {"a": "run-a", "b": "run-b"}

@@ -337,6 +337,9 @@ def analyze(matrix: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, 
 def build_report(projection: Mapping[str, Any], targets: Sequence[Mapping[str, Any]], catalog: Mapping[str, Any]) -> dict[str, Any]:
     matrix = build_matrix(projection, targets, catalog)
     analysis = analyze(matrix, targets)
+    recommended_available = sum(
+        1 for row in analysis["recommendedCandidate"]["ordering"] if row.get("rank") is not None
+    )
     coverage = {family: {"rankableSkus": int(block.get("count") or 0),
                          "representedSets": len({p.get("setId") for p in block.get("products") or []})}
                 for family, block in sorted((projection.get("families") or {}).items())}
@@ -349,12 +352,14 @@ def build_report(projection: Mapping[str, Any], targets: Sequence[Mapping[str, A
         "standingDefinition": "N=1 => 0.50; otherwise 1 - ((rank - 1) / (N - 1))",
         "rawScorePolicy": "Raw Overall RIP and Financial RIP values are excluded from the matrix and every consensus calculation.",
         "coverage": coverage, "matrix": matrix, **analysis,
+        "priorResearch": {"status": "INVALIDATED_BY_RUN_AUTHORITY_BUG",
+            "reason": "The prior numeric artifacts selected sealed-product runs through one market date instead of each ranked target's calculation_run_id. The pre-registered 189-configuration methodology is unchanged; all numeric findings were recomputed."},
         "historicalEvidence": {"status": "HISTORICAL_EVIDENCE_INSUFFICIENT",
             "reason": "No stored historical product-family projections with current canonical model versions were found; historical Monte Carlo was not rerun."},
         "constructRecommendation": "Set RIP should mean the best currently rankable way to rip a set across the product formats for which evidence exists, with uncertainty from sparse format coverage pulled toward neutral.",
         "methodologyRecommendation": "Retain as the leading candidate: BEST-SKU family representation, equal-family mean standing, neutral 0.50 shrinkage with prior strength 2, a minimum two-family coverage gate, and a minimum three-set participating family cohort. This matches the choice-oriented question, preserves separate consumer formats, and limits one-observation extremes without treating missing products as bad. Current coverage is too thin to select it for promotion.",
         "knownLimitations": ["Half Booster Box and Enhanced Booster Box currently have no or insufficient canonical coverage.",
-            "Verified deferred products are missing evidence, not poor performance.", "Only three sets currently clear the leading candidate's gate, so stability statistics are weak and cannot support promotion.", "Related pack formats may count correlated evidence more than once; group-balanced results are retained as a sensitivity architecture."],
+            "Verified deferred products are missing evidence, not poor performance.", f"{recommended_available} sets currently clear the leading candidate's gate; this is research coverage, not a validated public Set RIP cohort.", "Related pack formats may count correlated evidence more than once; group-balanced results are retained as a sensitivity architecture."],
         "promotionStatus": PROMOTION_STATUS,
     }
 
@@ -384,6 +389,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     pc = report["packRankingComparison"]
     lines += ["", "# CURRENT PACK-RANKING COMPARISON", "", f"Descriptive only; the pack ranking is not ground truth. Overlap N={pc['overlapN']}, Spearman={pc['spearman']}, top-5 overlap={pc['top5Overlap']}, mean absolute rank movement={pc['meanAbsoluteRankMovement']}, maximum movement={pc['maximumRankMovement']}.", "",
               "# HISTORICAL EVIDENCE", "", report["historicalEvidence"]["status"], "", report["historicalEvidence"]["reason"], "",
+              "# PRIOR RESEARCH INVALIDATION", "", report["priorResearch"]["status"], "", report["priorResearch"]["reason"], "",
               "# CONSTRUCT RECOMMENDATION", "", report["constructRecommendation"], "", "This is construct A, BEST WAY TO RIP THE SET. It better matches “What set should I choose to rip right now?” than typical-SKU quality because the user can choose the SKU they buy.", "",
               "# METHODOLOGY RECOMMENDATION", "", report["methodologyRecommendation"], "", "The choice is methodological and was pre-registered; it does not depend on which set ranks first.", "",
               "# KNOWN LIMITATIONS", ""]
@@ -398,8 +404,7 @@ def main() -> int:
     args = parser.parse_args()
     payload = get_rip_statistics_targets_payload()
     targets = list(payload.get("targets") or [])
-    market_date = ((payload.get("meta") or {}).get("comparisonSnapshots") or {}).get("currentMarketDate")
-    projection = build_product_family_rankings(market_date=market_date, set_targets=targets)
+    projection = build_product_family_rankings(set_targets=targets)
     set_ids = sorted({str(t.get("set_id") or t.get("target_id")) for t in targets if t.get("set_id") or t.get("target_id")})
     report = build_report(projection, targets, _catalog_by_set(public_read_client, set_ids))
     args.output_dir.mkdir(parents=True, exist_ok=True)

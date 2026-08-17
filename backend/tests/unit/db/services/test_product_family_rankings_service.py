@@ -39,10 +39,9 @@ def row(product, family="booster_box", run="current", overall=80, financial=70, 
 
 
 def build(monkeypatch, rows):
-    monkeypatch.setattr(service, "resolve_finalization_cohort", lambda *_a, **_k: {"runIdBySetId": {"set-1": "current"}})
     return service.build_product_family_rankings(
-        Client(rows), market_date="2026-08-16",
-        set_targets=[{"set_id": "set-1", "canonical_key": "alpha", "name": "Alpha", "logo_image_url": "logo"}],
+        Client(rows),
+        set_targets=[{"set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current", "name": "Alpha", "logo_image_url": "logo"}],
     )
 
 
@@ -91,3 +90,55 @@ def test_new_score_automatically_appears_on_next_build(monkeypatch):
     products = build(monkeypatch, rows)["families"]["booster_box"]["products"]
     assert [p["sealedProductId"] for p in products] == ["newly-scored", "existing"]
     assert "all" not in build(monkeypatch, rows)["families"]
+
+
+def test_mixed_date_target_runs_are_exact_authority_and_old_run_is_excluded():
+    rows = [
+        row("a-old", run="run-A-old", set_id="set-a"),
+        row("a-new", run="run-A-new", set_id="set-a"),
+        row("b-current", run="run-B-current", set_id="set-b"),
+    ]
+    targets = [
+        {"set_id": "set-a", "canonical_key": "alpha", "calculation_run_id": "run-A-new", "market_date": "D2"},
+        {"set_id": "set-b", "canonical_key": "beta", "calculation_run_id": "run-B-current", "market_date": "D1"},
+    ]
+    payload = service.build_product_family_rankings(Client(rows), set_targets=targets)
+    products = payload["families"]["booster_box"]["products"]
+    assert {product["sealedProductId"] for product in products} == {"a-new", "b-current"}
+    assert {product["calculationRunId"] for product in products} == {"run-A-new", "run-B-current"}
+    assert payload["runAuthority"] == "set_targets.calculation_run_id"
+
+
+def test_every_product_run_matches_owning_target_across_families():
+    targets = [
+        {"set_id": "set-a", "canonical_key": "alpha", "calculation_run_id": "run-a"},
+        {"set_id": "set-b", "canonical_key": "beta", "calculation_run_id": "run-b"},
+    ]
+    rows = [
+        row("a-box", run="run-a", set_id="set-a"),
+        row("a-bundle", family="booster_bundle", run="run-a", set_id="set-a"),
+        row("b-etb", family="elite_trainer_box", run="run-b", set_id="set-b"),
+    ]
+    payload = service.build_product_family_rankings(Client(rows), set_targets=targets)
+    authority = {target["set_id"]: target["calculation_run_id"] for target in targets}
+    for block in payload["families"].values():
+        for product in block["products"]:
+            assert product["calculationRunId"] == authority[product["setId"]]
+
+
+def test_conflicting_target_run_authority_fails_closed():
+    targets = [
+        {"set_id": "set-a", "canonical_key": "alpha", "calculation_run_id": "run-a"},
+        {"set_id": "set-a", "canonical_key": "alpha", "calculation_run_id": "run-b"},
+    ]
+    import pytest
+    with pytest.raises(ValueError, match="conflicting calculation_run_id authority"):
+        service.build_product_family_rankings(Client([]), set_targets=targets)
+
+
+def test_missing_target_run_authority_fails_closed():
+    import pytest
+    with pytest.raises(ValueError, match="calculation_run_id is missing"):
+        service.build_product_family_rankings(
+            Client([]), set_targets=[{"set_id": "set-a", "canonical_key": "alpha"}]
+        )

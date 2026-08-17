@@ -3708,9 +3708,8 @@ def build_explore_rankings_snapshot_row(
             "Re-run once the source reads succeed."
         )
 
-    market_date = ((meta.get("comparisonSnapshots") or {}).get("currentMarketDate"))
     payload["productFamilyRankings"] = build_product_family_rankings(
-        market_date=market_date, set_targets=opening_targets
+        set_targets=opening_targets
     )
 
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
