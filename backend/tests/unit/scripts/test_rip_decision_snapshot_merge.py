@@ -11,6 +11,7 @@ import pytest
 import backend.scripts.pokemon_snapshot_builders as builders
 
 RUN_A = "11111111-1111-1111-1111-111111111111"
+RUN_B = "22222222-2222-2222-2222-222222222222"
 
 
 class _Result:
@@ -82,7 +83,7 @@ def _client():
                 }
             ],
             "simulation_input_cards": lambda: [
-                {"card_variant_id": "variant-b", "effective_pull_rate": 0.004}
+                {"card_variant_id": "variant-b", "effective_pull_rate": 250}
             ],
             "card_variants": lambda: [],
             "cards": lambda: [],
@@ -128,6 +129,27 @@ def test_snapshot_payload_carries_the_rip_decision_contract(monkeypatch):
     assert contract["topChase"]["cardVariantId"] == "variant-b"
     assert contract["topChase"]["impliedOddsOneInN"] == 250.0
     assert contract["crossFormatComparable"] is False
+
+
+@pytest.mark.parametrize("base_run", [None, RUN_B])
+def test_canonical_rankings_run_overrides_missing_or_stale_base_run(monkeypatch, base_run):
+    seen = []
+    monkeypatch.setattr(
+        builders.rip_decision_service,
+        "build_rip_decision_contract",
+        lambda *, set_id, run_id, client: seen.append(run_id) or {
+            "sourceCalculationRunId": run_id,
+            "sealedProducts": {"sourceCalculationRunId": run_id, "products": []},
+            "topChase": {"sourceCalculationRunId": run_id},
+        },
+    )
+    payload = {"summary": {"calculation_run_id": base_run}, "meta": {}}
+    merged = builders._merge_rip_decision_contract_into_set_payload(
+        payload=payload, set_id="set-1", decision_run_id=RUN_A, client=_client()
+    )
+    assert seen == [RUN_A]
+    assert merged["ripDecision"]["sealedProducts"]["sourceCalculationRunId"] == RUN_A
+    assert merged["ripDecision"]["topChase"]["sourceCalculationRunId"] == RUN_A
 
 
 def test_a_snapshot_without_a_current_run_publishes_no_decision_economics(monkeypatch):

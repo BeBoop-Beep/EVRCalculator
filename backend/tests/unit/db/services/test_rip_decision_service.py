@@ -333,8 +333,8 @@ def test_top_chase_contract_shape_and_modeled_odds():
         _price_row(card_id="card-a", card_variant_id="variant-a", card_name="Card A", current_near_mint_price=80.0),
     ]
     input_rows = [
-        {"card_variant_id": "variant-b", "effective_pull_rate": 0.004},
-        {"card_variant_id": "variant-a", "effective_pull_rate": 0.05},
+        {"card_variant_id": "variant-b", "effective_pull_rate": 250},
+        {"card_variant_id": "variant-a", "effective_pull_rate": 20},
     ]
     variant_rows = [
         {
@@ -361,6 +361,26 @@ def test_top_chase_contract_shape_and_modeled_odds():
     assert chase["sourceCalculationRunId"] == RUN_A
 
 
+@pytest.mark.parametrize("denominator", [480, 1533])
+def test_effective_pull_rate_is_the_authoritative_one_in_n_denominator(denominator):
+    client = _top_chase_client(
+        [_price_row(card_variant_id="variant-a")],
+        [{"card_variant_id": "variant-a", "effective_pull_rate": denominator}],
+    )
+    chase = build_top_chase_contract(run_id=RUN_A, client=client)
+    assert chase["impliedOddsOneInN"] == denominator
+    assert chase["modeledProbability"] == 1 / denominator
+
+
+@pytest.mark.parametrize("denominator", [None, 0, -1, float("nan"), float("inf")])
+def test_invalid_effective_pull_denominators_are_unavailable(denominator):
+    client = _top_chase_client(
+        [_price_row(card_variant_id="variant-a")],
+        [{"card_variant_id": "variant-a", "effective_pull_rate": denominator}],
+    )
+    assert build_top_chase_contract(run_id=RUN_A, client=client) is None
+
+
 def test_top_chase_searches_the_whole_modeled_population_not_the_priciest_n():
     """The 26th-priciest card wins when the 25 above it are unmodeled.
 
@@ -380,7 +400,7 @@ def test_top_chase_searches_the_whole_modeled_population_not_the_priciest_n():
         for index in range(30)
     ]
     # Only the 26th-priciest card (index 25) is in the run's modeled population.
-    input_rows = [{"card_variant_id": "variant-25", "effective_pull_rate": 0.002}]
+    input_rows = [{"card_variant_id": "variant-25", "effective_pull_rate": 500}]
     client = _top_chase_client(price_rows, input_rows)
 
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
@@ -395,7 +415,7 @@ def test_top_chase_reads_a_bounded_number_of_queries_for_a_full_set():
         for index in range(400)
     ]
     input_rows = [
-        {"card_variant_id": "variant-%d" % index, "effective_pull_rate": 0.01}
+        {"card_variant_id": "variant-%d" % index, "effective_pull_rate": 100}
         for index in range(400)
     ]
     client = _top_chase_client(price_rows, input_rows)
@@ -411,7 +431,7 @@ def test_top_chase_reads_a_bounded_number_of_queries_for_a_full_set():
 
 def test_both_top_chase_reads_are_scoped_to_the_same_run():
     client = _top_chase_client(
-        [_price_row()], [{"card_variant_id": "variant-a", "effective_pull_rate": 0.01}]
+        [_price_row()], [{"card_variant_id": "variant-a", "effective_pull_rate": 100}]
     )
     build_top_chase_contract(run_id=RUN_A, client=client)
 
@@ -429,7 +449,7 @@ def test_a_population_larger_than_one_page_is_read_completely():
         for index in range(page + 5)
     ]
     # The priciest card is the LAST row, reachable only on the second page.
-    input_rows = [{"card_variant_id": "variant-%d" % (page + 4), "effective_pull_rate": 0.01}]
+    input_rows = [{"card_variant_id": "variant-%d" % (page + 4), "effective_pull_rate": 100}]
     client = _top_chase_client(price_rows, input_rows)
 
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
@@ -452,14 +472,14 @@ def test_no_price_read_happens_when_the_run_models_no_cards():
 def test_top_chase_never_infers_probability_from_ev_contribution():
     # ev_contribution / price would give 0.01 here. The stored rate is 0.004.
     price_rows = [_price_row(card_variant_id="variant-b", ev_contribution=4.0, current_near_mint_price=400.0)]
-    input_rows = [{"card_variant_id": "variant-b", "effective_pull_rate": 0.004}]
+    input_rows = [{"card_variant_id": "variant-b", "effective_pull_rate": 250}]
     client = _top_chase_client(price_rows, input_rows)
 
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
-    assert chase["modeledProbability"] == 0.004
+    assert chase["modeledProbability"] == 1 / 250
 
 
-def test_top_chase_ignores_non_finite_and_out_of_domain_pull_rates():
+def test_top_chase_ignores_non_finite_and_non_positive_pull_denominators():
     price_rows = [
         _price_row(card_variant_id="variant-nan", current_near_mint_price=900.0),
         _price_row(card_variant_id="variant-inf", current_near_mint_price=800.0),
@@ -469,8 +489,8 @@ def test_top_chase_ignores_non_finite_and_out_of_domain_pull_rates():
     input_rows = [
         {"card_variant_id": "variant-nan", "effective_pull_rate": float("nan")},
         {"card_variant_id": "variant-inf", "effective_pull_rate": float("inf")},
-        {"card_variant_id": "variant-high", "effective_pull_rate": 1.4},
-        {"card_variant_id": "variant-ok", "effective_pull_rate": 0.01},
+        {"card_variant_id": "variant-high", "effective_pull_rate": -1.4},
+        {"card_variant_id": "variant-ok", "effective_pull_rate": 100},
     ]
     client = _top_chase_client(price_rows, input_rows)
 
@@ -597,7 +617,7 @@ def test_combined_contract_carries_both_sections_and_the_scope(monkeypatch):
         service, "get_sealed_product_results_for_run", lambda run_id, client=None: [_product_row()]
     )
     price_rows = [_price_row(card_variant_id="variant-b", current_near_mint_price=400.0)]
-    input_rows = [{"card_variant_id": "variant-b", "effective_pull_rate": 0.004}]
+    input_rows = [{"card_variant_id": "variant-b", "effective_pull_rate": 250}]
     client = _top_chase_client(price_rows, input_rows)
 
     contract = build_rip_decision_contract(set_id="set-1", run_id=RUN_A, client=client)
@@ -674,8 +694,8 @@ def test_a_non_finite_chase_price_is_not_publishable():
         _price_row(card_variant_id="variant-ok", current_near_mint_price=50.0),
     ]
     input_rows = [
-        {"card_variant_id": "variant-bad", "effective_pull_rate": 0.01},
-        {"card_variant_id": "variant-ok", "effective_pull_rate": 0.01},
+        {"card_variant_id": "variant-bad", "effective_pull_rate": 100},
+        {"card_variant_id": "variant-ok", "effective_pull_rate": 100},
     ]
     chase = build_top_chase_contract(run_id=RUN_A, client=_top_chase_client(price_rows, input_rows))
 

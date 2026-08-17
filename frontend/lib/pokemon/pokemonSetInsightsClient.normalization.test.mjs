@@ -5,6 +5,7 @@ import { normalizePokemonSetInsightsPayload } from "./pokemonSetInsightsClient.j
 
 function makeInsightsPayload(overrides = {}) {
   return {
+    ripDecision: { contractVersion: "rip-decision-contract-v1", topChase: { cardName: "Chase" } },
     set: { id: "set-1", name: "Prismatic Evolutions", slug: "prismaticEvolutions" },
     summary: { relativeProfitScore: 60, profitRank: 5, profitTier: "Good", packCost: 4.99 },
     recommendation: { label: "Strong Buy", summary: "This set beats its pack cost more often than most." },
@@ -48,6 +49,7 @@ test("normalizePokemonSetInsightsPayload returns set, summary, recommendation, a
   assert.equal(normalized.recommendation.label, "Strong Buy");
   assert.equal(normalized.ripScore.score, 71.4);
   assert.equal(normalized.meta.source, "pokemon_set_page_snapshot_latest");
+  assert.equal(normalized.ripDecision.topChase.cardName, "Chase");
 });
 
 test("normalizePokemonSetInsightsPayload returns RIP breakdown and decision-signal inputs (interpretation + ripStatistics)", () => {
@@ -89,6 +91,7 @@ test("normalizePokemonSetInsightsPayload is defensive against a completely empty
   const normalized = normalizePokemonSetInsightsPayload({});
 
   assert.deepEqual(normalized.set, { id: null, name: null, slug: null });
+  assert.equal(normalized.ripDecision, null);
   assert.deepEqual(normalized.summary, {});
   assert.deepEqual(normalized.recommendation, {});
   assert.deepEqual(normalized.ripScore, {});

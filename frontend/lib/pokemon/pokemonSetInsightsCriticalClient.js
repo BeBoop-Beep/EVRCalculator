@@ -7,6 +7,10 @@ function toPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function toNullablePlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
 async function readJsonResponse(response, fallbackMessage) {
   let payload = null;
   try {
@@ -31,6 +35,7 @@ async function readJsonResponse(response, fallbackMessage) {
 // get_pokemon_set_insights_critical_snapshot_payload for the field list.
 export function normalizePokemonSetInsightsCriticalPayload(payload) {
   return {
+    ripDecision: toNullablePlainObject(payload?.ripDecision),
     set: {
       id: toOptionalString(payload?.set?.id),
       name: toOptionalString(payload?.set?.name),

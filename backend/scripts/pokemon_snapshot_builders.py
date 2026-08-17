@@ -580,6 +580,7 @@ def _merge_rip_decision_contract_into_set_payload(
     *,
     payload: Dict[str, Any],
     set_id: str,
+    decision_run_id: Optional[str] = None,
     client: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Attach the compact RIP decision contract to a set-page payload.
@@ -597,7 +598,9 @@ def _merge_rip_decision_contract_into_set_payload(
     if not isinstance(payload, dict):
         return payload
 
-    run_id = _snapshot_payload_run_id(payload)
+    # A canonical ranked target owns the decision run. The base Explore payload
+    # is only a fallback for non-ranked/historical sets without such a target.
+    run_id = first_non_empty(decision_run_id, _snapshot_payload_run_id(payload))
     try:
         contract: Optional[Dict[str, Any]] = rip_decision_service.build_rip_decision_contract(
             set_id=set_id,
@@ -1418,6 +1421,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     set_id = str(set_row["id"])
     simulation_available = True
     simulation_unavailable_reason: Optional[str] = None
+    decision_run_id: Optional[str] = None
     try:
         payload = get_explore_page_payload("set", set_id)
     except ExplorePageError as exc:
@@ -1438,6 +1442,11 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     try:
         rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
         target_rows = rankings_payload.get("targets") or []
+        matching_rankings_target = _find_matching_rankings_target(
+            set_id=set_id, set_row=set_row, payload=payload, target_rows=target_rows
+        )
+        if matching_rankings_target is not None:
+            decision_run_id = first_non_empty(matching_rankings_target.get("calculation_run_id"))
         payload = _merge_rip_desirability_comparison_into_set_payload(
             payload=payload,
             set_id=set_id,
@@ -1474,7 +1483,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
     payload = _merge_rip_decision_contract_into_set_payload(
-        payload=payload, set_id=set_id, client=client
+        payload=payload, set_id=set_id, decision_run_id=decision_run_id, client=client
     )
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None

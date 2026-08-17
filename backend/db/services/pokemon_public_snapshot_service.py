@@ -5981,6 +5981,7 @@ def _empty_insights_payload(
     fallback_source: str,
 ) -> Dict[str, Any]:
     return {
+        "ripDecision": None,
         "set": {
             "id": _to_optional_str(set_row.get("id")),
             "name": _to_optional_str(set_row.get("name")),
@@ -6160,6 +6161,7 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
         warnings.append("Simulation drivers (top hits) are not available for this set yet.")
 
     payload = {
+        "ripDecision": payload_json.get("ripDecision") if isinstance(payload_json.get("ripDecision"), dict) else None,
         "set": set_identity,
         "summary": summary_camel,
         "recommendation": {
@@ -6272,6 +6274,7 @@ def _empty_insights_critical_payload(
     *, set_row: Dict[str, Any], warnings: Optional[List[str]] = None, fallback_source: str
 ) -> Dict[str, Any]:
     return {
+        "ripDecision": None,
         "set": {
             "id": _to_optional_str(set_row.get("id")),
             "name": _to_optional_str(set_row.get("name")),
@@ -6459,6 +6462,7 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         )
 
     payload = {
+        "ripDecision": payload_json.get("ripDecision") if isinstance(payload_json.get("ripDecision"), dict) else None,
         "set": set_identity,
         "summary": summary_camel,
         "recommendation": {

@@ -33,7 +33,7 @@ WHAT THIS DELIBERATELY IS NOT
 TOP CHASE, DEFINED
 ------------------
 The highest CURRENT Near Mint market-value card in the run's simulation input
-that has a valid positive modeled pull probability. It is NOT the largest EV
+that has a valid positive modeled one-in-N pull denominator. It is NOT the largest EV
 contributor, the most desirable Pokemon, the highest rarity, or a hardcoded
 pick. Price and probability come from different places on purpose: the price
 should be today's, the probability MUST be the one the opening model actually
@@ -265,7 +265,7 @@ def _load_current_run_product_rows(
 
 def select_top_chase_card(
     price_rows: Iterable[Mapping[str, Any]],
-    pull_rate_by_variant_id: Mapping[str, Any],
+    pull_denominator_by_variant_id: Mapping[str, Any],
 ) -> Optional[Dict[str, Any]]:
     """The priciest card that the model can actually produce.
 
@@ -290,15 +290,15 @@ def select_top_chase_card(
         variant_id = _optional_str(row.get("card_variant_id"))
         if variant_id is None:
             continue
-        probability = _optional_float(pull_rate_by_variant_id.get(variant_id))
-        if probability is None or probability <= 0.0:
+        denominator = _optional_float(pull_denominator_by_variant_id.get(variant_id))
+        if denominator is None or denominator <= 0.0:
             continue
         # Ties are broken by the rarer pull, then by id, so the same run always
         # publishes the same chase card.
-        key = (price, -probability, variant_id)
+        key = (price, denominator, variant_id)
         if best_key is None or key > best_key:
             best_key = key
-            best = {**row, "effective_pull_rate": probability}
+            best = {**row, "effective_pull_denominator": denominator}
 
     return best
 
@@ -334,16 +334,16 @@ def _load_run_population(
     )
 
 
-def _load_modeled_pull_rates(client: Any, *, run_id: str) -> Dict[str, float]:
-    """The run's modeled per-pack rates, keyed by card variant.
+def _load_modeled_pull_denominators(client: Any, *, run_id: str) -> Dict[str, float]:
+    """The run's modeled one-in-N denominators, keyed by card variant.
 
     Read from ``simulation_input_cards`` rather than the priced view because the
     stored ``effective_pull_rate`` is the authoritative model output, and this
     keeps the probability tied to the run regardless of what the view projects.
 
-    Only rates in ``0 < p <= 1`` are kept: a rate of zero, a negative, a NaN or
-    a rate above one describes no card the model can actually produce, and
-    carrying them forward would only let them lose a comparison later.
+    Despite its legacy column name, ``effective_pull_rate`` stores N in "one in
+    N packs", not a probability. Every finite positive N is valid; values above
+    one are the normal production shape. The modeled probability is ``1 / N``.
     """
     rates: Dict[str, float] = {}
     for row in _load_run_population(
@@ -353,11 +353,11 @@ def _load_modeled_pull_rates(client: Any, *, run_id: str) -> Dict[str, float]:
         run_id=run_id,
     ):
         variant_id = _optional_str(row.get("card_variant_id"))
-        probability = _optional_float(row.get("effective_pull_rate"))
-        if variant_id is None or probability is None:
+        denominator = _optional_float(row.get("effective_pull_rate"))
+        if variant_id is None or denominator is None:
             continue
-        if 0.0 < probability <= 1.0:
-            rates[variant_id] = probability
+        if denominator > 0.0:
+            rates[variant_id] = denominator
     return rates
 
 
@@ -427,8 +427,8 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
         return None
 
     try:
-        pull_rates = _load_modeled_pull_rates(client, run_id=resolved_run_id)
-        if not pull_rates:
+        pull_denominators = _load_modeled_pull_denominators(client, run_id=resolved_run_id)
+        if not pull_denominators:
             # Nothing modeled means nothing to price against; the price read is
             # skipped rather than issued and discarded.
             return None
@@ -439,7 +439,7 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
         logger.warning("top chase read failed run_id=%s", resolved_run_id, exc_info=True)
         return None
 
-    chosen = select_top_chase_card(candidates, pull_rates)
+    chosen = select_top_chase_card(candidates, pull_denominators)
     if chosen is None:
         return None
 
@@ -452,7 +452,11 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
         "rarity": _optional_str(chosen.get("rarity_bucket")),
         **_chase_image_fields(client, card_id=card_id, variant_id=variant_id),
         "currentMarketPrice": _optional_float(chosen.get("current_near_mint_price")),
-        **exact_card_probability_contract(chosen.get("effective_pull_rate")),
+        **exact_card_probability_contract(
+            1.0 / chosen["effective_pull_denominator"]
+            if _optional_float(chosen.get("effective_pull_denominator"))
+            else None
+        ),
         "priceSource": NEAR_MINT_PRICE_VIEW,
         "sourceCalculationRunId": resolved_run_id,
         "contractVersion": RIP_DECISION_CONTRACT_VERSION,

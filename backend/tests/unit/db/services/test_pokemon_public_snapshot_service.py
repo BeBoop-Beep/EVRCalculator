@@ -4890,6 +4890,7 @@ def test_pull_rates_payload_values_are_not_recalculated(monkeypatch):
 
 def _insights_payload_json_fixture(*, top_hits_count=3, rankings_count=4, history_days=5):
     return {
+        "ripDecision": {"contractVersion": "rip-decision-contract-v1", "topChase": {"cardName": "Chase"}},
         "summary": {
             "target_id": _TEST_UUID,
             "set_id": _TEST_UUID,
@@ -5046,6 +5047,7 @@ def test_insights_payload_returns_rip_breakdown_inputs(monkeypatch):
     assert payload["interpretation"]["meta"]["packScore"]["label"] == "Strong Buy"
     assert payload["meta"]["source"] == "pokemon_set_page_snapshot_latest"
     assert payload["meta"]["warnings"] == []
+    assert payload["ripDecision"] == payload_json["ripDecision"]
 
 
 def test_insights_payload_is_camel_case_only(monkeypatch):
@@ -5307,10 +5309,12 @@ def _ascended_heroes_snapshot_payload_json():
 
 
 def test_insights_critical_payload_serves_the_canonical_contract(monkeypatch):
+    snapshot = _ascended_heroes_snapshot_payload_json()
+    snapshot["ripDecision"] = {"contractVersion": "rip-decision-contract-v1", "topChase": {"cardName": "Mega Gengar ex"}}
     client = _Client(
         {
             "pokemon_set_page_snapshot_latest": lambda _q: [
-                {"set_id": _TEST_UUID, "updated_at": "2026-07-16T00:00:00+00:00", "payload_json": _ascended_heroes_snapshot_payload_json()}
+                {"set_id": _TEST_UUID, "updated_at": "2026-07-16T00:00:00+00:00", "payload_json": snapshot}
             ],
         }
     )
@@ -5354,6 +5358,7 @@ def test_insights_critical_payload_serves_the_canonical_contract(monkeypatch):
 
     assert payload["publicAnalyticsStatus"] == "analytics_ready"
     assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
+    assert payload["ripDecision"] == snapshot["ripDecision"]
 
     # No warning about the canonical contract when it is present.
     assert not any("Canonical RIP" in str(w) for w in payload["meta"]["warnings"])

@@ -7,6 +7,10 @@ function toPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
+function toNullablePlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
 function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -34,6 +38,7 @@ export function normalizePokemonSetInsightsPayload(payload) {
   const outcomeDistribution = toPlainObject(payload?.outcomeDistribution);
 
   return {
+    ripDecision: toNullablePlainObject(payload?.ripDecision),
     set: {
       id: toOptionalString(payload?.set?.id),
       name: toOptionalString(payload?.set?.name),
