@@ -92,6 +92,15 @@ WHITE_FLARE_SET_ID = "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
 PHANTASMAL_FLAMES_SET_ID = "0f7e51e2-5a78-4500-9c9c-f690e934a069"
 ASCENDED_HEROES_SET_ID = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
 PERFECT_ORDER_SET_ID = "5e99f658-39f0-4845-9228-db8db3965f32"
+PALDEA_EVOLVED_SET_ID = "202518a0-5e86-4949-b1cd-c1c8ad95b616"
+OBSIDIAN_FLAMES_SET_ID = "b4b34b61-ce48-4fc4-bd91-201a350b2600"
+PALDEAN_FATES_SET_ID = "fd1538dd-36b9-4d02-98dc-fd65a5230d27"
+SV151_SET_ID = "d001d563-988b-4f8e-904f-acb926748e22"
+TWILIGHT_MASQUERADE_SET_ID = "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b"
+SHROUDED_FABLE_SET_ID = "3b753fb6-a465-4e68-8ad9-4e34e114d4b7"
+STELLAR_CROWN_SET_ID = "4b15f040-4351-41ea-90e1-c07eb1b2f4d6"
+SURGING_SPARKS_SET_ID = "f59f25a2-d3da-4100-a918-901271a99925"
+PRISMATIC_EVOLUTIONS_SET_ID = "7a3dd188-4375-41af-94de-c5247fe0b1a6"
 
 SOURCE_JOURNEY_TOGETHER_ETB = (
     "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
@@ -137,6 +146,9 @@ SOURCE_PHANTASMAL_FLAMES_PC_ETB = (
     "mega-evolution-phantasmal-flames-pokemon-center-elite-trainer-box"
 )
 
+def _product_page(slug: str) -> str:
+    return f"https://www.pokemon.com/us/pokemon-tcg/product-gallery/{slug}"
+
 # Exact printings, all in the SV Black Star Promo catalog and all NM-priced.
 NS_ZORUA_189 = "06613c96-c91f-4701-b25d-8613c643a176"
 NS_ZORUA_189_PC = "ac3ec399-043d-43fb-82be-601edbdd4d33"
@@ -153,6 +165,24 @@ TYRUNT_070 = "d50012b8-07cf-40b0-94ea-0cba23000451"
 TYRUNT_070_PC = "53c9a84b-4bda-4400-b957-6622a42ba87f"
 MEP_CHARCADET_022 = "bd6e5260-fee4-4a05-a858-5410b7afa0ab"
 MEP_CHARCADET_022_PC = "2355b698-cc57-4ef9-8530-bcd134df69f9"
+PIKACHU_027 = "55309cff-77d8-4517-aacd-c8098c21a99d"
+PIKACHU_027_PC = "1f479b15-ab7a-431f-9e6e-cb5e82474bbb"
+CHARMANDER_044 = "534a22bb-5c32-430d-8957-6182131ff610"
+CHARMANDER_044_PC = "63f20f36-fb3e-4eaf-82e5-2dc74de6a8e8"
+MIMIKYU_075 = "b43193da-d79c-4980-b379-70d6e3db2f63"
+MIMIKYU_075_PC = "34b618e6-133d-4623-8ee9-d52d8eb200a8"
+SNORLAX_051 = "9040b7b9-73e6-4380-bcd2-d89eba4b37a3"
+SNORLAX_051_PC = "1d544f1c-0381-409d-9511-059a961b1289"
+TEAL_MASK_OGERPON_123 = "7fd75829-af9f-4f2e-a5fe-be852e7119c0"
+TEAL_MASK_OGERPON_123_PC = "d0e65ad1-c75d-46e1-89cd-3180b18def28"
+PECHARUNT_129 = "1e4b7829-106c-4c03-abdc-ad24ce649ea8"
+PECHARUNT_129_PC = "5aeb2c31-2f6a-4d95-a5e6-1dacf31a77f4"
+NOCTOWL_141 = "e2b64556-2324-4f3f-a2da-d50d94a35e73"
+NOCTOWL_141_PC = "2df72129-706e-4fe3-bb47-5b9d2162f1b6"
+MAGNETON_159 = "f804efd8-b9c3-4b2a-b0d1-504ff3c47ade"
+MAGNETON_159_PC = "6def01fe-b0fb-4667-a277-1067437e97e7"
+EEVEE_173 = "4054c21f-ec33-4085-9807-75ab78a336e5"
+EEVEE_173_PC = "eb4c4228-7ae2-4c0e-baab-e59775bae487"
 
 
 def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id):
@@ -421,6 +451,25 @@ VERIFIED_COMPOSITIONS: List[Dict[str, Any]] = [
         stamped_variant_id=MEP_CHARCADET_022_PC,
         variant_id=MEP_CHARCADET_022,
     ),
+    # ---- Non-Mega Stage 2 research (2026-08-16) --------------------------
+    _standard_etb(label="Paldea Evolved Elite Trainer Box", sealed_product_id="4e9d90e0-4628-4748-83b3-51da7db11344", set_id=PALDEA_EVOLVED_SET_ID, source=_product_page("scarlet-violet-paldea-evolved-elite-trainer-box"), promo_name="Pikachu (027)", variant_id=PIKACHU_027),
+    _pokemon_center_etb(label="Paldea Evolved Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="cea689d1-46d0-48b7-850a-ff6cf44fa71e", set_id=PALDEA_EVOLVED_SET_ID, source=_product_page("scarlet-violet-paldea-evolved-pokemon-center-elite-trainer-box"), promo_name="Pikachu (027)", stamped_variant_id=PIKACHU_027_PC, variant_id=PIKACHU_027),
+    _standard_etb(label="Obsidian Flames Elite Trainer Box", sealed_product_id="b1e99164-f8bd-4188-8c8f-e225586efb5f", set_id=OBSIDIAN_FLAMES_SET_ID, source=_product_page("scarlet-violet-obsidian-flames-elite-trainer-box"), promo_name="Charmander (044)", variant_id=CHARMANDER_044),
+    _pokemon_center_etb(label="Obsidian Flames Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="3b520d86-ecc5-4bd9-8f56-5050e1c4a4d9", set_id=OBSIDIAN_FLAMES_SET_ID, source=_product_page("scarlet-violet-obsidian-flames-pokemon-center-elite-trainer-box"), promo_name="Charmander (044)", stamped_variant_id=CHARMANDER_044_PC, variant_id=CHARMANDER_044),
+    _standard_etb(label="Paldean Fates Elite Trainer Box", sealed_product_id="808537c4-4136-4d23-a3b2-f5984cf474e2", set_id=PALDEAN_FATES_SET_ID, source=_product_page("scarlet-violet-paldean-fates-elite-trainer-box"), promo_name="Mimikyu (075)", variant_id=MIMIKYU_075),
+    _pokemon_center_etb(label="Paldean Fates Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="86d73a43-aacf-4793-a0db-5b043b35a2f6", set_id=PALDEAN_FATES_SET_ID, source=_product_page("scarlet-violet-paldean-fates-pokemon-center-elite-trainer-box"), promo_name="Mimikyu (075)", stamped_variant_id=MIMIKYU_075_PC, variant_id=MIMIKYU_075),
+    _standard_etb(label="151 Elite Trainer Box", sealed_product_id="80b07fe1-5561-414a-a60b-b03689f481a9", set_id=SV151_SET_ID, source=_product_page("scarlet-violet-151-elite-trainer-box"), promo_name="Snorlax (051)", variant_id=SNORLAX_051),
+    _pokemon_center_etb(label="151 Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="dbfd9f2d-5509-45b2-a08f-ba5e09ad2ff4", set_id=SV151_SET_ID, source=_product_page("scarlet-violet-151-pokemon-center-elite-trainer-box"), promo_name="Snorlax (051)", stamped_variant_id=SNORLAX_051_PC, variant_id=SNORLAX_051),
+    _standard_etb(label="Twilight Masquerade Elite Trainer Box", sealed_product_id="c021a1d3-54b2-46f6-bf82-1454fff78aa6", set_id=TWILIGHT_MASQUERADE_SET_ID, source=_product_page("scarlet-violet-twilight-masquerade-elite-trainer-box"), promo_name="Teal Mask Ogerpon (123)", variant_id=TEAL_MASK_OGERPON_123),
+    _pokemon_center_etb(label="Twilight Masquerade Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="0a8fa379-222a-41d2-8c13-afee4e663fc4", set_id=TWILIGHT_MASQUERADE_SET_ID, source=_product_page("scarlet-violet-twilight-masquerade-pokemon-center-elite-trainer-box"), promo_name="Teal Mask Ogerpon (123)", stamped_variant_id=TEAL_MASK_OGERPON_123_PC, variant_id=TEAL_MASK_OGERPON_123),
+    _standard_etb(label="Shrouded Fable Elite Trainer Box", sealed_product_id="fb5ad13c-4075-4c3b-b20d-9ad382961436", set_id=SHROUDED_FABLE_SET_ID, source=_product_page("scarlet-violet-shrouded-fable-elite-trainer-box"), promo_name="Pecharunt (129)", variant_id=PECHARUNT_129),
+    _pokemon_center_etb(label="Shrouded Fable Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="31b771c4-67ca-46c7-840c-e39ed91e0189", set_id=SHROUDED_FABLE_SET_ID, source=_product_page("scarlet-violet-shrouded-fable-pokemon-center-elite-trainer-box"), promo_name="Pecharunt (129)", stamped_variant_id=PECHARUNT_129_PC, variant_id=PECHARUNT_129),
+    _standard_etb(label="Stellar Crown Elite Trainer Box", sealed_product_id="928eeef5-8a7e-4c1f-a634-ae332c8c0219", set_id=STELLAR_CROWN_SET_ID, source=_product_page("scarlet-violet-stellar-crown-elite-trainer-box"), promo_name="Noctowl (141)", variant_id=NOCTOWL_141),
+    _pokemon_center_etb(label="Stellar Crown Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="a3610e17-f0d0-4b4f-88a0-fb6374b0d458", set_id=STELLAR_CROWN_SET_ID, source=_product_page("scarlet-violet-stellar-crown-pokemon-center-elite-trainer-box"), promo_name="Noctowl (141)", stamped_variant_id=NOCTOWL_141_PC, variant_id=NOCTOWL_141),
+    _standard_etb(label="Surging Sparks Elite Trainer Box", sealed_product_id="f8110028-665d-42d1-ab9d-7e17b784d638", set_id=SURGING_SPARKS_SET_ID, source=_product_page("scarlet-violet-surging-sparks-elite-trainer-box"), promo_name="Magneton (159)", variant_id=MAGNETON_159),
+    _pokemon_center_etb(label="Surging Sparks Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="55d50d9e-d68b-4f3b-b552-da2c065fad3f", set_id=SURGING_SPARKS_SET_ID, source=_product_page("scarlet-violet-surging-sparks-pokemon-center-elite-trainer-box"), promo_name="Magneton (159)", stamped_variant_id=MAGNETON_159_PC, variant_id=MAGNETON_159),
+    _standard_etb(label="Prismatic Evolutions Elite Trainer Box", sealed_product_id="41b15cf2-512b-4b28-9660-83170538fc7a", set_id=PRISMATIC_EVOLUTIONS_SET_ID, source=_product_page("scarlet-violet-prismatic-evolutions-elite-trainer-box"), promo_name="Eevee (173)", variant_id=EEVEE_173),
+    _pokemon_center_etb(label="Prismatic Evolutions Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="f0b0297b-0f85-4abf-8fc7-2227c18488dd", set_id=PRISMATIC_EVOLUTIONS_SET_ID, source=_product_page("scarlet-violet-prismatic-evolutions-pokemon-center-elite-trainer-box"), promo_name="Eevee (173)", stamped_variant_id=EEVEE_173_PC, variant_id=EEVEE_173),
 ]
 
 
