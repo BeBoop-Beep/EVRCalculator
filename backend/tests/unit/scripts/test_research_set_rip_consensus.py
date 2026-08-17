@@ -46,6 +46,7 @@ def test_missing_family_is_absent_not_zero_and_gate_is_unavailable():
     assert alpha_bundle["availabilityStatus"] == "no_catalogued_product"
     gated = research.rank_candidate(matrix, representative_policy="best", method="mean", minimum_coverage=2)
     assert all(row["status"] == "insufficient_coverage" and row["consensusValue"] is None for row in gated)
+    assert [row["setRipUnit"] for row in gated] == [1.0, 0.0]
 
 
 @pytest.mark.parametrize("policy,expected", [("best", 1.0), ("median", 0.75), ("mean", 0.75)])
@@ -57,6 +58,58 @@ def test_candidate_grid_is_predeclared_and_deterministic():
     assert research.candidate_grid() == research.candidate_grid()
     assert {row["representativePolicy"] for row in research.candidate_grid()} == {"best", "median", "mean"}
     assert {row["priorStrength"] for row in research.candidate_grid() if row["method"] == "mean"} == {0, 1, 2, 3}
+    assert len(research.candidate_grid()) == 189
+
+
+def test_leading_spec_is_unshrunk_two_level_equal_family_mean():
+    assert research.LEADING_SPEC == {"representativePolicy": "mean", "method": "mean", "priorStrength": 0,
+                                     "minimumCoverage": 2, "minimumFamilySetCohort": 3}
+    matrix = [
+        {"setId": "a", "family": "booster_box", "familySetCohortSize": 3, "rankableSkuCount": 3,
+         "meanSkuPercentile": 0.6, "bestFamilyPercentile": 1.0, "medianSkuPercentile": 0.5},
+        {"setId": "a", "family": "elite_trainer_box", "familySetCohortSize": 3, "rankableSkuCount": 1,
+         "meanSkuPercentile": 0.2, "bestFamilyPercentile": 0.2, "medianSkuPercentile": 0.2},
+    ]
+    ranked = research.rank_candidate(matrix, representative_policy="mean", method="mean",
+                                     prior_strength=0, minimum_coverage=2, minimum_family_sets=3)
+    assert ranked[0]["setRipUnit"] == 0.4
+    assert ranked[0]["setRipScore"] == 40.0
+    assert ranked[0]["rankableSkuEvidenceCount"] == 4
+
+
+def test_four_skus_still_make_one_family_vote_and_extra_family_changes_mean_not_weight():
+    matrix = [
+        {"setId": "a", "family": "elite_trainer_box", "familySetCohortSize": 3, "rankableSkuCount": 4,
+         "meanSkuPercentile": 0.8, "bestFamilyPercentile": 1.0, "medianSkuPercentile": 0.8},
+        {"setId": "a", "family": "booster_box", "familySetCohortSize": 3, "rankableSkuCount": 1,
+         "meanSkuPercentile": 0.2, "bestFamilyPercentile": 0.2, "medianSkuPercentile": 0.2},
+    ]
+    ranked = research.rank_candidate(matrix, representative_policy="mean", method="mean",
+                                     minimum_coverage=2, minimum_family_sets=3)
+    assert ranked[0]["setRipUnit"] == 0.5  # (one ETB family vote + one box family vote) / 2
+
+
+@pytest.mark.parametrize("extra,expected", [(0.1, 0.5), (0.9, 0.766667)])
+def test_weak_or_strong_extra_family_can_lower_or_raise_mean(extra, expected):
+    matrix = [
+        {"setId": "a", "family": family, "familySetCohortSize": 3, "rankableSkuCount": 1,
+         "meanSkuPercentile": value, "bestFamilyPercentile": value, "medianSkuPercentile": value}
+        for family, value in [("booster_box", 0.7), ("booster_bundle", 0.7), ("elite_trainer_box", extra)]
+    ]
+    ranked = research.rank_candidate(matrix, representative_policy="mean", method="mean", minimum_family_sets=3)
+    assert ranked[0]["setRipUnit"] == expected
+
+
+def test_family_cohort_threshold_controls_eligibility_without_zero_fill():
+    matrix = [
+        {"setId": "a", "family": "booster_box", "familySetCohortSize": 3, "rankableSkuCount": 1,
+         "meanSkuPercentile": 0.8, "bestFamilyPercentile": 0.8, "medianSkuPercentile": 0.8},
+        {"setId": "a", "family": "enhanced_booster_box", "familySetCohortSize": 1, "rankableSkuCount": 1,
+         "meanSkuPercentile": 0.0, "bestFamilyPercentile": 0.0, "medianSkuPercentile": 0.0},
+    ]
+    ranked = research.rank_candidate(matrix, representative_policy="mean", method="mean", minimum_family_sets=3)
+    assert ranked[0]["setRipUnit"] == 0.8
+    assert ranked[0]["familyCoverageCount"] == 1
 
 
 def test_future_product_rows_automatically_expand_matrix_coverage():
