@@ -182,9 +182,35 @@ $30 of phantom recovery per copy.
 | `targetValueUsedInEV` | `simulation_input_cards.price_used` | separating the retained target from `grossPullValue` |
 | `currentTargetMarketPrice` | `current_near_mint_price` | the buy-the-single comparison and Entertainment Premium |
 
-Both are published, alongside `targetPriceBasisDelta =
-currentTargetMarketPrice - targetValueUsedInEV`, so a reader can see the drift
-rather than having it silently absorbed.
+Both are published, alongside an explicitly-signed delta:
+
+```
+targetPriceBasisDelta = currentTargetMarketPrice - targetValueUsedInEV
+```
+
+**Current minus EV-basis.** A positive delta means the card has appreciated
+since the run was priced, so buying the single today costs more than the EV
+credited it. The sign convention is stated in the contract and in the module
+docstring, because a reader who assumes the opposite ordering reads every drift
+backwards.
+
+**Valuation provenance is preserved, not just the two numbers.** Each card
+block carries:
+
+| Field | Meaning |
+|---|---|
+| `targetValueUsedInEV` | `simulation_input_cards.price_used` |
+| `evPriceBasisRunId` | the `calculation_run_id` that price belongs to |
+| `evPriceBasisAsOf` | that run's pricing timestamp |
+| `currentTargetMarketPrice` | `current_near_mint_price` |
+| `currentPriceAsOf` | when the current price was observed |
+| `currentPriceSource` | `simulation_input_cards_with_near_mint_price` |
+| `targetPriceBasisDelta` | current − EV-basis |
+
+Without the timestamps a reader cannot tell a stale run from a genuinely moving
+card, and the two cases warrant opposite responses. Where a timestamp is not
+available from the underlying row it is published as `null` rather than
+defaulted to the read time, which would assert freshness we did not measure.
 
 **Query cost: zero.** `_load_modeled_pull_denominators` already reads
 `simulation_input_cards` for the whole run; `price_used` is an additional
@@ -297,8 +323,18 @@ productValue  = Σ_g k_g · ev_g  +  guaranteedComponentMarketValue
 expectedProductsToHit = 1 / p_prod
 grossSpend            = productPrice / p_prod
 grossPullValue        = productValue / p_prod
-expectedTargetCopies  = (Σ_g k_g · c_g) / p_prod        (+ guaranteed_target_copies)
+expectedTargetCopies  = (Σ_g k_g · c_g) / p_prod
 ```
+
+**`guaranteed_target_copies` is removed from V1.** An earlier draft carried it
+as a forward-compatibility parameter that added into `expectedTargetCopies`
+while leaving `p_prod` untouched. That is internally incorrect: a product whose
+composition *guarantees* the target has `p_prod = 1`, so the chase collapses to
+a single product with no journey, no thresholds and no incidental accumulation
+— a different model, not a parameter of this one. Shipping the parameter in its
+drafted form would have handed a future caller a value that silently produces
+wrong thresholds. It is deferred rather than half-implemented; no product
+modeled today guarantees a pullable target card.
 
 `expected_pack_value` is the value of one **random** pack:
 
@@ -414,7 +450,11 @@ large):
     "cardId": "…", "cardVariantId": "…", "cardName": "…", "rarity": "…",
     "imageUrl": "…",
     "currentTargetMarketPrice": 310.00,
+    "currentPriceAsOf": "2026-08-16T04:12:00Z",
+    "currentPriceSource": "simulation_input_cards_with_near_mint_price",
     "targetValueUsedInEV": 280.00,
+    "evPriceBasisRunId": "…",
+    "evPriceBasisAsOf": "2026-08-15T06:30:00Z",
     "targetPriceBasisDelta": 30.00,
     "modeledProbability": 0.0021, "impliedOddsOneInN": 476.2,
     "expectedPacksToHit": 476.2,
@@ -511,8 +551,16 @@ The recovery term is never called `nonTargetRecovery`.
    reimplemented.
 3. `backend/db/services/chase_economics_service.py` — impure; selection,
    joining, and the top-`limit` publication policy.
-4. `backend/db/migrations/067_create_pokemon_set_chase_economics_snapshot.sql`
+4. `backend/db/migrations/<NNN>_create_pokemon_set_chase_economics_snapshot.sql`
    — table + backend-only RLS, following `064`/`065`.
+
+   **The migration number must be re-verified at implementation time**, not
+   taken from this spec. `066` is the highest as of writing, but the Stage 2
+   composition work running in parallel may land `067` first. Claiming a number
+   from a stale reading produces two migrations with the same prefix and an
+   ordering that depends on which branch merges first. The implementation step
+   re-runs `ls backend/db/migrations/ | sort -V | tail -5` and uses the next
+   free number.
 5. `backend/scripts/audit_entertainment_cost_chase.py` — read-only validation.
 
 ### Modified files
@@ -563,6 +611,14 @@ data.
 - **probability and copies are independent inputs**: a group with
   `expected_target_copies_per_pack != target_probability_per_pack` computes
   without error and changes only the copy-derived fields
+- **delta sign convention**: a card that appreciated since the run
+  (`current > price_used`) yields a **positive** `targetPriceBasisDelta`, and
+  the depreciated case yields a negative one
+- **provenance nulls are not defaulted**: a row with no pricing timestamp
+  publishes `evPriceBasisAsOf: null`, never the read time
+- **`guaranteed_target_copies` is absent** from the public signature — a test
+  asserts the parameter is not accepted, so the deferred path cannot be
+  reintroduced by accident
 - `expectedTargetCopies >= 1`; negative premium preserved unclamped
 - boundaries: `p >= 1` → one product; `p <= 0` → unavailable, never `Infinity`;
   missing `currentTargetMarketPrice` → premium `null`, spend fields survive
@@ -623,5 +679,6 @@ Reported for review before anything is considered done.
 | Target-aware simulator instrumentation | Not needed — analytical is exact under model assumptions |
 | Partial-product stopping model | §4.1 commits V1 to full-product opening |
 | Heterogeneous multi-set products | Contract accommodates them (§6.4); no implementation |
+| `guaranteed_target_copies` | Drafted form was internally incorrect (`p_prod = 1` collapses the chase); removed rather than shipped half-right (§6.4) |
 | Cross-family "best way to chase" ranking | Repository policy is `within_product_family_only`; the contract enables it, this task does not rank |
 | Any RIP formula, weight, tier or score change | Out of scope; no bug found requiring it |
