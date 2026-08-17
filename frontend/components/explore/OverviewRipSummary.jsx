@@ -115,7 +115,7 @@ function SummaryMetric({ id, label, score, meta, description, available }) {
  * set page routes through handleSetDetailNavSelect (tab state + router.push +
  * scroll) — a plain link would bypass that and reload the whole page.
  */
-export default function OverviewRipSummary({ canonical, onViewAnalysis = null }) {
+export default function OverviewRipSummary({ canonical, setRip = null, onViewAnalysis = null }) {
   const overall = useMemo(
     () => readCanonicalBlock(resolveCanonicalRipV7(canonical).overall),
     [canonical]
@@ -166,6 +166,15 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
           is what made the retired Decision Signals block dominate Overview. */}
       <div className="mt-3 flex min-w-0 flex-col gap-3 desk:flex-row desk:gap-6 desk:divide-x desk:divide-[var(--border-subtle)]">
         <SummaryMetric
+          id="set-rip"
+          label="Set RIP"
+          score={toDisplayScore(setRip?.score)}
+          available={Boolean(setRip?.rankable) && toDisplayScore(setRip?.score) !== null}
+          meta={formatMeta({ rank: setRip?.rank, cohortSize: null, tier: null })}
+          description={`Set RIP measures how strong this set's available opening products are overall, relative to comparable products of the same type. ${setRip?.participatingFamilyCount ?? 0} product families participate. Multiple SKUs within the same product family are averaged before that family contributes to Set RIP.`}
+        />
+        <div className="min-w-0 flex-1 desk:pl-6">
+        <SummaryMetric
           id="overall"
           label="Overall RIP"
           // THE canonical public value. The fixed-anchor 90/10 blend is never
@@ -175,6 +184,7 @@ export default function OverviewRipSummary({ canonical, onViewAnalysis = null })
           meta={formatMeta({ tier: overall.tier, rank: overall.rank, cohortSize: overall.cohortSize })}
           description={RIP_SUMMARY_DESCRIPTIONS.overall}
         />
+        </div>
         <div className="min-w-0 flex-1 desk:pl-6">
           <SummaryMetric
             id="financial"

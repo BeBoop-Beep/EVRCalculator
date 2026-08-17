@@ -49,9 +49,9 @@ test("ExploreTableClient renders a distinct error message when loadError is true
 
 // Phase 2-4: absolute / relative / rank presentation, both score families.
 
-test("desktop default mode embeds Overall RIP context and removes standalone score columns", () => {
+test("desktop default mode makes Set RIP primary and keeps pack Overall RIP distinct", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes("Overall RIP {formatModeScore(getScoreForMode(target, \"overall\")"));
+  assert.ok(source.includes("Set RIP {formatModeScore(target?.setRipV1?.score"));
   assert.ok(!source.includes('label="Financial RIP"'));
   assert.ok(!source.includes('label="Collector Appeal"'));
 });
@@ -124,15 +124,15 @@ test("sorting is client-side over the already-loaded targets, with no fetch", ()
   }
 });
 
-test("the default sort state is the canonical Overall RIP order", () => {
+test("the default sort state is the canonical Set RIP order", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(
     source.includes("useState(RANKINGS_DEFAULT_SORT)"),
-    "initial sort must be the module's declared default (Overall RIP descending)"
+    "initial sort must be the module's declared default (Set RIP descending)"
   );
   assert.ok(
-    source.includes("sortTargetsByMode(targets, selectedMode)"),
-    "the canonical ordering pass must still run first and feed the sort"
+    source.includes("left?.setRipV1?.rank"),
+    "the canonical Set RIP ordering pass must run first and feed the sort"
   );
 });
 
@@ -355,7 +355,7 @@ function sourceForHeading() {
 
 test("the single table uses authoritative decision fields and optional chase data", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes("getScoreForMode(target, \"overall\")"));
+  assert.ok(source.includes("target?.setRipV1?.score"));
   assert.ok(source.includes("formatCurrency(target?.pack_cost)"));
   assert.ok(source.includes("readTypicalOpening(target)"));
   assert.ok(source.includes("readModelBreakEven(target)"));
@@ -363,11 +363,11 @@ test("the single table uses authoritative decision fields and optional chase dat
   assert.ok(source.includes("readOptionalRankingsChase(target)"));
 });
 
-test("rank is a scannable column driven by the canonical mode rank", () => {
+test("rank is a scannable column driven by canonical Set RIP rank", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   assert.ok(
-    source.includes("getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1"),
-    "the rank marker must read the canonical mode rank, falling back to canonical position only for display"
+    source.includes("target?.setRipV1?.rank ?? (canonicalIndexByTarget.get(target) ?? index) + 1"),
+    "the rank marker must read Set RIP rank, falling back to canonical position only for display"
   );
   assert.ok(source.includes("LEAD_RANK_LIMIT"), "top-of-ladder emphasis must be bounded by an explicit limit");
 });
@@ -378,7 +378,7 @@ test("Best Sets reads the authoritative one-day RIP history contract", () => {
   assert.ok(source.includes("overallRipRankComparisonStatus1d"));
   assert.ok(source.includes("previousFinancialRipRank1d"));
   assert.ok(!source.includes("ripRankComparisonStatus7d"));
-  assert.ok(!source.includes("formatRankMovement(null, modeRank"));
+  assert.ok(source.includes('formatRankMovement(null, modeRank, "unavailable")'));
 });
 
 test("compact rank displays drop the repeated cohort size", () => {
@@ -439,7 +439,7 @@ test("the ranking-mode picker is hidden behind a flag, not removed", () => {
   // Everything the picker drives must survive untouched.
   assert.ok(source.includes("EXPLORE_RANKING_MODES"), "the mode config must still be imported and mapped");
   assert.ok(source.includes("setSelectedMode(modeId)"), "mode selection must still be wired for when the flag returns");
-  assert.ok(source.includes("sortTargetsByMode(targets, selectedMode)"), "mode-driven sorting must be untouched");
+  assert.ok(source.includes("sortTargetsByMode"), "mode-driven sorting remains available for the hidden modes");
 });
 
 test("mobile keeps a larger unframed identity and one active metric", () => {
@@ -495,7 +495,7 @@ test("desktop keeps canonical rank while mobile rank follows active sort order",
   // position in the CANONICAL array — never its position in the current sort,
   // which would turn a presentation choice into a fabricated rank.
   assert.equal(
-    (source.match(/getRankForMode\(target, selectedMode\) \?\? \(canonicalIndexByTarget\.get\(target\) \?\? index\) \+ 1/g) || []).length,
+    (source.match(/target\?\.setRipV1\?\.rank \?\? \(canonicalIndexByTarget\.get\(target\) \?\? index\) \+ 1/g) || []).length,
     1,
     "desktop rank fallback must come from the canonical order"
   );
@@ -545,7 +545,7 @@ test("identity, tier, rank, scores and navigation all survive the badge removal"
   assert.ok(source.includes("<SetIdentity variant=\"compact\" target={target}"), "identity still renders");
   assert.ok(source.includes("<RankBadge rank={tier}"), "tier still renders");
   assert.ok(source.includes("<RankMarker rank={modeRank}"), "rank still renders");
-  assert.ok(source.includes('getScoreForMode(target, "overall")'), "Overall RIP remains compact set context");
+  assert.ok(source.includes("target?.setRipV1?.score"), "Set RIP is compact set context");
   assert.ok(source.includes("href={buildRipLink(target)}"), "row navigation still renders");
   assert.ok(source.includes("getRipMovementForMode"), "rank movement still renders");
 });

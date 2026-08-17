@@ -204,7 +204,7 @@ const SEALED_FAMILY_LABELS = Object.freeze({
   booster_box: "Booster Box",
   half_booster_box: "Half Booster Box",
   booster_bundle: "Booster Bundle",
-  booster_pack: "Booster Pack",
+  loose_booster_pack: "Loose Booster Pack",
   sleeved_booster_pack: "Sleeved Booster Pack",
   elite_trainer_box: "Elite Trainer Box",
   pokemon_center_elite_trainer_box: "Pokémon Center ETB",
@@ -217,7 +217,7 @@ const SEALED_FAMILY_ORDER = [
   "elite_trainer_box",
   "pokemon_center_elite_trainer_box",
   "booster_bundle",
-  "booster_pack",
+  "loose_booster_pack",
   "sleeved_booster_pack",
 ];
 

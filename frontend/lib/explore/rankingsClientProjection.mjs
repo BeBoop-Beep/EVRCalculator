@@ -95,6 +95,7 @@ const SCALAR_FIELDS = Object.freeze([
  * it, and it is the single heaviest thing in the contract.
  */
 const BLOCK_LEAVES = Object.freeze({
+  setRipV1: ["score", "rank", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],

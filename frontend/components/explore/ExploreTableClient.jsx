@@ -101,7 +101,7 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
-const MOBILE_DECISION_COLUMN_IDS = ["overall", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
+const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
 
 function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
@@ -361,6 +361,10 @@ function MobileScoreBlock({ target, modeId, label }) {
 }
 
 function ActiveMobileMetric({ target, columnId }) {
+  if (columnId === "setRip") {
+    const value = toNumber(target?.setRipV1?.score);
+    return <div className="flex-none text-right"><div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">{value === null ? UNAVAILABLE_LABEL : `${value.toFixed(1)} / 100`}</div><div className="text-[9px] uppercase tracking-[0.09em] text-[var(--text-secondary)]">Set RIP</div></div>;
+  }
   if (columnId === "overall" || columnId === "financial" || columnId === COLLECTOR_APPEAL_COLUMN) {
     const { value, kind, isPublic } = readModeScore(target, columnId);
     return (
@@ -518,7 +522,14 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   // ONE canonical ordering pass over the already-fetched targets. Nothing below
   // re-reads the network, and a header click only re-runs the memo on the line
   // after this one.
-  const canonicalTargets = useMemo(() => sortTargetsByMode(targets, selectedMode), [targets, selectedMode]);
+  const canonicalTargets = useMemo(() => [...targets].sort((left, right) => {
+    const leftRank = toNumber(left?.setRipV1?.rank);
+    const rightRank = toNumber(right?.setRipV1?.rank);
+    if (leftRank !== null && rightRank !== null && leftRank !== rightRank) return leftRank - rightRank;
+    if (leftRank !== null) return -1;
+    if (rightRank !== null) return 1;
+    return String(left?.name || "").localeCompare(String(right?.name || ""));
+  }), [targets]);
   const sortedTargets = useMemo(() => sortRankingsRows(canonicalTargets, sort), [canonicalTargets, sort]);
   // The row's position in the CANONICAL order, used only as the "#" fallback for
   // a target the backend gave no rank. Taking it from the canonical array rather
@@ -620,8 +631,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const modeTitle = currentModeConfig?.title || "Best Sets to Rip Right Now";
   const tierLabel = currentModeConfig?.tierLabel || "Tier";
   const scoreLabel = currentModeConfig?.scoreLabel || "Score";
-  const activeSortColumn = RANKINGS_SORT_COLUMNS[sort.column] || RANKINGS_SORT_COLUMNS.overall;
-  const activeSortLabel = sort.column === "overall" && !isOverallMode ? scoreLabel : activeSortColumn.label;
+  const activeSortColumn = RANKINGS_SORT_COLUMNS[sort.column] || RANKINGS_SORT_COLUMNS.setRip;
+  const activeSortLabel = activeSortColumn.label;
   const sortDirectionNote = sort.direction === SORT_ASC ? "lowest first" : "highest first";
   const sortNote = `Ordered by ${activeSortLabel}, ${sortDirectionNote}. Select any metric column heading to sort by it; select it again to reverse the direction.`;
   const visibleMobileTargets =
@@ -867,11 +878,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               <tbody>
                 {sortedTargets.map((target, index) => {
                   const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
-                  const modeRank =
-                    getRankForMode(target, selectedMode) ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
+                  const modeRank = target?.setRipV1?.rank ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = tier ? getTierTone(tier) : null;
-                  const rankMovement = getRipMovementForMode(target, selectedMode, modeRank);
+                  const rankMovement = formatRankMovement(null, modeRank, "unavailable");
 
                   return (
                     <tr
@@ -885,7 +895,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
                           <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
-                          <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">{tier ? `${tier} Tier · ` : ""}Overall RIP {formatModeScore(getScoreForMode(target, "overall"), SCORE_KIND_PUBLIC)}</span>
+                          <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">Set RIP {formatModeScore(target?.setRipV1?.score, SCORE_KIND_PUBLIC)} · {target?.setRipV1?.participatingFamilyCount ?? 0} product families</span>
                         </Link>
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
@@ -915,7 +925,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             {visibleMobileTargets.map((target, index) => {
               const activeRank = index + 1;
               const overallTier = (getTierForMode(target, "overall") || "").toString().toUpperCase() || null;
-              const tier = sort.column === "overall" ? overallTier : null;
+              const tier = null;
               const tierTone = overallTier ? getTierTone(overallTier) : null;
 
               return (

@@ -56,7 +56,7 @@ export const SORT_ASC = "asc";
  * default is.
  */
 export const RANKINGS_DEFAULT_SORT = Object.freeze({
-  column: "overall",
+  column: "setRip",
   direction: SORT_DESC,
 });
 
@@ -146,6 +146,11 @@ export function readCollectorAppealBlock(target) {
  * `label` is the header text so the header and the sort key cannot drift apart.
  */
 export const RANKINGS_SORT_COLUMNS = {
+  setRip: {
+    id: "setRip",
+    label: "Set RIP",
+    read: (target) => toNumber(target?.setRipV1?.score),
+  },
   overall: {
     id: "overall",
     label: "Overall RIP",

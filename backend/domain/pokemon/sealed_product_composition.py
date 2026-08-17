@@ -20,7 +20,7 @@ WHAT THIS DELIBERATELY IS NOT
   promos) are UNSUPPORTED here on purpose - returning a pack count for them
   would silently publish a wrong opening model. They belong to Stage 2, which
   extends this module rather than editing the Stage 1 rows.
-* Not a general composition database. Four explicit rows are the whole
+* Not a general composition database. Five explicit rows are the whole
   contract; the seam for Stage 2 is a new resolver entry, not a schema.
 
 Anything outside the exact Stage 1 family set resolves to ``None`` - never to a
@@ -64,6 +64,7 @@ class Stage1ProductComposition:
 
 
 _STAGE1_COMPOSITIONS: Dict[str, Stage1ProductComposition] = {
+    "loose_booster_pack": Stage1ProductComposition("loose_booster_pack", 1),
     "sleeved_booster_pack": Stage1ProductComposition("sleeved_booster_pack", 1),
     "booster_bundle": Stage1ProductComposition("booster_bundle", 6),
     # STANDARD booster box only. `enhanced_booster_box` is a separate family in
@@ -154,7 +155,7 @@ def stage1_composition_disqualifier(product_name: Any, *, product_family: Any = 
             continue
         # A sleeved booster pack IS a single pack; "pack" in its own name is its
         # identity, not a quantity qualifier.
-        if family == "sleeved_booster_pack" and pattern == r"\b\d+\s*[-\s]?pack\b":
+        if family in {"loose_booster_pack", "sleeved_booster_pack"} and pattern == r"\b\d+\s*[-\s]?pack\b":
             continue
         if re.search(pattern, text):
             return REASON_NON_DEFAULT_PACK_COUNT

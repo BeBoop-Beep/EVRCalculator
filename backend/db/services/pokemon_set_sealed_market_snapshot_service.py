@@ -25,7 +25,7 @@ FAMILY_PRIORITY = {
     "elite_trainer_box": 3,
     "pokemon_center_elite_trainer_box": 4,
     "booster_bundle": 5,
-    "booster_pack": 6,
+    "loose_booster_pack": 6,
     "sleeved_booster_pack": 7,
 }
 

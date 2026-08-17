@@ -18,7 +18,7 @@ def test_classifier_precedence_and_variants():
     assert family("Surging Sparks Half Booster Box") == "half_booster_box"
     assert family("Surging Sparks Booster Box") == "booster_box"
     assert family("Sleeved Booster Pack") == "sleeved_booster_pack"
-    assert family("Booster Pack") == "booster_pack"
+    assert family("Booster Pack") == "loose_booster_pack"
 
 
 def test_bundle_and_exclusion_rules():
@@ -26,3 +26,10 @@ def test_bundle_and_exclusion_rules():
     assert classify_sealed_product("Journey Together Booster Bundle")["isOverviewEligible"]
     for name in ("Booster Bundle Case", "Set of 2 Elite Trainer Boxes", "Booster Pack Art Bundle"):
         assert not classify_sealed_product(name)["isOverviewEligible"]
+
+
+def test_loose_pack_excludes_multi_pack_and_container_products():
+    assert family("Booster Pack") == "loose_booster_pack"
+    assert family("Sleeved Booster Pack") == "sleeved_booster_pack"
+    for name in ("Booster Pack Art Bundle", "Set of 4 Booster Packs", "Booster Pack Case", "Booster Pack Display"):
+        assert family(name) != "loose_booster_pack"

@@ -13281,6 +13281,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
                         <OverviewRipSummary
                           canonical={canonicalRip}
+                          setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
                           onViewAnalysis={() =>
                             handleSetDetailNavSelect({
                               tab: "insights",

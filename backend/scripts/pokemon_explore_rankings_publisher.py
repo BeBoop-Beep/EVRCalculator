@@ -47,6 +47,7 @@ from backend.scripts.pokemon_snapshot_builders import (
     attach_daily_rip_rank_movements,
     build_explore_rankings_snapshot_row,
 )
+from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_METHODOLOGY_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -447,6 +448,24 @@ def validate_publication_payload(
             "Refusing to publish Explore RIP leaderboard: ranked target count "
             f"expected={expected} actual={len(ranked_targets)}"
         )
+    set_rip_meta = payload.get("setRip") or {}
+    if set_rip_meta.get("methodologyVersion") != SET_RIP_METHODOLOGY_VERSION:
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: canonical Set RIP metadata is missing")
+    if int(set_rip_meta.get("rankedSetCount") or 0) != expected:
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: Set RIP ranked cohort is incomplete")
+    set_rip_ranks = []
+    for target in ranked_targets:
+        block = target.get("setRipV1") or {}
+        if (block.get("methodologyVersion") != SET_RIP_METHODOLOGY_VERSION or
+                block.get("rankable") is not True or block.get("score") is None or
+                block.get("rank") is None or int(block.get("participatingFamilyCount") or 0) < 2):
+            raise RuntimeError(
+                "Refusing to publish Explore RIP leaderboard: incomplete Set RIP block for "
+                f"set_id={target.get('set_id') or target.get('target_id')}"
+            )
+        set_rip_ranks.append(int(block["rank"]))
+    if sorted(set_rip_ranks) != list(range(1, expected + 1)):
+        raise RuntimeError("Refusing to publish Explore RIP leaderboard: Set RIP ranks are not contiguous")
     if len(history_rows) != expected:
         raise RuntimeError(
             "Refusing to publish Explore RIP leaderboard: history row count "

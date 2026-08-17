@@ -392,7 +392,7 @@ def test_cross_format_comparison_is_false_everywhere_it_is_published():
     assert report["comparisonScope"] == "within_product_family_only"
 
 
-@pytest.mark.parametrize("family", ["booster_box", "half_booster_box", "booster_bundle", "sleeved_booster_pack"])
+@pytest.mark.parametrize("family", ["booster_box", "half_booster_box", "booster_bundle", "loose_booster_pack", "sleeved_booster_pack"])
 def test_same_family_comparison_is_allowed(family):
     assert scope.may_compare_products(family, family) is True
 
@@ -405,6 +405,7 @@ def test_same_family_comparison_is_allowed(family):
         ("half_booster_box", "booster_bundle"),
         ("booster_box", "sleeved_booster_pack"),
         ("booster_bundle", "sleeved_booster_pack"),
+        ("loose_booster_pack", "sleeved_booster_pack"),
         ("booster_box", "elite_trainer_box"),
     ],
 )

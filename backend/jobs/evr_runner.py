@@ -649,17 +649,6 @@ class EVRRunOrchestrator:
             config=config,
         )
 
-        persisted_outputs = persist_simulation_outputs(
-            run_id=run_id,
-            sim_results=sim_results,
-            pack_metrics=pack_metrics,
-            derived=derived,
-        )
-
-        persisted_etb = None
-        if etb_enabled:
-            persisted_etb = persist_simulation_etb_summary(run_id=run_id, etb_metrics=etb_metrics)
-
         # Stage 1 sealed products. Strictly ADDITIVE and strictly downstream: it
         # consumes the pack simulation that already finished and the parent run
         # that is already persisted, so the loose-pack result above does not
@@ -681,6 +670,22 @@ class EVRRunOrchestrator:
                 canonical_key,
             )
             sealed_product_stage1 = {"status": "skipped", "reason": "parent_run_set_id_unavailable"}
+
+        # The authoritative-run view treats summary + derived metrics as the
+        # completion boundary. Persist those only AFTER sealed-product coverage
+        # has either succeeded or returned an explicit legitimate skip. A
+        # scoring/discovery/persistence exception therefore cannot leave a run
+        # that looks complete while silently carrying zero eligible products.
+        persisted_outputs = persist_simulation_outputs(
+            run_id=run_id,
+            sim_results=sim_results,
+            pack_metrics=pack_metrics,
+            derived=derived,
+        )
+
+        persisted_etb = None
+        if etb_enabled:
+            persisted_etb = persist_simulation_etb_summary(run_id=run_id, etb_metrics=etb_metrics)
 
         result = {
             "canonical_key": canonical_key,

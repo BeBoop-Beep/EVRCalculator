@@ -8,7 +8,7 @@ const FAMILY_LABELS = {
   elite_trainer_box: "ETB",
   pokemon_center_elite_trainer_box: "PC ETB",
   booster_bundle: "Booster Bundle",
-  booster_pack: "Booster Pack",
+  loose_booster_pack: "Loose Booster Pack",
   sleeved_booster_pack: "Sleeved Pack",
 };
 

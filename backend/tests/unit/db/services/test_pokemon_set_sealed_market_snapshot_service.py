@@ -158,7 +158,7 @@ def test_products_and_default_follow_current_price_descending():
 
     # Standard and Pokemon Center ETBs stay separate, and nothing is dropped.
     families = [item["productFamily"] for item in payload["products"]]
-    assert families == ["pokemon_center_elite_trainer_box", "elite_trainer_box", "booster_bundle", "booster_pack"]
+    assert families == ["pokemon_center_elite_trainer_box", "elite_trainer_box", "booster_bundle", "loose_booster_pack"]
     assert len(payload["products"]) == 4
 
 

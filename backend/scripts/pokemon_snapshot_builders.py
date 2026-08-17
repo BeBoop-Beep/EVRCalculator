@@ -21,6 +21,7 @@ from backend.db.services.explore_page_service import (
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services import rip_decision_service
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
+from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
@@ -443,6 +444,7 @@ def _merge_canonical_rip_contract_into_set_payload(
         "publicRipContractV8",
         "overallRipV9",
         "publicRipContractV9",
+        "setRipV1",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The
@@ -1459,6 +1461,14 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
             limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
         )
         target_rows = rankings_payload.get("targets") or []
+        # Set pages materialize the same production Set RIP block from the same
+        # full canonical cohort used by the global snapshot. This is required
+        # only when a set-page snapshot is normally/explicitly rebuilt.
+        if any((target.get("overallRipV9") or {}).get("rank") is not None for target in target_rows):
+            family_projection = build_product_family_rankings(set_targets=target_rows)
+            page_set_rip = build_set_rip(family_projection, set_targets=target_rows)
+            target_rows = attach_set_rip_to_targets(target_rows, page_set_rip)
+            rankings_payload = {**rankings_payload, "targets": target_rows}
         matching_rankings_target = _find_matching_rankings_target(
             set_id=set_id, set_row=set_row, payload=payload, target_rows=target_rows
         )
@@ -3729,9 +3739,12 @@ def build_explore_rankings_snapshot_row(
             "Re-run once the source reads succeed."
         )
 
-    payload["productFamilyRankings"] = build_product_family_rankings(
-        set_targets=opening_targets
-    )
+    product_family_rankings = build_product_family_rankings(set_targets=opening_targets)
+    payload["productFamilyRankings"] = product_family_rankings
+    if any((target.get("overallRipV9") or {}).get("rank") is not None for target in opening_targets):
+        set_rip = build_set_rip(product_family_rankings, set_targets=opening_targets)
+        payload["targets"] = attach_set_rip_to_targets(payload["targets"], set_rip)
+        payload["setRip"] = {key: value for key, value in set_rip.items() if key != "sets"}
 
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
     logger.info(

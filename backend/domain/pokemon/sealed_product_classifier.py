@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
-CLASSIFICATION_VERSION = "sealed-product-classification-v2"
+CLASSIFICATION_VERSION = "sealed-product-classification-v3-loose-pack-family"
 OVERVIEW_FAMILIES = frozenset(
     {
         "booster_box",
@@ -14,7 +14,7 @@ OVERVIEW_FAMILIES = frozenset(
         "elite_trainer_box",
         "pokemon_center_elite_trainer_box",
         "booster_bundle",
-        "booster_pack",
+        "loose_booster_pack",
         "sleeved_booster_pack",
     }
 )
@@ -26,7 +26,7 @@ FAMILY_LABELS = {
     "elite_trainer_box": "Elite Trainer Box",
     "pokemon_center_elite_trainer_box": "Pokémon Center Elite Trainer Box",
     "booster_bundle": "Booster Bundle",
-    "booster_pack": "Booster Pack",
+    "loose_booster_pack": "Loose Booster Pack",
     "sleeved_booster_pack": "Sleeved Booster Pack",
     "build_and_battle_box": "Build & Battle Box",
     "build_and_battle_stadium": "Build & Battle Stadium",
@@ -86,7 +86,7 @@ def classify_sealed_product(name: Any) -> Dict[str, Any]:
     elif "fun pack" in text:
         family = "fun_pack"
     elif "booster pack" in text:
-        family = "booster_pack"
+        family = "loose_booster_pack"
     elif re.search(r"\b(bundle|collection|tin|chest|box set)\b", text):
         family = "collection_product"
     else:

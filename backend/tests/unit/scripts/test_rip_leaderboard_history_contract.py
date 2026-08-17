@@ -29,6 +29,7 @@ from backend.db.services.public_rip_publication_contract import (
 )
 from backend.desirability.scoring_config import CANONICAL_OVERALL_RIP_VERSION
 from backend.scripts import pokemon_explore_rankings_publisher as command
+from backend.db.services.set_rip_service import METHODOLOGY_VERSION as SET_RIP_VERSION
 
 CANONICAL = canonical_publication_identity()
 
@@ -128,6 +129,10 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "canonical_key": f"set-{index}",
         # The CANONICAL objects the publisher now reads.
         "overallRipV9": {"score": 80 - index, "rank": index + 1},
+        "setRipV1": {"score": 95 - index, "rank": index + 1, "rankable": True,
+                     "methodologyVersion": SET_RIP_VERSION, "participatingFamilyCount": 2,
+                     "participatingFamilies": ["loose_booster_pack", "booster_bundle"],
+                     "skuEvidenceCount": 2, "familyScores": []},
         "financialRipV3": {"score": 75 - index, "rank": index + 1},
         # The legacy objects, still present. The publish RPC counts ranked
         # targets by `rip.rank`, so they must select the same rows.
@@ -147,6 +152,8 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
     _set_supported_keys(f"set-{index}" for index in range(target_count))
     return {"ranking_payload_json": {
         "targets": targets,
+        "setRip": {"methodologyVersion": SET_RIP_VERSION,
+                   "rankedSetCount": target_count if ranked_count is None else ranked_count},
         "meta": {
             "comparisonSnapshots": {"currentMarketDate": "2026-08-01"},
             "snapshot": {"builtAt": "2026-08-01T08:00:00Z"},

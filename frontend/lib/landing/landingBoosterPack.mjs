@@ -37,7 +37,7 @@ export const HERO_BOOSTER_PACK_FALLBACK = null;
 
 /** Most pack-like first: the backdrop should read as a booster pack. */
 const PACK_FAMILY_PRIORITY = [
-  "booster_pack",
+  "loose_booster_pack",
   "sleeved_booster_pack",
   "booster_bundle",
   "booster_box",

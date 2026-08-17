@@ -76,6 +76,10 @@ logger = logging.getLogger(__name__)
 
 STAGE1_SERVICE_VERSION = "sealed-product-rip-stage1-v1"
 
+
+class SealedProductCoverageError(RuntimeError):
+    """Eligible products were discovered but were not all persisted for this run."""
+
 # Machine-readable outcome vocabulary. Callers branch on these, never on prose.
 REASON_NO_SUPPORTED_PRODUCTS = "no_supported_stage1_products"
 REASON_INVALID_PRICE = "invalid_or_missing_market_price"
@@ -706,6 +710,21 @@ def run_stage1_sealed_product_rip(
     persist_started = time.perf_counter()
     persisted = persist_fn(rows)
     phase_ms["persistenceMs"] = round((time.perf_counter() - persist_started) * 1000.0, 3)
+    persisted_count = len(persisted) if persisted is not None else 0
+    expected_identities = {
+        (str(row["calculation_run_id"]), str(row["sealed_product_id"])) for row in rows
+    }
+    persisted_identities = {
+        (str(row.get("calculation_run_id")), str(row.get("sealed_product_id")))
+        for row in (persisted or [])
+        if isinstance(row, Mapping)
+    }
+    if persisted_count != len(rows) or persisted_identities != expected_identities:
+        raise SealedProductCoverageError(
+            "sealed-product coverage incomplete for calculation_run_id="
+            f"{calculation_run_id}: expected={len(rows)} persisted={persisted_count} "
+            f"matched={len(expected_identities & persisted_identities)}"
+        )
     phase_ms.update(scored.get("timings") or {})
 
     summary = _summary(
@@ -716,7 +735,7 @@ def run_stage1_sealed_product_rip(
         started=started,
         products=scored["products"],
         distribution_meta=scored["distributionMeta"],
-        persisted_count=len(persisted) if persisted is not None else len(rows),
+        persisted_count=persisted_count,
         collector_appeal=appeal,
         phase_ms=phase_ms,
     )

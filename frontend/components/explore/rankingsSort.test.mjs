@@ -131,6 +131,7 @@ function names(rows) {
 
 test("all required Rankings metrics are sortable columns", () => {
   assert.deepEqual(RANKINGS_SORT_COLUMN_IDS, [
+    "setRip",
     "overall",
     "financial",
     "collectorAppeal",
@@ -143,6 +144,7 @@ test("all required Rankings metrics are sortable columns", () => {
   assert.deepEqual(
     RANKINGS_SORT_COLUMN_IDS.map((id) => RANKINGS_SORT_COLUMNS[id].label),
     [
+      "Set RIP",
       "Overall RIP",
       "Financial RIP",
       "Collector Appeal",
@@ -158,6 +160,7 @@ test("all required Rankings metrics are sortable columns", () => {
 /* ------------------------------------------------------- the data contract --- */
 
 test("each column reads its authoritative field and derives nothing new", () => {
+  assert.equal(readSortValue({ setRipV1: { score: 88 } }, "setRip"), 88, "Set RIP is the production block score");
   assert.equal(readSortValue(ALPHA, "overall"), 100, "Overall RIP is overallRipV9.relativeScore");
   assert.equal(readSortValue(ALPHA, "financial"), 100, "Financial RIP is financialRipV3.relativeScore");
   assert.equal(readSortValue(ALPHA, "typicalOpening"), 9.5, "Typical Opening is the published median_value");
@@ -241,8 +244,8 @@ test("prob_profit is normalised the same way the cell formats it", () => {
 
 /* --------------------------------------------------------- default ordering --- */
 
-test("the default sort is Overall RIP descending", () => {
-  assert.equal(RANKINGS_DEFAULT_SORT.column, "overall");
+test("the default sort is Set RIP descending", () => {
+  assert.equal(RANKINGS_DEFAULT_SORT.column, "setRip");
   assert.equal(RANKINGS_DEFAULT_SORT.direction, SORT_DESC);
 });
 

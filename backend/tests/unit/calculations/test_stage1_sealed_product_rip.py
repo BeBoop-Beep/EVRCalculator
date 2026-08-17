@@ -43,6 +43,7 @@ def _pack_vector(n: int = RUNS) -> np.ndarray:
 @pytest.mark.parametrize(
     "family,expected",
     [
+        ("loose_booster_pack", 1),
         ("sleeved_booster_pack", 1),
         ("booster_bundle", 6),
         ("half_booster_box", 18),
@@ -65,7 +66,6 @@ def test_stage1_supported_families_resolve_to_their_pack_counts(family, expected
         "enhanced_booster_box",
         "elite_trainer_box",
         "pokemon_center_elite_trainer_box",
-        "booster_pack",
         "three_pack_blister",
         "collection_product",
         "case",
@@ -80,8 +80,9 @@ def test_out_of_scope_families_are_unsupported(family):
     assert resolve_stage1_composition(family) is None
 
 
-def test_supported_family_set_is_exactly_four():
+def test_supported_family_set_is_exactly_five():
     assert SUPPORTED_STAGE1_FAMILIES == {
+        "loose_booster_pack",
         "sleeved_booster_pack",
         "booster_bundle",
         "half_booster_box",
@@ -96,6 +97,14 @@ def test_supported_family_set_is_exactly_four():
 def test_sleeved_booster_reuses_the_original_pack_vector_unchanged():
     x = _pack_vector(5_000)
     built = build_stage1_product_distributions(x, pack_counts=[1], canonical_set_key="setA")
+    np.testing.assert_array_equal(built["distributions"][1], x)
+
+
+def test_loose_pack_reuses_exact_pack_vector_without_a_new_simulation():
+    x = _pack_vector(5_000)
+    with patch("numpy.random.default_rng") as rng:
+        built = build_stage1_product_distributions(x, pack_counts=[1], canonical_set_key="setA")
+    rng.assert_not_called()
     np.testing.assert_array_equal(built["distributions"][1], x)
 
 
@@ -205,16 +214,15 @@ def test_only_exact_stage1_families_are_selected_and_enhanced_box_is_excluded():
             {"sealedProductId": "3", "name": "X Elite Trainer Box", "productFamily": "elite_trainer_box", "currentPrice": 60.0},
             {"sealedProductId": "4", "name": "X Booster Bundle", "productFamily": "booster_bundle", "currentPrice": 25.0},
             {"sealedProductId": "5", "name": "X Sleeved Booster Pack", "productFamily": "sleeved_booster_pack", "currentPrice": 5.5},
-            {"sealedProductId": "6", "name": "X Booster Pack", "productFamily": "booster_pack", "currentPrice": 4.5},
+            {"sealedProductId": "6", "name": "X Booster Pack", "productFamily": "loose_booster_pack", "currentPrice": 4.5},
         ]
     )
     selection = service.select_stage1_products(payload)
-    assert [c["sealed_product_id"] for c in selection["candidates"]] == ["1", "4", "5"]
+    assert [c["sealed_product_id"] for c in selection["candidates"]] == ["1", "4", "5", "6"]
     excluded = {s["sealedProductId"]: s["reason"] for s in selection["skipped"]}
     assert excluded == {
         "2": service.REASON_UNSUPPORTED_FAMILY,
         "3": service.REASON_UNSUPPORTED_FAMILY,
-        "6": service.REASON_UNSUPPORTED_FAMILY,
     }
 
 
@@ -550,6 +558,47 @@ def test_no_snapshot_and_no_supported_products_are_expected_not_failures():
     )
     assert none_supported["status"] == "skipped"
     assert none_supported["reason"] == service.REASON_NO_SUPPORTED_PRODUCTS
+
+
+def test_supported_products_cannot_silently_persist_zero_rows():
+    with pytest.raises(service.SealedProductCoverageError, match="expected=1 persisted=0"):
+        service.run_stage1_sealed_product_rip(
+            sim_results={"distribution": _pack_vector()},
+            set_id="set-uuid",
+            canonical_set_key="whiteFlareLike",
+            calculation_run_id="new-run",
+            read_snapshot_fn=lambda _set_id: _snapshot([
+                {"sealedProductId": "bundle", "name": "White Flare Booster Bundle",
+                 "productFamily": "booster_bundle", "currentPrice": 80.0}
+            ]),
+            persist_fn=lambda _rows: [],
+            collector_appeal_fn=lambda _set_id: _APPEAL,
+            stage2_compositions_fn=lambda _ids: [],
+        )
+
+
+def test_prior_run_rows_cannot_satisfy_new_run_coverage():
+    captured = []
+
+    def _persist(rows):
+        captured.extend(rows)
+        return [{**row, "calculation_run_id": "old-run"} for row in rows]
+
+    with pytest.raises(service.SealedProductCoverageError, match="matched=0"):
+        service.run_stage1_sealed_product_rip(
+            sim_results={"distribution": _pack_vector()},
+            set_id="set-uuid",
+            canonical_set_key="setA",
+            calculation_run_id="new-run",
+            read_snapshot_fn=lambda _set_id: _snapshot([
+                {"sealedProductId": "bundle", "name": "A Booster Bundle",
+                 "productFamily": "booster_bundle", "currentPrice": 30.0}
+            ]),
+            persist_fn=_persist,
+            collector_appeal_fn=lambda _set_id: _APPEAL,
+            stage2_compositions_fn=lambda _ids: [],
+        )
+    assert captured[0]["calculation_run_id"] == "new-run"
 
 
 def test_summary_is_compact_and_never_carries_raw_vectors():

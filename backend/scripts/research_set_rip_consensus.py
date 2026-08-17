@@ -47,7 +47,7 @@ MINIMUM_COVERAGE = (0, 2, 3)
 MINIMUM_FAMILY_SET_COHORT = (0, 3, 5)
 FORMAT_GROUPS = {
     "homogeneous_pack_products": (
-        "sleeved_booster_pack", "booster_bundle", "half_booster_box", "booster_box",
+        "loose_booster_pack", "sleeved_booster_pack", "booster_bundle", "half_booster_box", "booster_box",
     ),
     "trainer_boxes": ("elite_trainer_box", "pokemon_center_elite_trainer_box"),
     "enhanced_boxes": ("enhanced_booster_box",),
@@ -78,7 +78,7 @@ PROMOTION_STATUSES = (
     "METHODOLOGY_SENSITIVITY_REVIEW_REQUIRED", "METHODOLOGY_READY_FOR_PROMOTION_REVIEW",
 )
 FROZEN_BASELINE_FAMILY_COUNTS = {
-    "sleeved_booster_pack": 15, "booster_bundle": 23, "half_booster_box": 0,
+    "loose_booster_pack": 0, "sleeved_booster_pack": 15, "booster_bundle": 23, "half_booster_box": 0,
     "booster_box": 15, "elite_trainer_box": 9,
     "pokemon_center_elite_trainer_box": 9, "enhanced_booster_box": 0,
 }
