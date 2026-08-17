@@ -1560,7 +1560,11 @@ def _load_rankings_top_chase_lookup(
     return lookup
 
 
-def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Dict[str, Any]:
+def get_rip_statistics_targets_payload(
+    limit: Any = DEFAULT_TARGETS_LIMIT,
+    *,
+    include_rankings_top_chase: bool = True,
+) -> Dict[str, Any]:
     """Return available RIP targets and the best default target from persisted data."""
     total_started = time.perf_counter()
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_TARGETS_LIMIT, max_value=MAX_TARGETS_LIMIT)
@@ -1607,11 +1611,19 @@ def get_rip_statistics_targets_payload(limit: Any = DEFAULT_TARGETS_LIMIT) -> Di
 
     ranked_rows = sorted(raw_rows, key=_build_rank_sort_key)
 
-    rankings_top_chase_lookup = _load_rankings_top_chase_lookup(
-        ranked_rows,
-        sources=sources,
-        warnings=warnings,
-    )
+    if include_rankings_top_chase:
+        rankings_top_chase_lookup = _load_rankings_top_chase_lookup(
+            ranked_rows,
+            sources=sources,
+            warnings=warnings,
+        )
+    else:
+        # Targeted ripDecision repair is itself the producer of the canonical
+        # Top Chase block. Requiring the old block to match the new run before
+        # repair creates a dependency cycle; all public/default reads retain
+        # the strict stale-run guard above.
+        rankings_top_chase_lookup = {}
+        sources["rankings_top_chase"] = "SKIPPED_TARGETED_REPAIR"
 
     set_lookup_by_target_id: Dict[str, Dict[str, Any]] = {}
     era_lookup: Dict[str, Dict[str, Any]] = {}

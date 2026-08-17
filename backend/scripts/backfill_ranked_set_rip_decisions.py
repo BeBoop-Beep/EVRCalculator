@@ -51,7 +51,9 @@ def validate_contract(contract: Dict[str, Any], run_id: str) -> None:
 
 def run(*, commit: bool, client: Any = None, set_ids: Iterable[str] | None = None) -> Dict[str, Any]:
     service_client = client or create_service_role_client()
-    targets = ranked_targets(get_rip_statistics_targets_payload().get("targets") or [])
+    targets = ranked_targets(
+        get_rip_statistics_targets_payload(include_rankings_top_chase=False).get("targets") or []
+    )
     selected_ids = {str(value) for value in (set_ids or []) if str(value).strip()}
     if selected_ids:
         targets = [target for target in targets if target["set_id"] in selected_ids]

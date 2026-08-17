@@ -25,6 +25,7 @@ from backend.db.repositories.calculation_runs_repository import (
 from backend.simulations.value_distribution_bins import compute_simulation_value_distribution_bins
 from backend.simulations.value_threshold_bins import compute_simulation_value_threshold_bins
 from backend.db.repositories.sets_repository import get_set_by_canonical_key
+from backend.db.services.pack_outcome_artifact_service import persist_pack_outcomes
 
 
 logger = logging.getLogger(__name__)
@@ -889,6 +890,10 @@ def persist_simulation_outputs(
         derived=derived_map,
     )
 
+    # Persist the exact empirical vector before any lossy summaries. New runs
+    # fail closed here: a completed run must always remain exactly replayable.
+    from backend.db.clients.supabase_client import supabase
+    artifact = persist_pack_outcomes(supabase, run_id, _require_values_list(sim_results_map))
     run_summary_row = create_simulation_run_summary(run_id, run_summary_payload, pack_summary_payload)
     percentile_rows = create_simulation_percentiles(run_id, sim_results_map)
     pull_summary_rows = create_simulation_pull_summary(run_id, sim_results_map)
@@ -929,6 +934,7 @@ def persist_simulation_outputs(
         "derived_metric_count": len(derived_metric_rows),
         "distribution_bin_count": len(bin_rows),
         "threshold_bin_count": len(threshold_bin_rows),
+        "pack_outcome_artifact": artifact,
     }
 
 
