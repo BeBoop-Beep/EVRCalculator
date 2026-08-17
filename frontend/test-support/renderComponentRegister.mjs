@@ -13,6 +13,8 @@
 // the hook must be registered by an import that precedes the component's.
 
 import Module from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import React from "react";
 
 // THE CLASSIC JSX RUNTIME NEEDS `React` IN SCOPE.
@@ -44,6 +46,34 @@ const classNames = new Proxy(
 
 Module._extensions[".css"] = function stubCssModule(module) {
   module.exports = classNames;
+};
+
+// THE `@/` ALIAS, RESOLVED LOCALLY RATHER THAN GLOBALLY.
+//
+// Application components import siblings as `@/components/...`, which Next.js
+// resolves from `jsconfig.json`. `tsx` reads only `tsconfig.json`, so the alias
+// is unresolvable under the test runner and any component using one crashes on
+// import.
+//
+// The obvious fix — pointing the runner at `jsconfig.json` via the shared
+// `test:frontend` script — is a GLOBAL change: it also un-crashes unrelated
+// test files that have been failing silently behind that same import error,
+// which has nothing to do with this feature and turns one crash into a spread
+// of newly visible failures in an unrelated review.
+//
+// So the alias is resolved HERE instead, in a module that only the tests which
+// actually render a component import. Scope of effect: this process, after this
+// import. The shared runner script stays untouched.
+const frontendRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+const resolveFilename = Module._resolveFilename;
+Module._resolveFilename = function resolveWithAlias(request, ...rest) {
+  const aliased = request.startsWith("@/")
+    ? path.join(frontendRoot, request.slice(2))
+    : request;
+  return resolveFilename.call(this, aliased, ...rest);
 };
 
 export default classNames;
