@@ -584,6 +584,7 @@ def _merge_rip_decision_contract_into_set_payload(
     payload: Dict[str, Any],
     set_id: str,
     decision_run_id: Optional[str] = None,
+    required: bool = False,
     client: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Attach the compact RIP decision contract to a set-page payload.
@@ -594,9 +595,9 @@ def _merge_rip_decision_contract_into_set_payload(
     page already fetches this payload - adding a section costs no extra round
     trip, where a second endpoint would cost one per page view.
 
-    The section is written as an explicit ``None`` when it cannot be built. A
-    missing key would be indistinguishable from an older snapshot that predates
-    this contract; a null says "this build tried and could not".
+    This producer is intentionally independent of global Rankings. The exact
+    target run is passed in and the canonical decision service reads modeled
+    cards and prices for that run directly.
     """
     if not isinstance(payload, dict):
         return payload
@@ -605,26 +606,36 @@ def _merge_rip_decision_contract_into_set_payload(
     # is only a fallback for non-ranked/historical sets without such a target.
     run_id = first_non_empty(decision_run_id, _snapshot_payload_run_id(payload))
     try:
-        contract: Optional[Dict[str, Any]] = rip_decision_service.build_rip_decision_contract(
-            set_id=set_id,
-            run_id=run_id,
-            client=client or get_client(),
+        contract = rip_decision_service.build_rip_decision_contract(
+            set_id=set_id, run_id=run_id, client=client or get_client(),
         )
-    except Exception as exc:
-        if is_transient_data_service_error(exc):
+    except Exception:
+        if required:
             raise
-        logger.warning("RIP decision contract merge failed set_id=%s", set_id, exc_info=True)
+        logger.warning("optional RIP decision contract merge failed set_id=%s", set_id, exc_info=True)
         contract = None
+    return {**payload, "ripDecision": contract}
 
-    next_payload = {**payload, "ripDecision": contract}
-    if contract is None:
-        # A DEBUG warning, not a user-facing one: the null section already tells
-        # a consumer the data is absent, and `meta.warnings` is rendered on the
-        # page - a build-internal failure does not belong in a reader's face.
-        meta = dict(next_payload.get("meta") or {})
-        _append_debug_warning(meta, "RIP decision contract could not be built for this snapshot.")
-        next_payload["meta"] = meta
-    return next_payload
+
+def _assert_current_run_rip_decision(
+    payload: Dict[str, Any], *, set_id: str, expected_run_id: Optional[str], required: bool
+) -> None:
+    """Fail closed before persistence when a ranked set lacks current-run Top Chase."""
+    if not required:
+        return
+    run_id = first_non_empty(expected_run_id)
+    if run_id is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: authoritative calculation_run_id is missing")
+    decision = payload.get("ripDecision") if isinstance(payload.get("ripDecision"), dict) else None
+    if decision is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required ripDecision is missing")
+    if first_non_empty(decision.get("sourceCalculationRunId")) != run_id:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: ripDecision run mismatch")
+    chase = decision.get("topChase") if isinstance(decision.get("topChase"), dict) else None
+    if chase is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required current-run Top Chase is missing")
+    if first_non_empty(chase.get("sourceCalculationRunId")) != run_id:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: Top Chase run mismatch")
 
 
 def _snapshot_payload_run_id(payload: Dict[str, Any]) -> Optional[str]:
@@ -1425,6 +1436,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     simulation_available = True
     simulation_unavailable_reason: Optional[str] = None
     decision_run_id: Optional[str] = None
+    matching_rankings_target: Optional[Dict[str, Any]] = None
     try:
         payload = get_explore_page_payload("set", set_id)
     except ExplorePageError as exc:
@@ -1443,7 +1455,9 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         )
     payload = _complete_snapshot_top_hits(payload, set_id=set_id, client=client)
     try:
-        rankings_payload = get_rip_statistics_targets_payload(limit=DEFAULT_RANKINGS_LIMIT)
+        rankings_payload = get_rip_statistics_targets_payload(
+            limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
+        )
         target_rows = rankings_payload.get("targets") or []
         matching_rankings_target = _find_matching_rankings_target(
             set_id=set_id, set_row=set_row, payload=payload, target_rows=target_rows
@@ -1478,6 +1492,8 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     except Exception as exc:
         if is_transient_data_service_error(exc):
             raise
+        if matching_rankings_target is not None:
+            raise
         logger.warning("canonical RIP contract merge failed set_id=%s", set_id, exc_info=True)
         meta = dict(payload.get("meta") or {})
         warnings = list(meta.get("warnings") or [])
@@ -1486,7 +1502,8 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
     payload = _merge_rip_decision_contract_into_set_payload(
-        payload=payload, set_id=set_id, decision_run_id=decision_run_id, client=client
+        payload=payload, set_id=set_id, decision_run_id=decision_run_id,
+        required=matching_rankings_target is not None, client=client
     )
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
@@ -1498,6 +1515,10 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         reason=simulation_unavailable_reason,
     )
     _assert_canonical_set_page_contract_complete(payload, set_id=set_id)
+    _assert_current_run_rip_decision(
+        payload, set_id=set_id, expected_run_id=decision_run_id,
+        required=matching_rankings_target is not None,
+    )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
     set_identity = {

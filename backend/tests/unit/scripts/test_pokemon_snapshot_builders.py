@@ -1384,11 +1384,12 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_rip_statistics_targets_payload",
-        lambda limit: {
+        lambda limit, **_kwargs: {
             "targets": [
-                {
-                    "id": "set-1",
-                    "target_id": "set-1",
+                    {
+                        "id": "set-1",
+                        "target_id": "set-1",
+                        "calculation_run_id": "run-b",
                     "name": "Alpha",
                     "summary": {
                         "desirability_score": 90,
@@ -1477,6 +1478,11 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                 }
             },
         },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders.rip_decision_service,
+        "build_rip_decision_contract",
+        lambda **_kwargs: {"sourceCalculationRunId": "run-b", "topChase": {"sourceCalculationRunId": "run-b"}},
     )
 
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})
@@ -1575,6 +1581,44 @@ def test_canonical_set_page_completeness_allows_unsupported_historical_set():
     )
 
 
+def test_current_run_top_chase_is_built_without_rankings_and_replaces_stale_input(monkeypatch):
+    observed = {}
+    monkeypatch.setattr(
+        pokemon_snapshot_builders.rip_decision_service,
+        "build_rip_decision_contract",
+        lambda **kwargs: (observed.update(kwargs) or {
+            "sourceCalculationRunId": "run-b",
+            "topChase": {"cardName": "Current Chase", "sourceCalculationRunId": "run-b"},
+        }),
+    )
+    payload = {"ripDecision": {"topChase": {"cardName": "Stale", "sourceCalculationRunId": "run-a"}}}
+
+    merged = pokemon_snapshot_builders._merge_rip_decision_contract_into_set_payload(
+        payload=payload, set_id="set-1", decision_run_id="run-b", required=True, client=object()
+    )
+
+    assert observed["run_id"] == "run-b"
+    assert merged["ripDecision"]["topChase"]["sourceCalculationRunId"] == "run-b"
+    assert merged["ripDecision"]["topChase"]["cardName"] == "Current Chase"
+
+
+@pytest.mark.parametrize("decision", [None, {"sourceCalculationRunId": "run-b", "topChase": None}])
+def test_required_current_run_top_chase_failure_rejects_build_payload(decision):
+    with pytest.raises(RuntimeError, match="required .*Top Chase|required ripDecision"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": decision}, set_id="set-1", expected_run_id="run-b", required=True
+        )
+
+
+def test_current_run_top_chase_identity_mismatch_is_rejected():
+    with pytest.raises(RuntimeError, match="Top Chase run mismatch"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": {"sourceCalculationRunId": "run-b",
+                             "topChase": {"sourceCalculationRunId": "run-a"}}},
+            set_id="set-1", expected_run_id="run-b", required=True,
+        )
+
+
 def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders,
@@ -1597,11 +1641,12 @@ def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_rip_statistics_targets_payload",
-        lambda limit: {
+        lambda limit, **_kwargs: {
             "targets": [
-                {
-                    "id": "set-1",
-                    "target_id": "set-1",
+                    {
+                        "id": "set-1",
+                        "target_id": "set-1",
+                        "calculation_run_id": "run-b",
                     "profit_rank": 4,
                     "profit_tier": "A",
                     "safety_rank": 6,
@@ -1613,6 +1658,11 @@ def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(
                 }
             ]
         },
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders.rip_decision_service,
+        "build_rip_decision_contract",
+        lambda **_kwargs: {"sourceCalculationRunId": "run-b", "topChase": {"sourceCalculationRunId": "run-b"}},
     )
 
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})
@@ -1651,7 +1701,7 @@ def test_build_set_page_snapshot_row_repairs_missing_top_hits_from_simulation_in
     monkeypatch.setattr(
         pokemon_snapshot_builders,
         "get_rip_statistics_targets_payload",
-        lambda limit: {"targets": []},
+        lambda limit, **_kwargs: {"targets": []},
     )
 
     client = _Client(
@@ -1718,7 +1768,7 @@ def test_build_set_page_snapshot_row_preserves_top_hit_warning_when_rows_unavail
             },
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _Client(
         {
@@ -1753,7 +1803,7 @@ def test_build_set_page_snapshot_row_preserves_previous_top_hits_when_current_bu
             },
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     previous_top_hits = [{"card_name": "Previous Chase", "ev_contribution": 1.2}]
     client = _Client(
@@ -1811,7 +1861,7 @@ def test_build_set_page_snapshot_row_preserves_previous_rank_fields_when_current
             "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _Client(
         {
@@ -1863,7 +1913,7 @@ def test_build_set_page_snapshot_row_preserves_previous_card_appeal_correlation_
             "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     correlation = {"n": 12, "plotRows": [{"name": "Chase", "cardAppealScore": 91, "marketPrice": 25}]}
     client = _Client(
@@ -1910,7 +1960,7 @@ def test_build_set_page_snapshot_row_retires_previous_desirability_validation(mo
             "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
     # The legacy payload builder must be gone from this module entirely.
     assert not hasattr(pokemon_snapshot_builders, "build_desirability_validation_payload")
 
@@ -1959,7 +2009,7 @@ def test_build_set_page_snapshot_row_records_completeness_and_card_appeal_snapsh
             },
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     correlation = {"n": 12, "plotRows": [{"name": "Chase", "cardAppealScore": 91, "marketPrice": 25}]}
     client = _Client(
@@ -2022,7 +2072,7 @@ def test_build_set_page_snapshot_row_suppresses_user_rankings_stale_warning_when
             },
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _Client(
         {
@@ -2314,7 +2364,7 @@ def test_set_page_publishes_partial_when_no_simulation_data(monkeypatch):
         )
 
     monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_missing)
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _fail_graceful_client()
     row = pokemon_snapshot_builders.build_set_page_snapshot_row(
@@ -2358,7 +2408,7 @@ def test_set_page_full_data_marks_simulation_available(monkeypatch):
             "meta": {"sources": {"simulation_input_cards": "OK"}, "warnings": []},
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _fail_graceful_client()
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
@@ -2383,7 +2433,7 @@ def test_set_page_partial_market_data_publishes_present_fields_only(monkeypatch)
             "meta": {"sources": {"simulation_input_cards": "NO_ROWS"}, "warnings": []},
         },
     )
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _fail_graceful_client()
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"}, client=client)
@@ -2406,7 +2456,7 @@ def test_set_page_genuine_backend_failure_is_not_masked(monkeypatch):
         )
 
     monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_server_error)
-    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit: {"targets": []})
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_rip_statistics_targets_payload", lambda limit, **_kwargs: {"targets": []})
 
     client = _fail_graceful_client()
     with pytest.raises(ExplorePageError):

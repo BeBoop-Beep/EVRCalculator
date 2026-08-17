@@ -46,6 +46,22 @@ def test_cli_exit_nonzero_when_a_page_fails(monkeypatch, capsys):
     assert "failed=1" in out
 
 
+def test_failed_required_contract_build_never_overwrites_previous_snapshot(monkeypatch, capsys):
+    upserted = []
+    monkeypatch.setenv("PUBLICATION_GATE_MODE", "disabled")
+    monkeypatch.setattr(command, "get_client", lambda: object())
+    monkeypatch.setattr(command, "should_commit", lambda _args: True)
+    monkeypatch.setattr(command, "resolve_target_sets", lambda _client, _args: [{"id": "set-1", "name": "Alpha"}])
+    monkeypatch.setattr(command, "build_set_page_snapshot_row",
+                        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("required Top Chase missing")))
+    monkeypatch.setattr(command, "upsert_row", lambda *_a, **_k: upserted.append(1))
+    monkeypatch.setattr(sys, "argv", ["build_pokemon_set_page_snapshots.py", "--set-id", "set-1", "--commit"])
+
+    assert command.main() == 1
+    assert upserted == []
+    assert "built=0 skipped=0 failed=1" in capsys.readouterr().out
+
+
 # --------------------------------------------------------------------------- #
 # Publication gate wiring (Area 5).
 # --------------------------------------------------------------------------- #
