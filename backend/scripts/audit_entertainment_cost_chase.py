@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -100,14 +101,52 @@ def _print_chase(payload: Dict[str, Any], top_n: int) -> None:
     mean_delta = sum(deltas) / len(deltas)
     print(f"  min={min_delta:.2f} max={max_delta:.2f} mean={mean_delta:.2f}")
 
-    if all(delta == 0 for delta in deltas):
+    if not all(delta == 0 for delta in deltas):
+        return
+
+    # An all-zero drift is only EVIDENCE OF A DEFECT when the EV basis is old
+    # enough to have drifted. A run priced today shares its prices with "today's
+    # price" by construction, so zero drift there is arithmetic, not a bug -
+    # and warning about it would fire on every freshly-priced set, every day,
+    # until the warning stopped meaning anything.
+    #
+    # The discriminator is the EV-basis CAPTURE DATE, not the delta.
+    captures = [
+        str(card.get("evPriceBasisAsOf"))[:10]
+        for card in cards
+        if isinstance(card.get("targetPriceBasisDelta"), (int, float))
+        and card.get("evPriceBasisAsOf")
+    ]
+    today = date.today().isoformat()
+    stale = sorted({c for c in captures if c < today})
+
+    if captures and not stale:
         print(
-            "  *** WARNING: every observed delta is exactly 0.00. This is the "
-            "signature of price_used not actually being read - the current-price "
-            "basis and the EV-price basis have silently collapsed into one. "
-            "Do not trust this set's chase economics without investigating "
-            "price_used on simulation_input_cards for this run. ***"
+            f"  INCONCLUSIVE (expected): all {len(captures)} sampled EV-basis "
+            f"captures are same-day ({today}), so a zero delta is the correct "
+            "arithmetic result rather than evidence of a collapsed price basis. "
+            "This set cannot confirm or refute price-basis separation - audit a "
+            "set whose run was priced on an earlier date to exercise it."
         )
+        return
+
+    if not captures:
+        print(
+            "  *** WARNING: every delta is 0.00 and NO card carries an EV-basis "
+            "capture date, so same-day pricing cannot be confirmed. Treat as "
+            "unverified: check price_used and captured_at on "
+            "simulation_input_cards for this run. ***"
+        )
+        return
+
+    print(
+        "  *** WARNING: every observed delta is exactly 0.00 despite EV-basis "
+        f"captures OLDER than today ({', '.join(stale)}). Prices should have "
+        "drifted and did not. This is the signature of price_used not actually "
+        "being read - the current-price basis and the EV-price basis have "
+        "silently collapsed into one. Do not trust this set's chase economics "
+        "without investigating price_used on simulation_input_cards. ***"
+    )
 
 
 def _resolve_set_and_run(client: Any, slug: str) -> Tuple[Optional[str], Optional[str]]:
