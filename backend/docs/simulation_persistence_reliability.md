@@ -30,10 +30,15 @@ Retryable: HTTP 429/500/502/503/504/520/521/522, PostgREST `PGRST002`, Postgres
 `TimeoutError`, and a narrow set of transport phrases (`connection reset`,
 `read timeout`, `connect timeout`, `gateway timeout`, …).
 
+Explicitly retryable transient PostgREST codes such as `PGRST002` are excluded
+from the general deterministic PostgREST veto before transient classification.
+They remain retryable whether direct or nested in an exception chain.
+
 **Never retryable**, regardless of the HTTP status attached at the edge: any
 exception in the chain carrying a real SQLSTATE (`23505`, `23503`, `22P02`,
-`42703`, `42501`, …) or a `PGRST1xx`/`PGRST2xx` code. The database understood
-the request and rejected it; repeating it repeats the rejection. Application
+`42703`, `42501`, …) or any other `PGRSTnnn` code. The database understood the
+request and rejected it; repeating it repeats the rejection. This deterministic
+scan covers the whole exception chain and vetoes an outer HTTP 500. Application
 validation (`ValueError` from the `_require_*` helpers) never reaches the
 database at all.
 

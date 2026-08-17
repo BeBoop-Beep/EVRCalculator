@@ -21,6 +21,58 @@ def test_transient_classifier_prefers_structured_postgrest_and_http_statuses():
     ).transient
 
 
+def test_pgrst002_is_retryable_even_though_other_pgrst_codes_are_vetoed():
+    assert classify_data_service_error(
+        APIError({"message": "schema cache unavailable", "code": "PGRST002", "hint": None, "details": None})
+    ).transient is True
+
+
+def test_nested_pgrst002_is_retryable():
+    inner = APIError({"message": "database connection unavailable", "code": "PGRST002", "hint": None, "details": None})
+    outer = RuntimeError("persistence wrapper")
+    outer.__cause__ = inner
+
+    result = classify_data_service_error(outer)
+
+    assert result.transient is True
+    assert result.code == "PGRST002"
+
+
+def test_deterministic_postgrest_error_is_not_retryable():
+    assert classify_data_service_error(
+        APIError({"message": "column missing from schema cache", "code": "PGRST204", "hint": None, "details": None})
+    ).transient is False
+
+
+@pytest.mark.parametrize("sqlstate", ["23505", "23503"])
+def test_nested_sqlstate_vetoes_outer_http_500(sqlstate):
+    inner = APIError({"message": "constraint violation", "code": sqlstate, "hint": None, "details": None})
+    outer = RuntimeError("HTTP 500 wrapper")
+    outer.status_code = 500
+    outer.__cause__ = inner
+
+    result = classify_data_service_error(outer)
+
+    assert result.transient is False
+    assert result.code == sqlstate
+    assert result.status_code == 500
+
+
+def test_cloudflare_html_api_error_code_502_is_retryable():
+    error = APIError({
+        "message": "JSON could not be generated",
+        "code": 502,
+        "hint": "Refer to full message for details",
+        "details": "<html><head><title>502 Bad Gateway</title></head><body><center>cloudflare</center></body></html>",
+    })
+
+    result = classify_data_service_error(error)
+
+    assert result.transient is True
+    assert result.code == "502"
+    assert result.status_code == 502
+
+
 def test_statement_timeout_is_transient():
     """57014 cancels the statement, not the connection.
 
