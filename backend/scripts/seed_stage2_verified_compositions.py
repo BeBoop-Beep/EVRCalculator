@@ -35,7 +35,7 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Set
 
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _PROJECT_ROOT not in sys.path:
@@ -89,6 +89,7 @@ JOURNEY_TOGETHER_SET_ID = "142d3869-9d39-48b6-a810-751af2aac748"
 DESTINED_RIVALS_SET_ID = "de291399-ead5-41dc-bc12-e7c587684f85"
 BLACK_BOLT_SET_ID = "41a0ac1c-27ca-444b-8665-8ba35e583a3b"
 WHITE_FLARE_SET_ID = "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
+PHANTASMAL_FLAMES_SET_ID = "0f7e51e2-5a78-4500-9c9c-f690e934a069"
 
 SOURCE_JOURNEY_TOGETHER_ETB = (
     "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
@@ -117,6 +118,10 @@ SOURCE_BLACK_BOLT_WHITE_FLARE_PC_ETB = (
     "scarlet-violet-black-bolt-pokemon-center-elite-trainer-box-"
     "scarlet-violet-white-flare-pokemon-center-elite-trainer-box"
 )
+SOURCE_PHANTASMAL_FLAMES_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "mega-evolution-phantasmal-flames-elite-trainer-box"
+)
 
 # Exact printings, all in the SV Black Star Promo catalog and all NM-priced.
 NS_ZORUA_189 = "06613c96-c91f-4701-b25d-8613c643a176"
@@ -127,6 +132,7 @@ THUNDURUS_209 = "12757765-c6b1-4f9c-a2c3-70f72ba7618e"
 THUNDURUS_209_PC = "227fc031-f6ab-437e-9f01-c3144580127c"
 TORNADUS_210 = "dcfea6e5-24ea-4206-9fc2-feeb57a7634f"
 TORNADUS_210_PC = "c0a89300-34e5-4e75-8d00-0cad040b8679"
+CHARCADET_022 = "52390f95-77b2-4a00-972f-a6b824c085f6"
 
 
 def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id):
@@ -344,16 +350,26 @@ VERIFIED_COMPOSITIONS: List[Dict[str, Any]] = [
         stamped_variant_id=TORNADUS_210_PC,
         variant_id=TORNADUS_210,
     ),
+    _standard_etb(
+        label="Phantasmal Flames Elite Trainer Box",
+        sealed_product_id="0c96f395-8263-458b-bc49-ed3dbbf5a3a6",
+        set_id=PHANTASMAL_FLAMES_SET_ID,
+        source=SOURCE_PHANTASMAL_FLAMES_ETB,
+        promo_name="Charcadet (022)",
+        variant_id=CHARCADET_022,
+    ),
 ]
 
 
-def seed(*, commit: bool) -> Dict[str, Any]:
+def seed(*, commit: bool, sealed_product_ids: Optional[Set[str]] = None) -> Dict[str, Any]:
     from backend.db.repositories.sealed_product_compositions_repository import (
         upsert_composition,
     )
 
     results: List[Dict[str, Any]] = []
     for entry in VERIFIED_COMPOSITIONS:
+        if sealed_product_ids and entry["sealed_product_id"] not in sealed_product_ids:
+            continue
         row = {
             "label": entry["label"],
             "sealed_product_id": entry["sealed_product_id"],
@@ -396,13 +412,28 @@ def main() -> int:
         action="store_true",
         help="Write to the database. Omit to print what would be written.",
     )
+    parser.add_argument(
+        "--sealed-product-id",
+        action="append",
+        dest="sealed_product_ids",
+        help="Limit the idempotent upsert to one or more exact sealed product IDs.",
+    )
     args = parser.parse_args()
 
     from dotenv import load_dotenv
 
     load_dotenv(os.path.join(_PROJECT_ROOT, "backend", ".env"), override=False)
 
-    print(json.dumps(seed(commit=args.commit), indent=2, default=str))
+    print(
+        json.dumps(
+            seed(
+                commit=args.commit,
+                sealed_product_ids=set(args.sealed_product_ids or []) or None,
+            ),
+            indent=2,
+            default=str,
+        )
+    )
     return 0
 
 

@@ -49,9 +49,12 @@ def validate_contract(contract: Dict[str, Any], run_id: str) -> None:
         assert chase[field] > 0, f"topChase.{field} must be positive"
 
 
-def run(*, commit: bool, client: Any = None) -> Dict[str, Any]:
+def run(*, commit: bool, client: Any = None, set_ids: Iterable[str] | None = None) -> Dict[str, Any]:
     service_client = client or create_service_role_client()
     targets = ranked_targets(get_rip_statistics_targets_payload().get("targets") or [])
+    selected_ids = {str(value) for value in (set_ids or []) if str(value).strip()}
+    if selected_ids:
+        targets = [target for target in targets if target["set_id"] in selected_ids]
     report: Dict[str, Any] = {"attempted": len(targets), "succeeded": 0, "failed": [], "sets": []}
     for target in targets:
         set_id, run_id = target["set_id"], target["calculation_run_id"]
@@ -87,8 +90,9 @@ def run(*, commit: bool, client: Any = None) -> Dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit", action="store_true", help="write validated ripDecision blocks")
+    parser.add_argument("--set-id", action="append", dest="set_ids", help="limit backfill to an exact set UUID")
     args = parser.parse_args()
-    report = run(commit=args.commit)
+    report = run(commit=args.commit, set_ids=args.set_ids)
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if not report["failed"] else 1
 
