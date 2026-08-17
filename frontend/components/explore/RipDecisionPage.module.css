@@ -30,6 +30,11 @@
 .economicsGrid > div:nth-child(3n+1) { border-left: 0; }
 .economicsGrid > div:nth-child(-n+3) { border-top: 0; }
 .economicsGrid dt,.chaseThresholds dt { font-size: .72rem; font-weight: 650; color: var(--text-secondary); }
+/* The info trigger sits ON the label line so an explained metric costs no extra
+   row height and reads as the same metric row as every unexplained one. */
+.economicsGrid dt { display: flex; align-items: center; gap: .35rem; }
+.economicsGrid dd[data-unavailable="true"] { font-size: .82rem; font-weight: 600; color: var(--text-secondary); }
+.recoveryNote { margin-top: .6rem; max-width: 52rem; color: var(--text-secondary); font-size: .68rem; line-height: 1.45; }
 .economicsGrid dd,.chaseThresholds dd { margin-top: .2rem; font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 .economicsGrid p,.chaseThresholds p { margin-top: .15rem; font-size: .68rem; line-height: 1.35; color: var(--text-secondary); }
 .chaseLayout { display: grid; grid-template-columns: 8.25rem minmax(10rem,.8fr) minmax(18rem,1.4fr); gap: 1.25rem; align-items: center; margin-top: .8rem; }
@@ -93,7 +98,7 @@
 .breakEvenScaleZero { border: 1px solid var(--border-subtle); border-radius: 999px; padding: .1rem .45rem; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
 .breakEvenChart { display: grid; gap: .3rem; margin-top: .45rem; }
 .breakEvenRow { min-width: 0; }
-.breakEvenButton { display: grid; width: 100%; min-height: 2.75rem; grid-template-columns: 9.5rem minmax(0,1fr) 4.5rem; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: .6rem; padding: .3rem .45rem; text-align: left; }
+.breakEvenButton { display: grid; width: 100%; min-height: 2.75rem; grid-template-columns: 9.5rem minmax(0,1fr) 4.5rem 5.75rem; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: .6rem; padding: .3rem .45rem; text-align: left; }
 .breakEvenButton:hover { background: rgba(255,255,255,.035); }
 .breakEvenButton[data-selected="true"] { border-color: var(--border-subtle); background: rgba(2,8,23,.42); }
 .breakEvenButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -107,6 +112,10 @@
 .breakEvenDot[data-direction="above"] { background: #72b98b; }
 .breakEvenDot[data-direction="below"] { background: #d78383; }
 .breakEvenValue { color: var(--text-primary); font-size: .82rem; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+/* Supporting, not competing: secondary colour and one weight below the model
+   edge, and no direction colouring of any kind. */
+.breakEvenEntertainment { color: var(--text-secondary); font-size: .76rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.breakEvenEntertainment small { font-size: .62rem; font-weight: 500; opacity: .85; }
 
 .selectedProduct { margin-top: 1.1rem; border-top: 1px solid var(--border-subtle); padding-top: .9rem; }
 .selectedProductTitle { margin-top: .15rem; color: var(--text-primary); font-size: 1.1rem; font-weight: 650; }
@@ -136,9 +145,16 @@
   .sectionTitle { font-size: 1.2rem; }
   .breakEvenScale { grid-template-columns: 1fr auto 1fr; padding-left: 0; font-size: .55rem; letter-spacing: .06em; }
   .breakEvenChart { gap: .15rem; }
-  .breakEvenButton { grid-template-columns: minmax(0,1fr) 3.9rem; grid-template-areas: "label value" "track track"; gap: .15rem .5rem; padding: .35rem .3rem; }
+  /* TWO COLUMNS, NOT A STACK. The per-pack figure takes the second line of the
+     identity column and the model edge spans both, so the row gains one short
+     text line instead of becoming a vertical analytics card. Several products
+     still fit in one mobile viewport, which is the only way the comparison the
+     metric exists for actually happens on a phone. */
+  .breakEvenButton { grid-template-columns: minmax(0,1fr) 4.4rem; grid-template-areas: "label value" "cost value" "track track"; gap: .1rem .5rem; padding: .35rem .3rem; }
   .breakEvenLabel { grid-area: label; font-size: .76rem; }
-  .breakEvenValue { grid-area: value; }
+  .breakEvenValue { grid-area: value; align-self: center; }
+  .breakEvenEntertainment { grid-area: cost; font-size: .68rem; text-align: left; }
+  .breakEvenEntertainment small { font-size: .6rem; }
   .breakEvenTrack { grid-area: track; height: 1.1rem; }
   .compactScores { grid-template-columns: minmax(0,1fr); gap: .5rem; }
   .selectedProduct { margin-top: .8rem; padding-top: .7rem; }

@@ -420,3 +420,124 @@ test("an all-unavailable product list still yields a usable symmetric domain", (
   assert.ok(axis.domain > 0);
   assert.equal(axis.positionFor(0), 50);
 });
+
+// ---------------------------------------------------------------------------
+// Entertainment Cost — normalization only, never computation.
+// ---------------------------------------------------------------------------
+
+/** One product carrying `block`, normalized through the real selector. */
+function productWithEntertainment(block) {
+  return selectRipDecisionContract({
+    currentRunAvailable: true,
+    sealedProducts: {
+      products: [
+        {
+          sealedProductId: "sku-1",
+          productName: "Booster Box",
+          packCount: 36,
+          marketPrice: 180,
+          entertainmentCost: block,
+        },
+      ],
+    },
+  }).products[0].entertainmentCost;
+}
+
+test("every published entertainment field is carried through unchanged", () => {
+  const entertainment = productWithEntertainment({
+    entertainmentCost: 75,
+    entertainmentCostPerPackEquivalent: 2.08,
+    entertainmentCostRatio: 0.4167,
+    purchasePrice: 180,
+    expectedValue: 105,
+    packCount: 36,
+    recoveryModel: "gross_market_value",
+    accessoryValueIncluded: false,
+    guaranteedComponentIncluded: true,
+    available: true,
+    reason: null,
+    contractVersion: "entertainment-cost-v1",
+  });
+
+  assert.equal(entertainment.available, true);
+  assert.equal(entertainment.entertainmentCost, 75);
+  assert.equal(entertainment.perPack, 2.08);
+  assert.equal(entertainment.ratio, 0.4167);
+  assert.equal(entertainment.expectedValue, 105);
+  assert.equal(entertainment.purchasePrice, 180);
+  assert.equal(entertainment.packCount, 36);
+  // The calculation basis is preserved so explanatory UI can state it.
+  assert.equal(entertainment.recoveryModel, "gross_market_value");
+  assert.equal(entertainment.guaranteedComponentIncluded, true);
+  assert.equal(entertainment.accessoryValueIncluded, false);
+});
+
+test("a negative entertainment cost is carried through, not clamped", () => {
+  const entertainment = productWithEntertainment({
+    entertainmentCost: -4.25,
+    entertainmentCostPerPackEquivalent: -0.12,
+    purchasePrice: 180,
+    expectedValue: 184.25,
+    packCount: 36,
+    recoveryModel: "gross_market_value",
+    available: true,
+  });
+
+  assert.equal(entertainment.available, true, "a negative cost is still a modeled cost");
+  assert.equal(entertainment.entertainmentCost, -4.25);
+  assert.equal(entertainment.perPack, -0.12);
+});
+
+test("an unavailable block yields no numbers and keeps its diagnostic reason", () => {
+  const entertainment = productWithEntertainment({
+    entertainmentCost: null,
+    entertainmentCostPerPackEquivalent: null,
+    purchasePrice: 180,
+    expectedValue: null,
+    packCount: 36,
+    recoveryModel: "gross_market_value",
+    available: false,
+    reason: "simulation_result_unavailable",
+  });
+
+  assert.equal(entertainment.available, false);
+  assert.equal(entertainment.entertainmentCost, null, "missing stays missing");
+  assert.equal(entertainment.perPack, null);
+  // Retained for diagnostics; the UI is separately forbidden from printing it.
+  assert.equal(entertainment.reason, "simulation_result_unavailable");
+});
+
+test("a block claiming availability without a number is not available", () => {
+  const entertainment = productWithEntertainment({
+    entertainmentCost: null,
+    available: true,
+  });
+  assert.equal(entertainment.available, false);
+});
+
+test("a missing entertainment block degrades to a stable unavailable shape", () => {
+  for (const block of [undefined, null, "n/a", []]) {
+    const entertainment = productWithEntertainment(block);
+    assert.equal(entertainment.available, false);
+    assert.equal(entertainment.entertainmentCost, null);
+    assert.equal(entertainment.perPack, null);
+    // No published recovery model means no basis for the UI to claim one.
+    assert.equal(entertainment.recoveryModel, null);
+  }
+});
+
+test("a missing pack count invalidates only the per-pack normalization", () => {
+  const entertainment = productWithEntertainment({
+    entertainmentCost: 75,
+    entertainmentCostPerPackEquivalent: null,
+    purchasePrice: 180,
+    expectedValue: 105,
+    packCount: null,
+    recoveryModel: "gross_market_value",
+    available: true,
+  });
+
+  assert.equal(entertainment.available, true);
+  assert.equal(entertainment.entertainmentCost, 75, "the total is unaffected");
+  assert.equal(entertainment.perPack, null, "and is NOT divided in the frontend");
+});

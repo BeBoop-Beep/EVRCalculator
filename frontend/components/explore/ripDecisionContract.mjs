@@ -69,6 +69,52 @@ function humanizeFamily(key) {
     .join(" ");
 }
 
+/**
+ * ENTERTAINMENT COST — read, never computed.
+ *
+ * The backend publishes every field of this block already rounded, already
+ * signed and already explicit about availability (see
+ * `backend/domain/pokemon/entertainment_cost.py`). This function ONLY renames
+ * `entertainmentCostPerPackEquivalent` to a shorter key and coerces types. It
+ * deliberately does NOT compute `purchasePrice - expectedValue`, and it does
+ * NOT divide the cost by `packCount`:
+ *
+ *   * the arithmetic looks trivial and is not — a Stage 2 product's stored
+ *     expected value already contains its guaranteed promo, and the per-pack
+ *     divisor is the modeled pack count, not the SKU's advertised one;
+ *   * a frontend copy of the formula is a second implementation that can drift
+ *     from the canonical one without any test noticing.
+ *
+ * `available` is deliberately stricter than the backend flag alone: a block
+ * that claims availability without a number is not renderable as one.
+ *
+ * NEGATIVES SURVIVE. A product whose modeled contents are worth more than its
+ * price has a negative entertainment cost. It is passed through unchanged: no
+ * clamp to zero, no absolute value, no relabelling as profit.
+ */
+function normalizeEntertainmentCost(raw) {
+  const block = isObject(raw) ? raw : {};
+  const cost = number(block.entertainmentCost);
+  return {
+    contractPresent: isObject(raw),
+    available: block.available === true && cost !== null,
+    entertainmentCost: cost,
+    perPack: number(block.entertainmentCostPerPackEquivalent),
+    ratio: number(block.entertainmentCostRatio),
+    purchasePrice: number(block.purchasePrice),
+    expectedValue: number(block.expectedValue),
+    packCount: number(block.packCount),
+    // Preserved verbatim so explanatory copy can state the calculation basis
+    // instead of assuming one.
+    recoveryModel: text(block.recoveryModel),
+    accessoryValueIncluded: block.accessoryValueIncluded === true,
+    guaranteedComponentIncluded: block.guaranteedComponentIncluded === true,
+    // Diagnostics only. The UI shows "Not modeled yet", never this string.
+    reason: text(block.reason),
+    contractVersion: text(block.contractVersion),
+  };
+}
+
 function normalizeProduct(row, index) {
   if (!isObject(row)) return null;
   const sealedProductId = text(row.sealedProductId);
@@ -101,6 +147,7 @@ function normalizeProduct(row, index) {
     chanceToRecoverCost: number(row.chanceToRecoverCost),
     priceAsOf: text(row.priceAsOf),
     priceSource: text(row.priceSource),
+    entertainmentCost: normalizeEntertainmentCost(row.entertainmentCost),
   };
 }
 
