@@ -54,19 +54,13 @@ POKEMON_CENTER_ETBS = {
     ),
 }
 
-# Paradox Rift, Temporal Forces and Mega Evolution SKUs are split by SLEEVE ART
-# ("[Iron Valiant]" / "[Roaring Moon]") while their promo is "X or Y" on the
-# primary source. Nothing ties a printing to a SKU and the schema cannot express
-# "one of two", so they must stay absent from the registry entirely.
-AMBIGUOUS_SKUS_THAT_MUST_NOT_BE_SEEDED = {
-    "53577dca-8d1c-43b8-aa29-7d1db999c8a2",  # Paradox Rift ETB [Iron Valiant]
-    "302a4fe7-eda9-4d83-9157-5a4161714a6f",  # Paradox Rift ETB [Roaring Moon]
-    "d912f454-ebfc-439d-9c53-44b7eadfba60",  # Paradox Rift PC ETB [Iron Valiant]
-    "c67bc92a-e4ab-4bd6-8f8c-90b59024b859",  # Paradox Rift PC ETB [Roaring Moon]
-    "44927dc3-68cd-4a24-abb7-019dc2acb22b",  # Temporal Forces ETB [Iron Leaves ex]
-    "b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a",  # Temporal Forces ETB [Walking Wake]
-    "a6865906-21e1-439d-9cfe-e0deae8b81cf",  # Temporal Forces PC ETB [Iron Leaves]
-    "8a1b06aa-8312-42e2-a2c2-f576f42a5d1c",  # Temporal Forces PC ETB [Walking Wake]
+RESOLVED_ARTWORK_PROMOS = {
+    "53577dca-8d1c-43b8-aa29-7d1db999c8a2": "9c7f6112-e61c-4722-9718-0d696e3c4652",
+    "302a4fe7-eda9-4d83-9157-5a4161714a6f": "36f6a49b-abf6-495d-813e-6b107972f39d",
+    "44927dc3-68cd-4a24-abb7-019dc2acb22b": "663a6f75-a5be-4070-b2c4-e4ff471b0c45",
+    "b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a": "d6d1c994-f488-4776-86a9-fa6c6c5d1ca5",
+    "b1954a62-1157-4e54-9e1c-f0be478e2459": "afa13738-6c09-4c0b-b18e-8768a5e6bcb0",
+    "b673944a-b456-4ece-9131-8b96f06da6e1": "ddb4f530-84e7-4534-9375-38177915433c",
 }
 
 
@@ -137,10 +131,21 @@ def test_canonical_card_id_is_never_invented_for_promo_components():
             assert component["canonical_card_id"] is None
 
 
-def test_sleeve_art_named_skus_with_an_or_promo_are_never_seeded():
-    """A SKU whose exact printing no source establishes must be absent, not guessed."""
-    seeded = set(BY_SKU)
-    assert not (seeded & AMBIGUOUS_SKUS_THAT_MUST_NOT_BE_SEEDED)
+@pytest.mark.parametrize("sku_id,variant_id", RESOLVED_ARTWORK_PROMOS.items())
+def test_resolved_artwork_sku_uses_exact_ordinary_promo(sku_id, variant_id):
+    assert BY_SKU[sku_id]["guaranteed_card_components"][0]["card_variant_id"] == variant_id
+
+
+def test_enhanced_booster_boxes_use_stamped_not_ordinary_variants():
+    expected = {
+        "aef45d06-1046-4d70-8941-de38a05f6ae2": ("e65517e4-1fef-4062-9959-51c96e360863", "e4d37898-c561-4b7b-85e2-d88e1caf71e1"),
+        "952bcc61-45c0-4717-8898-023f15d7ee30": ("514a999d-1ed3-44a9-a33c-b29ae7af8c96", "ba7e74fb-58d2-4801-bed6-8e89d8ab812d"),
+    }
+    for sku_id, (stamped, ordinary) in expected.items():
+        entry = BY_SKU[sku_id]
+        assert entry["pack_components"][0]["pack_count"] == 36
+        assert entry["guaranteed_card_components"][0]["card_variant_id"] == stamped
+        assert stamped != ordinary
 
 
 def test_each_composition_records_the_date_it_was_actually_verified():

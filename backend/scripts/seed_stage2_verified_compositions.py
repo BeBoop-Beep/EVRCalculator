@@ -14,10 +14,12 @@ It deliberately writes through ``sealed_product_compositions_repository`` rather
 than raw SQL, so the seeder cannot bypass the component-replacement semantics the
 resolver depends on.
 
-EVERY ROW HERE IS VERIFIED FROM A PRIMARY SOURCE
-------------------------------------------------
-Only compositions whose pack count AND exact guaranteed printings were confirmed
-on Pokemon.com are recorded with ``status = 'verified'``. A product whose promo
+EVERY ROW HERE HAS EXPLICIT, REVIEWABLE PROVENANCE
+-------------------------------------------------
+Most compositions are verified from Pokemon.com. A small number of exact
+SKU-to-printing mappings use an identified commercial catalog, and the Dollar
+General ETB uses the explicitly approved high-confidence secondary evidence tier;
+their ``source_type`` records that distinction honestly. A product whose promo
 exists physically but has no ``card_variants`` row in this database is NOT seeded
 as a draft with a guessed variant - it is left absent, so the Stage 2 manifest
 reports it as ``unresolved_promo_identity`` rather than scoring a substitute.
@@ -77,12 +79,8 @@ VERIFIED_AT = "2026-08-15"
 # than a usual Elite Trainer Box") + the SAME promo twice - once with a Pokemon
 # Center logo and once without.
 #
-# DELIBERATELY ABSENT: Paradox Rift, Temporal Forces and Mega Evolution. Their
-# SKUs are split by SLEEVE ART ("[Iron Valiant]" / "[Roaring Moon]") while the
-# source says the promo is "Scream Tail or Iron Bundle" - it explicitly treats
-# sleeve and promo as independent choices. No primary source ties a printing to
-# a SKU, and `card_components` names an EXACT variant, so those products stay
-# unresolved in the coverage manifest rather than entering this table as a guess.
+# Later resolved product-specific evidence for the split-art Paradox Rift,
+# Temporal Forces, and Mega Evolution SKUs is recorded in the backlog block.
 VERIFIED_AT_BATCH1 = "2026-08-16"
 
 JOURNEY_TOGETHER_SET_ID = "142d3869-9d39-48b6-a810-751af2aac748"
@@ -185,11 +183,12 @@ EEVEE_173 = "4054c21f-ec33-4085-9807-75ab78a336e5"
 EEVEE_173_PC = "eb4c4228-7ae2-4c0e-baab-e59775bae487"
 
 
-def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id):
+def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id,
+                  source_type="pokemon_com_product_page"):
     return {
         "label": label,
         "sealed_product_id": sealed_product_id,
-        "source_type": "pokemon_com_product_page",
+        "source_type": source_type,
         "source_reference": source,
         "verified_at": VERIFIED_AT_BATCH1,
         "notes": f"9 packs + 1 full-art foil promo card featuring {promo_name}.",
@@ -206,12 +205,13 @@ def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, varia
 
 
 def _pokemon_center_etb(
-    *, label, sealed_product_id, set_id, source, promo_name, stamped_variant_id, variant_id
+    *, label, sealed_product_id, set_id, source, promo_name, stamped_variant_id, variant_id,
+    source_type="pokemon_com_product_page"
 ):
     return {
         "label": label,
         "sealed_product_id": sealed_product_id,
-        "source_type": "pokemon_com_product_page",
+        "source_type": source_type,
         "source_reference": source,
         "verified_at": VERIFIED_AT_BATCH1,
         "notes": (
@@ -470,6 +470,26 @@ VERIFIED_COMPOSITIONS: List[Dict[str, Any]] = [
     _pokemon_center_etb(label="Surging Sparks Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="55d50d9e-d68b-4f3b-b552-da2c065fad3f", set_id=SURGING_SPARKS_SET_ID, source=_product_page("scarlet-violet-surging-sparks-pokemon-center-elite-trainer-box"), promo_name="Magneton (159)", stamped_variant_id=MAGNETON_159_PC, variant_id=MAGNETON_159),
     _standard_etb(label="Prismatic Evolutions Elite Trainer Box", sealed_product_id="41b15cf2-512b-4b28-9660-83170538fc7a", set_id=PRISMATIC_EVOLUTIONS_SET_ID, source=_product_page("scarlet-violet-prismatic-evolutions-elite-trainer-box"), promo_name="Eevee (173)", variant_id=EEVEE_173),
     _pokemon_center_etb(label="Prismatic Evolutions Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="f0b0297b-0f85-4abf-8fc7-2227c18488dd", set_id=PRISMATIC_EVOLUTIONS_SET_ID, source=_product_page("scarlet-violet-prismatic-evolutions-pokemon-center-elite-trainer-box"), promo_name="Eevee (173)", stamped_variant_id=EEVEE_173_PC, variant_id=EEVEE_173),
+    # ---- Resolved deterministic backlog (2026-08-16) ---------------------
+    _standard_etb(label="Paradox Rift Elite Trainer Box [Iron Valiant]", sealed_product_id="53577dca-8d1c-43b8-aa29-7d1db999c8a2", set_id="5d3d5c23-7098-4393-ad63-6ad9372aee30", source="https://www.tcgplayer.com/search/pokemon/sv-paradox-rift/product", promo_name="Iron Bundle (066)", variant_id="9c7f6112-e61c-4722-9718-0d696e3c4652", source_type="product_catalog"),
+    _pokemon_center_etb(label="Paradox Rift Pokemon Center Elite Trainer Box (Exclusive) [Iron Valiant]", sealed_product_id="d912f454-ebfc-439d-9c53-44b7eadfba60", set_id="5d3d5c23-7098-4393-ad63-6ad9372aee30", source="https://www.tcgplayer.com/search/pokemon/sv-paradox-rift/product", promo_name="Iron Bundle (066)", stamped_variant_id="34ee05d1-34a9-45b5-a089-f0a9f4bdbc39", variant_id="9c7f6112-e61c-4722-9718-0d696e3c4652", source_type="product_catalog"),
+    _standard_etb(label="Paradox Rift Elite Trainer Box [Roaring Moon]", sealed_product_id="302a4fe7-eda9-4d83-9157-5a4161714a6f", set_id="5d3d5c23-7098-4393-ad63-6ad9372aee30", source="https://www.tcgplayer.com/search/pokemon/sv-paradox-rift/product", promo_name="Scream Tail (065)", variant_id="36f6a49b-abf6-495d-813e-6b107972f39d", source_type="product_catalog"),
+    _pokemon_center_etb(label="Paradox Rift Pokemon Center Elite Trainer Box (Exclusive) [Roaring Moon]", sealed_product_id="c67bc92a-e4ab-4bd6-8f8c-90b59024b859", set_id="5d3d5c23-7098-4393-ad63-6ad9372aee30", source="https://www.tcgplayer.com/search/pokemon/sv-paradox-rift/product", promo_name="Scream Tail (065)", stamped_variant_id="a97045f4-d421-4de1-88c6-d1300165fdab", variant_id="36f6a49b-abf6-495d-813e-6b107972f39d", source_type="product_catalog"),
+    _standard_etb(label="Temporal Forces Elite Trainer Box [Iron Leaves ex]", sealed_product_id="44927dc3-68cd-4a24-abb7-019dc2acb22b", set_id="91442900-3949-4ba4-8398-9e3dc2db1fa6", source="https://www.tcgplayer.com/search/pokemon/sv-temporal-forces/product", promo_name="Iron Thorns (098)", variant_id="663a6f75-a5be-4070-b2c4-e4ff471b0c45", source_type="product_catalog"),
+    _pokemon_center_etb(label="Temporal Forces Pokemon Center Elite Trainer Box (Exclusive) [Iron Leaves]", sealed_product_id="a6865906-21e1-439d-9cfe-e0deae8b81cf", set_id="91442900-3949-4ba4-8398-9e3dc2db1fa6", source="https://www.tcgplayer.com/search/pokemon/sv-temporal-forces/product", promo_name="Iron Thorns (098)", stamped_variant_id="c3e0b609-f2a2-46de-9dc3-c934524dd535", variant_id="663a6f75-a5be-4070-b2c4-e4ff471b0c45", source_type="product_catalog"),
+    _standard_etb(label="Temporal Forces Elite Trainer Box [Walking Wake]", sealed_product_id="b02156c5-f2e8-4d01-8b6b-f763bdaf9b1a", set_id="91442900-3949-4ba4-8398-9e3dc2db1fa6", source="https://www.tcgplayer.com/search/pokemon/sv-temporal-forces/product", promo_name="Flutter Mane (097)", variant_id="d6d1c994-f488-4776-86a9-fa6c6c5d1ca5", source_type="product_catalog"),
+    _pokemon_center_etb(label="Temporal Forces Pokemon Center Elite Trainer Box (Exclusive) [Walking Wake]", sealed_product_id="8a1b06aa-8312-42e2-a2c2-f576f42a5d1c", set_id="91442900-3949-4ba4-8398-9e3dc2db1fa6", source="https://www.tcgplayer.com/search/pokemon/sv-temporal-forces/product", promo_name="Flutter Mane (097)", stamped_variant_id="db11ca4e-5045-4fb9-a274-67c0ca52ca4f", variant_id="d6d1c994-f488-4776-86a9-fa6c6c5d1ca5", source_type="product_catalog"),
+    _standard_etb(label="Mega Evolution Elite Trainer Box [Mega Gardevoir]", sealed_product_id="b1954a62-1157-4e54-9e1c-f0be478e2459", set_id="b3c96740-a4a9-4c3d-a8f6-81ed4584549d", source="https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/me01-mega-evolution", promo_name="Alakazam (009)", variant_id="afa13738-6c09-4c0b-b18e-8768a5e6bcb0", source_type="product_catalog"),
+    _pokemon_center_etb(label="Mega Evolution Pokemon Center Elite Trainer Box (Exclusive) [Mega Gardevoir]", sealed_product_id="d05d77e9-c05b-44af-9557-ce08abecc10e", set_id="b3c96740-a4a9-4c3d-a8f6-81ed4584549d", source="https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/me01-mega-evolution", promo_name="Alakazam (009)", stamped_variant_id="8d7293b4-fdc4-46eb-bc25-5b4bb11cf383", variant_id="afa13738-6c09-4c0b-b18e-8768a5e6bcb0", source_type="product_catalog"),
+    _standard_etb(label="Mega Evolution Elite Trainer Box [Mega Lucario]", sealed_product_id="b673944a-b456-4ece-9131-8b96f06da6e1", set_id="b3c96740-a4a9-4c3d-a8f6-81ed4584549d", source="https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/me01-mega-evolution", promo_name="Riolu (010)", variant_id="ddb4f530-84e7-4534-9375-38177915433c", source_type="product_catalog"),
+    _pokemon_center_etb(label="Mega Evolution Pokemon Center Elite Trainer Box (Exclusive) [Mega Lucario]", sealed_product_id="e0087cc5-963c-429d-a370-61384cc107f8", set_id="b3c96740-a4a9-4c3d-a8f6-81ed4584549d", source="https://www.tcgplayer.com/categories/trading-and-collectible-card-games/pokemon/me01-mega-evolution", promo_name="Riolu (010)", stamped_variant_id="4f76a1fb-2b8b-4b6b-bdb0-25bf6351e1ea", variant_id="ddb4f530-84e7-4534-9375-38177915433c", source_type="product_catalog"),
+    _standard_etb(label="Chaos Rising Elite Trainer Box", sealed_product_id="682e91e8-020c-4293-bafe-eb19c62131ce", set_id="5bdbfae1-3f2e-44e7-b8c9-1035ad45b896", source="https://www.pokemon.com/us/pokemon-news/pokemon-tcg-mega-evolution-chaos-rising-product-showcase", promo_name="Fennekin (080)", variant_id="ce5e3c74-e806-4994-89db-dbbc7f67ce34"),
+    _pokemon_center_etb(label="Chaos Rising Pokemon Center Elite Trainer Box", sealed_product_id="a98ce200-a891-4076-8c10-5130df7e5ad6", set_id="5bdbfae1-3f2e-44e7-b8c9-1035ad45b896", source="https://www.pokemon.com/us/pokemon-news/pokemon-tcg-mega-evolution-chaos-rising-product-showcase", promo_name="Fennekin (080)", stamped_variant_id="65d12343-5a4b-41b8-9aa5-d47af461d57d", variant_id="ce5e3c74-e806-4994-89db-dbbc7f67ce34"),
+    _standard_etb(label="Pitch Black Elite Trainer Box", sealed_product_id="fe179039-b1d0-435d-a10c-c84db9d624b5", set_id="472f851c-2e41-4c80-b6fc-8478d1d92730", source=_product_page("mega-evolution-pitch-black-pokemon-center-elite-trainer-box"), promo_name="Zarude (088)", variant_id="b52415ef-c730-4d83-b108-4817e76f86d6"),
+    _pokemon_center_etb(label="Pitch Black Pokemon Center Elite Trainer Box (Exclusive)", sealed_product_id="1513e48c-7ba2-414e-af27-762868c8239b", set_id="472f851c-2e41-4c80-b6fc-8478d1d92730", source=_product_page("mega-evolution-pitch-black-pokemon-center-elite-trainer-box"), promo_name="Zarude (088)", stamped_variant_id="7ffaf03b-8bec-4582-b03f-52cddebced23", variant_id="b52415ef-c730-4d83-b108-4817e76f86d6"),
+    _standard_etb(label="Prismatic Evolutions Elite Trainer Box (Dollar General Exclusive)", sealed_product_id="342e0e74-6469-4546-8411-70a282be1b35", set_id=PRISMATIC_EVOLUTIONS_SET_ID, source="https://tcglookup.com/card/670608-prismatic-evolutions-elite-trainer-box-case-dollar-general-exclusive", promo_name="Eevee (173)", variant_id=EEVEE_173, source_type="archival_reference"),
+    {"label": "Journey Together Enhanced Booster Box", "sealed_product_id": "aef45d06-1046-4d70-8941-de38a05f6ae2", "source_type": "product_catalog", "source_reference": "https://www.tcgplayer.com/product/623594", "verified_at": VERIFIED_AT_BATCH1, "notes": "36 Journey Together packs + exact Journey Together-stamped N's Reshiram 167/159 box-topper.", "pack_components": [{"set_id": JOURNEY_TOGETHER_SET_ID, "pack_count": 36}], "guaranteed_card_components": [{"card_variant_id": "e65517e4-1fef-4062-9959-51c96e360863", "canonical_card_id": None, "quantity": 1, "component_role": "enhanced_booster_box_stamped_topper"}]},
+    {"label": "Mega Evolution Enhanced Booster Box", "sealed_product_id": "952bcc61-45c0-4717-8898-023f15d7ee30", "source_type": "product_catalog", "source_reference": "https://www.tcgplayer.com/product/654703", "verified_at": VERIFIED_AT_BATCH1, "notes": "36 Mega Evolution packs + exact Mega Evolution-stamped Bulbasaur 133/132 box-topper.", "pack_components": [{"set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d", "pack_count": 36}], "guaranteed_card_components": [{"card_variant_id": "514a999d-1ed3-44a9-a33c-b29ae7af8c96", "canonical_card_id": None, "quantity": 1, "component_role": "enhanced_booster_box_stamped_topper"}]},
 ]
 
 
