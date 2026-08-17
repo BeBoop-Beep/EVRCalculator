@@ -12,6 +12,25 @@ TARGETS = [
 ]
 
 
+def passing_gate_facts():
+    loo = [{"spearman": 0.9, "top5Overlap": 4, "meanAbsoluteRankMovement": 1.0, "maximumRankMovement": 5}]
+    comparison = {"spearman": 0.9, "top5Overlap": 4, "meanAbsoluteRankMovement": 1.0, "maximumRankMovement": 5}
+    return {"runAuthorityMatchRate": 1.0, "canonicalVersionMatchRate": 1.0,
+            "rankedSetCount": 10, "rankableSetCount": 9, "ineligibleParticipatingFamilies": [],
+            "deferredCoverage": {"halfBoosterBox": True, "expandedEtb": True,
+                                 "expandedPokemonCenterEtb": True},
+            "informativeLeaveOneFamilyOut": loo,
+            "representativeSensitivity": {"best": comparison, "median": comparison,
+                "coverage3": comparison, "familyCohort5": comparison, "groupBalanced": comparison},
+            "familyCountSpearman": 0.2, "multiSkuInvariantHolds": True}
+
+
+def gate_facts_with(**changes):
+    facts = passing_gate_facts()
+    facts.update(changes)
+    return facts
+
+
 def projection(extra=None):
     products = [
         {"setId": "a", "sealedProductId": "a1", "productName": "A Box", "familyRank": 1,
@@ -75,6 +94,67 @@ def test_leading_spec_is_unshrunk_two_level_equal_family_mean():
     assert ranked[0]["setRipUnit"] == 0.4
     assert ranked[0]["setRipScore"] == 40.0
     assert ranked[0]["rankableSkuEvidenceCount"] == 4
+
+
+def test_frozen_methodology_identity_and_settings_are_deterministic():
+    assert research.METHODOLOGY_VERSION == "set_rip_consensus_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
+    assert research.LEADING_SPEC == {"representativePolicy": "mean", "method": "mean", "priorStrength": 0,
+                                     "minimumCoverage": 2, "minimumFamilySetCohort": 3}
+    assert research.PROMOTION_GATE_REQUIREMENTS["minimumSetCoverageRate"] == 0.90
+    assert research.PROMOTION_GATE_REQUIREMENTS["minimumFamilyRepresentedSets"] == 3
+
+
+@pytest.mark.parametrize("rankable,status", [(89, "FAIL"), (90, "PASS")])
+def test_ninety_percent_set_coverage_gate(rankable, status):
+    facts = gate_facts_with(rankedSetCount=100, rankableSetCount=rankable)
+    assert research.evaluate_promotion_gate(facts)["checks"]["setCoverage"]["status"] == status
+
+
+@pytest.mark.parametrize("field,check", [("runAuthorityMatchRate", "runAuthority"),
+                                          ("canonicalVersionMatchRate", "canonicalVersions")])
+def test_authority_or_version_mismatch_fails(field, check):
+    facts = passing_gate_facts()
+    facts[field] = 0.99
+    gate = research.evaluate_promotion_gate(facts)
+    assert gate["checks"][check]["status"] == "FAIL"
+    assert gate["overallStatus"] == "PROMOTION_GATE_FAILED"
+
+
+@pytest.mark.parametrize("metric,value", [("spearman", 0.84), ("top5Overlap", 3),
+                                            ("meanAbsoluteRankMovement", 2.01), ("maximumRankMovement", 7)])
+def test_each_loo_guardrail_can_fail_stability(metric, value):
+    facts = passing_gate_facts()
+    omission = dict(facts["informativeLeaveOneFamilyOut"][0])
+    omission[metric] = value
+    facts["informativeLeaveOneFamilyOut"] = [omission]
+    assert research.evaluate_promotion_gate(facts)["checks"]["leaveOneFamilyOutStability"]["status"] == "FAIL"
+
+
+@pytest.mark.parametrize("representative,metric,value", [("best", "spearman", 0.84),
+                                                           ("median", "top5Overlap", 3)])
+def test_best_or_median_threshold_requires_methodology_review(representative, metric, value):
+    facts = passing_gate_facts()
+    facts["representativeSensitivity"] = {key: dict(comparison) for key, comparison in facts["representativeSensitivity"].items()}
+    facts["representativeSensitivity"][representative][metric] = value
+    gate = research.evaluate_promotion_gate(facts)
+    assert gate["checks"]["representativeSensitivity"]["status"] == "REVIEW_REQUIRED"
+    assert gate["overallStatus"] == "METHODOLOGY_SENSITIVITY_REVIEW_REQUIRED"
+
+
+def test_family_count_threshold_requires_review_and_duplicate_family_votes_fail():
+    fairness = research.evaluate_promotion_gate(gate_facts_with(familyCountSpearman=-0.60))
+    assert fairness["checks"]["familyCountFairness"]["status"] == "REVIEW_REQUIRED"
+    duplicate = research.evaluate_promotion_gate(gate_facts_with(multiSkuInvariantHolds=False))
+    assert duplicate["checks"]["multiSkuInvariant"]["status"] == "FAIL"
+    assert duplicate["overallStatus"] == "PROMOTION_GATE_FAILED"
+
+
+def test_deferred_coverage_blocks_today_and_fully_passing_cohort_is_review_ready():
+    waiting = passing_gate_facts()
+    waiting["deferredCoverage"] = {"halfBoosterBox": False, "expandedEtb": False,
+                                   "expandedPokemonCenterEtb": False}
+    assert research.evaluate_promotion_gate(waiting)["overallStatus"] == "AWAITING_DEFERRED_COVERAGE"
+    assert research.evaluate_promotion_gate(passing_gate_facts())["overallStatus"] == "METHODOLOGY_READY_FOR_PROMOTION_REVIEW"
 
 
 def test_four_skus_still_make_one_family_vote_and_extra_family_changes_mean_not_weight():
@@ -153,7 +233,7 @@ def test_research_main_passes_exact_target_run_authority(monkeypatch, tmp_path):
     observed = {}
     monkeypatch.setattr(research, "get_rip_statistics_targets_payload", lambda: {"targets": TARGETS})
     monkeypatch.setattr(research, "_catalog_by_set", lambda *_a, **_k: {})
-    monkeypatch.setattr(research, "build_report", lambda *_a, **_k: {"promotionStatus": research.PROMOTION_STATUS})
+    monkeypatch.setattr(research, "build_report", lambda *_a, **_k: {"promotionStatus": "AWAITING_DEFERRED_COVERAGE"})
     monkeypatch.setattr(research, "render_markdown", lambda _report: "research only")
     def project(*, set_targets):
         observed["authority"] = {row["set_id"]: row["calculation_run_id"] for row in set_targets}

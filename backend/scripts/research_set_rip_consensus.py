@@ -29,10 +29,16 @@ if __package__ in {None, ""}:
 from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
+from backend.desirability.scoring_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION,
+    canonical_collector_appeal_version,
+)
 from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS, classify_sealed_product
 from backend.domain.pokemon.sealed_product_comparison_scope import COMPARABLE_FAMILIES
 
-RESEARCH_VERSION = "set-rip-consensus-research-v2-two-level-mean"
+RESEARCH_VERSION = "set-rip-consensus-research-v3-frozen-promotion-gate"
+METHODOLOGY_VERSION = "set_rip_consensus_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
 FAMILIES = tuple(sorted(COMPARABLE_FAMILIES))
 REPRESENTATIVE_POLICIES = ("best", "median", "mean")
 AGGREGATION_METHODS = ("mean", "median", "borda", "group_balanced")
@@ -49,11 +55,33 @@ FORMAT_GROUPS = {
 REPORT_FAMILY_LABELS = {**FAMILY_LABELS, "pokemon_center_elite_trainer_box": "Pokémon Center Elite Trainer Box"}
 REASONABLE_COVERAGE_GATES = (2, 3)
 REASONABLE_COHORT_GATES = (3, 5)
-PROMOTION_STATUS = "RESEARCH_NOT_READY_FOR_PROMOTION"
 LEADING_SPEC = {"representativePolicy": "mean", "method": "mean", "priorStrength": 0,
                 "minimumCoverage": 2, "minimumFamilySetCohort": 3}
 PREVIOUS_LEADING_SPEC = {"representativePolicy": "best", "method": "mean", "priorStrength": 2,
                          "minimumCoverage": 2, "minimumFamilySetCohort": 3}
+PROMOTION_GATE_REQUIREMENTS = {
+    "runAuthorityMatchRate": 1.0,
+    "canonicalVersionMatchRate": 1.0,
+    "minimumSetCoverageRate": 0.90,
+    "minimumFamilyRepresentedSets": 3,
+    "familyCohortSensitivityRepresentedSets": 5,
+    "minimumLooSpearman": 0.85,
+    "minimumLooTop5Overlap": 4,
+    "maximumLooMeanAbsoluteRankMovement": 2.0,
+    "maximumLooIndividualRankMovement": 6,
+    "minimumRepresentativeSensitivitySpearman": 0.85,
+    "minimumRepresentativeSensitivityTop5Overlap": 4,
+    "familyCountFairnessAbsoluteSpearmanReview": 0.60,
+}
+PROMOTION_STATUSES = (
+    "RESEARCH_NOT_READY_FOR_PROMOTION", "AWAITING_DEFERRED_COVERAGE", "PROMOTION_GATE_FAILED",
+    "METHODOLOGY_SENSITIVITY_REVIEW_REQUIRED", "METHODOLOGY_READY_FOR_PROMOTION_REVIEW",
+)
+FROZEN_BASELINE_FAMILY_COUNTS = {
+    "sleeved_booster_pack": 15, "booster_bundle": 23, "half_booster_box": 0,
+    "booster_box": 15, "elite_trainer_box": 9,
+    "pokemon_center_elite_trainer_box": 9, "enhanced_booster_box": 0,
+}
 
 
 def rank_standing(rank: int, cohort_size: int) -> float:
@@ -305,6 +333,100 @@ def _ranking_comparison(left: Sequence[Mapping[str, Any]], right: Sequence[Mappi
             "maximumRankMovement": max(movement) if movement else None}
 
 
+def _gate_check(status: str, observed: Any, required: Any, reason: str) -> dict[str, Any]:
+    return {"status": status, "observedValues": observed, "requiredValues": required, "reason": reason}
+
+
+def evaluate_promotion_gate(facts: Mapping[str, Any]) -> dict[str, Any]:
+    """Evaluate the frozen research gate. This function cannot promote or publish."""
+    req = PROMOTION_GATE_REQUIREMENTS
+    ranked_count = int(facts.get("rankedSetCount") or 0)
+    required_rankable = math.ceil(ranked_count * req["minimumSetCoverageRate"])
+    rankable_count = int(facts.get("rankableSetCount") or 0)
+    checks: dict[str, Any] = {}
+
+    run_rate = float(facts.get("runAuthorityMatchRate") or 0)
+    checks["runAuthority"] = _gate_check("PASS" if run_rate == 1 else "FAIL", {"matchRate": run_rate},
+        {"matchRate": req["runAuthorityMatchRate"]}, "Every included row must match its owning ranked target calculation_run_id.")
+    version_rate = float(facts.get("canonicalVersionMatchRate") or 0)
+    checks["canonicalVersions"] = _gate_check("PASS" if version_rate == 1 else "FAIL",
+        {"matchRate": version_rate, "versions": facts.get("canonicalVersions")},
+        {"matchRate": req["canonicalVersionMatchRate"]}, "Mixed, fallback, or superseded canonical versions fail closed.")
+    coverage_pass = ranked_count > 0 and rankable_count >= required_rankable
+    checks["setCoverage"] = _gate_check("PASS" if coverage_pass else "FAIL",
+        {"rankedSetCount": ranked_count, "rankableSetCount": rankable_count,
+         "coverageRate": _round(rankable_count / ranked_count) if ranked_count else None},
+        {"minimumCoverageRate": req["minimumSetCoverageRate"], "minimumRankableSetCount": required_rankable},
+        "Sets below two participating families remain unavailable, never zero.")
+    bad_families = list(facts.get("ineligibleParticipatingFamilies") or [])
+    checks["familyCohortQuality"] = _gate_check("PASS" if not bad_families else "FAIL",
+        {"ineligibleParticipatingFamilies": bad_families},
+        {"minimumRepresentedSets": req["minimumFamilyRepresentedSets"],
+         "sensitivityRepresentedSets": req["familyCohortSensitivityRepresentedSets"]},
+        "Only families meeting the generic represented-set threshold may contribute.")
+    deferred = dict(facts.get("deferredCoverage") or {})
+    deferred_pass = all(bool(deferred.get(key)) for key in ("halfBoosterBox", "expandedEtb", "expandedPokemonCenterEtb"))
+    checks["deferredCoverage"] = _gate_check("PASS" if deferred_pass else "BLOCKED", deferred,
+        {"halfBoosterBox": "meaningful new artifact-backed coverage", "expandedEtb": True,
+         "expandedPokemonCenterEtb": True, "enhancedBoosterBox": "required only if >=3 represented sets"},
+        "The verified deferred cohort must be scored through the normal artifact-backed workflow.")
+
+    loo = list(facts.get("informativeLeaveOneFamilyOut") or [])
+    observed_loo = {"informativeOmissions": len(loo),
+        "minimumSpearman": min((x["spearman"] for x in loo), default=None),
+        "minimumTop5Overlap": min((x["top5Overlap"] for x in loo), default=None),
+        "maximumMeanAbsoluteRankMovement": max((x["meanAbsoluteRankMovement"] for x in loo), default=None),
+        "maximumIndividualRankMovement": max((x["maximumRankMovement"] for x in loo), default=None)}
+    loo_pass = bool(loo) and observed_loo["minimumSpearman"] >= req["minimumLooSpearman"] \
+        and observed_loo["minimumTop5Overlap"] >= req["minimumLooTop5Overlap"] \
+        and observed_loo["maximumMeanAbsoluteRankMovement"] <= req["maximumLooMeanAbsoluteRankMovement"] \
+        and observed_loo["maximumIndividualRankMovement"] <= req["maximumLooIndividualRankMovement"]
+    checks["leaveOneFamilyOutStability"] = _gate_check("PASS" if loo_pass else "FAIL", observed_loo,
+        {"minimumSpearman": req["minimumLooSpearman"], "minimumTop5Overlap": req["minimumLooTop5Overlap"],
+         "maximumMeanAbsoluteRankMovement": req["maximumLooMeanAbsoluteRankMovement"],
+         "maximumIndividualRankMovement": req["maximumLooIndividualRankMovement"]},
+        "All informative participating-family omissions must satisfy every stability guardrail.")
+
+    sensitivity = dict(facts.get("representativeSensitivity") or {})
+    warnings = [name for name in ("best", "median") if name not in sensitivity
+                or sensitivity[name].get("spearman") is None
+                or sensitivity[name]["spearman"] < req["minimumRepresentativeSensitivitySpearman"]
+                or sensitivity[name]["top5Overlap"] < req["minimumRepresentativeSensitivityTop5Overlap"]]
+    checks["representativeSensitivity"] = _gate_check("REVIEW_REQUIRED" if warnings else "PASS",
+        {"comparisons": sensitivity, "warningComparisons": warnings},
+        {"bestAndMedianMinimumSpearman": req["minimumRepresentativeSensitivitySpearman"],
+         "bestAndMedianMinimumTop5Overlap": req["minimumRepresentativeSensitivityTop5Overlap"],
+         "requiredDiagnostics": ["coverage3", "familyCohort5", "groupBalanced"]},
+        "BEST or MEDIAN crossing a warning threshold stops promotion for methodology review; group-balanced is diagnostic only.")
+    fairness = facts.get("familyCountSpearman")
+    fairness_review = fairness is not None and abs(float(fairness)) >= req["familyCountFairnessAbsoluteSpearmanReview"]
+    checks["familyCountFairness"] = _gate_check("REVIEW_REQUIRED" if fairness_review else "PASS",
+        {"spearmanCoverageVsSetRip": fairness},
+        {"absoluteSpearmanReviewThreshold": req["familyCountFairnessAbsoluteSpearmanReview"]},
+        "This is a diagnostic review guardrail, not a formula-tuning target.")
+    invariant = bool(facts.get("multiSkuInvariantHolds"))
+    checks["multiSkuInvariant"] = _gate_check("PASS" if invariant else "FAIL",
+        {"oneVotePerSetFamily": invariant}, {"oneVotePerSetFamily": True},
+        "Multiple SKUs may affect only their set-family arithmetic mean and never create duplicate final votes.")
+
+    hard_fail = any(check["status"] == "FAIL" for check in checks.values())
+    integrity_fail = any(checks[name]["status"] == "FAIL"
+                         for name in ("runAuthority", "canonicalVersions", "familyCohortQuality", "multiSkuInvariant"))
+    review = any(check["status"] == "REVIEW_REQUIRED" for check in checks.values())
+    if integrity_fail:
+        overall = "PROMOTION_GATE_FAILED"
+    elif not deferred_pass:
+        overall = "AWAITING_DEFERRED_COVERAGE"
+    elif hard_fail:
+        overall = "PROMOTION_GATE_FAILED"
+    elif review:
+        overall = "METHODOLOGY_SENSITIVITY_REVIEW_REQUIRED"
+    else:
+        overall = "METHODOLOGY_READY_FOR_PROMOTION_REVIEW"
+    return {"researchVersion": RESEARCH_VERSION, "methodologyVersion": METHODOLOGY_VERSION,
+            "overallStatus": overall, "checks": checks}
+
+
 def analyze(matrix: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     names = {str(t.get("set_id") or t.get("target_id")): t.get("name") for t in targets}
     configurations = []
@@ -319,6 +441,13 @@ def analyze(matrix: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, 
                                  minimum_coverage=2, minimum_family_sets=3)
     previous = rank_candidate(matrix, representative_policy="best", method="mean", prior_strength=2,
                               minimum_coverage=2, minimum_family_sets=3)
+    sensitivity_rankings = {
+        "best": rank_candidate(matrix, representative_policy="best", method="mean", minimum_coverage=2, minimum_family_sets=3),
+        "median": rank_candidate(matrix, representative_policy="median", method="mean", minimum_coverage=2, minimum_family_sets=3),
+        "coverage3": rank_candidate(matrix, representative_policy="mean", method="mean", minimum_coverage=3, minimum_family_sets=3),
+        "familyCohort5": rank_candidate(matrix, representative_policy="mean", method="mean", minimum_coverage=2, minimum_family_sets=5),
+        "groupBalanced": rank_candidate(matrix, representative_policy="mean", method="group_balanced", minimum_coverage=2, minimum_family_sets=3),
+    }
     previous_by_id = {row["setId"]: row for row in previous if row.get("rank")}
     current_by_id = {row["setId"]: row for row in recommended if row.get("rank")}
     affected = []
@@ -387,6 +516,8 @@ def analyze(matrix: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, 
         "recommendedCandidate": {**recommended_spec, "ordering": [{**r, "setName": names.get(r["setId"])} for r in recommended]},
         "previousLeadingCandidate": {**PREVIOUS_LEADING_SPEC, "ordering": [{**r, "setName": names.get(r["setId"])} for r in previous]},
         "previousVsCurrentLeading": _ranking_comparison(previous, recommended),
+        "leadingMethodologySensitivity": {name: _ranking_comparison(recommended, ranking)
+                                           for name, ranking in sensitivity_rankings.items()},
         "mostAffectedSets": affected,
         "multiSkuDiagnostics": multi_sku,
         "familyCountFairness": {"availableSetCount": len(available),
@@ -401,18 +532,6 @@ def analyze(matrix: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, 
         "topRankRobustness": {"configurationCount": len(reasonable),
             "top3Frequency": sorted(({"setId": k, "setName": names.get(k), "count": v} for k, v in top3.items()), key=lambda x: (-x["count"], x["setId"])),
             "top5Frequency": sorted(({"setId": k, "setName": names.get(k), "count": v} for k, v in top5.items()), key=lambda x: (-x["count"], x["setId"]))},
-        "promotionGatePreregistration": {
-            "status": "PREREGISTERED_NOT_EVALUATED_FOR_PROMOTION",
-            "requirements": [
-                "Canonical ranked-target run authority must be used for 100% of included sets.",
-                "At least 60% of ranked sets must have two or more eligible family means; missing families remain omitted, never zero.",
-                "Only families represented by at least three sets may contribute.",
-                "Deferred Half Booster Box and expanded ETB/PC ETB evidence must be added through normal canonical production runs before a promotion decision.",
-                "Rerun the full 189-configuration grid and require leave-one-family-out minimum Spearman >= 0.85 and top-five overlap >= 4 on informative omissions.",
-                "On informative omissions, require mean absolute rank movement <= 2.0 and maximum rank movement <= 6.",
-                "Compare mean-SKU/mean-family against median, Borda, group-balanced, and shrinkage sensitivities; investigate any top-five result supported only by the leading method.",
-                "Historical stability evidence must exist; do not rebuild historical Monte Carlo solely for this research pass."
-            ]},
     }
 
 
@@ -427,8 +546,53 @@ def build_report(projection: Mapping[str, Any], targets: Sequence[Mapping[str, A
                 for family, block in sorted((projection.get("families") or {}).items())}
     for family in FAMILIES:
         coverage.setdefault(family, {"rankableSkus": 0, "representedSets": 0})
-    return {
+    products = [product for block in (projection.get("families") or {}).values()
+                for product in block.get("products") or []]
+    target_runs = {str(row.get("set_id") or row.get("target_id")): str(row.get("calculation_run_id") or "")
+                   for row in targets}
+    run_matches = [bool(product.get("calculationRunId")) and
+                   str(product.get("calculationRunId")) == target_runs.get(str(product.get("setId")))
+                   for product in products]
+    canonical_versions = {"financialRip": CANONICAL_FINANCIAL_RIP_VERSION,
+                          "collectorAppeal": canonical_collector_appeal_version(),
+                          "overallRip": CANONICAL_OVERALL_RIP_VERSION}
+    version_matches = [product.get("financialRipVersion") == canonical_versions["financialRip"]
+                       and product.get("collectorAppealVersion") == canonical_versions["collectorAppeal"]
+                       and product.get("overallRipVersion") == canonical_versions["overallRip"] for product in products]
+    ranked_set_count = int(projection.get("authorityTargetCount") or
+                           max((row["representedSets"] for row in coverage.values()), default=0))
+    informative_loo = [row for row in analysis["leaveOneFamilyOut"]
+                       if coverage.get(row["omittedFamily"], {}).get("representedSets", 0) >= LEADING_SPEC["minimumFamilySetCohort"]]
+    participating = [row for row in analysis["recommendedCandidate"]["ordering"] if row.get("rank")]
+    multi_sku_invariant = all(row["familyCoverageCount"] == len(set(row["participatingFamilies"]))
+                              for row in participating)
+    deferred = {
+        "halfBoosterBox": coverage["half_booster_box"]["representedSets"] >= LEADING_SPEC["minimumFamilySetCohort"],
+        "expandedEtb": coverage["elite_trainer_box"]["rankableSkus"] > FROZEN_BASELINE_FAMILY_COUNTS["elite_trainer_box"],
+        "expandedPokemonCenterEtb": coverage["pokemon_center_elite_trainer_box"]["rankableSkus"] > FROZEN_BASELINE_FAMILY_COUNTS["pokemon_center_elite_trainer_box"],
+        "enhancedBoosterBoxRepresentedSets": coverage["enhanced_booster_box"]["representedSets"],
+    }
+    gate = evaluate_promotion_gate({
+        "runAuthorityMatchRate": statistics.fmean(run_matches) if run_matches else 0,
+        "canonicalVersionMatchRate": statistics.fmean(version_matches) if version_matches else 0,
+        "canonicalVersions": canonical_versions, "rankedSetCount": ranked_set_count,
+        "rankableSetCount": recommended_available,
+        "ineligibleParticipatingFamilies": [family for family, row in coverage.items()
+            if 0 < row["representedSets"] < LEADING_SPEC["minimumFamilySetCohort"] and
+            any(family in ranked["participatingFamilies"] for ranked in participating)],
+        "deferredCoverage": deferred, "informativeLeaveOneFamilyOut": informative_loo,
+        "representativeSensitivity": analysis["leadingMethodologySensitivity"],
+        "familyCountSpearman": analysis["familyCountFairness"]["spearmanCoverageVsSetRip"],
+        "multiSkuInvariantHolds": multi_sku_invariant,
+    })
+    report = {
         "researchVersion": RESEARCH_VERSION, "asOf": date.today().isoformat(),
+        "methodologyVersion": METHODOLOGY_VERSION,
+        "frozenMethodology": {**LEADING_SPEC,
+            "skuStanding": "N == 1 ? 0.50 : 1 - ((familyRank - 1) / (N - 1))",
+            "withinFamilyAggregation": "arithmetic_mean_all_rankable_sku_standings",
+            "acrossFamilyAggregation": "equal_arithmetic_mean_available_eligible_family_scores",
+            "missingFamilyPolicy": "omit_never_zero", "shrinkage": "none"},
         "researchOnly": True, "publishesSetRip": False,
         "comparisonScope": projection.get("comparisonScope"), "crossFormatComparable": projection.get("crossFormatComparable"),
         "standingDefinition": "N=1 => 0.50; otherwise 1 - ((rank - 1) / (N - 1))",
@@ -442,8 +606,22 @@ def build_report(projection: Mapping[str, Any], targets: Sequence[Mapping[str, A
         "methodologyRecommendation": "Leading research candidate: mean SKU standing within each canonical product family, then an unshrunk equal-family arithmetic mean. A set needs at least two eligible families; a family needs at least three represented sets. Missing families are omitted, never zero, and SKU-rich families receive no extra weight.",
         "knownLimitations": ["Half Booster Box and Enhanced Booster Box currently have no or insufficient canonical coverage.",
             "Verified deferred products are missing evidence, not poor performance.", f"{recommended_available} sets currently clear the leading candidate's gate; this is research coverage, not a validated public Set RIP cohort.", "Related pack formats may count correlated evidence more than once; group-balanced results are retained as a sensitivity architecture."],
-        "promotionStatus": PROMOTION_STATUS,
+        "promotionGate": gate, "promotionStatus": gate["overallStatus"],
     }
+    report["frozenBaseline"] = {"asOf": report["asOf"], "rankedSetCount": ranked_set_count,
+        "rankableSetCount": recommended_available, "familyCounts": coverage,
+        "leadingOrdering": [{"rank": row["rank"], "setId": row["setId"], "setName": row.get("setName"),
+                             "setRipUnit": row["setRipUnit"], "setRipScore": row["setRipScore"]}
+                            for row in participating]}
+    report["postCoverageWorkflow"] = [
+        "Rebuild normal product-family Rankings after normal artifact-backed simulations populate deferred products.",
+        "Run this same frozen research harness without changing its methodology version or gate constants.",
+        "Evaluate the pre-registered promotion gate.",
+        "Compare before/after family coverage and descriptive ranking movement.",
+        "Report PASS, FAIL, or REVIEW REQUIRED without changing methodology during the validation run.",
+        "Return results for human promotion review; the harness cannot publish or promote itself.",
+    ]
+    return report
 
 
 def rebuild_from_baseline_report(
@@ -459,7 +637,8 @@ def rebuild_from_baseline_report(
     names_by_cell = {(cell["setId"], cell["family"]): cell.get("rankableSkus") or []
                      for cell in (name_source or {}).get("matrix", [])}
     projection: dict[str, Any] = {"comparisonScope": baseline.get("comparisonScope"),
-                                  "crossFormatComparable": baseline.get("crossFormatComparable"), "families": {}}
+                                  "crossFormatComparable": baseline.get("crossFormatComparable"),
+                                  "runAuthority": "set_targets.calculation_run_id", "families": {}}
     catalog: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     targets_by_id: dict[str, dict[str, Any]] = {}
     metadata_by_id = {str(row.get("set_id") or row.get("target_id")): row for row in target_metadata}
@@ -467,6 +646,7 @@ def rebuild_from_baseline_report(
         set_id, family = str(cell["setId"]), str(cell["family"])
         targets_by_id.setdefault(set_id, {"set_id": set_id, "canonical_key": cell.get("setCanonicalKey"),
                                           "name": cell.get("setName"),
+                                          "calculation_run_id": "pinned-baseline-canonical-run",
                                           "pack_rank": metadata_by_id.get(set_id, {}).get("pack_rank")})
         if cell.get("availabilityStatus") == "catalogued_product_exists_unscored":
             catalog[set_id][family].append({"id": "baseline-unscored"})
@@ -478,7 +658,13 @@ def rebuild_from_baseline_report(
             family_block["products"].append({"setId": set_id,
                 "sealedProductId": source.get("sealedProductId") or fallback.get("sealedProductId") or f"{set_id}:{family}:{index}",
                 "productName": source.get("productName") or fallback.get("productName") or "Product name unavailable in baseline",
-                "familyRank": rank})
+                "familyRank": rank, "calculationRunId": "pinned-baseline-canonical-run",
+                "financialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
+                "collectorAppealVersion": canonical_collector_appeal_version(),
+                "overallRipVersion": CANONICAL_OVERALL_RIP_VERSION})
+    projection["authorityTargetCount"] = max(
+        (len({product["setId"] for product in block["products"]}) for block in projection["families"].values()),
+        default=0)
     report = build_report(projection, list(targets_by_id.values()), catalog)
     report["researchDataAuthority"] = "Pinned canonical matrix previously materialized through each ranked target's calculation_run_id. No market-date resolution."
     return report
@@ -564,8 +750,16 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     robustness = report["topRankRobustness"]
     lines += ["", "# 189-CANDIDATE SENSITIVITY", "", f"All 189 pre-registered configurations remain in JSON. The reasonable-gate robustness subset contains {robustness['configurationCount']} configurations and reports top-three/top-five frequencies for every set.", "",
               "# PACK-RANKING COMPARISON", "", f"Descriptive only: overlap N={pc['overlapN']}, Spearman={pc['spearman']}, top-five overlap={pc['top5Overlap']}, mean absolute movement={pc['meanAbsoluteRankMovement']}, maximum movement={pc['maximumRankMovement']}.", "",
-              "# PROMOTION GATE PREREGISTRATION", ""]
-    lines.extend(f"- {item}" for item in report["promotionGatePreregistration"]["requirements"])
+              "# PROMOTION GATE", "", f"Methodology version: `{report['methodologyVersion']}`", "",
+              "| Check | Observed | Required | Status |", "|---|---|---|---|"]
+    for name, check in report["promotionGate"]["checks"].items():
+        observed = json.dumps(check["observedValues"], sort_keys=True).replace("|", "\\|")
+        required = json.dumps(check["requiredValues"], sort_keys=True).replace("|", "\\|")
+        lines.append(f"| {name} | `{observed}` | `{required}` | {check['status']} |")
+    lines += ["", f"Overall: **{report['promotionGate']['overallStatus']}**", "",
+              "# FROZEN BASELINE", "", f"As of {report['frozenBaseline']['asOf']}: {report['frozenBaseline']['rankableSetCount']} of {report['frozenBaseline']['rankedSetCount']} ranked sets clear the coverage gate. The full ordering and scores are recorded in JSON.", "",
+              "# POST-COVERAGE WORKFLOW", ""]
+    lines.extend(f"{index}. {item}" for index, item in enumerate(report["postCoverageWorkflow"], 1))
     lines += ["", "# HISTORICAL EVIDENCE", "", report["historicalEvidence"]["status"], "", report["historicalEvidence"]["reason"], "",
               "# PRIOR RESEARCH INVALIDATION", "", report["priorResearch"]["status"], "", report["priorResearch"]["reason"], "",
               "# KNOWN LIMITATIONS", ""]

@@ -73020,6 +73020,181 @@
     "spearmanCoverageVsBetterRank": -0.346658,
     "spearmanCoverageVsSetRip": -0.346658
   },
+  "frozenBaseline": {
+    "asOf": "2026-08-17",
+    "familyCounts": {
+      "booster_box": {
+        "rankableSkus": 15,
+        "representedSets": 15
+      },
+      "booster_bundle": {
+        "rankableSkus": 23,
+        "representedSets": 22
+      },
+      "elite_trainer_box": {
+        "rankableSkus": 9,
+        "representedSets": 8
+      },
+      "enhanced_booster_box": {
+        "rankableSkus": 0,
+        "representedSets": 0
+      },
+      "half_booster_box": {
+        "rankableSkus": 0,
+        "representedSets": 0
+      },
+      "pokemon_center_elite_trainer_box": {
+        "rankableSkus": 9,
+        "representedSets": 8
+      },
+      "sleeved_booster_pack": {
+        "rankableSkus": 15,
+        "representedSets": 15
+      }
+    },
+    "leadingOrdering": [
+      {
+        "rank": 1,
+        "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "setName": "Pitch Black",
+        "setRipScore": 94.588733,
+        "setRipUnit": 0.945887
+      },
+      {
+        "rank": 2,
+        "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "setName": "Ascended Heroes",
+        "setRipScore": 94.318167,
+        "setRipUnit": 0.943182
+      },
+      {
+        "rank": 3,
+        "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "setName": "Perfect Order",
+        "setRipScore": 78.14934,
+        "setRipUnit": 0.781493
+      },
+      {
+        "rank": 4,
+        "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "setName": "Temporal Forces",
+        "setRipScore": 75.541133,
+        "setRipUnit": 0.755411
+      },
+      {
+        "rank": 5,
+        "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "setName": "Stellar Crown",
+        "setRipScore": 59.307367,
+        "setRipUnit": 0.593074
+      },
+      {
+        "rank": 6,
+        "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "setName": "Chaos Rising",
+        "setRipScore": 59.0909,
+        "setRipUnit": 0.590909
+      },
+      {
+        "rank": 7,
+        "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "setName": "Black Bolt",
+        "setRipScore": 56.818167,
+        "setRipUnit": 0.568182
+      },
+      {
+        "rank": 8,
+        "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "setName": "Twilight Masquerade",
+        "setRipScore": 54.978333,
+        "setRipUnit": 0.549783
+      },
+      {
+        "rank": 9,
+        "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "setName": "Paradox Rift",
+        "setRipScore": 48.2684,
+        "setRipUnit": 0.482684
+      },
+      {
+        "rank": 10,
+        "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "setName": "Mega Evolution",
+        "setRipScore": 46.753267,
+        "setRipUnit": 0.467533
+      },
+      {
+        "rank": 11,
+        "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "setName": "White Flare",
+        "setRipScore": 45.833333,
+        "setRipUnit": 0.458333
+      },
+      {
+        "rank": 12,
+        "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "setName": "Paldea Evolved",
+        "setRipScore": 45.021667,
+        "setRipUnit": 0.450217
+      },
+      {
+        "rank": 13,
+        "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "setName": "Destined Rivals",
+        "setRipScore": 43.24676,
+        "setRipUnit": 0.432468
+      },
+      {
+        "rank": 14,
+        "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+        "setName": "Journey Together",
+        "setRipScore": 36.4935,
+        "setRipUnit": 0.364935
+      },
+      {
+        "rank": 15,
+        "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "setName": "Phantasmal Flames",
+        "setRipScore": 35.42208,
+        "setRipUnit": 0.354221
+      },
+      {
+        "rank": 16,
+        "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+        "setName": "Surging Sparks",
+        "setRipScore": 20.995667,
+        "setRipUnit": 0.209957
+      },
+      {
+        "rank": 17,
+        "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "setName": "Scarlet and Violet Base Set",
+        "setRipScore": 19.64286,
+        "setRipUnit": 0.196429
+      },
+      {
+        "rank": 18,
+        "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "setName": "Obsidian Flames",
+        "setRipScore": 18.181833,
+        "setRipUnit": 0.181818
+      }
+    ],
+    "rankableSetCount": 18,
+    "rankedSetCount": 22
+  },
+  "frozenMethodology": {
+    "acrossFamilyAggregation": "equal_arithmetic_mean_available_eligible_family_scores",
+    "method": "mean",
+    "minimumCoverage": 2,
+    "minimumFamilySetCohort": 3,
+    "missingFamilyPolicy": "omit_never_zero",
+    "priorStrength": 0,
+    "representativePolicy": "mean",
+    "shrinkage": "none",
+    "skuStanding": "N == 1 ? 0.50 : 1 - ((familyRank - 1) / (N - 1))",
+    "withinFamilyAggregation": "arithmetic_mean_all_rankable_sku_standings"
+  },
   "historicalEvidence": {
     "reason": "No stored historical product-family projections with current canonical model versions were found; historical Monte Carlo was not rerun.",
     "status": "HISTORICAL_EVIDENCE_INSUFFICIENT"
@@ -73030,6 +73205,48 @@
     "18 sets currently clear the leading candidate's gate; this is research coverage, not a validated public Set RIP cohort.",
     "Related pack formats may count correlated evidence more than once; group-balanced results are retained as a sensitivity architecture."
   ],
+  "leadingMethodologySensitivity": {
+    "best": {
+      "maximumRankMovement": 0,
+      "meanAbsoluteRankMovement": 0.0,
+      "overlapN": 18,
+      "spearman": 1.0,
+      "top3Overlap": 3,
+      "top5Overlap": 5
+    },
+    "coverage3": {
+      "maximumRankMovement": 0,
+      "meanAbsoluteRankMovement": 0.0,
+      "overlapN": 18,
+      "spearman": 1.0,
+      "top3Overlap": 3,
+      "top5Overlap": 5
+    },
+    "familyCohort5": {
+      "maximumRankMovement": 0,
+      "meanAbsoluteRankMovement": 0.0,
+      "overlapN": 18,
+      "spearman": 1.0,
+      "top3Overlap": 3,
+      "top5Overlap": 5
+    },
+    "groupBalanced": {
+      "maximumRankMovement": 1,
+      "meanAbsoluteRankMovement": 0.444444,
+      "overlapN": 18,
+      "spearman": 0.991744,
+      "top3Overlap": 3,
+      "top5Overlap": 5
+    },
+    "median": {
+      "maximumRankMovement": 0,
+      "meanAbsoluteRankMovement": 0.0,
+      "overlapN": 18,
+      "spearman": 1.0,
+      "top3Overlap": 3,
+      "top5Overlap": 5
+    }
+  },
   "leaveOneFamilyOut": [
     {
       "maximumRankMovement": 4,
@@ -80302,6 +80519,7 @@
     }
   ],
   "methodologyRecommendation": "Leading research candidate: mean SKU standing within each canonical product family, then an unshrunk equal-family arithmetic mean. A set needs at least two eligible families; a family needs at least three represented sets. Missing families are omitted, never zero, and SKU-rich families receive no extra weight.",
+  "methodologyVersion": "set_rip_consensus_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit",
   "mostAffectedSets": [
     {
       "currentRank": 17,
@@ -80566,6 +80784,14 @@
     "top3Overlap": 1,
     "top5Overlap": 3
   },
+  "postCoverageWorkflow": [
+    "Rebuild normal product-family Rankings after normal artifact-backed simulations populate deferred products.",
+    "Run this same frozen research harness without changing its methodology version or gate constants.",
+    "Evaluate the pre-registered promotion gate.",
+    "Compare before/after family coverage and descriptive ranking movement.",
+    "Report PASS, FAIL, or REVIEW REQUIRED without changing methodology during the validation run.",
+    "Return results for human promotion review; the harness cannot publish or promote itself."
+  ],
   "previousLeadingCandidate": {
     "method": "mean",
     "minimumCoverage": 2,
@@ -80959,20 +81185,174 @@
     "reason": "The prior numeric artifacts selected sealed-product runs through one market date instead of each ranked target's calculation_run_id. The pre-registered 189-configuration methodology is unchanged; all numeric findings were recomputed.",
     "status": "INVALIDATED_BY_RUN_AUTHORITY_BUG"
   },
-  "promotionGatePreregistration": {
-    "requirements": [
-      "Canonical ranked-target run authority must be used for 100% of included sets.",
-      "At least 60% of ranked sets must have two or more eligible family means; missing families remain omitted, never zero.",
-      "Only families represented by at least three sets may contribute.",
-      "Deferred Half Booster Box and expanded ETB/PC ETB evidence must be added through normal canonical production runs before a promotion decision.",
-      "Rerun the full 189-configuration grid and require leave-one-family-out minimum Spearman >= 0.85 and top-five overlap >= 4 on informative omissions.",
-      "On informative omissions, require mean absolute rank movement <= 2.0 and maximum rank movement <= 6.",
-      "Compare mean-SKU/mean-family against median, Borda, group-balanced, and shrinkage sensitivities; investigate any top-five result supported only by the leading method.",
-      "Historical stability evidence must exist; do not rebuild historical Monte Carlo solely for this research pass."
-    ],
-    "status": "PREREGISTERED_NOT_EVALUATED_FOR_PROMOTION"
+  "promotionGate": {
+    "checks": {
+      "canonicalVersions": {
+        "observedValues": {
+          "matchRate": 1.0,
+          "versions": {
+            "collectorAppeal": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2",
+            "financialRip": "financial_rip_v3_outcome_profile_25_20_15_25_10_5",
+            "overallRip": "overall_rip_v9_90_financial_v3_10_collector_appeal_v5"
+          }
+        },
+        "reason": "Mixed, fallback, or superseded canonical versions fail closed.",
+        "requiredValues": {
+          "matchRate": 1.0
+        },
+        "status": "PASS"
+      },
+      "deferredCoverage": {
+        "observedValues": {
+          "enhancedBoosterBoxRepresentedSets": 0,
+          "expandedEtb": false,
+          "expandedPokemonCenterEtb": false,
+          "halfBoosterBox": false
+        },
+        "reason": "The verified deferred cohort must be scored through the normal artifact-backed workflow.",
+        "requiredValues": {
+          "enhancedBoosterBox": "required only if >=3 represented sets",
+          "expandedEtb": true,
+          "expandedPokemonCenterEtb": true,
+          "halfBoosterBox": "meaningful new artifact-backed coverage"
+        },
+        "status": "BLOCKED"
+      },
+      "familyCohortQuality": {
+        "observedValues": {
+          "ineligibleParticipatingFamilies": []
+        },
+        "reason": "Only families meeting the generic represented-set threshold may contribute.",
+        "requiredValues": {
+          "minimumRepresentedSets": 3,
+          "sensitivityRepresentedSets": 5
+        },
+        "status": "PASS"
+      },
+      "familyCountFairness": {
+        "observedValues": {
+          "spearmanCoverageVsSetRip": -0.346658
+        },
+        "reason": "This is a diagnostic review guardrail, not a formula-tuning target.",
+        "requiredValues": {
+          "absoluteSpearmanReviewThreshold": 0.6
+        },
+        "status": "PASS"
+      },
+      "leaveOneFamilyOutStability": {
+        "observedValues": {
+          "informativeOmissions": 5,
+          "maximumIndividualRankMovement": 6,
+          "maximumMeanAbsoluteRankMovement": 1.777778,
+          "minimumSpearman": 0.882353,
+          "minimumTop5Overlap": 4
+        },
+        "reason": "All informative participating-family omissions must satisfy every stability guardrail.",
+        "requiredValues": {
+          "maximumIndividualRankMovement": 6,
+          "maximumMeanAbsoluteRankMovement": 2.0,
+          "minimumSpearman": 0.85,
+          "minimumTop5Overlap": 4
+        },
+        "status": "PASS"
+      },
+      "multiSkuInvariant": {
+        "observedValues": {
+          "oneVotePerSetFamily": true
+        },
+        "reason": "Multiple SKUs may affect only their set-family arithmetic mean and never create duplicate final votes.",
+        "requiredValues": {
+          "oneVotePerSetFamily": true
+        },
+        "status": "PASS"
+      },
+      "representativeSensitivity": {
+        "observedValues": {
+          "comparisons": {
+            "best": {
+              "maximumRankMovement": 0,
+              "meanAbsoluteRankMovement": 0.0,
+              "overlapN": 18,
+              "spearman": 1.0,
+              "top3Overlap": 3,
+              "top5Overlap": 5
+            },
+            "coverage3": {
+              "maximumRankMovement": 0,
+              "meanAbsoluteRankMovement": 0.0,
+              "overlapN": 18,
+              "spearman": 1.0,
+              "top3Overlap": 3,
+              "top5Overlap": 5
+            },
+            "familyCohort5": {
+              "maximumRankMovement": 0,
+              "meanAbsoluteRankMovement": 0.0,
+              "overlapN": 18,
+              "spearman": 1.0,
+              "top3Overlap": 3,
+              "top5Overlap": 5
+            },
+            "groupBalanced": {
+              "maximumRankMovement": 1,
+              "meanAbsoluteRankMovement": 0.444444,
+              "overlapN": 18,
+              "spearman": 0.991744,
+              "top3Overlap": 3,
+              "top5Overlap": 5
+            },
+            "median": {
+              "maximumRankMovement": 0,
+              "meanAbsoluteRankMovement": 0.0,
+              "overlapN": 18,
+              "spearman": 1.0,
+              "top3Overlap": 3,
+              "top5Overlap": 5
+            }
+          },
+          "warningComparisons": []
+        },
+        "reason": "BEST or MEDIAN crossing a warning threshold stops promotion for methodology review; group-balanced is diagnostic only.",
+        "requiredValues": {
+          "bestAndMedianMinimumSpearman": 0.85,
+          "bestAndMedianMinimumTop5Overlap": 4,
+          "requiredDiagnostics": [
+            "coverage3",
+            "familyCohort5",
+            "groupBalanced"
+          ]
+        },
+        "status": "PASS"
+      },
+      "runAuthority": {
+        "observedValues": {
+          "matchRate": 1.0
+        },
+        "reason": "Every included row must match its owning ranked target calculation_run_id.",
+        "requiredValues": {
+          "matchRate": 1.0
+        },
+        "status": "PASS"
+      },
+      "setCoverage": {
+        "observedValues": {
+          "coverageRate": 0.818182,
+          "rankableSetCount": 18,
+          "rankedSetCount": 22
+        },
+        "reason": "Sets below two participating families remain unavailable, never zero.",
+        "requiredValues": {
+          "minimumCoverageRate": 0.9,
+          "minimumRankableSetCount": 20
+        },
+        "status": "FAIL"
+      }
+    },
+    "methodologyVersion": "set_rip_consensus_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit",
+    "overallStatus": "AWAITING_DEFERRED_COVERAGE",
+    "researchVersion": "set-rip-consensus-research-v3-frozen-promotion-gate"
   },
-  "promotionStatus": "RESEARCH_NOT_READY_FOR_PROMOTION",
+  "promotionStatus": "AWAITING_DEFERRED_COVERAGE",
   "publishesSetRip": false,
   "rawScorePolicy": "Raw Overall RIP and Financial RIP values are excluded from the matrix and every consensus calculation.",
   "recommendedCandidate": {
@@ -81358,7 +81738,7 @@
   },
   "researchDataAuthority": "Pinned canonical matrix previously materialized through each ranked target's calculation_run_id. No market-date resolution.",
   "researchOnly": true,
-  "researchVersion": "set-rip-consensus-research-v2-two-level-mean",
+  "researchVersion": "set-rip-consensus-research-v3-frozen-promotion-gate",
   "standingDefinition": "N=1 => 0.50; otherwise 1 - ((rank - 1) / (N - 1))",
   "topRankRobustness": {
     "configurationCount": 84,

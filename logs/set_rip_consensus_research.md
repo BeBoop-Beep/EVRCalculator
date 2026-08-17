@@ -206,16 +206,36 @@ All 189 pre-registered configurations remain in JSON. The reasonable-gate robust
 
 Descriptive only: overlap N=18, Spearman=0.420021, top-five overlap=3, mean absolute movement=5.888889, maximum movement=14.
 
-# PROMOTION GATE PREREGISTRATION
+# PROMOTION GATE
 
-- Canonical ranked-target run authority must be used for 100% of included sets.
-- At least 60% of ranked sets must have two or more eligible family means; missing families remain omitted, never zero.
-- Only families represented by at least three sets may contribute.
-- Deferred Half Booster Box and expanded ETB/PC ETB evidence must be added through normal canonical production runs before a promotion decision.
-- Rerun the full 189-configuration grid and require leave-one-family-out minimum Spearman >= 0.85 and top-five overlap >= 4 on informative omissions.
-- On informative omissions, require mean absolute rank movement <= 2.0 and maximum rank movement <= 6.
-- Compare mean-SKU/mean-family against median, Borda, group-balanced, and shrinkage sensitivities; investigate any top-five result supported only by the leading method.
-- Historical stability evidence must exist; do not rebuild historical Monte Carlo solely for this research pass.
+Methodology version: `set_rip_consensus_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit`
+
+| Check | Observed | Required | Status |
+|---|---|---|---|
+| runAuthority | `{"matchRate": 1.0}` | `{"matchRate": 1.0}` | PASS |
+| canonicalVersions | `{"matchRate": 1.0, "versions": {"collectorAppeal": "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2", "financialRip": "financial_rip_v3_outcome_profile_25_20_15_25_10_5", "overallRip": "overall_rip_v9_90_financial_v3_10_collector_appeal_v5"}}` | `{"matchRate": 1.0}` | PASS |
+| setCoverage | `{"coverageRate": 0.818182, "rankableSetCount": 18, "rankedSetCount": 22}` | `{"minimumCoverageRate": 0.9, "minimumRankableSetCount": 20}` | FAIL |
+| familyCohortQuality | `{"ineligibleParticipatingFamilies": []}` | `{"minimumRepresentedSets": 3, "sensitivityRepresentedSets": 5}` | PASS |
+| deferredCoverage | `{"enhancedBoosterBoxRepresentedSets": 0, "expandedEtb": false, "expandedPokemonCenterEtb": false, "halfBoosterBox": false}` | `{"enhancedBoosterBox": "required only if >=3 represented sets", "expandedEtb": true, "expandedPokemonCenterEtb": true, "halfBoosterBox": "meaningful new artifact-backed coverage"}` | BLOCKED |
+| leaveOneFamilyOutStability | `{"informativeOmissions": 5, "maximumIndividualRankMovement": 6, "maximumMeanAbsoluteRankMovement": 1.777778, "minimumSpearman": 0.882353, "minimumTop5Overlap": 4}` | `{"maximumIndividualRankMovement": 6, "maximumMeanAbsoluteRankMovement": 2.0, "minimumSpearman": 0.85, "minimumTop5Overlap": 4}` | PASS |
+| representativeSensitivity | `{"comparisons": {"best": {"maximumRankMovement": 0, "meanAbsoluteRankMovement": 0.0, "overlapN": 18, "spearman": 1.0, "top3Overlap": 3, "top5Overlap": 5}, "coverage3": {"maximumRankMovement": 0, "meanAbsoluteRankMovement": 0.0, "overlapN": 18, "spearman": 1.0, "top3Overlap": 3, "top5Overlap": 5}, "familyCohort5": {"maximumRankMovement": 0, "meanAbsoluteRankMovement": 0.0, "overlapN": 18, "spearman": 1.0, "top3Overlap": 3, "top5Overlap": 5}, "groupBalanced": {"maximumRankMovement": 1, "meanAbsoluteRankMovement": 0.444444, "overlapN": 18, "spearman": 0.991744, "top3Overlap": 3, "top5Overlap": 5}, "median": {"maximumRankMovement": 0, "meanAbsoluteRankMovement": 0.0, "overlapN": 18, "spearman": 1.0, "top3Overlap": 3, "top5Overlap": 5}}, "warningComparisons": []}` | `{"bestAndMedianMinimumSpearman": 0.85, "bestAndMedianMinimumTop5Overlap": 4, "requiredDiagnostics": ["coverage3", "familyCohort5", "groupBalanced"]}` | PASS |
+| familyCountFairness | `{"spearmanCoverageVsSetRip": -0.346658}` | `{"absoluteSpearmanReviewThreshold": 0.6}` | PASS |
+| multiSkuInvariant | `{"oneVotePerSetFamily": true}` | `{"oneVotePerSetFamily": true}` | PASS |
+
+Overall: **AWAITING_DEFERRED_COVERAGE**
+
+# FROZEN BASELINE
+
+As of 2026-08-17: 18 of 22 ranked sets clear the coverage gate. The full ordering and scores are recorded in JSON.
+
+# POST-COVERAGE WORKFLOW
+
+1. Rebuild normal product-family Rankings after normal artifact-backed simulations populate deferred products.
+2. Run this same frozen research harness without changing its methodology version or gate constants.
+3. Evaluate the pre-registered promotion gate.
+4. Compare before/after family coverage and descriptive ranking movement.
+5. Report PASS, FAIL, or REVIEW REQUIRED without changing methodology during the validation run.
+6. Return results for human promotion review; the harness cannot publish or promote itself.
 
 # HISTORICAL EVIDENCE
 
@@ -238,4 +258,4 @@ The prior numeric artifacts selected sealed-product runs through one market date
 
 # PROMOTION STATUS
 
-RESEARCH_NOT_READY_FOR_PROMOTION
+AWAITING_DEFERRED_COVERAGE
