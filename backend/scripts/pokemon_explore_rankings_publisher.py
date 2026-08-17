@@ -188,10 +188,10 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
     rest.
     """
     label = target.get("canonical_key") or target.get("set_id") or target.get("target_id")
-    contract = target.get("publicRipContractV8") or {}
+    contract = target.get("publicRipContractV9") or {}
     problems = []
     if not contract:
-        return [f"{label}: publicRipContractV8 is missing"]
+        return [f"{label}: publicRipContractV9 is missing"]
     for pillar in CANONICAL_PILLARS:
         block = contract.get(pillar) or {}
         for field in REQUIRED_PILLAR_FIELDS:
@@ -246,7 +246,7 @@ def publication_contract(row):
 
     all_targets = list(payload.get("targets") or [])
     # The canonical ranked cohort: targets carrying an Overall RIP V8 rank.
-    targets = [target for target in all_targets if _ranked(target, "overallRipV8")]
+    targets = [target for target in all_targets if _ranked(target, "overallRipV9")]
     appeal_versions = sorted({
         str(((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version"))
         for target in targets
@@ -362,8 +362,8 @@ def publication_contract(row):
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
         "set_canonical_key": target.get("canonical_key") or target.get("slug"),
-        "overall_rip_score": (target.get("overallRipV8") or {}).get("score"),
-        "overall_rip_rank": (target.get("overallRipV8") or {}).get("rank"),
+        "overall_rip_score": (target.get("overallRipV9") or {}).get("score"),
+        "overall_rip_rank": (target.get("overallRipV9") or {}).get("rank"),
         "financial_rip_score": (target.get("financialRipV3") or {}).get("score"),
         "financial_rip_rank": (target.get("financialRipV3") or {}).get("rank"),
         "overall_ranked_cohort_count": ranked_count,
@@ -440,7 +440,7 @@ def validate_publication_payload(
     expected = int(snapshot.get("eligible_cohort_count") or 0)
     ranked_targets = [
         target for target in targets
-        if isinstance(target, dict) and (target.get("overallRipV8") or {}).get("rank") is not None
+        if isinstance(target, dict) and (target.get("overallRipV9") or {}).get("rank") is not None
     ]
     if expected <= 0 or len(ranked_targets) != expected:
         raise RuntimeError(

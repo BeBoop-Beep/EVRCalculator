@@ -6293,6 +6293,8 @@ def _empty_insights_critical_payload(
         "publicRipContractV6": {},
         "overallRipV7": {},
         "overallRipV8": {},
+        "overallRipV9": {},
+        "publicRipContractV9": {},
         "publicRipContractV7": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
@@ -6434,6 +6436,16 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV8"), dict)
         else {}
     )
+    overall_rip_v9 = (
+        payload_json.get("overallRipV9")
+        if isinstance(payload_json.get("overallRipV9"), dict)
+        else {}
+    )
+    public_rip_contract_v9 = (
+        payload_json.get("publicRipContractV9")
+        if isinstance(payload_json.get("publicRipContractV9"), dict)
+        else {}
+    )
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)
@@ -6487,6 +6499,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "publicRipContractV7": public_rip_contract_v7,
         "overallRipV8": overall_rip_v8,
         "publicRipContractV8": public_rip_contract_v8,
+        "overallRipV9": overall_rip_v9,
+        "publicRipContractV9": public_rip_contract_v9,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

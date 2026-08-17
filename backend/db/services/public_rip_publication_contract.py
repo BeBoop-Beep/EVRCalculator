@@ -53,7 +53,7 @@ import hashlib
 import logging
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -248,7 +248,7 @@ def canonical_publication_identity() -> Dict[str, str]:
     """
     return {
         "financialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
-        "collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
+        "collectorAppealVersion": COLLECTOR_APPEAL_V5_VERSION,
         "overallRipVersion": CANONICAL_OVERALL_RIP_VERSION,
         "publicRipContractVersion": canonical_public_rip_contract_version(),
     }

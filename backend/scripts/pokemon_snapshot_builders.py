@@ -440,6 +440,8 @@ def _merge_canonical_rip_contract_into_set_payload(
         "overallRipV8",
         "publicRipContractV7",
         "publicRipContractV8",
+        "overallRipV9",
+        "publicRipContractV9",
         "openingExperience",
         "publicAnalyticsStatus",
         # The authoritative desirability score and the two coverage axes. The
@@ -470,15 +472,15 @@ def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set
     bypass this invariant. Zero is a valid relative score, so presence is tested
     with ``is None`` rather than truthiness.
     """
-    overall = payload.get("overallRipV8")
+    overall = payload.get("overallRipV9")
     if not isinstance(overall, dict) or overall.get("rank") is None:
         return
 
-    contract = payload.get("publicRipContractV8")
+    contract = payload.get("publicRipContractV9")
     if not isinstance(contract, dict) or not contract:
         raise RuntimeError(
             f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
-            "publicRipContractV8 is missing"
+            "publicRipContractV9 is missing"
         )
 
     collector = contract.get("collectorAppeal")

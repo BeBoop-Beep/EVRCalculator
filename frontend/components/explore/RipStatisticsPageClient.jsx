@@ -565,6 +565,8 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     // CANONICAL: what every current public surface reads (see canonicalRipV7).
     overallRipV8: normalized?.overallRipV8 || null,
     publicRipContractV8: normalized?.publicRipContractV8 || null,
+    overallRipV9: normalized?.overallRipV9 || null,
+    publicRipContractV9: normalized?.publicRipContractV9 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),
@@ -600,6 +602,8 @@ function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
     publicRipContractV6: critical?.publicRipContractV6 || null,
     overallRipV8: critical?.overallRipV8 || null,
     publicRipContractV8: critical?.publicRipContractV8 || null,
+    overallRipV9: critical?.overallRipV9 || null,
+    publicRipContractV9: critical?.publicRipContractV9 || null,
   };
 }
 

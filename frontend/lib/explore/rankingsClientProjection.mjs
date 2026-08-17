@@ -96,6 +96,7 @@ const SCALAR_FIELDS = Object.freeze([
  */
 const BLOCK_LEAVES = Object.freeze({
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
+  overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
   rankingsChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
@@ -154,6 +155,8 @@ function projectTarget(target) {
 
   const contract = projectContract(target.publicRipContractV8);
   if (contract !== undefined) out.publicRipContractV8 = contract;
+  const contractV9 = projectContract(target.publicRipContractV9);
+  if (contractV9 !== undefined) out.publicRipContractV9 = contractV9;
 
   return out;
 }

@@ -122,6 +122,20 @@ export function resolveCanonicalRipV7(...sources) {
 
   for (const source of sources) {
     const safeSource = toObject(source);
+    const contract = toObject(safeSource.publicRipContractV9);
+    if (hasContent(contract)) {
+      return bundle(
+        "publicRipContractV9",
+        toObject(contract.overallRip),
+        { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
+        toObject(contract.collectorAppeal)
+      );
+    }
+  }
+
+  // Transitional read only: older snapshots remain renderable during rollout.
+  for (const source of sources) {
+    const safeSource = toObject(source);
     const contract = toObject(safeSource.publicRipContractV8);
     if (hasContent(contract)) {
       return bundle(
@@ -130,6 +144,15 @@ export function resolveCanonicalRipV7(...sources) {
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
         toObject(contract.collectorAppeal)
       );
+    }
+  }
+
+  for (const source of sources) {
+    const safeSource = toObject(source);
+    const overall = toObject(safeSource.overallRipV9);
+    const financial = toObject(safeSource.financialRipV3);
+    if (hasContent(overall) || hasContent(financial)) {
+      return bundle("topLevelV9", overall, financial, {});
     }
   }
 

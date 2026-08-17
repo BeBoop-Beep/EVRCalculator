@@ -64,6 +64,8 @@ export function normalizePokemonSetInsightsPayload(payload) {
     // RIP V3 + Collector Appeal V3). Pass-through only, backend-computed.
     overallRipV8: toPlainObject(payload?.overallRipV8),
     publicRipContractV8: toPlainObject(payload?.publicRipContractV8),
+    overallRipV9: toPlainObject(payload?.overallRipV9),
+    publicRipContractV9: toPlainObject(payload?.publicRipContractV9),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

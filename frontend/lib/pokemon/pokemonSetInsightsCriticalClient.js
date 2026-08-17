@@ -72,6 +72,8 @@ export function normalizePokemonSetInsightsCriticalPayload(payload) {
     // here derives one.
     overallRipV8: toPlainObject(payload?.overallRipV8),
     publicRipContractV8: toPlainObject(payload?.publicRipContractV8),
+    overallRipV9: toPlainObject(payload?.overallRipV9),
+    publicRipContractV9: toPlainObject(payload?.publicRipContractV9),
     openingExperience: toPlainObject(payload?.openingExperience),
     publicAnalyticsCohort: toPlainObject(payload?.publicAnalyticsCohort),
     publicAnalyticsStatus: toOptionalString(payload?.publicAnalyticsStatus),

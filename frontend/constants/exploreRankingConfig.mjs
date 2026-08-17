@@ -86,10 +86,10 @@ export const EXPLORE_RANKING_MODES = {
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
     // absolute/model field here: it is not a public number.
-    publicScoreField: "overallRipV8.relativeScore",
-    rankField: "overallRipV8.rank",
-    rankedSetCountField: "overallRipV8.cohortSize",
-    tierField: "overallRipV8.tier",
+    publicScoreField: "overallRipV9.relativeScore",
+    rankField: "overallRipV9.rank",
+    rankedSetCountField: "overallRipV9.cohortSize",
+    tierField: "overallRipV9.tier",
     description: "Overall RIP combines financial opening performance with collector appeal.",
   },
   financial: {
@@ -242,7 +242,7 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "overallRipV8.tier";
+  return getModeConfig(modeId).tierField || "overallRipV9.tier";
 }
 
 export function getScoreForMode(target, modeId) {

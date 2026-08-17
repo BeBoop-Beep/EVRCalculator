@@ -1,18 +1,56 @@
 [
   {
-    "name": "Pikachu",
-    "card_number": "025/102",
-    "rarity": "Common",
+    "name": "N's Zekrom",
+    "card_number": "031",
+    "rarity": "Promo",
     "variant": "",
     "condition": "Near Mint",
-    "printing": "Reverse Holofoil",
+    "printing": "Holofoil",
     "edition": "",
-    "printing_type": "reverse-holo",
+    "printing_type": "holo",
     "pull_rate": null,
     "currency": "USD",
     "source": "TCGPlayer",
+    "tcgplayer_product_id": "680480",
+    "external_catalog_key": "MEP",
+    "external_source_reference": "https://www.tcgplayer.com/product/680480",
+    "external_source_payload": {
+      "productName": "N's Zekrom - 031",
+      "number": "031",
+      "set": "ME: Mega Evolution Promo",
+      "setAbbrv": "MEP",
+      "printing": "Holofoil",
+      "rarity": "Promo"
+    },
     "prices": {
-      "market": 5.0
+      "market": 8.42
+    }
+  },
+  {
+    "name": "N's Zekrom",
+    "card_number": "031",
+    "rarity": "Promo",
+    "variant": "pokemon-center-exclusive",
+    "condition": "Near Mint",
+    "printing": "Holofoil",
+    "edition": "",
+    "printing_type": "holo",
+    "pull_rate": null,
+    "currency": "USD",
+    "source": "TCGPlayer",
+    "tcgplayer_product_id": "680481",
+    "external_catalog_key": "MEP",
+    "external_source_reference": "https://www.tcgplayer.com/product/680481",
+    "external_source_payload": {
+      "productName": "N's Zekrom - 031 (Pokemon Center Exclusive)",
+      "number": "031",
+      "set": "ME: Mega Evolution Promo",
+      "setAbbrv": "MEP",
+      "printing": "Holofoil",
+      "rarity": "Promo"
+    },
+    "prices": {
+      "market": 8.42
     }
   }
 ]

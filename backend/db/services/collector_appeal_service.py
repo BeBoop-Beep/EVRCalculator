@@ -194,7 +194,10 @@ def _build_set_payload(
 ) -> Dict[str, Any]:
     """One set's Collector Appeal, or a truthful account of why there isn't one."""
     coverage = universal_row.get("coverage") or {}
-    coverage_full = universal_row.get("status") == STATUS_AVAILABLE
+    coverage_full = (
+        universal_row.get("status") == STATUS_AVAILABLE
+        or coverage.get("status") == COVERAGE_FULL
+    )
 
     d_score = universal_row.get("score") if coverage_full else None
     d_unit = _to_unit(d_score)
