@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..clients.supabase_client import supabase
+from ..services.supabase_persistence_retry import run_with_transient_retry
 
 TABLE = "simulation_sealed_product_results"
 UNIQUE_KEY = "calculation_run_id,sealed_product_id"
@@ -36,7 +37,13 @@ def upsert_sealed_product_results(rows: Sequence[Dict[str, Any]]) -> List[Dict[s
     payload = [dict(row) for row in rows]
     if not payload:
         return []
-    response = supabase.table(TABLE).upsert(payload, on_conflict=UNIQUE_KEY).execute()
+    # Retry-safe with no extra machinery: the write is already an UPSERT on
+    # (calculation_run_id, sealed_product_id), so replaying it converges on the
+    # same rows instead of appending new ones.
+    response = run_with_transient_retry(
+        lambda _attempt: supabase.table(TABLE).upsert(payload, on_conflict=UNIQUE_KEY).execute(),
+        operation_name="simulation_sealed_product_results_upsert",
+    )
     return list(response.data or [])
 
 
@@ -75,7 +82,15 @@ def update_sealed_product_enrichment(row_id: Any, values: Dict[str, Any]) -> Lis
         )
     if not values:
         return []
-    response = supabase.table(TABLE).update(dict(values)).eq("id", str(row_id)).execute()
+    # An UPDATE of a fixed value set on a single primary key is naturally
+    # idempotent: replaying it writes the same columns to the same row.
+    response = run_with_transient_retry(
+        lambda _attempt: supabase.table(TABLE)
+        .update(dict(values))
+        .eq("id", str(row_id))
+        .execute(),
+        operation_name="simulation_sealed_product_results_enrichment_update",
+    )
     return list(response.data or [])
 
 

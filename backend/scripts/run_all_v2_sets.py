@@ -109,6 +109,27 @@ def filter_v2_enabled_sets(
     return filtered
 
 
+# Queue-level cooldown after a set fails for INFRASTRUCTURE reasons.
+#
+# Per-operation retries (backend.db.services.supabase_persistence_retry) absorb
+# the ordinary blip and are the primary defence; this is the second line, for the
+# outage that outlives them. Without it, a Supabase edge failure lasting a minute
+# would be re-hit immediately by every remaining set and burn the whole queue in
+# seconds - the exact behaviour observed on the failing batch.
+#
+# Only CONSECUTIVE transient failures escalate, and a single success resets the
+# ladder: this must not slow down a queue whose sets are failing for their own
+# individual, deterministic reasons.
+TRANSIENT_SET_FAILURE_COOLDOWN_SECONDS = (30.0, 60.0, 120.0)
+
+
+def _cooldown_seconds_for_consecutive_transient_failures(count: int) -> float:
+    if count <= 0:
+        return 0.0
+    index = min(count, len(TRANSIENT_SET_FAILURE_COOLDOWN_SECONDS)) - 1
+    return TRANSIENT_SET_FAILURE_COOLDOWN_SECONDS[index]
+
+
 def run_single_set(orchestrator, set_key: str, config) -> dict:
     started_at = time.perf_counter()
 
@@ -126,26 +147,44 @@ def run_single_set(orchestrator, set_key: str, config) -> dict:
             "set": set_key,
             "success": True,
             "error": None,
+            "transient": False,
             "duration": time.perf_counter() - started_at,
         }
     except Exception as exc:
+        # Imported lazily so `--dry-run` and `--help` keep working without a
+        # configured Supabase environment.
+        from backend.db.services.data_service_health import classify_data_service_error
+
         return {
             "set": set_key,
             "success": False,
             "error": str(exc),
+            "transient": bool(classify_data_service_error(exc).transient),
             "duration": time.perf_counter() - started_at,
         }
 
 
-def run_batch(set_map: dict) -> list:
+def run_batch(set_map: dict, *, sleep=time.sleep) -> list:
     from backend.jobs.evr_runner import EVRRunOrchestrator
     orchestrator = EVRRunOrchestrator()
     results: list[dict[str, Any]] = []
     completed_durations: list[float] = []
     total_sets = len(set_map)
     host = socket.gethostname()
+    consecutive_transient_failures = 0
 
     for current_index, (set_key, config_cls) in enumerate(set_map.items(), start=1):
+        cooldown = _cooldown_seconds_for_consecutive_transient_failures(
+            consecutive_transient_failures
+        )
+        if cooldown > 0:
+            print(
+                "[QUEUE_COOLDOWN] "
+                f"consecutive_transient_failures={consecutive_transient_failures} "
+                f"sleeping={cooldown:.0f}s before next_set={set_key}"
+            )
+            sleep(cooldown)
+
         config = config_cls()
         set_label = str(getattr(config, "SET_NAME", set_key))
         print(f"[START] {set_label}")
@@ -169,6 +208,14 @@ def run_batch(set_map: dict) -> list:
         )
 
         result = run_single_set(orchestrator, set_key, config)
+        if result.get("success"):
+            consecutive_transient_failures = 0
+        elif result.get("transient"):
+            consecutive_transient_failures += 1
+        else:
+            # A deterministic set failure says nothing about the infrastructure,
+            # so it must not slow the queue down for the sets behind it.
+            consecutive_transient_failures = 0
         results.append(result)
         completed_durations.append(float(result.get("duration", 0.0)))
 

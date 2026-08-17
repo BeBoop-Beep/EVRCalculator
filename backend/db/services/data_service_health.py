@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Shared classification for temporary Supabase/PostgREST failures."""
 
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
@@ -18,7 +19,23 @@ TRANSIENT_POSTGREST_CODES = frozenset({"PGRST002", "57014"})
 # 520 is Cloudflare's "unknown error" from the origin and sits alongside the 521
 # and 522 already listed here; omitting it classified a Supabase edge failure as
 # permanent and skipped the retry entirely.
-TRANSIENT_HTTP_STATUSES = frozenset({502, 503, 504, 520, 521, 522})
+#
+# 429 and 500 are additive. 429 is a pure rate signal and says nothing about the
+# request's validity. 500 is the harder call: PostgREST returns 500 for genuine
+# database errors too, so on its own it would make a deterministic failure look
+# retryable. It is safe HERE only because `_deterministic_sqlstate` below vetoes
+# the whole classification whenever the exception chain carries a real SQLSTATE -
+# a constraint violation, a bad UUID cast or an undefined column all arrive with
+# one, and none of them will ever be retried regardless of the HTTP status the
+# edge happened to attach.
+TRANSIENT_HTTP_STATUSES = frozenset({429, 500, 502, 503, 504, 520, 521, 522})
+
+# A Postgres SQLSTATE is exactly five alphanumerics; a PostgREST error code is
+# `PGRST` plus three digits. HTTP statuses are three digits, so the length check
+# is what keeps `code: 502` (the observed Cloudflare case) from being mistaken
+# for a database error class.
+_SQLSTATE_PATTERN = re.compile(r"^[0-9A-Z]{5}$")
+_POSTGREST_CODE_PATTERN = re.compile(r"^PGRST[0-9]{3}$")
 
 
 @dataclass(frozen=True)
@@ -81,8 +98,35 @@ def _structured_status(exc: BaseException) -> Optional[int]:
     return None
 
 
+def _deterministic_sqlstate(exc: BaseException) -> Optional[str]:
+    """The first DETERMINISTIC database error code in the chain, if any.
+
+    A SQLSTATE or a PostgREST `PGRST1xx` code means the database understood the
+    request and rejected it: a unique violation, a foreign-key failure, an
+    invalid UUID, an undefined column, an RLS denial. Repeating that request
+    produces the same rejection, so its presence vetoes every transient signal
+    that might otherwise be read off the HTTP status.
+
+    The two codes that are known to recover on their own -
+    :data:`TRANSIENT_POSTGREST_CODES` - are explicitly not deterministic.
+    """
+    for current in _exception_chain(exc):
+        code = _structured_code(current)
+        if not code or code in TRANSIENT_POSTGREST_CODES:
+            continue
+        if _SQLSTATE_PATTERN.match(code) or _POSTGREST_CODE_PATTERN.match(code):
+            return code
+    return None
+
+
 def classify_data_service_error(exc: BaseException) -> DataServiceFailure:
     """Prefer structured exception attributes; use narrow text fallbacks last."""
+
+    deterministic_code = _deterministic_sqlstate(exc)
+    if deterministic_code is not None:
+        return DataServiceFailure(
+            False, deterministic_code, _structured_status(exc), type(exc).__name__
+        )
 
     first_code: Optional[str] = None
     first_status: Optional[int] = None
@@ -110,6 +154,11 @@ def classify_data_service_error(exc: BaseException) -> DataServiceFailure:
         "connection aborted",
         "temporarily unavailable",
         "temporary failure",
+        "read timeout",
+        "connect timeout",
+        "gateway timeout",
+        "bad gateway",
+        "service unavailable",
     )
     if any(token in rendered for token in transient_text):
         return DataServiceFailure(True, first_code, first_status, type(exc).__name__)

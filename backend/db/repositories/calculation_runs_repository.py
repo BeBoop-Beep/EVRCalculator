@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
+import uuid
 from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
 from backend.db.clients.supabase_client import supabase
+from backend.db.services.supabase_persistence_retry import (
+    SIMULATION_PERSISTENCE_MAX_ATTEMPTS,
+    run_with_transient_retry,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 # Financial RIP V3 columns on `simulation_derived_metrics` (migration 060).
@@ -366,21 +375,86 @@ def build_calculation_config_payload(
     return config_hash, payload
 
 
-def _insert_required_payload(table_name: str, payload: Dict[str, Any], context: str) -> Dict[str, Any]:
-    try:
+def _find_existing_row_by_identity(
+    table_name: str, payload: Dict[str, Any], identity_columns: List[str]
+) -> Optional[Dict[str, Any]]:
+    """The row this payload identifies, if a previous attempt already wrote it.
+
+    Called ONLY between retries. A transient HTTP failure can arrive after
+    Postgres committed the insert, so the second attempt has to ask whether the
+    row is already there before writing it again - otherwise the retry that
+    exists to save the run is the thing that duplicates its data.
+
+    A NULL-valued identity column is matched with `IS NULL` rather than `= NULL`,
+    which never matches and would silently degrade the check to "not found".
+    """
+    query = supabase.table(table_name).select("*")
+    for column in identity_columns:
+        value = payload.get(column)
+        if value is None:
+            query = query.is_(column, "null")
+        else:
+            query = query.eq(column, value)
+    response = query.limit(1).execute()
+    rows = response.data if response and response.data else []
+    if rows and isinstance(rows[0], dict):
+        return rows[0]
+    return None
+
+
+def _insert_required_payload(
+    table_name: str,
+    payload: Dict[str, Any],
+    context: str,
+    *,
+    identity_columns: Optional[List[str]] = None,
+    operation_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Insert one row, failing loudly, and retry ONLY transient infrastructure errors.
+
+    ``identity_columns`` is the natural identity of the row within this table.
+    Supplying it is what makes the write retry-safe, and NOT supplying it means
+    no retry happens at all: a table with no way to recognise its own row cannot
+    distinguish "the insert never landed" from "the response was lost on the way
+    back", and the second case would duplicate. Fail-fast is the correct
+    behaviour there, and it is the behaviour this function has always had.
+    """
+    resolved_operation = operation_name or f"{table_name}_insert"
+    attempts = SIMULATION_PERSISTENCE_MAX_ATTEMPTS if identity_columns else 1
+
+    def _attempt(attempt: int) -> Dict[str, Any]:
+        if attempt > 1 and identity_columns:
+            existing = _find_existing_row_by_identity(table_name, payload, identity_columns)
+            if existing is not None:
+                logger.info(
+                    "Supabase write already landed before retry operation=%s attempt=%s",
+                    resolved_operation,
+                    attempt,
+                )
+                return existing
         response = supabase.table(table_name).insert(payload).execute()
+        rows = response.data if response and response.data else []
+        if rows and isinstance(rows[0], dict):
+            return rows[0]
+        raise RuntimeError(
+            f"{context} failed for table '{table_name}': insert returned no row. "
+            f"payload_keys={sorted(payload.keys())}"
+        )
+
+    try:
+        return run_with_transient_retry(
+            _attempt,
+            operation_name=resolved_operation,
+            max_attempts=attempts,
+        )
+    except RuntimeError:
+        # Already the explicit "returned no row" failure raised above.
+        raise
     except Exception as exc:
         raise RuntimeError(
             f"{context} failed for table '{table_name}'. payload_keys={sorted(payload.keys())}: "
             f"{type(exc).__name__}: {exc}"
         ) from exc
-
-    rows = response.data if response and response.data else []
-    if rows and isinstance(rows[0], dict):
-        return rows[0]
-    raise RuntimeError(
-        f"{context} failed for table '{table_name}': insert returned no row. payload_keys={sorted(payload.keys())}"
-    )
 
 
 def _select_rows_with_candidates(
@@ -497,6 +571,11 @@ def get_or_create_calculation_config(config_hash: str, config_payload: Dict[str,
         "calculation_configs",
         {"config_hash": config_hash, "config": config_payload},
         "Config insert",
+        # `config_hash` is UNIQUE, so a retry either finds the row this attempt
+        # already wrote or the identical row a concurrent run wrote. Either way
+        # the config is the same config: the hash is derived from its contents.
+        identity_columns=["config_hash"],
+        operation_name="calculation_configs_insert",
     )
 
     inserted_hash = str(inserted.get("config_hash") or "").strip()
@@ -528,7 +607,13 @@ def create_parent_calculation_run(
     _require_present(notes, "notes")
     _require_present(engine_version, "engine_version")
 
+    # The run id is chosen HERE rather than by `gen_random_uuid()` so this insert
+    # has an identity before it is sent. Without one, a lost response on a retry
+    # would create a SECOND parent run for the same simulation - two competing
+    # `calculation_runs` rows for one target, one of them permanently childless.
+    # With one, the retry can ask for the row by primary key.
     payload: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
         "target_type": str(target_type),
         "target_id": str(target_id),
         "calculation_config_id": config_id,
@@ -574,6 +659,8 @@ def create_parent_calculation_run(
         "calculation_runs",
         payload,
         "Parent run insert",
+        identity_columns=["id"],
+        operation_name="calculation_runs_insert",
     )
     if not inserted.get("id"):
         raise RuntimeError("Parent run insert succeeded but returned no id")
@@ -612,6 +699,8 @@ def create_calculation_price_snapshot(
         "calculation_price_snapshots",
         payload,
         f"Price snapshot insert for {price_type}",
+        identity_columns=["calculation_run_id", "price_type", "price_source"],
+        operation_name="calculation_price_snapshots_insert",
     )
     if not inserted.get("id"):
         raise RuntimeError(f"Price snapshot insert for {price_type} succeeded but returned no id")
@@ -714,6 +803,9 @@ def create_simulation_run_summary(
         "simulation_run_summary",
         payload,
         "Simulation run summary insert",
+        # UNIQUE (calculation_run_id): one summary per run, enforced by the table.
+        identity_columns=["calculation_run_id"],
+        operation_name="simulation_run_summary_insert",
     )
     if not inserted.get("id"):
         raise RuntimeError("Simulation run summary insert succeeded but returned no id")
@@ -747,6 +839,8 @@ def create_simulation_percentiles(run_id: Any, sim_results: Mapping[str, Any]) -
             "simulation_percentiles",
             payload,
             f"Simulation percentile insert ({percentile_label})",
+            identity_columns=["calculation_run_id", "percentile"],
+            operation_name="simulation_percentiles_insert",
         )
         inserted_rows.append(inserted)
 
@@ -786,6 +880,8 @@ def create_simulation_pull_summary(run_id: Any, sim_results: Mapping[str, Any]) 
             "simulation_pull_summary",
             payload,
             f"Simulation pull summary insert ({rarity})",
+            identity_columns=["calculation_run_id", "rarity_bucket"],
+            operation_name="simulation_pull_summary_insert",
         )
         inserted_rows.append(inserted)
 
@@ -818,6 +914,8 @@ def create_simulation_state_counts(run_id: Any, sim_results: Mapping[str, Any]) 
                 "simulation_state_counts",
                 payload,
                 f"Simulation state count insert (path:{state_name})",
+                identity_columns=["calculation_run_id", "state_group", "state_name"],
+                operation_name="simulation_state_counts_insert",
             )
             inserted_rows.append(inserted)
 
@@ -834,6 +932,8 @@ def create_simulation_state_counts(run_id: Any, sim_results: Mapping[str, Any]) 
                 "simulation_state_counts",
                 payload,
                 f"Simulation state count insert (state:{state_name})",
+                identity_columns=["calculation_run_id", "state_group", "state_name"],
+                operation_name="simulation_state_counts_insert",
             )
             inserted_rows.append(inserted)
 
@@ -871,6 +971,9 @@ def create_simulation_value_distribution_bins(
             "simulation_value_distribution_bins",
             payload,
             f"Simulation value distribution bin insert (floor={bin_row['bin_floor']:.4f})",
+            # UNIQUE (calculation_run_id, bin_floor, bin_ceiling).
+            identity_columns=["calculation_run_id", "bin_floor", "bin_ceiling"],
+            operation_name="simulation_value_distribution_bins_insert",
         )
         inserted_rows.append(inserted)
 
@@ -906,6 +1009,11 @@ def create_simulation_value_threshold_bins(
             "simulation_value_threshold_bins",
             payload,
             f"Simulation value threshold bin insert (floor={payload['threshold_floor']:.4f})",
+            # UNIQUE (calculation_run_id, threshold_floor, threshold_ceiling). The
+            # open-ended top bucket has a NULL ceiling, which is why the identity
+            # lookup has to use IS NULL.
+            identity_columns=["calculation_run_id", "threshold_floor", "threshold_ceiling"],
+            operation_name="simulation_value_threshold_bins_insert",
         )
         inserted_rows.append(inserted)
 
@@ -952,6 +1060,9 @@ def create_simulation_derived_metrics(run_id: Any, derived: Optional[Mapping[str
         "simulation_derived_metrics",
         payload,
         "Simulation derived metrics insert",
+        # UNIQUE (calculation_run_id).
+        identity_columns=["calculation_run_id"],
+        operation_name="simulation_derived_metrics_insert",
     )
     return [inserted]
 
@@ -1005,6 +1116,20 @@ def create_simulation_input_cards(run_id: Any, input_cards_rows: List[Dict[str, 
             "simulation_input_cards",
             mapped,
             f"Simulation input-card insert (card:{mapped.get('card_id')})",
+            # This table has NO unique constraint - only a synthetic primary key -
+            # so nothing in the database would stop a retry from writing the same
+            # card twice. The identity below is the one the data already obeys:
+            # zero duplicate (run, card, variant, condition) groups exist across
+            # the whole table today, and the input snapshot is one row per
+            # card/variant/condition per run by construction. The read-back is
+            # therefore the guard, and no constraint is added or weakened.
+            identity_columns=[
+                "calculation_run_id",
+                "card_id",
+                "card_variant_id",
+                "condition_id",
+            ],
+            operation_name="simulation_input_cards_insert",
         )
         inserted_rows.append(inserted)
 
@@ -1052,6 +1177,9 @@ def create_simulation_etb_summary(run_id: Any, etb_metrics: Mapping[str, Any]) -
         "simulation_etb_summary",
         mapped,
         "Simulation ETB summary insert",
+        # UNIQUE (calculation_run_id).
+        identity_columns=["calculation_run_id"],
+        operation_name="simulation_etb_summary_insert",
     )
 
 

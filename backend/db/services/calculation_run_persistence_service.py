@@ -26,6 +26,7 @@ from backend.simulations.value_distribution_bins import compute_simulation_value
 from backend.simulations.value_threshold_bins import compute_simulation_value_threshold_bins
 from backend.db.repositories.sets_repository import get_set_by_canonical_key
 from backend.db.services.pack_outcome_artifact_service import persist_pack_outcomes
+from backend.db.services.supabase_persistence_retry import run_with_transient_retry
 
 
 logger = logging.getLogger(__name__)
@@ -892,8 +893,21 @@ def persist_simulation_outputs(
 
     # Persist the exact empirical vector before any lossy summaries. New runs
     # fail closed here: a completed run must always remain exactly replayable.
+    #
+    # The RETRY wraps the whole select-then-insert, not the insert alone, so a
+    # retried attempt re-reads first: if the lost response had actually committed,
+    # `persist_pack_outcomes` finds the row, verifies its sha256 and outcome
+    # count against the vector in hand, and returns "matched". A second artifact
+    # is impossible in any case - `calculation_run_id` is the artifact table's
+    # PRIMARY KEY. If the retries are exhausted the exception propagates and the
+    # run fails, exactly as before: there is no histogram fallback here and this
+    # change does not create one.
     from backend.db.clients.supabase_client import supabase
-    artifact = persist_pack_outcomes(supabase, run_id, _require_values_list(sim_results_map))
+    outcome_values = _require_values_list(sim_results_map)
+    artifact = run_with_transient_retry(
+        lambda _attempt: persist_pack_outcomes(supabase, run_id, outcome_values),
+        operation_name="simulation_pack_outcome_artifacts_persist",
+    )
     run_summary_row = create_simulation_run_summary(run_id, run_summary_payload, pack_summary_payload)
     percentile_rows = create_simulation_percentiles(run_id, sim_results_map)
     pull_summary_rows = create_simulation_pull_summary(run_id, sim_results_map)
