@@ -10,8 +10,7 @@ const marketSource = fs.readFileSync(path.resolve(__dirname, "../Market/page.js"
 test("Rankings is the public name and /Explore remains backwards compatible", () => {
   // The public question is visible before the rankings data.
   assert.ok(exploreSource.includes('<header className="mx-auto mb-5 w-full max-w-5xl">'));
-  assert.ok(exploreSource.includes("Best Pokémon Sets to Rip Right Now"));
-  assert.ok(exploreSource.includes(">Best Pokémon Sets to Rip Right Now</h1>"));
+  assert.ok(exploreSource.includes("Pokémon RIP Rankings"));
   assert.ok(rankingsSource.includes('export { default } from "../Explore/page"'));
 });
 
@@ -25,8 +24,8 @@ test("Rankings — not /Explore — owns the canonical identity of the leaderboa
   assert.ok(rankingsSource.includes('buildRouteMetadata'));
 });
 
-test("Rankings contains only the canonical RIP leaderboard", () => {
-  assert.ok(exploreSource.includes("<ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />"));
+test("Rankings contains one canonical leaderboard with set and family views", () => {
+  assert.ok(exploreSource.includes("<ProductFamilyRankingsClient"));
   assert.ok(!exploreSource.includes("ExploreMarketMovers"));
   assert.ok(!exploreSource.includes("ExploreTopRankings"));
   assert.ok(!exploreSource.includes("getExploreMarketMovers"));
@@ -45,8 +44,8 @@ test("Market reuses the existing canonical market modules and one loader per dat
   assert.ok(marketSource.includes("<ExploreMarketMovers payload={moversPayload} />"));
   assert.ok(marketSource.includes("<ExploreTopRankings targets={targets} loadError={loadError} />"));
   assert.equal((marketSource.match(/getExploreMarketMovers\(\)/g) || []).length, 1);
-  assert.equal((marketSource.match(/getRipStatisticsTargets\(/g) || []).length, 1);
+  assert.equal((marketSource.match(/getExploreSetValueMarket\s*\(/g) || []).length, 1);
   assert.ok(marketSource.includes("Promise.allSettled"));
   assert.ok(marketSource.includes("requestFailed: true"));
-  assert.ok(marketSource.includes("filter(isPublicAnalyticsEligiblePokemonSet)"));
+  assert.ok(marketSource.includes("setValuePayload?.sets"));
 });

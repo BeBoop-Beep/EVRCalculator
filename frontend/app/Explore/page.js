@@ -1,5 +1,5 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
-import ExploreTableClient from "@/components/explore/ExploreTableClient";
+import ProductFamilyRankingsClient from "@/components/explore/ProductFamilyRankingsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { isPublicAnalyticsEligiblePokemonSet } from "@/lib/pokemon/pokemonSetPublicCoverage";
@@ -120,7 +120,7 @@ export default async function ExplorePage({ searchParams }) {
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>
-          <ExploreTableClient targets={leaderboardTargets} loadError={rankingsLoadError} />
+          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>

@@ -314,7 +314,7 @@ test("the redundant top-three and Why #1 sections are absent", () => {
 
 test("the Rankings table is the first ranking content after the page title", () => {
   const page = fs.readFileSync(path.resolve(__dirname, "../../app/Explore/page.js"), "utf8");
-  assert.ok(page.indexOf("<ExploreTableClient") > page.indexOf("Pokémon RIP Rankings"));
+  assert.ok(page.indexOf("<ProductFamilyRankingsClient") > page.indexOf("Pokémon RIP Rankings"));
   assert.ok(!page.includes("Top ranked sets"));
 });
 

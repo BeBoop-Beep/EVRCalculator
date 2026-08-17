@@ -20,6 +20,7 @@ from backend.db.services.explore_page_service import (
 )
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services import rip_decision_service
+from backend.db.services.product_family_rankings_service import build_product_family_rankings
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
@@ -3707,6 +3708,11 @@ def build_explore_rankings_snapshot_row(
             "Re-run once the source reads succeed."
         )
 
+    market_date = ((meta.get("comparisonSnapshots") or {}).get("currentMarketDate"))
+    payload["productFamilyRankings"] = build_product_family_rankings(
+        market_date=market_date, set_targets=opening_targets
+    )
+
     comparison_diagnostics = meta.get("ripDesirabilityComparison") or meta.get("rip_desirability_comparison") or {}
     logger.info(
         "[pokemon-snapshot] RIP desirability comparison valid=%s/%s opening_targets=%s",
@@ -3790,6 +3796,7 @@ def snapshot_service_client_scope(client: Any):
 
     from backend.db.services import explore_page_service
     from backend.db.services import explore_rip_statistics_service
+    from backend.db.services import product_family_rankings_service
     from backend.db.services import pokemon_public_snapshot_service
     from backend.db.services import pokemon_set_cards_service
     from backend.db.services import pokemon_set_market_service
@@ -3798,6 +3805,7 @@ def snapshot_service_client_scope(client: Any):
     modules = (
         explore_page_service,
         explore_rip_statistics_service,
+        product_family_rankings_service,
         pokemon_public_snapshot_service,
         pokemon_set_cards_service,
         pokemon_set_market_service,
