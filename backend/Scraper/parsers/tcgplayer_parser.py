@@ -23,11 +23,45 @@ class TCGPlayerParser:
             List of parsed and cleaned card dictionaries
         """
         raw_cards = raw_data.get("result", [])
+        # One provider product id may have many condition rows, but it must map
+        # to exactly one local printing. Keep its single NM observation and
+        # reject products whose feed rows disagree on printing.
+        products = {}
+        for card in raw_cards:
+            product_id = str(card.get("productID") or "").strip()
+            if product_id:
+                products.setdefault(product_id, []).append(card)
+
+        selected_cards = []
+        ambiguous_product_ids = []
+        missing_nm_product_ids = []
+        for product_id, rows in products.items():
+            signatures = {
+                (
+                    (row.get("printing") or "").strip().lower(),
+                    "pokemon-center-exclusive"
+                    if "pokemon center exclusive" in (row.get("productName") or "").lower()
+                    else None,
+                )
+                for row in rows
+            }
+            if len(signatures) != 1:
+                ambiguous_product_ids.append(product_id)
+                continue
+            near_mint = [
+                row for row in rows
+                if clean_condition(row.get("condition") or "") == "Near Mint"
+            ]
+            if len(near_mint) != 1:
+                missing_nm_product_ids.append(product_id)
+                continue
+            selected_cards.append(near_mint[0])
+
         card_data = {}
         dropped_no_market = 0
         dropped_invalid = 0
         
-        for card in raw_cards:
+        for card in selected_cards:
             
             product_name, card_dict = process_card(card, self.pull_rate_mapping)
 
@@ -64,11 +98,21 @@ class TCGPlayerParser:
         cards = list(card_data.values())
         
         print(
-            f"[DIAG][parse_cards] raw={len(raw_cards)} "
+            f"[DIAG][parse_cards] raw={len(raw_cards)} products={len(products)} "
             f"kept={len(cards)} "
             f"dropped_no_market_price={dropped_no_market} "
-            f"dropped_other={dropped_invalid}"
+            f"dropped_other={dropped_invalid} "
+            f"rejected_ambiguous_products={len(ambiguous_product_ids)} "
+            f"rejected_missing_nm_products={len(missing_nm_product_ids)}"
         )
+
+        self.last_card_parse_report = {
+            "raw_rows": len(raw_cards),
+            "commercial_products": len(products),
+            "accepted_products": len(cards),
+            "ambiguous_product_ids": sorted(ambiguous_product_ids),
+            "missing_nm_product_ids": sorted(missing_nm_product_ids),
+        }
 
         return self._clean_card_data(cards)
     

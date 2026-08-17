@@ -90,6 +90,8 @@ DESTINED_RIVALS_SET_ID = "de291399-ead5-41dc-bc12-e7c587684f85"
 BLACK_BOLT_SET_ID = "41a0ac1c-27ca-444b-8665-8ba35e583a3b"
 WHITE_FLARE_SET_ID = "c38df164-ea0d-4e9e-bae6-4c3a517beb8f"
 PHANTASMAL_FLAMES_SET_ID = "0f7e51e2-5a78-4500-9c9c-f690e934a069"
+ASCENDED_HEROES_SET_ID = "75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+PERFECT_ORDER_SET_ID = "5e99f658-39f0-4845-9228-db8db3965f32"
 
 SOURCE_JOURNEY_TOGETHER_ETB = (
     "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
@@ -122,6 +124,18 @@ SOURCE_PHANTASMAL_FLAMES_ETB = (
     "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
     "mega-evolution-phantasmal-flames-elite-trainer-box"
 )
+SOURCE_ASCENDED_HEROES_ETBS = (
+    "https://www.pokemon.com/uk/pokemon-news/"
+    "pokemon-tcg-mega-evolution-ascended-heroes-product-showcase"
+)
+SOURCE_PERFECT_ORDER_ETBS = (
+    "https://www.pokemon.com/us/pokemon-news/"
+    "check-out-every-pokemon-tcg-product-release-in-march-2026"
+)
+SOURCE_PHANTASMAL_FLAMES_PC_ETB = (
+    "https://www.pokemon.com/us/pokemon-tcg/product-gallery/"
+    "mega-evolution-phantasmal-flames-pokemon-center-elite-trainer-box"
+)
 
 # Exact printings, all in the SV Black Star Promo catalog and all NM-priced.
 NS_ZORUA_189 = "06613c96-c91f-4701-b25d-8613c643a176"
@@ -133,6 +147,12 @@ THUNDURUS_209_PC = "227fc031-f6ab-437e-9f01-c3144580127c"
 TORNADUS_210 = "dcfea6e5-24ea-4206-9fc2-feeb57a7634f"
 TORNADUS_210_PC = "c0a89300-34e5-4e75-8d00-0cad040b8679"
 CHARCADET_022 = "52390f95-77b2-4a00-972f-a6b824c085f6"
+NS_ZEKROM_031 = "2d869bb4-6ee1-4a46-9760-81bd30fbabc0"
+NS_ZEKROM_031_PC = "e1f9109c-009d-417f-82dc-d4e0cd78cdbc"
+TYRUNT_070 = "d50012b8-07cf-40b0-94ea-0cba23000451"
+TYRUNT_070_PC = "53c9a84b-4bda-4400-b957-6622a42ba87f"
+MEP_CHARCADET_022 = "bd6e5260-fee4-4a05-a858-5410b7afa0ab"
+MEP_CHARCADET_022_PC = "2355b698-cc57-4ef9-8530-bcd134df69f9"
 
 
 def _standard_etb(*, label, sealed_product_id, set_id, source, promo_name, variant_id):
@@ -357,6 +377,49 @@ VERIFIED_COMPOSITIONS: List[Dict[str, Any]] = [
         source=SOURCE_PHANTASMAL_FLAMES_ETB,
         promo_name="Charcadet (022)",
         variant_id=CHARCADET_022,
+    ),
+    _standard_etb(
+        label="Ascended Heroes Elite Trainer Box",
+        sealed_product_id="69bfec2f-3b89-4c34-b6af-3f2e3c0d4c4b",
+        set_id=ASCENDED_HEROES_SET_ID,
+        source=SOURCE_ASCENDED_HEROES_ETBS,
+        promo_name="N's Zekrom (031)",
+        variant_id=NS_ZEKROM_031,
+    ),
+    _pokemon_center_etb(
+        label="Ascended Heroes Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="8d2df1b7-21f0-4671-8dd9-5da9bbb8e515",
+        set_id=ASCENDED_HEROES_SET_ID,
+        source=SOURCE_ASCENDED_HEROES_ETBS,
+        promo_name="N's Zekrom (031)",
+        stamped_variant_id=NS_ZEKROM_031_PC,
+        variant_id=NS_ZEKROM_031,
+    ),
+    _standard_etb(
+        label="Perfect Order Elite Trainer Box",
+        sealed_product_id="f0e6a6b6-5fe7-427b-b95f-544a7cd1477c",
+        set_id=PERFECT_ORDER_SET_ID,
+        source=SOURCE_PERFECT_ORDER_ETBS,
+        promo_name="Tyrunt (070)",
+        variant_id=TYRUNT_070,
+    ),
+    _pokemon_center_etb(
+        label="Perfect Order Pokemon Center Elite Trainer Box",
+        sealed_product_id="bf6b69d8-98b3-4baa-a9a5-74d657ec6f8c",
+        set_id=PERFECT_ORDER_SET_ID,
+        source=SOURCE_PERFECT_ORDER_ETBS,
+        promo_name="Tyrunt (070)",
+        stamped_variant_id=TYRUNT_070_PC,
+        variant_id=TYRUNT_070,
+    ),
+    _pokemon_center_etb(
+        label="Phantasmal Flames Pokemon Center Elite Trainer Box (Exclusive)",
+        sealed_product_id="c9efb943-605a-4ed6-8ed8-8eb5d0ef2c41",
+        set_id=PHANTASMAL_FLAMES_SET_ID,
+        source=SOURCE_PHANTASMAL_FLAMES_PC_ETB,
+        promo_name="Charcadet (022)",
+        stamped_variant_id=MEP_CHARCADET_022_PC,
+        variant_id=MEP_CHARCADET_022,
     ),
 ]
 

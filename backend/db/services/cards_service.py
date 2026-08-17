@@ -488,7 +488,7 @@ class CardsService(BatchProcessor):
             raw_name = card.get('name') or ''
             canonical_name = self._normalize_base_card_name(raw_name)
             if raw_name != canonical_name:
-                debug_print(f"[CARDS_NORMALIZATION_DEBUG] Name normalized: '{raw_name}' → '{canonical_name}' (card_number={card.get('card_number')})")
+                debug_print(f"[CARDS_NORMALIZATION_DEBUG] Name normalized: '{raw_name}' -> '{canonical_name}' (card_number={card.get('card_number')})")
             key = (canonical_name, card.get('card_number'))
             if key not in cards_by_key:
                 cards_by_key[key] = []
@@ -515,7 +515,7 @@ class CardsService(BatchProcessor):
             # Skip if it already exists in DB
             if card_key in existing_cards_set:
                 card_key_to_id[card_key] = existing_cards_set[card_key]
-                print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' → ID={existing_cards_set[card_key]}")
+                print(f"[INFO]  [CARD REUSED] canonical_name='{name}' card_number='{card_number}' -> ID={existing_cards_set[card_key]}")
                 continue
 
             # Skip if we've already added this to the new_cards_to_insert list
@@ -553,7 +553,7 @@ class CardsService(BatchProcessor):
                 for i, card_data in enumerate(new_cards_to_insert):
                     card_key = (card_data['name'], card_data['card_number'])
                     card_key_to_id[card_key] = card_ids[i]
-                    print(f"[OK]  [CARD INSERTED] canonical_name='{card_data['name']}' card_number='{card_data['card_number']}' → new ID={card_ids[i]}")
+                    print(f"[OK]  [CARD INSERTED] canonical_name='{card_data['name']}' card_number='{card_data['card_number']}' -> new ID={card_ids[i]}")
             except Exception as e:
                 error_msg = f"Failed to batch insert cards: {e}"
                 print(f"[ERROR] {error_msg}")

@@ -205,7 +205,7 @@ class BatchProcessor(ABC):
                         print(warning_msg)
                         all_errors.append(warning_msg)
                     elif sub_batch_idx == 0 or sub_batch_idx % 5 == 0:
-                        print(f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Shipped {batch_shipped} prices ✓")
+                        print(f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Shipped {batch_shipped} prices [OK]")
                         
                 except Exception as e:
                     error_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: FAILED - {len(price_batch)} prices lost: {e}"

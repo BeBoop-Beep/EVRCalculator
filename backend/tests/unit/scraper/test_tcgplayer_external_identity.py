@@ -20,3 +20,25 @@ def test_process_card_preserves_external_provenance():
     _, row = process_card(_raw(685563, 'Tyrunt - 070 (Pokemon Center Exclusive)'), {})
     assert row['tcgplayerProductID'] == '685563'
     assert row['externalSourcePayload']['setAbbrv'] == 'MEP'
+
+
+def test_parser_keeps_one_nm_row_per_unambiguous_commercial_product():
+    rows = [
+        {**_raw(680480, "N's Zekrom - 031"), 'condition': 'Lightly Played Holofoil', 'marketPrice': 7.0},
+        _raw(680480, "N's Zekrom - 031"),
+    ]
+    parser = TCGPlayerParser({})
+    parsed = parser.parse_cards({'result': rows})
+    assert len(parsed) == 1
+    assert parsed[0]['condition'] == 'Near Mint'
+    assert parser.last_card_parse_report['commercial_products'] == 1
+
+
+def test_parser_rejects_product_id_that_names_multiple_printings():
+    rows = [
+        _raw(654597, 'Alakazam - 003'),
+        {**_raw(654597, 'Alakazam - 003'), 'printing': 'Normal', 'condition': 'Near Mint'},
+    ]
+    parser = TCGPlayerParser({})
+    assert parser.parse_cards({'result': rows}) == []
+    assert parser.last_card_parse_report['ambiguous_product_ids'] == ['654597']
