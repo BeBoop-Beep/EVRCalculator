@@ -1,3 +1,5 @@
+import pytest
+
 from backend.db.services import explore_rip_statistics_service as service
 
 
@@ -92,34 +94,62 @@ class _Client:
         return _Query(table_name, self.handlers, self.calls)
 
 
-def test_rankings_top_chase_is_batched_and_uses_canonical_selector(monkeypatch):
+def test_rankings_top_chase_is_copied_from_set_page_in_one_batch(monkeypatch):
+    chase = {
+        "cardName": "Canonical Chase", "currentMarketPrice": 250,
+        "impliedOddsOneInN": 500, "packsFor50PercentChance": 347,
+        "sourceCalculationRunId": "run-1",
+    }
     handlers = {
-        "simulation_input_cards": lambda _q: [
-            {"calculation_run_id": "run-1", "card_variant_id": "cheap", "effective_pull_rate": 0.1},
-            {"calculation_run_id": "run-1", "card_variant_id": "chase", "effective_pull_rate": 0.002},
-            {"calculation_run_id": "run-1", "card_variant_id": "unmodeled", "effective_pull_rate": 0},
-        ],
-        "simulation_input_cards_with_near_mint_price": lambda _q: [
-            {"calculation_run_id": "run-1", "card_id": "1", "card_variant_id": "cheap", "card_name": "Cheap", "current_near_mint_price": 5},
-            {"calculation_run_id": "run-1", "card_id": "2", "card_variant_id": "chase", "card_name": "Canonical Chase", "current_near_mint_price": 250},
-            {"calculation_run_id": "run-1", "card_id": "3", "card_variant_id": "unmodeled", "card_name": "Not Eligible", "current_near_mint_price": 999},
-        ],
+        "pokemon_set_page_snapshot_latest": lambda _q: [
+            {"set_id": "set-1", "payload_json": {"ripDecision": {"topChase": chase}}},
+        ]
     }
     client = _Client(handlers)
     monkeypatch.setattr(service, "public_read_client", client)
     sources, warnings = {}, []
 
-    lookup = service._load_rankings_top_chase_lookup(["run-1", "run-1"], sources=sources, warnings=warnings)
+    lookup = service._load_rankings_top_chase_lookup(
+        [{"set_id": "set-1", "calculation_run_id": "run-1"}],
+        sources=sources, warnings=warnings,
+    )
 
-    assert lookup["run-1"]["cardName"] == "Canonical Chase"
-    assert lookup["run-1"]["currentMarketPrice"] == 250.0
-    assert lookup["run-1"]["impliedOddsOneInN"] == 500.0
-    assert [call.table_name for call in client.calls] == [
-        "simulation_input_cards",
-        "simulation_input_cards_with_near_mint_price",
-    ]
+    assert lookup["set-1"] == chase
+    assert [call.table_name for call in client.calls] == ["pokemon_set_page_snapshot_latest"]
+    assert client.calls[0].in_filters == [("set_id", ["set-1"])]
     assert sources["rankings_top_chase"] == "OK"
     assert warnings == []
+
+
+def test_rankings_top_chase_run_mismatch_refuses_stale_publication(monkeypatch):
+    handlers = {"pokemon_set_page_snapshot_latest": lambda _q: [{
+        "set_id": "set-1", "payload_json": {"ripDecision": {"topChase": {
+            "cardName": "Stale", "sourceCalculationRunId": "run-old",
+        }}},
+    }]}
+    monkeypatch.setattr(service, "public_read_client", _Client(handlers))
+    with pytest.raises(RuntimeError, match="Refusing stale Rankings Top Chase publication"):
+        service._load_rankings_top_chase_lookup(
+            [{"set_id": "set-1", "calculation_run_id": "run-current"}],
+            sources={}, warnings=[],
+        )
+
+
+def test_missing_canonical_chase_stays_unavailable(monkeypatch):
+    client = _Client({"pokemon_set_page_snapshot_latest": lambda _q: [
+        {"set_id": "set-1", "payload_json": {"ripDecision": {"topChase": {
+            "cardName": "Incomplete", "sourceCalculationRunId": "run-1",
+        }}}},
+    ]})
+    monkeypatch.setattr(service, "public_read_client", client)
+    sources, warnings = {}, []
+    lookup = service._load_rankings_top_chase_lookup(
+        [{"set_id": "set-1", "calculation_run_id": "run-1"}],
+        sources=sources, warnings=warnings,
+    )
+    assert lookup == {}
+    assert sources["rankings_top_chase"] == "PARTIAL"
+    assert "set-1" in warnings[0]
 
 
 def _build_handlers():
