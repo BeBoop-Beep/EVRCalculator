@@ -265,7 +265,7 @@ def test_golden_set_ca7_through_the_service_payload(name):
 
 @pytest.mark.parametrize("name", sorted(GOLDEN))
 def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(name):
-    """The canonical block is the V3 balanced sum, not CA7 and not V2.
+    """The canonical block is the selected current model, not CA7 or V2.
 
     With a real H the three formulas must produce DIFFERENT numbers - if any two
     agreed, the change would not have been applied. No DIRECTION is asserted:
@@ -286,7 +286,9 @@ def test_canonical_collector_appeal_differs_from_legacy_ca7_when_f_is_present(na
         pull_modeled=True,
     )
     canonical = payload["collectorAppeal"]
-    assert canonical["version"] == "collector_appeal_v4_h_only_d_baseline_up4_down2"
+    from backend.desirability.scoring_config import canonical_collector_appeal_version
+
+    assert canonical["version"] == canonical_collector_appeal_version()
     assert canonical["rawValue"] is not None
     assert 0.0 <= canonical["rawValue"] <= 1.0
     # The published factors are the exact numbers the formula consumed, so the

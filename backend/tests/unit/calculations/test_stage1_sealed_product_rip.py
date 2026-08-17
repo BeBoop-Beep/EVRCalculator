@@ -14,8 +14,9 @@ from backend.calculations.evr.sealed_product_distribution import (
     stage1_distribution_seed,
 )
 from backend.db.services import sealed_product_rip_service as service
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
-from backend.desirability.scoring_config import OVERALL_RIP_V8_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+from backend.desirability.scoring_config import OVERALL_RIP_V9_VERSION
+from backend.desirability.weighted_rip import compute_overall_rip_v9
 from backend.domain.pokemon import sealed_product_stage2_composition as stage2
 from backend.domain.pokemon.sealed_product_composition import (
     STAGE1_COMPOSITION_VERSION,
@@ -300,7 +301,7 @@ def _candidates(*specs):
     return out
 
 
-_APPEAL = {"score": 62.5, "version": COLLECTOR_APPEAL_V4_VERSION, "available": True, "reason": None}
+_APPEAL = {"score": 62.5, "version": COLLECTOR_APPEAL_V5_VERSION, "available": True, "reason": None}
 
 
 def test_sleeved_booster_at_loose_pack_cost_reproduces_the_canonical_pack_v3_result():
@@ -389,13 +390,13 @@ def test_all_products_inherit_the_same_canonical_collector_appeal_and_overall_ve
         collector_appeal=_APPEAL,
     )
     assert {p["collector_appeal_score"] for p in scored["products"]} == {62.5}
-    assert {p["collector_appeal_version"] for p in scored["products"]} == {COLLECTOR_APPEAL_V4_VERSION}
-    assert {p["overall_rip_version"] for p in scored["products"]} == {OVERALL_RIP_V8_VERSION}
+    assert {p["collector_appeal_version"] for p in scored["products"]} == {COLLECTOR_APPEAL_V5_VERSION}
+    assert {p["overall_rip_version"] for p in scored["products"]} == {OVERALL_RIP_V9_VERSION}
     # Same appeal, different distributions and costs -> different Overall RIP.
     assert len({p["overall_rip_score"] for p in scored["products"]}) == 3
     for product in scored["products"]:
-        expected = 0.90 * product["financial_rip_v3_score"] + 0.10 * 62.5
-        assert product["overall_rip_score"] == pytest.approx(expected, abs=1e-3)
+        expected = compute_overall_rip_v9(product["financial_rip_v3_score"], 62.5)
+        assert product["overall_rip_payload"] == expected
 
 
 def test_missing_collector_appeal_keeps_financial_but_makes_overall_unavailable():
@@ -412,7 +413,7 @@ def test_missing_collector_appeal_keeps_financial_but_makes_overall_unavailable(
     assert product["collector_appeal_score"] is None
     assert product["overall_rip_score"] is None
     assert product["overall_rip_rankable"] is False
-    assert product["overall_rip_version"] == OVERALL_RIP_V8_VERSION
+    assert product["overall_rip_version"] == OVERALL_RIP_V9_VERSION
 
 
 def test_non_canonical_collector_appeal_version_is_refused():
@@ -546,7 +547,7 @@ def test_summary_is_compact_and_never_carries_raw_vectors():
     assert summary["packOutcomeCount"] == RUNS
     assert summary["requiredPackCounts"] == [6]
     assert summary["generatedDistributionCount"] == 1
-    assert summary["collectorAppealVersion"] == COLLECTOR_APPEAL_V4_VERSION
+    assert summary["collectorAppealVersion"] == COLLECTOR_APPEAL_V5_VERSION
     assert isinstance(summary["elapsedMs"], float)
     for product in summary["products"]:
         assert set(product).isdisjoint({"financial_rip_v3_payload", "overall_rip_payload"})

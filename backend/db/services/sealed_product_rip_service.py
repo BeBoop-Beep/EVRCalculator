@@ -6,7 +6,7 @@ PIPELINE
                              ->  sealed-product bootstrap  ->  Y_k
                              ->  build_financial_rip_v3(Y_k, product market cost)
                              ->  set-level Collector Appeal (inherited, unchanged)
-                             ->  compute_overall_rip_v8(...)
+                             ->  compute_overall_rip_v9(...)
                              ->  simulation_sealed_product_results
 
 Every scoring contract here is REUSED, not reimplemented: there is no
@@ -51,8 +51,8 @@ from backend.calculations.evr.sealed_product_distribution import (
     extract_pack_outcome_vector,
     normalize_pack_outcome_vector,
 )
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
-from backend.desirability.weighted_rip import compute_overall_rip_v8
+from backend.desirability.scoring_config import canonical_collector_appeal_version
+from backend.desirability.weighted_rip import compute_overall_rip_v9
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
@@ -103,7 +103,7 @@ def deferred_collector_appeal() -> Dict[str, Any]:
 
     Shaped exactly like a resolved appeal so the scoring path has ONE appeal
     contract rather than a second nullable code path. Score and version are None,
-    which is what makes ``compute_overall_rip_v8`` return its own canonical
+    which is what makes ``compute_overall_rip_v9`` return its own canonical
     unavailable result - no placeholder score is ever invented.
     """
     return {
@@ -224,9 +224,8 @@ def resolve_set_collector_appeal(set_id: Any) -> Dict[str, Any]:
     Stage 1 products are homogeneous same-set pack products with no modeled
     guaranteed card, so their collector appeal IS the set's - recomputing it from
     six or thirty-six packs would produce a different construct wearing the same
-    name. The DECLARED version is checked: a payload that is not the canonical
-    Collector Appeal V4 is refused rather than fed to V8, which would compute a
-    number that is neither V7 nor V8.
+    name. The DECLARED version is checked against the canonical scoring selector;
+    a superseded appeal is refused rather than fed to the current Overall model.
     """
     # Imported lazily: the Collector Appeal service builds a Supabase client at
     # module import, and the Stage 1 scoring path must stay importable without
@@ -257,7 +256,7 @@ def interpret_collector_appeal_payload(payload: Any) -> Dict[str, Any]:
 
     version = appeal.get("version")
     score = appeal.get("score")
-    if version != COLLECTOR_APPEAL_V4_VERSION or score is None:
+    if version != canonical_collector_appeal_version() or score is None:
         return {
             "score": None,
             "version": version,
@@ -385,7 +384,7 @@ def score_stage1_sealed_products(
         financial_ms = (time.perf_counter() - financial_started) * 1000.0
 
         overall_started = time.perf_counter()
-        overall = compute_overall_rip_v8(financial.get("score"), appeal_score)
+        overall = compute_overall_rip_v9(financial.get("score"), appeal_score)
         overall_ms_total += (time.perf_counter() - overall_started) * 1000.0
 
         stats_started = time.perf_counter()
@@ -450,7 +449,7 @@ def score_stage1_sealed_products(
         financial_ms = (time.perf_counter() - financial_started) * 1000.0
 
         overall_started = time.perf_counter()
-        overall = compute_overall_rip_v8(financial.get("score"), appeal_score)
+        overall = compute_overall_rip_v9(financial.get("score"), appeal_score)
         overall_ms_total += (time.perf_counter() - overall_started) * 1000.0
 
         stats_started = time.perf_counter()

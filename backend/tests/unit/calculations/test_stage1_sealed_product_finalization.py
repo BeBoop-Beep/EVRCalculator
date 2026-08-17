@@ -21,8 +21,8 @@ from backend.db.services.opening_simulation_gate import (
     STATUS_CURRENT,
     STATUS_STALE,
 )
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V4_VERSION
-from backend.desirability.scoring_config import OVERALL_RIP_V8_VERSION
+from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
+from backend.desirability.scoring_config import OVERALL_RIP_V9_VERSION
 from backend.domain.pokemon import sealed_product_comparison_scope as scope
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -109,9 +109,9 @@ def test_per_set_stage1_persists_full_financial_rip_without_collector_appeal():
         assert row["overall_rip_score"] is None
         assert row["overall_rip_rankable"] is False
         # The canonical unavailable Overall RIP object, not NULL and not a guess.
-        assert row["overall_rip_version"] == OVERALL_RIP_V8_VERSION
+        assert row["overall_rip_version"] == OVERALL_RIP_V9_VERSION
         assert row["overall_rip_payload"]["status"] == "unavailable_missing_input"
-        assert "collector_appeal_v4" in row["overall_rip_payload"]["missingInputs"]
+        assert "collector_appeal_v5" in row["overall_rip_payload"]["missingInputs"]
 
 
 def test_pending_enrichment_state_is_explicit_and_a_named_constant():
@@ -125,7 +125,7 @@ def test_an_explicit_collector_appeal_fn_is_still_honoured():
     """Deferral is the DEFAULT, not a removal of the capability."""
     appeal = {
         "score": 62.0,
-        "version": COLLECTOR_APPEAL_V4_VERSION,
+        "version": COLLECTOR_APPEAL_V5_VERSION,
         "available": True,
         "status": service.COLLECTOR_APPEAL_STATUS_AVAILABLE,
         "reason": None,
@@ -169,12 +169,12 @@ def _row(row_id, set_id, run_id, *, financial=71.0, family="booster_box", pack_c
 def _bundle(payload_by_set):
     return {
         "payloads": {
-            set_id: {"collectorAppeal": {"score": score, "version": COLLECTOR_APPEAL_V4_VERSION}}
+            set_id: {"collectorAppeal": {"score": score, "version": COLLECTOR_APPEAL_V5_VERSION}}
             if score is not None
             else {"collectorAppeal": {"score": None, "version": None}}
             for set_id, score in payload_by_set.items()
         },
-        "identity": {"collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION},
+        "identity": {"collectorAppealVersion": COLLECTOR_APPEAL_V5_VERSION},
     }
 
 
@@ -239,22 +239,22 @@ def test_multiple_rows_from_one_set_share_one_collector_appeal_score_and_version
 
     assert report["rowsFinalized"] == 3
     assert {v["collector_appeal_score"] for _id, v in recorder.writes} == {63.5}
-    assert {v["collector_appeal_version"] for _id, v in recorder.writes} == {COLLECTOR_APPEAL_V4_VERSION}
+    assert {v["collector_appeal_version"] for _id, v in recorder.writes} == {COLLECTOR_APPEAL_V5_VERSION}
     # Overall still differs per row, because Financial RIP does.
     assert len({v["overall_rip_score"] for _id, v in recorder.writes}) == 3
 
 
-def test_overall_rip_uses_the_canonical_v8_helper():
-    from backend.desirability.weighted_rip import compute_overall_rip_v8
+def test_overall_rip_uses_the_canonical_v9_helper():
+    from backend.desirability.weighted_rip import compute_overall_rip_v9
 
     statuses = [_status("setA", "sid-a", "run-a")]
     rows = [_row("r1", "sid-a", "run-a", financial=71.0)]
     _report, recorder = _finalize(statuses, rows, _bundle({"sid-a": 63.5}))
 
-    expected = compute_overall_rip_v8(71.0, 63.5)
+    expected = compute_overall_rip_v9(71.0, 63.5)
     _row_id, written = recorder.writes[0]
     assert written["overall_rip_score"] == expected["score"]
-    assert written["overall_rip_version"] == expected["version"] == OVERALL_RIP_V8_VERSION
+    assert written["overall_rip_version"] == expected["version"] == OVERALL_RIP_V9_VERSION
     assert written["overall_rip_rankable"] is True
     assert written["overall_rip_payload"] == expected
 
@@ -446,12 +446,12 @@ def test_the_family_scoped_ranking_helper_still_exists_and_no_all_family_one_doe
         "backend/domain/pokemon/sealed_product_classifier.py",
     ],
 )
-def test_protected_scoring_files_are_unmodified_since_stage_1_5(relative_path):
-    """Stage 1.6 changes WHERE work happens, never what any formula computes."""
+def test_protected_scoring_files_are_unmodified_by_canonical_alignment(relative_path):
+    """This V5/V9 identity alignment changes no scoring formula implementation."""
     import subprocess
 
     completed = subprocess.run(
-        ["git", "diff", "--name-only", "4362838b8ff7c68d29fe00fad193522a17b62511", "--", relative_path],
+        ["git", "diff", "--name-only", "eb77eb4b5a468d22d435a01cfa29acfddde41c68", "--", relative_path],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -461,11 +461,11 @@ def test_protected_scoring_files_are_unmodified_since_stage_1_5(relative_path):
     assert completed.stdout.strip() == "", f"{relative_path} was modified"
 
 
-def test_simulations_package_is_unmodified_since_stage_1_5():
+def test_simulations_package_is_unmodified_by_canonical_alignment():
     import subprocess
 
     completed = subprocess.run(
-        ["git", "diff", "--name-only", "4362838b8ff7c68d29fe00fad193522a17b62511", "--", "backend/simulations"],
+        ["git", "diff", "--name-only", "eb77eb4b5a468d22d435a01cfa29acfddde41c68", "--", "backend/simulations"],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,

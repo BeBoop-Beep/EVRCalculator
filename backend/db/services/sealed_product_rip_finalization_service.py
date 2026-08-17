@@ -21,7 +21,7 @@ WHAT IT DOES NOT DO
 -------------------
 No formula lives here. Collector Appeal comes from `get_collector_appeal_bundle`,
 the version check is Stage 1's own `interpret_collector_appeal_payload`, and the
-blend is `compute_overall_rip_v8`. Nothing re-runs a simulation, regenerates a Y
+blend is `compute_overall_rip_v9`. Nothing re-runs a simulation, regenerates a Y
 distribution, recomputes a statistic, touches a market price or rewrites
 Financial RIP V3. This is a join and two writes.
 
@@ -49,7 +49,7 @@ from backend.db.services.sealed_product_rip_service import (
     COLLECTOR_APPEAL_STATUS_UNAVAILABLE,
     interpret_collector_appeal_payload,
 )
-from backend.desirability.weighted_rip import compute_overall_rip_v8
+from backend.desirability.weighted_rip import compute_overall_rip_v9
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
 )
@@ -114,7 +114,7 @@ def _enrichment_for(
 ) -> Dict[str, Any]:
     """The six enrichment columns for one row. Pure; performs no I/O."""
     appeal_score = appeal.get("score")
-    overall = compute_overall_rip_v8(row.get("financial_rip_v3_score"), appeal_score)
+    overall = compute_overall_rip_v9(row.get("financial_rip_v3_score"), appeal_score)
     return {
         "collector_appeal_score": appeal_score,
         "collector_appeal_version": appeal.get("version"),
@@ -136,7 +136,7 @@ def finalize_sealed_product_rip(
     read_rows_fn=None,
     update_fn=None,
 ) -> Dict[str, Any]:
-    """Attach Collector Appeal + Overall RIP V8 to one coordinated cohort.
+    """Attach canonical Collector Appeal + Overall RIP to one coordinated cohort.
 
     Idempotent: the inputs are the persisted Financial RIP V3 score and the
     canonical bundle, and the write is a fixed function of those two. Re-running

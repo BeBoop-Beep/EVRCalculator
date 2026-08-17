@@ -360,7 +360,7 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 
 
 CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-# Promoted from V7 to V8. This single constant is the cutover; no publication
+# Promoted through V9. This single constant is the cutover; no publication
 # surface decides for itself which Overall model it serves.
 CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V9_VERSION
 CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V9_WEIGHTS)
@@ -471,11 +471,11 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyCollectorAppealV3Version": legacy_collector_appeal_v3_version(),
         "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
-        "overallRipWeights": dict(OVERALL_RIP_V8_WEIGHTS),
-        "overallRipEffectiveWeights": dict(OVERALL_RIP_V8_EFFECTIVE_WEIGHTS),
+        "overallRipWeights": dict(OVERALL_RIP_V9_WEIGHTS),
+        "overallRipEffectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
         "note": (
-            "Overall RIP is 90% Financial RIP V3 + 10% Collector Appeal V4. "
-            "Financial RIP V2, Overall RIP v4/V5/V6/V7, Collector Appeal V3, "
+            "Overall RIP V9 is 90% Financial RIP V3 + 10% Collector Appeal V5. "
+            "Financial RIP V2, Overall RIP v4/V5/V6/V7/V8, Collector Appeal V4/V3, "
             "Collector Appeal V2 and legacy CA7 remain identifiable under "
             "explicitly legacy labels and are never selected by fallback."
         ),

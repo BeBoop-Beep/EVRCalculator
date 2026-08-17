@@ -83,6 +83,10 @@ from backend.desirability.desirable_outcome_frequency import (
     DESIRABLE_OUTCOME_FREQUENCY_VERSION,
     compute_desirable_outcome_frequency,
 )
+from backend.desirability.scoring_config import (
+    canonical_collector_appeal_formula_version,
+    canonical_collector_appeal_version,
+)
 from backend.desirability.collector_appeal_fingerprint import current_fingerprint
 from backend.desirability.collector_appeal_inputs import (
     build_subject_index,
@@ -550,8 +554,8 @@ def _build_bundle() -> Dict[str, Any]:
         # repeated on every set payload: a weight restated per set is a weight
         # that can disagree with itself across a bundle.
         "identity": {
-            "collectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
-            "collectorAppealFormulaVersion": COLLECTOR_APPEAL_V4_FORMULA_VERSION,
+            "collectorAppealVersion": canonical_collector_appeal_version(),
+            "collectorAppealFormulaVersion": canonical_collector_appeal_formula_version(),
             # Weights and the formula expression are deliberately ABSENT. They
             # are internal to the model, and this bundle travels to callers that
             # project it outward. The full weighted identity is available to
