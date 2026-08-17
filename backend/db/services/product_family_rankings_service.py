@@ -6,10 +6,10 @@ from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import public_read_client
 from backend.db.services.sealed_product_rip_finalization_service import resolve_finalization_cohort
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
+    canonical_collector_appeal_version,
 )
 from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS
 from backend.domain.pokemon.sealed_product_comparison_scope import (
@@ -49,7 +49,7 @@ def _canonical(row: Mapping[str, Any]) -> bool:
     return bool(row.get("overall_rip_rankable")) and all(
         (
             row.get("financial_rip_v3_version") == CANONICAL_FINANCIAL_RIP_VERSION,
-            row.get("collector_appeal_version") == COLLECTOR_APPEAL_V5_VERSION,
+            row.get("collector_appeal_version") == canonical_collector_appeal_version(),
             row.get("overall_rip_version") == CANONICAL_OVERALL_RIP_VERSION,
         )
     )

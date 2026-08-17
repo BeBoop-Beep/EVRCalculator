@@ -1,6 +1,9 @@
 from backend.db.services import product_family_rankings_service as service
-from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
-from backend.desirability.scoring_config import CANONICAL_FINANCIAL_RIP_VERSION, CANONICAL_OVERALL_RIP_VERSION
+from backend.desirability.scoring_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION,
+    canonical_collector_appeal_version,
+)
 
 
 class Query:
@@ -27,7 +30,7 @@ def row(product, family="booster_box", run="current", overall=80, financial=70, 
         "product_market_cost": price, "expected_value": 80, "median_value": 55,
         "chance_to_recover_cost": chance, "financial_rip_v3_score": financial,
         "financial_rip_v3_version": CANONICAL_FINANCIAL_RIP_VERSION,
-        "collector_appeal_score": 60, "collector_appeal_version": COLLECTOR_APPEAL_V5_VERSION,
+        "collector_appeal_score": 60, "collector_appeal_version": canonical_collector_appeal_version(),
         "overall_rip_score": overall, "overall_rip_version": CANONICAL_OVERALL_RIP_VERSION,
         "overall_rip_rankable": True,
     }
@@ -55,6 +58,19 @@ def test_versions_and_rankable_flag_gate_rankings(monkeypatch):
     family = build(monkeypatch, rows)["families"]["booster_box"]
     assert family["currentlyScoredCount"] == 4
     assert family["currentlyRankableCount"] == family["count"] == 1
+
+
+def test_collector_appeal_gate_uses_the_canonical_selector(monkeypatch):
+    sentinel = "collector_appeal_future_canonical"
+    monkeypatch.setattr(service, "canonical_collector_appeal_version", lambda: sentinel)
+    rows = [
+        row("canonical", collector_appeal_version=sentinel, overall=90),
+        row("superseded", collector_appeal_version="collector_appeal_v4_superseded", overall=99),
+    ]
+    family = build(monkeypatch, rows)["families"]["booster_box"]
+    assert family["currentlyScoredCount"] == 2
+    assert family["currentlyRankableCount"] == family["count"] == 1
+    assert [product["sealedProductId"] for product in family["products"]] == ["canonical"]
 
 
 def test_families_are_isolated_and_ties_are_deterministic(monkeypatch):
