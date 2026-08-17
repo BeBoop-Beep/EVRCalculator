@@ -118,7 +118,7 @@ def clean_product_name(product_name, remove_special_patterns=False):
         return product_name
     
     # Remove pattern like " - 040/165" or " - 123/456"
-    cleaned = re.sub(r'\s*-\s*\d+/\d+\s*$', '', product_name)
+    cleaned = re.sub(r'\s*-\s*\d+(?:/\d+)?\s*(?=\(|$)', '', product_name)
     
     if remove_special_patterns:
         # Remove special type patterns from the name
@@ -127,6 +127,7 @@ def clean_product_name(product_name, remove_special_patterns=False):
             r'\s*\(Poke Ball[^)]*\)',
             r'\s*\(Poké Ball[^)]*\)',
             r'\s*\(ACE SPEC[^)]*\)',
+            r'\s*\(Pokemon Center Exclusive[^)]*\)',
         ]
         for pattern in special_patterns:
             cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
@@ -157,6 +158,8 @@ def determine_special_type(product_name, rarity=None):
     name_lower = product_name.lower()
     
     # Check more specific patterns first to avoid substring matching issues
+    if "pokemon center exclusive" in name_lower:
+        return "pokemon-center-exclusive"
     if "master ball" in name_lower:
         return "Master Ball"
     elif "ace spec" in name_lower:
@@ -240,6 +243,11 @@ def process_card(card, pull_rate_mapping):
         'specialType': special_type,
         'Pull Rate (1/X)': pull_rate,
         'Price ($)': market_price,
+        'tcgplayerProductID': str(card.get('productID')) if card.get('productID') is not None else None,
+        'externalCatalogKey': str(card.get('setAbbrv') or card.get('setID') or '') or None,
+        'externalSourcePayload': {'productName': card.get('productName'), 'number': number,
+            'set': card.get('set'), 'setAbbrv': card.get('setAbbrv'),
+            'printing': printing, 'rarity': rarity},
     }
 
     return product_name, card_dict

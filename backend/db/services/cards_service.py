@@ -7,7 +7,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
-from backend.db.repositories.card_variant_repository import insert_card_variant, get_card_variant_by_card_and_type, insert_card_variants_batch
+from backend.db.repositories.card_variant_repository import (insert_card_variant, get_card_variant_by_card_and_type,
+    insert_card_variants_batch, get_card_variant_external_identity, link_card_variant_external_identity,
+    ExternalVariantIdentityConflict)
+from backend.db.clients.supabase_client import supabase
 from backend.utils.debug_output import debug_print
 from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
@@ -79,7 +82,8 @@ class CardsService(BatchProcessor):
         """
         if not name:
             return name
-        return re.sub(r'\s*-\s*\d+/\d+\s*$', '', name).strip()
+        name = re.sub(r'\s*\(Pokemon Center Exclusive[^)]*\)\s*$', '', name, flags=re.I)
+        return re.sub(r'\s*-\s*\d+(?:/\d+)?\s*$', '', name).strip()
 
     def _extract_variant_info(self, card):
         """
@@ -136,6 +140,7 @@ class CardsService(BatchProcessor):
             'batch_id': batch_id,
             'inserted_variants': 0,
             'inserted_prices': 0,
+            'external_identities_linked': 0,
             'errors': [],
             'prices_to_ship': []  # Prices that need to be inserted (after batch completes)
         }
@@ -158,9 +163,22 @@ class CardsService(BatchProcessor):
                 )
                 
                 variant_id = None
+                external_identity = variant_data.pop('_external_identity', None)
+                mapped_identity = (get_card_variant_external_identity(
+                    external_identity['provider'], external_identity['external_product_id'])
+                    if external_identity else None)
                 
                 # Check local cache first
-                if variant_key in variant_cache:
+                if mapped_identity:
+                    mapped_variant_id = mapped_identity['card_variant_id']
+                    existing_variant = (supabase.table('card_variants').select('*')
+                        .eq('id', mapped_variant_id).single().execute()).data
+                    expected = (str(card_id), variant_data.get('printing_type'), variant_data.get('special_type'), variant_data.get('edition'))
+                    actual = (str(existing_variant['card_id']), existing_variant.get('printing_type'), existing_variant.get('special_type'), existing_variant.get('edition'))
+                    if expected != actual:
+                        raise ExternalVariantIdentityConflict(f"external identity contradicts incoming variant: expected={expected}, actual={actual}")
+                    variant_id = mapped_variant_id
+                elif variant_key in variant_cache:
                     variant_id = variant_cache[variant_key]
                     if item_index % 200 == 0:
                         print(f"[Batch {batch_id}] [CACHE] Using cached variant (ID: {variant_id})")
@@ -180,6 +198,10 @@ class CardsService(BatchProcessor):
                         batch_result['inserted_variants'] += 1
                     
                     variant_cache[variant_key] = variant_id
+
+                if external_identity:
+                    link_card_variant_external_identity(variant_id, external_identity)
+                    batch_result['external_identities_linked'] += 1
                 
                 # Collect prices for this variant to ship after batch completes
                 if not price_data_list:
@@ -246,6 +268,14 @@ class CardsService(BatchProcessor):
                         'special_type': special_type,
                         'edition': edition,
                     }
+                    product_id = card_entry.get('tcgplayer_product_id')
+                    if product_id:
+                        variant_data['_external_identity'] = {
+                            'provider': 'tcgplayer', 'external_product_id': str(product_id),
+                            'external_catalog_key': card_entry.get('external_catalog_key'),
+                            'source_reference': card_entry.get('external_source_reference') or f'https://www.tcgplayer.com/product/{product_id}',
+                            'source_payload': card_entry.get('external_source_payload') or {},
+                        }
                     
                     # Prepare price data
                     prices = card_entry.get('prices', {})
@@ -436,6 +466,7 @@ class CardsService(BatchProcessor):
             'inserted_cards': 0,
             'inserted_variants': 0,
             'inserted_prices': 0,
+            'external_identities_linked': 0,
             'price_rows_attempted': 0,
             'price_rows_skipped_duplicates': 0,
             'price_rows_updated': 0,

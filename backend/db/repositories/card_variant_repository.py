@@ -4,6 +4,39 @@ from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List, Set
 import time
 
+class ExternalVariantIdentityConflict(RuntimeError):
+    pass
+
+def get_card_variant_external_identity(provider: str, external_product_id: str):
+    res = (supabase.table("card_variant_external_identities").select("*")
+           .eq("provider", provider.strip().lower())
+           .eq("external_product_id", str(external_product_id)).maybe_single().execute())
+    return res.data if res and res.data else None
+
+def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str, Any]) -> str:
+    """Idempotently link a provider product, refusing identity reassignment."""
+    provider = str(identity["provider"]).strip().lower()
+    product_id = str(identity["external_product_id"]).strip()
+    existing = get_card_variant_external_identity(provider, product_id)
+    if existing:
+        if str(existing["card_variant_id"]) != str(card_variant_id):
+            raise ExternalVariantIdentityConflict(
+                f"{provider} product {product_id} is already linked to variant {existing['card_variant_id']}, not {card_variant_id}")
+        return existing["id"]
+    payload = {**identity, "provider": provider, "external_product_id": product_id,
+               "card_variant_id": card_variant_id}
+    try:
+        res = supabase.table("card_variant_external_identities").insert(payload).execute()
+        return res.data[0]["id"]
+    except APIError:
+        existing = get_card_variant_external_identity(provider, product_id)
+        if existing and str(existing["card_variant_id"]) == str(card_variant_id):
+            return existing["id"]
+        if existing:
+            raise ExternalVariantIdentityConflict(
+                f"{provider} product {product_id} concurrently linked to variant {existing['card_variant_id']}")
+        raise
+
 
 def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
     """

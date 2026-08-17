@@ -213,7 +213,7 @@ class BatchProcessor(ABC):
                     all_errors.append(error_msg)
             
             # Accumulate item-specific results
-            for key in ['inserted_items', 'inserted_products', 'inserted_variants']:
+            for key in ['inserted_items', 'inserted_products', 'inserted_variants', 'external_identities_linked']:
                 if key in batch_result:
                     results_accumulator[key] = results_accumulator.get(key, 0) + batch_result[key]
             

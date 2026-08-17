@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict
 
 # This is currently for a Pokemon type DTO, 
@@ -31,6 +31,10 @@ class CardDTO(BaseModel):
     prices: Dict[str, Optional[float]]  # market, low, reverse, etc.
     source: Optional[str] = None  # e.g., 'TCGPlayer'
     currency: Optional[str] = None  # defaults to USD if not provided
+    tcgplayer_product_id: Optional[str] = None
+    external_catalog_key: Optional[str] = None
+    external_source_reference: Optional[str] = None
+    external_source_payload: Dict = Field(default_factory=dict)
 
 class SealedProductDTO(BaseModel):
     model_config = ConfigDict(extra='ignore')

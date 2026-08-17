@@ -144,6 +144,10 @@ class TCGPlayerParser:
                 'pull_rate': card.get('Pull Rate (1/X)'),
                 'currency': 'USD',
                 'source': 'TCGPlayer',
+                'tcgplayer_product_id': card.get('tcgplayerProductID'),
+                'external_catalog_key': card.get('externalCatalogKey'),
+                'external_source_reference': (f"https://www.tcgplayer.com/product/{card.get('tcgplayerProductID')}" if card.get('tcgplayerProductID') else None),
+                'external_source_payload': card.get('externalSourcePayload') or {},
                 'prices': {
                     'market': clean_price_value(card.get('Price ($)')),
                 }
