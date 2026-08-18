@@ -853,11 +853,7 @@ def _latest_for_set_page(client: Any, set_id: str) -> Tuple[Optional[str], List[
         timestamps.append(latest)
 
     run_id = _latest_run_id_for_set(client, set_id)
-    for table in (
-        "simulation_input_cards",
-        "simulation_input_cards_with_near_mint_price",
-        "simulation_sealed_product_results",
-    ):
+    for table in ("simulation_input_cards", "simulation_input_cards_with_near_mint_price"):
         if run_id:
             latest, table_checks = _latest_timestamp(
                 client,
@@ -869,14 +865,6 @@ def _latest_for_set_page(client: Any, set_id: str) -> Tuple[Optional[str], List[
             latest, table_checks = None, [f"{table}: skipped missing calculation_run_id"]
         checks.extend(table_checks)
         timestamps.append(latest)
-    latest, table_checks = _latest_timestamp(
-        client,
-        table="pokemon_set_sealed_market_snapshot_latest",
-        timestamp_columns=("updated_at",),
-        filters=(("set_id", set_id),),
-    )
-    checks.extend(table_checks)
-    timestamps.append(latest)
     return _max_datetime_text(*timestamps), checks
 
 
@@ -914,6 +902,7 @@ def _rip_decision_source_authority(client: Any, set_id: str, run_id: Optional[st
     return {
         "classification_version": _to_text(market.get("classification_version")) or _to_text(market_meta.get("classificationVersion")),
         "snapshot_contract_version": _to_text(market_meta.get("snapshotContractVersion")),
+        "sealed_market_updated_at": _to_text(market.get("updated_at")),
         "product_result_count": len(product_rows),
         "product_results_updated_at": _max_datetime_text(*(_to_text(row.get("updated_at")) for row in product_rows)),
     }, checks
@@ -1357,13 +1346,31 @@ def _set_page_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
     checks.extend(rankings_checks)
     if rankings_updated_at and not _set_page_has_rank_fields(payload):
         return FreshnessResult("set_page", True, "rank fields missing while rankings snapshot exists", snapshot_updated_at, dependency_updated_at, checks, warnings)
-    if _is_newer(dependency_updated_at, snapshot_updated_at):
-        return FreshnessResult("set_page", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks, warnings)
     ranked = _set_page_has_rank_fields(payload)
-    run_id = _latest_run_id_for_set(client, set_id)
+    # Catalog-only pages retain the cheap pre-existing dependency path and do
+    # not pay for ranked/public RIP authority reads.
+    if not ranked and _is_newer(dependency_updated_at, snapshot_updated_at):
+        return FreshnessResult("set_page", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks, warnings)
     if ranked:
+        run_id = _latest_run_id_for_set(client, set_id)
         authority, authority_checks = _rip_decision_source_authority(client, set_id, run_id)
         checks.extend(authority_checks)
+        authority_dependency_updated_at = _max_datetime_text(
+            authority["sealed_market_updated_at"], authority["product_results_updated_at"]
+        )
+        dependency_updated_at = _max_datetime_text(
+            dependency_updated_at, authority_dependency_updated_at
+        )
+        if _is_newer(authority["sealed_market_updated_at"], snapshot_updated_at):
+            return FreshnessResult(
+                "set_page", True, "sealed-market snapshot newer than Set page",
+                snapshot_updated_at, dependency_updated_at, checks, warnings,
+            )
+        if _is_newer(authority["product_results_updated_at"], snapshot_updated_at):
+            return FreshnessResult(
+                "set_page", True, "sealed-product results newer than Set page",
+                snapshot_updated_at, dependency_updated_at, checks, warnings,
+            )
         decision_reasons = evaluate_rip_decision_staleness(
             payload.get("ripDecision"),
             ranked=True,
@@ -1378,6 +1385,8 @@ def _set_page_snapshot_staleness(client: Any, set_id: str) -> FreshnessResult:
                 "set_page", True, decision_reasons[0]["message"], snapshot_updated_at,
                 dependency_updated_at, checks, warnings,
             )
+    if _is_newer(dependency_updated_at, snapshot_updated_at):
+        return FreshnessResult("set_page", True, "dependency newer than snapshot", snapshot_updated_at, dependency_updated_at, checks, warnings)
     if _has_known_stale_warning(warnings) and _source_rows_exist_for_set_page(client, set_id):
         return FreshnessResult("set_page", True, "known stale warning present while source rows exist", snapshot_updated_at, dependency_updated_at, checks, warnings)
     return FreshnessResult("set_page", False, "fresh", snapshot_updated_at, dependency_updated_at, checks, warnings)

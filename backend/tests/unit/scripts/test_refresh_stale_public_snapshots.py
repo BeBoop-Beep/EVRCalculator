@@ -432,6 +432,7 @@ def test_set_page_stale_when_simulation_run_newer(monkeypatch):
     monkeypatch.setattr(refresh, "_latest_timestamp", lambda _client, **_kwargs: (None, []))
     monkeypatch.setattr(refresh, "_has_known_stale_warning", lambda _warnings: False)
     monkeypatch.setattr(refresh, "_source_rows_exist_for_set_page", lambda _client, _set_id: True)
+    monkeypatch.setattr(refresh, "_set_page_has_rank_fields", lambda _payload: False)
 
     result = refresh._set_page_snapshot_staleness(None, "set-1")
 
@@ -454,6 +455,7 @@ def test_set_page_stale_when_market_dashboard_snapshot_newer(monkeypatch):
     monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_args, **_kwargs: _set_page_row("set-1", snapshot_updated))
     monkeypatch.setattr(refresh, "_has_known_stale_warning", lambda _warnings: False)
     monkeypatch.setattr(refresh, "_source_rows_exist_for_set_page", lambda _client, _set_id: True)
+    monkeypatch.setattr(refresh, "_set_page_has_rank_fields", lambda _payload: False)
 
     result = refresh._set_page_snapshot_staleness(None, "set-1")
 
@@ -1239,21 +1241,124 @@ def test_set_page_freshness_depends_on_the_explore_rankings_snapshot(monkeypatch
     assert latest == "2026-08-04T13:30:00Z"
 
 
-def test_set_page_freshness_depends_on_product_results_and_sealed_market(monkeypatch):
+def test_generic_set_page_freshness_does_not_query_ranked_only_authorities(monkeypatch):
     reads = []
 
     def latest_timestamp(_client, *, table, timestamp_columns, filters=None):
         reads.append((table, tuple(filters or ())))
-        value = "2026-08-18T11:00:00Z" if table == "simulation_sealed_product_results" else None
-        return value, []
+        return None, []
 
     monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
     monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a, **_k: "run-1")
     latest, _checks = refresh._latest_for_set_page(object(), "set-1")
 
-    assert ("simulation_sealed_product_results", (("calculation_run_id", "run-1"),)) in reads
-    assert ("pokemon_set_sealed_market_snapshot_latest", (("set_id", "set-1"),)) in reads
-    assert latest == "2026-08-18T11:00:00Z"
+    assert not any(table == "simulation_sealed_product_results" for table, _ in reads)
+    assert not any(table == "pokemon_set_sealed_market_snapshot_latest" for table, _ in reads)
+    assert latest is None
+
+
+class _AuthorityResponse:
+    def __init__(self, data):
+        self.data = data
+
+
+class _AuthorityQuery:
+    def __init__(self, client, table):
+        self.client, self.name = client, table
+
+    def select(self, fields):
+        self.fields = fields
+        return self
+
+    def eq(self, *_args):
+        return self
+
+    def limit(self, *_args):
+        return self
+
+    def execute(self):
+        self.client.calls.append(self.name)
+        return _AuthorityResponse(self.client.rows[self.name])
+
+
+class _AuthorityClient:
+    def __init__(self):
+        self.calls = []
+        self.rows = {
+            "pokemon_set_sealed_market_snapshot_latest": [{
+                "classification_version": "classification-v3",
+                "updated_at": "2026-08-18T10:00:00Z",
+                "payload_json": {"meta": {"snapshotContractVersion": "market-v3"}},
+            }],
+            "simulation_sealed_product_results": [
+                {"sealed_product_id": "product-1", "updated_at": "2026-08-18T10:00:00Z"}
+            ],
+        }
+
+    def table(self, name):
+        return _AuthorityQuery(self, name)
+
+
+def _current_ranked_decision():
+    return {
+        "contractVersion": "rip-decision-contract-v1",
+        "currentRunAvailable": True,
+        "sourceCalculationRunId": "run-1",
+        "sourceSealedMarketClassificationVersion": "classification-v3",
+        "sourceSealedMarketSnapshotContractVersion": "market-v3",
+        "sourceSealedProductResultCount": 1,
+        "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
+        "sealedProducts": {"sourceCalculationRunId": "run-1", "productCount": 1},
+        "topChase": {"sourceCalculationRunId": "run-1"},
+    }
+
+
+def test_non_ranked_page_avoids_new_authority_reads(monkeypatch):
+    client = _AuthorityClient()
+    row = _set_page_row("set-1", "2026-08-18T11:00:00Z")
+    row["payload_json"]["summary"].pop("pack_rank")
+    monkeypatch.setattr(refresh, "_latest_for_set_page", lambda *_a: (None, []))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_a, **_k: row)
+    monkeypatch.setattr(refresh, "_latest_timestamp", lambda *_a, **_k: (None, []))
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a: "run-1")
+    result = refresh._set_page_snapshot_staleness(client, "set-1")
+    assert result.stale is False
+    assert client.calls == []
+
+
+def test_ranked_page_reads_each_authority_once_and_reuses_timestamps(monkeypatch):
+    client = _AuthorityClient()
+    row = _set_page_row("set-1", "2026-08-18T11:00:00Z")
+    row["payload_json"]["ripDecision"] = _current_ranked_decision()
+    monkeypatch.setattr(refresh, "_latest_for_set_page", lambda *_a: (None, []))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_a, **_k: row)
+    monkeypatch.setattr(refresh, "_latest_timestamp", lambda *_a, **_k: (None, []))
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a: "run-1")
+    result = refresh._set_page_snapshot_staleness(client, "set-1")
+    assert result.stale is False
+    assert client.calls.count("pokemon_set_sealed_market_snapshot_latest") == 1
+    assert client.calls.count("simulation_sealed_product_results") == 1
+
+
+@pytest.mark.parametrize(
+    ("table", "expected_reason"),
+    [
+        ("pokemon_set_sealed_market_snapshot_latest", "sealed-market snapshot newer than Set page"),
+        ("simulation_sealed_product_results", "sealed-product results newer than Set page"),
+    ],
+)
+def test_ranked_authority_timestamp_invalidates_set_page(monkeypatch, table, expected_reason):
+    client = _AuthorityClient()
+    client.rows[table][0]["updated_at"] = "2026-08-18T12:00:00Z"
+    row = _set_page_row("set-1", "2026-08-18T11:00:00Z")
+    row["payload_json"]["ripDecision"] = _current_ranked_decision()
+    monkeypatch.setattr(refresh, "_latest_for_set_page", lambda *_a: (None, []))
+    monkeypatch.setattr(refresh, "_read_snapshot_row", lambda *_a, **_k: row)
+    monkeypatch.setattr(refresh, "_latest_timestamp", lambda *_a, **_k: (None, []))
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a: "run-1")
+    result = refresh._set_page_snapshot_staleness(client, "set-1")
+    assert result.stale is True
+    assert result.reason == expected_reason
 
 
 def test_a_failed_sealed_market_rebuild_is_a_hard_failure():

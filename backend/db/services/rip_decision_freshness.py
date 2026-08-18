@@ -77,7 +77,9 @@ def evaluate_rip_decision_staleness(
 
     actual_contract = _text(decision.get("sourceSealedMarketSnapshotContractVersion"))
     expected_contract = _text(expected_sealed_market_contract_version)
-    if actual_contract is not None and expected_contract is not None and actual_contract != expected_contract:
+    if expected_contract is not None and actual_contract is None:
+        add("sealed_market_contract_provenance_missing", "ripDecision sealed-market snapshot contract provenance is missing")
+    elif actual_contract is not None and expected_contract is not None and actual_contract != expected_contract:
         add("sealed_market_contract_mismatch", "ripDecision sealed-market snapshot contract version is stale")
 
     actual_count = decision.get("sourceSealedProductResultCount")

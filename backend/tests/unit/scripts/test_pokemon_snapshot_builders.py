@@ -1487,6 +1487,7 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
             "sourceCalculationRunId": "run-b",
             "sourceSealedMarketClassificationVersion": "classification-v1",
             "sourceSealedProductResultCount": 1,
+            "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
             "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{"sourceCalculationRunId": "run-b"}]},
             "topChase": {"sourceCalculationRunId": "run-b"},
         },
@@ -1633,6 +1634,33 @@ def test_current_run_top_chase_identity_mismatch_is_rejected():
         )
 
 
+def test_build_assertion_uses_internal_provenance_guards_without_self_comparison():
+    decision = {
+        "contractVersion": "rip-decision-contract-v1",
+        "currentRunAvailable": True,
+        "sourceCalculationRunId": "run-b",
+        "sourceSealedMarketClassificationVersion": "source-snapshot-classification",
+        "sourceSealedProductResultCount": 1,
+        "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
+        "sealedProducts": {
+            "sourceCalculationRunId": "run-b",
+            "productCount": 1,
+            "products": [{"sourceCalculationRunId": "run-b"}],
+        },
+        "topChase": {"sourceCalculationRunId": "run-b"},
+    }
+    # There are deliberately no expected source-version parameters: equality
+    # to current source belongs to the planner's independent authority read.
+    pokemon_snapshot_builders._assert_current_run_rip_decision(
+        {"ripDecision": decision}, set_id="set-1", expected_run_id="run-b", required=True
+    )
+    decision["sourceSealedProductResultsUpdatedAt"] = None
+    with pytest.raises(RuntimeError, match="result provenance is missing"):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": decision}, set_id="set-1", expected_run_id="run-b", required=True
+        )
+
+
 @pytest.mark.parametrize("decision, message", [
     ({"contractVersion": "rip-decision-contract-v1", "currentRunAvailable": False}, "current run is unavailable"),
     ({"contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
@@ -1693,6 +1721,7 @@ def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(
             "sourceCalculationRunId": "run-b",
             "sourceSealedMarketClassificationVersion": "classification-v1",
             "sourceSealedProductResultCount": 1,
+            "sourceSealedProductResultsUpdatedAt": "2026-08-18T10:00:00Z",
             "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{"sourceCalculationRunId": "run-b"}]},
             "topChase": {"sourceCalculationRunId": "run-b"},
         },

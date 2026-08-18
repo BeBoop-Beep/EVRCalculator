@@ -621,8 +621,6 @@ def _merge_rip_decision_contract_into_set_payload(
 
 def _assert_current_run_rip_decision(
     payload: Dict[str, Any], *, set_id: str, expected_run_id: Optional[str], required: bool,
-    expected_sealed_market_classification_version: Optional[str] = None,
-    expected_sealed_market_contract_version: Optional[str] = None,
 ) -> None:
     """Fail closed before persistence when a ranked set lacks current-run Top Chase."""
     if not required:
@@ -652,14 +650,11 @@ def _assert_current_run_rip_decision(
     classification_version = first_non_empty(decision.get("sourceSealedMarketClassificationVersion"))
     if classification_version is None:
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-market classification provenance is missing")
-    if expected_sealed_market_classification_version is not None and classification_version != expected_sealed_market_classification_version:
-        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-market classification provenance mismatch")
-    source_contract_version = first_non_empty(decision.get("sourceSealedMarketSnapshotContractVersion"))
-    if expected_sealed_market_contract_version is not None and source_contract_version != expected_sealed_market_contract_version:
-        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-market snapshot contract provenance mismatch")
     products = sealed.get("products") if isinstance(sealed.get("products"), list) else []
     if decision.get("sourceSealedProductResultCount") != len(products):
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-product source population mismatch")
+    if first_non_empty(decision.get("sourceSealedProductResultsUpdatedAt")) is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-product result provenance is missing")
     if any(first_non_empty(product.get("sourceCalculationRunId")) != run_id for product in products if isinstance(product, dict)):
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: modeled product run mismatch")
 
@@ -1552,12 +1547,6 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     _assert_current_run_rip_decision(
         payload, set_id=set_id, expected_run_id=decision_run_id,
         required=matching_rankings_target is not None,
-        expected_sealed_market_classification_version=first_non_empty(
-            (payload.get("ripDecision") or {}).get("sourceSealedMarketClassificationVersion")
-        ),
-        expected_sealed_market_contract_version=first_non_empty(
-            (payload.get("ripDecision") or {}).get("sourceSealedMarketSnapshotContractVersion")
-        ),
     )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 

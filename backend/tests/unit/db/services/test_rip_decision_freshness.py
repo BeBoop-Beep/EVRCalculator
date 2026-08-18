@@ -43,6 +43,23 @@ def test_stale_and_missing_classification_provenance_are_explicit():
     )
 
 
+def test_sealed_market_contract_provenance_missing_mismatch_and_match():
+    assert "sealed_market_contract_provenance_missing" in _reasons(
+        _decision(sourceSealedMarketSnapshotContractVersion=None)
+    )
+    assert "sealed_market_contract_mismatch" in _reasons(
+        _decision(sourceSealedMarketSnapshotContractVersion="market-v2")
+    )
+    assert not ({"sealed_market_contract_provenance_missing", "sealed_market_contract_mismatch"} & _reasons(_decision()))
+
+
+def test_no_contract_is_invented_when_neither_source_has_one():
+    assert "sealed_market_contract_provenance_missing" not in _reasons(
+        _decision(sourceSealedMarketSnapshotContractVersion=None),
+        expected_sealed_market_contract_version=None,
+    )
+
+
 def test_same_run_product_finalization_invalidates_older_decision():
     assert "product_results_stale" in _reasons(
         _decision(), expected_product_results_updated_at="2026-08-18T11:00:00Z"
