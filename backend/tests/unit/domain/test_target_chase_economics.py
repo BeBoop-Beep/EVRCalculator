@@ -43,6 +43,14 @@ def _box(**overrides):
 # Core identities
 # ---------------------------------------------------------------------------
 
+def test_one_in_480_loose_pack_thresholds_are_canonical():
+    block = loose_pack_odds_contract(target_probability_per_pack=1 / 480)
+    assert block["expectedPacksToHit"] == 480
+    assert block["packsFor50PercentChance"] == 333
+    assert block["packsFor75PercentChance"] == 665
+    assert block["packsFor90PercentChance"] == 1105
+    assert block["packsFor95PercentChance"] == 1437
+
 def test_product_probability_reduces_to_pack_probability_for_a_single_pack():
     block = target_chase_for_product(
         product_price=4.99,

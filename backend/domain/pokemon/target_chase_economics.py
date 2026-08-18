@@ -54,6 +54,14 @@ is removed from the journey value at the EV basis - removing it at today's
 price would manufacture phantom recovery equal to the drift - while the
 buy-versus-rip comparison uses today's price, because that is what the reader
 would actually pay.
+
+RECOVERY IS GROSS MARKET VALUE, NOT REALIZABLE CASH
+---------------------------------------------------
+``incidentalRecovery`` credits every saleable incidental pull at 100% of its
+market price. No fees, shipping, liquidity, condition, or sell-through haircut
+is modeled. Consequently ``ripAcquisitionCost`` is an optimistic modeled cost
+under gross-market-value recovery; it is not a measured realizable cash
+acquisition cost.
 """
 
 from __future__ import annotations
@@ -324,6 +332,8 @@ def target_chase_for_product(
         incidental_recovery = None
         rip_acquisition_cost = None
     else:
+        # Gross-market-value recovery on purpose. This is optimistic relative
+        # to liquidation and must not be relabeled as realizable cash value.
         incidental_recovery = gross_pull_value - ev_basis
         rip_acquisition_cost = gross_spend - incidental_recovery
 

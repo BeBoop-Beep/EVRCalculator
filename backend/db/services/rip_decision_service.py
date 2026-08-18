@@ -543,13 +543,65 @@ def _load_modeled_pull_denominators(client: Any, *, run_id: str) -> Dict[str, fl
 
 
 def _load_run_near_mint_prices(client: Any, *, run_id: str) -> List[Dict[str, Any]]:
-    """Current Near Mint prices for the run's cards."""
-    return _load_run_population(
-        client,
-        table=NEAR_MINT_PRICE_VIEW,
-        select="card_id,card_variant_id,card_name,rarity_bucket,current_near_mint_price",
-        run_id=run_id,
-    )
+    """Current Near Mint prices and the observation that supplied each price."""
+    try:
+        return _load_run_population(
+            client,
+            table=NEAR_MINT_PRICE_VIEW,
+            select=(
+                "card_id,card_variant_id,card_name,rarity_bucket,current_near_mint_price,"
+                "current_near_mint_price_captured_at,current_near_mint_price_source"
+            ),
+            run_id=run_id,
+        )
+    except Exception:
+        # Rolling-deploy compatibility only: code can be deployed before
+        # migration 071 reaches PostgREST's schema cache. Resolve the exact
+        # observation with the same identity/order as the migration, and only
+        # attach it when its value agrees with the view's current price.
+        rows = _load_run_population(
+            client, table=NEAR_MINT_PRICE_VIEW,
+            select=("card_id,card_variant_id,condition_id,card_name,rarity_bucket,"
+                    "current_near_mint_price"), run_id=run_id,
+        )
+        identities = {
+            (str(row.get("card_variant_id")), str(row.get("condition_id")))
+            for row in rows if row.get("card_variant_id") and row.get("condition_id")
+        }
+        latest: Dict[tuple, Mapping[str, Any]] = {}
+        variant_ids = sorted({variant for variant, _ in identities})
+        for start in range(0, len(variant_ids), 500):
+            observations = (
+                client.table("card_variant_price_observations")
+                .select("card_variant_id,condition_id,market_price,captured_at,source,created_at,id,currency")
+                .in_("card_variant_id", variant_ids[start:start + 500])
+                .order("captured_at", desc=True)
+                .order("created_at", desc=True)
+                .order("id", desc=True)
+                .execute().data or []
+            )
+            for observation in observations:
+                currency = str(observation.get("currency") or "").strip('"').upper()
+                key = (str(observation.get("card_variant_id")), str(observation.get("condition_id")))
+                if key in identities and key not in latest and currency == "USD" and _optional_float(observation.get("market_price")) not in {None, 0.0}:
+                    latest[key] = observation
+        enriched = []
+        for row in rows:
+            key = (str(row.get("card_variant_id")), str(row.get("condition_id")))
+            observation = latest.get(key)
+            current = _optional_float(row.get("current_near_mint_price"))
+            observed = _optional_float((observation or {}).get("market_price"))
+            agrees = current is not None and observed == current
+            enriched.append({
+                **row,
+                "current_near_mint_price_captured_at": (
+                    observation.get("captured_at") if observation and agrees else None
+                ),
+                "current_near_mint_price_source": (
+                    observation.get("source") if observation and agrees else None
+                ),
+            })
+        return enriched
 
 
 def _chase_image_fields(client: Any, *, card_id: Optional[str], variant_id: Optional[str]) -> Dict[str, Optional[str]]:

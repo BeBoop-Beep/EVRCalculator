@@ -22,7 +22,7 @@ from backend.scripts.pokemon_snapshot_builders import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build dedicated Pokemon chase-economics snapshots")
-    add_target_set_args(parser)
+    add_target_set_args(parser, include_current_authorities=True)
     add_publication_gate_args(parser)
     return parser
 

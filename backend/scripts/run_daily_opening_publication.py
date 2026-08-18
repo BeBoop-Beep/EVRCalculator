@@ -88,6 +88,9 @@ class PublicationSummary:
     skipped: List[Dict[str, str]] = field(default_factory=list)
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
+    chase_snapshot_publication_status: str = "not_attempted"
+    chase_audit_status: str = "not_attempted"
+    chase_audit_failures: List[str] = field(default_factory=list)
     verification_passed: bool = False
     publication_audit_status: str = "not_attempted"
     publication_audit_failed_sets: List[str] = field(default_factory=list)
@@ -139,6 +142,10 @@ class PublicationSummary:
                 f"total_ms={report.get('elapsedMs')}"
             )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
+        out.append(f"{TAG} chase_snapshot_publication_status={self.chase_snapshot_publication_status}")
+        out.append(f"{TAG} chase_audit_status={self.chase_audit_status}")
+        for failure in self.chase_audit_failures:
+            out.append(f"{TAG}   chase_audit_failed={failure}")
         out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
@@ -231,6 +238,45 @@ def refresh_public_snapshots(
     if commit:
         command.insert(2, "--commit")
     return _run_command(command, dry_run=dry_run)
+
+
+def refresh_chase_economics_snapshots(
+    *, python_executable: Optional[str] = None, dry_run: bool = False,
+    market_date: Optional[str] = None,
+) -> int:
+    """Rebuild Chase only after coordinated snapshots establish run identity."""
+    command = [
+        python_executable or sys.executable,
+        str(REPO_ROOT / "backend" / "scripts" / "build_pokemon_set_chase_economics_snapshots.py"),
+        "--current-authorities",
+        "--commit",
+    ]
+    if market_date:
+        command.extend(["--market-date", market_date])
+    return _run_command(command, dry_run=dry_run)
+
+
+def _chase_capability_expected(client: Any) -> bool:
+    """Do not force pre-Chase unit fakes to emulate newly audited relations."""
+    tables = getattr(client, "_tables", None)
+    if tables is None:
+        tables = getattr(client, "tables", None)
+    return not isinstance(tables, dict) or "pokemon_set_chase_economics_snapshot_latest" in tables
+
+
+def _run_chase_audit(
+    client: Any, summary: PublicationSummary, *, market_date: str,
+    dry_run: bool, skip_snapshots: bool,
+) -> str:
+    if dry_run or skip_snapshots or not _chase_capability_expected(client):
+        return "skipped"
+    from backend.scripts.audit_chase_economics_publication import run_audit
+    try:
+        report = run_audit(client, market_date=market_date)
+    except Exception as exc:  # fail closed
+        return f"error:{exc}"
+    summary.chase_audit_failures = report.failures
+    return "passed" if report.passed else (f"error:{report.error}" if report.error else "failed")
 
 
 def _latest_dates(report: OpeningSimulationFreshnessReport) -> Dict[str, Optional[str]]:
@@ -355,6 +401,7 @@ def orchestrate(
     # enforces via the exit code.
     if skip_snapshots:
         summary.snapshot_publication_status = "skipped"
+        summary.chase_snapshot_publication_status = "skipped"
     else:
         refresh_code = refresh_public_snapshots(
             python_executable=python_executable,
@@ -373,6 +420,20 @@ def orchestrate(
             summary.exit_code = EXIT_FAILED
             return summary
 
+        # The set-page rebuild above establishes the authoritative run identity.
+        # Sealed-product finalization already completed in step 3b. This is the
+        # narrow point where all four Chase inputs are authoritative together.
+        chase_code = refresh_chase_economics_snapshots(
+            python_executable=python_executable, dry_run=dry_run,
+            market_date=resolved_market_date,
+        )
+        if chase_code != 0:
+            summary.chase_snapshot_publication_status = f"failed_exit_{chase_code}"
+            summary.exit_code = EXIT_FAILED
+            summary.error = "Chase Economics snapshot rebuild failed"
+            return summary
+        summary.chase_snapshot_publication_status = "published"
+
     # ---- Step 5: refuse to claim freshness we do not have ------------------
     if summary.simulation_failed or not summary.verification_passed:
         summary.exit_code = EXIT_FAILED
@@ -384,6 +445,19 @@ def orchestrate(
                 "Opening Profit vs Cost is NOT current for "
                 f"{resolved_market_date}; refusing to report full freshness ({failed})"
             )
+        return summary
+
+    # Chase combines run-frozen inputs with current card/product prices. Its
+    # dedicated audit is therefore a publication gate, not a best-effort
+    # monitor: exit 0 means every represented clock can be proved current.
+    summary.chase_audit_status = _run_chase_audit(
+        client, summary, market_date=resolved_market_date,
+        dry_run=dry_run, skip_snapshots=skip_snapshots,
+    )
+    if summary.chase_audit_status not in {"passed", "skipped"}:
+        summary.exit_code = EXIT_FAILED
+        detail = "; ".join(summary.chase_audit_failures[:5]) or summary.chase_audit_status
+        summary.error = f"Chase Economics publication is stale or unverifiable ({detail})"
         return summary
 
     # ---- Step 6: the published artifact must agree, not just the sources ---
