@@ -332,7 +332,9 @@ def orchestrate(
 
     # ---- Step 3c: exact Pokemon-wide RIP Stats ----------------------------
     # This is Phase 2 only and is never attempted before the simulation gate.
-    if after.ok and not summary.simulation_failed and _rip_stats_capability_expected(client):
+    if skip_snapshots:
+        summary.rip_stats_publication_status = "skipped_skip_snapshots"
+    elif after.ok and not summary.simulation_failed and _rip_stats_capability_expected(client):
         summary.rip_stats_publication_status = _publish_rip_stats(
             client, summary, market_date=resolved_market_date, dry_run=dry_run
         )

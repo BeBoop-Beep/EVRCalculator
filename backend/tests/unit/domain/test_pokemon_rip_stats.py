@@ -43,3 +43,13 @@ def test_unequal_counts_duplicate_sets_and_nonfinite_values_fail_closed():
         calculate_pokemon_rip_stats([{"set_id": "a", "pack_cost": 5, "outcomes": [1]}, {"set_id": "a", "pack_cost": 5, "outcomes": [1]}])
     with pytest.raises(PokemonRipStatsError):
         calculate_pokemon_rip_stats([{"set_id": "a", "pack_cost": 5, "outcomes": [np.nan]}])
+
+
+def test_zero_loss_uses_canonical_resilience_defaults():
+    result = calculate_pokemon_rip_stats([
+        {"set_id": "a", "pack_cost": 5, "outcomes": [5, 6, 10]},
+        {"set_id": "b", "pack_cost": 10, "outcomes": [10, 11, 20]},
+    ])
+    assert result["averageRetentionGivenLoss"] == 1.0
+    assert result["softLossShareGivenLoss"] == 1.0
+    assert result["hardLossProbability"] == 0.0

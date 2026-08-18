@@ -48,6 +48,7 @@ def _load_canonical_histories(client, set_ids):
         rows = list((client.table("pokemon_set_value_daily_history")
             .select("set_id,snapshot_date,set_value").in_("set_id", set_ids)
             .eq("value_scope", "standard").order("snapshot_date", desc=False)
+            .order("set_id", desc=False)
             .range(start, start + page_size - 1).execute()).data or [])
         for row in rows:
             grouped[str(row.get("set_id"))].append(row)
@@ -57,7 +58,7 @@ def _load_canonical_histories(client, set_ids):
     return grouped
 
 
-def build(*, client, market_date: str, commit: bool) -> dict:
+def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
     sets = _load_sets(client)
     set_ids = [str(row["id"]) for row in sets]
     dashboards = []
@@ -69,7 +70,12 @@ def build(*, client, market_date: str, commit: bool) -> dict:
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
     histories = _load_canonical_histories(client, set_ids)
-    overview = build_market_overview(read_index_history(client, through_date=market_date), market_date=market_date)
+    overview = market_overview
+    if overview is None:
+        history = market_index_history
+        if history is None:
+            history = read_index_history(client, through_date=market_date)
+        overview = build_market_overview(history, market_date=market_date)
     row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)

@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from uuid import UUID
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1572,13 +1572,17 @@ def _maybe_rebuild_explore_card_movers(
 
 
 def _maybe_rebuild_explore_set_values(
-    client: Any, *, market_date: Optional[str], commit: bool, summary: RefreshSummary
+    client: Any, *, market_date: Optional[str], commit: bool, summary: RefreshSummary,
+    market_index_history: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> None:
     if not market_date:
         summary.global_failed.append("explore_set_values: promoted market date unavailable")
         return
     try:
-        candidate = build_explore_set_values(client=client, market_date=str(market_date)[:10], commit=False)
+        build_kwargs = {"client": client, "market_date": str(market_date)[:10], "commit": False}
+        if market_index_history is not None:
+            build_kwargs["market_index_history"] = market_index_history
+        candidate = build_explore_set_values(**build_kwargs)
         current = _read_snapshot_row(
             client, "pokemon_explore_set_value_snapshot_latest", "source_generation_fingerprint",
             (("tcg", "pokemon"), ("scope", "market")),
@@ -2212,6 +2216,8 @@ def main() -> None:
         # Global Market is a two-stage publication: canonical set-value history
         # first, then its chain-linked Pokemon-level index, then the page-ready
         # snapshot that embeds marketOverview.
+        index_ready = False
+        index_history_for_snapshot = None
         try:
             if not hasattr(client, "table"):
                 raise LookupError("legacy test client has no PostgREST surface")
@@ -2221,16 +2227,20 @@ def main() -> None:
                 persist_index_rows(client, index_rows)
             else:
                 summary.stale_snapshot_families.add("pokemon_market_index")
+                index_history_for_snapshot = index_rows
+            index_ready = True
         except LookupError:
             # Strict repository fakes used by pre-index orchestration tests do
             # not model PostgREST. Real clients always expose table().
             summary.global_skipped.append("pokemon_market_index: client unavailable")
         except Exception as exc:
             summary.global_failed.append(f"pokemon_market_index: {exc}")
-        _maybe_rebuild_explore_set_values(
-            client, market_date=args.market_date or gate.market_date,
-            commit=commit, summary=summary,
-        )
+        if index_ready:
+            _maybe_rebuild_explore_set_values(
+                client, market_date=args.market_date or gate.market_date,
+                commit=commit, summary=summary,
+                market_index_history=index_history_for_snapshot,
+            )
         _maybe_rebuild_explore_card_movers(
             client, market_date=args.market_date or gate.market_date,
             commit=commit, summary=summary,

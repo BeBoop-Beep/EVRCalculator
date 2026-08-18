@@ -37,7 +37,8 @@ def _paged_source_rows(client: Any, set_ids: Sequence[str]) -> list[dict[str, An
         page = list((client.table(SOURCE_TABLE)
             .select("set_id,snapshot_date,set_value,priced_card_count,total_card_count,value_scope,source,updated_at")
             .in_("set_id", list(set_ids)).in_("value_scope", ["standard", "top10"])
-            .order("snapshot_date", desc=False).range(offset, offset + PAGE_SIZE - 1).execute()).data or [])
+            .order("snapshot_date", desc=False).order("set_id", desc=False)
+            .order("value_scope", desc=False).range(offset, offset + PAGE_SIZE - 1).execute()).data or [])
         rows.extend(dict(row) for row in page)
         if len(page) < PAGE_SIZE:
             return rows

@@ -1,6 +1,6 @@
 import pytest
 
-from backend.db.services.pokemon_market_index_service import build_index_rows
+from backend.db.services.pokemon_market_index_service import _paged_source_rows, build_index_rows
 
 
 SETS = [
@@ -38,3 +38,26 @@ def test_input_order_does_not_change_source_fingerprints():
     forward = build_index_rows(SETS[:2], rows)
     reverse = build_index_rows(list(reversed(SETS[:2])), list(reversed(rows)))
     assert [(r["index_key"], r["source_generation_fingerprint"]) for r in forward] == [(r["index_key"], r["source_generation_fingerprint"]) for r in reverse]
+
+
+def test_paged_source_rows_has_total_order_across_tied_date_boundary():
+    rows = [source("2026-01-01", f"set-{index:04d}", scope, index + 1, 10)
+            for index in range(501) for scope in ("standard", "top10")]
+    class Result:
+        def __init__(self, data): self.data = data
+    class Query:
+        def __init__(self): self.orders = []; self.bounds = (0, len(rows) - 1)
+        def select(self, *_a): return self
+        def in_(self, *_a): return self
+        def order(self, column, desc=False): self.orders.append((column, desc)); return self
+        def range(self, start, end): self.bounds = (start, end); return self
+        def execute(self):
+            ordered = sorted(rows, key=lambda row: tuple(row[column] for column, _ in self.orders))
+            return Result(ordered[self.bounds[0]:self.bounds[1] + 1])
+    class Client:
+        def __init__(self): self.queries = []
+        def table(self, _name): query = Query(); self.queries.append(query); return query
+    client = Client(); loaded = _paged_source_rows(client, [row["set_id"] for row in rows])
+    identities = [(row["snapshot_date"], row["set_id"], row["value_scope"]) for row in loaded]
+    assert len(identities) == 1002 == len(set(identities))
+    assert all(query.orders == [("snapshot_date", False), ("set_id", False), ("value_scope", False)] for query in client.queries)

@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
-from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
+from backend.db.services.pack_outcome_artifact_service import (
+    load_pack_outcome_artifact, load_pack_outcome_artifact_metadata,
+)
 from backend.db.services.pokemon_market_index_service import resolve_eligible_sets
 from backend.domain.pokemon.rip_stats import (
     POKEMON_RIP_STATS_CONTRACT_VERSION, POKEMON_RIP_STATS_METHODOLOGY_VERSION,
-    POKEMON_RIP_STATS_WEIGHTING_VERSION, calculate_pokemon_rip_stats, deterministic_fingerprint,
+    POKEMON_RIP_STATS_WEIGHTING_VERSION, calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
 )
 
 HISTORY_TABLE = "pokemon_rip_stats_snapshots"
@@ -70,14 +72,15 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
         cost = float(summary.get("pack_cost") or 0) if summary else 0
         if not summary or not math.isfinite(cost) or cost <= 0:
             raise PokemonRipStatsUnavailable(f"run {run_id} has no valid pack cost")
-        loaded = load_pack_outcome_artifact(client, run_id)
-        metadata = loaded.metadata
+        metadata = load_pack_outcome_artifact_metadata(client, run_id)
         outcome_count = int(metadata["outcome_count"])
         if common_count is None:
             common_count = outcome_count
         elif outcome_count != common_count:
             raise PokemonRipStatsUnavailable("equal-set empirical v1 requires equal artifact outcome counts")
-        item = {"set_id": str(status.set_id), "canonical_key": status.canonical_key, "pack_cost": cost, "outcomes": loaded.outcomes}
+        item = {"set_id": str(status.set_id), "canonical_key": status.canonical_key,
+                "calculation_run_id": run_id, "pack_cost": cost, "outcome_count": outcome_count,
+                "artifact_sha256": metadata["raw_sha256"]}
         inputs.append(item)
         source = {"set_id": str(status.set_id), "calculation_run_id": run_id, "artifact_sha256": metadata["raw_sha256"],
             "artifact_outcome_count": outcome_count, "pack_cost": cost, "market_date": day}
@@ -85,7 +88,17 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
         constituents.append({**source, "set_canonical_key": status.canonical_key, "set_weight": 1.0 / len(statuses), "source_market_date": day})
     cohort_fp = deterministic_fingerprint([{"set_id": item["set_id"]} for item in provenance])
     source_fp = deterministic_fingerprint(provenance)
-    metrics = calculate_pokemon_rip_stats(inputs)
+    def load_validated_outcomes(item: Mapping[str, Any]):
+        loaded = load_pack_outcome_artifact(client, item["calculation_run_id"])
+        metadata = loaded.metadata
+        if (int(metadata["outcome_count"]) != int(item["outcome_count"])
+                or metadata["raw_sha256"] != item["artifact_sha256"]):
+            raise PokemonRipStatsUnavailable(
+                f"artifact changed between metadata and calculation passes for {item['set_id']}"
+            )
+        return loaded.outcomes
+
+    metrics = calculate_pokemon_rip_stats_streaming(inputs, load_validated_outcomes)
     payload = _build_payload(metrics, market_date=day, cohort_fingerprint=cohort_fp, source_fingerprint=source_fp)
     now = datetime.now(timezone.utc).isoformat()
     private = {"market_date": day, "built_at": now, "contract_version": POKEMON_RIP_STATS_CONTRACT_VERSION,
