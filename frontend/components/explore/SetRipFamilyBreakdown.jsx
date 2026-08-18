@@ -103,7 +103,7 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
     return (
-      <div data-family-snapshot className={`grid gap-x-1 gap-y-1 rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.025)] p-0.5 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"}`}>
+      <div data-family-snapshot className={`grid gap-x-1 gap-y-1 rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.025)] p-0.5 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-6"}`}>
         {families.map((entry) => {
           const tier = familyTier(entry);
           const tierColor = tier ? RANK_CONFIG[tier]?.color : null;

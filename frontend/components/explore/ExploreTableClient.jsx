@@ -831,12 +831,12 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 width. Set stays auto and absorbs what is left.
               */}
               <colgroup>
-                <col style={{ width: "2.6rem" }} />
-                <col style={{ width: "20%" }} />
-                <col style={{ width: "8%" }} />
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "19%" }} />
+                <col style={{ width: "9%" }} />
                 <col style={{ width: "6%" }} />
-                <col style={{ width: "42%" }} />
-                <col style={{ width: "17%" }} />
+                <col style={{ width: "46%" }} />
+                <col style={{ width: "16%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>

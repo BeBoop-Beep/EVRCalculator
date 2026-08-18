@@ -6,6 +6,7 @@ const rankings = fs.readFileSync(new URL("./ExploreTableClient.jsx", import.meta
 const setPage = fs.readFileSync(new URL("./RipDecisionPage.jsx", import.meta.url), "utf8");
 const shared = fs.readFileSync(new URL("./SetRipFamilyBreakdown.jsx", import.meta.url), "utf8");
 const cohortControl = fs.readFileSync(new URL("./ProductFamilyRankingsClient.jsx", import.meta.url), "utf8");
+const rankingsPage = fs.readFileSync(new URL("../../app/Explore/page.js", import.meta.url), "utf8");
 
 test("Rankings desktop exposes the approved Set RIP hierarchy and no economics columns", () => {
   for (const heading of ["Set RIP Score", "Tier", "Product Family Snapshot", "Why It Ranks"]) {
@@ -49,12 +50,18 @@ test("family presentation is text-first while the set-page header remains owned 
 
 test("Rankings uses one compact shared snapshot panel and the approved view control", () => {
   assert.ok(shared.includes("data-family-snapshot"));
-  assert.ok(shared.includes('compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"'));
+  assert.ok(shared.includes('compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-6"'));
   assert.ok(!shared.includes("repeat(auto-fit"));
   assert.ok(rankings.includes("data-set-rip-score-badge"));
   assert.ok(rankings.includes("data-ranking-insight"));
   assert.ok(cohortControl.includes(">Sets</button>"));
   assert.ok(cohortControl.includes(">Individual Products</button>"));
+});
+
+test("Rankings data surface uses the wider desktop canvas and prioritizes family capacity", () => {
+  assert.ok(rankingsPage.includes('data-rankings-data-surface className="mx-auto w-full max-w-7xl"'));
+  assert.ok(rankings.includes('<col style={{ width: "46%" }} />'));
+  assert.ok(rankings.includes('<col style={{ width: "16%" }} />'));
 });
 
 test("Set RIP score uses an accessible shared SVG outline and Tier remains separate", () => {
