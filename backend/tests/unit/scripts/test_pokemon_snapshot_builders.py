@@ -1485,7 +1485,9 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
         lambda **_kwargs: {
             "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
             "sourceCalculationRunId": "run-b",
-            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
+            "sourceSealedMarketClassificationVersion": "classification-v1",
+            "sourceSealedProductResultCount": 1,
+            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{"sourceCalculationRunId": "run-b"}]},
             "topChase": {"sourceCalculationRunId": "run-b"},
         },
     )
@@ -1689,7 +1691,9 @@ def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(
         lambda **_kwargs: {
             "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
             "sourceCalculationRunId": "run-b",
-            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
+            "sourceSealedMarketClassificationVersion": "classification-v1",
+            "sourceSealedProductResultCount": 1,
+            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{"sourceCalculationRunId": "run-b"}]},
             "topChase": {"sourceCalculationRunId": "run-b"},
         },
     )

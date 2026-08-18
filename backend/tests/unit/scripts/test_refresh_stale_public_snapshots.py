@@ -1239,6 +1239,23 @@ def test_set_page_freshness_depends_on_the_explore_rankings_snapshot(monkeypatch
     assert latest == "2026-08-04T13:30:00Z"
 
 
+def test_set_page_freshness_depends_on_product_results_and_sealed_market(monkeypatch):
+    reads = []
+
+    def latest_timestamp(_client, *, table, timestamp_columns, filters=None):
+        reads.append((table, tuple(filters or ())))
+        value = "2026-08-18T11:00:00Z" if table == "simulation_sealed_product_results" else None
+        return value, []
+
+    monkeypatch.setattr(refresh, "_latest_timestamp", latest_timestamp)
+    monkeypatch.setattr(refresh, "_latest_run_id_for_set", lambda *_a, **_k: "run-1")
+    latest, _checks = refresh._latest_for_set_page(object(), "set-1")
+
+    assert ("simulation_sealed_product_results", (("calculation_run_id", "run-1"),)) in reads
+    assert ("pokemon_set_sealed_market_snapshot_latest", (("set_id", "set-1"),)) in reads
+    assert latest == "2026-08-18T11:00:00Z"
+
+
 def test_a_failed_sealed_market_rebuild_is_a_hard_failure():
     """Sealed Market has no simulation dependency, so its failure is never soft."""
     summary = refresh.RefreshSummary()
