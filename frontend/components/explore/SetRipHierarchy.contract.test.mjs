@@ -7,6 +7,7 @@ const setPage = fs.readFileSync(new URL("./RipDecisionPage.jsx", import.meta.url
 const shared = fs.readFileSync(new URL("./SetRipFamilyBreakdown.jsx", import.meta.url), "utf8");
 const cohortControl = fs.readFileSync(new URL("./ProductFamilyRankingsClient.jsx", import.meta.url), "utf8");
 const rankingsPage = fs.readFileSync(new URL("../../app/Explore/page.js", import.meta.url), "utf8");
+const familyStyles = fs.readFileSync(new URL("./explore.module.css", import.meta.url), "utf8");
 
 test("Rankings desktop exposes the approved Set RIP hierarchy and no economics columns", () => {
   for (const heading of ["Set RIP Score", "Tier", "Product Family Snapshot", "Why It Ranks"]) {
@@ -50,8 +51,10 @@ test("family presentation is text-first while the set-page header remains owned 
 
 test("Rankings uses one compact shared snapshot panel and the approved view control", () => {
   assert.ok(shared.includes("data-family-snapshot"));
-  assert.ok(shared.includes('compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-6"'));
-  assert.ok(!shared.includes("repeat(auto-fit"));
+  assert.ok(shared.includes("Math.min(families.length, 7)"));
+  assert.ok(familyStyles.includes("repeat(2, minmax(0, 1fr))"));
+  assert.ok(familyStyles.includes("repeat(3, minmax(0, 1fr))"));
+  assert.ok(familyStyles.includes("repeat(var(--family-columns), minmax(0, 1fr))"));
   assert.ok(rankings.includes("data-set-rip-score-badge"));
   assert.ok(rankings.includes("data-ranking-insight"));
   assert.ok(cohortControl.includes(">Sets</button>"));
@@ -59,9 +62,9 @@ test("Rankings uses one compact shared snapshot panel and the approved view cont
 });
 
 test("Rankings data surface uses the wider desktop canvas and prioritizes family capacity", () => {
-  assert.ok(rankingsPage.includes('data-rankings-data-surface className="mx-auto w-full max-w-7xl"'));
-  assert.ok(rankings.includes('<col style={{ width: "46%" }} />'));
-  assert.ok(rankings.includes('<col style={{ width: "16%" }} />'));
+  assert.ok(rankingsPage.includes("md:max-w-[84rem]"));
+  assert.ok(rankings.includes('<col style={{ width: "51%" }} />'));
+  assert.ok(rankings.includes('<col style={{ width: "14%" }} />'));
 });
 
 test("Set RIP score uses an accessible shared SVG outline and Tier remains separate", () => {
@@ -79,6 +82,9 @@ test("family panel relies on spacing rather than spreadsheet cell borders", () =
   const moduleMarkup = shared.slice(shared.indexOf("data-family-module"), shared.indexOf("</div>;", shared.indexOf("data-family-module")));
   assert.ok(!moduleMarkup.includes("border-r"));
   assert.ok(!moduleMarkup.includes("border-b"));
+  assert.ok(!familyStyles.includes("border-right"));
+  assert.ok(familyStyles.includes("height: 60%"));
+  assert.ok(familyStyles.includes("background: var(--border-subtle)"));
   assert.ok(shared.includes("text-[10px] font-semibold"));
   assert.ok(shared.includes("text-[15px] font-bold"));
 });

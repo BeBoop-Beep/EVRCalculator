@@ -116,7 +116,7 @@ export default async function ExplorePage({ searchParams }) {
           original mb-5 is the unconditional base and mobile subtracts it — so
           the desktop value can never lose a source-order coin toss to the
           mobile override the way `mb-0 desk:mb-5` did. */}
-      <div data-rankings-data-surface className="mx-auto w-full max-w-7xl">
+      <div data-rankings-data-surface className="mx-auto w-full md:relative md:left-1/2 md:w-[calc(100vw-3rem)] md:max-w-[84rem] md:-translate-x-1/2">
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>

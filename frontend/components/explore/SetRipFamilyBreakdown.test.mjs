@@ -92,6 +92,18 @@ test("Rankings renders every enriched family as a text-first module", () => {
   }
 });
 
+test("wide Rankings snapshot structurally supports seven families in seven columns", () => {
+  const sevenFamilies = {
+    familyScores: [...enrichedFamilies.familyScores, { family: "three_pack_blister", skuCount: 1, score: 88.4, rank: 4, cohortSize: 22 }],
+  };
+  const renderer = render(React.createElement(FamilySnapshot, { setRip: sevenFamilies, layout: "modules" }));
+  const snapshot = renderer.root.find((node) => node.props["data-family-snapshot"] !== undefined);
+  assert.equal(snapshot.props["data-wide-family-columns"], 7);
+  assert.equal(snapshot.props.style["--family-columns"], 7);
+  assert.equal(renderer.root.findAll((node) => node.props["data-family-module"] !== undefined).length, 7);
+  assert.equal(renderer.root.findAllByType("img").length, 0);
+});
+
 test("Set-page and mobile family rows do not depend on product imagery", () => {
   for (const compact of [false, true]) {
     const renderer = render(React.createElement(FamilyScoreRow, { entry: enrichedFamilies.familyScores[4], compact, showTakeaway: true }));

@@ -102,12 +102,18 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
   const families = participatingFamilyScores(setRip);
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
+    const wideColumnCount = Math.min(families.length, 7);
     return (
-      <div data-family-snapshot className={`grid gap-x-1 gap-y-1 rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.025)] p-0.5 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-6"}`}>
+      <div
+        data-family-snapshot
+        data-wide-family-columns={wideColumnCount}
+        className={`set-rip-family-snapshot ${compact ? "set-rip-family-snapshot--compact" : "set-rip-family-snapshot--wide"}`}
+        style={{ "--family-columns": wideColumnCount }}
+      >
         {families.map((entry) => {
           const tier = familyTier(entry);
           const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
-          return <div data-family-module key={entry.family} className="flex min-w-0 flex-col gap-px px-2"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
+          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
         })}
       </div>
     );
