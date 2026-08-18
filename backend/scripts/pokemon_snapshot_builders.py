@@ -632,7 +632,7 @@ def _merge_rip_decision_contract_into_set_payload(
 
 
 def _assert_current_run_rip_decision(
-    payload: Dict[str, Any], *, set_id: str, expected_run_id: Optional[str], required: bool
+    payload: Dict[str, Any], *, set_id: str, expected_run_id: Optional[str], required: bool,
 ) -> None:
     """Fail closed before persistence when a ranked set lacks current-run Top Chase."""
     if not required:
@@ -659,6 +659,16 @@ def _assert_current_run_rip_decision(
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required current-run Top Chase is missing")
     if first_non_empty(chase.get("sourceCalculationRunId")) != run_id:
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: Top Chase run mismatch")
+    classification_version = first_non_empty(decision.get("sourceSealedMarketClassificationVersion"))
+    if classification_version is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-market classification provenance is missing")
+    products = sealed.get("products") if isinstance(sealed.get("products"), list) else []
+    if decision.get("sourceSealedProductResultCount") != len(products):
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-product source population mismatch")
+    if first_non_empty(decision.get("sourceSealedProductResultsUpdatedAt")) is None:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed-product result provenance is missing")
+    if any(first_non_empty(product.get("sourceCalculationRunId")) != run_id for product in products if isinstance(product, dict)):
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: modeled product run mismatch")
 
 
 def _snapshot_payload_run_id(payload: Dict[str, Any]) -> Optional[str]:

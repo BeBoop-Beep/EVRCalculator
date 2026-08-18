@@ -331,6 +331,33 @@ def orchestrate(
         return summary
     summary.market_date = resolved_market_date
 
+    # ---- Step 1b: this date must OWN publication authority -----------------
+    # resolve_market_date deliberately still honours an explicit --market-date
+    # so read-only audits can target any historical day. This orchestrator is
+    # COMMIT-CAPABLE, so it must additionally prove the resolved date is
+    # genuinely promoted before anything downstream mutates. Placed before
+    # simulations, sealed-product finalization, RIP Stats aggregation and every
+    # snapshot write - the 2026-08-18 incident got past this point because no
+    # such check existed on this path.
+    from backend.db.services.publication_gate import (
+        MODE_REQUIRED,
+        evaluate_publication_gate,
+        gate_decision_report,
+    )
+
+    authority = evaluate_publication_gate(
+        client, market_date=resolved_market_date, mode=MODE_REQUIRED
+    )
+    if not authority.allowed:
+        for line in gate_decision_report(authority, entry_point="daily opening publication"):
+            print(line)
+        summary.error = (
+            f"publication authority denied for {resolved_market_date}: {authority.reason} "
+            f"(reason_code={authority.reason_code})"
+        )
+        summary.exit_code = GATE_DEFERRED_EXIT_CODE
+        return summary
+
     # ---- Step 2: what still needs a simulation for that date ---------------
     before = evaluate_opening_simulation_freshness(
         client, market_date=resolved_market_date, unsupported_keys=unsupported_keys

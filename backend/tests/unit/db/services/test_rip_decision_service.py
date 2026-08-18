@@ -629,6 +629,38 @@ def test_combined_contract_carries_both_sections_and_the_scope(monkeypatch):
     assert contract["crossFormatComparable"] is False
 
 
+def test_builder_publishes_consumed_source_provenance_and_score_versions(monkeypatch):
+    row = _product_row(
+        updated_at="2026-08-18T10:00:00Z",
+        financial_rip_v3_version="financial-v3",
+        collector_appeal_version="collector-v7",
+        overall_rip_version="overall-v9",
+        overall_rip_rankable=True,
+    )
+    monkeypatch.setattr(service, "get_sealed_product_results_for_run", lambda *_a, **_k: [row])
+    snapshot = {
+        "meta": {
+            "classificationVersion": "classification-v3",
+            "snapshotContractVersion": "market-v3",
+        },
+        "products": [],
+    }
+    contract = build_rip_decision_contract(
+        set_id="set-1", run_id=RUN_A, client=_top_chase_client([], []),
+        sealed_snapshot_fn=lambda _set_id: snapshot,
+    )
+    product = contract["sealedProducts"]["products"][0]
+    assert contract["sourceSealedMarketClassificationVersion"] == "classification-v3"
+    assert contract["sourceSealedMarketSnapshotContractVersion"] == "market-v3"
+    assert contract["sourceSealedProductResultCount"] == 1
+    assert contract["sourceSealedProductResultsUpdatedAt"] == "2026-08-18T10:00:00Z"
+    assert product["sourceCalculationRunId"] == RUN_A
+    assert product["financialRipVersion"] == "financial-v3"
+    assert product["collectorAppealVersion"] == "collector-v7"
+    assert product["overallRipVersion"] == "overall-v9"
+    assert product["overallRipRankable"] is True
+
+
 def test_combined_contract_survives_a_run_with_no_sealed_product_rows(monkeypatch):
     monkeypatch.setattr(
         service, "get_sealed_product_results_for_run", lambda run_id, client=None: []

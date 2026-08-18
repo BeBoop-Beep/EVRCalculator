@@ -7,12 +7,17 @@ from backend.scripts.audit_pokemon_level_schema_parity import (EXPECTED_COLUMNS,
     SERVICE_PRIVILEGES, reconcile)
 
 
+# Actual privileges service_role holds in production on the four Pokemon-level analytics
+# tables, as reported by backend/scripts/assets/pokemon_level_schema_inventory.sql.
+PRODUCTION_SERVICE_ROLE_PRIVILEGES = {"DELETE", "INSERT", "REFERENCES", "SELECT", "TRIGGER", "TRUNCATE", "UPDATE"}
+
+
 def production_inventory():
     tables = {name: {"columns": [{"name": column, **definition} for column, definition in columns.items()],
         "rlsEnabled": True, "constraints": [" ".join(EXPECTED_CONSTRAINT_TOKENS[name])],
         "indexes": [" ".join(EXPECTED_INDEX_TOKENS[name])]}
         for name, columns in EXPECTED_COLUMNS.items()}
-    grants = [{"table": table, "grantee": "service_role", "privileges": sorted(SERVICE_PRIVILEGES)} for table in EXPECTED_COLUMNS]
+    grants = [{"table": table, "grantee": "service_role", "privileges": sorted(PRODUCTION_SERVICE_ROLE_PRIVILEGES)} for table in EXPECTED_COLUMNS]
     grants += [{"table": "pokemon_rip_stats_snapshot_latest", "grantee": role, "privileges": ["SELECT"]} for role in ("anon", "authenticated")]
     return {"tables": tables, "policies": [{"table": "pokemon_rip_stats_snapshot_latest",
         "name": "pokemon_rip_stats_snapshot_latest_read_policy", "roles": ["anon", "authenticated"],
@@ -52,3 +57,55 @@ def test_every_semantic_drift_category_fails_closed_without_repair_commands(muta
     changed = copy.deepcopy(production_inventory()); mutation(changed); result = reconcile(changed)
     assert result["status"] == "mismatch"
     assert result["repairCommands"] == []
+
+
+def _service_grant(inventory, table):
+    return next(row for row in inventory["grants"] if row["table"] == table and row["grantee"] == "service_role")
+
+
+def test_production_fixture_matches_verified_catalog_privilege_shape():
+    inventory = production_inventory()
+    assert SERVICE_PRIVILEGES < PRODUCTION_SERVICE_ROLE_PRIVILEGES
+    for table in EXPECTED_COLUMNS:
+        assert _service_grant(inventory, table)["privileges"] == [
+            "DELETE", "INSERT", "REFERENCES", "SELECT", "TRIGGER", "TRUNCATE", "UPDATE"]
+
+
+def test_case_a_full_production_service_role_privileges_are_parity():
+    assert reconcile(production_inventory())["status"] == "parity"
+
+
+@pytest.mark.parametrize("privilege", ["SELECT", "INSERT", "UPDATE", "DELETE"])
+def test_cases_b_to_e_missing_required_service_role_privilege_fails_closed(privilege):
+    inventory = production_inventory()
+    for table in EXPECTED_COLUMNS:
+        grant = _service_grant(inventory, table)
+        grant["privileges"] = [item for item in grant["privileges"] if item != privilege]
+    result = reconcile(inventory)
+    assert result["status"] == "mismatch"
+    assert result["repairCommands"] == []
+
+
+@pytest.mark.parametrize("role,privileges", [("anon", ["INSERT"]), ("authenticated", ["UPDATE"]), ("PUBLIC", ["SELECT"])])
+def test_cases_f_to_h_public_roles_on_private_tables_fail_closed(role, privileges):
+    inventory = production_inventory()
+    inventory["grants"].append({"table": sorted(PRIVATE_TABLES)[0], "grantee": role, "privileges": privileges})
+    result = reconcile(inventory)
+    assert result["status"] == "mismatch"
+    assert result["repairCommands"] == []
+
+
+def test_case_i_anon_write_on_public_latest_fails_closed():
+    inventory = production_inventory()
+    inventory["grants"].append({"table": "pokemon_rip_stats_snapshot_latest", "grantee": "anon",
+                                "privileges": ["SELECT", "INSERT"]})
+    result = reconcile(inventory)
+    assert result["status"] == "mismatch"
+    assert result["repairCommands"] == []
+
+
+def test_case_j_additional_non_required_service_role_privilege_is_parity():
+    inventory = production_inventory()
+    for table in EXPECTED_COLUMNS:
+        _service_grant(inventory, table)["privileges"].append("MAINTAIN")
+    assert reconcile(inventory)["status"] == "parity"

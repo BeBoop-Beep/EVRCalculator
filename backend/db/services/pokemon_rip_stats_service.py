@@ -10,6 +10,7 @@ from backend.db.services.pack_outcome_artifact_service import (
     load_pack_outcome_artifact, load_pack_outcome_artifact_metadata,
 )
 from backend.db.services.pokemon_market_index_service import resolve_eligible_sets
+from backend.db.services.publication_gate import MODE_REQUIRED, evaluate_publication_gate
 from backend.domain.pokemon.rip_stats import (
     POKEMON_RIP_STATS_CONTRACT_VERSION, POKEMON_RIP_STATS_METHODOLOGY_VERSION,
     POKEMON_RIP_STATS_WEIGHTING_VERSION, calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
@@ -111,7 +112,35 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
             "payloadSizeBytes": len(json.dumps(payload, separators=(",", ":")).encode())}
 
 
+def _require_publication_authority(client: Any, market_date: str) -> None:
+    """Fail closed unless the exact snapshot date owns a promoted, complete batch.
+
+    Defense in depth. The CLI gate is not enough: any caller reaching the
+    service directly (orchestrators, ad-hoc scripts, a REPL) would otherwise
+    publish straight through to the RPC. The authority is re-evaluated here for
+    the snapshot's OWN market_date so a caller cannot publish date A while a
+    different date B happens to be promoted.
+
+    ``mode`` is pinned to required on purpose: PUBLICATION_GATE_MODE=disabled
+    must not be able to weaken the RIP Stats sequencing invariant, and no
+    override is accepted at this layer.
+    """
+    decision = evaluate_publication_gate(client, market_date=market_date, mode=MODE_REQUIRED)
+    if not decision.allowed:
+        raise PokemonRipStatsUnavailable(
+            f"RIP Stats publication authority denied for {market_date}: "
+            f"{decision.reason} (reason_code={decision.reason_code}, "
+            f"batch_status={decision.batch_status}, promoted_at={decision.promoted_at}, "
+            f"missing_set_count={decision.missing_set_count}, "
+            f"expected_set_count={decision.expected_set_count})"
+        )
+
+
 def publish_pokemon_rip_stats_snapshot(client: Any, built: Mapping[str, Any]) -> str:
+    market_date = str((built.get("snapshot") or {}).get("market_date") or "")[:10]
+    if not market_date:
+        raise PokemonRipStatsUnavailable("built RIP Stats snapshot has no market_date to authorize")
+    _require_publication_authority(client, market_date)
     result = client.rpc(PUBLICATION_RPC, {"p_snapshot": built["snapshot"], "p_constituents": built["constituents"]}).execute()
     if not result or not result.data:
         raise PokemonRipStatsUnavailable("atomic RIP Stats publication returned no snapshot id")

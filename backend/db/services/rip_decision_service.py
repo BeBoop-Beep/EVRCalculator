@@ -234,6 +234,7 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         )
 
     return {
+        "sourceCalculationRunId": _optional_str(row.get("calculation_run_id")),
         "sealedProductId": _optional_str(row.get("sealed_product_id")),
         "productName": _optional_str(row.get("product_name")),
         "productFamily": _optional_str(row.get("product_family")),
@@ -244,8 +245,12 @@ def _product_decision_row(row: Mapping[str, Any]) -> Dict[str, Any]:
         "chanceToRecoverCost": _optional_float(row.get("chance_to_recover_cost")),
         "expectedLossWhenLosing": _optional_float(row.get("expected_loss_when_losing")),
         "financialRipScore": _optional_float(row.get("financial_rip_v3_score")),
+        "financialRipVersion": _optional_str(row.get("financial_rip_v3_version")),
         "collectorAppealScore": _optional_float(row.get("collector_appeal_score")),
+        "collectorAppealVersion": _optional_str(row.get("collector_appeal_version")),
         "overallRipScore": _optional_float(row.get("overall_rip_score")),
+        "overallRipVersion": _optional_str(row.get("overall_rip_version")),
+        "overallRipRankable": bool(row.get("overall_rip_rankable")),
         "priceAsOf": _optional_str(row.get("price_as_of")),
         "priceSource": _optional_str(row.get("price_source")),
         "composition": _product_composition(row),
@@ -725,6 +730,10 @@ def build_rip_decision_contract(
             "contractVersion": RIP_DECISION_CONTRACT_VERSION,
             "sourceCalculationRunId": None,
             "currentRunAvailable": False,
+            "sourceSealedMarketClassificationVersion": None,
+            "sourceSealedMarketSnapshotContractVersion": None,
+            "sourceSealedProductResultCount": 0,
+            "sourceSealedProductResultsUpdatedAt": None,
             "sealedProducts": build_sealed_product_decision_contract(
                 [], run_status=RUN_STATUS_NO_CURRENT_RUN
             ),
@@ -760,10 +769,32 @@ def build_rip_decision_contract(
         logger.warning("unsupported product read failed set_id=%s", set_id, exc_info=True)
         snapshot = None
 
+    snapshot_meta = snapshot.get("meta") if isinstance(snapshot, Mapping) else None
+    if not isinstance(snapshot_meta, Mapping):
+        snapshot_meta = {}
+    product_results_updated_at = max(
+        (
+            value
+            for value in (_optional_str(row.get("updated_at")) for row in product_rows)
+            if value is not None
+        ),
+        default=None,
+    )
+
     return {
         "contractVersion": RIP_DECISION_CONTRACT_VERSION,
         "sourceCalculationRunId": resolved_run_id,
         "currentRunAvailable": True,
+        # These describe the sources actually consumed. They deliberately do
+        # not import/stamp today's classifier constants independently.
+        "sourceSealedMarketClassificationVersion": _optional_str(
+            snapshot_meta.get("classificationVersion")
+        ),
+        "sourceSealedMarketSnapshotContractVersion": _optional_str(
+            snapshot_meta.get("snapshotContractVersion")
+        ),
+        "sourceSealedProductResultCount": len(product_rows),
+        "sourceSealedProductResultsUpdatedAt": product_results_updated_at,
         "sealedProducts": build_sealed_product_decision_contract(
             product_rows, run_status=RUN_STATUS_CURRENT
         ),

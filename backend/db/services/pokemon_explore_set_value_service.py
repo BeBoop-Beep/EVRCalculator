@@ -47,6 +47,22 @@ def _points(rows: Iterable[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     return [{"date": key, "value": by_date[key]} for key in sorted(by_date)]
 
 
+def _points_through(rows: Iterable[Mapping[str, Any]], through_date: str) -> List[Dict[str, Any]]:
+    """Canonical points clamped to a point-in-time view: ``date <= through_date``.
+
+    Defense in depth for direct callers that hand in a broader history than the
+    CLI loader does. Observations after the target date must never make an
+    otherwise valid historical build look stale. A MISSING target-date
+    observation must still block, so this only drops future points - it never
+    substitutes an earlier date for the required exact one.
+    """
+    limit = _text(through_date)[:10]
+    points = _points(rows)
+    if not limit:
+        return points
+    return [point for point in points if point["date"] <= limit]
+
+
 def compute_window_movements(points: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
     rows = _points(points)
     if len(rows) < 2:
@@ -127,7 +143,7 @@ def build_global_set_value_row(
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
         dashboard = dashboard_by_set.get(set_id)
-        canonical = _points(canonical_histories.get(set_id) or [])
+        canonical = _points_through(canonical_histories.get(set_id) or [], target_market_date)
         histories = dashboard.get("set_value_histories_json") if dashboard else None
         prepared = _points((histories or {}).get("standard") if isinstance(histories, Mapping) else [])
         if not dashboard or not canonical or not prepared:

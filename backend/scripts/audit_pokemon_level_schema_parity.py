@@ -53,6 +53,9 @@ EXPECTED_INDEX_TOKENS = {
     "pokemon_rip_stats_snapshot_latest": ("unique", "(tcg, scope)"),
 }
 PRIVATE_TABLES = set(EXPECTED_COLUMNS) - {"pokemon_rip_stats_snapshot_latest"}
+# Minimum privileges service_role must hold. service_role is intentionally privileged;
+# extra grants (REFERENCES/TRIGGER/TRUNCATE) are acceptable, so this is a required subset,
+# not an exact set. Public-facing roles remain strict least-privilege.
 SERVICE_PRIVILEGES = {"SELECT", "INSERT", "UPDATE", "DELETE"}
 FUNCTION_TOKENS = ("insert into pokemon_rip_stats_snapshots", "delete from pokemon_rip_stats_snapshot_sets",
     "insert into pokemon_rip_stats_snapshot_sets", "insert into pokemon_rip_stats_snapshot_latest",
@@ -81,11 +84,11 @@ def reconcile(inventory: dict) -> dict:
     if normalized_policies != [expected_policy]: mismatches.append("public policy semantics differ")
     grant_map = {(row["table"], row["grantee"]): set(row.get("privileges") or []) for row in inventory.get("grants") or []}
     for table in PRIVATE_TABLES:
-        if grant_map.get((table, "service_role")) != SERVICE_PRIVILEGES: mismatches.append(f"{table} service_role privileges differ")
+        if not SERVICE_PRIVILEGES.issubset(grant_map.get((table, "service_role"), set())): mismatches.append(f"{table} service_role required privileges missing")
         for role in ("PUBLIC", "anon", "authenticated"):
             if grant_map.get((table, role), set()): mismatches.append(f"{table} forbidden {role} privileges")
     latest = "pokemon_rip_stats_snapshot_latest"
-    if grant_map.get((latest, "service_role")) != SERVICE_PRIVILEGES: mismatches.append("public latest service_role privileges differ")
+    if not SERVICE_PRIVILEGES.issubset(grant_map.get((latest, "service_role"), set())): mismatches.append("public latest service_role required privileges missing")
     for role in ("anon", "authenticated"):
         if grant_map.get((latest, role)) != {"SELECT"}: mismatches.append(f"public latest {role} privileges differ")
     if grant_map.get((latest, "PUBLIC"), set()): mismatches.append("public latest PUBLIC privileges differ")

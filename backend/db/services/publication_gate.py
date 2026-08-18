@@ -387,6 +387,68 @@ def evaluate_publication_gate(
 # by calling a different publisher.
 
 
+def _latest_complete_batch_row(client: Any) -> Optional[dict]:
+    """Newest batch whose status is ``complete``, ignoring newer non-complete rows."""
+    query = client.table("pokemon_scrape_batches").select(
+        "id,market_date,status,promoted_at,missing_set_count,"
+        "expected_set_count,succeeded_set_count,failed_set_count"
+    ).eq("status", "complete")
+    result = query.order("market_date", desc=True).limit(1).execute()
+    rows = list((result.data if result else []) or [])
+    return rows[0] if rows else None
+
+
+def resolve_latest_promoted_market_date(client: Any) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve the newest market date that genuinely owns publication authority.
+
+    Returns ``(market_date, None)`` on success or ``(None, error)`` fail-closed.
+
+    A newer INCOMPLETE batch must not hide an older validly promoted one - that
+    is the whole point (2026-08-18 incomplete must still resolve 2026-08-17).
+    So the candidate is the newest ``status='complete'`` row.
+
+    The candidate is then validated by the canonical
+    :func:`evaluate_publication_gate` for that exact date in required mode.
+    There is deliberately no second definition of "promoted" here: this helper
+    only chooses the candidate; the gate remains the sole authority on whether
+    it may publish.
+
+    A contradictory newest-complete row (promoted_at null, missing sets, or a
+    non-positive expected count) FAILS CLOSED. It is never skipped in favour of
+    an older row - silently publishing an older date because the newest
+    authority is corrupt would hide exactly the corruption worth surfacing.
+    """
+    try:
+        candidate = _latest_complete_batch_row(client)
+    except Exception as exc:  # network/auth/missing table - never a green light
+        logger.error("%s could not read the batch authority: %s", _GATE_TAG, exc)
+        return None, f"could not read the scrape batch authority ({exc})"
+
+    if not candidate:
+        logger.warning("%s no complete scrape batch exists; nothing is promoted", _GATE_TAG)
+        return None, "no complete scrape batch cohort exists; nothing is promoted"
+
+    candidate_date = _to_text(candidate.get("market_date"))
+    if not candidate_date:
+        return None, "newest complete scrape batch has no market_date"
+
+    decision = evaluate_publication_gate(
+        client, market_date=candidate_date, mode=MODE_REQUIRED
+    )
+    if not decision.allowed:
+        logger.error(
+            "%s newest complete batch %s failed the canonical promotion contract: %s",
+            _GATE_TAG,
+            candidate_date,
+            decision.reason,
+        )
+        return None, (
+            f"newest complete batch {candidate_date} is not promotable: "
+            f"{decision.reason} (reason_code={decision.reason_code})"
+        )
+    return candidate_date, None
+
+
 @dataclass
 class GateEnforcement:
     """Result of applying the gate to one CLI invocation."""

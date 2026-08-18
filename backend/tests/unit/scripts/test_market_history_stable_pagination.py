@@ -11,6 +11,7 @@ def test_standard_histories_are_stably_paged_across_tied_date_boundary():
         def select(self, *_a): return self
         def in_(self, *_a): return self
         def eq(self, *_a): return self
+        def lte(self, *_a): return self
         def order(self, column, desc=False): self.orders.append((column, desc)); return self
         def range(self, start, end): self.bounds = (start, end); return self
         def execute(self):
@@ -19,7 +20,7 @@ def test_standard_histories_are_stably_paged_across_tied_date_boundary():
     class Client:
         def __init__(self): self.queries = []
         def table(self, _name): query = Query(); self.queries.append(query); return query
-    client = Client(); grouped = _load_canonical_histories(client, [row["set_id"] for row in rows])
+    client = Client(); grouped = _load_canonical_histories(client, [row["set_id"] for row in rows], through_date="2026-01-01")
     loaded = [item for values in grouped.values() for item in values]
     identities = [(row["snapshot_date"], row["set_id"]) for row in loaded]
     assert len(identities) == 1002 == len(set(identities))

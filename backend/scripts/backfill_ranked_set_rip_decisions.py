@@ -35,8 +35,12 @@ def validate_contract(contract: Dict[str, Any], run_id: str) -> None:
     assert contract.get("contractVersion") == "rip-decision-contract-v1"
     assert contract.get("currentRunAvailable") is True
     assert contract.get("sourceCalculationRunId") == run_id
+    assert contract.get("sourceSealedMarketClassificationVersion")
+    assert contract.get("sourceSealedProductResultCount") == sealed.get("productCount")
+    assert contract.get("sourceSealedProductResultsUpdatedAt")
     assert sealed.get("sourceCalculationRunId") == run_id
     assert sealed.get("productCount", 0) > 0
+    assert all(product.get("sourceCalculationRunId") == run_id for product in sealed.get("products") or [])
     assert isinstance(chase, dict)
     assert chase.get("sourceCalculationRunId") == run_id
     for field in (
