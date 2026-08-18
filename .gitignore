@@ -29,6 +29,12 @@ debug/
 tmp/
 temp/
 
+
 # Private generated scoring-validation artifacts
 /private_artifacts/
 /docs/research/collector_appeal_v2_validation/generated/
+
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
