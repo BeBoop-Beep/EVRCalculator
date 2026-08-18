@@ -22,13 +22,15 @@ from backend.domain.pokemon.target_chase_economics import (
 )
 
 
-def _price_row(variant_id, price, name=None):
+def _price_row(variant_id, price, name=None, price_as_of=None):
     return {
         "card_id": f"card-{variant_id}",
         "card_variant_id": variant_id,
         "card_name": name or f"Card {variant_id}",
         "rarity_bucket": "ultra",
         "current_near_mint_price": price,
+        "current_near_mint_price_captured_at": price_as_of,
+        "current_near_mint_price_source": "TCGPlayer" if price_as_of else None,
     }
 
 
@@ -42,6 +44,9 @@ def _stage1_product(pack_count=36, price=149.99, ev=107.89):
         "expected_value": ev,
         "random_pack_count": None,
         "guaranteed_component_market_value": None,
+        "price_as_of": "2026-08-17",
+        "price_source": "TCGPlayer",
+        "updated_at": "2026-08-17T10:00:00+00:00",
     }
 
 
@@ -108,6 +113,25 @@ def test_selected_card_carries_both_price_bases_and_probability():
     assert selected["currentTargetMarketPrice"] == 310.0
     assert selected["targetValueUsedInEV"] == 280.0
     assert selected["modeledProbability"] == pytest.approx(1.0 / 476.19)
+
+
+def test_current_price_as_of_is_the_actual_current_observation_clock():
+    selected = select_chase_cards(
+        [_price_row("a", 310.0, price_as_of="2026-08-17")],
+        {"a": 480}, {"a": 280}, limit=1,
+    )[0]
+    assert selected["currentPriceAsOf"] == "2026-08-17"
+    assert selected["currentPriceAsOf"] != "2026-08-15T00:00:00+00:00"
+
+
+def test_same_name_variants_remain_distinct_by_variant_id():
+    selected = select_chase_cards(
+        [_price_row("variant-a", 20, "Same Name"), _price_row("variant-b", 19, "Same Name")],
+        {"variant-a": 100, "variant-b": 200},
+        {"variant-a": 18, "variant-b": 17}, limit=25,
+    )
+    assert [row["cardVariantId"] for row in selected] == ["variant-a", "variant-b"]
+    assert [row["modeledProbability"] for row in selected] == [pytest.approx(.01), pytest.approx(.005)]
 
 
 def test_missing_price_used_leaves_the_ev_basis_none_rather_than_borrowing_current():
@@ -261,6 +285,33 @@ def test_price_basis_delta_is_published_per_card():
     contract = _contract()
     card = next(c for c in contract["cards"] if c["cardVariantId"] == "a")
     assert card["targetPriceBasisDelta"] == pytest.approx(30.0)
+
+
+def test_only_current_card_price_changes_current_price_delta_and_premium():
+    def card_at(price):
+        cards = select_chase_cards([_price_row("a", price)], {"a": 480}, {"a": 280})
+        return build_chase_economics_contract(
+            cards=cards, product_rows=[_stage1_product()], run_id="run-1"
+        )["cards"][0]
+    before, after = card_at(300), card_at(325)
+    for key in ("modeledProbability", "impliedOddsOneInN", "expectedPacksToHit",
+                "packsFor50PercentChance", "packsFor75PercentChance",
+                "packsFor90PercentChance", "packsFor95PercentChance", "targetValueUsedInEV"):
+        assert before[key] == after[key]
+    assert before["currentTargetMarketPrice"] != after["currentTargetMarketPrice"]
+    assert before["targetPriceBasisDelta"] != after["targetPriceBasisDelta"]
+    assert before["products"][0]["entertainmentPremium"] != after["products"][0]["entertainmentPremium"]
+
+
+def test_current_product_price_and_provenance_flow_into_rebuilt_contract():
+    cards = select_chase_cards([_price_row("a", 300)], {"a": 480}, {"a": 280})
+    old = build_chase_economics_contract(cards=cards, product_rows=[_stage1_product(price=84.59)], run_id="r")
+    new = build_chase_economics_contract(cards=cards, product_rows=[_stage1_product(price=88.23)], run_id="r")
+    old_product, new_product = old["cards"][0]["products"][0], new["cards"][0]["products"][0]
+    assert old_product["productPrice"] == 84.59
+    assert new_product["productPrice"] == 88.23
+    assert old_product["grossSpend"] != new_product["grossSpend"]
+    assert new_product["productPriceAsOf"] == "2026-08-17"
 
 
 def test_provenance_nulls_are_not_defaulted_to_read_time():

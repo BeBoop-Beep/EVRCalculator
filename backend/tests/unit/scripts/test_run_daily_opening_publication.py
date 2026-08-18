@@ -462,6 +462,10 @@ def patched(monkeypatch):
         calls.append(("refresh", []))
         return 0
 
+    def fake_chase_refresh(**_kwargs):
+        calls.append(("chase", []))
+        return 0
+
     import backend.scripts.audit_opening_analytics_publication as audit_module
 
     def fake_audit(_client, **_kwargs):
@@ -482,6 +486,7 @@ def patched(monkeypatch):
     monkeypatch.setattr(audit_module, "run_audit", fake_audit)
     monkeypatch.setattr(orchestrator, "run_simulations_for_sets", fake_run_sims)
     monkeypatch.setattr(orchestrator, "refresh_public_snapshots", fake_refresh)
+    monkeypatch.setattr(orchestrator, "refresh_chase_economics_snapshots", fake_chase_refresh)
     return calls
 
 
@@ -511,13 +516,24 @@ def test_simulations_run_before_snapshots_are_built(patched):
     client = _client([_history(STALE_DATE), _history(MARKET_DATE)])
     summary = _orchestrate(client)
 
-    assert [step for step, _ in patched] == ["simulate", "refresh", "audit"], (
-        "simulate must precede refresh, and the publication audit must run last on what was published"
+    assert [step for step, _ in patched] == ["simulate", "refresh", "chase", "audit"], (
+        "simulate and coordinated refresh must precede Chase, then the audit reads the publication"
     )
     assert patched[0][1] == ["alpha"]
     assert summary.exit_code == EXIT_OK
     assert summary.verification_passed is True
     assert summary.snapshot_publication_status == "published"
+
+
+def test_chase_refresh_targets_current_authorities_and_same_market_date(monkeypatch):
+    captured = []
+    monkeypatch.setattr(orchestrator, "_run_command", lambda command, **_k: captured.append(command) or 0)
+    assert orchestrator.refresh_chase_economics_snapshots(
+        python_executable="python", market_date=MARKET_DATE
+    ) == 0
+    command = captured[0]
+    assert "--current-authorities" in command
+    assert command[command.index("--market-date") + 1] == MARKET_DATE
 
 
 def test_a_set_already_current_is_skipped_so_reruns_do_no_work(patched):
