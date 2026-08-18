@@ -164,7 +164,7 @@ for (const [relativePath, routePath] of PRIMARY_ROUTES) {
 
 test("the approved public titles are the ones shipped", () => {
   assert.ok(read("app/Rankings/page.js").includes("Best Pokémon Sets to Rip Right Now — inDex"));
-  assert.ok(read("app/Market/page.js").includes("Pokémon Market Trends & Set Values — inDex"));
+  assert.ok(read("app/Market/page.js").includes("Pokémon Market Index, Trends & Set Values — inDex"));
   assert.ok(read("app/Articles/how-rip-score-works/page.js").includes("How the RIP Score Works"));
   assert.ok(read("app/Articles/page.js").includes("Articles | inDex"));
 });

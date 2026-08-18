@@ -549,3 +549,77 @@
 :global([data-theme="light"]) .row:focus-within td {
   background-color: rgba(15, 23, 42, 0.035);
 }
+
+/* ------------------------------------------------------------------ *
+ * Market Overview (global Raw / Top 10 Chase table)
+ *
+ * Desktop only — below `desk` the same data renders as stacked cards, so
+ * this table never becomes a horizontal scroll region. Thin rules and
+ * tabular figures; no per-metric tile, no fill, no row tinting. The index
+ * cell is the one strengthened value in each row.
+ * ------------------------------------------------------------------ */
+
+.marketOverviewTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.marketOverviewTable th,
+.marketOverviewTable td {
+  padding: 0.6rem 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.marketOverviewTable thead th {
+  border-bottom: 1px solid var(--ex-line);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.marketOverviewTable th:first-child,
+.marketOverviewTable td:first-child {
+  padding-left: 1rem;
+  text-align: left;
+}
+
+.marketOverviewTable th:last-child,
+.marketOverviewTable td:last-child {
+  padding-right: 1rem;
+}
+
+.marketOverviewTable tbody th {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.marketOverviewTable tbody td {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.marketOverviewTable tbody tr + tr th,
+.marketOverviewTable tbody tr + tr td {
+  border-top: 1px solid var(--ex-line);
+}
+
+/* Strongest value in the row — a step up in weight and size, not a hero. */
+.marketOverviewIndex {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+:global([data-theme="light"]) .marketOverviewTable thead th {
+  border-bottom-color: rgba(15, 23, 42, 0.12);
+  color: rgba(15, 23, 42, 0.58);
+}
+
+:global([data-theme="light"]) .marketOverviewTable tbody tr + tr th,
+:global([data-theme="light"]) .marketOverviewTable tbody tr + tr td {
+  border-top-color: rgba(15, 23, 42, 0.07);
+}
