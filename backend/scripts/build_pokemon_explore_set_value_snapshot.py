@@ -42,14 +42,23 @@ def _load_sets(client, *, market_date: str):
     return [{**row, "era": eras.get(str(row.get("era_id")))} for row in eligible]
 
 
-def _load_canonical_histories(client, set_ids):
+def _load_canonical_histories(client, set_ids, *, through_date: str):
+    """Canonical Set Value history as of ``through_date`` - a point-in-time read.
+
+    The upper bound is applied server-side. A promoted build for D must not be
+    made stale by observations that arrived for D+1: without this bound a build
+    for 2026-08-17 loaded rows through 2026-08-18 and every set was rejected
+    as stale because canonical[-1] was the future date.
+    """
     grouped = defaultdict(list)
     page_size = 1000
     start = 0
+    limit_date = str(through_date)[:10]
     while True:
         rows = list((client.table("pokemon_set_value_daily_history")
             .select("set_id,snapshot_date,set_value").in_("set_id", set_ids)
-            .eq("value_scope", "standard").order("snapshot_date", desc=False)
+            .eq("value_scope", "standard").lte("snapshot_date", limit_date)
+            .order("snapshot_date", desc=False)
             .order("set_id", desc=False)
             .range(start, start + page_size - 1).execute()).data or [])
         for row in rows:
@@ -71,7 +80,7 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
             .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at")
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
-    histories = _load_canonical_histories(client, set_ids)
+    histories = _load_canonical_histories(client, set_ids, through_date=market_date)
     overview = market_overview
     if overview is None:
         history = market_index_history
