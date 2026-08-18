@@ -1,0 +1,27 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { familyTier, participatingFamilyScores, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+
+const sets = [
+  { name: "Alpha", setRipV1: { score: 92, rank: 1, cohortSize: 20, familyScores: [{ family: "booster_box", score: 95, rank: 1, cohortSize: 20, skuCount: 2 }] } },
+  { name: "Beta", setRipV1: { score: 84, rank: 4, cohortSize: 20, familyScores: [{ family: "booster_bundle", score: 82, rank: 4, cohortSize: 20, skuCount: 1 }] } },
+  { name: "Gamma", setRipV1: { score: 76, rank: 9, cohortSize: 20, familyScores: [{ family: "elite_trainer_box", score: 75, rank: 9, cohortSize: 18, skuCount: 1 }] } },
+];
+
+test("three representative sets retain identical canonical values for every consumer", () => {
+  assert.deepEqual(sets.map(({ setRipV1 }) => ({ score: setRipV1.score, rank: setRipV1.rank, tier: setRipTier(setRipV1) })), [
+    { score: 92, rank: 1, tier: "S" },
+    { score: 84, rank: 4, tier: "A" },
+    { score: 76, rank: 9, tier: "B" },
+  ]);
+  for (const { setRipV1 } of sets) {
+    const family = participatingFamilyScores(setRipV1)[0];
+    assert.equal(familyTier(family), setRipV1 === sets[2].setRipV1 ? "B" : setRipTier(setRipV1));
+    assert.ok(whySetRanks(setRipV1));
+  }
+});
+
+test("invalid and empty family entries never produce placeholder modules", () => {
+  assert.deepEqual(participatingFamilyScores({ familyScores: [{ family: "x" }, null] }), []);
+  assert.deepEqual(participatingFamilyScores({ familyScores: {} }), []);
+});

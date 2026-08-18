@@ -71,6 +71,7 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
+import { FamilySnapshot, FamilyTierBadge, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -510,6 +511,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
+  const [expandedMobileSet, setExpandedMobileSet] = useState(null);
   // Presentation-only column sort. `RANKINGS_DEFAULT_SORT` is Overall RIP
   // descending, which sortRankingsRows resolves to the canonical order itself,
   // so the first paint is byte-for-byte the leaderboard it has always been.
@@ -835,18 +837,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               */}
               <colgroup>
                 <col style={{ width: "2.6rem" }} />
-                <col />
-                {/* Tier holds a fixed-size badge, not a number that scales with
-                    the table, so it takes a fixed width rather than a
-                    percentage. As a percentage it matched the badge at desktop
-                    but squeezed below it at the md breakpoint, clipping "S Tier".
-                    4.2rem is what the badge measures at full width, so this
-                    changes nothing on desktop and only stops the md clip. */}
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "11%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "12%" }} />
                 <col style={{ width: "18%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "6%" }} />
+                <col style={{ width: "39%" }} />
+                <col style={{ width: "22%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -855,29 +850,15 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <span className="sr-only">Rank</span>
                   </th>
                   <th scope="col">Set</th>
-                  <SortableHeader columnId="marketPrice" label="Market Price" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="typicalOpening" label="Typical Opening" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader columnId="modelBreakEven" label="Model Break-Even" sort={sort} onSort={handleSort} note={sortNote} />
-                  <SortableHeader
-                    columnId="chanceToBeatCost"
-                    label="Chance to Beat Cost"
-                    sort={sort}
-                    onSort={handleSort}
-                    note={sortNote}
-                  />
-                  <SortableHeader
-                    columnId="topChase"
-                    label="Top Chase"
-                    sort={sort}
-                    onSort={handleSort}
-                    note={sortNote}
-                    infoText="Top Chase is the highest-value card in the set that has a valid modeled pull probability. Value uses the current Near Mint market price. It may not be the card that contributes the most EV."
-                  />
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
+                  <th scope="col">Tier</th>
+                  <th scope="col">Product Family Snapshot</th>
+                  <th scope="col">Why It Ranks</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
-                  const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
+                  const tier = setRipTier(target?.setRipV1);
                   const modeRank = target?.setRipV1?.rank ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = tier ? getTierTone(tier) : null;
@@ -899,18 +880,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                         </Link>
                       </td>
                       <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatCurrency(target?.pack_cost)}
+                        <strong className="text-lg tabular-nums">{formatModeScore(target?.setRipV1?.score, SCORE_KIND_PUBLIC)}</strong><span className="text-[10px] text-[var(--text-secondary)]"> /100</span>
                       </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`} title="Median simulated opening value. Half of modeled openings finish above this value and half below.">
-                        {formatCurrency(readTypicalOpening(target))}
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatCurrency(readModelBreakEven(target))}
-                      </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        {formatPercent(target?.prob_profit, true)}
-                      </td>
-                      <td><TopChaseCell target={target} /></td>
+                      <td><FamilyTierBadge tier={tier} /></td>
+                      <td><FamilySnapshot setRip={target?.setRipV1} layout="modules" /></td>
+                      <td className="text-xs leading-relaxed text-[var(--text-secondary)]">{whySetRanks(target?.setRipV1)}</td>
                     </tr>
                   );
                 })}
@@ -923,19 +897,19 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const activeRank = index + 1;
-              const overallTier = (getTierForMode(target, "overall") || "").toString().toUpperCase() || null;
-              const tier = null;
-              const tierTone = overallTier ? getTierTone(overallTier) : null;
+              const activeRank = target?.setRipV1?.rank ?? index + 1;
+              const tier = setRipTier(target?.setRipV1);
+              const tierTone = tier ? getTierTone(tier) : null;
+              const rowKey = `${target.target_type}:${target.target_id}`;
+              const expanded = expandedMobileSet === rowKey;
 
               return (
-                <Link
-                  key={`${target.target_type}:${target.target_id}`}
-                  href={buildRipLink(target)}
+                <article
+                  key={rowKey}
                   className={styles.mobileRow}
                   style={tierTone ? { "--ex-rank-accent": tierTone.accentColor } : undefined}
                 >
-                  <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5">
+                  <button type="button" className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2.5 text-left" aria-expanded={expanded} onClick={() => setExpandedMobileSet(expanded ? null : rowKey)}>
                     <span className="text-right text-sm font-bold tabular-nums text-[var(--text-primary)]">
                       #{activeRank}
                     </span>
@@ -943,11 +917,19 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <SetIdentity variant="mobileRanking" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
                     <div className="flex flex-none flex-col items-end gap-1">
-                      <ActiveMobileMetric target={target} columnId={sort.column} />
-                      {tier ? <RankBadge rank={tier} title="Overall RIP Tier" format="tier" /> : null}
+                      <ActiveMobileMetric target={target} columnId="setRip" />
+                      <FamilyTierBadge tier={tier} />
                     </div>
-                  </div>
-                </Link>
+                    <span aria-hidden="true" className={`text-sm transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
+                  </button>
+                  {expanded ? (
+                    <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
+                      <p className="py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Product Family Snapshot</p>
+                      <FamilySnapshot setRip={target?.setRipV1} compact />
+                      <Link href={buildRipLink(target)} className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-[var(--accent)]">View full Set RIP breakdown →</Link>
+                    </div>
+                  ) : null}
+                </article>
               );
             })}
             {hiddenMobileCount > 0 ? (

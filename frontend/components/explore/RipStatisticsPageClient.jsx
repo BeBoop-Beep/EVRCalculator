@@ -12981,6 +12981,13 @@ export default function RipStatisticsPageClient({
                       { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
+                  {setDetailTab === "overview" ? (
+                    <nav aria-label="Set RIP product families" className="flex gap-1 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {["Set Overview", "All Products", "Booster Pack", "Booster Box", "Bundle", "ETB", "SPC", "UPC"].map((label, index) => (
+                        <a key={label} href={index === 0 ? "#set-detail-overview" : `#set-rip-family-${label.toLowerCase().replaceAll(" ", "-")}`} aria-current={index === 0 ? "page" : undefined} className={`flex-none whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold ${index === 0 ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{label}</a>
+                      ))}
+                    </nav>
+                  ) : null}
                 </div>
                 <section
                   data-set-context-header
@@ -13136,6 +13143,7 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
+                    setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}

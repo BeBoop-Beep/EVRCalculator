@@ -107,3 +107,30 @@ def test_no_raw_scores_or_research_harness_dependency():
     assert "research_set_rip_consensus" not in source
     assert "overallRipScore" not in source
     assert "financialRipScore" not in source
+
+
+def test_family_scores_publish_canonical_set_family_rank_and_cohort():
+    targets = [target("a", 1), target("b", 2), target("c", 3)]
+    loose = [product("a", "loose_booster_pack", 1, 4, "a1"),
+             product("a", "loose_booster_pack", 2, 4, "a2"),
+             product("b", "loose_booster_pack", 3, 4), product("c", "loose_booster_pack", 4, 4)]
+    sleeved = [product("a", "sleeved_booster_pack", 3, 3),
+               product("b", "sleeved_booster_pack", 1, 3), product("c", "sleeved_booster_pack", 2, 3)]
+    bundle = [product("a", "booster_bundle", 1, 3),
+              product("b", "booster_bundle", 2, 3), product("c", "booster_bundle", 3, 3)]
+    result = service.build_set_rip(projection(targets, {
+        "loose_booster_pack": loose, "sleeved_booster_pack": sleeved, "booster_bundle": bundle,
+    }), set_targets=targets)
+    by_set = {row["setId"]: {x["family"]: x for x in row["familyScores"]} for row in result["sets"]}
+
+    assert by_set["a"]["loose_booster_pack"]["rank"] == 1
+    assert by_set["b"]["loose_booster_pack"]["rank"] == 2
+    assert by_set["a"]["sleeved_booster_pack"]["rank"] == 3
+    assert by_set["b"]["sleeved_booster_pack"]["rank"] == 1
+    assert by_set["a"]["loose_booster_pack"]["cohortSize"] == 3
+    assert by_set["a"]["loose_booster_pack"]["skuCount"] == 2
+    assert by_set["a"]["loose_booster_pack"]["score"] == pytest.approx(5 / 6 * 100)
+
+    ranked = [row for row in result["sets"] if row["rankable"]]
+    assert all(row["cohortSize"] == len(ranked) for row in result["sets"])
+    assert sorted(row["rank"] for row in ranked) == list(range(1, len(ranked) + 1))
