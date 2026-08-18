@@ -14,13 +14,15 @@ class Result:
 
 def market_rows():
     rows = []
-    for key, basket, count in (("raw", 100, 20), ("top10", 60, 10)):
-        constituents = [{"setId": "a", "setValue": basket, "includedCardCount": count}]
-        source = market_fp(constituents)
-        rows.append({"index_key": key, "market_date": "2026-08-17", "basket_value": basket,
-            "normalized_index_value": 100, "daily_return": None, "previous_market_date": None,
-            "set_count": 1, "card_count": count, "cohort_fingerprint": "cohort",
-            "source_generation_fingerprint": source, "constituents_json": constituents})
+    for day, multiplier, previous in (("2026-08-16", 1.0, None), ("2026-08-17", 1.1, "2026-08-16")):
+        for key, basket, count in (("raw", 100, 20), ("top10", 60, 10)):
+            value = basket * multiplier; constituents = [{"setId": "a", "setValue": value, "includedCardCount": count}]
+            source = market_fp(constituents)
+            rows.append({"index_key": key, "market_date": day, "basket_value": value,
+                "normalized_index_value": 100 * multiplier, "daily_return": None if previous is None else .1,
+                "previous_market_date": previous, "set_count": 1, "card_count": count,
+                "cohort_fingerprint": "cohort", "source_generation_fingerprint": source,
+                "constituents_json": constituents})
     return rows
 
 
@@ -62,7 +64,8 @@ def rip_fixture():
     provenance = [{"set_id": row["set_id"], "calculation_run_id": row["calculation_run_id"], "artifact_sha256": row["artifact_sha256"],
         "artifact_outcome_count": row["artifact_outcome_count"], "pack_cost": float(row["pack_cost"]), "market_date": "2026-08-17"} for row in members]
     fingerprint = deterministic_fingerprint(provenance)
-    payload = {"contractVersion": POKEMON_RIP_STATS_CONTRACT_VERSION, "population": {"setCount": 2, "outcomeCountPerSet": 2, "totalSourceOutcomeCount": 4},
+    cohort = deterministic_fingerprint([{"set_id": "a"}, {"set_id": "b"}])
+    payload = {"contractVersion": POKEMON_RIP_STATS_CONTRACT_VERSION, "population": {"setCount": 2, "outcomeCountPerSet": 2, "totalSourceOutcomeCount": 4, "cohortFingerprint": cohort, "sourceRunFingerprint": fingerprint},
         "packEconomics": {"expectedRetention": 1, "chanceToBeatCost": .5}, "typicalOpening": {"value": 5, "retention": .5},
         "upside": {"p95Value": 10, "p99Value": 20, "p95Retention": 1, "p99Retention": 2},
         "downside": {"hardLossProbability": .25, "softLossShareGivenLoss": .5},
@@ -70,7 +73,8 @@ def rip_fixture():
         "entertainmentCost": {"expectedCostRatio": 0}, "methodology": {"version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weightingVersion": POKEMON_RIP_STATS_WEIGHTING_VERSION}}
     master = {"id": "snap", "contract_version": POKEMON_RIP_STATS_CONTRACT_VERSION,
         "methodology_version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weighting_version": POKEMON_RIP_STATS_WEIGHTING_VERSION,
-        "eligible_cohort_count": 2, "total_source_outcome_count": 4, "source_run_fingerprint": fingerprint, "payload_json": payload}
+        "eligible_cohort_count": 2, "exact_outcome_set_count": 2, "total_source_outcome_count": 4,
+        "cohort_fingerprint": cohort, "source_run_fingerprint": fingerprint, "payload_json": payload}
     latest = {"market_date": "2026-08-17", "source_run_fingerprint": fingerprint, "payload_json": payload}
     return master, members, latest
 
@@ -103,6 +107,15 @@ def test_rip_audit_rejects_wrong_methodology_unequal_counts_and_weight(monkeypat
     master, members, latest = rip_fixture(); wrong = copy.deepcopy(master); wrong["methodology_version"] = "wrong"
     assert run_rip(monkeypatch, wrong, members, latest)["status"] == "failed"
     master, members, latest = rip_fixture(); members[1]["artifact_outcome_count"] = 3
+    assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
+
+
+def test_rip_audit_rejects_cohort_and_public_source_fingerprint_tampering(monkeypatch):
+    master, members, latest = rip_fixture(); latest = copy.deepcopy(latest); latest["payload_json"]["population"]["cohortFingerprint"] = "wrong"
+    assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
+    master, members, latest = rip_fixture(); latest = copy.deepcopy(latest); latest["payload_json"]["population"]["sourceRunFingerprint"] = "wrong"
+    assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
+    master, members, latest = rip_fixture(); master["cohort_fingerprint"] = "wrong"
     assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
     master, members, latest = rip_fixture(); members[0]["set_weight"] = .6
     assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"

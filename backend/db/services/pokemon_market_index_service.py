@@ -103,7 +103,9 @@ def persist_index_rows(client: Any, rows: Sequence[Mapping[str, Any]]) -> int:
 
 
 def read_index_history(client: Any, *, through_date: str | None = None) -> list[dict[str, Any]]:
-    query = client.table(TABLE).select("*").eq("tcg", "pokemon").eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION).order("market_date", desc=False)
+    query = (client.table(TABLE).select("*").eq("tcg", "pokemon")
+             .eq("methodology_version", MARKET_INDEX_METHODOLOGY_VERSION)
+             .order("market_date", desc=False).order("index_key", desc=False))
     if through_date:
         query = query.lte("market_date", through_date)
     rows, offset = [], 0

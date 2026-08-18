@@ -30,9 +30,11 @@ def parser() -> argparse.ArgumentParser:
     return result
 
 
-def _load_sets(client):
-    rows = list(client.table("sets").select("id,canonical_key,name,era_id,logo_image_url,symbol_image_url,supports_opening_simulation").execute().data or [])
-    eligible = [row for row in rows if row.get("supports_opening_simulation") is True and is_public_analytics_eligible(row)]
+def _load_sets(client, *, market_date: str):
+    rows = list(client.table("sets").select("id,canonical_key,name,era_id,release_date,logo_image_url,symbol_image_url,supports_opening_simulation").execute().data or [])
+    eligible = [row for row in rows if row.get("supports_opening_simulation") is True
+                and is_public_analytics_eligible(row)
+                and (not row.get("release_date") or str(row["release_date"])[:10] <= market_date)]
     era_ids = sorted({str(row.get("era_id")) for row in eligible if row.get("era_id")})
     eras = {}
     if era_ids:
@@ -59,7 +61,7 @@ def _load_canonical_histories(client, set_ids):
 
 
 def build(*, client, market_date: str, commit: bool, market_index_history=None, market_overview=None) -> dict:
-    sets = _load_sets(client)
+    sets = _load_sets(client, market_date=market_date)
     set_ids = [str(row["id"]) for row in sets]
     dashboards = []
     # One bounded query per batch, never one request per set. Read only the

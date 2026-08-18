@@ -32,7 +32,7 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     gate = evaluate_opening_simulation_freshness(client, market_date=market_date)
     if not gate.ok: failures.append("authoritative simulation gate is not current")
     masters = list(client.table("pokemon_rip_stats_snapshots")
-        .select("id,contract_version,methodology_version,weighting_version,eligible_cohort_count,total_source_outcome_count,source_run_fingerprint,payload_json")
+        .select("id,contract_version,methodology_version,weighting_version,eligible_cohort_count,exact_outcome_set_count,total_source_outcome_count,cohort_fingerprint,source_run_fingerprint,payload_json")
         .eq("market_date", market_date).eq("contract_version", POKEMON_RIP_STATS_CONTRACT_VERSION)
         .eq("methodology_version", POKEMON_RIP_STATS_METHODOLOGY_VERSION)
         .eq("weighting_version", POKEMON_RIP_STATS_WEIGHTING_VERSION).limit(1).execute().data or [])
@@ -43,7 +43,9 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     if master.get("source_run_fingerprint") != latest.get("source_run_fingerprint"): failures.append("historical/latest source fingerprint mismatch")
     members = list(client.table("pokemon_rip_stats_snapshot_sets").select("*").eq("snapshot_id", master["id"]).execute().data or [])
     eligible_count = int(master["eligible_cohort_count"])
+    exact_count = int(master["exact_outcome_set_count"])
     if len(members) != eligible_count: failures.append("constituent count mismatch")
+    if exact_count != eligible_count or exact_count != len(members): failures.append("master exact-outcome set count mismatch")
     if int(population.get("setCount") or -1) != eligible_count: failures.append("public population setCount mismatch")
     authoritative = {str(item.set_id): str(item.calculation_run_id) for item in gate.statuses if item.calculation_run_id}
     provenance = []; counts = []; weights = []; total = 0
@@ -69,7 +71,10 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     if any(not math.isclose(weight, expected_weight, rel_tol=1e-12, abs_tol=1e-12) for weight in weights) or not math.isclose(sum(weights), 1.0, rel_tol=1e-12, abs_tol=1e-12):
         failures.append("constituent weights are not equal and normalized")
     fingerprint = deterministic_fingerprint(provenance)
-    if fingerprint != master["source_run_fingerprint"] or fingerprint != latest["source_run_fingerprint"]: failures.append("source fingerprint mismatch")
+    cohort_fingerprint = deterministic_fingerprint([{"set_id": set_id} for set_id in sorted(authoritative)])
+    if cohort_fingerprint != master["cohort_fingerprint"] or cohort_fingerprint != population.get("cohortFingerprint"): failures.append("cohort fingerprint mismatch")
+    if (fingerprint != master["source_run_fingerprint"] or fingerprint != latest["source_run_fingerprint"]
+            or fingerprint != population.get("sourceRunFingerprint")): failures.append("source fingerprint mismatch")
     economics = payload.get("packEconomics") or {}; typical = payload.get("typicalOpening") or {}; upside = payload.get("upside") or {}; downside = payload.get("downside") or {}; one = payload.get("onePackPerSet") or {}; entertainment = payload.get("entertainmentCost") or {}
     retention = _finite(economics.get("expectedRetention")); chance = _finite(economics.get("chanceToBeatCost")); hard = _finite(downside.get("hardLossProbability")); soft = _finite(downside.get("softLossShareGivenLoss"))
     if retention is None or retention < 0: failures.append("expectedRetention invalid")

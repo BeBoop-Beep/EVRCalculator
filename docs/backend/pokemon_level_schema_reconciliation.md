@@ -9,12 +9,17 @@ snapshot was published.
 Do not rerun the migrations, push the database, recreate objects, or edit
 `supabase_migrations.schema_migrations` manually.
 
-Use read-only catalog queries (`information_schema.columns`, `pg_constraint`,
-`pg_indexes`, `pg_class.relrowsecurity`, `pg_policies`,
-`information_schema.role_table_grants`, `routine_privileges`, and
-`pg_get_functiondef`) to create an inventory JSON matching the input contract in
-`audit_pokemon_level_schema_parity.py`. Obtain it with `supabase db query --linked`
-using SELECT statements only. Also obtain history with:
+The exact read-only inventory query is checked in at
+`backend/scripts/assets/pokemon_level_schema_inventory.sql`. It reads column
+types/nullability/defaults, normalized catalog constraint/index definitions,
+RLS, policies, grants, the Market trigger, function body/security/grants, and
+migration history. Run it with SELECT-only `db query` and save the JSON value:
+
+```powershell
+npx.cmd --yes supabase@latest db query --linked --file backend/scripts/assets/pokemon_level_schema_inventory.sql
+```
+
+Also inspect the ordinary migration list with:
 
 ```powershell
 npx.cmd --yes supabase@latest migration list --linked

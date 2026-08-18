@@ -41,31 +41,39 @@ def _compare_json(expected: Any, actual: Any, path: str, failures: list[str]) ->
 def audit(client: Any, market_date: str) -> dict[str, Any]:
     expected_history = build_market_index_history(client, through_date=market_date)
     persisted_history = read_index_history(client, through_date=market_date)
-    expected = {row["index_key"]: row for row in expected_history if row["market_date"] == market_date}
-    actual = {row["index_key"]: row for row in persisted_history if str(row["market_date"])[:10] == market_date}
+    expected = {(str(row["market_date"])[:10], row["index_key"]): row for row in expected_history}
+    actual = {(str(row["market_date"])[:10], row["index_key"]): row for row in persisted_history}
     failures: list[str] = []
-    for key in INDEX_KEYS:
-        wanted, found = expected.get(key), actual.get(key)
-        if wanted is None or found is None:
-            failures.append(f"{key} expected/persisted target row missing"); continue
+    missing = sorted(set(expected) - set(actual)); unexpected = sorted(set(actual) - set(expected))
+    if missing: failures.append(f"missing persisted history rows: {missing}")
+    if unexpected: failures.append(f"unexpected persisted history rows: {unexpected}")
+    for identity in sorted(set(expected) & set(actual)):
+        wanted, found = expected[identity], actual[identity]
+        prefix = f"{identity[0]} {identity[1]}"
         for field in ("basket_value", "normalized_index_value", "daily_return"):
             if wanted.get(field) is None or found.get(field) is None:
-                if wanted.get(field) != found.get(field): failures.append(f"{key} {field} mismatch")
-            elif not _numeric_equal(wanted[field], found[field]): failures.append(f"{key} {field} mismatch")
+                if wanted.get(field) != found.get(field): failures.append(f"{prefix} {field} mismatch")
+            elif not _numeric_equal(wanted[field], found[field]): failures.append(f"{prefix} {field} mismatch")
         for field in ("previous_market_date", "set_count", "card_count", "cohort_fingerprint", "source_generation_fingerprint"):
-            if str(wanted.get(field)) != str(found.get(field)): failures.append(f"{key} {field} mismatch")
+            if str(wanted.get(field)) != str(found.get(field)): failures.append(f"{prefix} {field} mismatch")
         if deterministic_fingerprint(wanted.get("constituents_json") or []) != deterministic_fingerprint(found.get("constituents_json") or []):
-            failures.append(f"{key} constituents mismatch")
+            failures.append(f"{prefix} constituents mismatch")
     try:
-        authoritative_overview = build_market_overview(persisted_history, market_date=market_date)
+        expected_overview = build_market_overview(expected_history, market_date=market_date)
     except Exception as exc:
-        failures.append(f"persisted overview invalid: {exc}"); authoritative_overview = None
+        failures.append(f"expected overview invalid: {exc}"); expected_overview = None
+    try:
+        persisted_overview = build_market_overview(persisted_history, market_date=market_date)
+    except Exception as exc:
+        failures.append(f"persisted overview invalid: {exc}"); persisted_overview = None
+    if expected_overview is not None and persisted_overview is not None:
+        _compare_json(expected_overview, persisted_overview, "persistedOverview", failures)
     latest = list(client.table("pokemon_explore_set_value_snapshot_latest").select("market_date,payload_json").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute().data or [])
     public = (latest[0].get("payload_json") or {}).get("marketOverview") if latest else None
-    if authoritative_overview is None or public is None:
-        failures.append("public/authoritative marketOverview missing")
+    if expected_overview is None or public is None:
+        failures.append("public/expected marketOverview missing")
     else:
-        _compare_json(authoritative_overview, public, "marketOverview", failures)
+        _compare_json(expected_overview, public, "marketOverview", failures)
     return {"status": "passed" if not failures else "failed", "marketDate": market_date, "indexRows": len(actual), "failures": failures}
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from backend.db.services.pokemon_market_index_service import _paged_source_rows, build_index_rows
+from backend.db.services.pokemon_market_index_service import _paged_source_rows, build_index_rows, read_index_history
 
 
 SETS = [
@@ -61,3 +61,29 @@ def test_paged_source_rows_has_total_order_across_tied_date_boundary():
     identities = [(row["snapshot_date"], row["set_id"], row["value_scope"]) for row in loaded]
     assert len(identities) == 1002 == len(set(identities))
     assert all(query.orders == [("snapshot_date", False), ("set_id", False), ("value_scope", False)] for query in client.queries)
+
+
+def test_read_index_history_has_total_order_across_tied_market_date_boundary():
+    rows = [{"market_date": "2025-01-01", "index_key": "raw", "row": 0}]
+    rows += [{"market_date": f"2026-{1 + day // 28:02d}-{1 + day % 28:02d}", "index_key": key, "row": 1 + day * 2 + offset}
+             for day in range(501) for offset, key in enumerate(("raw", "top10"))]
+    class Result:
+        def __init__(self, data): self.data = data
+    class Query:
+        def __init__(self): self.orders = []; self.bounds = (0, len(rows) - 1)
+        def select(self, *_a): return self
+        def eq(self, *_a): return self
+        def lte(self, *_a): return self
+        def order(self, column, desc=False): self.orders.append((column, desc)); return self
+        def range(self, start, end): self.bounds = (start, end); return self
+        def execute(self):
+            ordered = sorted(rows, key=lambda row: tuple(row[column] for column, _ in self.orders))
+            return Result(ordered[self.bounds[0]:self.bounds[1] + 1])
+    class Client:
+        def __init__(self): self.query = Query()
+        def table(self, _name): return self.query
+    client = Client(); loaded = read_index_history(client)
+    identities = [(row["market_date"], row["index_key"], row["row"]) for row in loaded]
+    assert len(identities) == 1003 == len(set(identities))
+    assert len({(day, key) for day, key, _ in identities}) == 1003
+    assert client.query.orders == [("market_date", False), ("index_key", False)]

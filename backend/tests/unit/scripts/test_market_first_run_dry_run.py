@@ -15,7 +15,7 @@ def test_first_run_dry_run_uses_in_memory_index_and_performs_zero_writes(monkeyp
     canonical = {"set-a": [{"set_id": "set-a", "snapshot_date": day, "set_value": 100}]}
     dashboard = {"set_id": "set-a", "window_key": "365d", "latest_market_date": day,
                  "set_value_histories_json": {"standard": [{"date": day, "setValue": 100}]}}
-    monkeypatch.setattr(builder, "_load_sets", lambda _client: sets)
+    monkeypatch.setattr(builder, "_load_sets", lambda _client, **_k: sets)
     monkeypatch.setattr(builder, "_load_canonical_histories", lambda _client, _ids: canonical)
     monkeypatch.setattr(builder, "upsert_explore_set_value_snapshot", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("write")))
     class Query:
@@ -38,7 +38,7 @@ def test_commit_candidate_reads_authoritative_persisted_index_when_not_injected(
                "priced_card_count": count, "source": "canonical", "updated_at": day}
               for scope, value, count in (("standard", 100, 20), ("top10", 60, 10))]
     history = build_index_rows(sets, source); reads = []
-    monkeypatch.setattr(builder, "_load_sets", lambda _client: sets)
+    monkeypatch.setattr(builder, "_load_sets", lambda _client, **_k: sets)
     monkeypatch.setattr(builder, "_load_canonical_histories", lambda *_a: {"set-a": [{"set_id": "set-a", "snapshot_date": day, "set_value": 100}]})
     monkeypatch.setattr(builder, "read_index_history", lambda *_a, **_k: reads.append(True) or history)
     class Query:
