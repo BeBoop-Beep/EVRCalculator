@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { topPercentToTier } from "../../constants/rankConfig.mjs";
+import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.mjs";
 
 const FAMILY_LABELS = Object.freeze({
   loose_booster_pack: "Booster Pack",
@@ -103,10 +103,11 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
     return (
-      <div data-family-snapshot className={`grid rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-1 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"}`}>
+      <div data-family-snapshot className={`grid gap-x-1 gap-y-1 rounded-xl border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.025)] p-0.5 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"}`}>
         {families.map((entry) => {
           const tier = familyTier(entry);
-          return <div data-family-module key={entry.family} className="flex min-w-0 flex-col justify-between border-b border-r border-[var(--border-subtle)]/60 px-1.5 py-0.5 last:border-r-0"><span className="min-h-[1.125rem] text-[8px] font-bold uppercase leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-xs leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[9px] leading-none text-[var(--text-secondary)]">#{entry.rank} · {tier || "—"}</span></div>;
+          const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
+          return <div data-family-module key={entry.family} className="flex min-w-0 flex-col gap-px px-2"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
         })}
       </div>
     );

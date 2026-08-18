@@ -56,3 +56,22 @@ test("Rankings uses one compact shared snapshot panel and the approved view cont
   assert.ok(cohortControl.includes(">Sets</button>"));
   assert.ok(cohortControl.includes(">Individual Products</button>"));
 });
+
+test("Set RIP score uses an accessible shared SVG outline and Tier remains separate", () => {
+  const scoreBadge = rankings.slice(rankings.indexOf("function SetRipScoreBadge"), rankings.indexOf("function SetTierMark"));
+  assert.ok(scoreBadge.includes("<svg"));
+  assert.ok(scoreBadge.includes("<polygon"));
+  assert.ok(scoreBadge.includes('aria-hidden="true"'));
+  assert.ok(scoreBadge.includes("formatModeScore"), "score remains real DOM text");
+  assert.ok(!scoreBadge.includes("clip-path"));
+  assert.ok(rankings.includes("data-set-tier-mark"));
+  assert.ok(rankings.includes("<SetRipScoreBadge setRip={target?.setRipV1} tier={tier} compact />"), "mobile reuses the score component");
+});
+
+test("family panel relies on spacing rather than spreadsheet cell borders", () => {
+  const moduleMarkup = shared.slice(shared.indexOf("data-family-module"), shared.indexOf("</div>;", shared.indexOf("data-family-module")));
+  assert.ok(!moduleMarkup.includes("border-r"));
+  assert.ok(!moduleMarkup.includes("border-b"));
+  assert.ok(shared.includes("text-[10px] font-semibold"));
+  assert.ok(shared.includes("text-[15px] font-bold"));
+});

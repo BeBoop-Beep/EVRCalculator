@@ -124,7 +124,7 @@ export default function SetIdentity({
   if (variant === "compact") {
     return (
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-14 w-16 flex-none items-center justify-center">
+        <div className="flex h-14 w-20 flex-none items-center justify-center">
           {activeSrc ? (
             <img
               src={activeSrc}

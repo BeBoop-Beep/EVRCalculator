@@ -432,8 +432,8 @@ function RankMarker({ rank, tier, isLead, movement }) {
   const tone = isLead && tier ? getTierTone(tier) : null;
   return (
     <span className="inline-flex flex-col items-end leading-tight">
-      <span className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`} style={tone ? { color: tone.textColor } : undefined}>
-        {rank}
+      <span className={`${isLead ? "text-sm font-bold" : "text-xs font-semibold text-[var(--text-secondary)]"} tabular-nums`} style={tone ? { color: tone.textColor } : undefined}>
+        #{rank}
       </span>
       {movement?.text && movement.text !== "N/A" ? <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={movement.label}>{movement.text}</span> : null}
     </span>
@@ -442,13 +442,14 @@ function RankMarker({ rank, tier, isLead, movement }) {
 
 function SetRipScoreBadge({ setRip, tier, compact = false }) {
   const tone = tier ? getTierTone(tier) : null;
+  const accent = tone?.accentColor || "var(--border-subtle)";
   return (
     <div
       data-set-rip-score-badge
-      className={`inline-flex flex-col items-center justify-center border bg-[var(--surface-page)]/75 text-center [clip-path:polygon(12%_0,88%_0,100%_18%,100%_82%,88%_100%,12%_100%,0_82%,0_18%)] ${compact ? "h-12 w-[3.6rem]" : "h-14 w-[4.4rem]"}`}
-      style={{ borderColor: tone?.accentColor || "var(--border-subtle)", boxShadow: tone ? `inset 0 0 0 1px ${tone.accentColor}22` : undefined }}
+      className={`relative inline-flex flex-col items-center justify-center text-center ${compact ? "h-[3.25rem] w-[3.65rem]" : "h-[3.75rem] w-[4.5rem]"}`}
     >
-      <strong className={`${compact ? "text-base" : "text-lg"} leading-none tabular-nums text-[var(--text-primary)]`}>{formatModeScore(setRip?.score, SCORE_KIND_PUBLIC)}</strong>
+      <svg aria-hidden="true" viewBox="0 0 72 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible"><polygon points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11" fill="rgba(7,14,25,0.72)" stroke={accent} strokeWidth="1.25" vectorEffect="non-scaling-stroke" /></svg>
+      <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{formatModeScore(setRip?.score, SCORE_KIND_PUBLIC)}</strong>
       <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">RIP Score</span>
     </div>
   );
@@ -456,13 +457,13 @@ function SetRipScoreBadge({ setRip, tier, compact = false }) {
 
 function SetTierMark({ tier }) {
   const tone = tier ? getTierTone(tier) : null;
-  return tier ? <span data-set-tier-mark className="inline-flex flex-col items-center leading-none" style={tone ? { color: tone.textColor } : undefined}><strong className="text-lg">{tier}</strong><span className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em]">Tier</span></span> : null;
+  return tier ? <span data-set-tier-mark className="inline-flex flex-col items-center leading-none"><strong className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--surface-page)]/55 text-lg" style={tone ? { color: tone.textColor, borderColor: tone.accentColor } : undefined}>{tier}</strong><span className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Tier</span></span> : null;
 }
 
 function RankingInsight({ setRip }) {
   const explanation = whySetRanks(setRip);
   const heading = explanation.startsWith("Elite") ? "Elite across formats" : explanation.startsWith("Strong") ? "Strong family depth" : "Standout family strength";
-  return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2"><span aria-hidden="true" className="mt-1 h-2 w-2 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-[11px] leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10px] leading-snug text-[var(--text-secondary)]">{explanation}</span></span></div>;
+  return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
 }
 
 /**
