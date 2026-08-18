@@ -5,6 +5,7 @@ import fs from "node:fs";
 const rankings = fs.readFileSync(new URL("./ExploreTableClient.jsx", import.meta.url), "utf8");
 const setPage = fs.readFileSync(new URL("./RipDecisionPage.jsx", import.meta.url), "utf8");
 const shared = fs.readFileSync(new URL("./SetRipFamilyBreakdown.jsx", import.meta.url), "utf8");
+const cohortControl = fs.readFileSync(new URL("./ProductFamilyRankingsClient.jsx", import.meta.url), "utf8");
 
 test("Rankings desktop exposes the approved Set RIP hierarchy and no economics columns", () => {
   for (const heading of ["Set RIP Score", "Tier", "Product Family Snapshot", "Why It Ranks"]) {
@@ -19,8 +20,8 @@ test("Rankings desktop exposes the approved Set RIP hierarchy and no economics c
 test("Rankings mobile uses dense expandable rows with canonical Set RIP context", () => {
   assert.ok(rankings.includes("expandedMobileSet"));
   assert.ok(rankings.includes('aria-expanded={expanded}'));
-  assert.ok(rankings.includes('<FamilySnapshot setRip={target?.setRipV1} compact />'));
-  assert.ok(rankings.includes('columnId="setRip"'));
+  assert.ok(rankings.includes('<FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />'));
+  assert.ok(rankings.includes("data-set-rip-score-badge"));
 });
 
 test("Set RIP page leads with composition and keeps downstream opening content", () => {
@@ -44,4 +45,14 @@ test("family presentation is text-first while the set-page header remains owned 
   assert.ok(rankings.includes('variant="compact"'));
   assert.ok(rankings.includes('variant="mobileRanking"'));
   assert.ok(!setPage.includes("PokemonSetMobileHero"), "RipDecisionPage must not replace the existing set identity header");
+});
+
+test("Rankings uses one compact shared snapshot panel and the approved view control", () => {
+  assert.ok(shared.includes("data-family-snapshot"));
+  assert.ok(shared.includes('compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"'));
+  assert.ok(!shared.includes("repeat(auto-fit"));
+  assert.ok(rankings.includes("data-set-rip-score-badge"));
+  assert.ok(rankings.includes("data-ranking-insight"));
+  assert.ok(cohortControl.includes(">Sets</button>"));
+  assert.ok(cohortControl.includes(">Individual Products</button>"));
 });

@@ -22,6 +22,11 @@ export function familyLabel(family) {
     .split("_").filter(Boolean).map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
 }
 
+function snapshotFamilyLabel(family) {
+  if (family === "pokemon_center_elite_trainer_box") return "Pokémon Center ETB";
+  return familyLabel(family);
+}
+
 export function familyTier(entry) {
   const rank = Number(entry?.rank);
   const cohortSize = Number(entry?.cohortSize);
@@ -98,10 +103,10 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
     return (
-      <div data-family-snapshot className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12.5rem),1fr))] gap-2">
+      <div data-family-snapshot className={`grid rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-1 ${compact ? "grid-cols-2" : "grid-cols-3 xl:grid-cols-5"}`}>
         {families.map((entry) => {
           const tier = familyTier(entry);
-          return <div data-family-module key={entry.family} className="grid min-w-0 grid-cols-[minmax(0,1fr)_3.5rem_auto] items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2"><span className="min-w-0 text-[10px] font-bold uppercase leading-tight text-[var(--text-secondary)]">{familyLabel(entry.family)}</span><strong className="text-right text-xs tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[10px] text-[var(--text-secondary)]">#{entry.rank} · {tier || "—"}</span></div>;
+          return <div data-family-module key={entry.family} className="flex min-w-0 flex-col justify-between border-b border-r border-[var(--border-subtle)]/60 px-1.5 py-0.5 last:border-r-0"><span className="min-h-[1.125rem] text-[8px] font-bold uppercase leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-xs leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[9px] leading-none text-[var(--text-secondary)]">#{entry.rank} · {tier || "—"}</span></div>;
         })}
       </div>
     );

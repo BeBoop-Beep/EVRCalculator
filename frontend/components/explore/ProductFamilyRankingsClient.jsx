@@ -39,11 +39,14 @@ export default function ProductFamilyRankingsClient({ targets, productFamilyRank
     return bv - av || a.familyRank - b.familyRank;
   }), [selected, metric]);
 
+  const productsActive = view !== "sets";
+  const openProducts = () => setView(familyEntries[0]?.[0] || "sets");
   return <>
-    <nav aria-label="Ranking cohort" className="mb-3 flex gap-2 overflow-x-auto pb-1">
-      <button type="button" onClick={() => setView("sets")} aria-pressed={view === "sets"} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === "sets" ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Sets</button>
-      {familyEntries.map(([family, block]) => <button key={family} type="button" onClick={() => setView(family)} aria-pressed={view === family} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === family ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{block.label}s</button>)}
+    <nav aria-label="Ranking view" className="mb-3 inline-flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-1">
+      <button type="button" onClick={() => setView("sets")} aria-pressed={!productsActive} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${!productsActive ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Sets</button>
+      <button type="button" onClick={openProducts} aria-pressed={productsActive} disabled={!familyEntries.length} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${productsActive ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Individual Products</button>
     </nav>
+    {productsActive ? <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1">{familyEntries.map(([family, block]) => <button key={family} type="button" onClick={() => setView(family)} aria-pressed={view === family} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === family ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{block.label}s</button>)}</nav> : null}
     {view === "sets" ? <ExploreTableClient targets={targets} loadError={loadError} /> :
       <section className={`${styles.surface} set-glass-surface`} aria-label={`${selected?.label} rankings`}>
         <div className={`${styles.divider} flex flex-wrap items-center gap-3 px-4 py-3`}><div><h2 className="font-semibold text-[var(--text-primary)]">Best {selected?.label}s to Rip</h2><p className="text-xs text-[var(--text-secondary)]">Compared only with {selected?.label}s · {selected?.count} ranked</p></div><label className="ml-auto text-xs text-[var(--text-secondary)]">Metric <select value={metric} onChange={(event) => setMetric(event.target.value)} className="ml-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-2 py-2 text-[var(--text-primary)]">{Object.entries(METRICS).map(([key, [label]]) => <option key={key} value={key}>{label}</option>)}</select></label></div>

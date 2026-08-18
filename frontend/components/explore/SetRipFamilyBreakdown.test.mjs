@@ -87,7 +87,7 @@ test("Rankings renders every enriched family as a text-first module", () => {
   assert.equal(renderer.root.findAll((node) => node.props["data-family-module"] !== undefined).length, 6);
   assert.equal(renderer.root.findAll((node) => node.props["data-family-media-slot"] !== undefined).length, 0);
   const text = renderedText(renderer);
-  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center Elite Trainer Box", "Sleeved Pack", "100.0", "#3", "A"]) {
+  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center ETB", "Sleeved Pack", "100.0", "#3", "A"]) {
     assert.ok(text.includes(expected), expected);
   }
 });
