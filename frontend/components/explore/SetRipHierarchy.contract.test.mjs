@@ -38,3 +38,10 @@ test("one shared array contract and canonical tier function drive both surfaces"
   assert.ok(setPage.includes("FamilyScoreRow"));
 });
 
+test("family presentation is text-first while the set-page header remains owned by the existing page", () => {
+  assert.ok(!shared.includes("FamilyPlaceholder"));
+  assert.ok(!shared.includes("data-family-media-slot"));
+  assert.ok(rankings.includes('variant="compact"'));
+  assert.ok(rankings.includes('variant="mobileRanking"'));
+  assert.ok(!setPage.includes("PokemonSetMobileHero"), "RipDecisionPage must not replace the existing set identity header");
+});

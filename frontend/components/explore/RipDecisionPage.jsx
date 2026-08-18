@@ -582,7 +582,7 @@ export default function RipDecisionPage({
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Scored Product Families</h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">These product families are included in {setName || "this set"}&apos;s Set RIP Score.</p>
           <div className="mt-3 hidden border-y border-[var(--border-subtle)] md:block">
-            <div className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_4rem_4.5rem_minmax(9rem,1fr)] gap-2 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]"><span /><span>Product Family</span><span className="text-right">Score</span><span className="text-right">Rank</span><span>Tier</span><span>Key Takeaway</span></div>
+            <div className="grid grid-cols-[minmax(13rem,1.35fr)_4.5rem_4rem_4.75rem_minmax(11rem,1fr)] gap-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]"><span>Product Family</span><span className="text-right">Score</span><span className="text-right">Rank</span><span>Tier</span><span>Key Takeaway</span></div>
             <div className="divide-y divide-[var(--border-subtle)]">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} showTakeaway />)}</div>
           </div>
           <div className="mt-3 divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)] md:hidden">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} compact />)}</div>

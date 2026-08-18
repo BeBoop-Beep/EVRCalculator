@@ -837,11 +837,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               */}
               <colgroup>
                 <col style={{ width: "2.6rem" }} />
-                <col style={{ width: "18%" }} />
+                <col style={{ width: "20%" }} />
                 <col style={{ width: "8%" }} />
                 <col style={{ width: "6%" }} />
-                <col style={{ width: "39%" }} />
-                <col style={{ width: "22%" }} />
+                <col style={{ width: "42%" }} />
+                <col style={{ width: "17%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -884,7 +884,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td><FamilyTierBadge tier={tier} /></td>
                       <td><FamilySnapshot setRip={target?.setRipV1} layout="modules" /></td>
-                      <td className="text-xs leading-relaxed text-[var(--text-secondary)]">{whySetRanks(target?.setRipV1)}</td>
+                      <td className="align-middle text-xs leading-relaxed text-[var(--text-secondary)]"><span className="block max-w-[15rem]">{whySetRanks(target?.setRipV1)}</span></td>
                     </tr>
                   );
                 })}
