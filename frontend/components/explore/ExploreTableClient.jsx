@@ -71,6 +71,7 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
+import { FamilySnapshot, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -101,7 +102,7 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
-const MOBILE_DECISION_COLUMN_IDS = ["setRip", "topChase"];
+const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
 
 function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
@@ -360,37 +361,6 @@ function MobileScoreBlock({ target, modeId, label }) {
   );
 }
 
-function ActiveMobileMetric({ target, columnId }) {
-  if (columnId === "setRip") {
-    const value = toNumber(target?.setRipV1?.score);
-    return <div className="flex-none text-right"><div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">{value === null ? UNAVAILABLE_LABEL : `${value.toFixed(1)} / 100`}</div><div className="text-[9px] uppercase tracking-[0.09em] text-[var(--text-secondary)]">Set RIP</div></div>;
-  }
-  if (columnId === "overall" || columnId === "financial" || columnId === COLLECTOR_APPEAL_COLUMN) {
-    const { value, kind, isPublic } = readModeScore(target, columnId);
-    return (
-      <div className="flex-none text-right" title={isPublic ? PUBLIC_SCORE_SCALE_NOTE : undefined}>
-        <div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">
-          {value === null ? UNAVAILABLE_LABEL : formatModeScore(value, kind)}
-          {value !== null && isPublic ? <span className="pl-1 text-xs font-medium text-[var(--text-secondary)]">/ 100</span> : null}
-        </div>
-      </div>
-    );
-  }
-
-  const values = {
-    typicalOpening: formatCurrency(readTypicalOpening(target)),
-    modelBreakEven: formatCurrency(readModelBreakEven(target)),
-    marketPrice: formatCurrency(target?.pack_cost),
-    chanceToBeatCost: formatPercent(target?.prob_profit, true),
-  };
-  if (columnId === "topChase") return <TopChaseCell target={target} compact />;
-  return (
-    <div className="flex-none text-right">
-      <div className="whitespace-nowrap text-base font-semibold tabular-nums text-[var(--text-primary)]">{values[columnId] ?? UNAVAILABLE_LABEL}</div>
-    </div>
-  );
-}
-
 /**
  * Sort targets by the selected ranking mode.
  *
@@ -462,12 +432,38 @@ function RankMarker({ rank, tier, isLead, movement }) {
   const tone = isLead && tier ? getTierTone(tier) : null;
   return (
     <span className="inline-flex flex-col items-end leading-tight">
-      <span className={`text-[12px] font-semibold tabular-nums ${isLead ? "" : "text-[var(--text-secondary)]"}`} style={tone ? { color: tone.textColor } : undefined}>
-        {rank}
+      <span className={`${isLead ? "text-sm font-bold" : "text-xs font-semibold text-[var(--text-secondary)]"} tabular-nums`} style={tone ? { color: tone.textColor } : undefined}>
+        #{rank}
       </span>
-      <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={movement.label}>{movement.text}</span>
+      {movement?.text && movement.text !== "N/A" ? <span className="text-[9px] font-medium tabular-nums text-[var(--text-secondary)]" aria-label={movement.label}>{movement.text}</span> : null}
     </span>
   );
+}
+
+function SetRipScoreBadge({ setRip, tier, compact = false }) {
+  const tone = tier ? getTierTone(tier) : null;
+  const accent = tone?.accentColor || "var(--border-subtle)";
+  return (
+    <div
+      data-set-rip-score-badge
+      className={`relative inline-flex flex-col items-center justify-center text-center ${compact ? "h-[3.25rem] w-[3.65rem]" : "h-[3.75rem] w-[4.5rem]"}`}
+    >
+      <svg aria-hidden="true" viewBox="0 0 72 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible"><polygon points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11" fill="rgba(7,14,25,0.72)" stroke={accent} strokeWidth="1.25" vectorEffect="non-scaling-stroke" /></svg>
+      <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{formatModeScore(setRip?.score, SCORE_KIND_PUBLIC)}</strong>
+      <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">RIP Score</span>
+    </div>
+  );
+}
+
+function SetTierMark({ tier }) {
+  const tone = tier ? getTierTone(tier) : null;
+  return tier ? <span data-set-tier-mark className="inline-flex flex-col items-center leading-none"><strong className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--surface-page)]/55 text-lg" style={tone ? { color: tone.textColor, borderColor: tone.accentColor } : undefined}>{tier}</strong><span className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Tier</span></span> : null;
+}
+
+function RankingInsight({ setRip }) {
+  const explanation = whySetRanks(setRip);
+  const heading = explanation.startsWith("Elite") ? "Elite across formats" : explanation.startsWith("Strong") ? "Strong family depth" : "Standout family strength";
+  return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
 }
 
 /**
@@ -510,6 +506,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
+  const [expandedMobileSet, setExpandedMobileSet] = useState(null);
   // Presentation-only column sort. `RANKINGS_DEFAULT_SORT` is Overall RIP
   // descending, which sortRankingsRows resolves to the canonical order itself,
   // so the first paint is byte-for-byte the leaderboard it has always been.
@@ -834,17 +831,12 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 width. Set stays auto and absorbs what is left.
               */}
               <colgroup>
-                <col style={{ width: "2.6rem" }} />
-                <col />
-                {/* Tier holds a fixed-size badge, not a number that scales with
-                    the table, so it takes a fixed width rather than a
-                    percentage. As a percentage it matched the badge at desktop
-                    but squeezed below it at the md breakpoint, clipping "S Tier".
-                    4.2rem is what the badge measures at full width, so this
-                    changes nothing on desktop and only stops the md clip. */}
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "18%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "5%" }} />
+                <col style={{ width: "51%" }} />
                 <col style={{ width: "14%" }} />
-                <col style={{ width: "24%" }} />
-                <col style={{ width: "22%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
@@ -853,21 +845,15 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <span className="sr-only">Rank</span>
                   </th>
                   <th scope="col">Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP" sort={sort} onSort={handleSort} note={sortNote} />
-                  <th scope="col">Product-family evidence</th>
-                  <SortableHeader
-                    columnId="topChase"
-                    label="Top Chase"
-                    sort={sort}
-                    onSort={handleSort}
-                    note={sortNote}
-                    infoText="Top Chase is the highest-value card in the set that has a valid modeled pull probability. Value uses the current Near Mint market price. It may not be the card that contributes the most EV."
-                  />
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
+                  <th scope="col">Tier</th>
+                  <th scope="col">Product Family Snapshot</th>
+                  <th scope="col">Why It Ranks</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
-                  const tier = (getTierForMode(target, selectedMode) || "").toString().toUpperCase() || null;
+                  const tier = setRipTier(target?.setRipV1);
                   const modeRank = target?.setRipV1?.rank ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = tier ? getTierTone(tier) : null;
@@ -885,16 +871,13 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
                           <SetIdentity variant="compact" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
-                          <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">Set RIP {formatModeScore(target?.setRipV1?.score, SCORE_KIND_PUBLIC)} · {target?.setRipV1?.participatingFamilyCount ?? 0} product families</span>
+                          <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">{target?.setRipV1?.participatingFamilyCount ?? 0} scored families</span>
                         </Link>
                       </td>
-                      <td className={`${styles.numeric} text-[13px] text-[var(--text-primary)]`}>
-                        <strong className="text-lg tabular-nums">{formatModeScore(target?.setRipV1?.score, SCORE_KIND_PUBLIC)}</strong><span className="text-[10px] text-[var(--text-secondary)]"> /100</span>
-                      </td>
-                      <td className="text-xs text-[var(--text-secondary)]">
-                        {target?.setRipV1?.participatingFamilyCount ?? 0} participating product families
-                      </td>
-                      <td><TopChaseCell target={target} /></td>
+                      <td className={styles.numeric}><SetRipScoreBadge setRip={target?.setRipV1} tier={tier} /></td>
+                      <td className="text-center"><SetTierMark tier={tier} /></td>
+                      <td><FamilySnapshot setRip={target?.setRipV1} layout="modules" /></td>
+                      <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
                 })}
@@ -907,31 +890,36 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const activeRank = index + 1;
-              const overallTier = (getTierForMode(target, "overall") || "").toString().toUpperCase() || null;
-              const tier = null;
-              const tierTone = overallTier ? getTierTone(overallTier) : null;
+              const activeRank = target?.setRipV1?.rank ?? index + 1;
+              const tier = setRipTier(target?.setRipV1);
+              const tierTone = tier ? getTierTone(tier) : null;
+              const rowKey = `${target.target_type}:${target.target_id}`;
+              const expanded = expandedMobileSet === rowKey;
 
               return (
-                <Link
-                  key={`${target.target_type}:${target.target_id}`}
-                  href={buildRipLink(target)}
+                <article
+                  key={rowKey}
                   className={styles.mobileRow}
                   style={tierTone ? { "--ex-rank-accent": tierTone.accentColor } : undefined}
                 >
-                  <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2.5">
+                  <button type="button" className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2.5 text-left" aria-expanded={expanded} onClick={() => setExpandedMobileSet(expanded ? null : rowKey)}>
                     <span className="text-right text-sm font-bold tabular-nums text-[var(--text-primary)]">
                       #{activeRank}
                     </span>
                     <div className="min-w-0">
                       <SetIdentity variant="mobileRanking" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
-                    <div className="flex flex-none flex-col items-end gap-1">
-                      <ActiveMobileMetric target={target} columnId={sort.column} />
-                      {tier ? <RankBadge rank={tier} title="Overall RIP Tier" format="tier" /> : null}
+                    <div className="flex flex-none items-center gap-2"><SetRipScoreBadge setRip={target?.setRipV1} tier={tier} compact /><SetTierMark tier={tier} /></div>
+                    <span aria-hidden="true" className={`text-sm transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
+                  </button>
+                  {expanded ? (
+                    <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
+                      <p className="py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Product Family Snapshot</p>
+                      <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />
+                      <Link href={buildRipLink(target)} className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-[var(--accent)]">View full Set RIP breakdown →</Link>
                     </div>
-                  </div>
-                </Link>
+                  ) : null}
+                </article>
               );
             })}
             {hiddenMobileCount > 0 ? (

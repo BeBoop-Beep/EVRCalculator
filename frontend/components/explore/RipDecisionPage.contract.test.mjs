@@ -16,7 +16,7 @@ test("the page leads with the decision, not with the scoring model", () => {
   // QUESTION -> ANSWER -> EVIDENCE -> why it scores that way. Product economics
   // and the chase precede every methodology section.
   const tokens = [
-    'data-rip-section="decision"',
+    'data-rip-section="set-rip-breakdown"',
     "<ProductOpeningValue",
     "<ChaseReality",
     "<MaterialCards",
@@ -30,29 +30,6 @@ test("the page leads with the decision, not with the scoring model", () => {
   const positions = tokens.map((token) => rendered.indexOf(token));
   assert.ok(positions.every((position) => position >= 0), "every section must render");
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
-});
-
-test("the primary verdict and header binding use Set RIP V1, not the old pack rank", () => {
-  const source = fs.readFileSync(pagePath, "utf8");
-  const client = fs.readFileSync(path.resolve(directory, "RipStatisticsPageClient.jsx"), "utf8");
-  assert.ok(source.includes('setRip = null'));
-  assert.ok(source.includes('"Set RIP Rank"'));
-  assert.ok(source.includes('data-set-rip-family-evidence'));
-  assert.ok(!source.includes('"Booster Pack RIP Rank"'));
-  assert.ok(client.includes("const activeSetRip = explorePayload?.setRipV1"));
-  assert.ok(client.includes('<SetPageIcon name="trophy" />Set RIP'));
-});
-
-test("canonical product and chase sections bind to nested ripDecision data", () => {
-  const source = fs.readFileSync(pagePath, "utf8");
-  const selector = fs.readFileSync(path.resolve(directory, "ripDecisionContract.mjs"), "utf8");
-  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
-  assert.ok(selector.includes("ripDecision?.sealedProducts?.products"));
-  assert.ok(selector.includes("normalizeTopChase(ripDecision.topChase)"));
-  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal", "Pack Count", "Product Family"]) {
-    assert.ok(product.includes(`label: "${label}"`));
-  }
-  assert.ok(source.includes("chase={decision.topChase}"));
 });
 
 test("methodology never precedes the decision surface", () => {

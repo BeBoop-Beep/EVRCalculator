@@ -494,7 +494,7 @@ test("publicRipContractV8 survives every allow-listing layer between API and pag
   // The insights clients are ESM-syntax `.js` files this runner cannot import
   // by name, so they are asserted by source inspection, as elsewhere here.
   const criticalClient = fs
-    .readFileSync(path.resolve(here, "../../lib/pokemon/pokemonSetInsightsCriticalClient.js"), "utf8")
+    .readFileSync(path.resolve(here, "../../lib/pokemon/pokemonSetInsightsCriticalNormalizer.mjs"), "utf8")
     .replace(/\r\n/g, "\n");
   assert.match(criticalClient, /publicRipContractV8: toPlainObject\(payload\?\.publicRipContractV8\)/);
   assert.match(criticalClient, /overallRipV8: toPlainObject\(payload\?\.overallRipV8\)/);
@@ -503,8 +503,7 @@ test("publicRipContractV8 survives every allow-listing layer between API and pag
     pageSource.indexOf("function adaptPokemonSetInsightsCriticalPayloadToExplorePayload"),
     pageSource.indexOf("function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload")
   );
-  assert.match(criticalAdapter, /overallRipV8: critical\?\.overallRipV8/);
-  assert.match(criticalAdapter, /publicRipContractV8: critical\?\.publicRipContractV8/);
+  assert.match(criticalAdapter, /adaptCriticalInsightsToExplorePayload\(critical\)/);
 });
 
 test("the page resolves the canonical bundle once, without defaulting to a legacy model", () => {

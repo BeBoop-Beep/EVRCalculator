@@ -2,6 +2,18 @@
 
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
+
+const RIP_PRODUCT_NAV_ITEMS = Object.freeze([
+  { key: "overview", label: "Set Overview", family: null, targetId: "set-detail-overview" },
+  { key: "all", label: "All Products", family: null, targetId: "set-rip-opening-value" },
+  { key: "loose_booster_pack", label: "Booster Pack", family: "loose_booster_pack", targetId: "set-rip-opening-value" },
+  { key: "booster_box", label: "Booster Box", family: "booster_box", targetId: "set-rip-opening-value" },
+  { key: "booster_bundle", label: "Bundle", family: "booster_bundle", targetId: "set-rip-opening-value" },
+  { key: "elite_trainer_box", label: "ETB", family: "elite_trainer_box", targetId: "set-rip-opening-value" },
+  { key: "special_collection", label: "SPC", family: "special_collection", targetId: "set-rip-opening-value" },
+  { key: "ultra_premium_collection", label: "UPC", family: "ultra_premium_collection", targetId: "set-rip-opening-value" },
+]);
 import {
   Area,
   CartesianGrid,
@@ -88,6 +100,7 @@ import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
 import RipDecisionPage from "./RipDecisionPage.jsx";
+import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -587,24 +600,7 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
 // updates in the two effects below, so they can arrive independently without
 // clobbering each other regardless of which settles first.
 function adaptPokemonSetInsightsCriticalPayloadToExplorePayload(critical) {
-  return {
-    set: critical?.set || null,
-    summary: dualKeyCase(critical?.summary || {}),
-    interpretation: critical?.interpretation || {},
-    // The RIP Score hero and Breakdown are priority-1 surfaces, so the canonical
-    // V7 objects have to arrive in the CRITICAL slice - deferring them to the
-    // secondary fetch would leave the headline score unavailable until the
-    // second request settled.
-    financialRipV3: critical?.financialRipV3 || null,
-    overallRipV5: critical?.overallRipV5 || null,
-    publicRipContractV5: critical?.publicRipContractV5 || null,
-    overallRipV6: critical?.overallRipV6 || null,
-    publicRipContractV6: critical?.publicRipContractV6 || null,
-    overallRipV8: critical?.overallRipV8 || null,
-    publicRipContractV8: critical?.publicRipContractV8 || null,
-    overallRipV9: critical?.overallRipV9 || null,
-    publicRipContractV9: critical?.publicRipContractV9 || null,
-  };
+  return adaptCriticalInsightsToExplorePayload(critical);
 }
 
 function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload(secondary) {
@@ -8088,6 +8084,14 @@ export default function RipStatisticsPageClient({
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
   const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
+  const preferredSetRip = useMemo(
+    () => selectPreferredSetRipContract(
+      explorePayload?.setRipV1,
+      selectedTarget?.setRipV1,
+      summary?.setRipV1,
+    ),
+    [explorePayload?.setRipV1, selectedTarget?.setRipV1, summary?.setRipV1]
+  );
   const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
@@ -8297,6 +8301,12 @@ export default function RipStatisticsPageClient({
       ? hasInsightsPayloadData(explorePayload)
       : Boolean(explorePayload);
   const [cardsSubTab, setCardsSubTab] = useState("checklist");
+  const [ripProductFamilyFilter, setRipProductFamilyFilter] = useState(null);
+  const [ripProductNavSelection, setRipProductNavSelection] = useState("overview");
+  useEffect(() => {
+    setRipProductFamilyFilter(null);
+    setRipProductNavSelection("overview");
+  }, [requestedTargetId]);
   // Active Cards-tab section ("all-cards" | "market-movers"). Mirrors the URL
   // `section` param so the sidebar highlight, the section tab strip, and the
   // URL can never diverge — the URL-consumption effect below re-derives it on
@@ -9721,10 +9731,8 @@ export default function RipStatisticsPageClient({
   // never name a metric it is not showing.
   const setContextRipLabel = heroScoreSelection.label;
   const setContextRipTier = String(heroScoreSelection.tier || "").trim().replace(/\s+tier$/i, "");
-  const activeSetRip = explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null;
-  const setContextRipScore = toNumber(activeSetRip?.score);
-  const setContextRipRank = toNumber(activeSetRip?.rank);
-  const setContextRipCohort = toNumber(activeSetRip?.cohortSize ?? activeSetRip?.rankedSetCount) ?? 22;
+  const setContextRipRank = toNumber(heroScoreSelection.rank);
+  const setContextRipCohort = toNumber(heroScoreSelection.cohortSize);
 
   // --- Mobile / tablet hero ------------------------------------------------
   // Identity only below 1200px. Set Value and RIP were duplicated readings —
@@ -12983,6 +12991,13 @@ export default function RipStatisticsPageClient({
                       { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
+                  {setDetailTab === "overview" ? (
+                    <nav aria-label="Set RIP product families" className="flex gap-1 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {RIP_PRODUCT_NAV_ITEMS.map((item) => (
+                        <button key={item.key} type="button" onClick={() => { setRipProductNavSelection(item.key); setRipProductFamilyFilter(item.family); document.getElementById(item.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} aria-current={ripProductNavSelection === item.key ? "page" : undefined} className={`flex-none whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold ${ripProductNavSelection === item.key ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>
+                      ))}
+                    </nav>
+                  ) : null}
                 </div>
                 <section
                   data-set-context-header
@@ -13087,7 +13102,7 @@ export default function RipStatisticsPageClient({
                         setHeaderSummary still carries the value in the shell
                         contract — this is a rendering decision, not a data one. */}
                     <div data-set-context-rip className="min-w-0 border-t border-[var(--border-subtle)] px-4 py-2.5 md:border-l md:border-t-0">
-                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />Set RIP</p>
+                        <p className="set-context-eyebrow flex items-center gap-1.5"><SetPageIcon name="trophy" />RIP Rank</p>
                         {/* Score stays the focal point and stays neutral; the tier
                             takes the outlined pill and the verdict a lighter
                             relative of the breakdown's interpretation pill, both
@@ -13096,9 +13111,6 @@ export default function RipStatisticsPageClient({
                             third chip on this row made the compact card read as
                             three competing badges. */}
                         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          {setContextRipScore !== null ? (
-                            <strong className="text-xl tabular-nums text-[var(--text-primary)]">{setContextRipScore.toFixed(1)}</strong>
-                          ) : null}
                           {setContextRipTier ? (
                             <span
                               data-set-context-rip-tier
@@ -13141,7 +13153,7 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
-                    setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
+                    setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
@@ -13162,6 +13174,8 @@ export default function RipStatisticsPageClient({
                     rankings={rankings}
                     packPaths={ripStatistics?.pack_paths}
                     normalStateRows={normalStateRows}
+                    initialProductId={searchParams?.get?.("sealedProduct") || null}
+                    familyFilter={ripProductFamilyFilter}
                   />
                 ) : null}
 
@@ -13287,7 +13301,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
                         <OverviewRipSummary
                           canonical={canonicalRip}
-                          setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
+                          setRip={preferredSetRip}
                           onViewAnalysis={() =>
                             handleSetDetailNavSelect({
                               tab: "insights",

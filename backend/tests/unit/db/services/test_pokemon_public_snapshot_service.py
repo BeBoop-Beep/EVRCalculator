@@ -9,6 +9,11 @@ from backend.db.services.public_rip_publication_contract import (
     PUBLIC_SET_VALUE_CONTRACT_VERSION,
     canonical_publication_identity,
 )
+from backend.desirability.scoring_config import (
+    CANONICAL_FINANCIAL_RIP_VERSION,
+    CANONICAL_OVERALL_RIP_VERSION,
+    canonical_collector_appeal_version,
+)
 
 
 class _Result:
@@ -2487,7 +2492,6 @@ def test_shell_snapshot_tolerates_missing_market_dashboard_row(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-<<<<<<< Updated upstream
 # Phase 5C: shell payload slimming regression coverage
 # ---------------------------------------------------------------------------
 
@@ -2703,8 +2707,6 @@ def test_shell_snapshot_missing_row_fallback_excludes_dual_cased_duplicates(monk
 
 
 # ---------------------------------------------------------------------------
-=======
->>>>>>> Stashed changes
 # Shared resolver wiring
 # ---------------------------------------------------------------------------
 
@@ -2732,7 +2734,6 @@ def test_resolve_set_row_delegates_to_shared_resolver_with_its_own_client(monkey
 
     assert row == {"id": "resolved"}
     assert calls == [("prismatic-evolutions", sentinel_client)]
-<<<<<<< Updated upstream
 
 
 # ---------------------------------------------------------------------------
@@ -5890,5 +5891,57 @@ def test_the_reader_does_not_restate_the_set_value_contract_version():
     source = Path(pokemon_public_snapshot_service.__file__).read_text(encoding="utf-8")
     assert PUBLIC_SET_VALUE_CONTRACT_VERSION not in source
     assert "payload_guarantees_canonical_set_value" in source
-=======
->>>>>>> Stashed changes
+
+
+def _legacy_set_rip_snapshot():
+    targets = [
+        {"set_id": set_id, "name": set_id.upper(), "calculation_run_id": f"run-{set_id}",
+         "overallRipV9": {"rank": index},
+         "setRipV1": {"score": 50, "rank": index, "rankable": True,
+                      "participatingFamilyCount": 2,
+                      "familyScores": [{"family": "box"}, {"family": "pack"}]}}
+        for index, set_id in enumerate(("a", "b", "c", "d", "e", "f"), 1)
+    ]
+    families = {}
+    for family in ("box", "pack"):
+        products = [
+            {"sealedProductId": f"{set_id}-{family}", "setId": set_id,
+             "familyRank": index, "calculationRunId": f"run-{set_id}",
+             "financialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
+             "collectorAppealVersion": canonical_collector_appeal_version(),
+             "overallRipVersion": CANONICAL_OVERALL_RIP_VERSION}
+            for index, set_id in enumerate(("a", "b", "c", "d", "e", "f"), 1)
+        ]
+        families[family] = {"count": 6, "currentlyRankableCount": 6, "products": products}
+    return {"targets": targets, "productFamilyRankings": {
+        "runAuthority": "set_targets.calculation_run_id",
+        "authorityTargetCount": 6,
+        "families": families,
+    }}
+
+
+def test_legacy_set_rip_is_upgraded_without_mutating_source_and_uses_full_cohort():
+    source = _legacy_set_rip_snapshot()
+    original_first = source["targets"][0]["setRipV1"]
+
+    upgraded = pokemon_public_snapshot_service.upgrade_rankings_set_rip_contract_if_needed(source)
+
+    assert upgraded is not source
+    assert upgraded["targets"][0]["setRipV1"]["cohortSize"] == 6
+    assert upgraded["targets"][0]["setRipV1"]["familyScores"][0]["cohortSize"] == 6
+    assert "cohortSize" not in original_first
+    assert upgraded["targets"][:5][0]["setRipV1"] == upgraded["targets"][:6][0]["setRipV1"]
+
+
+def test_enriched_set_rip_payload_is_returned_unchanged():
+    payload = pokemon_public_snapshot_service.upgrade_rankings_set_rip_contract_if_needed(
+        _legacy_set_rip_snapshot()
+    )
+    assert pokemon_public_snapshot_service.upgrade_rankings_set_rip_contract_if_needed(payload) is payload
+
+
+def test_invalid_product_family_rankings_never_fabricate_enrichment():
+    payload = _legacy_set_rip_snapshot()
+    payload["productFamilyRankings"]["authorityTargetCount"] = 5
+    assert pokemon_public_snapshot_service.upgrade_rankings_set_rip_contract_if_needed(payload) is payload
+    assert "cohortSize" not in payload["targets"][0]["setRipV1"]

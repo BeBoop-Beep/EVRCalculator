@@ -87,7 +87,7 @@ export default function SetIdentity({
 
   // The default variant paints a ~78 CSS px slot and shares SET_LOGO_WIDTH with
   // the set hero and page atmosphere, so identical artwork is transformed once.
-  // The compact variant's slot is 32 px and shares the dense-row thumbnail width
+  // The compact variant's slot stays within the dense-row thumbnail width
   // with the Market ladder instead — see SET_LOGO_THUMBNAIL_WIDTH.
   const activeSrc = optimizedImageUrl(
     showImage ? imageCandidates[candidateIndex] || null : null,
@@ -106,7 +106,7 @@ export default function SetIdentity({
   if (variant === "mobileRanking") {
     return (
       <div className="flex min-w-0 items-center gap-3.5">
-        <div className="flex h-14 w-14 flex-none items-center justify-center">
+        <div className="flex h-16 w-[4.5rem] flex-none items-center justify-center">
           {activeSrc ? (
             <img src={activeSrc} alt="" className="h-full w-full object-contain" loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" onError={handleImageError} />
           ) : (
@@ -123,13 +123,13 @@ export default function SetIdentity({
 
   if (variant === "compact") {
     return (
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-md bg-[rgba(255,255,255,0.045)]">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-14 w-20 flex-none items-center justify-center">
           {activeSrc ? (
             <img
               src={activeSrc}
               alt=""
-              className="h-[86%] w-[86%] object-contain"
+              className="h-full w-full object-contain"
               loading={eager ? "eager" : "lazy"}
               fetchPriority={eager ? "high" : undefined}
               decoding="async"
@@ -142,7 +142,7 @@ export default function SetIdentity({
           )}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold leading-tight text-[var(--text-primary)]">{name}</p>
+          <p className="text-[13px] font-semibold leading-tight text-[var(--text-primary)]">{name}</p>
           {target?.era ? (
             <p className="mt-0.5 truncate text-[11px] leading-tight text-[var(--text-secondary)]">{target.era}</p>
           ) : null}

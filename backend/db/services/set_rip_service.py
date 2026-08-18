@@ -70,9 +70,27 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
                 raise ValueError(f"Set RIP canonical score version mismatch for set_id={set_id}, family={family}")
             evidence[set_id][family].append(sku_relative_standing(int(product.get("familyRank")), family_size))
 
+    standings: dict[str, dict[str, float]] = defaultdict(dict)
+    for set_id, families in evidence.items():
+        for family, values in families.items():
+            standings[family][set_id] = round(statistics.fmean(values), 6)
+
+    family_standing: dict[str, dict[str, Dict[str, Any]]] = defaultdict(dict)
+    for family, by_set in standings.items():
+        ordered = sorted(by_set.items(), key=lambda item: (-item[1], item[0]))
+        cohort_size = len(ordered)
+        for rank, (set_id, mean_standing) in enumerate(ordered, 1):
+            family_standing[set_id][family] = {
+                "meanStanding": mean_standing,
+                "score": round(mean_standing * 100, 6),
+                "rank": rank,
+                "cohortSize": cohort_size,
+            }
+
     rows = []
     for set_id, target in target_by_id.items():
-        family_scores = [{"family": family, "skuCount": len(values), "meanStanding": round(statistics.fmean(values), 6)}
+        family_scores = [{"family": family, "skuCount": len(values),
+                          **family_standing[set_id][family]}
                          for family, values in sorted(evidence.get(set_id, {}).items())]
         rankable = len(family_scores) >= MINIMUM_PARTICIPATING_FAMILIES
         score = round(statistics.fmean(item["meanStanding"] for item in family_scores) * 100, 6) if rankable else None
@@ -84,8 +102,13 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
                      "familyScores": family_scores})
 
     ranked = sorted((row for row in rows if row["rankable"]), key=lambda row: (-row["score"], row["setId"]))
+    cohort_size = len(ranked)
     for rank, row in enumerate(ranked, 1):
         row["rank"] = rank
+        row["cohortSize"] = cohort_size
+    for row in rows:
+        if not row["rankable"]:
+            row["cohortSize"] = cohort_size
     unavailable = sorted((row for row in rows if not row["rankable"]), key=lambda row: row["setId"])
     return {"methodologyVersion": METHODOLOGY_VERSION, "runAuthority": "set_targets.calculation_run_id",
             "minimumParticipatingFamilies": MINIMUM_PARTICIPATING_FAMILIES,

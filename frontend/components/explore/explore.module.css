@@ -100,6 +100,64 @@
   table-layout: fixed;
 }
 
+/* One shared Product Family Snapshot surface. Family values are unboxed data
+   columns; short, quiet dividers organize them without creating mini-cards. */
+.surface :global(.set-rip-family-snapshot) {
+  display: grid;
+  gap: 4px 0;
+  padding: 7px 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.surface :global(.set-rip-family-snapshot--wide) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.surface :global(.set-rip-family-snapshot--compact) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.surface :global(.set-rip-family-column) {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0 9px;
+}
+
+.surface :global(.set-rip-family-column)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  width: 1px;
+  height: 60%;
+  background: var(--border-subtle);
+  opacity: 0.68;
+}
+
+.surface :global(.set-rip-family-snapshot--compact .set-rip-family-column:nth-child(odd))::before,
+.surface :global(.set-rip-family-snapshot--wide .set-rip-family-column:nth-child(3n + 1))::before {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .surface :global(.set-rip-family-snapshot--wide) {
+    grid-template-columns: repeat(var(--family-columns), minmax(0, 1fr));
+  }
+
+  .surface :global(.set-rip-family-snapshot--wide .set-rip-family-column:nth-child(3n + 1))::before {
+    display: block;
+  }
+
+  .surface :global(.set-rip-family-snapshot--wide .set-rip-family-column:first-child)::before {
+    display: none;
+  }
+}
+
 .head th {
   position: sticky;
   top: 0;

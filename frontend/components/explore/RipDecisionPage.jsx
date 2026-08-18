@@ -33,6 +33,7 @@ import {
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
+import { FamilyScoreRow, FamilyTierBadge, familyEvidenceScores, participatingFamilyCount, participatingFamilyScores, setRipTier } from "./SetRipFamilyBreakdown.jsx";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -451,11 +452,17 @@ export default function RipDecisionPage({
   rankings = [],
   packPaths = {},
   normalStateRows = [],
+  initialProductId = null,
+  familyFilter = null,
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
   const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
+  const setRipFamilies = useMemo(() => participatingFamilyScores(setRip), [setRip]);
+  const setRipFamilyEvidence = useMemo(() => familyEvidenceScores(setRip), [setRip]);
+  const setRipParticipatingFamilyCount = useMemo(() => participatingFamilyCount(setRip), [setRip]);
+  const canonicalSetTier = setRipTier(setRip);
   // ONE normalization of the canonical decision contract for the whole page, so
   // no section re-reads raw snapshot keys or invents its own fallbacks.
   const decision = useMemo(() => selectRipDecisionContract(ripDecision), [ripDecision]);
@@ -501,14 +508,6 @@ export default function RipDecisionPage({
     [canonical],
   );
   const verdictPresentation = getRipPageIconPresentation("verdict");
-  const setRipScore = Number.isFinite(Number(setRip?.score)) ? Number(setRip.score) : null;
-  const setRipRank = Number.isFinite(Number(setRip?.rank)) ? Number(setRip.rank) : null;
-  const setRipCohort = Number.isFinite(Number(setRip?.cohortSize ?? setRip?.rankedSetCount))
-    ? Number(setRip?.cohortSize ?? setRip?.rankedSetCount)
-    : 22;
-  const familyScores = Object.entries(setRip?.familyScores || {}).filter(([, value]) =>
-    Number.isFinite(Number(value)),
-  );
   const metrics = {
     overall: {
       key: "overall",
@@ -568,56 +567,33 @@ export default function RipDecisionPage({
           canonical rank is the existing booster-pack RIP rank, so it is named
           as such: there is no validated multi-product Set RIP Consensus, and
           calling it one here would invent a metric. */}
-      <article
-        data-rip-section="decision"
-        className={`${styles.panel} ${styles.compactVerdict} set-glass-surface`}
-      >
-        <div className={styles.compactVerdictHead}>
-          {setRipRank !== null ? (
-            <span className={styles.verdictRank}>
-              #{Math.round(setRipRank)}
-            </span>
-          ) : null}
-          <div className="min-w-0">
-            <p
-              className="text-[10px] font-bold uppercase tracking-[0.16em]"
-              style={{ color: verdictPresentation.style.color }}
-            >
-              Verdict
-            </p>
-            <h1 className={styles.compactVerdictTitle}>
-              {setRipRank === null ? "Set RIP Rank Unavailable" : "Set RIP Rank"}
-            </h1>
+      <article data-rip-section="set-rip-breakdown" className={`${styles.panel} set-glass-surface`}>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+          <div>
+            <p className={styles.eyebrow}>Set RIP Breakdown</p>
+            <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">What Makes Up {setName || "This Set"}&apos;s Set RIP Score?</h1>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">The Set RIP Score is derived from the scored product families below.</p>
+          </div>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-4">
+            <p className="text-xs font-semibold text-[var(--text-secondary)]">{setName || "Set"} Set RIP Score</p>
+            <div className="mt-1 flex items-end justify-between gap-3"><span className="text-4xl font-bold tabular-nums text-[var(--text-primary)]">{score(setRip?.score)}</span><FamilyTierBadge tier={canonicalSetTier} /></div>
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">{rank(setRip?.rank, setRip?.cohortSize)}. Based on {setRipParticipatingFamilyCount} scored product families.</p>
           </div>
         </div>
-        <p className={styles.compactVerdictLine}>
-          {setRipScore === null
-            ? "Set RIP is unavailable in this snapshot."
-            : `${setRipScore.toFixed(1)} Set RIP${setRipRank === null ? "" : ` · #${Math.round(setRipRank)} of ${Math.round(setRipCohort)}`}`}
-        </p>
-        {familyScores.length ? (
-          <div className="mt-4 border-t border-[var(--border-subtle)] pt-3" data-set-rip-family-evidence>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Set RIP averages this set&apos;s relative performance across eligible opening product families. Multiple SKUs in the same family are averaged first.
-            </p>
-            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {familyScores.map(([family, value]) => (
-                <div key={family} className="rounded-lg bg-[var(--surface-page)]/50 p-2">
-                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                    {family.replaceAll("_", " ")}
-                  </dt>
-                  <dd className="mt-1 font-semibold tabular-nums text-[var(--text-primary)]">
-                    {(Number(value) * 100).toFixed(1)}%
-                  </dd>
-                </div>
-              ))}
-            </dl>
+        <div className="mt-6">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Scored Product Families</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">These product families are included in {setName || "this set"}&apos;s Set RIP Score.</p>
+          <div className="mt-3 hidden border-y border-[var(--border-subtle)] md:block">
+            <div className="grid grid-cols-[minmax(13rem,1.35fr)_4.5rem_4rem_4.75rem_minmax(11rem,1fr)] gap-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]"><span>Product Family</span><span className="text-right">Score</span><span className="text-right">Rank</span><span>Tier</span><span>Key Takeaway</span></div>
+            <div className="divide-y divide-[var(--border-subtle)]">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} showTakeaway />)}</div>
           </div>
-        ) : null}
+          <div className="mt-3 divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)] md:hidden">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} compact />)}</div>
+          {!setRipFamilies.length ? <p className="mt-3 text-sm text-[var(--text-secondary)]">{setRipFamilyEvidence.length ? "Family evidence is available, but family ranking context is unavailable for this snapshot." : "Set RIP family scores are unavailable for this set."}</p> : null}
+        </div>
       </article>
 
       {/* B. PRODUCT OPENING VALUE + C. SELECTED PRODUCT ECONOMICS. */}
-      <ProductOpeningValue decision={decision} setName={setName} />
+      <ProductOpeningValue decision={decision} setName={setName} initialProductId={initialProductId} familyFilter={familyFilter} />
 
       {/* D. CHASE REALITY — canonical contract only. */}
       <ChaseReality

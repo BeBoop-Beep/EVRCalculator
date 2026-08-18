@@ -69,18 +69,29 @@ function decisionFor(products) {
   });
 }
 
-function render(products) {
+function render(products, props = {}) {
   let renderer;
   TestRenderer.act(() => {
     renderer = TestRenderer.create(
       React.createElement(ProductOpeningValue, {
         decision: decisionFor(products),
         setName: "Test Set",
+        ...props,
       }),
     );
   });
   return renderer;
 }
+
+test("sealedProduct deep link selects the exact canonical SKU", () => {
+  const renderer = render([
+    product({ sealedProductId: "box-1", productName: "Booster Box" }),
+    product({ sealedProductId: "etb-1", productName: "Exact Linked ETB", productFamily: "elite_trainer_box", marketPrice: 65 }),
+  ], { initialProductId: "etb-1" });
+  const selected = renderer.root.findAll((node) => node.props["data-selected-product"] !== undefined);
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].props["data-selected-product"], "etb-1");
+});
 
 /** Every text node in the tree, flattened. */
 function textOf(renderer) {

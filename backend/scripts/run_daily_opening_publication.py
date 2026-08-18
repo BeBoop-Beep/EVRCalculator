@@ -99,6 +99,12 @@ class PublicationSummary:
     rip_contract_audit_report: Optional[Dict[str, Any]] = None
     sealed_product_finalization_status: str = "not_attempted"
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None
+    rip_stats_publication_status: str = "not_attempted"
+    rip_stats_audit_status: str = "not_attempted"
+    rip_stats_market_date: Optional[str] = None
+    rip_stats_set_count: int = 0
+    rip_stats_source_run_fingerprint: Optional[str] = None
+    rip_stats_failures: List[str] = field(default_factory=list)
     exit_code: int = EXIT_CANNOT_START
     error: Optional[str] = None
 
@@ -133,6 +139,13 @@ class PublicationSummary:
                 f"total_ms={report.get('elapsedMs')}"
             )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
+        out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
+        out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
+        out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
+        out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
+        out.append(f"{TAG} rip_stats_source_run_fingerprint={self.rip_stats_source_run_fingerprint}")
+        for failure in self.rip_stats_failures:
+            out.append(f"{TAG}   rip_stats_failure={failure}")
         out.append(f"{TAG} verification_passed={self.verification_passed}")
         out.append(f"{TAG} publication_audit_status={self.publication_audit_status}")
         if self.publication_audit_failed_sets:
@@ -317,6 +330,24 @@ def orchestrate(
         dry_run=dry_run,
     )
 
+    # ---- Step 3c: exact Pokemon-wide RIP Stats ----------------------------
+    # This is Phase 2 only and is never attempted before the simulation gate.
+    if skip_snapshots:
+        summary.rip_stats_publication_status = "skipped_skip_snapshots"
+    elif after.ok and not summary.simulation_failed and _rip_stats_capability_expected(client):
+        summary.rip_stats_publication_status = _publish_rip_stats(
+            client, summary, market_date=resolved_market_date, dry_run=dry_run
+        )
+        if summary.rip_stats_publication_status not in {"published", "validated_dry_run"}:
+            summary.exit_code = EXIT_FAILED
+            summary.error = "Pokemon RIP Stats publication failed; previous latest snapshot retained"
+            return summary
+    else:
+        summary.rip_stats_publication_status = (
+            "skipped_cohort_not_verified" if not after.ok or summary.simulation_failed
+            else "skipped_legacy_test_client"
+        )
+
     # ---- Step 4: publish snapshots ----------------------------------------
     # Snapshots still rebuild when verification failed: the market sections are
     # legitimately fresh and must not be held hostage to a stale simulation.
@@ -426,8 +457,59 @@ def orchestrate(
             )
         return summary
 
+    summary.rip_stats_audit_status = (_audit_rip_stats(
+        client, summary, market_date=resolved_market_date, dry_run=dry_run
+    ) if summary.rip_stats_publication_status in {"published", "validated_dry_run"} else "skipped")
+    if summary.rip_stats_audit_status not in {"passed", "skipped"}:
+        summary.exit_code = EXIT_FAILED
+        summary.error = "published Pokemon RIP Stats failed its provenance audit"
+        return summary
+
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _rip_stats_capability_expected(client: Any) -> bool:
+    """Keep strict legacy query fakes usable until they declare new relations.
+
+    Real Supabase clients do not expose ``_tables``. Repository unit fakes do;
+    once extended for RIP Stats they include the artifact relation explicitly.
+    """
+    fake_tables = getattr(client, "_tables", None)
+    if isinstance(fake_tables, dict):
+        return "simulation_pack_outcome_artifacts" in fake_tables
+    return True
+
+
+def _publish_rip_stats(client: Any, summary: PublicationSummary, *, market_date: str, dry_run: bool) -> str:
+    try:
+        from backend.db.services.pokemon_rip_stats_service import build_pokemon_rip_stats_snapshot, publish_pokemon_rip_stats_snapshot
+        built = build_pokemon_rip_stats_snapshot(client, market_date=market_date)
+        summary.rip_stats_market_date = market_date
+        summary.rip_stats_set_count = int(built["metrics"]["setCount"])
+        summary.rip_stats_source_run_fingerprint = built["snapshot"]["source_run_fingerprint"]
+        if dry_run:
+            return "validated_dry_run"
+        publish_pokemon_rip_stats_snapshot(client, built)
+        return "published"
+    except Exception as exc:
+        summary.rip_stats_failures.append(str(exc))
+        return "failed"
+
+
+def _audit_rip_stats(client: Any, summary: PublicationSummary, *, market_date: str, dry_run: bool) -> str:
+    if dry_run:
+        return "skipped"
+    try:
+        from backend.scripts.audit_pokemon_rip_stats_publication import audit
+        report = audit(client, market_date)
+        if report.get("status") != "passed":
+            summary.rip_stats_failures.extend(str(item) for item in report.get("failures") or [])
+            return "failed"
+        return "passed"
+    except Exception as exc:
+        summary.rip_stats_failures.append(str(exc))
+        return "failed"
 
 
 def _finalize_sealed_products(

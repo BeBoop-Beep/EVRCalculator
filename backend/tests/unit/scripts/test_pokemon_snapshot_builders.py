@@ -1482,7 +1482,12 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     monkeypatch.setattr(
         pokemon_snapshot_builders.rip_decision_service,
         "build_rip_decision_contract",
-        lambda **_kwargs: {"sourceCalculationRunId": "run-b", "topChase": {"sourceCalculationRunId": "run-b"}},
+        lambda **_kwargs: {
+            "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+            "sourceCalculationRunId": "run-b",
+            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
+            "topChase": {"sourceCalculationRunId": "run-b"},
+        },
     )
 
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})
@@ -1602,7 +1607,12 @@ def test_current_run_top_chase_is_built_without_rankings_and_replaces_stale_inpu
     assert merged["ripDecision"]["topChase"]["cardName"] == "Current Chase"
 
 
-@pytest.mark.parametrize("decision", [None, {"sourceCalculationRunId": "run-b", "topChase": None}])
+@pytest.mark.parametrize("decision", [None, {
+    "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+    "sourceCalculationRunId": "run-b",
+    "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
+    "topChase": None,
+}])
 def test_required_current_run_top_chase_failure_rejects_build_payload(decision):
     with pytest.raises(RuntimeError, match="required .*Top Chase|required ripDecision"):
         pokemon_snapshot_builders._assert_current_run_rip_decision(
@@ -1613,9 +1623,23 @@ def test_required_current_run_top_chase_failure_rejects_build_payload(decision):
 def test_current_run_top_chase_identity_mismatch_is_rejected():
     with pytest.raises(RuntimeError, match="Top Chase run mismatch"):
         pokemon_snapshot_builders._assert_current_run_rip_decision(
-            {"ripDecision": {"sourceCalculationRunId": "run-b",
+            {"ripDecision": {"contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+                             "sourceCalculationRunId": "run-b",
+                             "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
                              "topChase": {"sourceCalculationRunId": "run-a"}}},
             set_id="set-1", expected_run_id="run-b", required=True,
+        )
+
+
+@pytest.mark.parametrize("decision, message", [
+    ({"contractVersion": "rip-decision-contract-v1", "currentRunAvailable": False}, "current run is unavailable"),
+    ({"contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+      "sourceCalculationRunId": "run-b", "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 0}}, "modeled products are missing"),
+])
+def test_recent_ranked_snapshot_is_not_complete_without_current_decision_products(decision, message):
+    with pytest.raises(RuntimeError, match=message):
+        pokemon_snapshot_builders._assert_current_run_rip_decision(
+            {"ripDecision": decision}, set_id="set-1", expected_run_id="run-b", required=True
         )
 
 
@@ -1662,7 +1686,12 @@ def test_build_set_page_snapshot_row_merges_decision_signal_ranks_from_rankings(
     monkeypatch.setattr(
         pokemon_snapshot_builders.rip_decision_service,
         "build_rip_decision_contract",
-        lambda **_kwargs: {"sourceCalculationRunId": "run-b", "topChase": {"sourceCalculationRunId": "run-b"}},
+        lambda **_kwargs: {
+            "contractVersion": "rip-decision-contract-v1", "currentRunAvailable": True,
+            "sourceCalculationRunId": "run-b",
+            "sealedProducts": {"sourceCalculationRunId": "run-b", "productCount": 1, "products": [{}]},
+            "topChase": {"sourceCalculationRunId": "run-b"},
+        },
     )
 
     row = pokemon_snapshot_builders.build_set_page_snapshot_row({"id": "set-1", "name": "Alpha"})

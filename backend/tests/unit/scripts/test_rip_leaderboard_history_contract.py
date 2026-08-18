@@ -132,7 +132,14 @@ def _row(*, target_count=1, appeal_version=CANONICAL["collectorAppealVersion"],
         "setRipV1": {"score": 95 - index, "rank": index + 1, "rankable": True,
                      "methodologyVersion": SET_RIP_VERSION, "participatingFamilyCount": 2,
                      "participatingFamilies": ["loose_booster_pack", "booster_bundle"],
-                     "skuEvidenceCount": 2, "familyScores": []},
+                     "skuEvidenceCount": 2, "familyScores": [
+                         {"family": "loose_booster_pack", "skuCount": 1,
+                          "meanStanding": 0.9, "score": 90, "rank": index + 1,
+                          "cohortSize": target_count},
+                         {"family": "booster_bundle", "skuCount": 1,
+                          "meanStanding": 0.8, "score": 80, "rank": index + 1,
+                          "cohortSize": target_count},
+                     ]},
         "financialRipV3": {"score": 75 - index, "rank": index + 1},
         # The legacy objects, still present. The publish RPC counts ranked
         # targets by `rip.rank`, so they must select the same rows.

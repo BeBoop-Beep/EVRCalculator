@@ -136,9 +136,6 @@ function normalizeProduct(row, index) {
     // `order` is the contract's order (pack count ascending), never a rank.
     order: index,
     family,
-    familyLabel: text(row.productFamilyLabel) || humanizeFamily(family),
-    familyRank: number(row.familyRank),
-    familySize: number(row.familySize),
     // The SKU's own name wins: two ETB SKUs must not both render as "ETB".
     label: productName || humanizeFamily(family) || `Product ${index + 1}`,
     packCount: number(row.packCount),
@@ -148,12 +145,25 @@ function normalizeProduct(row, index) {
     modelEdgePercent: number(row.modelEdgePercent),
     typicalOpening: number(row.typicalOpening),
     chanceToRecoverCost: number(row.chanceToRecoverCost),
-    overallRipScore: number(row.overallRipScore),
     financialRipScore: number(row.financialRipScore),
     collectorAppealScore: number(row.collectorAppealScore),
+    overallRipScore: number(row.overallRipScore),
     priceAsOf: text(row.priceAsOf),
     priceSource: text(row.priceSource),
+    composition: isObject(row.composition) ? row.composition : null,
+    availability: isObject(row.availability) ? row.availability : null,
     entertainmentCost: normalizeEntertainmentCost(row.entertainmentCost),
+  };
+}
+
+function normalizeUnsupportedProduct(row, index) {
+  if (!isObject(row)) return null;
+  const product = normalizeProduct(row, index);
+  if (!product) return null;
+  return {
+    ...product,
+    available: false,
+    reason: text(row.entertainmentCost?.reason) || text(row.availability?.reason),
   };
 }
 
@@ -196,27 +206,23 @@ export function selectRipDecisionContract(ripDecision) {
       runStatus: null,
       products: [],
       productCount: 0,
+      unsupportedProducts: { contractVersion: null, productCount: 0, products: [] },
       topChase: null,
       comparisonScope: COMPARISON_SCOPE_WITHIN_FAMILY,
       crossFormatComparable: false,
     };
   }
 
-  const sealedRows = Array.isArray(ripDecision?.sealedProducts?.products)
-    ? ripDecision.sealedProducts.products
-    : [];
-  const available =
-    ripDecision.currentRunAvailable === true ||
-    (ripDecision.currentRunAvailable == null &&
-      (sealedRows.length > 0 || isObject(ripDecision.topChase)));
+  const available = ripDecision.currentRunAvailable === true;
   const sealed = isObject(ripDecision.sealedProducts) ? ripDecision.sealedProducts : {};
+  const unsupported = isObject(ripDecision.unsupportedProducts) ? ripDecision.unsupportedProducts : {};
 
   // Without a current run the page shows nothing economic. Rendering the
   // contract's (empty) product list is the point: falling back to older rows
   // would print correct-looking economics from a run the rest of the page is
   // not describing.
   const products = available
-    ? sealedRows
+    ? (Array.isArray(sealed.products) ? sealed.products : [])
         .map(normalizeProduct)
         .filter(Boolean)
     : [];
@@ -228,12 +234,32 @@ export function selectRipDecisionContract(ripDecision) {
     runStatus: text(sealed.runStatus),
     products,
     productCount: number(sealed.productCount) ?? products.length,
+    unsupportedProducts: {
+      contractVersion: text(unsupported.contractVersion),
+      productCount: number(unsupported.productCount) ?? 0,
+      products: (Array.isArray(unsupported.products) ? unsupported.products : [])
+        .map(normalizeUnsupportedProduct)
+        .filter(Boolean),
+    },
     topChase: available ? normalizeTopChase(ripDecision.topChase) : null,
     // Republished verbatim so the UI can assert the policy it is bound by
     // instead of assuming it.
     comparisonScope: text(ripDecision.comparisonScope) || COMPARISON_SCOPE_WITHIN_FAMILY,
     crossFormatComparable: ripDecision.crossFormatComparable === true,
   };
+}
+
+export function selectDecisionProductsForFamily(decision, family) {
+  const products = Array.isArray(decision?.products) ? decision.products : [];
+  const canonicalFamily = text(family);
+  return canonicalFamily ? products.filter((product) => product.family === canonicalFamily) : products;
+}
+
+export function selectDecisionProductById(decision, sealedProductId) {
+  const canonicalId = text(sealedProductId);
+  if (!canonicalId) return null;
+  return (Array.isArray(decision?.products) ? decision.products : [])
+    .find((product) => product.sealedProductId === canonicalId) || null;
 }
 
 /**

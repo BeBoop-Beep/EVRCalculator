@@ -17,6 +17,7 @@ from backend.db.services.public_rip_publication_contract import (
     canonical_publication_identity,
     payload_guarantees_canonical_set_value,
 )
+from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -94,7 +95,6 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed if math.isfinite(parsed) else None
 
 
-<<<<<<< Updated upstream
 def _to_optional_int(value: Any) -> Optional[int]:
     try:
         return int(value)
@@ -102,8 +102,6 @@ def _to_optional_int(value: Any) -> Optional[int]:
         return None
 
 
-=======
->>>>>>> Stashed changes
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -1894,6 +1892,53 @@ def _stale_rankings_fallback(cached: Dict[str, Any], reason: str) -> Dict[str, A
     return fallback
 
 
+def _has_enriched_set_rip_contract(payload: Dict[str, Any]) -> bool:
+    targets = payload.get("targets")
+    if not isinstance(targets, list) or not targets:
+        return False
+    for target in targets:
+        block = target.get("setRipV1") if isinstance(target, dict) else None
+        if not isinstance(block, dict) or not block.get("rankable"):
+            continue
+        if not isinstance(block.get("cohortSize"), int) or block["cohortSize"] <= 0:
+            return False
+        families = block.get("familyScores")
+        if not isinstance(families, list):
+            return False
+        participating = set(block.get("participatingFamilies") or [])
+        displayed = [row for row in families if isinstance(row, dict) and row.get("family") in participating]
+        if len(displayed) != int(block.get("participatingFamilyCount") or 0):
+            return False
+        if any(any(row.get(key) is None for key in ("family", "skuCount", "score", "rank", "cohortSize"))
+               for row in displayed):
+            return False
+    return True
+
+
+def upgrade_rankings_set_rip_contract_if_needed(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Upgrade legacy Set RIP shape from this persisted publication only."""
+    if _has_enriched_set_rip_contract(payload):
+        return payload
+    targets = payload.get("targets")
+    product_family_rankings = payload.get("productFamilyRankings")
+    if not isinstance(targets, list) or not isinstance(product_family_rankings, dict):
+        return payload
+    try:
+        set_rip = build_set_rip(product_family_rankings, set_targets=targets)
+        enriched_targets = attach_set_rip_to_targets(targets, set_rip)
+    except (KeyError, TypeError, ValueError):
+        logger.warning(
+            "[pokemon-snapshot] Set RIP compatibility upgrade failed; serving persisted legacy contract",
+            exc_info=True,
+        )
+        return payload
+    return {
+        **payload,
+        "targets": enriched_targets,
+        "setRip": {key: value for key, value in set_rip.items() if key != "sets"},
+    }
+
+
 def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_LIMIT) -> Dict[str, Any]:
     clamped_limit = _sanitize_limit(limit, default=DEFAULT_RANKINGS_LIMIT, max_value=MAX_RANKINGS_LIMIT)
     try:
@@ -1952,6 +1997,10 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
                 code="RIP_STATISTICS_TARGETS_PUBLICATION_SUPERSEDED",
                 retry_after_seconds=60,
             )
+
+        # Must run on the full persisted cohort before request limiting: family
+        # ranks and cohorts are publication-wide, never page-size-relative.
+        payload = upgrade_rankings_set_rip_contract_if_needed(payload)
 
         enrichment_warning = None
         # THE COMPATIBILITY FILL IS A FALLBACK, AND IS NOW PRICED AS ONE.

@@ -5,6 +5,8 @@ import {
   buildEdgeSentence,
   defaultSelectedProductKey,
   selectLoosePackMarketPrice,
+  selectDecisionProductById,
+  selectDecisionProductsForFamily,
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
 
@@ -79,6 +81,50 @@ test("a current run publishes products and top chase from the real contract keys
   assert.equal(decision.topChase.impliedOddsOneInN, 1250);
   assert.equal(decision.topChase.packsFor50PercentChance, 866);
   assert.equal(decision.topChase.packsFor90PercentChance, 2878);
+});
+
+test("decision products preserve backend scores, availability, and composition without derivation", () => {
+  const contract = currentRunContract();
+  Object.assign(contract.sealedProducts.products[0], {
+    financialRipScore: 44.2,
+    collectorAppealScore: 81.7,
+    overallRipScore: 47.95,
+    availability: { decisionMetricsAvailable: true, reason: null },
+    composition: { compositionVersion: "verified-v1", randomPackCount: 1 },
+  });
+  const product = selectRipDecisionContract(contract).products[0];
+  assert.equal(product.financialRipScore, 44.2);
+  assert.equal(product.collectorAppealScore, 81.7);
+  assert.equal(product.overallRipScore, 47.95);
+  assert.deepEqual(product.availability, contract.sealedProducts.products[0].availability);
+  assert.deepEqual(product.composition, contract.sealedProducts.products[0].composition);
+});
+
+test("unsupported products remain explicit and never become modeled products", () => {
+  const decision = selectRipDecisionContract(currentRunContract({
+    unsupportedProducts: {
+      contractVersion: "rip-decision-contract-v1",
+      productCount: 1,
+      products: [{
+        sealedProductId: "sku-spc",
+        productName: "Special Collection",
+        productFamily: "special_collection",
+        marketPrice: 29.99,
+        entertainmentCost: { available: false, reason: "unsupported_product_family" },
+      }],
+    },
+  }));
+  assert.equal(decision.products.some((product) => product.sealedProductId === "sku-spc"), false);
+  assert.equal(decision.unsupportedProducts.products[0].available, false);
+  assert.equal(decision.unsupportedProducts.products[0].reason, "unsupported_product_family");
+});
+
+test("deep-link and family selection use canonical SKU and exact family identity", () => {
+  const decision = selectRipDecisionContract(currentRunContract());
+  assert.equal(selectDecisionProductById(decision, "sku-booster-box")?.family, "booster_box");
+  assert.equal(selectDecisionProductById(decision, "missing"), null);
+  assert.deepEqual(selectDecisionProductsForFamily(decision, "booster_box").map((product) => product.sealedProductId), ["sku-booster-box"]);
+  assert.deepEqual(selectDecisionProductsForFamily(decision, "sleeved_booster_pack").map((product) => product.sealedProductId), ["sku-sleeved-pack"]);
 });
 
 test("a snapshot predating the contract is distinguishable from a run-less one", () => {

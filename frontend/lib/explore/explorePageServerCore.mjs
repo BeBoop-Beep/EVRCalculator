@@ -50,13 +50,6 @@ export function normalisePayload(payload) {
     threshold_bins: Array.isArray(payload?.threshold_bins) ? payload.threshold_bins : [],
     top_hits: Array.isArray(payload?.top_hits) ? payload.top_hits : [],
     history_trend: Array.isArray(payload?.history_trend) ? payload.history_trend : [],
-    // `ripDecision` is the small backend-owned decision contract consumed by
-    // RipDecisionPage/ProductOpeningValue. It is forwarded verbatim; the
-    // dedicated full chase-economics dataset is deliberately NOT part of it.
-    ripDecision:
-      payload?.ripDecision && typeof payload.ripDecision === "object" && !Array.isArray(payload.ripDecision)
-        ? payload.ripDecision
-        : null,
     openingDesirability: payload?.openingDesirability || payload?.opening_desirability || null,
     pull_rate_assumptions: payload?.pull_rate_assumptions || payload?.pullRateAssumptions || null,
     interpretation: payload?.interpretation || {},
