@@ -69,10 +69,10 @@ export default function PokemonMarketOverview({ overview }) {
             <tr>
               <th scope="col">Market</th>
               <th scope="col">
-                <span className="inline-flex items-center gap-1.5">Basket Value<InfoPopover text={MARKET_OVERVIEW_HELP.basketValue} /></span>
+                <div className="flex items-center justify-end gap-1.5">Basket Value<InfoPopover text={MARKET_OVERVIEW_HELP.basketValue} /></div>
               </th>
               <th scope="col">
-                <span className="inline-flex items-center gap-1.5">Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></span>
+                <div className="flex items-center justify-end gap-1.5">Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
               </th>
               {MARKET_OVERVIEW_SUMMARY_WINDOWS.map((entry) => <th key={entry.key} scope="col">{entry.label}</th>)}
             </tr>
@@ -109,11 +109,11 @@ export default function PokemonMarketOverview({ overview }) {
               <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2.5">
                 <div>
                   <p data-market-overview-metric="basketValue" className="text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatBasketValue(family.basketValue)}</p>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Basket Value<InfoPopover text={MARKET_OVERVIEW_HELP.basketValue} /></p>
+                  <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Basket Value<InfoPopover text={MARKET_OVERVIEW_HELP.basketValue} /></div>
                 </div>
                 <div>
                   <p data-market-overview-metric="index" className="text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatIndexValue(family.indexValue)}</p>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></p>
+                  <div className="mt-0.5 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
                 </div>
                 <div data-market-overview-change="30D">
                   <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">30D</p>
