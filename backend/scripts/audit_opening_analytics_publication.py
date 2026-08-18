@@ -300,12 +300,16 @@ def resolve_market_date(client: Any, explicit: Optional[str]) -> Tuple[Optional[
     if resolved:
         return resolved, None
     try:
-        from backend.db.services.publication_gate import evaluate_publication_gate
+        from backend.db.services.publication_gate import resolve_latest_promoted_market_date
 
-        decision = evaluate_publication_gate(client)
-        if decision.market_date:
-            return _date_key(decision.market_date), None
-        return None, f"no promoted market date available ({decision.reason})"
+        # A BLOCKED gate decision still carries the batch's market_date, so
+        # consuming decision.market_date published an unpromoted date on
+        # 2026-08-18. Resolution must come from the latest genuinely PROMOTED
+        # batch, which a newer incomplete batch must not hide.
+        resolved_date, error = resolve_latest_promoted_market_date(client)
+        if error or not resolved_date:
+            return None, error or "no promoted market date available"
+        return _date_key(resolved_date), None
     except Exception as exc:
         return None, f"could not resolve the promoted market date ({exc})"
 

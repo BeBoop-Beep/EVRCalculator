@@ -75,7 +75,11 @@ TABLE_COLUMNS = {
         "simulated_median_pack_value_vs_pack_cost",
     },
     "simulation_run_summary": {"calculation_run_id"},
-    "pokemon_scrape_batches": {"market_date", "promoted_at", "status"},
+    "pokemon_scrape_batches": {
+        "id", "market_date", "promoted_at", "status",
+        "missing_set_count", "expected_set_count",
+        "succeeded_set_count", "failed_set_count",
+    },
     "pokemon_set_market_dashboard_snapshot_latest": {
         "set_id", "window_key", "latest_market_date", "top_chase_cards_json",
         "top_chase_card_histories_json", "performance_vs_cost_history_json",
@@ -259,7 +263,19 @@ def _market_fixtures(market_date=MARKET_DATE):
     identity = canonical_publication_identity()
     return {
         "pokemon_scrape_batches": [
-            {"market_date": market_date, "promoted_at": f"{market_date}T12:00:00+00:00", "status": "promoted"}
+            {
+                "id": 1,
+                "market_date": market_date,
+                "promoted_at": f"{market_date}T12:00:00+00:00",
+                # The real promotion contract: only these satisfy the
+                # canonical publication gate. The old fixture used a
+                # status ("promoted") that the gate does not recognise.
+                "status": "complete",
+                "missing_set_count": 0,
+                "expected_set_count": 1,
+                "succeeded_set_count": 1,
+                "failed_set_count": 0,
+            }
         ],
         "pokemon_set_market_dashboard_snapshot_latest": [
             {
