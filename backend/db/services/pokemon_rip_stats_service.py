@@ -58,6 +58,10 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
     run_ids = [str(item.calculation_run_id) for item in statuses]
     summaries = list(client.table("simulation_run_summary").select("calculation_run_id,pack_cost,mean_value").in_("calculation_run_id", run_ids).execute().data or [])
     summary_by_run = {str(row["calculation_run_id"]): row for row in summaries}
+    derived_rows = list(client.table("simulation_derived_metrics").select("calculation_run_id").in_("calculation_run_id", run_ids).execute().data or [])
+    derived_run_ids = {str(row.get("calculation_run_id")) for row in derived_rows}
+    if derived_run_ids != set(run_ids):
+        raise PokemonRipStatsUnavailable("authoritative cohort has missing simulation_derived_metrics rows")
     inputs, constituents, provenance = [], [], []
     common_count = None
     for status in statuses:
