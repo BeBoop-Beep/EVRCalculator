@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { normaliseRipStatisticsPayload } from "./ripStatisticsNormalizer.mjs";
 
 const BACKEND_URL = getBackendApiBaseUrl();
 
@@ -44,20 +45,8 @@ function toCacheKey() {
   return "rip-statistics-targets";
 }
 
-function normalisePayload(payload) {
-  const sourceMeta = payload?.meta && typeof payload.meta === "object"
-    ? payload.meta
-    : { warnings: [], timings: {}, sources: {} };
-  const snapshotFallback = Boolean(sourceMeta?.snapshot?.isStaleFallback);
-  return {
-    targets: Array.isArray(payload?.targets) ? payload.targets : [],
-    default_target: payload?.default_target || null,
-    meta: {
-      ...sourceMeta,
-      stale: Boolean(sourceMeta.stale || snapshotFallback),
-      fallback: Boolean(sourceMeta.fallback || snapshotFallback),
-    },
-  };
+export function normalisePayload(payload) {
+  return normaliseRipStatisticsPayload(payload);
 }
 
 function appendUnique(list, value) {

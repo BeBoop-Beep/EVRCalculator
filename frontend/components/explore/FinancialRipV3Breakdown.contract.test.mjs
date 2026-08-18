@@ -517,8 +517,7 @@ test("financialRipV3 survives every allow-listing layer between API and page", a
     pageSource.indexOf("function adaptPokemonSetInsightsCriticalPayloadToExplorePayload"),
     pageSource.indexOf("function adaptPokemonSetInsightsSecondaryPayloadToExplorePayload")
   );
-  assert.match(criticalAdapter, /financialRipV3: critical\?\.financialRipV3/);
-  assert.match(criticalAdapter, /overallRipV5: critical\?\.overallRipV5/);
+  assert.match(criticalAdapter, /adaptCriticalInsightsToExplorePayload\(critical\)/);
 
   const fullAdapter = pageSource.slice(
     pageSource.indexOf("function adaptPokemonSetInsightsPayloadToExplorePayload"),

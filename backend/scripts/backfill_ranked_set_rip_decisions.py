@@ -19,7 +19,9 @@ from backend.db.services.rip_decision_service import build_rip_decision_contract
 def ranked_targets(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, str]]:
     selected = []
     for row in rows or []:
-        overall = row.get("overallRipV8") if isinstance(row.get("overallRipV8"), dict) else {}
+        # Overall RIP V9 is the canonical rank authority. This selector only
+        # identifies already-ranked targets; it never recreates ranking logic.
+        overall = row.get("overallRipV9") if isinstance(row.get("overallRipV9"), dict) else {}
         set_id = str(row.get("set_id") or row.get("target_id") or row.get("id") or "").strip()
         run_id = str(row.get("calculation_run_id") or "").strip()
         if overall.get("rank") is not None and set_id and run_id:

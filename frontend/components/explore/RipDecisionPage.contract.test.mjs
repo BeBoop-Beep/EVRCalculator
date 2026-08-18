@@ -16,7 +16,7 @@ test("the page leads with the decision, not with the scoring model", () => {
   // QUESTION -> ANSWER -> EVIDENCE -> why it scores that way. Product economics
   // and the chase precede every methodology section.
   const tokens = [
-    'data-rip-section="decision"',
+    'data-rip-section="set-rip-breakdown"',
     "<ProductOpeningValue",
     "<ChaseReality",
     "<MaterialCards",

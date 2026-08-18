@@ -631,8 +631,17 @@ def _assert_current_run_rip_decision(
     decision = payload.get("ripDecision") if isinstance(payload.get("ripDecision"), dict) else None
     if decision is None:
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required ripDecision is missing")
+    if decision.get("contractVersion") != "rip-decision-contract-v1":
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: ripDecision contract version is invalid")
+    if decision.get("currentRunAvailable") is not True:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: ripDecision current run is unavailable")
     if first_non_empty(decision.get("sourceCalculationRunId")) != run_id:
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: ripDecision run mismatch")
+    sealed = decision.get("sealedProducts") if isinstance(decision.get("sealedProducts"), dict) else None
+    if sealed is None or int(sealed.get("productCount") or 0) <= 0:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required modeled products are missing")
+    if first_non_empty(sealed.get("sourceCalculationRunId")) != run_id:
+        raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: sealed products run mismatch")
     chase = decision.get("topChase") if isinstance(decision.get("topChase"), dict) else None
     if chase is None:
         raise RuntimeError(f"Refusing set-page snapshot set_id={set_id}: required current-run Top Chase is missing")

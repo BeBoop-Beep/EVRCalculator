@@ -7,6 +7,8 @@ import {
   buildBreakEvenAxis,
   buildEdgeSentence,
   defaultSelectedProductKey,
+  selectDecisionProductById,
+  selectDecisionProductsForFamily,
 } from "./ripDecisionContract.mjs";
 
 /**
@@ -300,13 +302,26 @@ function SelectedProductPanel({ product }) {
   );
 }
 
-export default function ProductOpeningValue({ decision, setName, onSelectProduct }) {
-  const products = decision?.products || [];
+export default function ProductOpeningValue({ decision, setName, onSelectProduct, initialProductId = null, familyFilter = null }) {
+  const products = useMemo(
+    () => selectDecisionProductsForFamily(decision, familyFilter),
+    [decision, familyFilter]
+  );
+  const unsupportedProducts = useMemo(() => {
+    const rows = decision?.unsupportedProducts?.products || [];
+    return familyFilter ? rows.filter((product) => product.family === familyFilter) : rows;
+  }, [decision, familyFilter]);
   const [selectedKey, setSelectedKey] = useState(null);
 
   const axis = useMemo(() => buildBreakEvenAxis(products), [products]);
   const fallbackKey = useMemo(() => defaultSelectedProductKey(products), [products]);
-  const activeKey = selectedKey ?? fallbackKey;
+  const deepLinkedProduct = useMemo(
+    () => selectDecisionProductById({ products }, initialProductId),
+    [products, initialProductId]
+  );
+  const activeKey = products.some((product) => product.key === selectedKey)
+    ? selectedKey
+    : deepLinkedProduct?.key ?? fallbackKey;
   const selected = products.find((product) => product.key === activeKey) || null;
 
   function handleSelect(key) {
@@ -340,19 +355,22 @@ export default function ProductOpeningValue({ decision, setName, onSelectProduct
 
     return (
       <article
+        id="set-rip-opening-value"
         data-rip-section="opening-value"
         data-opening-value-state={unavailableReason}
         className={`${styles.panel} set-glass-surface`}
       >
         <p className={styles.eyebrow}>Opening value</p>
         <h2 className={styles.sectionTitle}>{heading}</h2>
-        <p className={styles.unavailableNote}>{unavailableCopy}</p>
+        <p className={styles.unavailableNote}>{unsupportedProducts.length ? "This product family exists for the set, but its products are explicitly unsupported by the current model." : unavailableCopy}</p>
+        {unsupportedProducts.length ? <ul className="mt-3 space-y-1 text-sm text-[var(--text-secondary)]">{unsupportedProducts.map((product) => <li key={product.key}>{product.label}: unavailable ({product.reason || "not modeled"})</li>)}</ul> : null}
       </article>
     );
   }
 
   return (
     <article
+      id="set-rip-opening-value"
       data-rip-section="opening-value"
       className={`${styles.panel} set-glass-surface`}
     >
@@ -383,6 +401,7 @@ export default function ProductOpeningValue({ decision, setName, onSelectProduct
       </ul>
 
       <SelectedProductPanel product={selected} />
+      {unsupportedProducts.length ? <div className="mt-4 border-t border-[var(--border-subtle)] pt-3"><p className="text-xs font-semibold text-[var(--text-secondary)]">Unsupported products</p><ul className="mt-1 space-y-1 text-sm text-[var(--text-secondary)]">{unsupportedProducts.map((product) => <li key={product.key}>{product.label}: unavailable ({product.reason || "not modeled"})</li>)}</ul></div> : null}
     </article>
   );
 }

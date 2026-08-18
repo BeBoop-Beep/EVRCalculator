@@ -452,6 +452,8 @@ export default function RipDecisionPage({
   rankings = [],
   packPaths = {},
   normalStateRows = [],
+  initialProductId = null,
+  familyFilter = null,
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
@@ -591,7 +593,7 @@ export default function RipDecisionPage({
       </article>
 
       {/* B. PRODUCT OPENING VALUE + C. SELECTED PRODUCT ECONOMICS. */}
-      <ProductOpeningValue decision={decision} setName={setName} />
+      <ProductOpeningValue decision={decision} setName={setName} initialProductId={initialProductId} familyFilter={familyFilter} />
 
       {/* D. CHASE REALITY — canonical contract only. */}
       <ChaseReality
