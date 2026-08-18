@@ -1,0 +1,1 @@
+"""Pokemon-wide analytical contracts."""

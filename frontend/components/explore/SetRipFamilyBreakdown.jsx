@@ -42,6 +42,35 @@ export function participatingFamilyScores(setRip) {
     : [];
 }
 
+export function familyEvidenceScores(setRip) {
+  return Array.isArray(setRip?.familyScores)
+    ? setRip.familyScores.filter((entry) => entry && typeof entry.family === "string" && entry.family.trim())
+    : [];
+}
+
+export function participatingFamilyCount(setRip) {
+  const canonicalCount = Number(setRip?.participatingFamilyCount);
+  return Number.isInteger(canonicalCount) && canonicalCount >= 0
+    ? canonicalCount
+    : familyEvidenceScores(setRip).length;
+}
+
+export function isEnrichedSetRipContract(setRip) {
+  const families = participatingFamilyScores(setRip);
+  return Number.isFinite(Number(setRip?.score))
+    && Number.isInteger(Number(setRip?.rank))
+    && Number(setRip.rank) > 0
+    && Number.isInteger(Number(setRip?.cohortSize))
+    && Number(setRip.cohortSize) > 0
+    && families.length > 0;
+}
+
+export function selectPreferredSetRipContract(...candidates) {
+  return candidates.find(isEnrichedSetRipContract)
+    || candidates.find((candidate) => candidate && typeof candidate === "object")
+    || null;
+}
+
 export function FamilyPlaceholder({ family }) {
   const label = familyLabel(family);
   return <span aria-hidden="true" data-family-media-slot className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] text-[9px] font-bold uppercase text-[var(--text-secondary)]">{label.slice(0, 3)}</span>;

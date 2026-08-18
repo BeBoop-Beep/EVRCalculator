@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { familyTier, participatingFamilyScores, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { familyEvidenceScores, familyTier, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 
 const sets = [
   { name: "Alpha", setRipV1: { score: 92, rank: 1, cohortSize: 20, familyScores: [{ family: "booster_box", score: 95, rank: 1, cohortSize: 20, skuCount: 2 }] } },
@@ -24,4 +24,27 @@ test("three representative sets retain identical canonical values for every cons
 test("invalid and empty family entries never produce placeholder modules", () => {
   assert.deepEqual(participatingFamilyScores({ familyScores: [{ family: "x" }, null] }), []);
   assert.deepEqual(participatingFamilyScores({ familyScores: {} }), []);
+});
+
+test("legacy family evidence is counted without fabricating ranking context", () => {
+  const legacy = {
+    participatingFamilyCount: 6,
+    familyScores: [{ family: "booster_box", skuCount: 1, meanStanding: 1 }],
+  };
+  assert.equal(participatingFamilyCount(legacy), 6);
+  assert.equal(familyEvidenceScores(legacy).length, 1);
+  assert.deepEqual(participatingFamilyScores(legacy), []);
+});
+
+test("family count falls back to evidence only when the canonical count is absent", () => {
+  assert.equal(participatingFamilyCount({ familyScores: [{ family: "booster_box" }] }), 1);
+  assert.equal(participatingFamilyCount({ participatingFamilyCount: 0, familyScores: [{ family: "booster_box" }] }), 0);
+});
+
+test("the set page prefers an enriched selected target over a legacy explore payload", () => {
+  const legacy = { score: 96, rank: 1, participatingFamilyCount: 6, familyScores: [{ family: "booster_box" }] };
+  const enriched = { score: 96, rank: 1, cohortSize: 22, participatingFamilyCount: 1,
+    familyScores: [{ family: "booster_box", skuCount: 1, score: 100, rank: 1, cohortSize: 15 }] };
+  assert.equal(selectPreferredSetRipContract(legacy, enriched), enriched);
+  assert.deepEqual(participatingFamilyScores(selectPreferredSetRipContract(legacy, enriched)), enriched.familyScores);
 });

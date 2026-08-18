@@ -36,6 +36,12 @@ class EncodedPackOutcomeArtifact:
     payload: bytes
 
 
+@dataclass(frozen=True)
+class LoadedPackOutcomeArtifact:
+    metadata: Mapping[str, Any]
+    outcomes: np.ndarray
+
+
 def encode_pack_outcomes(values: Sequence[float]) -> EncodedPackOutcomeArtifact:
     vector = np.asarray(values, dtype="<f8")
     if vector.ndim != 1 or vector.size == 0:
@@ -120,10 +126,21 @@ def persist_pack_outcomes(client: Any, calculation_run_id: Any, values: Sequence
 
 
 def load_pack_outcomes(client: Any, calculation_run_id: Any) -> np.ndarray:
+    return load_pack_outcome_artifact(client, calculation_run_id).outcomes
+
+
+def load_pack_outcome_artifact(client: Any, calculation_run_id: Any) -> LoadedPackOutcomeArtifact:
+    """Load one artifact and return validated provenance plus a read-only vector."""
     response = client.table(TABLE).select("*").eq("calculation_run_id", str(calculation_run_id)).limit(1).execute()
     rows = response.data if response and response.data else []
     if not rows:
         raise PackOutcomeArtifactUnavailable(
             f"calculation run {calculation_run_id} has no exact pack-outcome artifact; replay unavailable"
         )
-    return decode_pack_outcomes(rows[0])
+    row = dict(rows[0])
+    vector = decode_pack_outcomes(row)
+    metadata = {key: row.get(key) for key in (
+        "calculation_run_id", "format_version", "numeric_dtype", "byte_order", "compression_format",
+        "outcome_count", "raw_size_bytes", "compressed_size_bytes", "raw_sha256", "created_at",
+    )}
+    return LoadedPackOutcomeArtifact(metadata=metadata, outcomes=vector)

@@ -130,6 +130,11 @@ def test_family_scores_publish_canonical_set_family_rank_and_cohort():
     assert by_set["a"]["loose_booster_pack"]["cohortSize"] == 3
     assert by_set["a"]["loose_booster_pack"]["skuCount"] == 2
     assert by_set["a"]["loose_booster_pack"]["score"] == pytest.approx(5 / 6 * 100)
+    assert isinstance(next(row for row in result["sets"] if row["setId"] == "a")["familyScores"], list)
+    assert all(
+        {"family", "skuCount", "score", "rank", "cohortSize"} <= family.keys()
+        for row in result["sets"] for family in row["familyScores"]
+    )
 
     ranked = [row for row in result["sets"] if row["rankable"]]
     assert all(row["cohortSize"] == len(ranked) for row in result["sets"])

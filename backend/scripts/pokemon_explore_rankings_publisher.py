@@ -463,6 +463,25 @@ def validate_publication_payload(
                 "Refusing to publish Explore RIP leaderboard: incomplete Set RIP block for "
                 f"set_id={target.get('set_id') or target.get('target_id')}"
             )
+        family_scores = block.get("familyScores")
+        if not isinstance(family_scores, list):
+            raise RuntimeError(
+                "Refusing to publish Explore RIP leaderboard: Set RIP familyScores must be an array for "
+                f"set_id={target.get('set_id') or target.get('target_id')}"
+            )
+        if len(family_scores) != int(block.get("participatingFamilyCount") or 0):
+            raise RuntimeError(
+                "Refusing to publish Explore RIP leaderboard: Set RIP participating-family count differs "
+                f"from family evidence for set_id={target.get('set_id') or target.get('target_id')}"
+            )
+        for family in family_scores:
+            missing = [key for key in ("family", "skuCount", "score", "rank", "cohortSize")
+                       if not isinstance(family, dict) or family.get(key) is None]
+            if missing:
+                raise RuntimeError(
+                    "Refusing to publish Explore RIP leaderboard: incomplete Set RIP family record "
+                    f"set_id={target.get('set_id') or target.get('target_id')} missing={','.join(missing)}"
+                )
         set_rip_ranks.append(int(block["rank"]))
     if sorted(set_rip_ranks) != list(range(1, expected + 1)):
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: Set RIP ranks are not contiguous")

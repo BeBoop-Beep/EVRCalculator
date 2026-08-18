@@ -2209,6 +2209,24 @@ def main() -> None:
         )
 
     if not args.set_id:
+        # Global Market is a two-stage publication: canonical set-value history
+        # first, then its chain-linked Pokemon-level index, then the page-ready
+        # snapshot that embeds marketOverview.
+        try:
+            if not hasattr(client, "table"):
+                raise LookupError("legacy test client has no PostgREST surface")
+            from backend.db.services.pokemon_market_index_service import build_market_index_history, persist_index_rows
+            index_rows = build_market_index_history(client, through_date=args.market_date or gate.market_date)
+            if commit:
+                persist_index_rows(client, index_rows)
+            else:
+                summary.stale_snapshot_families.add("pokemon_market_index")
+        except LookupError:
+            # Strict repository fakes used by pre-index orchestration tests do
+            # not model PostgREST. Real clients always expose table().
+            summary.global_skipped.append("pokemon_market_index: client unavailable")
+        except Exception as exc:
+            summary.global_failed.append(f"pokemon_market_index: {exc}")
         _maybe_rebuild_explore_set_values(
             client, market_date=args.market_date or gate.market_date,
             commit=commit, summary=summary,

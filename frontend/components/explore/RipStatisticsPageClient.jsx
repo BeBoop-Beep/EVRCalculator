@@ -88,6 +88,7 @@ import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import OverviewRipSummary from "./OverviewRipSummary.jsx";
 import RipDecisionPage from "./RipDecisionPage.jsx";
+import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
@@ -8088,6 +8089,14 @@ export default function RipStatisticsPageClient({
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
   const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
+  const preferredSetRip = useMemo(
+    () => selectPreferredSetRipContract(
+      explorePayload?.setRipV1,
+      selectedTarget?.setRipV1,
+      summary?.setRipV1,
+    ),
+    [explorePayload?.setRipV1, selectedTarget?.setRipV1, summary?.setRipV1]
+  );
   const isTimeoutFallbackPayload = setDetailMode && isSetPageTransportFallback(explorePayload);
   const isPrimarySnapshotUnavailable = setDetailMode && isSetPagePrimarySnapshotUnavailable(explorePayload);
   const hasActiveSetPageIdentity = useMemo(
@@ -13143,7 +13152,7 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
-                    setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
+                    setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
@@ -13289,7 +13298,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="overview-rip-summary" resetKeys={[resolvedSetResourceId]} title="RIP Summary" minHeightClassName="min-h-[7rem]">
                         <OverviewRipSummary
                           canonical={canonicalRip}
-                          setRip={explorePayload?.setRipV1 || selectedTarget?.setRipV1 || summary?.setRipV1 || null}
+                          setRip={preferredSetRip}
                           onViewAnalysis={() =>
                             handleSetDetailNavSelect({
                               tab: "insights",

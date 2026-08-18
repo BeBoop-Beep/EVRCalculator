@@ -33,7 +33,7 @@ import {
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
-import { FamilyScoreRow, FamilyTierBadge, participatingFamilyScores, setRipTier } from "./SetRipFamilyBreakdown.jsx";
+import { FamilyScoreRow, FamilyTierBadge, familyEvidenceScores, participatingFamilyCount, participatingFamilyScores, setRipTier } from "./SetRipFamilyBreakdown.jsx";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -458,6 +458,8 @@ export default function RipDecisionPage({
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
   const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
   const setRipFamilies = useMemo(() => participatingFamilyScores(setRip), [setRip]);
+  const setRipFamilyEvidence = useMemo(() => familyEvidenceScores(setRip), [setRip]);
+  const setRipParticipatingFamilyCount = useMemo(() => participatingFamilyCount(setRip), [setRip]);
   const canonicalSetTier = setRipTier(setRip);
   // ONE normalization of the canonical decision contract for the whole page, so
   // no section re-reads raw snapshot keys or invents its own fallbacks.
@@ -573,7 +575,7 @@ export default function RipDecisionPage({
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-4">
             <p className="text-xs font-semibold text-[var(--text-secondary)]">{setName || "Set"} Set RIP Score</p>
             <div className="mt-1 flex items-end justify-between gap-3"><span className="text-4xl font-bold tabular-nums text-[var(--text-primary)]">{score(setRip?.score)}</span><FamilyTierBadge tier={canonicalSetTier} /></div>
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">{rank(setRip?.rank, setRip?.cohortSize)}. Based on {setRipFamilies.length} scored product families.</p>
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">{rank(setRip?.rank, setRip?.cohortSize)}. Based on {setRipParticipatingFamilyCount} scored product families.</p>
           </div>
         </div>
         <div className="mt-6">
@@ -584,7 +586,7 @@ export default function RipDecisionPage({
             <div className="divide-y divide-[var(--border-subtle)]">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} showTakeaway />)}</div>
           </div>
           <div className="mt-3 divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)] md:hidden">{setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} compact />)}</div>
-          {!setRipFamilies.length ? <p className="mt-3 text-sm text-[var(--text-secondary)]">Set RIP family scores are unavailable for this set.</p> : null}
+          {!setRipFamilies.length ? <p className="mt-3 text-sm text-[var(--text-secondary)]">{setRipFamilyEvidence.length ? "Family evidence is available, but family ranking context is unavailable for this snapshot." : "Set RIP family scores are unavailable for this set."}</p> : null}
         </div>
       </article>
 

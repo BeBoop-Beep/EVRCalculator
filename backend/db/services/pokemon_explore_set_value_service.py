@@ -112,6 +112,7 @@ def build_global_set_value_row(
     *,
     target_market_date: str,
     built_at: Optional[str] = None,
+    market_overview: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     eligible = [dict(row) for row in sets if row.get("supports_opening_simulation", True) is True and is_public_analytics_eligible(row)]
     # UI windows are slices, never snapshot row selectors. Ignore stale short
@@ -167,8 +168,10 @@ def build_global_set_value_row(
         raise ExploreSetValueUnavailable("eligible Market Set Value sources are incomplete or disagree", diagnostics=diagnostics)
     published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
     built_at = built_at or datetime.now(timezone.utc).isoformat()
-    fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation)]).encode()).hexdigest()
-    payload = {"sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "trendPointLimit": MAX_TREND_POINTS, "warnings": []}}
+    index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
+    fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
+    payload = {"marketOverview": dict(market_overview) if market_overview is not None else None,
+               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "trendPointLimit": MAX_TREND_POINTS, "warnings": []}}
     return {"tcg": "pokemon", "scope": "market", "payload_json": payload, "market_date": target_market_date, "set_count": len(published), "source_generation_fingerprint": fingerprint, "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()), "_diagnostics": diagnostics}
 
 

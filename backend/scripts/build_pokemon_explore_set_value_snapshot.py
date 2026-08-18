@@ -16,6 +16,7 @@ from backend.db.services.pokemon_explore_set_value_service import (
     upsert_explore_set_value_snapshot,
 )
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
+from backend.db.services.pokemon_market_index_service import build_market_overview, read_index_history
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -68,7 +69,8 @@ def build(*, client, market_date: str, commit: bool) -> dict:
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
     histories = _load_canonical_histories(client, set_ids)
-    row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date)
+    overview = build_market_overview(read_index_history(client, through_date=market_date), market_date=market_date)
+    row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)
     return row
