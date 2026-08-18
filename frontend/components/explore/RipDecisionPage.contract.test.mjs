@@ -32,29 +32,6 @@ test("the page leads with the decision, not with the scoring model", () => {
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
 });
 
-test("the primary verdict and header binding use Set RIP V1, not the old pack rank", () => {
-  const source = fs.readFileSync(pagePath, "utf8");
-  const client = fs.readFileSync(path.resolve(directory, "RipStatisticsPageClient.jsx"), "utf8");
-  assert.ok(source.includes('setRip = null'));
-  assert.ok(source.includes('"Set RIP Rank"'));
-  assert.ok(source.includes('data-set-rip-family-evidence'));
-  assert.ok(!source.includes('"Booster Pack RIP Rank"'));
-  assert.ok(client.includes("const activeSetRip = explorePayload?.setRipV1"));
-  assert.ok(client.includes('<SetPageIcon name="trophy" />Set RIP'));
-});
-
-test("canonical product and chase sections bind to nested ripDecision data", () => {
-  const source = fs.readFileSync(pagePath, "utf8");
-  const selector = fs.readFileSync(path.resolve(directory, "ripDecisionContract.mjs"), "utf8");
-  const product = fs.readFileSync(path.resolve(directory, "ProductOpeningValue.jsx"), "utf8");
-  assert.ok(selector.includes("ripDecision?.sealedProducts?.products"));
-  assert.ok(selector.includes("normalizeTopChase(ripDecision.topChase)"));
-  for (const label of ["Overall RIP", "Financial RIP", "Collector Appeal", "Pack Count", "Product Family"]) {
-    assert.ok(product.includes(`label: "${label}"`));
-  }
-  assert.ok(source.includes("chase={decision.topChase}"));
-});
-
 test("methodology never precedes the decision surface", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));

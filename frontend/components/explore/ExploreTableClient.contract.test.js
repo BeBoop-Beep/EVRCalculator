@@ -56,20 +56,28 @@ test("desktop default mode makes Set RIP primary and keeps pack Overall RIP dist
   assert.ok(!source.includes('label="Collector Appeal"'));
 });
 
-/* ------------------------------------ Set-level ranking semantics --- */
+/* ------------------------------------ Rankings completeness: seven metrics --- */
 
 // The table must SURFACE all seven quantitative metrics. What each one reads is
 // asserted behaviourally in rankingsSort.test.mjs against the real module; what
 // can only be checked here is that each one actually reaches the markup.
 
-test("the desktop Sets table makes Set RIP primary and excludes generic pack economics", () => {
+test("the desktop table surfaces the decision-scanner columns", () => {
   const source = fs.readFileSync(componentPath, "utf8");
-  assert.ok(source.includes('columnId="setRip" label="Set RIP"'));
-  assert.ok(source.includes("Product-family evidence"));
-  for (const label of ["Market Price", "Typical Opening", "Model Break-Even", "Chance to Beat Cost"]) {
-    assert.ok(!source.includes(`label="${label}"`), `${label} must not be a generic Sets column heading`);
+  for (const label of [
+    "Market Price",
+    "Typical Opening",
+    "Model Break-Even",
+    "Chance to Beat Cost",
+  ]) {
+    assert.ok(source.includes(`label="${label}"`), `${label} must be a column heading`);
   }
+  assert.ok(source.includes("readTypicalOpening(target)"));
+  assert.ok(source.includes("readModelBreakEven(target)"));
   assert.ok(source.includes("<TopChaseCell target={target} />"));
+  assert.ok(!source.includes('label="EV"'));
+  assert.ok(!source.includes('label="Average Loss"'));
+  assert.ok(source.includes("formatPercent(target?.prob_profit, true)"), "Chance to Beat Cost cell");
 });
 
 test("mobile renders one active metric while retaining all seven sort choices", () => {
@@ -320,10 +328,9 @@ test("missing Top Chase data renders an explicit unavailable state", () => {
 test("decision columns keep semantic header and cell order", () => {
   const source = fs.readFileSync(componentPath, "utf8");
   const head = source.slice(source.indexOf("<thead"), source.indexOf("</thead>"));
-  const row = source.slice(source.indexOf("{sortedTargets.map"), source.indexOf("</tr>", source.indexOf("{sortedTargets.map")));
-  assert.ok(head.indexOf('columnId="setRip"') < head.indexOf("Product-family evidence"));
-  assert.ok(head.indexOf("Product-family evidence") < head.indexOf('columnId="topChase"'));
-  assert.ok(row.indexOf("target?.setRipV1?.score") < row.indexOf("<TopChaseCell target={target} />"));
+  const row = source.slice(source.indexOf("{formatCurrency(target?.pack_cost)"), source.indexOf("</tr>", source.indexOf("{formatCurrency(target?.pack_cost)")));
+  assert.ok(head.indexOf('columnId="chanceToBeatCost"') < head.indexOf('columnId="topChase"'));
+  assert.ok(row.indexOf("formatPercent(target?.prob_profit, true)") < row.indexOf("<TopChaseCell target={target} />"));
   assert.ok(source.includes('infoText="Top Chase is the highest-value card'));
 });
 

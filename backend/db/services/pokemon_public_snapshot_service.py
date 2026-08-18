@@ -94,7 +94,6 @@ def _to_optional_float(value: Any) -> Optional[float]:
     return parsed if math.isfinite(parsed) else None
 
 
-<<<<<<< Updated upstream
 def _to_optional_int(value: Any) -> Optional[int]:
     try:
         return int(value)
@@ -102,8 +101,6 @@ def _to_optional_int(value: Any) -> Optional[int]:
         return None
 
 
-=======
->>>>>>> Stashed changes
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,

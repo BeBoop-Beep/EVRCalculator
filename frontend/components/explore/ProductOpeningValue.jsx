@@ -201,12 +201,8 @@ function SelectedProductPanel({ product }) {
   const modeled = entertainment.available === true;
 
   const facts = [
-    { label: "Product Family", value: product.familyLabel || "—", helper: product.familyRank === null ? "Opening product format" : `#${Math.round(product.familyRank)} among ${product.familySize ? Math.round(product.familySize) : "ranked"} ${product.familyLabel || "family products"}` },
     // PRIMARY — the existing product decision information, unchanged and first.
     { label: "Market Price", value: money(product.marketPrice), helper: "What it costs today" },
-    { label: "Overall RIP", value: product.overallRipScore === null ? "—" : Number(product.overallRipScore).toFixed(1), helper: "Compare within this product family" },
-    { label: "Financial RIP", value: product.financialRipScore === null ? "—" : Number(product.financialRipScore).toFixed(1), helper: "Product opening economics" },
-    { label: "Collector Appeal", value: product.collectorAppealScore === null ? "—" : Number(product.collectorAppealScore).toFixed(1), helper: "Set collector demand" },
     {
       label: "Model Break-Even",
       value: money(product.modelBreakEvenPrice),
@@ -214,7 +210,6 @@ function SelectedProductPanel({ product }) {
     },
     { label: "Current Gap", value: percent(edge, { signed: true }), helper: edgeSideLabel(edge) },
     { label: "Typical Opening", value: money(product.typicalOpening), helper: "Median simulated result" },
-    { label: "Pack Count", value: product.packCount === null ? "—" : Math.round(product.packCount).toLocaleString("en-US"), helper: "Modeled pack equivalents" },
     {
       label: "Chance to Recover Cost",
       value: ratePercent(product.chanceToRecoverCost),

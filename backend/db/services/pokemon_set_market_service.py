@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import logging
-<<<<<<< Updated upstream
 import math
-=======
->>>>>>> Stashed changes
 import re
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -251,26 +248,8 @@ def _looks_like_uuid(value: str) -> bool:
     return bool(_UUID_RE.match(value))
 
 
-<<<<<<< Updated upstream
 def _resolve_pokemon_set_identifier_once(active_client: Any, set_id: str) -> Dict[str, Any]:
     """One resolution attempt against one client. See the public wrapper below."""
-=======
-def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[str, Any]:
-    """Resolve a Pokemon set identifier to its `sets` row.
-
-    Shared across page/shell/cards/market-dashboard/value-history/top-cards so
-    every route accepts the same identifier forms: UUID, canonical_key,
-    pokemon_api_set_id, exact set name, or a normalized/hyphenated slug (e.g.
-    "prismatic-evolutions").
-
-    `client` defaults to this module's own `public_read_client`. Callers in
-    other modules that monkeypatch their own module-level `public_read_client`
-    (e.g. in tests) must pass their own patched client explicitly — a plain
-    function reference would otherwise always resolve `public_read_client`
-    from this module's globals, silently bypassing a caller's mock.
-    """
-    active_client = client if client is not None else public_read_client
->>>>>>> Stashed changes
     t0 = time.perf_counter()
     resolved = _to_optional_str(set_id)
     if not resolved:
@@ -278,41 +257,10 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
 
     if _looks_like_uuid(resolved):
         # UUID input: single indexed lookup only — no sequential fallback queries.
-<<<<<<< Updated upstream
-=======
         try:
             result = (
                 active_client.table("sets")
                 .select("id,name,canonical_key,pokemon_api_set_id")
-                .eq("id", resolved)
-                .limit(1)
-                .execute()
-            )
-            row = _first_row(result)
-        except Exception as exc:
-            logger.exception(
-                "[pokemon-set-market] set id lookup failed set_id=%s elapsed_ms=%.1f exc_type=%s",
-                resolved,
-                (time.perf_counter() - t0) * 1000,
-                type(exc).__name__,
-            )
-            raise PokemonSetMarketError(500, "Set lookup failed", "POKEMON_SET_LOOKUP_FAILED") from exc
-        if row:
-            logger.debug(
-                "[pokemon-set-market] set id resolved set_id=%s elapsed_ms=%.1f",
-                resolved,
-                (time.perf_counter() - t0) * 1000,
-            )
-            return row
-        raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
-
-    for field in ("id", "canonical_key", "pokemon_api_set_id"):
->>>>>>> Stashed changes
-        try:
-            result = (
-                active_client.table("sets")
-                .select("id,name,canonical_key,pokemon_api_set_id")
-<<<<<<< Updated upstream
                 .eq("id", resolved)
                 .limit(1)
                 .execute()
@@ -342,8 +290,6 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
             result = (
                 active_client.table("sets")
                 .select("id,name,canonical_key,pokemon_api_set_id")
-=======
->>>>>>> Stashed changes
                 .eq(field, resolved)
                 .limit(1)
                 .execute()
@@ -351,13 +297,9 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
             row = _first_row(result)
             if row:
                 return row
-<<<<<<< Updated upstream
         except Exception as exc:
             if is_transient_data_service_error(exc):
                 raise
-=======
-        except Exception:
->>>>>>> Stashed changes
             logger.warning("[pokemon-set-market] set lookup failed field=%s set_id=%s", field, resolved)
 
     normalized_resolved = _normalise_set_lookup_key(resolved)
@@ -383,19 +325,14 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
                         row.get("canonical_key"),
                     )
                     return row
-<<<<<<< Updated upstream
         except Exception as exc:
             if is_transient_data_service_error(exc):
                 raise
-=======
-        except Exception:
->>>>>>> Stashed changes
             logger.warning("[pokemon-set-market] normalized set lookup failed set_id=%s", resolved)
 
     raise PokemonSetMarketError(404, "Pokemon set not found", "POKEMON_SET_NOT_FOUND")
 
 
-<<<<<<< Updated upstream
 def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[str, Any]:
     """Resolve a Pokemon set identifier to its `sets` row.
 
@@ -433,8 +370,6 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
     )
 
 
-=======
->>>>>>> Stashed changes
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     # Internal call sites in this module always use this module's own
     # public_read_client (picked up by resolve_pokemon_set_identifier's
@@ -443,7 +378,6 @@ def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     return resolve_pokemon_set_identifier(set_id)
 
 
-<<<<<<< Updated upstream
 def _load_near_mint_condition_id(
     warnings: List[str],
     sources: Dict[str, str],
@@ -451,9 +385,6 @@ def _load_near_mint_condition_id(
     client: Any = None,
 ) -> Optional[str]:
     active_client = client if client is not None else public_read_client
-=======
-def _load_near_mint_condition_id(warnings: List[str], sources: Dict[str, str]) -> Optional[str]:
->>>>>>> Stashed changes
     try:
         result = (
             active_client.table("conditions")

@@ -136,9 +136,6 @@ function normalizeProduct(row, index) {
     // `order` is the contract's order (pack count ascending), never a rank.
     order: index,
     family,
-    familyLabel: text(row.productFamilyLabel) || humanizeFamily(family),
-    familyRank: number(row.familyRank),
-    familySize: number(row.familySize),
     // The SKU's own name wins: two ETB SKUs must not both render as "ETB".
     label: productName || humanizeFamily(family) || `Product ${index + 1}`,
     packCount: number(row.packCount),
@@ -148,9 +145,6 @@ function normalizeProduct(row, index) {
     modelEdgePercent: number(row.modelEdgePercent),
     typicalOpening: number(row.typicalOpening),
     chanceToRecoverCost: number(row.chanceToRecoverCost),
-    overallRipScore: number(row.overallRipScore),
-    financialRipScore: number(row.financialRipScore),
-    collectorAppealScore: number(row.collectorAppealScore),
     priceAsOf: text(row.priceAsOf),
     priceSource: text(row.priceSource),
     entertainmentCost: normalizeEntertainmentCost(row.entertainmentCost),
@@ -202,13 +196,7 @@ export function selectRipDecisionContract(ripDecision) {
     };
   }
 
-  const sealedRows = Array.isArray(ripDecision?.sealedProducts?.products)
-    ? ripDecision.sealedProducts.products
-    : [];
-  const available =
-    ripDecision.currentRunAvailable === true ||
-    (ripDecision.currentRunAvailable == null &&
-      (sealedRows.length > 0 || isObject(ripDecision.topChase)));
+  const available = ripDecision.currentRunAvailable === true;
   const sealed = isObject(ripDecision.sealedProducts) ? ripDecision.sealedProducts : {};
 
   // Without a current run the page shows nothing economic. Rendering the
@@ -216,7 +204,7 @@ export function selectRipDecisionContract(ripDecision) {
   // would print correct-looking economics from a run the rest of the page is
   // not describing.
   const products = available
-    ? sealedRows
+    ? (Array.isArray(sealed.products) ? sealed.products : [])
         .map(normalizeProduct)
         .filter(Boolean)
     : [];
