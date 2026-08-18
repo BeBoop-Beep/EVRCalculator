@@ -42,3 +42,11 @@ Exact aggregate history begins only when every cohort member has a validated
 exact artifact. Older per-set summaries cannot be used to fabricate P50, P95,
 or P99. This layer publishes economics and disclosures, not a Pokemon RIP
 score. Set-level Overall RIP and Financial RIP remain ranking concepts.
+
+Publication uses two sequential artifact passes. Metadata and equal outcome
+counts are validated before allocation. Pass 1 copies one decoded set at a time
+into a single aggregate `float64` dollar buffer, then computes dollar metrics
+and in-place quantiles. Pass 2 reloads one artifact at a time and overwrites the
+same slices with per-set retention. No list retains decoded set vectors, and no
+second full-population NumPy buffer is allocated. Temporary storage is bounded
+to one decoded set vector plus per-set Boolean/quantile workspace.

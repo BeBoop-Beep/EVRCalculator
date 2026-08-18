@@ -748,6 +748,16 @@ def test_audit_is_skipped_when_nothing_was_published(patched):
     assert "audit" not in [step for step, _ in patched]
 
 
+def test_skip_snapshots_never_attempts_rip_stats_publication(monkeypatch, patched):
+    monkeypatch.setattr(orchestrator, "_rip_stats_capability_expected", lambda _client: True)
+    monkeypatch.setattr(orchestrator, "_publish_rip_stats", lambda *_a, **_k: pytest.fail("RIP Stats must not publish"))
+    client = _client([_history(MARKET_DATE)])
+    summary = _orchestrate(client, skip_snapshots=True)
+    assert summary.exit_code == EXIT_OK
+    assert summary.rip_stats_publication_status == "skipped_skip_snapshots"
+    assert summary.rip_stats_audit_status == "skipped"
+
+
 def test_summary_reports_the_publication_audit_verdict(monkeypatch, patched):
     import backend.scripts.audit_opening_analytics_publication as audit_module
 
