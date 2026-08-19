@@ -1,7 +1,6 @@
 import sys
 import os
 import re
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -165,7 +164,8 @@ class CardsService(BatchProcessor):
                 variant_id = None
                 external_identity = variant_data.pop('_external_identity', None)
                 mapped_identity = (get_card_variant_external_identity(
-                    external_identity['provider'], external_identity['external_product_id'])
+                    external_identity['provider'], external_identity['external_product_id'],
+                    external_identity['external_variant_key'])
                     if external_identity else None)
                 
                 # Check local cache first
@@ -272,6 +272,7 @@ class CardsService(BatchProcessor):
                     if product_id:
                         variant_data['_external_identity'] = {
                             'provider': 'tcgplayer', 'external_product_id': str(product_id),
+                            'external_variant_key': card_entry['external_variant_key'],
                             'external_catalog_key': card_entry.get('external_catalog_key'),
                             'source_reference': card_entry.get('external_source_reference') or f'https://www.tcgplayer.com/product/{product_id}',
                             'source_payload': card_entry.get('external_source_payload') or {},
@@ -293,12 +294,15 @@ class CardsService(BatchProcessor):
                                 errors.append(error_msg)
                                 continue
                             
+                            market_date = str(card_entry.get('_market_date') or '').strip()
+                            if not market_date:
+                                raise ValueError("Card price row is missing immutable scraper market date")
                             price_data = {
                                 'condition_id': condition_id,
                                 'market_price': market_price,
                                 'currency': prices.get('currency') or 'USD',
                                 'source': card_entry.get('source') or prices.get('source'),
-                                'captured_at': datetime.utcnow().isoformat(),
+                                'captured_at': market_date,
                                 'high_price': prices.get('high'),
                                 'low_price': prices.get('low'),
                             }

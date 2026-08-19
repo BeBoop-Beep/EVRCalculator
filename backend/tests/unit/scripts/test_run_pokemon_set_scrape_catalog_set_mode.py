@@ -233,8 +233,9 @@ def test_catalog_set_run_uses_the_same_scraper_execution_path(monkeypatch, tmp_p
     seen = {}
 
     class _FakeScraper:
-        def __init__(self, enable_db_ingestion=True):
+        def __init__(self, enable_db_ingestion=True, target_market_date=None):
             seen["enable_db_ingestion"] = enable_db_ingestion
+            seen["target_market_date"] = target_market_date
 
         def get_request_metrics(self):
             return {"http_requests_total": 1}
@@ -250,10 +251,11 @@ def test_catalog_set_run_uses_the_same_scraper_execution_path(monkeypatch, tmp_p
 
     original = runner._scrape_one_set
 
-    def _spy(scraper, config_cls, canonical_key, index, total):
+    def _spy(scraper, config_cls, canonical_key, index, total, market_date):
         seen["canonical_key"] = canonical_key
         seen["config_cls"] = config_cls
         seen["scraper"] = scraper
+        seen["market_date"] = market_date
         return {
             "canonical_key": canonical_key,
             "status": "success",
@@ -282,6 +284,7 @@ def test_catalog_set_run_uses_the_same_scraper_execution_path(monkeypatch, tmp_p
     assert isinstance(seen["scraper"], _FakeScraper)
     assert seen["config_cls"].CARD_DETAILS_URL
     assert seen["enable_db_ingestion"] is True
+    assert seen["target_market_date"] == seen["market_date"] == report["market_date"]
     assert report["sets_succeeded"] == 1
     assert report["target_mode"] == "catalog_set_manual"
     assert report["daily_cohort_modified"] is False
@@ -292,8 +295,9 @@ def test_catalog_set_run_honors_no_db_ingest(monkeypatch, tmp_path):
     seen = {}
 
     class _FakeScraper:
-        def __init__(self, enable_db_ingestion=True):
+        def __init__(self, enable_db_ingestion=True, target_market_date=None):
             seen["enable_db_ingestion"] = enable_db_ingestion
+            seen["target_market_date"] = target_market_date
 
         def get_request_metrics(self):
             return {}

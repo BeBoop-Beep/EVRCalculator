@@ -119,3 +119,28 @@ def test_rip_audit_rejects_cohort_and_public_source_fingerprint_tampering(monkey
     assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
     master, members, latest = rip_fixture(); members[0]["set_weight"] = .6
     assert run_rip(monkeypatch, master, members, latest)["status"] == "failed"
+
+
+def test_market_audit_reports_a_public_payload_missing_the_tracked_value_fields(monkeypatch):
+    rows = market_rows()
+    monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: rows)
+    monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: rows)
+    public = market_audit.build_market_overview(rows, market_date="2026-08-17")
+    # A snapshot published before the additive tracked-value extension.
+    for family in ("raw", "topChase"):
+        public[family].pop("basketChanges")
+    result = market_audit.audit(MarketClient(public), "2026-08-17")
+    assert result["status"] == "failed"
+    assert any("raw.basketChanges absent from public payload" in failure for failure in result["failures"])
+    assert any("basketChanges" in failure and "keys mismatch" in failure for failure in result["failures"])
+
+
+def test_market_audit_rejects_a_tampered_public_tracked_value_change(monkeypatch):
+    rows = market_rows()
+    monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: rows)
+    monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: rows)
+    public = market_audit.build_market_overview(rows, market_date="2026-08-17")
+    public["raw"]["basketChanges"]["SinceTracking"]["percent"] += 1
+    result = market_audit.audit(MarketClient(public), "2026-08-17")
+    assert result["status"] == "failed"
+    assert any("marketOverview.raw.basketChanges.SinceTracking.percent" in failure for failure in result["failures"])

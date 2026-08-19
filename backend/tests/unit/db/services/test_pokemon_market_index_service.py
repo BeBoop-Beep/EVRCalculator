@@ -1,6 +1,7 @@
 import pytest
 
-from backend.db.services.pokemon_market_index_service import _paged_source_rows, build_index_rows, read_index_history
+from backend.db.services.pokemon_market_index_service import (
+    _paged_source_rows, build_index_rows, build_market_overview, read_index_history)
 
 
 SETS = [
@@ -87,3 +88,128 @@ def test_read_index_history_has_total_order_across_tied_market_date_boundary():
     assert len(identities) == 1003 == len(set(identities))
     assert len({(day, key) for day, key, _ in identities}) == 1003
     assert client.query.orders == [("market_date", False), ("index_key", False)]
+
+
+# ---------------------------------------------------------------------------
+# Tracked Value vs. Price Performance.
+#
+# `changes` (chain-linked price performance) and `basketChanges` (literal
+# tracked-basket dollars) answer different questions and MUST be able to
+# disagree. These tests pin the divergence, and pin that neither figure can be
+# contaminated by the other's underlying column.
+# ---------------------------------------------------------------------------
+
+COHORT_SETS = [
+    {"id": "a", "canonical_key": "a", "release_date": "2026-01-01"},
+    {"id": "b", "canonical_key": "b", "release_date": "2026-01-02"},
+]
+
+
+def cohort_history():
+    """A enters day one; B enters day two; both appreciate 10% on day three."""
+    rows = []
+    for day, values in (
+        ("2026-01-01", {"a": 100}),
+        ("2026-01-02", {"a": 100, "b": 50}),
+        ("2026-01-03", {"a": 110, "b": 55}),
+    ):
+        for set_id, value in values.items():
+            rows.append(source(day, set_id, "standard", value, 20))
+            # top10 mirrors the cohort at a smaller basket so the overview's
+            # raw/chase agreement guards are satisfied.
+            rows.append(source(day, set_id, "top10", value * 0.6, 10))
+    return build_index_rows(COHORT_SETS, rows)
+
+
+def test_new_set_entry_moves_tracked_value_but_not_the_price_index():
+    overview = build_market_overview(cohort_history(), market_date="2026-01-02")
+    raw = overview["raw"]
+
+    # Day 1 -> Day 2: the basket grew purely because B joined the universe.
+    assert raw["basketValue"] == pytest.approx(150)
+    assert raw["basketChanges"]["1D"]["percent"] == pytest.approx(50.0)
+    # ...and the chain-linked index is flat, because A did not move.
+    assert raw["indexValue"] == pytest.approx(100.0)
+    assert raw["changes"]["1D"]["percent"] == pytest.approx(0.0)
+
+
+def test_a_newly_entered_set_does_affect_the_index_once_it_moves():
+    overview = build_market_overview(cohort_history(), market_date="2026-01-03")
+    raw = overview["raw"]
+
+    # Day 3: the common cohort is now {A, B} and it appreciated 10%.
+    assert raw["indexValue"] == pytest.approx(110.0)
+    assert raw["changes"]["SinceTracking"]["percent"] == pytest.approx(10.0)
+    # The tracked basket grew 65%: 10% of price performance plus B's arrival.
+    assert raw["basketValue"] == pytest.approx(165)
+    assert raw["basketChanges"]["SinceTracking"]["percent"] == pytest.approx(65.0)
+    # The whole point of publishing both: they are not the same number.
+    assert raw["changes"]["SinceTracking"]["percent"] != pytest.approx(
+        raw["basketChanges"]["SinceTracking"]["percent"]
+    )
+
+
+def test_since_tracking_basket_change_is_latest_over_first_basket():
+    history = cohort_history()
+    overview = build_market_overview(history, market_date="2026-01-03")
+    raw_rows = [row for row in history if row["index_key"] == "raw"]
+    first, latest = float(raw_rows[0]["basket_value"]), float(raw_rows[-1]["basket_value"])
+
+    since = overview["raw"]["basketChanges"]["SinceTracking"]
+    assert since["percent"] == pytest.approx((latest / first - 1.0) * 100.0)
+    assert since["startDate"] == raw_rows[0]["market_date"]
+    assert since["endDate"] == raw_rows[-1]["market_date"]
+
+
+def test_the_two_dimensions_read_disjoint_columns():
+    history = cohort_history()
+    baseline = build_market_overview(history, market_date="2026-01-03")
+
+    # Perturbing basket_value must move ONLY basketChanges.
+    basket_tampered = [dict(row) for row in history]
+    for row in basket_tampered:
+        if row["market_date"] == "2026-01-01":
+            row["basket_value"] = float(row["basket_value"]) / 2
+    tampered = build_market_overview(basket_tampered, market_date="2026-01-03")
+    assert tampered["raw"]["changes"] == baseline["raw"]["changes"]
+    assert tampered["raw"]["indexValue"] == baseline["raw"]["indexValue"]
+    assert tampered["raw"]["trend"] == baseline["raw"]["trend"]
+    assert tampered["raw"]["basketChanges"] != baseline["raw"]["basketChanges"]
+
+    # Perturbing normalized_index_value must move ONLY changes.
+    index_tampered = [dict(row) for row in history]
+    for row in index_tampered:
+        if row["market_date"] == "2026-01-01":
+            row["normalized_index_value"] = float(row["normalized_index_value"]) / 2
+    tampered = build_market_overview(index_tampered, market_date="2026-01-03")
+    assert tampered["raw"]["basketChanges"] == baseline["raw"]["basketChanges"]
+    assert tampered["raw"]["basketValue"] == baseline["raw"]["basketValue"]
+    assert tampered["raw"]["changes"] != baseline["raw"]["changes"]
+
+
+def test_basket_changes_publish_the_same_windows_and_never_fake_a_partial_one():
+    overview = build_market_overview(cohort_history(), market_date="2026-01-03")
+    for family in ("raw", "topChase"):
+        basket_changes = overview[family]["basketChanges"]
+        assert sorted(basket_changes) == sorted(overview[family]["changes"])
+        # Three days of history cannot support 6M or 1Y — in EITHER dimension.
+        for window in ("6M", "1Y"):
+            for entry in (basket_changes[window], overview[family]["changes"][window]):
+                assert entry["available"] is False
+                assert entry["percent"] is None
+                assert entry["startDate"] is None
+                assert entry["coverage"] == "unavailable"
+        for entry in basket_changes.values():
+            assert entry["coverage"] in ("full", "unavailable")
+
+
+def test_the_payload_extension_is_additive_and_keeps_contract_v1():
+    overview = build_market_overview(cohort_history(), market_date="2026-01-03")
+    assert overview["contractVersion"] == "pokemon-market-overview-v1"
+    # Every field an existing reader already consumes is still present.
+    for family in ("raw", "topChase"):
+        assert {"basketValue", "indexValue", "historyStartDate", "changes", "trend"} <= set(overview[family])
+    assert overview["methodology"]["notMarketCapitalization"] is True
+    assert overview["methodology"]["indexDefinition"] == "chain-linked return over consecutive common set cohorts"
+    assert "cohort additions/removals" in overview["methodology"]["basketChangeDefinition"]
+    assert "neutralized" in overview["methodology"]["pricePerformanceDefinition"]

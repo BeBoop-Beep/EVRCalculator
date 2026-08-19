@@ -33,6 +33,7 @@ class CardDTO(BaseModel):
     currency: Optional[str] = None  # defaults to USD if not provided
     tcgplayer_product_id: Optional[str] = None
     external_catalog_key: Optional[str] = None
+    external_variant_key: Optional[str] = None
     external_source_reference: Optional[str] = None
     external_source_payload: Dict = Field(default_factory=dict)
 

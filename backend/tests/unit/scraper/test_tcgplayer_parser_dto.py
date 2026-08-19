@@ -29,7 +29,7 @@ class TestTCGPlayerParserEditionParsing:
                     "productName": "Dark Omanyte - 037/105",
                     "number": "037/105",
                     "printing": "1st Edition",
-                    "condition": "Moderately Played 1st Edition",
+                    "condition": "Near Mint 1st Edition",
                     "rarity": "Uncommon",
                     "marketPrice": 4.65
                 }
@@ -51,7 +51,7 @@ class TestTCGPlayerParserEditionParsing:
         # Verify core fields
         assert card['name'] == "Dark Omanyte"
         assert card['card_number'] == "037/105"
-        assert card['condition'] == "Moderately Played"
+        assert card['condition'] == "Near Mint"
         
         # Verify parsed edition and printing_type
         assert card['edition'] == "1st-edition"
@@ -136,7 +136,7 @@ class TestTCGPlayerParserEditionParsing:
                     "productName": "Blastoise - 002/102",
                     "number": "002/102",
                     "printing": "Unlimited Holofoil",
-                    "condition": "Lightly Played Unlimited Holofoil",
+                    "condition": "Near Mint Unlimited Holofoil",
                     "rarity": "Rare",
                     "marketPrice": 45.00
                 }
@@ -156,7 +156,7 @@ class TestTCGPlayerParserEditionParsing:
         
         assert card['name'] == "Blastoise"
         assert card['card_number'] == "002/102"
-        assert card['condition'] == "Lightly Played"
+        assert card['condition'] == "Near Mint"
         
         # Verify parsed edition and printing_type
         assert card['edition'] == "unlimited"
