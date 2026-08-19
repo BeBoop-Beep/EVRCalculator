@@ -446,10 +446,12 @@ def score_stage1_sealed_products(
                 # Diagnostic, in-memory only. Never persisted.
                 "financial_rip_v4_score": financial_v4.get("score"),
                 "financial_rip_v4_status": financial_v4.get("status"),
+                "financial_rip_v4_rankable": financial_v4.get("rankable"),
                 "financial_rip_v4_version": financial_v4.get("scoreVersion"),
                 "financial_rip_v4_payload": financial_v4,
                 "overall_rip_v10_score": overall_v10.get("score"),
                 "overall_rip_v10_version": overall_v10.get("version"),
+                "overall_rip_v10_rankable": overall_v10.get("rankable"),
                 "overall_rip_v10_payload": overall_v10,
             }
         )
@@ -614,6 +616,20 @@ def _to_row(product: Mapping[str, Any], *, calculation_run_id: Any, set_id: Any)
         "overall_rip_version": product.get("overall_rip_version"),
         "overall_rip_rankable": product.get("overall_rip_rankable"),
         "overall_rip_payload": product.get("overall_rip_payload"),
+        # Financial RIP V4 / Overall RIP V10 persist ALONGSIDE the V3/V9 fields
+        # above, never in place of them. Both models describe the same
+        # authoritative (calculation_run_id, sealed_product_id) row, so the
+        # unique key keeps its original meaning and no row is duplicated to
+        # encode a model version.
+        "financial_rip_v4_score": product.get("financial_rip_v4_score"),
+        "financial_rip_v4_status": product.get("financial_rip_v4_status"),
+        "financial_rip_v4_rankable": product.get("financial_rip_v4_rankable"),
+        "financial_rip_v4_version": product.get("financial_rip_v4_version"),
+        "financial_rip_v4_payload": product.get("financial_rip_v4_payload"),
+        "overall_rip_v10_score": product.get("overall_rip_v10_score"),
+        "overall_rip_v10_version": product.get("overall_rip_v10_version"),
+        "overall_rip_v10_rankable": product.get("overall_rip_v10_rankable"),
+        "overall_rip_v10_payload": product.get("overall_rip_v10_payload"),
     }
 
 

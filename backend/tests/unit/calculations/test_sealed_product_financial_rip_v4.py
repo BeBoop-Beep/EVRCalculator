@@ -170,16 +170,33 @@ def test_collector_appeal_is_the_same_v5_input_for_both_blends(scored):
 
 
 # ---------------------------------------------------------------------------
-# Nothing new is persisted
+# V4/V10 persist ALONGSIDE V3/V9
 # ---------------------------------------------------------------------------
+# SUPERSEDED PREMISE: this section previously asserted that _to_row carried NO
+# V4/V10 key, because the models were in-memory diagnostics with no columns to
+# land in. Migration 073 adds those columns additively, so the contract is now
+# the opposite - V4/V10 must be persisted, in their OWN fields, without
+# disturbing a single V3/V9 value. The keys below are still held literally so an
+# unexpected key reaching the database is still a failure.
 
-def test_the_persistence_projection_carries_no_v4_or_v10_key(scored):
-    """The V4/V10 objects are in-memory diagnostics. They must not reach a column."""
+def test_the_persistence_projection_carries_every_v4_and_v10_key(scored):
     for product in scored["products"]:
         row = service._to_row(product, calculation_run_id="run-1", set_id="set-1")
-        assert PERSISTED_V4_KEYS.isdisjoint(set(row))
-        assert not any(key.startswith("financial_rip_v4") for key in row)
-        assert not any(key.startswith("overall_rip_v10") for key in row)
+        assert PERSISTED_V4_KEYS.issubset(set(row))
+        assert row["financial_rip_v4_score"] == product["financial_rip_v4_score"]
+        assert row["financial_rip_v4_version"] == product["financial_rip_v4_version"]
+        assert row["overall_rip_v10_score"] == product["overall_rip_v10_score"]
+        assert row["overall_rip_v10_version"] == product["overall_rip_v10_version"]
+
+
+def test_v4_persistence_does_not_disturb_the_v3_columns(scored):
+    for product in scored["products"]:
+        row = service._to_row(product, calculation_run_id="run-1", set_id="set-1")
+        assert row["financial_rip_v3_score"] == product["financial_rip_v3_score"]
+        assert row["financial_rip_v3_version"] == product["financial_rip_v3_version"]
+        assert row["financial_rip_v3_score"] != row["financial_rip_v4_score"]
+        assert row["overall_rip_version"] == OVERALL_RIP_V9_VERSION
+        assert row["overall_rip_version"] != row["overall_rip_v10_version"]
 
 
 def test_the_persistence_projection_still_carries_the_canonical_columns(scored):

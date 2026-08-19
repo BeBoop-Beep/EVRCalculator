@@ -66,6 +66,10 @@ from backend.desirability.public_rip_contract_v9 import (
     PUBLIC_RIP_CONTRACT_V9_KEY,
     build_public_rip_contract_v9,
 )
+from backend.desirability.public_rip_contract_v10 import (
+    PUBLIC_RIP_CONTRACT_V10_KEY,
+    build_public_rip_contract_v10,
+)
 from backend.desirability.public_rip_contract_v7 import (
     PUBLIC_RIP_CONTRACT_V7_KEY,
     build_public_rip_contract_v7,
@@ -661,6 +665,12 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
     ("_rank_overall_rip_v7", "overallRipV7"),
     ("_rank_overall_rip_v8", "overallRipV8"),
     ("_rank_overall_rip_v9", "overallRipV9"),
+    # Financial RIP V4 and the Overall RIP V10 blend over it. Ranked on the
+    # SAME cohort, in the same pass, from the same authoritative target rows
+    # as V3/V9 - a candidate ranked against a different population than the
+    # one it will replace cannot be compared to it.
+    ("_rank_financial_rip_v4", "financialRipV4"),
+    ("_rank_overall_rip_v10", "overallRipV10"),
     *(
         (f"_rank_v3_{component}", f"financialRipV3.{component}")
         for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
@@ -778,12 +788,12 @@ def _build_financial_rip_v4(target: Mapping[str, Any]) -> Dict[str, Any]:
     ``backend.calculations.evr.financial_rip_v4.project_financial_rip_v4_from_v3_payload``
     for why that is exact rather than an approximation.
 
-    NOT CANONICAL and deliberately NOT RANKED. It is served as an absolute score
-    alongside the canonical V3 object so the model can be compared and validated
-    on real targets before any promotion. No rank, relative score, tier or
-    cohort denominator is computed from it, because publishing a rank under a
-    non-canonical model is how two leaderboards start disagreeing about one
-    product name.
+    NOT CANONICAL, but now RANKED on the same cohort as V3/V9. A candidate model
+    that carries only an absolute score cannot be compared against the model it
+    would replace, because rank movement is the thing under review. The rank,
+    relative score, tier and cohort denominator are all computed in the same
+    pass, over the same fixed cohort, from the same authoritative target rows.
+    Canonical constants still resolve V3/V9, so nothing published changes.
     """
     payload = _parse_v3_payload(target.get("financial_rip_v3_payload"))
     return project_financial_rip_v4_from_v3_payload(payload)
@@ -819,6 +829,16 @@ def _rank_overall_rip_v8(row: Mapping[str, Any]) -> Optional[float]:
 
 def _rank_overall_rip_v9(row: Mapping[str, Any]) -> Optional[float]:
     return _to_optional_float((row.get("overallRipV9") or {}).get("score"))
+
+
+def _rank_financial_rip_v4(row: Mapping[str, Any]) -> Optional[float]:
+    """Rank by the ABSOLUTE V4 score, never a cohort transformation of it."""
+    return _to_optional_float((row.get("financialRipV4") or {}).get("score"))
+
+
+def _rank_overall_rip_v10(row: Mapping[str, Any]) -> Optional[float]:
+    """Rank by the ABSOLUTE 90/10-over-V4 score (same rule as V9)."""
+    return _to_optional_float((row.get("overallRipV10") or {}).get("score"))
 
 
 def _make_v3_component_extractor(component: str):
@@ -1055,10 +1075,12 @@ def _attach_public_rip_contract(
             financial_v3.get("score"), collector_appeal_score
         )
         # IMPLEMENTED, NOT CANONICAL: Financial RIP V4 and the Overall RIP V10
-        # blend over it. Both are absolute scores only - neither is ranked, and
-        # neither is read by any publication surface - so that the V4 model can
-        # be compared against V3/V9 on real targets ahead of a deliberate
-        # promotion. Collector Appeal V5 is the SAME score V9 consumes.
+        # blend over it. Both are now ranked on the SAME cohort as V3/V9 so the
+        # models can be compared rank-for-rank ahead of a deliberate promotion;
+        # no publication surface reads them while the canonical constants still
+        # resolve V3/V9. Collector Appeal V5 is the SAME score V9 consumes -
+        # `collector_appeal_score` is one variable feeding both blends, so the
+        # appeal input cannot silently differ between V9 and V10.
         financial_v4 = _build_financial_rip_v4(target)
         target["financialRipV4"] = financial_v4
         target["overallRipV10"] = compute_overall_rip_v10(
@@ -1239,6 +1261,8 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
         (_rank_overall_rip_v7, "overallRipV7"),
         (_rank_overall_rip_v8, "overallRipV8"),
         (_rank_overall_rip_v9, "overallRipV9"),
+        (_rank_financial_rip_v4, "financialRipV4"),
+        (_rank_overall_rip_v10, "overallRipV10"),
     ):
         scratch = [
             {"target_id": row.get("target_id"), "_score": extractor(row)}
@@ -1351,6 +1375,7 @@ def _apply_rank(
     if contract_key in (
         "rip", "ripCore", "financialRipV3",
         "overallRipV5", "overallRipV6", "overallRipV7", "overallRipV8", "overallRipV9",
+        "financialRipV4", "overallRipV10",
     ):
         target = row.get(contract_key) or {}
         target["rank"] = entry.get("rank")
@@ -2187,6 +2212,13 @@ def get_rip_statistics_targets_payload(
         # is unchanged.
         target[PUBLIC_RIP_CONTRACT_V8_KEY] = build_public_rip_contract_v8(target)
         target[PUBLIC_RIP_CONTRACT_V9_KEY] = build_public_rip_contract_v9(target)
+        # The V10 projection over Overall RIP V10 / Financial RIP V4. Additive,
+        # exactly as V9 was over V8: every key above is unchanged, and a
+        # consumer pinned to V9 keeps receiving the identical V3-backed
+        # projection. Attached here - the same place and the same pass as V9 -
+        # so the backend payload is self-describing rather than requiring the
+        # frontend to synthesize a contract it was not given.
+        target[PUBLIC_RIP_CONTRACT_V10_KEY] = build_public_rip_contract_v10(target)
 
     default_target_row = next(
         (target for target in targets if target.get("target_id") == default_target_id),
