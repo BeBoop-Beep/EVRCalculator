@@ -13,10 +13,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 
 class TCGScraper:
-    def __init__(self, enable_db_ingestion=False):
+    def __init__(self, enable_db_ingestion=False, target_market_date=None):
         self.client = TCGPlayerClient()
         self.dto_builder = TCGPlayerDTOBuilder()
         self.enable_db_ingestion = enable_db_ingestion
+        self.target_market_date = target_market_date
         self.max_parsed_cache_entries = int(os.getenv("PARSED_CACHE_MAX_ENTRIES", "2"))
         self._parsed_cards_cache = OrderedDict()
         self._parsed_sealed_cache = OrderedDict()
@@ -69,6 +70,10 @@ class TCGScraper:
         
         # Step 4: Convert to payload
         payload = dto.model_dump()
+        if self.enable_db_ingestion and not self.target_market_date:
+            raise RuntimeError("DB-enabled scrape requires an immutable target_market_date")
+        for card in payload.get('data', {}).get('cards', []):
+            card['_market_date'] = self.target_market_date
         parse_report = dict(getattr(parser, 'last_card_parse_report', {}) or {})
         diagnostic_names = {
             "raw_rows": "rawRows", "commercial_products": "commercialProducts",
@@ -90,6 +95,7 @@ class TCGScraper:
                    "setId": None, "priceRowsAttempted": 0, "priceRowsInserted": 0,
                    "priceRowsUpdated": 0, "priceRowsSkippedDuplicates": 0,
                    "ingestionErrors": [], "sourceVariantKeys": source_variant_keys,
+                   "marketDate": self.target_market_date,
                    **parse_diagnostics}
 
         _payload_cards = len(payload.get('data', {}).get('cards', []))

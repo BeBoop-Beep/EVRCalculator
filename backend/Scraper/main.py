@@ -18,7 +18,9 @@ def main():
         print("Scraping Info from TCGPlayer...")
         
         # Set to True to enable database ingestion
-        scraper = TCGScraper(enable_db_ingestion=True)  # Change to False to skip DB
+        from backend.Scraper.helpers.market_date_helper import resolve_phoenix_market_date
+        scraper = TCGScraper(enable_db_ingestion=True,
+                             target_market_date=resolve_phoenix_market_date())
         payload = scraper.scrape(config, excel_path)  # Call the scrape method
         
         print("\n[OK] DTO Payload created successfully")

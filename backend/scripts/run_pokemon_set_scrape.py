@@ -40,7 +40,7 @@ import socket
 import sys
 import time
 import tracemalloc
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -639,6 +639,7 @@ def _scrape_one_set(
     canonical_key: str,
     index: int,
     total: int,
+    market_date: str,
 ) -> Dict[str, Any]:
     """Attempt to scrape one set with up to MAX_RETRIES, with backoff on failures.
 
@@ -707,9 +708,13 @@ def _scrape_one_set(
                     "error": zero_cards_error,
                 }
             if getattr(scraper, "enable_db_ingestion", False):
+                if outcome.get("marketDate") != market_date:
+                    raise RuntimeError(
+                        f"scrape market-date mismatch: write={outcome.get('marketDate')} "
+                        f"postcondition={market_date}")
                 from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
                 postcondition = verify_tcgplayer_source_variant_persistence(
-                    outcome.get("setId"), _market_date_iso(), outcome.get("sourceVariantKeys", []))
+                    outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
                 outcome.update(postcondition)
                 if not postcondition.get("success"):
                     raise RuntimeError(
@@ -777,19 +782,10 @@ def _market_date_iso(timezone_name: str = "America/Phoenix", now: Optional[datet
     The market day is derived from the local (America/Phoenix) wall clock, NOT
     from UTC midnight — a scrape at 01:00 UTC belongs to the previous Arizona day.
     """
-    try:
-        from zoneinfo import ZoneInfo
-
-        instant = now or datetime.now(timezone.utc)
-        if instant.tzinfo is None:
-            instant = instant.replace(tzinfo=timezone.utc)
-        return instant.astimezone(ZoneInfo(timezone_name)).date().isoformat()
-    except Exception:  # Python 3.8 / missing zoneinfo data
-        instant = now or datetime.now(timezone.utc)
-        if instant.tzinfo is None:
-            instant = instant.replace(tzinfo=timezone.utc)
-        phoenix = timezone(timedelta(hours=-7), "America/Phoenix")
-        return instant.astimezone(phoenix).date().isoformat()
+    if timezone_name != "America/Phoenix":
+        raise ValueError("daily Pokemon scrape market date authority is America/Phoenix")
+    from backend.Scraper.helpers.market_date_helper import resolve_phoenix_market_date
+    return resolve_phoenix_market_date(now)
 
 
 def run_scraper(
@@ -1174,7 +1170,8 @@ def run_scraper(
     # ------------------------------------------------------------------
     # APPLY: scrape each target sequentially with throttling
     # ------------------------------------------------------------------
-    scraper = TCGScraper(enable_db_ingestion=enable_db_ingestion)
+    scraper = TCGScraper(enable_db_ingestion=enable_db_ingestion,
+                         target_market_date=market_date_iso)
     results: List[Dict[str, Any]] = []
     succeeded = 0
     failed = 0
@@ -1207,7 +1204,8 @@ def run_scraper(
                 continue
 
             try:
-                result = _scrape_one_set(scraper, config_cls, canonical_key, index, total)
+                result = _scrape_one_set(scraper, config_cls, canonical_key, index, total,
+                                         market_date_iso)
             except RequestCapExceededError as exc:
                 run_aborted_early = True
                 run_abort_reason = "request_cap_exceeded"

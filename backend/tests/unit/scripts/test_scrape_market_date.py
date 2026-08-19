@@ -20,3 +20,15 @@ def test_utc_midnight_boundary_matches_incident_5pm_arizona():
 def test_arizona_morning_is_the_same_calendar_day():
     instant = datetime(2026, 7, 17, 17, 30, tzinfo=timezone.utc)  # 10:30 AZ
     assert _market_date_iso("America/Phoenix", now=instant) == "2026-07-17"
+
+def test_aug18_1659_phoenix_is_aug18():
+    assert _market_date_iso(now=datetime(2026, 8, 18, 23, 59, tzinfo=timezone.utc)) == "2026-08-18"
+
+def test_aug18_1701_phoenix_is_still_aug18_despite_aug19_utc():
+    assert _market_date_iso(now=datetime(2026, 8, 19, 0, 1, tzinfo=timezone.utc)) == "2026-08-18"
+
+def test_aug18_2359_phoenix_is_aug18():
+    assert _market_date_iso(now=datetime(2026, 8, 19, 6, 59, tzinfo=timezone.utc)) == "2026-08-18"
+
+def test_aug19_midnight_phoenix_is_aug19():
+    assert _market_date_iso(now=datetime(2026, 8, 19, 7, 0, tzinfo=timezone.utc)) == "2026-08-19"

@@ -47,13 +47,17 @@ def _parse_captured_at(value: Any) -> datetime:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 
+def _captured_date(value: Any) -> str:
+    """Return the canonical DATE value used by observation tables."""
+    if isinstance(value, str) and len(value) >= 10:
+        return datetime.fromisoformat(value[:10]).date().isoformat()
+    return _parse_captured_at(value).date().isoformat()
+
 
 def _normalize_price_row(price_row: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a price row before insert."""
     normalized = dict(price_row)
-    captured_at_dt = _parse_captured_at(normalized.get("captured_at"))
-
-    normalized["captured_at"] = captured_at_dt.isoformat()
+    normalized["captured_at"] = _captured_date(normalized.get("captured_at"))
     normalized["source"] = normalized.get("source") or "UNKNOWN"
     normalized["currency"] = normalized.get("currency") or "USD"
 
@@ -72,13 +76,12 @@ def _normalize_market_price(value: Any) -> Optional[str]:
 
 def _identity_key(price_row: Dict[str, Any]) -> str:
     """Build entity+source+day key (no price fields) to identify same-day rows."""
-    captured_at_dt = _parse_captured_at(price_row.get("captured_at"))
     return "|".join(
         [
             str(price_row.get("card_variant_id")),
             str(price_row.get("condition_id")),
             str(price_row.get("source") or "UNKNOWN"),
-            captured_at_dt.date().isoformat(),
+            _captured_date(price_row.get("captured_at")),
         ]
     )
 
@@ -98,7 +101,7 @@ def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str,
 
     variant_ids = sorted({str(row.get("card_variant_id")) for row in changed_rows if row.get("card_variant_id")})
     captured_dates = [
-        _parse_captured_at(row.get("captured_at")).date().isoformat()
+        _captured_date(row.get("captured_at"))
         for row in changed_rows
         if row.get("captured_at")
     ]
@@ -147,16 +150,13 @@ def _fetch_existing_same_day_observations(
 
     rows_by_day: Dict[str, List[Dict[str, Any]]] = {}
     for row in normalized_rows:
-        day_key = _parse_captured_at(row.get("captured_at")).date().isoformat()
+        day_key = _captured_date(row.get("captured_at"))
         rows_by_day.setdefault(day_key, []).append(row)
 
     existing_by_identity: Dict[str, Dict[str, Any]] = {}
     query_count = 0
 
     for day_key, day_rows in rows_by_day.items():
-        day_start = f"{day_key}T00:00:00+00:00"
-        day_end = f"{day_key}T23:59:59.999999+00:00"
-
         variant_ids = sorted({row.get("card_variant_id") for row in day_rows if row.get("card_variant_id") is not None})
         condition_ids = sorted({row.get("condition_id") for row in day_rows if row.get("condition_id") is not None})
         sources = sorted({(row.get("source") or "UNKNOWN") for row in day_rows})
@@ -172,8 +172,7 @@ def _fetch_existing_same_day_observations(
             .in_("card_variant_id", variant_ids)
             .in_("condition_id", condition_ids)
             .in_("source", sources)
-            .gte("captured_at", day_start)
-            .lte("captured_at", day_end)
+            .eq("captured_at", day_key)
             .execute()
         )
 

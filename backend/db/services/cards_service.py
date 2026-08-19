@@ -1,7 +1,6 @@
 import sys
 import os
 import re
-from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -295,12 +294,15 @@ class CardsService(BatchProcessor):
                                 errors.append(error_msg)
                                 continue
                             
+                            market_date = str(card_entry.get('_market_date') or '').strip()
+                            if not market_date:
+                                raise ValueError("Card price row is missing immutable scraper market date")
                             price_data = {
                                 'condition_id': condition_id,
                                 'market_price': market_price,
                                 'currency': prices.get('currency') or 'USD',
                                 'source': card_entry.get('source') or prices.get('source'),
-                                'captured_at': datetime.utcnow().isoformat(),
+                                'captured_at': market_date,
                                 'high_price': prices.get('high'),
                                 'low_price': prices.get('low'),
                             }
