@@ -7,17 +7,28 @@ import time
 class ExternalVariantIdentityConflict(RuntimeError):
     pass
 
-def get_card_variant_external_identity(provider: str, external_product_id: str):
+class AmbiguousExternalVariantIdentity(RuntimeError):
+    pass
+
+def get_card_variant_external_identity(provider: str, external_product_id: str,
+                                       external_variant_key: Optional[str] = None):
     res = (supabase.table("card_variant_external_identities").select("*")
            .eq("provider", provider.strip().lower())
-           .eq("external_product_id", str(external_product_id)).maybe_single().execute())
-    return res.data if res and res.data else None
+           .eq("external_product_id", str(external_product_id)))
+    if external_variant_key is not None:
+        res = res.eq("external_variant_key", external_variant_key)
+    rows = res.limit(2).execute().data or []
+    if len(rows) > 1:
+        raise AmbiguousExternalVariantIdentity(
+            f"{provider} product {external_product_id} has multiple source variants")
+    return rows[0] if rows else None
 
 def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str, Any]) -> str:
     """Idempotently link a provider product, refusing identity reassignment."""
     provider = str(identity["provider"]).strip().lower()
     product_id = str(identity["external_product_id"]).strip()
-    existing = get_card_variant_external_identity(provider, product_id)
+    variant_key = str(identity["external_variant_key"]).strip()
+    existing = get_card_variant_external_identity(provider, product_id, variant_key)
     if existing:
         if str(existing["card_variant_id"]) != str(card_variant_id):
             raise ExternalVariantIdentityConflict(
@@ -29,7 +40,7 @@ def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str
         res = supabase.table("card_variant_external_identities").insert(payload).execute()
         return res.data[0]["id"]
     except APIError:
-        existing = get_card_variant_external_identity(provider, product_id)
+        existing = get_card_variant_external_identity(provider, product_id, variant_key)
         if existing and str(existing["card_variant_id"]) == str(card_variant_id):
             return existing["id"]
         if existing:

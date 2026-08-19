@@ -2,6 +2,8 @@
 
 import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
 const RIP_PRODUCT_NAV_ITEMS = Object.freeze([
@@ -2000,6 +2002,7 @@ function ChecklistCardTile({ card, movementWindow = "7D" }) {
   // React attaches onLoad (SSR-seeded grids), so the ref checks .complete.
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [hasImageFailed, setHasImageFailed] = useState(false);
+  const detailHref = buildPokemonCardHref(card?.detailSetSlug, card);
 
   useEffect(() => {
     setIsImageLoaded(false);
@@ -2032,7 +2035,8 @@ function ChecklistCardTile({ card, movementWindow = "7D" }) {
     // strip under the image. Only borders, the card art, and text carry weight
     // here — no surface fill, no frost, no full-tile gradient. Hover keeps the
     // lift and the accent border but must never paint an opaque fill back in.
-    <article className="group h-full overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-transparent backdrop-blur-none transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.40)]">
+    <article className="group h-full overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-transparent backdrop-blur-none transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(94,234,212,0.40)] focus-within:border-[rgba(94,234,212,0.55)]">
+      <Link href={detailHref || "#"} prefetch={false} aria-label={`View ${name} card details`} className="block h-full rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-teal-300">
       <div className="relative aspect-[3/4] w-full border-b border-[rgba(255,255,255,0.07)] bg-transparent p-1">
         {imageUrl && !hasImageFailed ? (
           <>
@@ -2098,6 +2102,7 @@ function ChecklistCardTile({ card, movementWindow = "7D" }) {
           </p>
         ) : null}
       </div>
+      </Link>
     </article>
   );
 }
@@ -13676,7 +13681,7 @@ export default function RipStatisticsPageClient({
                                 {displayedChecklistCards.map((card) => (
                                   <ChecklistCardTile
                                     key={`${card.id || card.cardNumber || card.name}`}
-                                    card={card}
+                                    card={{ ...card, detailSetSlug: activeSetSlug }}
                                     movementWindow={selectedTimeframe}
                                   />
                                 ))}

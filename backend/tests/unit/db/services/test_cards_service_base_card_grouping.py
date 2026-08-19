@@ -68,6 +68,16 @@ class TestBaseCardGrouping(unittest.TestCase):
         service.ship_results_sequentially = MagicMock(return_value=(0, 0, []))
         return service
 
+    def test_price_write_uses_explicit_scraper_market_date(self):
+        service = self._make_service()
+        service._conditions_cache = {"Near Mint": "nm-id"}
+        row = _escavalier_rows()[0]
+        row["_market_date"] = "2026-08-18"
+        work, errors = service._prepare_card_data(
+            (row["name"], row["card_number"]), FAKE_CARD_ID_1, [row])
+        self.assertEqual(errors, [])
+        self.assertEqual(work[0][1][0]["captured_at"], "2026-08-18")
+
     @patch(_make_patch_target("insert_cards_batch"), return_value=[FAKE_CARD_ID_1])
     @patch(_make_patch_target("get_all_cards_for_set"), return_value=[])
     @patch(

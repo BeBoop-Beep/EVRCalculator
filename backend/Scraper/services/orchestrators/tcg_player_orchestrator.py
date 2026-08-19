@@ -1,7 +1,6 @@
 from ...clients.tcgplayer_client import TCGPlayerClient
 from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
-from ...exporters.excel_writer import save_to_excel
 from backend.db.controllers.ingest_controller import IngestController
 from collections import OrderedDict
 import copy
@@ -14,10 +13,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 
 class TCGScraper:
-    def __init__(self, enable_db_ingestion=False):
+    def __init__(self, enable_db_ingestion=False, target_market_date=None):
         self.client = TCGPlayerClient()
         self.dto_builder = TCGPlayerDTOBuilder()
         self.enable_db_ingestion = enable_db_ingestion
+        self.target_market_date = target_market_date
         self.max_parsed_cache_entries = int(os.getenv("PARSED_CACHE_MAX_ENTRIES", "2"))
         self._parsed_cards_cache = OrderedDict()
         self._parsed_sealed_cache = OrderedDict()
@@ -70,6 +70,33 @@ class TCGScraper:
         
         # Step 4: Convert to payload
         payload = dto.model_dump()
+        if self.enable_db_ingestion and not self.target_market_date:
+            raise RuntimeError("DB-enabled scrape requires an immutable target_market_date")
+        for card in payload.get('data', {}).get('cards', []):
+            card['_market_date'] = self.target_market_date
+        parse_report = dict(getattr(parser, 'last_card_parse_report', {}) or {})
+        diagnostic_names = {
+            "raw_rows": "rawRows", "commercial_products": "commercialProducts",
+            "source_variant_groups": "sourceVariantGroups",
+            "accepted_variant_groups": "acceptedVariantGroups",
+            "rejected_ambiguous_variant_groups": "rejectedAmbiguousVariantGroups",
+            "rejected_missing_nm_variant_groups": "rejectedMissingNmVariantGroups",
+            "dropped_no_market_price": "droppedNoMarketPrice",
+        }
+        parse_diagnostics = {diagnostic_names.get(key, key): value
+                             for key, value in parse_report.items()}
+        source_variant_keys = sorted({
+            f"{card.get('tcgplayer_product_id')}|{card.get('external_variant_key')}"
+            for card in payload.get('data', {}).get('cards', [])
+            if card.get('tcgplayer_product_id') and card.get('external_variant_key')
+        })
+        outcome = {"payloadCards": len(payload.get('data', {}).get('cards', [])),
+                   "ingestionAttempted": False, "ingestionSuccess": not self.enable_db_ingestion,
+                   "setId": None, "priceRowsAttempted": 0, "priceRowsInserted": 0,
+                   "priceRowsUpdated": 0, "priceRowsSkippedDuplicates": 0,
+                   "ingestionErrors": [], "sourceVariantKeys": source_variant_keys,
+                   "marketDate": self.target_market_date,
+                   **parse_diagnostics}
 
         _payload_cards = len(payload.get('data', {}).get('cards', []))
         print(
@@ -89,11 +116,15 @@ class TCGScraper:
         
         # Step 5: Ingest to database (if enabled)
         if self.enable_db_ingestion:
+            outcome["ingestionAttempted"] = True
             print("\n[SEND] Sending data to database...")
             try:
                 # Payload already has the correct structure with type and data fields
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
+                    cards_detail = result.get('details', {}).get('cards', {})
+                    summary = result.get('summary', {})
+                    outcome.update(validate_ingestion_result(payload, result))
                     def _metric_count(value):
                         """Return a count from a metric that may be int, list, or None."""
                         if isinstance(value, (int, float)):
@@ -117,18 +148,39 @@ class TCGScraper:
                         for key, value in result['summary'].items():
                             print(f"   {key}: {value}")
                 else:
-                    print(f"[WARN] Database ingestion failed: {result.get('error', 'Unknown error')}")
+                    raise RuntimeError(f"Database ingestion failed: {(result or {}).get('error', 'Unknown error')}")
             except Exception as e:
                 print(f"[ERROR] Database ingestion failed: {e}")
                 import traceback
                 traceback.print_exc()
-                # Don't raise - continue with the rest of the workflow
+                outcome["ingestionErrors"].append(str(e))
+                payload['_scrape_outcome'] = outcome
+                raise
         
         # Step 6: Optional - Save to Excel
         # save_to_excel(card_dicts, sealed_dicts, excel_path)
         
+        payload['_scrape_outcome'] = outcome
         return payload
 
     def get_request_metrics(self):
         return self.client.get_metrics()
 
+def validate_ingestion_result(payload, result):
+    if not result or not result.get('success'):
+        raise RuntimeError(f"Database ingestion failed: {(result or {}).get('error', 'Unknown error')}")
+    cards_detail = result.get('details', {}).get('cards', {})
+    errors = list(cards_detail.get('errors') or [])
+    efficiency = cards_detail.get('ingestion_efficiency', {})
+    priced = any((card.get('prices') or {}).get('market') is not None
+                 for card in payload.get('data', {}).get('cards', []))
+    if errors:
+        raise RuntimeError(f"Fatal card ingestion errors: {errors[:5]}")
+    if priced and int(efficiency.get('attempted_rows', 0)) == 0:
+        raise RuntimeError("Priced payload produced zero attempted price rows")
+    return {"setId": result.get('set_id'),
+            "priceRowsAttempted": int(efficiency.get('attempted_rows', 0)),
+            "priceRowsInserted": int(efficiency.get('inserted_rows', 0)),
+            "priceRowsUpdated": int(cards_detail.get('price_rows_updated', 0)),
+            "priceRowsSkippedDuplicates": int(efficiency.get('skipped_duplicates', 0)),
+            "ingestionErrors": [], "ingestionSuccess": True}

@@ -16,6 +16,8 @@ from typing import Any, Dict
 
 import requests
 
+from backend.Scraper.helpers.card_helper import build_external_variant_key
+
 from backend.db.clients.supabase_client import supabase
 from backend.db.repositories.card_variant_repository import (
     get_card_variant_by_card_and_type,
@@ -43,6 +45,17 @@ STAMPED_PRODUCTS: Dict[str, Dict[str, str]] = {
         "special_type": "mega-evolution-stamped",
     },
 }
+
+def _external_identity_payload(product_id: str, spec: Dict[str, str]) -> Dict[str, Any]:
+    return {
+        "provider": "tcgplayer", "external_product_id": product_id,
+        "external_variant_key": build_external_variant_key(
+            None, "holo", spec["special_type"]),
+        "external_catalog_key": "miscellaneous-cards-and-products",
+        "source_reference": f"https://www.tcgplayer.com/product/{product_id}",
+        "source_payload": {"productName": spec["name"],
+                           "treatment": spec["special_type"]},
+    }
 
 
 def _current_nm_market_price(product_id: str) -> float:
@@ -89,12 +102,8 @@ def ingest(*, commit: bool) -> Dict[str, Any]:
         }))
         if variant_id == spec["ordinary_variant_id"]:
             raise RuntimeError(f"TCGplayer product {product_id} resolved to the ordinary printing")
-        link_card_variant_external_identity(variant_id, {
-            "provider": "tcgplayer", "external_product_id": product_id,
-            "external_catalog_key": "miscellaneous-cards-and-products",
-            "source_reference": f"https://www.tcgplayer.com/product/{product_id}",
-            "source_payload": {"productName": spec["name"], "treatment": spec["special_type"]},
-        })
+        link_card_variant_external_identity(
+            variant_id, _external_identity_payload(product_id, spec))
         current = get_latest_near_mint_prices([variant_id]).get(variant_id)
         if not current or str(current.get("captured_at"))[:10] != today or float(current["market_price"]) != price:
             insert_card_variant_price({

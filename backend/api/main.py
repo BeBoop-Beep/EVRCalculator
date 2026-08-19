@@ -50,6 +50,10 @@ from backend.db.services.pokemon_sets_catalog_service import (
 from backend.db.services.pokemon_set_cards_service import (
     PokemonSetCardsError,
 )
+from backend.db.services.pokemon_card_detail_service import (
+    PokemonCardDetailError,
+    get_pokemon_card_detail_payload,
+)
 from backend.db.services.pokemon_set_market_service import (
     PokemonSetMarketError,
     resolve_pokemon_set_identifier,
@@ -755,6 +759,32 @@ def get_pokemon_set_cards_validation(
         logger.exception("/tcgs/pokemon/sets/%s/cards/validation unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load Pokemon set card validation data", "code": "POKEMON_SET_CARDS_VALIDATION_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/cards/{card_id}")
+def get_pokemon_card_detail(
+    set_id: str,
+    card_id: str,
+    variant_id: Optional[str] = Query(default=None),
+):
+    """Return one canonical card and variant-aware Chase economics."""
+    try:
+        return get_pokemon_card_detail_payload(
+            set_id=set_id, card_id=card_id, variant_id=variant_id
+        )
+    except PokemonCardDetailError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception(
+            "/tcgs/pokemon/sets/%s/cards/%s unexpected error", set_id, card_id
+        )
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon card", "code": "POKEMON_CARD_DETAIL_FAILED"},
             status_code=500,
         )
 

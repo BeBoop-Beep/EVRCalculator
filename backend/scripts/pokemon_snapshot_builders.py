@@ -227,15 +227,27 @@ def list_pokemon_sets(client: Any) -> List[Dict[str, Any]]:
 
 
 def resolve_target_sets(client: Any, args: argparse.Namespace) -> List[Dict[str, Any]]:
+    if getattr(args, "current_authorities", False):
+        rows = (
+            client.table("explore_rip_statistics_latest")
+            .select("set_id")
+            .execute().data or []
+        )
+        return [{"id": set_id} for set_id in sorted({str(row["set_id"]) for row in rows if row.get("set_id")})]
     if args.all:
         return list_pokemon_sets(client)
     return [resolve_set_row(client, args.set_id)]
 
 
-def add_target_set_args(parser: argparse.ArgumentParser) -> None:
+def add_target_set_args(parser: argparse.ArgumentParser, *, include_current_authorities: bool = False) -> None:
     target_group = parser.add_mutually_exclusive_group(required=True)
     target_group.add_argument("--all", action="store_true", help="Build snapshots for all Pokemon sets")
     target_group.add_argument("--set-id", help="Build snapshots for one set id, canonical key, or Pokemon API set id")
+    if include_current_authorities:
+        target_group.add_argument(
+            "--current-authorities", action="store_true",
+            help="Build only sets represented by the current scored set authority",
+        )
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument("--dry-run", action="store_true", help="Build and log without writing")
     mode_group.add_argument("--commit", action="store_true", help="Upsert snapshot rows")

@@ -131,7 +131,12 @@ def select_chase_cards(
                 "cardName": _optional_str(row.get("card_name")),
                 "rarity": _optional_str(row.get("rarity_bucket")),
                 "currentTargetMarketPrice": price,
-                "currentPriceAsOf": _optional_str(row.get("price_as_of")),
+                "currentPriceAsOf": _optional_str(
+                    row.get("current_near_mint_price_captured_at")
+                ),
+                "currentPriceObservationSource": _optional_str(
+                    row.get("current_near_mint_price_source")
+                ),
                 "targetValueUsedInEV": _positive(
                     price_used_by_variant_id.get(variant_id)
                 ),
@@ -258,6 +263,9 @@ def _card_block(
                 "productName": _optional_str(row.get("product_name")),
                 "productFamily": _optional_str(row.get("product_family")),
                 "productPrice": _positive(row.get("product_market_cost")),
+                "productPriceAsOf": _optional_str(row.get("price_as_of")),
+                "productPriceSource": _optional_str(row.get("price_source")),
+                "productSourceUpdatedAt": _optional_str(row.get("updated_at")),
                 **block,
             }
         )
@@ -275,6 +283,7 @@ def _card_block(
         "currentTargetMarketPrice": current_price,
         "currentPriceAsOf": card.get("currentPriceAsOf"),
         "currentPriceSource": "simulation_input_cards_with_near_mint_price",
+        "currentPriceObservationSource": card.get("currentPriceObservationSource"),
         "targetValueUsedInEV": ev_basis,
         "evPriceBasisRunId": run_id,
         "evPriceBasisAsOf": card.get("evPriceBasisAsOf"),
@@ -293,6 +302,7 @@ def build_chase_economics_contract(
     run_id: Any,
     limit: int = DEFAULT_PUBLISHED_CARD_LIMIT,
     eligible_card_count: Optional[int] = None,
+    snapshot_built_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     """The published chase-economics contract for ONE set.
 
@@ -304,10 +314,28 @@ def build_chase_economics_contract(
     card_list = [c for c in (cards or []) if isinstance(c, Mapping)]
     rows = [r for r in (product_rows or []) if isinstance(r, Mapping)]
 
+    built_at = _optional_str(snapshot_built_at)
+    card_price_dates = sorted(
+        {str(c.get("currentPriceAsOf")) for c in card_list if c.get("currentPriceAsOf")}
+    )
+    ev_basis_dates = sorted(
+        {str(c.get("evPriceBasisAsOf")) for c in card_list if c.get("evPriceBasisAsOf")}
+    )
+    product_price_dates = sorted(
+        {str(r.get("price_as_of")) for r in rows if r.get("price_as_of")}
+    )
     return {
         "contractVersion": CHASE_ECONOMICS_CONTRACT_VERSION,
         "recoveryModel": RECOVERY_MODEL_GROSS_MARKET_VALUE,
         "sourceCalculationRunId": resolved_run_id,
+        "snapshotBuiltAt": built_at,
+        "provenance": {
+            "sourceCalculationRunId": resolved_run_id,
+            "evPriceBasisDates": ev_basis_dates,
+            "currentCardPriceDates": card_price_dates,
+            "currentProductPriceDates": product_price_dates,
+            "snapshotBuiltAt": built_at,
+        },
         "selectionPolicy": SELECTION_POLICY,
         "publishedCardLimit": int(limit),
         "eligibleCardCount": (
@@ -335,10 +363,12 @@ def build_chase_economics_snapshot_row(
         raise ValueError("set_id is required")
     resolved_run_id = _optional_str(run_id)
 
+    built_at = datetime.now(timezone.utc).isoformat()
     if resolved_run_id is None:
         contract = build_chase_economics_contract(
             cards=[], product_rows=[], run_id=None, limit=limit,
             eligible_card_count=0,
+            snapshot_built_at=built_at,
         )
         return {
             "set_id": resolved_set_id,
@@ -346,7 +376,7 @@ def build_chase_economics_snapshot_row(
             "payload_json": contract,
             "card_count": 0,
             "as_of": None,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": built_at,
         }
 
     input_rows = _load_run_population(
@@ -390,6 +420,7 @@ def build_chase_economics_snapshot_row(
         run_id=resolved_run_id,
         limit=limit,
         eligible_card_count=len(eligible),
+        snapshot_built_at=built_at,
     )
     as_of_values = [value for value in ev_as_of.values() if value]
     return {
@@ -398,7 +429,7 @@ def build_chase_economics_snapshot_row(
         "payload_json": contract,
         "card_count": len(contract["cards"]),
         "as_of": max(as_of_values) if as_of_values else None,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": built_at,
     }
 
 
