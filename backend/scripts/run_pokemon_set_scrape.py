@@ -713,8 +713,11 @@ def _scrape_one_set(
                         f"scrape market-date mismatch: write={outcome.get('marketDate')} "
                         f"postcondition={market_date}")
                 from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
+                postcondition_started = time.perf_counter()
                 postcondition = verify_tcgplayer_source_variant_persistence(
                     outcome.get("setId"), market_date, outcome.get("sourceVariantKeys", []))
+                postcondition["postconditionMs"] = round(
+                    (time.perf_counter() - postcondition_started) * 1000, 3)
                 outcome.update(postcondition)
                 if not postcondition.get("success"):
                     raise RuntimeError(

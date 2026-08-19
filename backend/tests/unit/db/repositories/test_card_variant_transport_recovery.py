@@ -148,3 +148,20 @@ def test_small_success_behavior_and_attempt_count_are_unchanged(recovery):
     result = prices.insert_card_variant_prices_batch_with_stats(make_rows(4))
     assert result["attempted_rows"] == result["inserted_count"] == 4
     assert len(backend.insert_payloads) == 1
+
+
+def test_set_session_reuses_one_client_across_all_price_chunks(recovery):
+    backend = recovery(Backend())
+    with retry.scraper_persistence_session():
+        result = prices.insert_card_variant_prices_batch_with_stats(make_rows(742))
+    assert result["inserted_count"] == 742
+    assert backend.client_count == 1
+
+
+def test_middle_chunk_transient_replaces_client_for_remaining_chunks(recovery):
+    backend = recovery(Backend([None, ConnectionError("Server disconnected")]))
+    with retry.scraper_persistence_session():
+        result = prices.insert_card_variant_prices_batch_with_stats(make_rows(250))
+    assert result["inserted_count"] == 250
+    assert backend.client_count == 2
+    assert len({row["card_variant_id"] for row in backend.rows}) == 250

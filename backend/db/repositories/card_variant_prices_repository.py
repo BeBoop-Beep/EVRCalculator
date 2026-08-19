@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import os
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple, Set
@@ -31,6 +32,9 @@ logger = logging.getLogger(__name__)
 _LATEST_CARD_MARKET_VIEW = "card_market_usd_latest_by_condition"
 _LATEST_CARD_MARKET_IN_CHUNK_SIZE = 500
 PRICE_WRITE_CHUNK_SIZE = 100
+_CANONICAL_REFRESH_SINGULAR = "refresh_pokemon_canonical_card_market_prices_latest_for_variant"
+_CANONICAL_REFRESH_PLURAL = "refresh_pokemon_canonical_card_market_prices_latest_for_variants"
+_canonical_refresh_rpc_name: Optional[str] = None
 
 
 def _parse_captured_at(value: Any) -> datetime:
@@ -94,6 +98,46 @@ def _prices_match(incoming: Dict[str, Any], existing: Dict[str, Any]) -> bool:
     return True
 
 
+def _is_missing_rpc(exc: Exception) -> bool:
+    detail = f"{getattr(exc, 'code', '')} {exc}".lower()
+    return "pgrst202" in detail or ("404" in detail and "function" in detail)
+
+
+def _refresh_canonical_prices(variant_ids: List[str]) -> None:
+    """Call the deployed singular contract without a known-404 hot path.
+
+    The repository historically declares the plural RPC while the deployed
+    production schema exposes the singular RPC. Resolution is cached once per
+    process. Operators may pin either compatible contract through the env var.
+    """
+    global _canonical_refresh_rpc_name
+    configured = os.getenv("POKEMON_CANONICAL_REFRESH_RPC_NAME", "").strip()
+    candidates = ([configured] if configured else
+                  [_CANONICAL_REFRESH_SINGULAR, _CANONICAL_REFRESH_PLURAL])
+    if _canonical_refresh_rpc_name:
+        candidates = [_canonical_refresh_rpc_name]
+
+    last_error: Optional[Exception] = None
+    for index, rpc_name in enumerate(candidates):
+        try:
+            run_supabase_with_transient_retry(
+                lambda client, _attempt, rpc_name=rpc_name: client.rpc(
+                    rpc_name, {"p_card_variant_ids": variant_ids}).execute(),
+                operation_name="refresh_pokemon_canonical_card_market_prices_latest",
+            )
+            _canonical_refresh_rpc_name = rpc_name
+            return
+        except Exception as exc:
+            last_error = exc
+            if configured or _canonical_refresh_rpc_name or not _is_missing_rpc(exc):
+                raise
+            if index + 1 < len(candidates):
+                continue
+            raise
+    if last_error:
+        raise last_error
+
+
 def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str, Any]]) -> None:
     changed_rows = [row for row in price_rows if row.get("card_variant_id")]
     if not changed_rows:
@@ -108,14 +152,13 @@ def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str,
     start_date = min(captured_dates) if captured_dates else datetime.now(timezone.utc).date().isoformat()
 
     try:
-        refresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        refresh_client.rpc(
-            "refresh_pokemon_set_value_daily_history_for_variants",
-            {
-                "p_card_variant_ids": variant_ids,
-                "p_start_date": start_date,
-            },
-        ).execute()
+        run_supabase_with_transient_retry(
+            lambda client, _attempt: client.rpc(
+                "refresh_pokemon_set_value_daily_history_for_variants",
+                {"p_card_variant_ids": variant_ids, "p_start_date": start_date},
+            ).execute(),
+            operation_name="refresh_pokemon_set_value_daily_history_for_variants",
+        )
     except Exception as exc:
         logger.warning(
             "Unable to refresh pokemon_set_value_daily_history for %s changed card variant price row(s): %s",
@@ -124,11 +167,7 @@ def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str,
         )
 
     try:
-        refresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        refresh_client.rpc(
-            "refresh_pokemon_canonical_card_market_prices_latest_for_variants",
-            {"p_card_variant_ids": variant_ids},
-        ).execute()
+        _refresh_canonical_prices(variant_ids)
     except Exception as exc:
         logger.warning(
             "Unable to refresh canonical Pokemon selected prices for %s changed card variant price row(s): %s",
@@ -384,6 +423,8 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
             "skipped_existing_duplicates": 0,
             "duplicate_rows_in_batch": 0,
             "db_batch_operations": 0,
+            "price_read_operations": 0,
+            "price_write_operations": 0,
         }
 
     normalized_rows = [_normalize_price_row(row) for row in price_rows]
@@ -402,6 +443,8 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
     updated_count = 0
     skipped_existing_duplicates = 0
     db_ops = 0
+    price_read_ops = 0
+    price_write_ops = 0
     changed_rows: List[Dict[str, Any]] = []
 
     for offset in range(0, len(unique_rows), PRICE_WRITE_CHUNK_SIZE):
@@ -446,9 +489,9 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
                 ids.extend(item["id"] for item in response.data)
                 local_changed.extend(missing)
                 local_ops += 1
-            return ids, updates, local_changed, local_ops
+            return ids, updates, local_changed, local_ops, query_ops, local_ops - query_ops
 
-        chunk_ids, chunk_updates, chunk_changed, chunk_ops = run_supabase_with_transient_retry(
+        chunk_ids, chunk_updates, chunk_changed, chunk_ops, chunk_reads, chunk_writes = run_supabase_with_transient_retry(
             persist_chunk,
             operation_name=f"card_variant_prices_chunk_{offset // PRICE_WRITE_CHUNK_SIZE}",
         )
@@ -456,6 +499,8 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
         updated_count += chunk_updates
         changed_rows.extend(chunk_changed)
         db_ops += chunk_ops
+        price_read_ops += chunk_reads
+        price_write_ops += chunk_writes
         skipped_existing_duplicates += len(initial_existing) - chunk_updates
 
     _refresh_pokemon_set_value_history_for_price_rows(changed_rows)
@@ -469,4 +514,6 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
         "skipped_existing_duplicates": skipped_existing_duplicates,
         "duplicate_rows_in_batch": duplicate_rows_in_batch,
         "db_batch_operations": db_ops,
+        "price_read_operations": price_read_ops,
+        "price_write_operations": price_write_ops,
     }

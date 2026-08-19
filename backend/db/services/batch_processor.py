@@ -13,6 +13,8 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from abc import ABC, abstractmethod
 
+from backend.db.services.supabase_persistence_retry import scraper_persistence_session
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 
@@ -78,7 +80,8 @@ class BatchProcessor(ABC):
             for batch_id, batch in enumerate(batches):
                 try:
                     batch_data = prepare_batch_data_fn(batch, batch_id)
-                    batch_result = self._process_batch_worker(batch_data, batch_id)
+                    with scraper_persistence_session():
+                        batch_result = self._process_batch_worker(batch_data, batch_id)
                     batch_results.append(batch_result)
                     print(f"[INFO] Batch {batch_id} processing complete")
                 except Exception as e:
@@ -155,77 +158,97 @@ class BatchProcessor(ABC):
         prices_expected = total_prices_to_ship
         prices_shipped = 0
         
-        for batch_result in batch_results:
-            batch_id = batch_result['batch_id']
-            prices_to_ship = batch_result.get('prices_to_ship', [])
-            batch_size = self.PRICE_BATCH_SIZE
+        with scraper_persistence_session():
+            for batch_result in batch_results:
+                batch_id = batch_result['batch_id']
+                prices_to_ship = batch_result.get('prices_to_ship', [])
+                batch_size = self.PRICE_BATCH_SIZE
             
-            if prices_to_ship:
-                print(f"[SHIP] Batch {batch_id}: Preparing {len(prices_to_ship)} prices for shipping")
+                if prices_to_ship:
+                    print(f"[SHIP] Batch {batch_id}: Preparing {len(prices_to_ship)} prices for shipping")
             
             # Ship prices in sub-batches
-            for sub_batch_idx, i in enumerate(range(0, len(prices_to_ship), batch_size)):
-                price_batch = prices_to_ship[i:i + batch_size]
-                batch_expected = len(price_batch)
+                for sub_batch_idx, i in enumerate(range(0, len(prices_to_ship), batch_size)):
+                    price_batch = prices_to_ship[i:i + batch_size]
+                    batch_expected = len(price_batch)
                 
-                try:
-                    ship_result = self._ship_batch_prices(price_batch, batch_id)
-                    if isinstance(ship_result, dict):
-                        batch_shipped = int(ship_result.get('inserted_count', 0))
-                        batch_covered = (
-                            batch_shipped
-                            + int(ship_result.get('updated_count', 0))
-                            + int(ship_result.get('skipped_duplicates', 0))
-                        )
-                        results_accumulator['price_rows_attempted'] = (
-                            results_accumulator.get('price_rows_attempted', 0)
-                            + int(ship_result.get('attempted_rows', batch_expected))
-                        )
-                        results_accumulator['price_rows_skipped_duplicates'] = (
-                            results_accumulator.get('price_rows_skipped_duplicates', 0)
-                            + int(ship_result.get('skipped_duplicates', 0))
-                        )
-                        results_accumulator['price_rows_updated'] = (
-                            results_accumulator.get('price_rows_updated', 0)
-                            + int(ship_result.get('updated_count', 0))
-                        )
-                        results_accumulator['price_batch_operations'] = (
-                            results_accumulator.get('price_batch_operations', 0)
-                            + int(ship_result.get('db_batch_operations', 0))
-                        )
-                    else:
-                        batch_shipped = int(ship_result)
-                        batch_covered = batch_shipped
-                        results_accumulator['price_rows_attempted'] = (
-                            results_accumulator.get('price_rows_attempted', 0) + batch_expected
-                        )
-                        results_accumulator['price_batch_operations'] = (
-                            results_accumulator.get('price_batch_operations', 0) + 1
-                        )
+                    try:
+                        ship_result = self._ship_batch_prices(price_batch, batch_id)
+                        if isinstance(ship_result, dict):
+                            batch_shipped = int(ship_result.get('inserted_count', 0))
+                            batch_covered = (
+                                batch_shipped
+                                + int(ship_result.get('updated_count', 0))
+                                + int(ship_result.get('skipped_duplicates', 0))
+                            )
+                            results_accumulator['price_rows_attempted'] = (
+                                results_accumulator.get('price_rows_attempted', 0)
+                                + int(ship_result.get('attempted_rows', batch_expected))
+                            )
+                            results_accumulator['price_rows_skipped_duplicates'] = (
+                                results_accumulator.get('price_rows_skipped_duplicates', 0)
+                                + int(ship_result.get('skipped_duplicates', 0))
+                            )
+                            results_accumulator['price_rows_updated'] = (
+                                results_accumulator.get('price_rows_updated', 0)
+                                + int(ship_result.get('updated_count', 0))
+                            )
+                            results_accumulator['price_batch_operations'] = (
+                                results_accumulator.get('price_batch_operations', 0)
+                                + int(ship_result.get('db_batch_operations', 0))
+                            )
+                            results_accumulator['price_read_operations'] = (
+                                results_accumulator.get('price_read_operations', 0)
+                                + int(ship_result.get('price_read_operations', 0))
+                            )
+                            results_accumulator['price_write_operations'] = (
+                                results_accumulator.get('price_write_operations', 0)
+                                + int(ship_result.get('price_write_operations', 0))
+                            )
+                            results_accumulator['price_persistence_ms'] = (
+                                results_accumulator.get('price_persistence_ms', 0.0)
+                                + float(ship_result.get('price_persistence_ms', 0.0))
+                            )
+                            results_accumulator['transport_retry_count'] = (
+                                results_accumulator.get('transport_retry_count', 0)
+                                + int(ship_result.get('transport_retry_count', 0))
+                            )
+                        else:
+                            batch_shipped = int(ship_result)
+                            batch_covered = batch_shipped
+                            results_accumulator['price_rows_attempted'] = (
+                                results_accumulator.get('price_rows_attempted', 0) + batch_expected
+                            )
+                            results_accumulator['price_batch_operations'] = (
+                                results_accumulator.get('price_batch_operations', 0) + 1
+                            )
 
-                    results_accumulator['inserted_prices'] += batch_shipped
-                    prices_shipped += batch_covered
-                    
-                    if batch_covered != batch_expected:
-                        warning_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Expected {batch_expected} but only {batch_covered} persisted (LOSS: {batch_expected - batch_covered})"
-                        print(warning_msg)
-                        all_errors.append(warning_msg)
-                    elif sub_batch_idx == 0 or sub_batch_idx % 5 == 0:
-                        print(f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Shipped {batch_shipped} prices [OK]")
+                        results_accumulator['inserted_prices'] += batch_shipped
+                        prices_shipped += batch_covered
+                        if batch_covered != batch_expected:
+                            warning_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Expected {batch_expected} but only {batch_covered} persisted (LOSS: {batch_expected - batch_covered})"
+                            print(warning_msg)
+                            all_errors.append(warning_msg)
+                        elif sub_batch_idx == 0 or sub_batch_idx % 5 == 0:
+                            print(f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Shipped {batch_shipped} prices [OK]")
                         
-                except Exception as e:
-                    error_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: FAILED - {len(price_batch)} prices lost: {e}"
-                    print(f"[ERROR] {error_msg}")
-                    all_errors.append(error_msg)
+                    except Exception as e:
+                        error_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: FAILED - {len(price_batch)} prices lost: {e}"
+                        print(f"[ERROR] {error_msg}")
+                        all_errors.append(error_msg)
             
             # Accumulate item-specific results
-            for key in ['inserted_items', 'inserted_products', 'inserted_variants', 'external_identities_linked']:
-                if key in batch_result:
-                    results_accumulator[key] = results_accumulator.get(key, 0) + batch_result[key]
+                for key in ['inserted_items', 'inserted_products', 'inserted_variants', 'external_identities_linked']:
+                    if key in batch_result:
+                        results_accumulator[key] = results_accumulator.get(key, 0) + batch_result[key]
+                persistence_metrics = batch_result.get('persistence_metrics') or {}
+                aggregate = results_accumulator.setdefault('persistence_metrics', {})
+                for key, value in persistence_metrics.items():
+                    aggregate[key] = aggregate.get(key, 0) + value
             
             # Accumulate errors
-            if 'errors' in batch_result:
-                results_accumulator['errors'].extend(batch_result['errors'])
+                if 'errors' in batch_result:
+                    results_accumulator['errors'].extend(batch_result['errors'])
         
         # Check for discrepancies
         if prices_shipped != prices_expected:
