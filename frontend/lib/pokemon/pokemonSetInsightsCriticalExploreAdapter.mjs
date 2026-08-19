@@ -24,5 +24,9 @@ export function adaptCriticalInsightsToExplorePayload(critical) {
     publicRipContractV8: critical?.publicRipContractV8 || null,
     overallRipV9: critical?.overallRipV9 || null,
     publicRipContractV9: critical?.publicRipContractV9 || null,
+    // Additive V10/V4 transport. Carried verbatim, never derived from V3/V9.
+    financialRipV4: critical?.financialRipV4 || null,
+    overallRipV10: critical?.overallRipV10 || null,
+    publicRipContractV10: critical?.publicRipContractV10 || null,
   };
 }
