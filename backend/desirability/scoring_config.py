@@ -14,7 +14,7 @@ a price predictor and destroy its differentiation.
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Mapping, Optional
+from typing import Dict, Iterable, Mapping, Optional, Tuple
 
 # Financial RIP V3's own configuration is the authoritative source for its
 # version identifiers, weights and anchors; it is imported rather than restated
@@ -27,6 +27,14 @@ from backend.calculations.evr.financial_rip_v3_config import (
     OVERALL_RIP_V5_VERSION as OVERALL_RIP_V5_VERSION_FROM_CONFIG,
     OVERALL_RIP_V5_WEIGHTS as OVERALL_RIP_V5_WEIGHTS,
     PUBLIC_RIP_CONTRACT_V5_VERSION as PUBLIC_RIP_CONTRACT_V5_VERSION,
+)
+# Financial RIP V4 is a separate, additionally-available model version - see the
+# module docstring of `financial_rip_v4_config`. It is imported for the same
+# reason as V3: so its identity and weights have exactly one definition.
+from backend.calculations.evr.financial_rip_v4_config import (
+    FINANCIAL_RIP_V4_VERSION as FINANCIAL_RIP_V4_VERSION,
+    FINANCIAL_RIP_V4_WEIGHTS as FINANCIAL_RIP_V4_WEIGHTS,
+    FINANCIAL_RIP_V4_WEIGHTS as _FINANCIAL_RIP_V4_WEIGHTS,
 )
 # NOTE: Collector Appeal's version constants are deliberately NOT imported at
 # module scope. `collector_appeal` -> `factorized_opening_appeal` -> this module
@@ -328,6 +336,43 @@ OVERALL_RIP_V9_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_WEIGHTS)
 OVERALL_RIP_V9_EFFECTIVE_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V8_EFFECTIVE_WEIGHTS)
 
 # ---------------------------------------------------------------------------
+# Overall RIP V10 - 90% Financial RIP V4 + 10% Collector Appeal V5
+# ---------------------------------------------------------------------------
+# V10 changes only the declared FINANCIAL input (V3 -> V4). The appeal input
+# stays Collector Appeal V5 and the composition stays 90/10, exactly as the
+# Financial RIP V4 decision record specifies.
+#
+# WHY A NEW VERSION FOR AN UNCHANGED SPLIT
+# ----------------------------------------
+# The same reason V8 and V9 were new versions: the identifier names its INPUTS,
+# not just the ratio. The V9 string asserts a Financial-V3-backed composition,
+# and that assertion is true of every row ever written under it. Repointing V9
+# at Financial RIP V4 would make the string false for new rows while leaving old
+# rows unmarked, so one version would mean two different things depending on
+# write date. Overall RIP V9 therefore remains fully computable and its stored
+# rows remain reproducible.
+
+OVERALL_RIP_V10_VERSION = "overall_rip_v10_90_financial_v4_10_collector_appeal_v5"
+
+OVERALL_RIP_V10_WEIGHTS: Dict[str, float] = {
+    "financial_rip": 0.90,
+    "collector_appeal": 0.10,
+}
+
+# The effective per-input weights after expanding the six Financial RIP V4
+# components across the 0.90 share. The V4 component weights are numerically
+# identical to V3 (25/20/15/25/10/5 is unchanged by the V4 decision), so these
+# numbers match V9 - but they are derived from the V4 table, not the V3 one, so
+# the derivation stays truthful about which model it expands.
+OVERALL_RIP_V10_EFFECTIVE_WEIGHTS: Dict[str, float] = {
+    **{
+        component: OVERALL_RIP_V10_WEIGHTS["financial_rip"] * weight
+        for component, weight in _FINANCIAL_RIP_V4_WEIGHTS.items()
+    },
+    "collector_appeal": OVERALL_RIP_V10_WEIGHTS["collector_appeal"],
+}
+
+# ---------------------------------------------------------------------------
 # Overall RIP sensitivity weights (RESEARCH ONLY - never production)
 # ---------------------------------------------------------------------------
 # The Collector Appeal shares the read-only validation tool reports against the
@@ -359,11 +404,50 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 }
 
 
+# THE CUTOVER SWITCHES, AND WHY THEY STILL READ V3/V9
+# ---------------------------------------------------
+# Financial RIP V4 and Overall RIP V10 are IMPLEMENTED, registered, computable
+# and serializable - but they are not yet the canonical selection.
+#
+# Promotion is exactly these two constants, and flipping them is a PUBLICATION
+# event, not a code-implementation one: every published snapshot, leaderboard
+# row and product row currently stored carries the V3/V9 identifiers, and
+# several production readers (product_family_rankings_service among them) admit
+# a row only when its stored version EQUALS the canonical one. Repointing these
+# constants without first rebuilding snapshots under V4/V10 would not roll the
+# model forward, it would empty the surfaces that filter on it.
+#
+# The V4 decision record also records that V4 carries no independent temporal
+# validation. The next stage is the budget-specific equal-spend product
+# comparison, not a cutover.
+#
+# So: the switch stays here, singular, and stays pointed at V3/V9 until a
+# deliberate promotion change flips it together with a snapshot rebuild.
 CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-# Promoted through V9. This single constant is the cutover; no publication
-# surface decides for itself which Overall model it serves.
 CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V9_VERSION
 CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V9_WEIGHTS)
+
+# The registry of every model version this build can compute, canonical or not.
+# Publication contracts, audit scripts and the historical readers resolve a
+# stored row by looking its declared version up HERE, so a legacy row is always
+# identifiable and is never silently reinterpreted as the canonical model.
+KNOWN_FINANCIAL_RIP_VERSIONS: Tuple[str, ...] = (
+    FINANCIAL_RIP_V2_LEGACY_VERSION,
+    FINANCIAL_RIP_V2_VERSION,
+    FINANCIAL_RIP_V3_VERSION,
+    FINANCIAL_RIP_V4_VERSION,
+)
+
+KNOWN_OVERALL_RIP_VERSIONS: Tuple[str, ...] = (
+    OVERALL_RIP_V3_VERSION,
+    OVERALL_RIP_V4_VERSION,
+    OVERALL_RIP_V5_VERSION,
+    OVERALL_RIP_V6_VERSION,
+    OVERALL_RIP_V7_VERSION,
+    OVERALL_RIP_V8_VERSION,
+    OVERALL_RIP_V9_VERSION,
+    OVERALL_RIP_V10_VERSION,
+)
 LEGACY_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V2_VERSION
 LEGACY_OVERALL_RIP_VERSION = OVERALL_RIP_V4_VERSION
 LEGACY_OVERALL_RIP_V5_VERSION = OVERALL_RIP_V5_VERSION
@@ -433,6 +517,31 @@ def canonical_overall_rip_is_v9() -> bool:
     return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
 
 
+def canonical_overall_rip_is_v10() -> bool:
+    """True when Overall RIP V10 (90% Financial V4 + 10% Collector Appeal V5) is canonical.
+
+    Currently False by design - see the cutover note above. The predicate exists
+    so a caller asking the V10 question gets a truthful answer rather than an
+    ImportError that a try/except might swallow into a default.
+    """
+    return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+
+
+def canonical_financial_rip_is_v4() -> bool:
+    """True when Financial RIP V4 is the canonical financial score. Currently False."""
+    return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
+
+
+def is_known_financial_rip_version(version: object) -> bool:
+    """True for any financial model version this build can identify."""
+    return version in KNOWN_FINANCIAL_RIP_VERSIONS
+
+
+def is_known_overall_rip_version(version: object) -> bool:
+    """True for any Overall model version this build can identify."""
+    return version in KNOWN_OVERALL_RIP_VERSIONS
+
+
 def canonical_financial_rip_is_v3() -> bool:
     """True when Financial RIP V3 is the canonical financial score."""
     return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
@@ -473,11 +582,22 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
         "overallRipWeights": dict(OVERALL_RIP_V9_WEIGHTS),
         "overallRipEffectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
+        # Implemented and computable, but NOT canonical. Disclosed so a reader of
+        # this payload can see that a newer model exists and has not been
+        # promoted, rather than inferring from its absence that it does not exist.
+        "availableFinancialRipVersions": list(KNOWN_FINANCIAL_RIP_VERSIONS),
+        "availableOverallRipVersions": list(KNOWN_OVERALL_RIP_VERSIONS),
+        "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V4_VERSION,
+        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V10_VERSION,
         "note": (
             "Overall RIP V9 is 90% Financial RIP V3 + 10% Collector Appeal V5. "
             "Financial RIP V2, Overall RIP v4/V5/V6/V7/V8, Collector Appeal V4/V3, "
             "Collector Appeal V2 and legacy CA7 remain identifiable under "
-            "explicitly legacy labels and are never selected by fallback."
+            "explicitly legacy labels and are never selected by fallback. "
+            "Financial RIP V4 and Overall RIP V10 are implemented and computable "
+            "but are deliberately not yet canonical; promotion is a separate "
+            "change to CANONICAL_FINANCIAL_RIP_VERSION and "
+            "CANONICAL_OVERALL_RIP_VERSION together with a snapshot rebuild."
         ),
         "dualPathDepthStatus": (
             "retained_as_diagnostic_not_a_collector_appeal_input"
@@ -492,6 +612,12 @@ def _audit_overall_rip_weights() -> None:
         ("OVERALL_RIP_V6_EFFECTIVE_WEIGHTS", OVERALL_RIP_V6_EFFECTIVE_WEIGHTS),
         ("OVERALL_RIP_V7_WEIGHTS", OVERALL_RIP_V7_WEIGHTS),
         ("OVERALL_RIP_V7_EFFECTIVE_WEIGHTS", OVERALL_RIP_V7_EFFECTIVE_WEIGHTS),
+        ("OVERALL_RIP_V8_WEIGHTS", OVERALL_RIP_V8_WEIGHTS),
+        ("OVERALL_RIP_V8_EFFECTIVE_WEIGHTS", OVERALL_RIP_V8_EFFECTIVE_WEIGHTS),
+        ("OVERALL_RIP_V9_WEIGHTS", OVERALL_RIP_V9_WEIGHTS),
+        ("OVERALL_RIP_V9_EFFECTIVE_WEIGHTS", OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
+        ("OVERALL_RIP_V10_WEIGHTS", OVERALL_RIP_V10_WEIGHTS),
+        ("OVERALL_RIP_V10_EFFECTIVE_WEIGHTS", OVERALL_RIP_V10_EFFECTIVE_WEIGHTS),
     ):
         total = sum(table.values())
         if abs(total - 1.0) > 1e-12:
@@ -505,6 +631,29 @@ def _audit_overall_rip_weights() -> None:
                 "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V7_WEIGHTS "
                 "while V7 is the canonical Overall RIP."
             )
+    # The V4 decision record fixes V10 at 90/10 over Financial V4 and Collector
+    # Appeal V5. A drift in either share is an import-time failure.
+    if OVERALL_RIP_V10_WEIGHTS != {"financial_rip": 0.90, "collector_appeal": 0.10}:
+        raise ValueError(
+            "OVERALL_RIP_V10_WEIGHTS must be 90% Financial RIP V4 + 10% Collector "
+            "Appeal V5, as fixed by the Financial RIP V4 decision record."
+        )
+    # Two versions must never share an identifier string, or one stored row would
+    # be indistinguishable from another model.
+    for name, versions in (
+        ("KNOWN_FINANCIAL_RIP_VERSIONS", KNOWN_FINANCIAL_RIP_VERSIONS),
+        ("KNOWN_OVERALL_RIP_VERSIONS", KNOWN_OVERALL_RIP_VERSIONS),
+    ):
+        if len(set(versions)) != len(versions):
+            raise ValueError(f"{name} contains a duplicated version identifier.")
+    if CANONICAL_OVERALL_RIP_VERSION not in KNOWN_OVERALL_RIP_VERSIONS:
+        raise ValueError(
+            "CANONICAL_OVERALL_RIP_VERSION must be a registered Overall version."
+        )
+    if CANONICAL_FINANCIAL_RIP_VERSION not in KNOWN_FINANCIAL_RIP_VERSIONS:
+        raise ValueError(
+            "CANONICAL_FINANCIAL_RIP_VERSION must be a registered financial version."
+        )
     if OVERALL_RIP_COLLECTOR_APPEAL_SENSITIVITY_WEIGHTS[0] != 0.0:
         raise ValueError(
             "The sensitivity grid must start at 0.00 so every comparison has an "

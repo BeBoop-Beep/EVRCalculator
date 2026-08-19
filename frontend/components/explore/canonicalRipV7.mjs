@@ -120,6 +120,24 @@ export function resolveCanonicalRipV7(...sources) {
     if (isCanonicalRipBundle(source)) return source;
   }
 
+  // Version parsing support ONLY. Reading a newer contract is not a promotion:
+  // the backend decides which contract it serves, and this reader must be able
+  // to render whichever one arrives rather than blanking on an unknown key.
+  // Public metric names and the rendered shape are identical across V9 and V10 -
+  // that is the contract layer doing its job - so nothing downstream changes.
+  for (const source of sources) {
+    const safeSource = toObject(source);
+    const contract = toObject(safeSource.publicRipContractV10);
+    if (hasContent(contract)) {
+      return bundle(
+        "publicRipContractV10",
+        toObject(contract.overallRip),
+        { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
+        toObject(contract.collectorAppeal)
+      );
+    }
+  }
+
   for (const source of sources) {
     const safeSource = toObject(source);
     const contract = toObject(safeSource.publicRipContractV9);
@@ -144,6 +162,21 @@ export function resolveCanonicalRipV7(...sources) {
         { ...toObject(contract.financialRip), audit: toObject(contract.audit) },
         toObject(contract.collectorAppeal)
       );
+    }
+  }
+
+  // Top-level V10 objects, for a target served without a contract block. The
+  // financial object is read from `financialRipV4` first and falls back to
+  // `financialRipV3`, because a V10-blended target may be served alongside
+  // either while the two models coexist.
+  for (const source of sources) {
+    const safeSource = toObject(source);
+    const overall = toObject(safeSource.overallRipV10);
+    const financial = hasContent(safeSource.financialRipV4)
+      ? toObject(safeSource.financialRipV4)
+      : toObject(safeSource.financialRipV3);
+    if (hasContent(overall)) {
+      return bundle("topLevelV10", overall, financial, {});
     }
   }
 

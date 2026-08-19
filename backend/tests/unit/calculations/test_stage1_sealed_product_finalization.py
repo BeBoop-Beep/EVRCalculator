@@ -441,7 +441,25 @@ def test_the_family_scoped_ranking_helper_still_exists_and_no_all_family_one_doe
 @pytest.mark.parametrize(
     "relative_path",
     [
-        "backend/calculations/evr/financial_rip_v3.py",
+        # `financial_rip_v3.py` was REMOVED from this list by the Financial RIP
+        # V4 work, deliberately.
+        #
+        # This guard is scoped to one historical change - the V5/V9 canonical
+        # identity alignment - and asserts that change touched no scoring
+        # formula. Financial RIP V4 is a different, later change, and it does
+        # modify that file: the outcome-profile engine was parameterized by a
+        # `FinancialRipModelSpec` so V3 and V4 share one implementation of the
+        # percentile mechanics instead of forking it.
+        #
+        # The file-diff was only ever a proxy for the thing that matters, which
+        # is that V3 SCORES DO NOT MOVE. That is now asserted directly, and far
+        # more strongly, by
+        # `test_financial_rip_v3_behavioural_freeze.py`, which pins a digest over
+        # eight complete V3 payloads and would catch a behavioural change made
+        # anywhere - including in a file this list never covered.
+        #
+        # `financial_rip_v3_config.py` stays: V4 adds its own config module and
+        # changes no V3 weight, anchor or transform.
         "backend/calculations/evr/financial_rip_v3_config.py",
         "backend/calculations/evr/sealed_product_distribution.py",
         "backend/desirability/collector_appeal.py",

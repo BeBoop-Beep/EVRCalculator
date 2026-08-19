@@ -64,7 +64,8 @@ from backend.desirability.scoring_config import (
     legacy_collector_appeal_v3_version,
     canonical_overall_rip_is_v8,
     canonical_public_rip_contract_version,
-    canonical_scoring_selection,
+    canonical_scoring_selection,
+    canonical_overall_rip_is_v9,
 )
 from backend.desirability.weighted_rip import compute_overall_rip_v7
 
@@ -376,7 +377,9 @@ def test_there_is_exactly_one_authoritative_source_for_each_canonical_version():
     # V7 is SUPERSEDED: its string must not move, and it must no longer be canonical.
     assert OVERALL_RIP_V7_VERSION == "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V7_VERSION
-    assert canonical_overall_rip_is_v8() is True
+    # STALE EXPECTATION CORRECTED: the canonical Overall model is V9.
+    assert canonical_overall_rip_is_v8() is False
+    assert canonical_overall_rip_is_v9() is True
 
     selection = canonical_scoring_selection()
     assert selection["legacyCollectorAppealV3Version"] == COLLECTOR_APPEAL_V3_VERSION

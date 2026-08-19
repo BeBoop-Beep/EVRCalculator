@@ -82,6 +82,9 @@ from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
     FINANCIAL_RIP_V3_VERSION,
 )
+from backend.calculations.evr.financial_rip_v4 import (
+    project_financial_rip_v4_from_v3_payload,
+)
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
 from backend.desirability.weighted_rip import (
     compute_financial_rip,
@@ -92,6 +95,7 @@ from backend.desirability.weighted_rip import (
     compute_overall_rip_v7,
     compute_overall_rip_v8,
     compute_overall_rip_v9,
+    compute_overall_rip_v10,
 )
 from backend.interpretation.rips import build_rip_interpretation
 
@@ -763,6 +767,28 @@ def _build_financial_rip_v3(target: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _build_financial_rip_v4(target: Mapping[str, Any]) -> Dict[str, Any]:
+    """The Financial RIP V4 object for one target, re-projected from the V3 payload.
+
+    Sets and packs are scored from the PERSISTED authoritative V3 payload, not
+    from a live outcome vector, so V4 is obtained the only exact way available
+    here: re-normalizing Realistic Upside from the P95 threshold-to-cost ratio
+    the payload already carries and reusing the other five component scores
+    unchanged. See
+    ``backend.calculations.evr.financial_rip_v4.project_financial_rip_v4_from_v3_payload``
+    for why that is exact rather than an approximation.
+
+    NOT CANONICAL and deliberately NOT RANKED. It is served as an absolute score
+    alongside the canonical V3 object so the model can be compared and validated
+    on real targets before any promotion. No rank, relative score, tier or
+    cohort denominator is computed from it, because publishing a rank under a
+    non-canonical model is how two leaderboards start disagreeing about one
+    product name.
+    """
+    payload = _parse_v3_payload(target.get("financial_rip_v3_payload"))
+    return project_financial_rip_v4_from_v3_payload(payload)
+
+
 def _rank_financial_rip_v3(row: Mapping[str, Any]) -> Optional[float]:
     return _to_optional_float((row.get("financialRipV3") or {}).get("score"))
 
@@ -1027,6 +1053,16 @@ def _attach_public_rip_contract(
         )
         target["overallRipV9"] = compute_overall_rip_v9(
             financial_v3.get("score"), collector_appeal_score
+        )
+        # IMPLEMENTED, NOT CANONICAL: Financial RIP V4 and the Overall RIP V10
+        # blend over it. Both are absolute scores only - neither is ranked, and
+        # neither is read by any publication surface - so that the V4 model can
+        # be compared against V3/V9 on real targets ahead of a deliberate
+        # promotion. Collector Appeal V5 is the SAME score V9 consumes.
+        financial_v4 = _build_financial_rip_v4(target)
+        target["financialRipV4"] = financial_v4
+        target["overallRipV10"] = compute_overall_rip_v10(
+            financial_v4.get("score"), collector_appeal_score
         )
         target["publicAnalyticsStatus"] = public_analytics_status(
             {"name": target.get("name"), "era_id": target.get("era_id"), "era": target.get("era")}

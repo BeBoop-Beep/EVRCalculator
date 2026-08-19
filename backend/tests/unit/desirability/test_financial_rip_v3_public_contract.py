@@ -37,7 +37,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V8_VERSION,
     canonical_financial_rip_is_v3,
-    canonical_overall_rip_is_v8,
+    canonical_overall_rip_is_v8,
+    canonical_overall_rip_is_v9,
+    OVERALL_RIP_V9_VERSION,
 )
 from backend.desirability.weighted_rip import (
     compute_financial_rip,
@@ -99,17 +101,26 @@ def make_target(payload: dict, *, ca7: float | None = 70.0, set_id: str = "set-a
 # The cutover switch
 # ---------------------------------------------------------------------------
 
-def test_canonical_versions_point_at_v3_and_v8():
-    """Financial RIP V3 is still canonical; Overall RIP was promoted V6 -> V7.
+def test_canonical_versions_point_at_v3_and_v9():
+    """Financial RIP V3 is still canonical; Overall RIP was promoted through V9.
 
-    V5 (90/10 over legacy CA7) and V6 (80/20 over Collector Appeal V2) are now
-    LEGACY models. Their identifiers and their arithmetic are unchanged - only
-    their canonical status moved - and the tests below still pin that arithmetic.
+    V5 (90/10 over legacy CA7), V6 (80/20 over Collector Appeal V2), V7 and V8
+    are LEGACY models. Their identifiers and their arithmetic are unchanged -
+    only their canonical status moved - and the tests below still pin that
+    arithmetic.
+
+    STALE EXPECTATION CORRECTED: this test asserted V8 long after production was
+    promoted to V9 (90/10 over Collector Appeal V5). The canonical selection,
+    the V9 contract module and migration 067 all agree that V9 is correct, so
+    the TEST was wrong, not the production configuration.
     """
     assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V8_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
     assert canonical_financial_rip_is_v3() is True
-    assert canonical_overall_rip_is_v8() is True
+    assert canonical_overall_rip_is_v9() is True
+    # V8 is retained and identifiable, but is no longer the canonical selection.
+    assert canonical_overall_rip_is_v8() is False
+    assert OVERALL_RIP_V8_VERSION != OVERALL_RIP_V9_VERSION
     # Every legacy identifier still exists and is still distinct.
     assert FINANCIAL_RIP_V2_VERSION != FINANCIAL_RIP_V3_VERSION
     assert OVERALL_RIP_V4_VERSION != OVERALL_RIP_V5_VERSION
