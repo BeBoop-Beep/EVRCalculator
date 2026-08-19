@@ -2,7 +2,7 @@ from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
 from supabase import create_client
 from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List, Set
-import time
+from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry
 
 class ExternalVariantIdentityConflict(RuntimeError):
     pass
@@ -12,16 +12,18 @@ class AmbiguousExternalVariantIdentity(RuntimeError):
 
 def get_card_variant_external_identity(provider: str, external_product_id: str,
                                        external_variant_key: Optional[str] = None):
-    res = (supabase.table("card_variant_external_identities").select("*")
-           .eq("provider", provider.strip().lower())
-           .eq("external_product_id", str(external_product_id)))
-    if external_variant_key is not None:
-        res = res.eq("external_variant_key", external_variant_key)
-    rows = res.limit(2).execute().data or []
-    if len(rows) > 1:
-        raise AmbiguousExternalVariantIdentity(
-            f"{provider} product {external_product_id} has multiple source variants")
-    return rows[0] if rows else None
+    def operation(client, _attempt):
+        query = (client.table("card_variant_external_identities").select("*")
+                 .eq("provider", provider.strip().lower())
+                 .eq("external_product_id", str(external_product_id)))
+        if external_variant_key is not None:
+            query = query.eq("external_variant_key", external_variant_key)
+        rows = query.limit(2).execute().data or []
+        if len(rows) > 1:
+            raise AmbiguousExternalVariantIdentity(
+                f"{provider} product {external_product_id} has multiple source variants")
+        return rows[0] if rows else None
+    return run_supabase_with_transient_retry(operation, operation_name="get_card_variant_external_identity")
 
 def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str, Any]) -> str:
     """Idempotently link a provider product, refusing identity reassignment."""
@@ -36,17 +38,26 @@ def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str
         return existing["id"]
     payload = {**identity, "provider": provider, "external_product_id": product_id,
                "card_variant_id": card_variant_id}
-    try:
-        res = supabase.table("card_variant_external_identities").insert(payload).execute()
-        return res.data[0]["id"]
-    except APIError:
-        existing = get_card_variant_external_identity(provider, product_id, variant_key)
-        if existing and str(existing["card_variant_id"]) == str(card_variant_id):
-            return existing["id"]
-        if existing:
-            raise ExternalVariantIdentityConflict(
-                f"{provider} product {product_id} concurrently linked to variant {existing['card_variant_id']}")
-        raise
+    def operation(client, attempt):
+        if attempt > 1:
+            reconciled = get_card_variant_external_identity(provider, product_id, variant_key)
+            if reconciled:
+                if str(reconciled["card_variant_id"]) != str(card_variant_id):
+                    raise ExternalVariantIdentityConflict(
+                        f"{provider} product {product_id} concurrently linked to variant {reconciled['card_variant_id']}")
+                return reconciled["id"]
+        try:
+            res = client.table("card_variant_external_identities").insert(payload).execute()
+            return res.data[0]["id"]
+        except APIError:
+            reconciled = get_card_variant_external_identity(provider, product_id, variant_key)
+            if reconciled and str(reconciled["card_variant_id"]) == str(card_variant_id):
+                return reconciled["id"]
+            if reconciled:
+                raise ExternalVariantIdentityConflict(
+                    f"{provider} product {product_id} concurrently linked to variant {reconciled['card_variant_id']}")
+            raise
+    return run_supabase_with_transient_retry(operation, operation_name="link_card_variant_external_identity")
 
 
 def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
@@ -62,42 +73,18 @@ def insert_card_variant(card_variant_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
-    # Retry mechanism for schema cache issues
-    max_retries = 3
-    last_error = None
-    
-    for attempt in range(max_retries):
-        try:
-            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            print(f"[DEBUG] insert_card_variant -> card_variants | card_id={card_variant_row.get('card_id')} printing_type={card_variant_row.get('printing_type')} special_type={card_variant_row.get('special_type')} edition={card_variant_row.get('edition')}")
-            res = fresh_client.table("card_variants").insert(card_variant_row).execute()
-            if res is None:
-                raise RuntimeError("Insert card variant returned no response object")
-            
-            inserted = res.data
-            if not inserted:
-                raise RuntimeError("Insert returned no data")
-            
-            return inserted[0]["id"]
-        except APIError as e:
-            error_msg = str(e)
-            last_error = error_msg
-            # Check if it's a schema cache error
-            if "schema cache" in error_msg.lower():
-                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
-                if attempt < max_retries - 1:
-                    time.sleep(1)
-                    continue
-            else:
-                # Not a schema cache error, fail immediately
-                raise RuntimeError(f"Failed to insert card variant: {error_msg}")
-        except RuntimeError as e:
-            last_error = str(e)
-            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            raise
-    raise RuntimeError(f"Failed to insert card variant after {max_retries} retries: {last_error}")
+    def operation(client, attempt):
+        if attempt > 1:
+            existing = get_card_variant_by_card_and_type(
+                card_variant_row["card_id"], card_variant_row["printing_type"],
+                card_variant_row.get("special_type"), card_variant_row.get("edition"))
+            if existing:
+                return existing["id"]
+        res = client.table("card_variants").insert(card_variant_row).execute()
+        if res is None or not res.data:
+            raise RuntimeError("Insert card variant returned no data")
+        return res.data[0]["id"]
+    return run_supabase_with_transient_retry(operation, operation_name="insert_card_variant")
 
 
 def get_card_variant_by_card_and_type(
@@ -118,25 +105,35 @@ def get_card_variant_by_card_and_type(
     Returns:
         The card variant record, or None if not found
     """
-    query = (
-        supabase.table("card_variants")
-        .select("*")
-        .eq("card_id", card_id)
-        .eq("printing_type", printing_type)
-    )
+    def operation(client, _attempt):
+        query = (
+            client.table("card_variants")
+            .select("*")
+            .eq("card_id", card_id)
+            .eq("printing_type", printing_type)
+        )
 
-    if special_type is not None:
-        query = query.eq("special_type", special_type)
-    else:
-        query = query.is_("special_type", "null")
+        if special_type is not None:
+            query = query.eq("special_type", special_type)
+        else:
+            query = query.is_("special_type", "null")
 
-    if edition is not None:
-        query = query.eq("edition", edition)
-    else:
-        query = query.is_("edition", "null")
+        if edition is not None:
+            query = query.eq("edition", edition)
+        else:
+            query = query.is_("edition", "null")
 
-    res = query.maybe_single().execute()
-    return res.data if res and res.data else None
+        res = query.maybe_single().execute()
+        return res.data if res and res.data else None
+    return run_supabase_with_transient_retry(operation, operation_name="get_card_variant_by_card_and_type")
+
+
+def get_card_variant_by_id(card_variant_id: str) -> Optional[Dict[str, Any]]:
+    def operation(client, _attempt):
+        res = (client.table("card_variants").select("*")
+               .eq("id", card_variant_id).maybe_single().execute())
+        return res.data if res and res.data else None
+    return run_supabase_with_transient_retry(operation, operation_name="get_card_variant_by_id")
 
 
 def get_card_variants_by_card_id(card_id: int) -> List[Dict[str, Any]]:

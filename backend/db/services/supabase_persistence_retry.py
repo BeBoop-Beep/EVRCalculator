@@ -34,11 +34,17 @@ import random
 import time
 from typing import Callable, Optional, TypeVar
 
+from supabase import create_client
+
+from backend.db.clients.supabase_client import SUPABASE_KEY, SUPABASE_URL
+
 from backend.db.services.data_service_health import classify_data_service_error
 
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
+
+SCRAPER_DB_MAX_ATTEMPTS = 3
 
 
 # One attempt plus four retries. The delays below sum to 15s of sleeping, which
@@ -132,3 +138,27 @@ def run_with_transient_retry(
         return result
 
     raise AssertionError("unreachable")
+
+
+def run_supabase_with_transient_retry(
+    operation: Callable[[object, int], T],
+    *,
+    operation_name: str,
+    max_attempts: int = SCRAPER_DB_MAX_ATTEMPTS,
+    sleep: Optional[Callable[[float], None]] = None,
+    jitter: Optional[Callable[[float, float], float]] = None,
+) -> T:
+    """Run a scraper DB operation with a fresh client on every attempt.
+
+    Callers performing inserts must reconcile their deterministic identity when
+    ``attempt > 1`` before issuing another write.  The final transport exception
+    is deliberately re-raised unchanged by :func:`run_with_transient_retry`.
+    """
+
+    return run_with_transient_retry(
+        lambda attempt: operation(create_client(SUPABASE_URL, SUPABASE_KEY), attempt),
+        operation_name=operation_name,
+        max_attempts=max_attempts,
+        sleep=sleep,
+        jitter=jitter,
+    )

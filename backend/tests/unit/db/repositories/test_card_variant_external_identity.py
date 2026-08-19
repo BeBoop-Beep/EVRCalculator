@@ -28,6 +28,8 @@ def test_ambiguous_legacy_lookup_fails_closed(monkeypatch):
         def eq(self, *_): return self
         def limit(self, *_): return self
         def execute(self): return type('R', (), {'data': [{'id': 'a'}, {'id': 'b'}]})()
-    monkeypatch.setattr(repo, 'supabase', type('S', (), {'table': lambda *_: Query()})())
+    monkeypatch.setattr(
+        repo, 'run_supabase_with_transient_retry',
+        lambda operation, **_: operation(type('S', (), {'table': lambda *_: Query()})(), 1))
     with pytest.raises(repo.AmbiguousExternalVariantIdentity):
         repo.get_card_variant_external_identity('tcgplayer', '1')

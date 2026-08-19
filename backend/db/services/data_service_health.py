@@ -3,6 +3,7 @@ from __future__ import annotations
 """Shared classification for temporary Supabase/PostgREST failures."""
 
 import re
+import ssl
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 
@@ -142,7 +143,7 @@ def classify_data_service_error(exc: BaseException) -> DataServiceFailure:
 
         # Some connection resets surface as built-in exceptions after the HTTP
         # client has discarded the original transport type.
-        if isinstance(current, (ConnectionError, TimeoutError)):
+        if isinstance(current, (ConnectionError, TimeoutError, ssl.SSLError)):
             return DataServiceFailure(True, code, status, type(current).__name__)
 
     # Older postgrest/http clients can discard a gateway status while rendering
@@ -159,6 +160,11 @@ def classify_data_service_error(exc: BaseException) -> DataServiceFailure:
         "gateway timeout",
         "bad gateway",
         "service unavailable",
+        "server disconnected",
+        "unexpected eof",
+        "eof occurred",
+        "bad record mac",
+        "sslv3_alert_bad_record_mac",
     )
     if any(token in rendered for token in transient_text):
         return DataServiceFailure(True, first_code, first_status, type(exc).__name__)
