@@ -132,7 +132,19 @@ def build_market_overview(history: Sequence[Mapping[str, Any]], *, market_date: 
         if not math.isfinite(value) or value <= 0:
             raise PokemonMarketIndexUnavailable("current index is non-finite or non-positive")
         points = [{"date": str(row["market_date"])[:10], "value": float(row["normalized_index_value"])} for row in rows]
-        return {"basketValue": float(latest["basket_value"]), "indexValue": value,
+        # TWO dimensions over the SAME persisted history and the SAME strict
+        # window convention, differing only in the value being measured:
+        #   changes       -> normalized_index_value (chain-linked price
+        #                    performance; cohort entry/exit is neutralized)
+        #   basketChanges -> basket_value (literal tracked-basket dollars;
+        #                    cohort entry/exit is deliberately INCLUDED)
+        # A set joining the tracked universe therefore moves basketChanges and
+        # leaves changes flat. Neither is derived from the other, and no new
+        # persistence or second window convention is introduced.
+        basket_points = [{"date": str(row["market_date"])[:10], "value": float(row["basket_value"])} for row in rows]
+        return {"basketValue": float(latest["basket_value"]),
+                "basketChanges": compute_strict_window_movements(basket_points),
+                "indexValue": value,
                 "historyStartDate": points[0]["date"], "changes": compute_strict_window_movements(points),
                 "trend": [[row["date"], row["value"]] for row in points]}
     return {"contractVersion": "pokemon-market-overview-v1", "marketDate": market_date,
@@ -142,5 +154,7 @@ def build_market_overview(history: Sequence[Mapping[str, Any]], *, market_date: 
         "methodology": {"version": MARKET_INDEX_METHODOLOGY_VERSION,
             "basketDefinition": "sum of canonical Near Mint raw-card set baskets",
             "indexDefinition": "chain-linked return over consecutive common set cohorts",
+            "basketChangeDefinition": "literal percentage change in the complete tracked basket value; includes cohort additions/removals",
+            "pricePerformanceDefinition": "chain-linked common-cohort price performance; cohort entry/exit is neutralized at the transition",
             "notMarketCapitalization": True},
         "sourceGenerationFingerprint": deterministic_fingerprint([raw["source_generation_fingerprint"], chase["source_generation_fingerprint"]])}

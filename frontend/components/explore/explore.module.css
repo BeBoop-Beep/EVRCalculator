@@ -623,3 +623,36 @@
 :global([data-theme="light"]) .marketOverviewTable tbody tr + tr td {
   border-top-color: rgba(15, 23, 42, 0.07);
 }
+
+/* Column-group band above the Market Overview headers. Two real colgroups —
+   Tracked Market Value and Price Performance — separated by one hairline so
+   the reader can see which question each column answers. */
+
+.marketOverviewGroupRow td,
+.marketOverviewGroupRow th {
+  padding-bottom: 0.15rem;
+  padding-top: 0.7rem;
+  border-bottom: 0;
+}
+
+/* Beats `.marketOverviewTable th { text-align: right }` on specificity —
+   without the extra qualifier the group label drifts to the right edge of its
+   span instead of sitting over it. */
+.marketOverviewTable .marketOverviewGroupHead {
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+/* The hairline that opens each group, carried down through the body rows. */
+.marketOverviewGroupStart {
+  border-left: 1px solid var(--ex-line);
+}
+
+:global([data-theme="light"]) .marketOverviewGroupStart {
+  border-left-color: rgba(15, 23, 42, 0.08);
+}

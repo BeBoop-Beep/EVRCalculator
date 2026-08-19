@@ -9,6 +9,18 @@
 // only selects, clips and formats. The backend change object is authoritative
 // for percent / startDate / endDate / availability, so an unavailable window
 // stays unavailable rather than falling back to a neighbouring window.
+//
+// TWO DIMENSIONS, published separately by the backend and never derived here:
+//
+//   Tracked Value     — `basketChanges`, the literal dollar movement of the
+//                       complete tracked basket. Deliberately INCLUDES sets
+//                       entering or leaving the tracked universe.
+//   Price Performance — `changes`, the chain-linked common-cohort index. Cohort
+//                       entry/exit is neutralized at the transition.
+//
+// They legitimately disagree, which is the whole reason both are shown. Writing
+// `current / first - 1` anywhere in this file (or in a component) would be a
+// frontend re-derivation of a published figure and is forbidden.
 // ---------------------------------------------------------------------------
 
 /** Series identity colors. Identity only — never gain/loss semantics. */
@@ -40,9 +52,18 @@ export const MARKET_OVERVIEW_SUMMARY_WINDOWS = [
 ];
 
 export const MARKET_OVERVIEW_HELP = {
-  basketValue:
-    "Dollar sum of the tracked card basket at current Near Mint values. This is not market capitalization.",
-  index: "Normalized market-performance index. Tracking begins at a base value of 100.",
+  trackedValue:
+    "Current dollar value of all cards in this tracked basket. It can change because card prices move and because sets enter or leave the tracked universe. This is not market capitalization.",
+  trackedValueChange:
+    "Change in the full tracked basket's dollar value. Unlike the Market Index, this intentionally includes the effect of sets entering or leaving tracking.",
+  index:
+    "Price-performance index, base 100 — not a score. An index of 105 means price performance is 5% above its starting level. Chain-linking prevents newly added or removed sets from creating an artificial jump; after a set enters, its later price movement affects the index.",
+};
+
+/** Column-group headings for the two published dimensions. */
+export const MARKET_OVERVIEW_GROUPS = {
+  trackedValue: "Tracked Market Value",
+  pricePerformance: "Price Performance",
 };
 
 const numeric = (value) => {
@@ -82,11 +103,25 @@ function normalizeFamily(definition, raw) {
     })
     .filter((point) => point.date && point.value !== null)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  const changes = {};
-  for (const [key, value] of Object.entries(raw.changes && typeof raw.changes === "object" ? raw.changes : {})) {
-    changes[key] = normalizeChange(value);
-  }
-  return { ...definition, basketValue, indexValue, historyStartDate: dateKey(raw.historyStartDate), changes, trend };
+  const normalizeChangeMap = (source) => {
+    const result = {};
+    for (const [key, value] of Object.entries(source && typeof source === "object" ? source : {})) {
+      result[key] = normalizeChange(value);
+    }
+    return result;
+  };
+  return {
+    ...definition,
+    basketValue,
+    // Additive contract field. A snapshot published before the extension
+    // simply carries no basketChanges, and the Tracked Value change reads as
+    // unavailable rather than being invented here.
+    basketChanges: normalizeChangeMap(raw.basketChanges),
+    indexValue,
+    historyStartDate: dateKey(raw.historyStartDate),
+    changes: normalizeChangeMap(raw.changes),
+    trend,
+  };
 }
 
 /**
@@ -115,12 +150,34 @@ export function resolveMarketOverview(payload) {
   };
 }
 
-/** Backend change object for one family and one display window, or null. */
-export function getMarketChange(family, windowKey) {
-  const definition = MARKET_OVERVIEW_WINDOWS.find((entry) => entry.key === windowKey)
-    || MARKET_OVERVIEW_SUMMARY_WINDOWS.find((entry) => entry.key === windowKey);
+function resolveWindowDefinition(windowKey) {
+  return MARKET_OVERVIEW_WINDOWS.find((entry) => entry.key === windowKey)
+    || MARKET_OVERVIEW_SUMMARY_WINDOWS.find((entry) => entry.key === windowKey)
+    || null;
+}
+
+/**
+ * Chain-linked PRICE PERFORMANCE change for one family and display window.
+ *
+ * `getMarketChange` is the original name and stays as the alias every existing
+ * caller (chart legend, summary columns) already uses.
+ */
+export function getPricePerformanceChange(family, windowKey) {
+  const definition = resolveWindowDefinition(windowKey);
   if (!definition) return null;
   return family?.changes?.[definition.changeKey] || null;
+}
+
+export const getMarketChange = getPricePerformanceChange;
+
+/**
+ * Literal TRACKED VALUE change — the backend's `basketChanges`, a different
+ * published series from `changes`, never computed from basket values here.
+ */
+export function getTrackedValueChange(family, windowKey) {
+  const definition = resolveWindowDefinition(windowKey);
+  if (!definition) return null;
+  return family?.basketChanges?.[definition.changeKey] || null;
 }
 
 /**
@@ -242,18 +299,27 @@ export function changeDirection(change) {
 
 /**
  * Screen-reader text for a change cell. Direction is spoken, never implied by
- * color alone.
+ * color alone, and `dimension` keeps the two published series distinguishable —
+ * "Tracked Value, Since Tracking: up 7.16 percent" is a different statement
+ * from "Price Performance, Since Tracking: up 1.95 percent".
  */
-export function describeChange(marketLabel, windowLabel, change) {
+export function describeChange(marketLabel, windowLabel, change, { dimension = null } = {}) {
+  const subject = [marketLabel, dimension, windowLabel].filter(Boolean).join(", ");
   if (!change?.available || change.percent === null) {
-    return `${marketLabel}, ${windowLabel}: not enough history.`;
+    return `${subject}: not enough history.`;
   }
   const direction = change.percent > 0 ? "up" : change.percent < 0 ? "down" : "unchanged";
   const magnitude = `${Math.abs(change.percent).toFixed(2)} percent`;
   return change.percent === 0
-    ? `${marketLabel}, ${windowLabel}: unchanged.`
-    : `${marketLabel}, ${windowLabel}: ${direction} ${magnitude}.`;
+    ? `${subject}: unchanged.`
+    : `${subject}: ${direction} ${magnitude}.`;
 }
+
+/** Spoken names for the two dimensions, used by describeChange callers. */
+export const MARKET_DIMENSION_LABELS = {
+  trackedValue: "Tracked Value",
+  pricePerformance: "Price Performance",
+};
 
 /** Accessible label for an unavailable timeframe button. */
 export function describeUnavailableWindow(windowLabel) {

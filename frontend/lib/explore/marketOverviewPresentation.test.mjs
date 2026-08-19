@@ -13,6 +13,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  MARKET_DIMENSION_LABELS,
+  MARKET_OVERVIEW_GROUPS,
   MARKET_OVERVIEW_HELP,
   buildCoverageSummary,
   buildMarketPerformanceSeries,
@@ -24,6 +26,8 @@ import {
   formatChangePercent,
   formatIndexValue,
   getMarketChange,
+  getPricePerformanceChange,
+  getTrackedValueChange,
   isMarketWindowAvailable,
   resolveDefaultMarketWindow,
   resolveMarketOverview,
@@ -57,6 +61,17 @@ const SNAPSHOT = {
       indexValue: 102.25,
       historyStartDate: "2024-01-01",
       trend: RAW_TREND,
+      // Tracked Value moved MORE than price performance: a set joined the
+      // universe inside these windows. The two must never be interchangeable.
+      basketChanges: {
+        "1D": change(3.5, "2024-01-03", "2024-01-04"),
+        "7D": change(9.75, "2024-01-01", "2024-01-04"),
+        "30D": change(9.75, "2024-01-01", "2024-01-04"),
+        "3M": missing("2024-01-04", "2023-10-07"),
+        "6M": missing("2024-01-04", "2023-07-09"),
+        "1Y": missing("2024-01-04", "2023-01-06"),
+        SinceTracking: change(9.75, "2024-01-01", "2024-01-04"),
+      },
       changes: {
         "1D": change(2.7638, "2024-01-03", "2024-01-04"),
         "7D": change(2.25, "2024-01-01", "2024-01-04"),
@@ -72,6 +87,15 @@ const SNAPSHOT = {
       indexValue: 96.5,
       historyStartDate: "2024-01-01",
       trend: CHASE_TREND,
+      basketChanges: {
+        "1D": change(1.25, "2024-01-03", "2024-01-04"),
+        "7D": change(4.5, "2024-01-01", "2024-01-04"),
+        "30D": change(4.5, "2024-01-01", "2024-01-04"),
+        "3M": missing("2024-01-04", "2023-10-07"),
+        "6M": missing("2024-01-04", "2023-07-09"),
+        "1Y": missing("2024-01-04", "2023-01-06"),
+        SinceTracking: change(4.5, "2024-01-01", "2024-01-04"),
+      },
       changes: {
         "1D": change(-0.5154, "2024-01-03", "2024-01-04"),
         "7D": change(-3.5, "2024-01-01", "2024-01-04"),
@@ -190,11 +214,19 @@ test("the coverage summary reads the published coverage counts", () => {
   assert.deepEqual(buildCoverageSummary(null), []);
 });
 
-test("help text names the basket honestly and never as market capitalization", () => {
-  const copy = Object.values(MARKET_OVERVIEW_HELP).join(" ").toLowerCase();
-  assert.ok(copy.includes("this is not market capitalization"));
-  assert.ok(copy.includes("base value of 100"));
-  assert.doesNotMatch(copy, /market cap\b/);
+test("help text names the tracked basket honestly and never as market capitalization", () => {
+  const copy = Object.values(MARKET_OVERVIEW_HELP).join(" ");
+  assert.ok(copy.includes("This is not market capitalization."));
+  // Tracked Value must explain that the tracked total moves when sets join.
+  assert.match(MARKET_OVERVIEW_HELP.trackedValue, /sets enter or leave the tracked universe/i);
+  assert.match(MARKET_OVERVIEW_HELP.trackedValueChange, /intentionally includes the effect of sets entering or leaving/i);
+  // The index must be disclaimed as a base-100 index, not a rating.
+  assert.match(MARKET_OVERVIEW_HELP.index, /not a score/i);
+  assert.match(MARKET_OVERVIEW_HELP.index, /base 100/i);
+  assert.match(MARKET_OVERVIEW_HELP.index, /chain-link/i);
+  assert.match(MARKET_OVERVIEW_HELP.index, /after a set enters, its later price movement affects the index/i);
+  // "market cap" appears only inside the explicit disclaimer.
+  assert.doesNotMatch(copy.replace(/This is not market capitalization\./g, ""), /market cap/i);
 });
 
 // -- no hardcoded authority ------------------------------------------------
@@ -243,5 +275,109 @@ test("the Market page never uses investment-judgment language", () => {
   const forbidden = /\b(bullish|bearish|cooling|under pressure|strong market|weak market|overvalued|undervalued)\b/i;
   for (const file of PRESENTATION_SOURCES) {
     assert.doesNotMatch(fs.readFileSync(file, "utf8"), forbidden, path.basename(file));
+  }
+});
+
+
+// -- Tracked Value vs. Price Performance -----------------------------------
+
+test("normalization preserves basketChanges alongside changes", () => {
+  for (const family of overview.families) {
+    assert.ok(family.basketChanges, "every family must carry normalized basketChanges");
+    assert.deepEqual(Object.keys(family.basketChanges).sort(), Object.keys(family.changes).sort());
+  }
+});
+
+test("the two dimensions read different published series", () => {
+  const raw = overview.families[0];
+  // Tracked Value comes from basketChanges...
+  assert.equal(getTrackedValueChange(raw, "All").percent, 9.75);
+  assert.equal(getTrackedValueChange(raw, "All"), raw.basketChanges.SinceTracking);
+  // ...and Price Performance from changes. Same window, different numbers.
+  assert.equal(getPricePerformanceChange(raw, "All").percent, 2.25);
+  assert.equal(getPricePerformanceChange(raw, "All"), raw.changes.SinceTracking);
+  assert.notEqual(getTrackedValueChange(raw, "All").percent, getPricePerformanceChange(raw, "All").percent);
+
+  const chase = overview.families[1];
+  assert.equal(getTrackedValueChange(chase, "All").percent, 4.5);
+  assert.equal(getPricePerformanceChange(chase, "All").percent, -3.5);
+  // The tracked basket grew while price performance fell — the exact case the
+  // two-dimension split exists to express.
+  assert.ok(getTrackedValueChange(chase, "All").percent > 0);
+  assert.ok(getPricePerformanceChange(chase, "All").percent < 0);
+});
+
+test("getMarketChange remains the price-performance helper for existing callers", () => {
+  for (const family of overview.families) {
+    for (const key of ["1D", "7D", "30D", "All"]) {
+      assert.equal(getMarketChange(family, key), getPricePerformanceChange(family, key));
+      assert.notEqual(getMarketChange(family, key), getTrackedValueChange(family, key));
+    }
+  }
+});
+
+test("a snapshot published before the extension reports Tracked Value as unavailable, never invented", () => {
+  const legacy = resolveMarketOverview({
+    marketOverview: {
+      marketDate: "2024-01-04",
+      coverage: {},
+      raw: { basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: RAW_TREND, changes: { SinceTracking: change(2.25, "2024-01-01", "2024-01-04") } },
+      topChase: { basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: CHASE_TREND, changes: { SinceTracking: change(-3.5, "2024-01-01", "2024-01-04") } },
+    },
+  });
+  for (const family of legacy.families) {
+    assert.deepEqual(family.basketChanges, {});
+    assert.equal(getTrackedValueChange(family, "All"), null);
+    // Price performance is untouched by the missing field.
+    assert.ok(getPricePerformanceChange(family, "All").available);
+  }
+});
+
+test("the accessible description names which dimension it is speaking about", () => {
+  const raw = overview.families[0];
+  assert.equal(
+    describeChange(raw.label, "Since Tracking", getTrackedValueChange(raw, "All"), { dimension: MARKET_DIMENSION_LABELS.trackedValue }),
+    "Raw Card Market, Tracked Value, Since Tracking: up 9.75 percent."
+  );
+  assert.equal(
+    describeChange(raw.label, "Since Tracking", getPricePerformanceChange(raw, "All"), { dimension: MARKET_DIMENSION_LABELS.pricePerformance }),
+    "Raw Card Market, Price Performance, Since Tracking: up 2.25 percent."
+  );
+  // Without a dimension the original wording is unchanged.
+  assert.equal(
+    describeChange(raw.label, "30D", getPricePerformanceChange(raw, "30D")),
+    "Raw Card Market, 30D: up 2.25 percent."
+  );
+});
+
+test("the chart model still reads the index trend only, never basket dollars", () => {
+  const model = buildMarketPerformanceSeries(overview, "All");
+  assert.deepEqual(model.series[0].values, RAW_TREND.map(([, value]) => value));
+  assert.deepEqual(model.series[1].values, CHASE_TREND.map(([, value]) => value));
+  // The change attached to each series is the price-performance one.
+  assert.equal(model.series[0].change, overview.families[0].changes.SinceTracking);
+  assert.notEqual(model.series[0].change, overview.families[0].basketChanges.SinceTracking);
+});
+
+test("the two column-group headings are the locked terminology", () => {
+  assert.equal(MARKET_OVERVIEW_GROUPS.trackedValue, "Tracked Market Value");
+  assert.equal(MARKET_OVERVIEW_GROUPS.pricePerformance, "Price Performance");
+  assert.equal(MARKET_DIMENSION_LABELS.trackedValue, "Tracked Value");
+  assert.equal(MARKET_DIMENSION_LABELS.pricePerformance, "Price Performance");
+});
+
+test("no frontend source re-derives a basket percentage", () => {
+  // The published basketChanges are authoritative. A quotient of two basket
+  // values anywhere in the presentation layer would be a frontend analytic.
+  const forbidden = [
+    /basketValue\s*\//,
+    /firstBasket|currentBasket/i,
+    /basketChanges\s*=\s*[^;]*[-+*/]/,
+  ];
+  for (const file of PRESENTATION_SOURCES) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const pattern of forbidden) {
+      assert.doesNotMatch(source, pattern, `${path.basename(file)} must not compute a basket change`);
+    }
   }
 });

@@ -10,13 +10,17 @@ import {
   describeChange,
   describeUnavailableWindow,
   formatChangePercent,
-  getMarketChange,
+  getPricePerformanceChange,
   resolveDefaultMarketWindow,
+  MARKET_DIMENSION_LABELS,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
 
-const SUB_LABEL = "Normalized performance of the Raw Card Market and Top 10 Chase Market.";
+// Deliberately explicit: this chart is the PRICE-PERFORMANCE dimension only.
+// Tracked Value (which does move when sets join the universe) lives in the
+// Market Overview table above and is never plotted here.
+const SUB_LABEL = "Chain-linked price performance of the Raw Card Market and Top 10 Chase Market. New-set additions do not create artificial jumps.";
 
 function toneOf(direction) {
   if (direction === "positive") return POSITIVE_VALUE_COLOR;
@@ -52,7 +56,7 @@ export default function PokemonMarketPerformance({ overview }) {
         <div className="mt-3 flex flex-col gap-3 desk:flex-row desk:items-center desk:justify-between">
           <ul data-market-performance-legend className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             {overview.families.map((family) => {
-              const change = getMarketChange(family, selectedWindow);
+              const change = getPricePerformanceChange(family, selectedWindow);
               const direction = changeDirection(change);
               return (
                 <li key={family.key} data-market-performance-legend-item={family.key} className="inline-flex items-center gap-2 text-xs">
@@ -60,7 +64,7 @@ export default function PokemonMarketPerformance({ overview }) {
                   <span className="text-[var(--text-primary)]">{family.label}</span>
                   <span className="font-semibold tabular-nums" style={{ color: toneOf(direction) }}>
                     <span aria-hidden="true">{formatChangePercent(change)}</span>
-                    <span className="sr-only">{describeChange(family.label, selectedLabel, change)}</span>
+                    <span className="sr-only">{describeChange(family.label, selectedLabel, change, { dimension: MARKET_DIMENSION_LABELS.pricePerformance })}</span>
                   </span>
                 </li>
               );

@@ -27,7 +27,14 @@ def _numeric_equal(left: Any, right: Any, tolerance: float = 1e-9) -> bool:
 def _compare_json(expected: Any, actual: Any, path: str, failures: list[str]) -> None:
     if isinstance(expected, dict):
         if not isinstance(actual, dict): failures.append(f"{path} type mismatch"); return
-        if set(expected) != set(actual): failures.append(f"{path} keys mismatch"); return
+        if set(expected) != set(actual):
+            # Name the difference. A published snapshot that predates an
+            # additive contract extension (e.g. the tracked-value
+            # `basketChanges` fields) otherwise reports only "keys mismatch",
+            # which reads as corruption rather than "republish is pending".
+            missing = sorted(set(expected) - set(actual)); extra = sorted(set(actual) - set(expected))
+            failures.append(f"{path} keys mismatch (missing from actual: {missing}; unexpected in actual: {extra})")
+            return
         for key in sorted(expected): _compare_json(expected[key], actual[key], f"{path}.{key}", failures)
     elif isinstance(expected, list):
         if not isinstance(actual, list) or len(expected) != len(actual): failures.append(f"{path} length/type mismatch"); return
@@ -73,6 +80,18 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     if expected_overview is None or public is None:
         failures.append("public/expected marketOverview missing")
     else:
+        # Both dimensions of every family are covered: `changes` (chain-linked
+        # price performance) and `basketChanges` (literal tracked-basket
+        # dollars). The recursive comparison below already walks them, but an
+        # explicit presence check turns "the publisher is running old code"
+        # into its own unambiguous failure line.
+        for family_key in ("raw", "topChase"):
+            family = public.get(family_key)
+            if not isinstance(family, dict):
+                failures.append(f"marketOverview.{family_key} missing from public payload"); continue
+            for field in ("changes", "basketChanges"):
+                if not isinstance(family.get(field), dict) or not family[field]:
+                    failures.append(f"marketOverview.{family_key}.{field} absent from public payload (republish required)")
         _compare_json(expected_overview, public, "marketOverview", failures)
     return {"status": "passed" if not failures else "failed", "marketDate": market_date, "indexRows": len(actual), "failures": failures}
 

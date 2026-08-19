@@ -27,10 +27,14 @@ const SNAPSHOT = {
     coverage: { eligibleSetCount: 3, rawCardCount: 512, chaseCardCount: 30 },
     raw: {
       basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: RAW_TREND,
+      // Tracked Value moved very differently. If any of it leaks into this
+      // chart or its legend, the assertions below fail loudly.
+      basketChanges: { "1D": change(11.11, "2024-01-04"), "7D": change(22.22, "2024-01-01"), "30D": change(33.33, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(44.44, "2024-01-01") },
       changes: { "1D": change(0.49, "2024-01-04"), "7D": change(2.25, "2024-01-01"), "30D": change(2.25, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(2.25, "2024-01-01") },
     },
     topChase: {
       basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: CHASE_TREND,
+      basketChanges: { "1D": change(55.55, "2024-01-04"), "7D": change(66.66, "2024-01-01"), "30D": change(77.77, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(88.88, "2024-01-01") },
       changes: { "1D": change(-0.26, "2024-01-04"), "7D": change(-3.5, "2024-01-01"), "30D": change(-3.5, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(-3.5, "2024-01-01") },
     },
   },
@@ -58,10 +62,9 @@ const seriesLines = (renderer) => renderer.root.findAll((node) => node.props?.["
 test("the section carries the locked heading and its accessible sub-label", () => {
   const renderer = render();
   assert.equal(textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-heading")[0]), "Pokémon Market Performance");
-  assert.equal(
-    textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-description")[0]),
-    "Normalized performance of the Raw Card Market and Top 10 Chase Market."
-  );
+  const description = textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-description")[0]);
+  assert.match(description, /Chain-linked price performance of the Raw Card Market and Top 10 Chase Market\./);
+  assert.match(description, /New-set additions do not create artificial jumps\./);
 });
 
 test("one chart draws both series with stable identity colors", () => {
@@ -155,4 +158,49 @@ test("no overview means no performance section at all, rather than an empty char
     TestRenderer.act(() => { renderer = TestRenderer.create(React.createElement(PokemonMarketPerformance, { overview: value })); });
     assert.equal(renderer.toJSON(), null);
   }
+});
+
+
+test("the chart and its legend stay on the price-performance dimension only", () => {
+  const renderer = render();
+  const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
+  // The default 30D window: price performance is +2.25% / -3.50%; the tracked
+  // basket moved +33.33% / +77.77% over the same window and must not appear.
+  assert.match(legend, /\+2\.25%/);
+  assert.match(legend, /−3\.50%/);
+  assert.doesNotMatch(legend, /33\.33|77\.77|44\.44|88\.88/);
+  assert.match(legend, /Price Performance, 30D: up 2\.25 percent/);
+
+  // The plotted geometry is built from the index trend. Every charted value
+  // sits in index territory, nowhere near the basket dollars.
+  const plotted = seriesLines(renderer)
+    .flatMap((node) => String(node.props.points).split(" "))
+    .map((pair) => Number(pair.split(",")[1]))
+    .filter(Number.isFinite);
+  assert.ok(plotted.length > 0);
+
+  const chart = renderer.root.findAll((node) => node.props?.["data-market-performance-chart"] !== undefined)[0];
+  assert.doesNotMatch(String(chart.props["aria-label"]), /\$|8,123|4,011/);
+});
+
+test("switching windows never switches dimension", () => {
+  const renderer = render();
+  for (const key of ["1D", "7D", "All"]) {
+    const button = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === key);
+    TestRenderer.act(() => { button.props.onClick(); });
+    const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
+    assert.doesNotMatch(legend, /11\.11|22\.22|44\.44|55\.55|66\.66|88\.88/, `${key} legend leaked a tracked-value percentage`);
+    assert.match(legend, /Price Performance/);
+  }
+});
+
+test("pointer, touch and keyboard interaction survive the clarification pass", () => {
+  const renderer = render();
+  const chart = renderer.root.findAll((node) => node.props?.["data-market-performance-chart"] !== undefined)[0];
+  for (const handler of ["onPointerDown", "onPointerMove", "onPointerUp", "onPointerCancel", "onPointerLeave", "onFocus", "onBlur", "onKeyDown"]) {
+    assert.equal(typeof chart.props[handler], "function", `${handler} must remain wired`);
+  }
+  assert.equal(chart.props.tabIndex, 0);
+  assert.match(String(chart.props.className), /touch-pan-y/);
+  assert.match(String(chart.props.className), /focus-visible:ring/);
 });
