@@ -5,11 +5,10 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple, Set
 
-from postgrest.exceptions import APIError
 from supabase import create_client
 
 from ..clients.supabase_client import SUPABASE_URL, SUPABASE_KEY
-import time
+from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry
 
 
 def _jwt_role(key: str) -> str:
@@ -31,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _LATEST_CARD_MARKET_VIEW = "card_market_usd_latest_by_condition"
 _LATEST_CARD_MARKET_IN_CHUNK_SIZE = 500
+PRICE_WRITE_CHUNK_SIZE = 100
 
 
 def _parse_captured_at(value: Any) -> datetime:
@@ -139,6 +139,7 @@ def _refresh_pokemon_set_value_history_for_price_rows(price_rows: List[Dict[str,
 
 def _fetch_existing_same_day_observations(
     normalized_rows: List[Dict[str, Any]],
+    client=None,
 ) -> Tuple[Dict[str, Dict[str, Any]], int]:
     """
     Fetch existing same-day rows keyed by identity_key.
@@ -164,7 +165,7 @@ def _fetch_existing_same_day_observations(
         if not variant_ids or not condition_ids:
             continue
 
-        fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        fresh_client = client or create_client(SUPABASE_URL, SUPABASE_KEY)
         query_count += 1
         res = (
             fresh_client.table("card_variant_price_observations")
@@ -198,57 +199,10 @@ def insert_card_variant_price(price_row: Dict[str, Any]) -> int:
     Raises:
         RuntimeError: If insertion fails
     """
-    normalized_row = _normalize_price_row(price_row)
-    
-    # Retry mechanism for schema cache issues
-    max_retries = 3
-    last_error = None
-    
-    for attempt in range(max_retries):
-        try:
-            # Create a fresh client for each attempt to avoid schema cache issues
-            fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-            res = (
-                fresh_client.table("card_variant_price_observations")
-                .insert(normalized_row)
-                .execute()
-            )
-            
-            if res is None:
-                raise RuntimeError("Insert card variant price returned no response object")
-            
-            # Success!
-            inserted = res.data
-            if not inserted:
-                raise RuntimeError("Insert returned no data")
-
-            _refresh_pokemon_set_value_history_for_price_rows([normalized_row])
-            return inserted[0]["id"]
-        
-        except APIError as e:
-            error_msg = str(e)
-            last_error = error_msg
-            
-            # Check if it's a schema cache error
-            if "schema cache" in error_msg.lower():
-                print(f"[WARN]  Schema cache error on attempt {attempt + 1}/{max_retries}, retrying...")
-                if attempt < max_retries - 1:
-                    time.sleep(1)  # Wait before retry
-                    continue
-            else:
-                # Not a schema cache error, fail immediately
-                print(f"[DEBUG] API Error: {error_msg}")
-                raise RuntimeError(f"Failed to insert card variant price: {error_msg}")
-        
-        except RuntimeError as e:
-            last_error = str(e)
-            if "schema cache" in str(e).lower() and attempt < max_retries - 1:
-                print(f"[WARN]  Retrying after error: {e}")
-                time.sleep(1)
-                continue
-            raise
-    
-    raise RuntimeError(f"Failed to insert price after {max_retries} retries: {last_error}")
+    stats = insert_card_variant_prices_batch_with_stats([price_row])
+    if not stats["inserted_ids"]:
+        raise RuntimeError("Card variant price was reconciled without an observation id")
+    return stats["inserted_ids"][0]
 
 
 
@@ -433,96 +387,78 @@ def insert_card_variant_prices_batch_with_stats(price_rows: List[Dict[str, Any]]
         }
 
     normalized_rows = [_normalize_price_row(row) for row in price_rows]
-    existing_by_identity, dedupe_query_ops = _fetch_existing_same_day_observations(normalized_rows)
-
-    rows_to_insert: List[Dict[str, Any]] = []
-    rows_to_update: List[Tuple[int, Dict[str, Any], Dict[str, Any]]] = []  # (existing_id, price_fields_dict, normalized_row)
+    unique_rows: List[Dict[str, Any]] = []
     seen_identity_keys: Set[str] = set()
-    skipped_existing_duplicates = 0
     duplicate_rows_in_batch = 0
-
     for row in normalized_rows:
         identity = _identity_key(row)
-
-        # Within-batch dedup: same entity+source+day seen more than once in this batch
         if identity in seen_identity_keys:
             duplicate_rows_in_batch += 1
             continue
         seen_identity_keys.add(identity)
+        unique_rows.append(row)
 
-        if identity in existing_by_identity:
-            existing = existing_by_identity[identity]
-            if _prices_match(row, existing):
-                # All price fields identical — true duplicate, skip
-                skipped_existing_duplicates += 1
-            else:
-                # Same-day row exists but a price field changed — update it
-                rows_to_update.append((
-                    existing["id"],
-                    {
-                        "market_price": row.get("market_price"),
-                        "high_price": row.get("high_price"),
-                        "low_price": row.get("low_price"),
-                    },
-                    row,
-                ))
-        else:
-            rows_to_insert.append(row)
-
-    db_ops = dedupe_query_ops
     inserted_ids: List[int] = []
     updated_count = 0
-    updated_rows: List[Dict[str, Any]] = []
+    skipped_existing_duplicates = 0
+    db_ops = 0
+    changed_rows: List[Dict[str, Any]] = []
 
-    # Batch INSERT new rows
-    if rows_to_insert:
-        last_insert_error = None
-        for attempt in range(3):
-            try:
-                fresh_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-                res = (
-                    fresh_client.table("card_variant_price_observations")
-                    .insert(rows_to_insert)
-                    .execute()
-                )
-                if res is None:
-                    raise RuntimeError("Batch insert prices returned no response object")
-                inserted = res.data
-                if inserted is None:
-                    raise RuntimeError("Batch insert returned no data")
-                inserted_ids = [item["id"] for item in inserted]
-                db_ops += 1
-                break
-            except APIError as e:
-                last_insert_error = str(e)
-                if "schema cache" in last_insert_error.lower():
-                    logger.warning("Schema cache error on batch insert attempt %d/3, retrying...", attempt + 1)
-                    if attempt < 2:
-                        time.sleep(1)
-                        continue
-                raise RuntimeError(f"Failed to batch insert card variant prices: {last_insert_error}")
-            except RuntimeError as e:
-                last_insert_error = str(e)
-                if "schema cache" in last_insert_error.lower() and attempt < 2:
-                    time.sleep(1)
-                    continue
-                raise
-        else:
-            raise RuntimeError(f"Failed to batch insert card prices after 3 retries: {last_insert_error}")
+    for offset in range(0, len(unique_rows), PRICE_WRITE_CHUNK_SIZE):
+        chunk = unique_rows[offset:offset + PRICE_WRITE_CHUNK_SIZE]
+        initial_existing: Set[str] = set()
+        attempted_updates: Set[str] = set()
+        attempted_inserts: Set[str] = set()
 
-    # UPDATE changed same-day rows individually (price drift within a day is rare)
-    if rows_to_update:
-        update_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        for existing_id, price_fields, normalized_row in rows_to_update:
-            db_ops += 1
-            try:
-                update_client.table("card_variant_price_observations").update(price_fields).eq("id", existing_id).execute()
-                updated_count += 1
-                updated_rows.append(normalized_row)
-            except Exception as exc:
-                logger.warning("Failed to update card price observation id=%s: %s", existing_id, exc)
+        def persist_chunk(client, attempt):
+            existing, query_ops = _fetch_existing_same_day_observations(chunk, client=client)
+            if attempt == 1:
+                initial_existing.update(existing)
+            ids = []
+            updates = 0
+            local_changed = []
+            local_ops = query_ops
+            missing = []
+            for row in chunk:
+                identity = _identity_key(row)
+                current = existing.get(identity)
+                if current is None:
+                    missing.append(row)
+                elif _prices_match(row, current):
+                    if identity in attempted_updates:
+                        updates += 1
+                        local_changed.append(row)
+                    elif identity in attempted_inserts:
+                        ids.append(current["id"])
+                        local_changed.append(row)
+                else:
+                    fields = {key: row.get(key) for key in ("market_price", "high_price", "low_price")}
+                    client.table("card_variant_price_observations").update(fields).eq("id", current["id"]).execute()
+                    updates += 1
+                    local_ops += 1
+                    local_changed.append(row)
+                    attempted_updates.add(identity)
+            if missing:
+                attempted_inserts.update(_identity_key(row) for row in missing)
+                response = client.table("card_variant_price_observations").insert(missing).execute()
+                if response is None or response.data is None:
+                    raise RuntimeError("Batch insert prices returned no data")
+                ids.extend(item["id"] for item in response.data)
+                local_changed.extend(missing)
+                local_ops += 1
+            return ids, updates, local_changed, local_ops
 
-    _refresh_pokemon_set_value_history_for_price_rows([*rows_to_insert, *updated_rows])
+        chunk_ids, chunk_updates, chunk_changed, chunk_ops = run_supabase_with_transient_retry(
+            persist_chunk,
+            operation_name=f"card_variant_prices_chunk_{offset // PRICE_WRITE_CHUNK_SIZE}",
+        )
+        inserted_ids.extend(chunk_ids)
+        updated_count += chunk_updates
+        changed_rows.extend(chunk_changed)
+        db_ops += chunk_ops
+        skipped_existing_duplicates += len(initial_existing) - chunk_updates
+
+    _refresh_pokemon_set_value_history_for_price_rows(changed_rows)
 
     return {
         "attempted_rows": len(price_rows),

@@ -8,8 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from backend.db.repositories.card_variant_repository import (insert_card_variant, get_card_variant_by_card_and_type,
     insert_card_variants_batch, get_card_variant_external_identity, link_card_variant_external_identity,
-    ExternalVariantIdentityConflict)
-from backend.db.clients.supabase_client import supabase
+    get_card_variant_by_id, ExternalVariantIdentityConflict)
 from backend.utils.debug_output import debug_print
 from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
@@ -30,7 +29,7 @@ class CardsService(BatchProcessor):
     # Multiprocessing configuration
     MAX_WORKERS = 4
     WORK_BATCH_SIZE = 400  # Optimized for 1265-2000 card sets (better load balancing)
-    PRICE_BATCH_SIZE = 500
+    PRICE_BATCH_SIZE = 100
     
     # Thread pool size for concurrent card data preparation
     THREAD_POOL_SIZE = 10
@@ -171,8 +170,10 @@ class CardsService(BatchProcessor):
                 # Check local cache first
                 if mapped_identity:
                     mapped_variant_id = mapped_identity['card_variant_id']
-                    existing_variant = (supabase.table('card_variants').select('*')
-                        .eq('id', mapped_variant_id).single().execute()).data
+                    existing_variant = get_card_variant_by_id(mapped_variant_id)
+                    if not existing_variant:
+                        raise ExternalVariantIdentityConflict(
+                            f"external identity maps to missing variant {mapped_variant_id}")
                     expected = (str(card_id), variant_data.get('printing_type'), variant_data.get('special_type'), variant_data.get('edition'))
                     actual = (str(existing_variant['card_id']), existing_variant.get('printing_type'), existing_variant.get('special_type'), existing_variant.get('edition'))
                     if expected != actual:

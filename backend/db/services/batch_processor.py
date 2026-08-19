@@ -172,6 +172,11 @@ class BatchProcessor(ABC):
                     ship_result = self._ship_batch_prices(price_batch, batch_id)
                     if isinstance(ship_result, dict):
                         batch_shipped = int(ship_result.get('inserted_count', 0))
+                        batch_covered = (
+                            batch_shipped
+                            + int(ship_result.get('updated_count', 0))
+                            + int(ship_result.get('skipped_duplicates', 0))
+                        )
                         results_accumulator['price_rows_attempted'] = (
                             results_accumulator.get('price_rows_attempted', 0)
                             + int(ship_result.get('attempted_rows', batch_expected))
@@ -190,6 +195,7 @@ class BatchProcessor(ABC):
                         )
                     else:
                         batch_shipped = int(ship_result)
+                        batch_covered = batch_shipped
                         results_accumulator['price_rows_attempted'] = (
                             results_accumulator.get('price_rows_attempted', 0) + batch_expected
                         )
@@ -198,10 +204,10 @@ class BatchProcessor(ABC):
                         )
 
                     results_accumulator['inserted_prices'] += batch_shipped
-                    prices_shipped += batch_shipped
+                    prices_shipped += batch_covered
                     
-                    if batch_shipped != batch_expected:
-                        warning_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Expected {batch_expected} but only {batch_shipped} inserted (LOSS: {batch_expected - batch_shipped})"
+                    if batch_covered != batch_expected:
+                        warning_msg = f"[SHIP] Batch {batch_id} sub-batch {sub_batch_idx}: Expected {batch_expected} but only {batch_covered} persisted (LOSS: {batch_expected - batch_covered})"
                         print(warning_msg)
                         all_errors.append(warning_msg)
                     elif sub_batch_idx == 0 or sub_batch_idx % 5 == 0:
