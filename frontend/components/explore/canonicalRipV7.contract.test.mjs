@@ -138,9 +138,19 @@ const LEGACY_RIP_CORE = { score: 77.7, relativeScore: 15.5, rank: 18, cohortSize
 // same way on an unmodified tree). They are asserted by source inspection, the
 // same technique the page-client contract tests use.
 
-const CRITICAL_CLIENT = readSource("../../lib/pokemon/pokemonSetInsightsCriticalClient.js");
+// These constants name the module that OWNS each step, not the module that
+// used to. The critical path was later split into a normalizer and an
+// explore-payload adapter, and `pokemonSetInsightsCriticalClient.js` became a
+// thin delegating wrapper; asserting against the wrapper checked a file that no
+// longer contains the passthrough, which is a stale target rather than evidence
+// the passthrough was lost. Every assertion below is unchanged in strength - it
+// is only pointed at the source that now holds the code.
+const CRITICAL_CLIENT = readSource("../../lib/pokemon/pokemonSetInsightsCriticalNormalizer.mjs");
 const FULL_CLIENT = readSource("../../lib/pokemon/pokemonSetInsightsClient.js");
-const PAGE_CLIENT = readSource("./RipStatisticsPageClient.jsx");
+// The full adapter still lives inline in the page client; the critical adapter
+// was extracted. Both must carry V8, so both sources are inspected together.
+const CRITICAL_ADAPTER = readSource("../../lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs");
+const PAGE_CLIENT = readSource("./RipStatisticsPageClient.jsx") + CRITICAL_ADAPTER;
 
 test("V8 contract fields survive frontend normalization", () => {
   for (const [name, source] of [["critical", CRITICAL_CLIENT], ["full", FULL_CLIENT]]) {

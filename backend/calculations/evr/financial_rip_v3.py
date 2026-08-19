@@ -50,6 +50,7 @@ never falls back to V2 and never borrows a V2 field.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
@@ -578,16 +579,62 @@ def build_session_opening_profile(
 
 
 # ---------------------------------------------------------------------------
+# Model spec
+# ---------------------------------------------------------------------------
+# The V3 outcome-profile ENGINE - tail selection, the six raw metric blocks, the
+# normalization pass, contribution reconstruction, the disclosure payload - is
+# shared by every model version built on the outcome profile. What distinguishes
+# one version from another is DATA: which identifiers it stamps, which raw
+# metrics feed which component, and with what weights.
+#
+# That data is collected here rather than read from module globals, so a second
+# version (Financial RIP V4, whose Realistic Upside reads the P95 threshold
+# alone) is a different spec passed to the same engine and NOT a forked copy of
+# the engine. A fork would be two implementations of one set of percentile
+# mechanics, free to drift apart silently.
+#
+# V3 constructs its spec from its own config module below and is unaffected.
+
+@dataclass(frozen=True)
+class FinancialRipModelSpec:
+    """Everything that distinguishes one outcome-profile model version."""
+
+    score_version: str
+    normalization_version: str
+    tail_contract_version: str
+    config_version: str
+    component_order: Tuple[str, ...]
+    component_inputs: Mapping[str, Mapping[str, float]]
+    weights: Mapping[str, float]
+    weights_payload: Any  # zero-argument callable returning the audit payload
+
+
+FINANCIAL_RIP_V3_SPEC = FinancialRipModelSpec(
+    score_version=FINANCIAL_RIP_V3_VERSION,
+    normalization_version=FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
+    tail_contract_version=FINANCIAL_RIP_V3_TAIL_CONTRACT_VERSION,
+    config_version=FINANCIAL_RIP_V3_CONFIG_VERSION,
+    component_order=FINANCIAL_RIP_V3_COMPONENT_ORDER,
+    component_inputs=FINANCIAL_RIP_V3_COMPONENT_INPUTS,
+    weights=FINANCIAL_RIP_V3_WEIGHTS,
+    weights_payload=financial_rip_v3_weights_payload,
+)
+
+
+# ---------------------------------------------------------------------------
 # Unavailable result
 # ---------------------------------------------------------------------------
 
-def _unavailable(reason: str, detail: str, **extra: Any) -> Dict[str, Any]:
-    """An honest unavailable V3 result. No component scores, no neutral 50."""
+def _unavailable(
+    reason: str, detail: str, *, spec: FinancialRipModelSpec = None, **extra: Any
+) -> Dict[str, Any]:
+    """An honest unavailable result. No component scores, no neutral 50."""
+    spec = spec or FINANCIAL_RIP_V3_SPEC
     return {
-        "scoreVersion": FINANCIAL_RIP_V3_VERSION,
-        "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
-        "tailContractVersion": FINANCIAL_RIP_V3_TAIL_CONTRACT_VERSION,
-        "configVersion": FINANCIAL_RIP_V3_CONFIG_VERSION,
+        "scoreVersion": spec.score_version,
+        "normalizationVersion": spec.normalization_version,
+        "tailContractVersion": spec.tail_contract_version,
+        "configVersion": spec.config_version,
         "status": STATUS_UNAVAILABLE,
         "statusReason": reason,
         "statusDetail": detail,
@@ -598,7 +645,7 @@ def _unavailable(reason: str, detail: str, **extra: Any) -> Dict[str, Any]:
         "distributionDisclosures": {},
         "estimationDiagnostics": dict(extra),
         "sessionOpeningProfile": None,
-        "audit": {"weights": financial_rip_v3_weights_payload()},
+        "audit": {"weights": spec.weights_payload()},
     }
 
 
@@ -606,15 +653,20 @@ def _unavailable(reason: str, detail: str, **extra: Any) -> Dict[str, Any]:
 # The authoritative builder
 # ---------------------------------------------------------------------------
 
-def build_financial_rip_v3(
+def build_financial_rip(
     values: Sequence[float],
     pack_cost: Any,
     *,
+    spec: FinancialRipModelSpec,
     chase_metrics: Optional[Mapping[str, Any]] = None,
     session_data: Optional[Mapping[str, Any]] = None,
     min_simulation_count: int = FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
 ) -> Dict[str, Any]:
-    """Build the complete, authoritative Financial RIP V3 result for one run.
+    """Build the complete outcome-profile result for one run, under ``spec``.
+
+    The engine is version-agnostic; ``spec`` supplies the identifiers, the
+    component-input table and the weights. ``build_financial_rip_v3`` below is
+    the V3 binding and is the only thing production V3 callers use.
 
     Parameters
     ----------
@@ -647,6 +699,7 @@ def build_financial_rip_v3(
             "Financial RIP V3 is defined entirely in terms of value/cost ratios, "
             "so it requires a finite, strictly positive pack cost.",
             packCost=cost,
+            spec=spec,
         )
 
     array = np.asarray(values, dtype=np.float64).ravel()
@@ -656,6 +709,7 @@ def build_financial_rip_v3(
             "No simulated pack outcomes were supplied.",
             packCost=_round(cost, 4),
             simulationCount=0,
+            spec=spec,
         )
     if not np.all(np.isfinite(array)):
         return _unavailable(
@@ -664,6 +718,7 @@ def build_financial_rip_v3(
             packCost=_round(cost, 4),
             simulationCount=int(array.size),
             nonFiniteCount=int(np.count_nonzero(~np.isfinite(array))),
+            spec=spec,
         )
 
     n = int(array.size)
@@ -677,6 +732,7 @@ def build_financial_rip_v3(
             packCost=_round(cost, 4),
             simulationCount=n,
             requiredSimulationCount=minimum,
+            spec=spec,
         )
 
     # One deterministic ascending sort backs every rank-based selection below.
@@ -689,6 +745,7 @@ def build_financial_rip_v3(
             "95th-99th percentile band without them overlapping.",
             packCost=_round(cost, 4),
             simulationCount=n,
+            spec=spec,
         )
 
     raw_blocks: Dict[str, Dict[str, Any]] = {
@@ -704,8 +761,8 @@ def build_financial_rip_v3(
     normalized_audit: Dict[str, Any] = {}
     missing_inputs: List[str] = []
 
-    for component in FINANCIAL_RIP_V3_COMPONENT_ORDER:
-        sub_weights = FINANCIAL_RIP_V3_COMPONENT_INPUTS[component]
+    for component in spec.component_order:
+        sub_weights = spec.component_inputs[component]
         sub_scores: Dict[str, Any] = {}
         component_score: Optional[float] = 0.0
 
@@ -727,7 +784,7 @@ def build_financial_rip_v3(
             elif component_score is not None:
                 component_score += sub_weight * record["score"]
 
-        weight = FINANCIAL_RIP_V3_WEIGHTS[component]
+        weight = spec.weights[component]
         available = component_score is not None
         components[component] = {
             "score": _round(component_score, 4) if available else None,
@@ -741,20 +798,21 @@ def build_financial_rip_v3(
     if missing_inputs:
         result = _unavailable(
             REASON_MISSING_COMPONENT,
-            "Required V3 inputs were unavailable: " + ", ".join(sorted(set(missing_inputs)))
+            f"Required {spec.score_version} inputs were unavailable: " + ", ".join(sorted(set(missing_inputs)))
             + ". A missing required metric makes the component and therefore "
-            "Financial RIP V3 unavailable; it is never substituted with a "
+            "Financial RIP unavailable; it is never substituted with a "
             "neutral 50.",
             packCost=_round(cost, 4),
             simulationCount=n,
             missingInputs=sorted(set(missing_inputs)),
+            spec=spec,
         )
         result["components"] = components
         return result
 
     score = sum(
-        components[component]["score"] * FINANCIAL_RIP_V3_WEIGHTS[component]
-        for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
+        components[component]["score"] * spec.weights[component]
+        for component in spec.component_order
     )
     # Clamp is a numeric safety net only. With every component in 0-100 and the
     # weights summing to 1.0, the sum is already in range; this catches a future
@@ -764,10 +822,10 @@ def build_financial_rip_v3(
     jackpot_value_share = raw_blocks["base_economic_efficiency"].get("jackpotValueShare")
 
     result: Dict[str, Any] = {
-        "scoreVersion": FINANCIAL_RIP_V3_VERSION,
-        "normalizationVersion": FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
-        "tailContractVersion": FINANCIAL_RIP_V3_TAIL_CONTRACT_VERSION,
-        "configVersion": FINANCIAL_RIP_V3_CONFIG_VERSION,
+        "scoreVersion": spec.score_version,
+        "normalizationVersion": spec.normalization_version,
+        "tailContractVersion": spec.tail_contract_version,
+        "configVersion": spec.config_version,
         "status": STATUS_READY,
         "statusReason": None,
         "rankable": True,
@@ -811,36 +869,83 @@ def build_financial_rip_v3(
             true_win_probability=raw_blocks["true_win_frequency"].get("trueWinProbability"),
         ),
         "audit": {
-            "weights": financial_rip_v3_weights_payload(),
+            "weights": spec.weights_payload(),
             "normalizedInputs": normalized_audit,
         },
     }
 
-    verification = verify_financial_rip_v3_score(result)
+    verification = verify_financial_rip_score(result, spec=spec)
     result["audit"]["scoreVerification"] = verification
     if not verification["reconstructed"]:
         raise ValueError(
-            "Financial RIP V3 score does not reconstruct from its component "
+            f"{spec.score_version} score does not reconstruct from its component "
             f"contributions: {verification}"
         )
     return result
+
+
+def build_financial_rip_v3(
+    values: Sequence[float],
+    pack_cost: Any,
+    *,
+    chase_metrics: Optional[Mapping[str, Any]] = None,
+    session_data: Optional[Mapping[str, Any]] = None,
+    min_simulation_count: int = FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
+) -> Dict[str, Any]:
+    """Build the complete, authoritative Financial RIP V3 result for one run.
+
+    Parameters
+    ----------
+    values:
+        The simulated per-pack value vector ``X``. Must be non-empty and finite.
+    pack_cost:
+        The pack cost ``C`` that THIS simulation ran against. Must be finite and
+        strictly positive; a zero or missing cost makes every ratio in the model
+        undefined, so V3 is unavailable rather than scored against a guess.
+    chase_metrics:
+        Optional output of ``compute_chase_dependency_metrics``, reused verbatim
+        for the unweighted Depth and Robustness diagnostic.
+    session_data:
+        Optional session simulation output. Never a required input and never
+        blended into the score.
+    min_simulation_count:
+        Below this, the top-1% conditional mean rests on too few observations to
+        publish. Configurable so tests can exercise the engine on small vectors,
+        but production reads the config default.
+
+    Returns
+    -------
+    A JSON-safe dict of ordinary Python primitives. Every numeric leaf is a
+    finite ``float``/``int`` or ``None`` - never a NumPy scalar and never NaN.
+    """
+    return build_financial_rip(
+        values,
+        pack_cost,
+        spec=FINANCIAL_RIP_V3_SPEC,
+        chase_metrics=chase_metrics,
+        session_data=session_data,
+        min_simulation_count=min_simulation_count,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Verification and validation
 # ---------------------------------------------------------------------------
 
-def verify_financial_rip_v3_score(result: Mapping[str, Any]) -> Dict[str, Any]:
+def verify_financial_rip_score(
+    result: Mapping[str, Any], *, spec: FinancialRipModelSpec = None
+) -> Dict[str, Any]:
     """Rebuild the score from the published contributions and compare.
 
     A component table whose contributions do not add up to the headline score is
     a scoring bug that renders as a plausible number, which is the worst
     possible failure mode. This runs on every build.
     """
+    spec = spec or FINANCIAL_RIP_V3_SPEC
     components = result.get("components") or {}
     contributions = [
         _f((components.get(key) or {}).get("contribution"))
-        for key in FINANCIAL_RIP_V3_COMPONENT_ORDER
+        for key in spec.component_order
     ]
     if any(value is None for value in contributions):
         return {
@@ -874,7 +979,14 @@ def verify_financial_rip_v3_score(result: Mapping[str, Any]) -> Dict[str, Any]:
     }
 
 
-def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
+def verify_financial_rip_v3_score(result: Mapping[str, Any]) -> Dict[str, Any]:
+    """V3 binding of :func:`verify_financial_rip_score`."""
+    return verify_financial_rip_score(result, spec=FINANCIAL_RIP_V3_SPEC)
+
+
+def validate_financial_rip_payload(
+    payload: Any, *, spec: FinancialRipModelSpec = None
+) -> Tuple[bool, List[str]]:
     """Lightweight structural validator shared by persistence, publication and tests.
 
     Returns ``(ok, problems)``. Checks, in order:
@@ -886,14 +998,15 @@ def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
       * the required raw metrics are present,
       * ``rankable`` is False whenever required metrics are unavailable.
     """
+    spec = spec or FINANCIAL_RIP_V3_SPEC
     problems: List[str] = []
     if not isinstance(payload, Mapping):
         return False, ["payload is not a mapping"]
 
     version = payload.get("scoreVersion")
-    if version != FINANCIAL_RIP_V3_VERSION:
-        problems.append(f"scoreVersion {version!r} != {FINANCIAL_RIP_V3_VERSION!r}")
-    if payload.get("normalizationVersion") != FINANCIAL_RIP_V3_NORMALIZATION_VERSION:
+    if version != spec.score_version:
+        problems.append(f"scoreVersion {version!r} != {spec.score_version!r}")
+    if payload.get("normalizationVersion") != spec.normalization_version:
         problems.append("normalizationVersion does not match this build")
 
     status = payload.get("status")
@@ -915,7 +1028,7 @@ def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
         return False, problems + ["components block is missing"]
 
     weight_total = 0.0
-    for key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
+    for key in spec.component_order:
         block = components.get(key)
         if not isinstance(block, Mapping):
             problems.append(f"component {key!r} is missing")
@@ -931,7 +1044,7 @@ def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
             problems.append(f"component {key!r} has no weight")
         else:
             weight_total += weight
-            if abs(weight - FINANCIAL_RIP_V3_WEIGHTS[key]) > 1e-9:
+            if abs(weight - spec.weights[key]) > 1e-9:
                 problems.append(f"component {key!r} weight {weight} != configured weight")
         if contribution is None:
             problems.append(f"component {key!r} has no contribution")
@@ -948,7 +1061,7 @@ def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
     elif not (0.0 <= score <= 100.0):
         problems.append(f"score {score} is outside 0-100")
 
-    verification = verify_financial_rip_v3_score(payload)
+    verification = verify_financial_rip_score(payload, spec=spec)
     if not verification.get("reconstructed"):
         problems.append(f"score does not reconstruct from contributions: {verification}")
 
@@ -956,3 +1069,8 @@ def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
         problems.append("a ready payload must be rankable")
 
     return (not problems), problems
+
+
+def validate_financial_rip_v3_payload(payload: Any) -> Tuple[bool, List[str]]:
+    """V3 binding of :func:`validate_financial_rip_payload`."""
+    return validate_financial_rip_payload(payload, spec=FINANCIAL_RIP_V3_SPEC)

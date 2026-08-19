@@ -40,6 +40,9 @@ from backend.calculations.evr.derived_metrics import (
     compute_probability_metrics,
 )
 from backend.calculations.evr.financial_rip_v3 import build_financial_rip_v3
+from backend.calculations.evr.financial_rip_v4 import (
+    project_financial_rip_v4_from_v3_payload,
+)
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_MIN_SIMULATION_COUNT,
 )
@@ -52,7 +55,10 @@ from backend.calculations.evr.sealed_product_distribution import (
     normalize_pack_outcome_vector,
 )
 from backend.desirability.scoring_config import canonical_collector_appeal_version
-from backend.desirability.weighted_rip import compute_overall_rip_v9
+from backend.desirability.weighted_rip import (
+    compute_overall_rip_v9,
+    compute_overall_rip_v10,
+)
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
@@ -386,6 +392,17 @@ def score_stage1_sealed_products(
 
         overall_started = time.perf_counter()
         overall = compute_overall_rip_v9(financial.get("score"), appeal_score)
+        # IMPLEMENTED, NOT CANONICAL, NOT PERSISTED. Financial RIP V4 and the
+        # Overall RIP V10 blend over it travel on the in-memory product object
+        # only - `_row_fields` below deliberately does not project them, so no
+        # column, migration or write is involved. They exist so the V4 model can
+        # be compared against V3/V9 on real sealed products before promotion.
+        #
+        # Projected from the V3 payload rather than re-running the engine over
+        # the same vector: the projection is exact (see its docstring) and
+        # avoids a second full pass per SKU.
+        financial_v4 = project_financial_rip_v4_from_v3_payload(financial)
+        overall_v10 = compute_overall_rip_v10(financial_v4.get("score"), appeal_score)
         overall_ms_total += (time.perf_counter() - overall_started) * 1000.0
 
         stats_started = time.perf_counter()
@@ -426,6 +443,16 @@ def score_stage1_sealed_products(
                 "overall_rip_version": overall.get("version"),
                 "overall_rip_rankable": bool(overall.get("rankable")),
                 "overall_rip_payload": overall,
+                # Diagnostic, in-memory only. Never persisted.
+                "financial_rip_v4_score": financial_v4.get("score"),
+                "financial_rip_v4_status": financial_v4.get("status"),
+                "financial_rip_v4_rankable": financial_v4.get("rankable"),
+                "financial_rip_v4_version": financial_v4.get("scoreVersion"),
+                "financial_rip_v4_payload": financial_v4,
+                "overall_rip_v10_score": overall_v10.get("score"),
+                "overall_rip_v10_version": overall_v10.get("version"),
+                "overall_rip_v10_rankable": overall_v10.get("rankable"),
+                "overall_rip_v10_payload": overall_v10,
             }
         )
 
@@ -451,6 +478,17 @@ def score_stage1_sealed_products(
 
         overall_started = time.perf_counter()
         overall = compute_overall_rip_v9(financial.get("score"), appeal_score)
+        # IMPLEMENTED, NOT CANONICAL, NOT PERSISTED. Financial RIP V4 and the
+        # Overall RIP V10 blend over it travel on the in-memory product object
+        # only - `_row_fields` below deliberately does not project them, so no
+        # column, migration or write is involved. They exist so the V4 model can
+        # be compared against V3/V9 on real sealed products before promotion.
+        #
+        # Projected from the V3 payload rather than re-running the engine over
+        # the same vector: the projection is exact (see its docstring) and
+        # avoids a second full pass per SKU.
+        financial_v4 = project_financial_rip_v4_from_v3_payload(financial)
+        overall_v10 = compute_overall_rip_v10(financial_v4.get("score"), appeal_score)
         overall_ms_total += (time.perf_counter() - overall_started) * 1000.0
 
         stats_started = time.perf_counter()
@@ -493,6 +531,14 @@ def score_stage1_sealed_products(
                 "overall_rip_version": overall.get("version"),
                 "overall_rip_rankable": bool(overall.get("rankable")),
                 "overall_rip_payload": overall,
+                # Diagnostic, in-memory only. Never persisted.
+                "financial_rip_v4_score": financial_v4.get("score"),
+                "financial_rip_v4_status": financial_v4.get("status"),
+                "financial_rip_v4_version": financial_v4.get("scoreVersion"),
+                "financial_rip_v4_payload": financial_v4,
+                "overall_rip_v10_score": overall_v10.get("score"),
+                "overall_rip_v10_version": overall_v10.get("version"),
+                "overall_rip_v10_payload": overall_v10,
                 # Diagnostic only; never persisted as a raw vector.
                 "stage2_composition_meta": composition_meta,
             }
@@ -570,6 +616,20 @@ def _to_row(product: Mapping[str, Any], *, calculation_run_id: Any, set_id: Any)
         "overall_rip_version": product.get("overall_rip_version"),
         "overall_rip_rankable": product.get("overall_rip_rankable"),
         "overall_rip_payload": product.get("overall_rip_payload"),
+        # Financial RIP V4 / Overall RIP V10 persist ALONGSIDE the V3/V9 fields
+        # above, never in place of them. Both models describe the same
+        # authoritative (calculation_run_id, sealed_product_id) row, so the
+        # unique key keeps its original meaning and no row is duplicated to
+        # encode a model version.
+        "financial_rip_v4_score": product.get("financial_rip_v4_score"),
+        "financial_rip_v4_status": product.get("financial_rip_v4_status"),
+        "financial_rip_v4_rankable": product.get("financial_rip_v4_rankable"),
+        "financial_rip_v4_version": product.get("financial_rip_v4_version"),
+        "financial_rip_v4_payload": product.get("financial_rip_v4_payload"),
+        "overall_rip_v10_score": product.get("overall_rip_v10_score"),
+        "overall_rip_v10_version": product.get("overall_rip_v10_version"),
+        "overall_rip_v10_rankable": product.get("overall_rip_v10_rankable"),
+        "overall_rip_v10_payload": product.get("overall_rip_v10_payload"),
     }
 
 

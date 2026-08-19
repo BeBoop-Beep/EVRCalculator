@@ -57,6 +57,9 @@ from backend.desirability.scoring_config import (
     OVERALL_RIP_V9_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V9_VERSION,
     OVERALL_RIP_V9_WEIGHTS,
+    OVERALL_RIP_V10_EFFECTIVE_WEIGHTS,
+    OVERALL_RIP_V10_VERSION,
+    OVERALL_RIP_V10_WEIGHTS,
     OVERALL_RIP_WEIGHTS,
     RIP_V3_VERSION,
     SET_VALUE_ASSOCIATION_DISCLOSURE,
@@ -196,6 +199,93 @@ def compute_overall_rip_v9(
             "Missing: " + ", ".join(missing) + ". No legacy fallback is permitted."
         )
     return result
+
+
+def compute_overall_rip_v10(
+    financial_rip_v4_score: Any, collector_appeal_v5_score: Any
+) -> Dict[str, Any]:
+    """Overall RIP V10 = 0.90 * Financial RIP V4 + 0.10 * Collector Appeal V5.
+
+    Exactly ONE thing changes from V9: the FINANCIAL input, from Financial RIP
+    V3 to Financial RIP V4 (Realistic Upside redefined as the normalized P95
+    threshold ratio alone). The 90/10 split is unchanged, and the appeal input
+    is the SAME Collector Appeal V5 score V9 consumes, unchanged in every
+    respect.
+
+    WHY A NEW VERSION FOR AN UNCHANGED SPLIT
+    ----------------------------------------
+    The same reason V8 and V9 were new versions: the identifier names its
+    inputs, not just the ratio. Repointing V9 at Financial RIP V4 would make the
+    V9 string false for new rows while leaving old rows unmarked, so one version
+    would mean two things depending on write date.
+
+    NOT YET CANONICAL. ``CANONICAL_OVERALL_RIP_VERSION`` still resolves to V9 -
+    see the cutover note in ``scoring_config``. This function is computable now
+    so the model can be tested and compared; promotion is a separate change.
+
+    ``financial_rip_v4_score`` must be a Financial RIP V4 score. The arithmetic
+    is identical to V9, so passing a V3 score here would silently produce a
+    number that is V9 wearing the V10 name; callers resolve the input by its
+    DECLARED version, never by field position.
+
+    NO SUBSTITUTIONS, IN EITHER DIRECTION. Requires BOTH inputs. A missing
+    Collector Appeal is never converted to zero, and there is no fallback to
+    V9/V8/V7 or to Financial RIP V3.
+    """
+    financial_score = _as_float(financial_rip_v4_score)
+    appeal_score = _as_float(collector_appeal_v5_score)
+
+    w_financial = OVERALL_RIP_V10_WEIGHTS["financial_rip"]
+    w_appeal = OVERALL_RIP_V10_WEIGHTS["collector_appeal"]
+
+    if financial_score is None or appeal_score is None:
+        missing: List[str] = []
+        if financial_score is None:
+            missing.append("financial_rip_v4")
+        if appeal_score is None:
+            missing.append("collector_appeal_v5")
+        return {
+            "score": None,
+            "version": OVERALL_RIP_V10_VERSION,
+            "status": "unavailable_missing_input",
+            "statusReason": (
+                "Overall RIP V10 needs a valid Financial RIP V4 and Collector "
+                "Appeal V5. Missing: " + ", ".join(missing) + ". A missing "
+                "Collector Appeal is not treated as zero, and there is no "
+                "fallback to Overall RIP V9 or to Financial RIP V3."
+            ),
+            "missingInputs": missing,
+            "components": {},
+            "weights": dict(OVERALL_RIP_V10_WEIGHTS),
+            "rankable": False,
+        }
+
+    financial_contribution = w_financial * financial_score
+    appeal_contribution = w_appeal * appeal_score
+    score = max(0.0, min(100.0, financial_contribution + appeal_contribution))
+    return {
+        "score": round(score, 4),
+        "version": OVERALL_RIP_V10_VERSION,
+        "status": "ready",
+        "components": {
+            # Named for the model it actually holds. A V10 payload carrying a
+            # "financialRipV3" key would misreport its own input.
+            "financialRipV4": {
+                "score": round(financial_score, 4),
+                "weight": round(w_financial, 6),
+                "contribution": round(financial_contribution, 4),
+            },
+            "collectorAppeal": {
+                "score": round(appeal_score, 4),
+                "weight": round(w_appeal, 6),
+                "contribution": round(appeal_contribution, 4),
+            },
+        },
+        "weights": dict(OVERALL_RIP_V10_WEIGHTS),
+        "effectiveWeights": dict(OVERALL_RIP_V10_EFFECTIVE_WEIGHTS),
+        "formula": "0.90 * financial_rip_v4 + 0.10 * collector_appeal_v5",
+        "rankable": True,
+    }
 
 
 # ---------------------------------------------------------------------------

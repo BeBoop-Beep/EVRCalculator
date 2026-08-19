@@ -582,6 +582,10 @@ function adaptPokemonSetInsightsPayloadToExplorePayload(normalized) {
     publicRipContractV8: normalized?.publicRipContractV8 || null,
     overallRipV9: normalized?.overallRipV9 || null,
     publicRipContractV9: normalized?.publicRipContractV9 || null,
+    // Additive V10/V4 transport. Carried verbatim, never derived from V3/V9.
+    financialRipV4: normalized?.financialRipV4 || null,
+    overallRipV10: normalized?.overallRipV10 || null,
+    publicRipContractV10: normalized?.publicRipContractV10 || null,
     rip_statistics: dualKeyCase(normalized?.ripStatistics || {}),
     percentiles: dualKeyCase(outcomeDistribution.percentiles || []),
     distribution_bins: dualKeyCase(outcomeDistribution.distributionBins || []),

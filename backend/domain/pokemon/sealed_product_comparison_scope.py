@@ -80,7 +80,12 @@ SEALED_PRODUCT_CROSS_FORMAT_COMPARABLE = False
 SEALED_PRODUCT_COMPARISON_SCOPE_REASON = (
     "Stage 1.5 controlled experiments found pack-count-dependent Financial RIP V3 "
     "score movement that varies by set and chase concentration. Within-family "
-    "comparison is validated; cross-format comparison is not."
+    "comparison is validated; cross-format comparison is not. Financial RIP V4 "
+    "does not change this: the pack-count dependence is a property of scoring a "
+    "product-sized outcome vector against a product-sized cost, not of the "
+    "Realistic Upside definition V4 revises, so V4 natural-unit scores are not "
+    "cross-format comparable either. Cross-format comparison requires the "
+    "validated equal-committed-capital framework, not a natural-unit ranking."
 )
 
 
