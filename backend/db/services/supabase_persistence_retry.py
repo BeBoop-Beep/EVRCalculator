@@ -32,7 +32,9 @@ client chose). See ``_insert_required_payload`` in
 import logging
 import random
 import time
-from typing import Callable, Optional, TypeVar
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Callable, Iterator, Optional, TypeVar
 
 from supabase import create_client
 
@@ -45,6 +47,63 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 SCRAPER_DB_MAX_ATTEMPTS = 3
+_transport_retry_count: ContextVar[int] = ContextVar("supabase_transport_retry_count", default=0)
+_persistence_session: ContextVar[Optional["ScraperPersistenceSession"]] = ContextVar(
+    "scraper_persistence_session", default=None)
+
+
+def reset_transport_retry_count() -> None:
+    _transport_retry_count.set(0)
+
+
+def get_transport_retry_count() -> int:
+    return _transport_retry_count.get()
+
+
+class ScraperPersistenceSession:
+    """Reuse one healthy client inside one scraper execution context.
+
+    The client is never serialized or stored globally. A transient failure
+    invalidates it before the retry backoff, so the next attempt necessarily
+    constructs a fresh client. Deterministic failures leave it intact.
+    """
+
+    def __init__(self, client_factory: Optional[Callable[[], object]] = None):
+        self._client_factory = client_factory or (
+            lambda: create_client(SUPABASE_URL, SUPABASE_KEY))
+        self._client: Optional[object] = None
+        self.client_constructions = 0
+
+    def client(self) -> object:
+        if self._client is None:
+            self._client = self._client_factory()
+            self.client_constructions += 1
+        return self._client
+
+    def invalidate(self) -> None:
+        self._client = None
+
+    def close(self) -> None:
+        # supabase-py does not expose a stable synchronous close contract across
+        # supported versions. Dropping the last session reference safely keeps
+        # clients scoped to this invocation without depending on private APIs.
+        self._client = None
+
+
+@contextmanager
+def scraper_persistence_session(
+    session: Optional[ScraperPersistenceSession] = None,
+) -> Iterator[ScraperPersistenceSession]:
+    """Install a non-shareable persistence session for the current context."""
+    owned = session is None
+    active = session or ScraperPersistenceSession()
+    token = _persistence_session.set(active)
+    try:
+        yield active
+    finally:
+        _persistence_session.reset(token)
+        if owned:
+            active.close()
 
 
 # One attempt plus four retries. The delays below sum to 15s of sleeping, which
@@ -126,6 +185,7 @@ def run_with_transient_retry(
                 failure.code,
                 delay,
             )
+            _transport_retry_count.set(_transport_retry_count.get() + 1)
             sleep_fn(delay)
             continue
 
@@ -148,17 +208,33 @@ def run_supabase_with_transient_retry(
     sleep: Optional[Callable[[float], None]] = None,
     jitter: Optional[Callable[[float, float], float]] = None,
 ) -> T:
-    """Run a scraper DB operation with a fresh client on every attempt.
+    """Run a scraper DB operation using the current healthy session client.
 
     Callers performing inserts must reconcile their deterministic identity when
     ``attempt > 1`` before issuing another write.  The final transport exception
-    is deliberately re-raised unchanged by :func:`run_with_transient_retry`.
+    is deliberately re-raised unchanged. A transient failure invalidates the
+    failed client before backoff, so every retry uses a fresh client.
     """
+    active = _persistence_session.get()
+    owned = active is None
+    session = active or ScraperPersistenceSession()
 
-    return run_with_transient_retry(
-        lambda attempt: operation(create_client(SUPABASE_URL, SUPABASE_KEY), attempt),
-        operation_name=operation_name,
-        max_attempts=max_attempts,
-        sleep=sleep,
-        jitter=jitter,
-    )
+    def attempt_operation(attempt: int) -> T:
+        try:
+            return operation(session.client(), attempt)
+        except Exception as exc:
+            if classify_data_service_error(exc).transient:
+                session.invalidate()
+            raise
+
+    try:
+        return run_with_transient_retry(
+            attempt_operation,
+            operation_name=operation_name,
+            max_attempts=max_attempts,
+            sleep=sleep,
+            jitter=jitter,
+        )
+    finally:
+        if owned:
+            session.close()

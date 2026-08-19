@@ -1,14 +1,115 @@
+from __future__ import annotations
+
 from ..clients.supabase_client import supabase, SUPABASE_URL, SUPABASE_KEY
 from supabase import create_client
 from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List, Set
+import time
 from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry
+
+BULK_READ_CHUNK_SIZE = 150
+BULK_READ_PAGE_SIZE = 1000
 
 class ExternalVariantIdentityConflict(RuntimeError):
     pass
 
 class AmbiguousExternalVariantIdentity(RuntimeError):
     pass
+
+
+def external_identity_key(provider: Any, external_product_id: Any,
+                          external_variant_key: Any) -> tuple[str, str, str]:
+    return (str(provider).strip().lower(), str(external_product_id).strip(),
+            str(external_variant_key).strip())
+
+
+def variant_natural_key(card_id: Any, printing_type: Any, special_type: Any,
+                        edition: Any) -> tuple[str, Any, Any, Any]:
+    return (str(card_id), printing_type, special_type, edition)
+
+
+def _chunks(values: List[Any], size: int = BULK_READ_CHUNK_SIZE):
+    for offset in range(0, len(values), size):
+        yield values[offset:offset + size]
+
+
+def get_card_variant_external_identities_bulk(
+    provider: str, identity_pairs: List[tuple[Any, Any]],
+) -> tuple[Dict[tuple[str, str, str], Dict[str, Any]], int]:
+    """Load requested external identities in bounded product-id queries."""
+    normalized_provider = str(provider).strip().lower()
+    requested = {external_identity_key(normalized_provider, product_id, variant_key)
+                 for product_id, variant_key in identity_pairs}
+    product_ids = sorted({key[1] for key in requested})
+    found: Dict[tuple[str, str, str], Dict[str, Any]] = {}
+    operations = 0
+    for chunk in _chunks(product_ids):
+        def operation(client, _attempt):
+            rows = []
+            page = 0
+            while True:
+                start = page * BULK_READ_PAGE_SIZE
+                page_rows = list((client.table("card_variant_external_identities")
+                    .select("id,provider,external_product_id,external_variant_key,card_variant_id")
+                    .eq("provider", normalized_provider).in_("external_product_id", chunk)
+                    .order("id").range(start, start + BULK_READ_PAGE_SIZE - 1)
+                    .execute()).data or [])
+                rows.extend(page_rows)
+                page += 1
+                if len(page_rows) < BULK_READ_PAGE_SIZE:
+                    return rows, page
+        rows, page_operations = run_supabase_with_transient_retry(
+            operation, operation_name="get_card_variant_external_identities_bulk")
+        operations += page_operations
+        for row in rows:
+            key = external_identity_key(row.get("provider"), row.get("external_product_id"),
+                                        row.get("external_variant_key"))
+            if key not in requested:
+                continue
+            if key in found:
+                raise AmbiguousExternalVariantIdentity(
+                    f"{key[0]} product {key[1]} variant {key[2]} has duplicate identity rows")
+            found[key] = dict(row)
+    return found, operations
+
+
+def get_card_variants_bulk(
+    *, variant_ids: List[Any], card_ids: List[Any],
+) -> tuple[Dict[str, Dict[str, Any]], Dict[tuple[str, Any, Any, Any], Dict[str, Any]], int]:
+    """Load mapped variants and natural-key candidates with bounded reads."""
+    by_id: Dict[str, Dict[str, Any]] = {}
+    by_natural: Dict[tuple[str, Any, Any, Any], Dict[str, Any]] = {}
+    operations = 0
+    select = "id,card_id,printing_type,special_type,edition"
+    for column, values in (("id", sorted({str(value) for value in variant_ids if value is not None})),
+                           ("card_id", sorted({str(value) for value in card_ids if value is not None}))):
+        for chunk in _chunks(values):
+            def operation(client, _attempt, column=column, chunk=chunk):
+                rows = []
+                page = 0
+                while True:
+                    start = page * BULK_READ_PAGE_SIZE
+                    page_rows = list((client.table("card_variants").select(select)
+                        .in_(column, chunk).order("id")
+                        .range(start, start + BULK_READ_PAGE_SIZE - 1)
+                        .execute()).data or [])
+                    rows.extend(page_rows)
+                    page += 1
+                    if len(page_rows) < BULK_READ_PAGE_SIZE:
+                        return rows, page
+            rows, page_operations = run_supabase_with_transient_retry(
+                operation, operation_name=f"get_card_variants_bulk_by_{column}")
+            operations += page_operations
+            for row in rows:
+                normalized = dict(row)
+                by_id[str(row["id"])] = normalized
+                key = variant_natural_key(row.get("card_id"), row.get("printing_type"),
+                                          row.get("special_type"), row.get("edition"))
+                existing = by_natural.get(key)
+                if existing and str(existing["id"]) != str(row["id"]):
+                    raise ExternalVariantIdentityConflict(f"duplicate card variant natural key: {key}")
+                by_natural[key] = normalized
+    return by_id, by_natural, operations
 
 def get_card_variant_external_identity(provider: str, external_product_id: str,
                                        external_variant_key: Optional[str] = None):
@@ -25,12 +126,13 @@ def get_card_variant_external_identity(provider: str, external_product_id: str,
         return rows[0] if rows else None
     return run_supabase_with_transient_retry(operation, operation_name="get_card_variant_external_identity")
 
-def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str, Any]) -> str:
+def link_card_variant_external_identity(card_variant_id: str, identity: Dict[str, Any], *,
+                                        known_absent: bool = False) -> str:
     """Idempotently link a provider product, refusing identity reassignment."""
     provider = str(identity["provider"]).strip().lower()
     product_id = str(identity["external_product_id"]).strip()
     variant_key = str(identity["external_variant_key"]).strip()
-    existing = get_card_variant_external_identity(provider, product_id, variant_key)
+    existing = None if known_absent else get_card_variant_external_identity(provider, product_id, variant_key)
     if existing:
         if str(existing["card_variant_id"]) != str(card_variant_id):
             raise ExternalVariantIdentityConflict(

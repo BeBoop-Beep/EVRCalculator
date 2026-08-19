@@ -194,24 +194,23 @@ def enqueue_missing_scrape_jobs_for_ready_sets() -> int:
 def claim_next_scrape_job(
     worker_id: Optional[str] = None,
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
+    expected_market_date: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Claim the highest-priority ready pending job under a lease.
+    """Claim the highest-priority pending job for an explicit market date.
 
-    The RPC reconciles expired leases before claiming, so a crashed worker's job
-    is reclaimed rather than blocking the queue. Falls back to a zero-arg call
-    when the DB still has the legacy claim function signature.
+    Date qualification occurs inside the same RPC transaction as SKIP LOCKED,
+    attempt increment, worker ownership, and lease establishment. Jobs for all
+    other dates remain untouched. The explicit argument is required so callers
+    cannot accidentally reintroduce an unqualified cross-midnight claim.
     """
+    if not expected_market_date:
+        raise ValueError("expected_market_date is required for scrape job claim")
     try:
-        try:
-            result = supabase.rpc(
-                "claim_next_scrape_job",
-                {"p_worker_id": worker_id, "p_lease_seconds": lease_seconds},
-            ).execute()
-        except Exception as exc:
-            if not _is_legacy_claim_signature(exc):
-                raise
-            logger.debug("%s lease-aware claim unavailable; using legacy claim", _JOB_TAG)
-            result = supabase.rpc("claim_next_scrape_job").execute()
+        result = supabase.rpc(
+            "claim_next_scrape_job_for_market_date",
+            {"p_worker_id": worker_id, "p_lease_seconds": lease_seconds,
+             "p_expected_market_date": expected_market_date},
+        ).execute()
 
         if result and result.data:
             job = result.data[0]

@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -8,7 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
 from backend.db.repositories.card_variant_repository import (insert_card_variant, get_card_variant_by_card_and_type,
     insert_card_variants_batch, get_card_variant_external_identity, link_card_variant_external_identity,
-    get_card_variant_by_id, ExternalVariantIdentityConflict)
+    get_card_variant_by_id, get_card_variant_external_identities_bulk, get_card_variants_bulk,
+    external_identity_key, variant_natural_key, ExternalVariantIdentityConflict)
 from backend.utils.debug_output import debug_print
 from backend.db.repositories.card_variant_prices_repository import (
     insert_card_variant_price,
@@ -17,6 +19,11 @@ from backend.db.repositories.card_variant_prices_repository import (
 )
 from backend.db.repositories.conditions_repository import get_all_conditions, get_condition_by_name
 from backend.db.services.batch_processor import BatchProcessor
+from backend.db.services.supabase_persistence_retry import (
+    get_transport_retry_count,
+    reset_transport_retry_count,
+    scraper_persistence_session,
+)
 from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
 
 class CardsService(BatchProcessor):
@@ -121,6 +128,12 @@ class CardsService(BatchProcessor):
         return printing_type, special_type, edition
 
     def _process_batch_worker(self, batch_data, batch_id):
+        # This wrapper executes inside the child process. The client is created
+        # there and never passed through ProcessPool serialization.
+        with scraper_persistence_session():
+            return self._process_batch_worker_with_session(batch_data, batch_id)
+
+    def _process_batch_worker_with_session(self, batch_data, batch_id):
         """
         Worker function that processes a single batch of work items.
         Implements BatchProcessor abstract method.
@@ -134,22 +147,59 @@ class CardsService(BatchProcessor):
             Dictionary with batch processing results
         """
         work_items, card_key_to_id = batch_data
+        reset_transport_retry_count()
         batch_result = {
             'batch_id': batch_id,
             'inserted_variants': 0,
             'inserted_prices': 0,
             'external_identities_linked': 0,
             'errors': [],
-            'prices_to_ship': []  # Prices that need to be inserted (after batch completes)
+            'prices_to_ship': [],  # Prices that need to be inserted (after batch completes)
+            'persistence_metrics': {'payloadVariantCount': len(work_items),
+                'identityReadOperations': 0, 'variantReadOperations': 0,
+                'identityWriteOperations': 0, 'variantWriteOperations': 0},
         }
         
-        # Local variant cache for this process
+        metrics = batch_result['persistence_metrics']
+        identity_started = time.perf_counter()
+        identities_by_key = {}
+        pairs_by_provider = {}
+        for variant_data, _prices, _card_key in work_items:
+            identity = variant_data.get('_external_identity')
+            if identity:
+                provider = str(identity['provider']).strip().lower()
+                pairs_by_provider.setdefault(provider, []).append(
+                    (identity['external_product_id'], identity['external_variant_key']))
+        for provider, pairs in pairs_by_provider.items():
+            loaded, operations = get_card_variant_external_identities_bulk(provider, pairs)
+            identities_by_key.update(loaded)
+            metrics['identityReadOperations'] += operations
+        metrics['identityPrefetchMs'] = round((time.perf_counter() - identity_started) * 1000, 3)
+
+        variant_started = time.perf_counter()
+        mapped_variant_ids = sorted({str(row['card_variant_id']) for row in identities_by_key.values()})
+        unresolved_card_ids = set()
+        for variant_data, _prices, card_key in work_items:
+            card_id = card_key_to_id[card_key]
+            identity = variant_data.get('_external_identity')
+            identity_key = (external_identity_key(identity['provider'], identity['external_product_id'],
+                                                   identity['external_variant_key']) if identity else None)
+            if identity_key is None or identity_key not in identities_by_key:
+                unresolved_card_ids.add(str(card_id))
+        variant_by_id, variant_by_natural_key, operations = get_card_variants_bulk(
+            variant_ids=mapped_variant_ids, card_ids=sorted(unresolved_card_ids))
+        metrics['variantReadOperations'] += operations
+        metrics['variantPrefetchMs'] = round((time.perf_counter() - variant_started) * 1000, 3)
+
+        # Local variant cache for new variants created during this process.
         variant_cache = {}
         
         print(f"[Batch {batch_id}] Processing {len(work_items)} items...")
         
         items_without_prices = 0
         
+        resolution_started = time.perf_counter()
+        identity_persistence_ms = 0.0
         for item_index, (variant_data, price_data_list, card_key) in enumerate(work_items):
             try:
                 card_id = card_key_to_id[card_key]
@@ -162,15 +212,15 @@ class CardsService(BatchProcessor):
                 
                 variant_id = None
                 external_identity = variant_data.pop('_external_identity', None)
-                mapped_identity = (get_card_variant_external_identity(
+                identity_key = (external_identity_key(
                     external_identity['provider'], external_identity['external_product_id'],
-                    external_identity['external_variant_key'])
-                    if external_identity else None)
+                    external_identity['external_variant_key']) if external_identity else None)
+                mapped_identity = identities_by_key.get(identity_key) if identity_key else None
                 
                 # Check local cache first
                 if mapped_identity:
                     mapped_variant_id = mapped_identity['card_variant_id']
-                    existing_variant = get_card_variant_by_id(mapped_variant_id)
+                    existing_variant = variant_by_id.get(str(mapped_variant_id))
                     if not existing_variant:
                         raise ExternalVariantIdentityConflict(
                             f"external identity maps to missing variant {mapped_variant_id}")
@@ -184,24 +234,27 @@ class CardsService(BatchProcessor):
                     if item_index % 200 == 0:
                         print(f"[Batch {batch_id}] [CACHE] Using cached variant (ID: {variant_id})")
                 else:
-                    # Check DB
-                    existing_variant = get_card_variant_by_card_and_type(
-                        card_id,
-                        variant_data.get('printing_type'),
-                        variant_data.get('special_type'),
-                        variant_data.get('edition')
-                    )
+                    existing_variant = variant_by_natural_key.get(variant_natural_key(*variant_key))
                     if existing_variant:
                         variant_id = existing_variant['id']
                     else:
                         # Insert new variant
                         variant_id = insert_card_variant(variant_data)
                         batch_result['inserted_variants'] += 1
+                        metrics['variantWriteOperations'] += 1
+                        inserted_variant = {**variant_data, 'id': variant_id}
+                        variant_by_id[str(variant_id)] = inserted_variant
+                        variant_by_natural_key[variant_natural_key(*variant_key)] = inserted_variant
                     
                     variant_cache[variant_key] = variant_id
 
+                if external_identity and mapped_identity is None:
+                    persistence_started = time.perf_counter()
+                    link_card_variant_external_identity(variant_id, external_identity, known_absent=True)
+                    identity_persistence_ms += (time.perf_counter() - persistence_started) * 1000
+                    metrics['identityWriteOperations'] += 1
+                    identities_by_key[identity_key] = {**external_identity, 'card_variant_id': variant_id}
                 if external_identity:
-                    link_card_variant_external_identity(variant_id, external_identity)
                     batch_result['external_identities_linked'] += 1
                 
                 # Collect prices for this variant to ship after batch completes
@@ -219,6 +272,9 @@ class CardsService(BatchProcessor):
                 print(f"[ERROR] {error_msg}")
                 batch_result['errors'].append(error_msg)
         
+        metrics['variantResolutionMs'] = round((time.perf_counter() - resolution_started) * 1000, 3)
+        metrics['identityPersistenceMs'] = round(identity_persistence_ms, 3)
+        metrics['transportRetryCount'] = get_transport_retry_count()
         if items_without_prices > 0:
             print(f"[Batch {batch_id}] Complete. Variants: {batch_result['inserted_variants']}, Prices to ship: {len(batch_result['prices_to_ship'])} (Items without prices: {items_without_prices})")
         else:
@@ -238,7 +294,12 @@ class CardsService(BatchProcessor):
         Returns:
             Number of prices successfully inserted
         """
-        return insert_card_variant_prices_batch_with_stats(price_batch)
+        reset_transport_retry_count()
+        started = time.perf_counter()
+        result = insert_card_variant_prices_batch_with_stats(price_batch)
+        result['price_persistence_ms'] = round((time.perf_counter() - started) * 1000, 3)
+        result['transport_retry_count'] = get_transport_retry_count()
+        return result
     
     def _prepare_card_data(self, card_key, card_id, card_list):
         """
@@ -624,6 +685,16 @@ class CardsService(BatchProcessor):
             'db_batch_operations': results.get('price_batch_operations', 0),
             'estimated_write_reduction_ratio': write_reduction_ratio,
         }
+        persistence = results.setdefault('persistence_metrics', {})
+        persistence['priceReadOperations'] = results.get('price_read_operations', 0)
+        persistence['priceWriteOperations'] = results.get('price_write_operations', 0)
+        persistence['pricePersistenceMs'] = round(results.get('price_persistence_ms', 0.0), 3)
+        persistence['transportRetryCount'] = (
+            persistence.get('transportRetryCount', 0) + results.get('transport_retry_count', 0))
+        persistence['totalDbOperations'] = sum(int(persistence.get(key, 0)) for key in (
+            'identityReadOperations', 'variantReadOperations', 'identityWriteOperations',
+            'variantWriteOperations', 'priceReadOperations', 'priceWriteOperations'))
+        results['ingestion_efficiency']['persistence_metrics'] = dict(persistence)
         
         print(f"[INFO] All batch processing and shipping complete. Inserted {results['inserted_variants']} variants, {results['inserted_prices']} prices")
         

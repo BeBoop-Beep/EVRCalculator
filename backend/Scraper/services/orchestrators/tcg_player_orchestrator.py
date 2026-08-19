@@ -178,9 +178,10 @@ def validate_ingestion_result(payload, result):
         raise RuntimeError(f"Fatal card ingestion errors: {errors[:5]}")
     if priced and int(efficiency.get('attempted_rows', 0)) == 0:
         raise RuntimeError("Priced payload produced zero attempted price rows")
+    persistence = cards_detail.get('persistence_metrics') or efficiency.get('persistence_metrics') or {}
     return {"setId": result.get('set_id'),
             "priceRowsAttempted": int(efficiency.get('attempted_rows', 0)),
             "priceRowsInserted": int(efficiency.get('inserted_rows', 0)),
             "priceRowsUpdated": int(cards_detail.get('price_rows_updated', 0)),
             "priceRowsSkippedDuplicates": int(efficiency.get('skipped_duplicates', 0)),
-            "ingestionErrors": [], "ingestionSuccess": True}
+            **persistence, "ingestionErrors": [], "ingestionSuccess": True}
