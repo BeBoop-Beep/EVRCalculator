@@ -1,4 +1,6 @@
-from ..helpers.card_helper import clean_price_value, process_card, clean_condition, normalize_condition
+from ..helpers.card_helper import (clean_price_value, process_card, clean_condition,
+    normalize_condition, parse_tcgplayer_printing, determine_special_type,
+    build_external_variant_key)
 from ..helpers.sealed_price_helper import parse_sealed_prices
 
 
@@ -23,39 +25,44 @@ class TCGPlayerParser:
             List of parsed and cleaned card dictionaries
         """
         raw_cards = raw_data.get("result", [])
-        # One provider product id may have many condition rows, but it must map
-        # to exactly one local printing. Keep its single NM observation and
-        # reject products whose feed rows disagree on printing.
+        # Product ids identify commercial cards; canonical printings/finishes
+        # beneath them are independently observable source variants.
         products = {}
-        for card in raw_cards:
-            product_id = str(card.get("productID") or "").strip()
-            if product_id:
-                products.setdefault(product_id, []).append(card)
+        for row_index, card in enumerate(raw_cards):
+            # Synthetic row identity is only a compatibility path for unit/
+            # imported payloads; live TCGplayer rows always carry productID.
+            product_id = str(card.get("productID") or f"_row:{row_index}").strip()
+            products.setdefault(product_id, []).append(card)
+
+        variant_groups = {}
+        for product_id, rows in products.items():
+            for row in rows:
+                edition, printing_type = parse_tcgplayer_printing(row.get("printing"))
+                special_type = determine_special_type(row.get("productName"), row.get("rarity"))
+                signature = build_external_variant_key(edition, printing_type, special_type)
+                variant_groups.setdefault((product_id, signature), []).append(row)
 
         selected_cards = []
-        ambiguous_product_ids = []
-        missing_nm_product_ids = []
-        for product_id, rows in products.items():
-            signatures = {
-                (
-                    (row.get("printing") or "").strip().lower(),
-                    "pokemon-center-exclusive"
-                    if "pokemon center exclusive" in (row.get("productName") or "").lower()
-                    else None,
-                )
-                for row in rows
-            }
-            if len(signatures) != 1:
-                ambiguous_product_ids.append(product_id)
-                continue
+        ambiguous_variant_groups = []
+        missing_nm_variant_groups = []
+        duplicate_nm_rows_deduped = 0
+        for (product_id, signature), rows in variant_groups.items():
             near_mint = [
                 row for row in rows
                 if clean_condition(row.get("condition") or "") == "Near Mint"
             ]
-            if len(near_mint) != 1:
-                missing_nm_product_ids.append(product_id)
+            if not near_mint:
+                missing_nm_variant_groups.append(f"{product_id}|{signature}")
                 continue
-            selected_cards.append(near_mint[0])
+            unique_nm = {}
+            for row in near_mint:
+                identity = tuple(sorted((key, repr(value)) for key, value in row.items()))
+                unique_nm.setdefault(identity, row)
+            duplicate_nm_rows_deduped += len(near_mint) - len(unique_nm)
+            if len(unique_nm) != 1:
+                ambiguous_variant_groups.append(f"{product_id}|{signature}")
+                continue
+            selected_cards.append(next(iter(unique_nm.values())))
 
         card_data = {}
         dropped_no_market = 0
@@ -102,16 +109,23 @@ class TCGPlayerParser:
             f"kept={len(cards)} "
             f"dropped_no_market_price={dropped_no_market} "
             f"dropped_other={dropped_invalid} "
-            f"rejected_ambiguous_products={len(ambiguous_product_ids)} "
-            f"rejected_missing_nm_products={len(missing_nm_product_ids)}"
+            f"source_variant_groups={len(variant_groups)} "
+            f"rejected_ambiguous_variants={len(ambiguous_variant_groups)} "
+            f"rejected_missing_nm_variants={len(missing_nm_variant_groups)}"
         )
 
         self.last_card_parse_report = {
             "raw_rows": len(raw_cards),
             "commercial_products": len(products),
-            "accepted_products": len(cards),
-            "ambiguous_product_ids": sorted(ambiguous_product_ids),
-            "missing_nm_product_ids": sorted(missing_nm_product_ids),
+            "source_variant_groups": len(variant_groups),
+            "accepted_variant_groups": len(selected_cards),
+            "payload_cards": len(cards),
+            "ambiguous_variant_groups": sorted(ambiguous_variant_groups),
+            "missing_nm_variant_groups": sorted(missing_nm_variant_groups),
+            "rejected_ambiguous_variant_groups": len(ambiguous_variant_groups),
+            "rejected_missing_nm_variant_groups": len(missing_nm_variant_groups),
+            "duplicate_nm_rows_deduped": duplicate_nm_rows_deduped,
+            "dropped_no_market_price": dropped_no_market,
         }
 
         return self._clean_card_data(cards)
@@ -190,6 +204,7 @@ class TCGPlayerParser:
                 'source': 'TCGPlayer',
                 'tcgplayer_product_id': card.get('tcgplayerProductID'),
                 'external_catalog_key': card.get('externalCatalogKey'),
+                'external_variant_key': card.get('externalVariantKey'),
                 'external_source_reference': (f"https://www.tcgplayer.com/product/{card.get('tcgplayerProductID')}" if card.get('tcgplayerProductID') else None),
                 'external_source_payload': card.get('externalSourcePayload') or {},
                 'prices': {
@@ -205,15 +220,10 @@ class TCGPlayerParser:
             else:
                 dropped_no_price += 1
         
-        # Write full output to file for inspection
-        import json
-        with open('cleaned_cards_debug.json', 'w', encoding='utf-8') as f:
-            json.dump(cleaned, f, indent=2)
         print(
             f"[DIAG][_clean_card_data] after_clean={len(cleaned)} "
             f"dropped_no_name={dropped_no_name} "
-            f"dropped_no_market_price={dropped_no_price} "
-            f"(full list written to cleaned_cards_debug.json)"
+            f"dropped_no_market_price={dropped_no_price}"
         )
         
         return cleaned

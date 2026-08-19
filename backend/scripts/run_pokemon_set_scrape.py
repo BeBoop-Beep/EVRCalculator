@@ -40,7 +40,7 @@ import socket
 import sys
 import time
 import tracemalloc
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -667,6 +667,7 @@ def _scrape_one_set(
         try:
             payload = scraper.scrape(config_cls, excel_path)
             data = payload.get("data", {})
+            outcome = payload.get("_scrape_outcome", {})
             cards_count = len(data.get("cards", []))
             sealed_count = len(data.get("sealed_products", []))
             logger.info(
@@ -705,6 +706,16 @@ def _scrape_one_set(
                     "sealed_scraped": sealed_count,
                     "error": zero_cards_error,
                 }
+            if getattr(scraper, "enable_db_ingestion", False):
+                from backend.db.services.scrape_postcondition import verify_tcgplayer_source_variant_persistence
+                postcondition = verify_tcgplayer_source_variant_persistence(
+                    outcome.get("setId"), _market_date_iso(), outcome.get("sourceVariantKeys", []))
+                outcome.update(postcondition)
+                if not postcondition.get("success"):
+                    raise RuntimeError(
+                        "incomplete_source_variant_persistence: "
+                        f"{postcondition['reconciledSourceVariantCount']}/"
+                        f"{postcondition['acceptedVariantGroups']} exact-day source variants")
             return {
                 "canonical_key": canonical_key,
                 "status": "success",
@@ -712,6 +723,7 @@ def _scrape_one_set(
                 "cards_scraped": cards_count,
                 "sealed_scraped": sealed_count,
                 "error": None,
+                "metadata": outcome,
             }
         except (RequestCapExceededError, SustainedRateLimitError):
             raise
@@ -772,8 +784,12 @@ def _market_date_iso(timezone_name: str = "America/Phoenix", now: Optional[datet
         if instant.tzinfo is None:
             instant = instant.replace(tzinfo=timezone.utc)
         return instant.astimezone(ZoneInfo(timezone_name)).date().isoformat()
-    except Exception:  # pragma: no cover - zoneinfo/tzdata missing
-        return (now or datetime.now(timezone.utc)).date().isoformat()
+    except Exception:  # Python 3.8 / missing zoneinfo data
+        instant = now or datetime.now(timezone.utc)
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        phoenix = timezone(timedelta(hours=-7), "America/Phoenix")
+        return instant.astimezone(phoenix).date().isoformat()
 
 
 def run_scraper(

@@ -92,7 +92,18 @@ def _request_metrics(report: dict) -> dict:
         "retry_count_total",
         "elapsed_seconds",
     )
-    return {key: report.get(key) for key in keys if report.get(key) is not None}
+    metrics = {key: report.get(key) for key in keys if report.get(key) is not None}
+    results = report.get("results") or []
+    if results and isinstance(results[0].get("metadata"), dict):
+        allowed = ("rawRows", "commercialProducts", "sourceVariantGroups",
+                   "acceptedVariantGroups", "rejectedAmbiguousVariantGroups",
+                   "rejectedMissingNmVariantGroups", "droppedNoMarketPrice",
+                   "payloadCards", "priceRowsAttempted", "priceRowsInserted",
+                   "priceRowsUpdated", "priceRowsSkippedDuplicates",
+                   "positiveNmObservationCount", "sourceCoverageRatio")
+        metrics.update({key: results[0]["metadata"].get(key) for key in allowed
+                        if results[0]["metadata"].get(key) is not None})
+    return metrics
 
 
 def _finalize(

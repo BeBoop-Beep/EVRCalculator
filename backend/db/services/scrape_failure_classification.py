@@ -58,6 +58,13 @@ _REMEDIATION: Dict[str, str] = {
 # precisely. Anything not explicitly listed as deterministic stays retryable —
 # unknown failures must keep their retries, never silently lose them.
 ERROR_TRANSIENT_SCRAPE_FAILURE = "transient_scrape_failure"
+ERROR_SOURCE_EMPTY = "source_empty"
+ERROR_NO_VALID_MARKET_PRICES = "no_valid_market_prices"
+ERROR_VARIANT_IDENTITY_AMBIGUITY = "variant_identity_ambiguity"
+ERROR_MISSING_NEAR_MINT_VARIANT = "missing_near_mint_variant"
+ERROR_INGESTION_FAILURE = "ingestion_failure"
+ERROR_MISSING_CURRENT_DAY_NM = "missing_current_day_near_mint_observation"
+ERROR_INCOMPLETE_VARIANT_PERSISTENCE = "incomplete_source_variant_persistence"
 
 
 def is_retryable(error_code: Optional[str]) -> bool:
@@ -97,5 +104,21 @@ def classify_report_failure(report: Optional[Dict[str, Any]]) -> Optional[str]:
         if code in NON_RETRYABLE_ERROR_CODES:
             return code
         return ERROR_TRANSIENT_SCRAPE_FAILURE
+
+    error = " ".join(str(row.get("error") or "") for row in report.get("results") or []).lower()
+    classifications = (
+        (ERROR_INCOMPLETE_VARIANT_PERSISTENCE, ERROR_INCOMPLETE_VARIANT_PERSISTENCE),
+        ("missing_current_day_near_mint", ERROR_MISSING_CURRENT_DAY_NM),
+        ("database ingestion failed", ERROR_INGESTION_FAILURE),
+        ("fatal card ingestion", ERROR_INGESTION_FAILURE),
+        ("zero attempted price rows", ERROR_INGESTION_FAILURE),
+        ("zero cards in payload", ERROR_NO_VALID_MARKET_PRICES),
+        ("source_empty", ERROR_SOURCE_EMPTY),
+        ("variant_identity_ambiguity", ERROR_VARIANT_IDENTITY_AMBIGUITY),
+        ("missing_near_mint_variant", ERROR_MISSING_NEAR_MINT_VARIANT),
+    )
+    for marker, code in classifications:
+        if marker in error:
+            return code
 
     return None

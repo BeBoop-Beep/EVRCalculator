@@ -62,6 +62,14 @@ def parse_tcgplayer_printing(raw_printing: Optional[str]) -> Tuple[str, str]:
     
     return (edition, printing_type)
 
+def build_external_variant_key(edition=None, printing_type=None, special_type=None) -> str:
+    """Serialize canonical provider-variant identity deterministically."""
+    def canonical(value):
+        return str(value or "").strip().lower()
+    return (f"edition={canonical(edition)}|"
+            f"printing_type={canonical(printing_type)}|"
+            f"special_type={canonical(special_type)}")
+
 def normalize_condition(condition):
     """
     Normalize condition strings to match database values.
@@ -245,6 +253,7 @@ def process_card(card, pull_rate_mapping):
         'Price ($)': market_price,
         'tcgplayerProductID': str(card.get('productID')) if card.get('productID') is not None else None,
         'externalCatalogKey': str(card.get('setAbbrv') or card.get('setID') or '') or None,
+        'externalVariantKey': build_external_variant_key(edition, printing_type, special_type),
         'externalSourcePayload': {'productName': card.get('productName'), 'number': number,
             'set': card.get('set'), 'setAbbrv': card.get('setAbbrv'),
             'printing': printing, 'rarity': rarity},
