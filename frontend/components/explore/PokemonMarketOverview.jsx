@@ -6,7 +6,6 @@ import {
   MARKET_DIMENSION_LABELS,
   MARKET_OVERVIEW_GROUPS,
   MARKET_OVERVIEW_HELP,
-  MARKET_OVERVIEW_SUMMARY_WINDOWS,
   changeDirection,
   describeChange,
   formatBasketValue,
@@ -21,13 +20,25 @@ import styles from "./explore.module.css";
 // column answers:
 //
 //   Tracked Market Value — how many dollars the tracked universe holds today,
-//                          and how that total moved (cohort changes INCLUDED).
-//   Price Performance    — the chain-linked base-100 index and its movement,
-//                          with cohort entry/exit neutralized.
+//                          and how that total moved SINCE TRACKING BEGAN
+//                          (cohort changes INCLUDED). This column is fixed.
+//   Price Performance    — the chain-linked base-100 index, plus its movement
+//                          over the CURRENTLY SELECTED window. That column is
+//                          dynamic and follows the chart beside it.
+//
+// The two are never collapsed into one. When the selected window is "All" the
+// dynamic column reports price performance since tracking, which is a
+// DIFFERENT published series from the tracked-value change two columns to its
+// left — they legitimately disagree, and that is the point of showing both.
 //
 // Both come straight from the published payload — `basketChanges` and
 // `changes` respectively. Nothing here divides one basket value by another.
-const PRICE_PERFORMANCE_WINDOWS = MARKET_OVERVIEW_SUMMARY_WINDOWS;
+//
+// FIVE columns, deliberately. An earlier revision printed 1D, 7D, 30D and
+// Since Tracking simultaneously; inside ~42% of the page that table overflowed
+// its pane and painted over the chart. Showing one window at a time — the one
+// the reader selected — is both compact and unambiguous, and leaves room for
+// the Graded and Sealed rows to arrive without another layout pass.
 const SINCE_TRACKING = "All";
 const SINCE_TRACKING_LABEL = "Since Tracking";
 
@@ -56,10 +67,10 @@ function MarketSwatch({ color }) {
   return <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: color }} />;
 }
 
-export default function PokemonMarketOverview({ overview }) {
+export default function PokemonMarketOverview({ overview, selectedWindow, selectedLabel }) {
   if (!overview || !overview.families?.length) {
     return (
-      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="market-overview-heading">
+      <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
         <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
           <h2 id="market-overview-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Market Overview</h2>
         </div>
@@ -71,18 +82,21 @@ export default function PokemonMarketOverview({ overview }) {
   }
 
   const families = overview.families;
+  // The period heading is the selector's own label, so this column can never
+  // claim a timeframe the chart is not drawing.
+  const periodLabel = selectedLabel || selectedWindow || "";
 
   return (
-    <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-labelledby="market-overview-heading">
+    <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
       <div className={`${styles.divider} flex items-center gap-2 px-3 py-3 sm:px-4`}>
         <h2 id="market-overview-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Market Overview</h2>
       </div>
 
-      {/* Desktop: one finance-first table with two real column groups. */}
+      {/* Desktop: one compact finance-first table with two real column groups. */}
       <div data-market-overview-table className="hidden desk:block">
         <table className={styles.marketOverviewTable}>
           <caption className="sr-only">
-            Tracked Market Value and chain-linked Price Performance for each tracked Pokémon market. Tracked Value includes sets entering or leaving the tracked universe; Price Performance neutralizes them.
+            Tracked Market Value and chain-linked Price Performance for each tracked Pokémon market, with price performance shown over the selected {periodLabel} window. Tracked Value includes sets entering or leaving the tracked universe; Price Performance neutralizes them.
           </caption>
           <thead>
             <tr className={styles.marketOverviewGroupRow}>
@@ -90,22 +104,22 @@ export default function PokemonMarketOverview({ overview }) {
               <th scope="colgroup" colSpan={2} data-market-overview-group="trackedValue" className={styles.marketOverviewGroupHead}>
                 {MARKET_OVERVIEW_GROUPS.trackedValue}
               </th>
-              <th scope="colgroup" colSpan={1 + PRICE_PERFORMANCE_WINDOWS.length} data-market-overview-group="pricePerformance" className={styles.marketOverviewGroupHead}>
+              <th scope="colgroup" colSpan={2} data-market-overview-group="pricePerformance" className={styles.marketOverviewGroupHead}>
                 {MARKET_OVERVIEW_GROUPS.pricePerformance}
               </th>
             </tr>
             <tr>
               <th scope="col">Market</th>
               <th scope="col" className={styles.marketOverviewGroupStart}>
-                <div className="flex items-center justify-end gap-1.5">Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} /></div>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5">Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} /></div>
               </th>
               <th scope="col">
-                <div className="flex items-center justify-end gap-1.5">{SINCE_TRACKING_LABEL}<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValueChange} /></div>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5">{SINCE_TRACKING_LABEL}<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValueChange} /></div>
               </th>
               <th scope="col" className={styles.marketOverviewGroupStart}>
-                <div className="flex items-center justify-end gap-1.5">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
               </th>
-              {PRICE_PERFORMANCE_WINDOWS.map((entry) => <th key={entry.key} scope="col">{entry.label}</th>)}
+              <th scope="col" data-market-overview-period-heading={selectedWindow}>{periodLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -124,16 +138,14 @@ export default function PokemonMarketOverview({ overview }) {
                   />
                 </td>
                 <td data-market-overview-metric="index" className={`${styles.marketOverviewIndex} ${styles.marketOverviewGroupStart}`}>{formatIndexValue(family.indexValue)}</td>
-                {PRICE_PERFORMANCE_WINDOWS.map((entry) => (
-                  <td key={entry.key} data-market-overview-change={entry.key}>
-                    <ChangeValue
-                      change={getPricePerformanceChange(family, entry.key)}
-                      marketLabel={family.label}
-                      windowLabel={entry.label}
-                      dimension={MARKET_DIMENSION_LABELS.pricePerformance}
-                    />
-                  </td>
-                ))}
+                <td data-market-overview-change={selectedWindow}>
+                  <ChangeValue
+                    change={getPricePerformanceChange(family, selectedWindow)}
+                    marketLabel={family.label}
+                    windowLabel={periodLabel}
+                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -141,7 +153,8 @@ export default function PokemonMarketOverview({ overview }) {
       </div>
 
       {/* Mobile: stacked cards, never a horizontally scrolling table. Each card
-          tells both stories, in the order the desktop groups do. */}
+          tells both stories, in the order the desktop groups do, and its price
+          performance line follows the same shared selection. */}
       <ul data-market-overview-cards className="divide-y divide-[var(--border-subtle)] desk:hidden">
         {families.map((family) => (
           <li key={family.key} data-market-overview-card={family.key} className="px-3 py-3.5 sm:px-4">
@@ -172,34 +185,18 @@ export default function PokemonMarketOverview({ overview }) {
                   Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} />
                 </div>
                 <p data-market-overview-metric="index" className="mt-0.5 text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatIndexValue(family.indexValue)}</p>
-                <p data-market-overview-change={SINCE_TRACKING} className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                <p data-market-overview-change={selectedWindow} className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                   <ChangeValue
-                    change={getPricePerformanceChange(family, SINCE_TRACKING)}
+                    change={getPricePerformanceChange(family, selectedWindow)}
                     marketLabel={family.label}
-                    windowLabel={SINCE_TRACKING_LABEL}
+                    windowLabel={periodLabel}
                     dimension={MARKET_DIMENSION_LABELS.pricePerformance}
                     className="font-semibold"
                   />
-                  <span aria-hidden="true"> price performance</span>
+                  <span aria-hidden="true"> {periodLabel}</span>
                 </p>
               </div>
             </div>
-
-            <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-secondary)]">
-              <span aria-hidden="true" className="font-medium uppercase tracking-[0.08em]">Price performance</span>
-              {["1D", "7D", "30D"].map((key) => (
-                <span key={key} data-market-overview-change={key} className="inline-flex items-center gap-1">
-                  <span aria-hidden="true" className="font-medium uppercase tracking-[0.08em]">{key}</span>
-                  <ChangeValue
-                    change={getPricePerformanceChange(family, key)}
-                    marketLabel={family.label}
-                    windowLabel={key}
-                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
-                    className="font-semibold"
-                  />
-                </span>
-              ))}
-            </p>
           </li>
         ))}
       </ul>

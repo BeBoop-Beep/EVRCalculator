@@ -27,7 +27,7 @@ test("Rankings — not /Explore — owns the canonical identity of the leaderboa
 test("Rankings contains one canonical leaderboard with set and family views", () => {
   assert.ok(exploreSource.includes("<ProductFamilyRankingsClient"));
   assert.ok(!exploreSource.includes("ExploreMarketMovers"));
-  assert.ok(!exploreSource.includes("ExploreTopRankings"));
+  assert.ok(!exploreSource.includes("SetMarketExplorer"));
   assert.ok(!exploreSource.includes("getExploreMarketMovers"));
   assert.equal((exploreSource.match(/getRipStatisticsTargets\(/g) || []).length, 1);
   assert.ok(exploreSource.includes("targets.filter(isPublicAnalyticsEligiblePokemonSet)"));
@@ -42,7 +42,7 @@ test("Rankings preserves its bounded layout and existing atmosphere", () => {
 
 test("Market reuses the existing canonical market modules and one loader per data family", () => {
   assert.ok(marketSource.includes("<ExploreMarketMovers payload={moversPayload} />"));
-  assert.ok(marketSource.includes("<ExploreTopRankings targets={targets} loadError={loadError} />"));
+  assert.ok(marketSource.includes("<SetMarketExplorer targets={targets} loadError={loadError} />"));
   assert.equal((marketSource.match(/getExploreMarketMovers\(\)/g) || []).length, 1);
   assert.equal((marketSource.match(/getExploreSetValueMarket\s*\(/g) || []).length, 1);
   assert.ok(marketSource.includes("Promise.allSettled"));

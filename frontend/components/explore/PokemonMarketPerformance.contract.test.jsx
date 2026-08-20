@@ -10,7 +10,10 @@ import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
 
-import PokemonMarketPerformance from "./PokemonMarketPerformance.jsx";
+// Rendered through the analysis surface, which owns the ONE timeframe state
+// the chart and the Market Overview period column share. Testing the pane in
+// isolation would test a window selection that cannot exist in the product.
+import PokemonMarketAnalysis from "./PokemonMarketAnalysis.jsx";
 import { resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -45,7 +48,7 @@ const overview = resolveMarketOverview(SNAPSHOT);
 function render(value = overview) {
   let renderer;
   TestRenderer.act(() => {
-    renderer = TestRenderer.create(React.createElement(PokemonMarketPerformance, { overview: value }));
+    renderer = TestRenderer.create(React.createElement(PokemonMarketAnalysis, { overview: value }));
   });
   return renderer;
 }
@@ -63,8 +66,13 @@ test("the section carries the locked heading and its accessible sub-label", () =
   const renderer = render();
   assert.equal(textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-heading")[0]), "Pokémon Market Performance");
   const description = textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-description")[0]);
-  assert.match(description, /Chain-linked price performance of the Raw Card Market and Top 10 Chase Market\./);
+  // Shortened so it cannot collide with the pane's controls, with its factual
+  // claim intact: chain-linked, and immune to new-set additions.
+  assert.match(description, /Chain-linked price performance\./);
   assert.match(description, /New-set additions do not create artificial jumps\./);
+  // Which markets those are is carried by the legend and the Overview rows.
+  assert.ok(renderer.root.findAll((node) => node.props?.["data-market-performance-legend-item"] === "raw").length > 0);
+  assert.ok(renderer.root.findAll((node) => node.props?.["data-market-performance-legend-item"] === "topChase").length > 0);
 });
 
 test("one chart draws both series with stable identity colors", () => {
@@ -82,7 +90,7 @@ test("one chart draws both series with stable identity colors", () => {
 
 test("the plotted values are normalized index values, never basket dollars", () => {
   const renderer = render();
-  // The default window is 30D, which the fixture covers from the first day.
+  // The default window is 7D, which the fixture covers from the first day.
   const chartText = seriesLines(renderer).map((node) => String(node.props.points)).join(" ");
   assert.ok(chartText.length > 0);
   const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
@@ -114,11 +122,11 @@ test("an unavailable timeframe cannot be selected, and no partial percentage app
 
   // Still on the default window — nothing fabricated, nothing substituted.
   const stillSelected = windowButtons(renderer).filter((node) => node.props["aria-checked"] === true);
-  assert.deepEqual(stillSelected.map((node) => node.props["data-market-window-value"]), ["30D"]);
-  // The legend still reports the 30D backend percentages, unchanged.
+  assert.deepEqual(stillSelected.map((node) => node.props["data-market-window-value"]), ["7D"]);
+  // The legend still reports the 7D backend percentages, unchanged.
   const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
-  assert.match(legend, /30D: up 2\.25 percent/);
-  assert.match(legend, /30D: down 3\.50 percent/);
+  assert.match(legend, /7D: up 2\.25 percent/);
+  assert.match(legend, /7D: down 3\.50 percent/);
   assert.doesNotMatch(legend, /6M/);
 });
 
@@ -154,22 +162,69 @@ test("the chart is keyboard reachable and announces the selected reading", () =>
 
 test("no overview means no performance section at all, rather than an empty chart", () => {
   for (const value of [null, undefined, { families: [] }]) {
+    // Constructed directly: render()'s default parameter would substitute the
+    // live fixture for `undefined` and quietly test the wrong case.
     let renderer;
-    TestRenderer.act(() => { renderer = TestRenderer.create(React.createElement(PokemonMarketPerformance, { overview: value })); });
-    assert.equal(renderer.toJSON(), null);
+    TestRenderer.act(() => { renderer = TestRenderer.create(React.createElement(PokemonMarketAnalysis, { overview: value })); });
+    assert.equal(renderer.root.findAll((node) => node.props?.["data-market-performance-pane"] !== undefined).length, 0);
+    assert.equal(windowButtons(renderer).length, 0, "no timeframe control without a market to chart");
+    // The surface still says so, rather than rendering an empty analysis.
+    assert.match(textOf(renderer.toJSON()), /Market Overview is temporarily unavailable\./);
   }
+});
+
+test("ONE timeframe drives both the chart and the Market Overview period column", () => {
+  const renderer = render();
+  const periodHeading = () => renderer.root.findAll((node) => node.props?.["data-market-overview-period-heading"] !== undefined)[0];
+  const periodCells = () => renderer.root.findAll(
+    (node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined
+  );
+
+  // Default: 7D, in the table heading and in the chart's own selection.
+  assert.equal(textOf(periodHeading()), "7D");
+  assert.equal(periodHeading().props["data-market-overview-period-heading"], "7D");
+  assert.deepEqual(periodCells().map((node) => node.props["data-market-overview-change"]), ["7D", "7D"]);
+  assert.match(textOf(periodCells()[0]), /−?\+?2\.25%/);
+
+  // Selecting 1D on the chart's selector moves the table column with it.
+  const oneDay = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "1D");
+  TestRenderer.act(() => { oneDay.props.onClick(); });
+  assert.equal(textOf(periodHeading()), "1D");
+  assert.deepEqual(periodCells().map((node) => node.props["data-market-overview-change"]), ["1D", "1D"]);
+  // The published 1D price performance, not the 1D tracked-value change.
+  assert.match(textOf(periodCells()[0]), /0\.49%/);
+  assert.doesNotMatch(textOf(periodCells()[0]), /11\.11/);
+
+  // And the fixed Since Tracking column stays on the TRACKED-VALUE series.
+  const tracked = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined);
+  assert.deepEqual(tracked.map((node) => node.props["data-market-overview-tracked-change"]), ["All", "All"]);
+  assert.match(textOf(tracked[0]), /44\.44%/);
+});
+
+test("selecting All keeps the two since-tracking series distinct", () => {
+  const renderer = render();
+  const all = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "All");
+  TestRenderer.act(() => { all.props.onClick(); });
+
+  const periodCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined)[0];
+  const trackedCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined)[0];
+  // Price performance since tracking (2.25%) is NOT the tracked-value change
+  // since tracking (44.44%). Collapsing them would be the bug this guards.
+  assert.match(textOf(periodCell), /2\.25%/);
+  assert.match(textOf(trackedCell), /44\.44%/);
+  assert.doesNotMatch(textOf(periodCell), /44\.44/);
 });
 
 
 test("the chart and its legend stay on the price-performance dimension only", () => {
   const renderer = render();
   const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
-  // The default 30D window: price performance is +2.25% / -3.50%; the tracked
-  // basket moved +33.33% / +77.77% over the same window and must not appear.
+  // The default 7D window: price performance is +2.25% / -3.50%; the tracked
+  // basket moved +22.22% / +66.66% over the same window and must not appear.
   assert.match(legend, /\+2\.25%/);
   assert.match(legend, /−3\.50%/);
-  assert.doesNotMatch(legend, /33\.33|77\.77|44\.44|88\.88/);
-  assert.match(legend, /Price Performance, 30D: up 2\.25 percent/);
+  assert.doesNotMatch(legend, /22\.22|66\.66|44\.44|88\.88/);
+  assert.match(legend, /Price Performance, 7D: up 2\.25 percent/);
 
   // The plotted geometry is built from the index trend. Every charted value
   // sits in index territory, nowhere near the basket dollars.

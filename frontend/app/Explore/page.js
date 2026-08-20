@@ -89,7 +89,7 @@ export default async function ExplorePage({ searchParams }) {
   return (
     // The root layout already provides the <main> landmark, so this is a plain
     // container — two <main> elements would announce two main regions.
-    <div className={`${styles.dashboard} explore-glass-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
       <PageArtworkAtmosphere
         src={backgroundUrl}
         dataAttribute="data-explore-ambient-artwork"

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ARTICLES } from "@/lib/articles/articleData.mjs";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 
 export const metadata = buildRouteMetadata({ path: "/Articles", title: "Articles | inDex", description: "Approachable research on how inDex models Pokémon pack openings, validates simulations, and builds RIP scores.", ogTitle: "inDex Articles" });
@@ -25,5 +27,13 @@ function ArticleCard({ article, featured = false }) {
 }
 
 export default function ArticlesPage() {
-  return <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8 sm:px-6 lg:px-8"><header className="mx-auto max-w-3xl text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">inDex</p><h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">Articles</h1><p className="mt-4 text-base leading-7 text-[var(--text-secondary)] sm:text-lg">I built inDex to answer one question: what is actually worth opening? These are the tests, tradeoffs, and weird problems behind the answer.</p></header><div className="mt-12 space-y-12">{groups.map(group => <section key={group}><h2 className="text-xl font-semibold text-[var(--text-primary)]">{group}</h2><ul className="mt-4 grid gap-5 md:grid-cols-2">{ARTICLES.filter(article => article.category === group).map((article, index) => <li key={article.href} className={group === "Analysis & Guides" ? "md:col-span-2" : ""}><ArticleCard article={article} featured={group === "Analysis & Guides" || index === 0} /></li>)}</ul></section>)}</div></div>;
+  // Same environment /Market and /Rankings wear — `.index-environment` supplies
+  // the room and `PageArtworkAtmosphere` the Pokemon wordmark mural, tuned by
+  // the shared --set-artwork-* tokens, so this reads as one product family.
+  // The mural's mask already puts its strongest band in the open space at the
+  // top and suppresses it through the content below, which is what keeps a
+  // reading surface readable. Desktop only, and no layout change: the classes
+  // are additive on the existing root.
+  return <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 explore-glass-scope index-environment relative isolate">
+    <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-articles-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" /><header className="mx-auto max-w-3xl text-center"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">inDex</p><h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">Articles</h1><p className="mt-4 text-base leading-7 text-[var(--text-secondary)] sm:text-lg">I built inDex to answer one question: what is actually worth opening? These are the tests, tradeoffs, and weird problems behind the answer.</p></header><div className="mt-12 space-y-12">{groups.map(group => <section key={group}><h2 className="text-xl font-semibold text-[var(--text-primary)]">{group}</h2><ul className="mt-4 grid gap-5 md:grid-cols-2">{ARTICLES.filter(article => article.category === group).map((article, index) => <li key={article.href} className={group === "Analysis & Guides" ? "md:col-span-2" : ""}><ArticleCard article={article} featured={group === "Analysis & Guides" || index === 0} /></li>)}</ul></section>)}</div></div>;
 }

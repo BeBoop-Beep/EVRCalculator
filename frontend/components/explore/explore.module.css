@@ -307,103 +307,10 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Leaderboard (Top Rankings)
+ * Below desktop: modules drop their card chrome and become page-width
+ * bands, and every interior scroll ceiling is lifted so a nested scroller
+ * never traps a thumb.
  * ------------------------------------------------------------------ */
-
-/* Sized off the shared module scroll ceiling; this module no longer has a
-   preview footer, so the ladder itself owns the full interior scroll height. */
-.ladderScroll {
-  max-height: var(--ex-module-scroll, 33rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.ladderRow {
-  position: relative;
-  display: grid;
-    grid-template-columns: 2.25rem minmax(9rem, 1.35fr) minmax(7rem, 1fr) minmax(8.5rem, auto);
-  align-items: center;
-  gap: 0.55rem;
-  padding: 9px 12px 9px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
-  transition: background-color 140ms ease, box-shadow 140ms ease;
-}
-
-/* The navigation region is a real link wrapping the information it describes,
-   with the chart as its sibling — TopMarketCardRow's composition. At desktop it
-   owns columns one and two and splits into rank | logo | set. */
-.ladderNav {
-  display: grid;
-  grid-column: 1 / 3;
-  grid-template-columns: 2.25rem 2.25rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.55rem;
-  min-width: 0;
-  border-radius: 6px;
-}
-
-.ladderNav:focus-visible,
-.ladderValueNav:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Column three. Explicit rather than auto-placed so the trend can never drift
-   into the value column if a child is added or hidden. */
-.ladderRow > [data-ranking-chart] {
-  grid-column: 3;
-  grid-row: 1;
-}
-
-/* Column four. A SIBLING link, not a nested one: the value and change area is
-   navigable without the chart between it and the identity link ever having to
-   live inside an anchor. */
-.ladderValueNav {
-  display: block;
-  grid-column: 4;
-  grid-row: 1;
-  min-width: 0;
-  border-radius: 6px;
-}
-
-.rankingHeader {
-  display: grid;
-  grid-template-columns: 2.25rem minmax(9rem, 1.35fr) minmax(7rem, 1fr) minmax(8.5rem, auto);
-  gap: 0.55rem;
-  padding: 7px 12px 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.rankingHeader span:last-child { text-align: right; }
-
-.ladderRow:last-child {
-  border-bottom: 0;
-}
-
-.ladderRow::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--ex-rank-accent, rgba(var(--ex-teal), 0.9));
-  opacity: var(--ex-rank-strength, 0);
-}
-
-.ladderRow:hover,
-.ladderRow:focus-visible {
-  background-color: rgba(255, 255, 255, 0.032);
-  background-image: linear-gradient(90deg, rgba(var(--ex-teal), 0.07) 0%, transparent 50%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-  outline: none;
-}
 
 @media (max-width: 1199.98px) {
   .surface,
@@ -415,8 +322,7 @@
     overflow: visible;
   }
 
-  .scrollBox,
-  .ladderScroll {
+  .scrollBox {
     max-height: none;
     overflow-y: visible;
     overscroll-behavior: auto;
@@ -432,45 +338,6 @@
     display: none;
   }
 
-  /* Below desktop the row stops being a narrowed four-column table. It is two
-     stacked full-width bands — the compact information line, then the trend —
-     exactly as TopMarketCardRow composes itself. Adapting the desktop ladder
-     template here is what forced the chart into a fraction of the card. */
-  .ladderRow {
-    min-height: 4.25rem;
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: 10px;
-    padding-bottom: 10px;
-  }
-
-  /* The whole compact line: rank | logo | set name + era | value + change.
-     Every one of those four regions is inside the link, so the entire
-     information row navigates. */
-  .ladderNav {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    grid-template-columns: 1.75rem 2.25rem minmax(0, 1fr) auto;
-    min-height: 2.75rem;
-    gap: 0.5rem;
-  }
-
-  /* The trend band. Full row width with no cap of any kind — it takes whatever
-     the row's content box gives it and reflows with the viewport. */
-  .ladderRow > [data-ranking-chart] {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    width: 100%;
-  }
-
-  /* The value lives inside the link on this composition, so the column-four
-     link has nothing to render. */
-  .ladderValueNav { display: none; }
-
-  .rankingHeader { display: none; }
-}
-
-.ladderRow:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 /* ------------------------------------------------------------------ *
@@ -503,7 +370,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .row,
-  .ladderRow,
   .mobileRow {
     transition: none;
   }
@@ -655,4 +521,431 @@
 
 :global([data-theme="light"]) .marketOverviewGroupStart {
   border-left-color: rgba(15, 23, 42, 0.08);
+}
+
+/* ------------------------------------------------------------------ *
+ * Market Overview + Pokémon Market Performance — ONE surface
+ *
+ * The two panes are the numeric and the temporal view of the same markets,
+ * so they share a border, a background and a context. The only thing between
+ * them is a hairline: a vertical one at desktop, a horizontal one when the
+ * grid collapses. Deliberately not two cards placed side by side.
+ * ------------------------------------------------------------------ */
+
+.marketAnalysis {
+  display: block;
+}
+
+@media (min-width: 1200px) {
+  .marketAnalysis {
+    /* 42 / 58. The Overview table is the fixed-width side (Market + two
+       tracked-value columns + index + ONE dynamic period column); the chart
+       takes the remainder rather than the leftovers. */
+    display: grid;
+    /* Explicit floors on both tracks: the panes can never collide, because
+       neither is allowed to shrink below the width its content needs. */
+    grid-template-columns: minmax(20rem, 42fr) minmax(22rem, 58fr);
+    align-items: stretch;
+  }
+
+  .marketAnalysis > section + section {
+    border-left: 1px solid var(--ex-line);
+  }
+}
+
+@media (max-width: 1199.98px) {
+  /* Stacked: summary first, then the chart, as one continuous sequence. */
+  .marketAnalysis > section + section {
+    border-top: 1px solid var(--ex-line);
+    margin-top: 0.75rem;
+    padding-top: 0.25rem;
+  }
+}
+
+:global([data-theme="light"]) .marketAnalysis > section + section {
+  border-color: rgba(15, 23, 42, 0.09);
+}
+
+/* ------------------------------------------------------------------ *
+ * Set Market — ONE master-detail surface
+ *
+ * Left: a compact, independently scrollable set browser built to hold the
+ * full tracked catalogue (167+ sets and growing) without a single per-row
+ * chart. Right: the selected set's analysis, which updates in place.
+ *
+ * The two are one component with one border. A subtle vertical hairline is
+ * the only separation — never a second card.
+ * ------------------------------------------------------------------ */
+
+.setMarketBody {
+  display: block;
+}
+
+@media (min-width: 1200px) {
+  .setMarketBody {
+    /* 42 / 58, matching the analysis surface above: neither the browser nor
+       the selected-set chart is allowed to become the narrow one. */
+    display: grid;
+    grid-template-columns: minmax(19rem, 42fr) minmax(24rem, 58fr);
+    align-items: stretch;
+  }
+
+  .setMarketDetail {
+    border-left: 1px solid var(--ex-line);
+  }
+}
+
+:global([data-theme="light"]) .setMarketDetail {
+  border-color: rgba(15, 23, 42, 0.09);
+}
+
+/* The browser's own scroll region. Bounded so 167 rows never become 10,000px
+   of document, and so the selected-set pane stays on screen while the list is
+   scanned. Below desktop the list is the page's own scroll and this ceiling is
+   lifted — a nested scroller inside a mobile page is a trap. */
+.setListScroll {
+  max-height: var(--ex-set-market-scroll, clamp(22rem, calc(100vh - 20rem), 34rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1199.98px) {
+  .setListScroll {
+    max-height: none;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+  }
+}
+
+/* The same "there is more below" fade the other bounded scroll regions use,
+   so the row the ceiling cuts through never reads as clipping. */
+.setListShell {
+  position: relative;
+  min-width: 0;
+}
+
+@media (min-width: 1200px) {
+  .setListShell::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 30px;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(9, 15, 26, 0) 0%, rgba(9, 15, 26, 0.92) 100%);
+  }
+}
+
+.setListHeader {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(5.5rem, auto);
+  gap: 0.55rem;
+  padding: 7px 12px 6px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.setListHeader span:last-child {
+  text-align: right;
+}
+
+@media (max-width: 1199.98px) {
+  .setListHeader {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+/* One row = one real button. No sparkline, no nested interactive children —
+   which is what makes a catalogue this size cheap to render and keyboard
+   navigable by default. */
+.setListRow {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 2rem 2rem minmax(0, 1fr) minmax(5.5rem, auto);
+  align-items: center;
+  gap: 0.55rem;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+  text-align: left;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+@media (max-width: 1199.98px) {
+  .setListRow {
+    /* Comfortable thumb target on the mobile browser list. */
+    min-height: 3.5rem;
+    padding: 10px 4px;
+  }
+}
+
+.setListRow:last-child {
+  border-bottom: 0;
+}
+
+.setListRow:hover {
+  background-color: rgba(255, 255, 255, 0.032);
+  background-image: linear-gradient(90deg, rgba(var(--ex-teal), 0.07) 0%, transparent 50%);
+}
+
+.setListRow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The active state has to be obvious without shouting: a teal edge, a slightly
+   lifted ground, in the same vocabulary the ladder already used for rank. */
+.setListRowActive {
+  background-color: rgba(var(--ex-teal), 0.075);
+  box-shadow: inset 2px 0 0 rgba(var(--ex-teal), 0.9);
+}
+
+.setListRowActive:hover {
+  background-color: rgba(var(--ex-teal), 0.1);
+}
+
+:global([data-theme="light"]) .setListRow {
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+
+:global([data-theme="light"]) .setListRowActive {
+  background-color: rgba(var(--ex-teal), 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setListRow {
+    transition: none;
+  }
+}
+
+/* Market Overview inside the shared analysis surface.
+ *
+ * The table lives in ~42% of the page rather than the full width it had as a
+ * standalone card. Five columns fit there comfortably at a slightly tighter
+ * rhythm; the previous eight did not, and overflowed the pane onto the chart.
+ * Only spacing changes here — every published figure keeps its own size.
+ */
+@media (min-width: 1200px) {
+  .marketAnalysis .marketOverviewTable th,
+  .marketAnalysis .marketOverviewTable td {
+    padding: 0.5rem 0.5rem;
+  }
+
+  .marketAnalysis .marketOverviewTable th:first-child,
+  .marketAnalysis .marketOverviewTable td:first-child {
+    padding-left: 0.9rem;
+  }
+
+  .marketAnalysis .marketOverviewTable th:last-child,
+  .marketAnalysis .marketOverviewTable td:last-child {
+    padding-right: 0.9rem;
+  }
+
+  /* Headers may wrap onto two lines; body figures never may. A wrapped
+     "TRACKED / VALUE" costs one line of chrome, a wrapped "$39,688.67" would
+     be unreadable. */
+  .marketAnalysis .marketOverviewTable thead th {
+    white-space: normal;
+    line-height: 1.25;
+  }
+}
+
+/* Set Market toolbar controls.
+ *
+ * The same dark form recipe the collection tools use — a solid
+ * --surface-page ground, the shared subtle border, primary text, secondary
+ * placeholder, accent focus. The earlier /42 alpha ground let the page behind
+ * show through and rendered as a bright white field, which is not a look this
+ * site has anywhere.
+ *
+ * `color-scheme: dark` is what makes the NATIVE select popup dark too; no
+ * amount of styling on the <select> box itself reaches the menu the platform
+ * draws.
+ */
+.setMarketControl {
+  color-scheme: dark;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background-color: var(--surface-page);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.setMarketControl::placeholder {
+  color: var(--text-secondary);
+}
+
+.setMarketControl:hover {
+  border-color: rgba(var(--ex-teal), 0.35);
+}
+
+.setMarketControl:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--ex-teal), 0.35);
+}
+
+.setMarketControl option {
+  background-color: var(--surface-page);
+  color: var(--text-primary);
+}
+
+:global([data-theme="light"]) .setMarketControl {
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ *
+ * Selected-set Top Movers carousel
+ *
+ * A FIXED-HEIGHT band at the bottom of the analysis pane. Paging moves the
+ * track horizontally and nothing else: the viewport, the chart above it and
+ * the surrounding panel never change size, so advancing the movers cannot
+ * shift the page. Ten movers occupy the same vertical space as three.
+ * ------------------------------------------------------------------ */
+
+.moverCarousel {
+  /* The two numbers the whole rail is derived from. Cards do not carry a width
+     of their own: they divide whatever the track actually measures, so the
+     visible run always lands flush on both edges.
+
+     This replaces a `flex: 0 0 13rem`, which was the sizing bug. On the
+     704px detail pane the track measures 602px, so 208px cards fitted twice
+     and left 178px — 30% of the rail — as dead space with a third card
+     clipped mid-name. A fixed basis cannot fill a fluid container. */
+  --mover-gap: 0.5rem;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* The scroll port. Native horizontal scrolling gives touch swipe and
+   trackpad panning for free; the arrows drive the same scrollLeft. The
+   height is fixed by the cards, never by how many there are. */
+.moverTrack {
+  /* The sizing container. Cards query THIS, not the viewport, so the count
+     follows the pane the rail actually sits in rather than the window — the
+     detail pane is a fixed 704px at every desktop width because the page is
+     max-w-7xl, and a viewport media query would be measuring the wrong box. */
+  container-type: inline-size;
+  container-name: mover-rail;
+  display: flex;
+  gap: var(--mover-gap);
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.moverTrack::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moverTrack {
+    scroll-behavior: auto;
+  }
+}
+
+.moverCard {
+  /* THREE across by default: on the 602px track that is a 195px card, which
+     holds a full card name, its price and its delta without truncating to
+     initials. Readability beats card count — four here would be 144px and
+     "Team Rocket's Mewtwo ex" would not survive it. */
+  display: flex;
+  flex: 0 0 calc((100% - 2 * var(--mover-gap)) / 3);
+  /* Flex items default to `min-width: auto`, so a long unbreakable card name
+     ("Team Rocket's Mewtwo ex") overrode the basis and pushed individual cards
+     to 211px inside a 195px slot — the run then no longer divided the track
+     and the rail lost its flush right edge again. This is the floor that makes
+     the basis authoritative. */
+  min-width: 0;
+  overflow: hidden;
+  align-items: center;
+  gap: 0.55rem;
+  height: 4.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.022);
+  scroll-snap-align: start;
+  transition: background-color 140ms ease;
+}
+
+/* Only where a fourth card is genuinely comfortable — a ~760px rail gives
+   4 x 178px. Nothing today is this wide; the rule exists so a future wider
+   pane widens the rail instead of stranding space in it again. */
+@container mover-rail (min-width: 47rem) {
+  .moverCard {
+    flex-basis: calc((100% - 3 * var(--mover-gap)) / 4);
+  }
+}
+
+@media (max-width: 1199.98px) {
+  /* One card and a peek. The peek is the affordance that says "swipe" on a
+     device with no arrows, and a percentage keeps the card proportional at
+     360px and 390px instead of inheriting a desktop pixel width. */
+  .moverCard {
+    flex-basis: calc(78% - var(--mover-gap));
+    height: 4.75rem;
+  }
+}
+
+.moverCard:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.moverCard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:global([data-theme="light"]) .moverCard {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+.moverStep {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background-color: var(--surface-page);
+  color: var(--text-secondary);
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.moverStep:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.moverStep:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.moverStep:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1199.98px) {
+  /* Touch drives the track directly; the arrows would only steal thumb room. */
+  .moverStep {
+    display: none;
+  }
 }

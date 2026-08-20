@@ -291,40 +291,56 @@ test("the Cards transparency stack: only the controls carry a surface, never the
   assert.ok(!gridBranch.includes("backdrop-blur"), "no backdrop blur may sit between the artwork and the tiles");
 });
 
-test("one fixed ambient artwork layer persists with a reduced-motion-safe low-cost glow", () => {
+test("one fixed ambient environment layer persists, and it is the set's own artwork", () => {
+  // The set page wears the shared `.index-environment` — the same room,
+  // falloff, lighting and panel elevation /Market and /Rankings wear — but its
+  // identity source is the SET'S OWN ARTWORK, oversized and cropped.
+  //
+  // A giant readable set NAME was tried in this slot and rejected: it read as a
+  // word poster rather than a branded room, and it discarded the one thing that
+  // actually tells one set page from another. Type must not come back here.
   assert.equal((source.match(/data-set-ambient-artwork/g) || []).length, 1);
-  assert.ok(source.includes("selectedTarget?.hero_image_url || selectedTarget?.logo_image_url"));
-  assert.match(source, /data-set-ambient-artwork[\s\S]+pointer-events-none fixed inset-0 -z-10/);
-  assert.ok(source.includes("set-page-atmosphere pointer-events-none fixed"));
-  assert.ok(source.includes("object-contain object-center"));
-  assert.ok(source.includes("set-page-atmosphere-artwork"));
-  assert.ok(source.includes("set-page-atmosphere-bloom"));
-  // Every knob is a --set-artwork-* token in globals.css so the treatment is
-  // retuned in one place. The markup must not hardcode an opacity or filter,
-  // and no tab may introduce its own override.
-  assert.ok(
-    !/set-page-atmosphere-(artwork|bloom)[^"]*(opacity-|brightness\(|saturate\(|grayscale\()/.test(source),
-    "the artwork layers must not hardcode opacity or filter values in markup"
+  assert.ok(source.includes("set-detail-glass-scope index-environment"), "the root opts into the shared environment");
+  assert.match(
+    source,
+    /<PageArtworkAtmosphere\s+src=\{ambientSetArtworkUrl\}\s+dataAttribute="data-set-ambient-artwork"/,
+    "the environmental identity is the set's real artwork"
   );
+  assert.ok(source.includes("selectedTarget?.hero_image_url || selectedTarget?.logo_image_url"));
+  assert.ok(!source.includes("PageEnvironmentMural"), "giant set-name typography must not return as the mural");
   assert.ok(!source.includes("data-set-ambient-artwork animate-"));
-  assert.match(globals, /\.set-page-atmosphere-artwork \{[\s\S]+opacity: var\(--set-artwork-opacity\);[\s\S]+transform: translateY\(var\(--set-artwork-y-offset\)\);/);
-  assert.match(globals, /\.set-page-atmosphere-bloom \{[\s\S]+opacity: var\(--set-artwork-bloom-opacity\);/);
-  assert.match(globals, /@media \(min-width: 1024px\)[\s\S]+\.set-page-atmosphere \{[\s\S]+--set-artwork-y-offset: 28px;/);
-  // Ambient, not foreground. brightness() on the crisp layer stays at or below
-  // 1 so white-heavy artwork (151's numerals) cannot clip to pure white and
-  // read as bright blocks behind the charts, and the bloom — the layer that
-  // dominates perceived brightness — stays well under the crisp layer's reach.
-  const artworkBrightness = Number(globals.match(/--set-artwork-brightness: ([\d.]+);/)[1]);
-  assert.ok(artworkBrightness <= 1, `crisp artwork brightness must not exceed 1, got ${artworkBrightness}`);
-  const artworkOpacityLg = Number(globals.match(/--set-artwork-opacity-lg: ([\d.]+);/)[1]);
-  assert.ok(artworkOpacityLg > 0 && artworkOpacityLg <= 0.16, `artwork must stay ambient but visible, got ${artworkOpacityLg}`);
-  const bloomOpacityLg = Number(globals.match(/--set-artwork-bloom-opacity-lg: ([\d.]+);/)[1]);
-  assert.ok(bloomOpacityLg > 0 && bloomOpacityLg <= 0.18, `bloom must stay a glow, not a second image, got ${bloomOpacityLg}`);
-  assert.match(globals, /\.set-page-atmosphere::after[\s\S]+animation: set-page-atmosphere-breathe 14s ease-in-out infinite;/);
-  assert.match(globals, /@keyframes set-page-atmosphere-breathe[\s\S]+opacity: 0\.34;[\s\S]+opacity: 0\.52;/);
-  assert.match(globals, /@media \(prefers-reduced-motion: reduce\)[\s\S]+\.set-page-atmosphere::after[\s\S]+animation: none;/);
-  assert.ok(!globals.includes("filter: brightness"));
-  assert.ok(!source.includes("Paldean Fates"));
+
+  // Ambient, not foreground: the markup carries no presentation of its own, so
+  // the treatment is retuned in exactly one place.
+  const mural = fs.readFileSync(path.join(here, "../ui/PageArtworkAtmosphere.jsx"), "utf8");
+  assert.ok(!/opacity:|filter:|opacity-\[|\[filter:/.test(mural), "no hardcoded presentation in markup");
+  assert.match(mural, /aria-hidden="true"/);
+  assert.match(mural, /pointer-events-none fixed inset-0 -z-10/);
+
+  // The set's palette IS its identity. The luminance relief the environment
+  // applies to the Pokemon wordmark recolours its source, so it must stay
+  // scoped to /Market and /Rankings; the set page's crisp layer carries no
+  // colour-shifting filter at all.
+  assert.ok(
+    globals.includes(".index-environment.explore-glass-scope .set-page-atmosphere-artwork {"),
+    "the luminance relief must not reach the set page's artwork"
+  );
+  const setArtwork = globals.slice(
+    globals.indexOf(".index-environment.set-detail-glass-scope .set-page-atmosphere-artwork {"),
+    globals.indexOf(".index-environment.set-detail-glass-scope .set-page-atmosphere-bloom {")
+  );
+  assert.ok(setArtwork.length > 0, "the set page must define its own artwork treatment");
+  assert.ok(
+    !/(grayscale|sepia|hue-rotate|contrast|saturate|invert)\(/.test(setArtwork),
+    `the set artwork must keep its source colours: ${setArtwork}`
+  );
+
+  // Oversized and cropped, and quieter than the UI in front of it.
+  const scope = globals.slice(globals.indexOf(".index-environment.set-detail-glass-scope .set-page-atmosphere {"));
+  const scale = Number(scope.match(/--set-artwork-scale: ([\d.]+);/)[1]);
+  assert.ok(scale > 1.1, `the artwork must run past its frame, got ${scale}`);
+  const opacity = Number(scope.match(/--set-artwork-opacity: ([\d.]+);/)[1]);
+  assert.ok(opacity > 0 && opacity <= 0.16, `the artwork must stay ambient but visible, got ${opacity}`);
 });
 
 test("opening economics live in Overview Opening Profit vs Cost", () => {

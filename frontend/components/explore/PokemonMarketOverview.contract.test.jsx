@@ -48,10 +48,16 @@ const SNAPSHOT = {
   },
 };
 
-function render(overview) {
+// The period column is dynamic and CONTROLLED by PokemonMarketAnalysis, so
+// every render here names the window under test. "All" is the default because
+// it is the window where the two since-tracking series are most easily
+// confused, which is exactly what most of these tests are guarding.
+function render(overview, selectedWindow = "All", selectedLabel = "Since Tracking") {
   let renderer;
   TestRenderer.act(() => {
-    renderer = TestRenderer.create(React.createElement(PokemonMarketOverview, { overview }));
+    renderer = TestRenderer.create(
+      React.createElement(PokemonMarketOverview, { overview, selectedWindow, selectedLabel })
+    );
   });
   return renderer;
 }
@@ -106,10 +112,10 @@ test("the desktop table groups the two dimensions with real colgroup headers", (
     assert.equal(group.props.scope, "colgroup");
     assert.ok(group.props.colSpan >= 2, "each group must actually span its columns");
   }
-  // Tracked Market Value spans value + since; Price Performance spans the
-  // index plus its four windows.
+  // Tracked Market Value spans value + since tracking; Price Performance spans
+  // the index plus the one dynamic period column.
   assert.equal(groups[0].props.colSpan, 2);
-  assert.equal(groups[1].props.colSpan, 5);
+  assert.equal(groups[1].props.colSpan, 2);
 });
 
 test("Tracked Value Since Tracking and Price Performance Since Tracking are different data", () => {
@@ -138,18 +144,27 @@ test("the tracked basket can grow while price performance falls", () => {
   assert.match(textOf(price), /−3\.50%/);
 });
 
-test("the price-performance cells report the backend percentages with a spoken direction", () => {
-  const renderer = render(overview);
-  const rawRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "raw")[0];
-  const rawText = textOf(rawRow);
-  assert.match(rawText, /\+0\.50%/);
-  assert.match(rawText, /\+1\.50%/);
-  assert.match(rawText, /\+2\.25%/);
-  assert.match(rawText, /Raw Card Market, Price Performance, 30D: up 2\.25 percent\./);
+test("the dynamic period column reports the backend percentage for the selected window", () => {
+  // One window at a time, each read straight from `changes` — the column
+  // heading and the figures move together and are never mixed.
+  for (const [key, label, raw, chase] of [
+    ["1D", "1D", /\+0\.50%/, /−0\.25%/],
+    ["7D", "7D", /\+1\.50%/, /−1\.75%/],
+    ["30D", "30D", /\+2\.25%/, /−3\.50%/],
+  ]) {
+    const renderer = render(overview, key, label);
+    const heading = renderer.root.findAll((node) => node.props?.["data-market-overview-period-heading"] !== undefined)[0];
+    assert.equal(textOf(heading), label);
+    assert.equal(heading.props["data-market-overview-period-heading"], key);
 
-  const chaseRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "topChase")[0];
-  assert.match(textOf(chaseRow), /−3\.50%/);
-  assert.match(textOf(chaseRow), /Top 10 Chase Market, Price Performance, Since Tracking: down 3\.50 percent\./);
+    const rawRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "raw")[0];
+    const rawCell = rawRow.findAll((node) => node.props?.["data-market-overview-change"] === key)[0];
+    assert.match(textOf(rawCell), raw);
+    assert.match(textOf(rawCell), new RegExp(`Raw Card Market, Price Performance, ${label}:`));
+
+    const chaseRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "topChase")[0];
+    assert.match(textOf(chaseRow.findAll((node) => node.props?.["data-market-overview-change"] === key)[0]), chase);
+  }
 });
 
 test("mobile gets a stacked-card composition, not a horizontally scrolled table", () => {
@@ -185,15 +200,25 @@ test("each mobile card explains BOTH dimensions on its own", () => {
   assert.match(priceGroup, /Market Index/);
   assert.match(priceGroup, /102\.25/);
   assert.match(priceGroup, /\+2\.25%/);
-  assert.match(priceGroup, /price performance/);
 
-  // ...plus the short-window price-performance line.
   const cardText = textOf(rawCard);
-  for (const window of ["1D", "7D", "30D"]) {
-    assert.ok(cardText.includes(window), `mobile card must report ${window}`);
-  }
-  assert.match(cardText, /Raw Card Market, Price Performance, 30D: up 2\.25 percent\./);
+  assert.match(cardText, /Raw Card Market, Price Performance, Since Tracking: up 2\.25 percent\./);
   assert.match(cardText, /Raw Card Market, Tracked Value, Since Tracking: up 9\.75 percent\./);
+});
+
+test("the mobile card's period line follows the same shared selection", () => {
+  // Same data model as desktop, compact presentation — never the five-column
+  // table squeezed onto a 360px screen.
+  const renderer = render(overview, "7D", "7D");
+  const rawCard = renderer.root.findAll((node) => node.props?.["data-market-overview-card"] === "raw")[0];
+  const periodLine = rawCard.findAll((node) => node.props?.["data-market-overview-change"] === "7D")[0];
+  assert.match(textOf(periodLine), /\+1\.50%/);
+  assert.match(textOf(periodLine), /7D/);
+  assert.match(textOf(periodLine), /Raw Card Market, Price Performance, 7D: up 1\.50 percent\./);
+  // The tracked-value line beside it is still the since-tracking series.
+  const trackedLine = rawCard.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
+  assert.match(textOf(trackedLine), /\+9\.75%/);
+  assert.match(textOf(trackedLine), /since tracking/);
 });
 
 // InfoPopover renders its body only while open, so the help copy is asserted
