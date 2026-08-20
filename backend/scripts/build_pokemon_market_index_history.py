@@ -60,7 +60,16 @@ def main():
         raise SystemExit(gate.exit_code)
     # BLOCKER 1: the accepted-date set is resolved BEFORE the build so that
     # chain-link math never sees a DEGRADED or INCOMPLETE date.
-    accepted = accepted_market_dates(client, through_date=args.market_date)
+    try:
+        accepted = accepted_market_dates(client, through_date=args.market_date)
+    except Exception as exc:
+        # Without quality history we cannot know which dates are safe to chain
+        # through, and chaining through an unknown date is exactly the defect
+        # this work exists to prevent. Fail closed rather than guess.
+        print(json.dumps({"errors": [
+            f"Market Date Quality history unavailable ({exc}); refusing to run "
+            f"chain-link math without it"]}, sort_keys=True))
+        raise SystemExit(3) from exc
     if gate.decision.market_date:
         accepted.add(str(gate.decision.market_date)[:10])
     try:

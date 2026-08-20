@@ -309,3 +309,29 @@ def test_blocked_date_never_reaches_artifact_persistence(monkeypatch):
 
     assert excinfo.value.code == 3
     assert called == []
+
+
+def test_missing_quality_history_fails_closed_instead_of_crashing(monkeypatch, capsys):
+    """The quality table is a prerequisite; its absence must defer, not crash.
+
+    Chaining through dates of unknown quality is the exact defect this work
+    exists to prevent, so an unreadable history blocks.
+    """
+    _force_status(monkeypatch, STATUS_READY)
+    client = _Client()
+    built = []
+
+    monkeypatch.setattr(index_history, "get_client", lambda: client)
+    monkeypatch.setattr(index_history, "accepted_market_dates",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            RuntimeError('relation "pokemon_market_date_quality" does not exist')))
+    monkeypatch.setattr(index_history, "build_market_index_history",
+                        lambda *a, **k: built.append(1) or [])
+    monkeypatch.setattr("sys.argv", ["prog", "--commit", "--market-date", "2026-08-19"])
+
+    with pytest.raises(SystemExit) as excinfo:
+        index_history.main()
+
+    assert excinfo.value.code == 3
+    assert built == [], "must not build chain math without quality history"
+    assert client.artifact_upserts == []
