@@ -198,23 +198,28 @@ def test_both_overall_versions_are_registered_and_identifiable():
     assert len(set(KNOWN_OVERALL_RIP_VERSIONS)) == len(KNOWN_OVERALL_RIP_VERSIONS)
 
 
-def test_v4_and_v10_are_implemented_but_not_canonical():
-    """Promotion is a separate, deliberate change. This asserts it has not happened."""
-    assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
-    assert canonical_financial_rip_is_v3() is True
-    assert canonical_financial_rip_is_v4() is False
-    assert canonical_overall_rip_is_v9() is True
-    assert canonical_overall_rip_is_v10() is False
+def test_v3_and_v9_remain_computable_as_history():
+    """Financial RIP V4 / Overall RIP V10 are now canonical (the promotion cutover
+    has happened). V3/V9 must remain registered and computable so historical rows
+    stay readable and identifiable — they are simply no longer selected."""
+    assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert canonical_financial_rip_is_v4() is True
+    assert canonical_financial_rip_is_v3() is False
+    assert canonical_overall_rip_is_v10() is True
+    assert canonical_overall_rip_is_v9() is False
+    assert is_known_financial_rip_version(FINANCIAL_RIP_V3_VERSION)
+    assert is_known_overall_rip_version(OVERALL_RIP_V9_VERSION)
 
 
-def test_the_selection_payload_discloses_the_unpromoted_versions():
+def test_the_selection_payload_discloses_the_promoted_versions():
     selection = canonical_scoring_selection()
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V9_VERSION
-    assert selection["implementedNotCanonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
-    assert selection["implementedNotCanonicalOverallRipVersion"] == OVERALL_RIP_V10_VERSION
+    assert selection["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
+    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V10_VERSION
     assert FINANCIAL_RIP_V4_VERSION in selection["availableFinancialRipVersions"]
     assert OVERALL_RIP_V10_VERSION in selection["availableOverallRipVersions"]
+    assert FINANCIAL_RIP_V3_VERSION in selection["availableFinancialRipVersions"]
+    assert OVERALL_RIP_V9_VERSION in selection["availableOverallRipVersions"]
 
 
 def test_v4_weights_are_numerically_equal_to_v3_but_separately_owned():
@@ -272,10 +277,14 @@ def test_v10_contract_reports_which_financial_model_it_carries():
 
 
 def test_v9_contract_is_unchanged_by_the_v10_addition():
+    """`public_rip_contract_v9` freezes `canonicalOverallRipVersion` at V9 (a
+    legacy, structurally-frozen contract field), but its `canonicalFinancialRipVersion`
+    field reads the live `CANONICAL_FINANCIAL_RIP_VERSION` constant, so it moves
+    with the V4 cutover even though this contract module itself is unchanged."""
     contract = build_public_rip_contract_v9(_target())
     assert contract["contractVersion"] == PUBLIC_RIP_CONTRACT_V9_VERSION
     assert contract["canonicalOverallRipVersion"] == OVERALL_RIP_V9_VERSION
-    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V3_VERSION
+    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
 
 
 def test_building_the_v10_contract_does_not_mutate_the_source_target():
