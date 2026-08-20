@@ -1319,3 +1319,264 @@ body::-webkit-scrollbar-thumb:hover {
     }
   }
 }
+
+/* ==================================================================== *
+ * MARKET PAGE ENVIRONMENT
+ *
+ * The Market page is a data terminal, and it should read as one: an
+ * interface placed inside a dimly lit branded room rather than a graphic
+ * pasted onto a page.
+ *
+ * Everything below is scoped to `.market-atmosphere-scope`, a class carried
+ * only by /Market's root. /Explore and the set pages share the same artwork
+ * component and the same `--set-artwork-*` token defaults and are deliberately
+ * left exactly as they were.
+ *
+ * FOUR LAYERS, back to front:
+ *
+ *   -20  ::before on the scope   THE ROOM — deep gradient, one soft ambient
+ *                                light from upper centre-right, a vignette
+ *                                that darkens the periphery, and fine grain.
+ *                                Renders at every width.
+ *   -10  .set-page-atmosphere    THE MURAL — the Pokémon wordmark, ghosted to
+ *                                a cool monochrome. Desktop only (the artwork
+ *                                container is `hidden desk:block`).
+ *        ::after on that layer   THE HAZE — the existing breathing bloom plus
+ *                                an edge veil that sinks the mural's periphery.
+ *    0   content                 THE PANELS — lifted off the room by a denser
+ *                                ground, a cleaner edge and a real drop shadow.
+ *
+ * The scope root is `relative isolate`, so every negative z-index below is
+ * confined to this page's stacking context and can never escape behind the
+ * app shell.
+ * ==================================================================== */
+
+/* ---- Layer 1: the room ---------------------------------------------- *
+ * Painted top-to-bottom in `background-image`, so the list reads
+ * front-to-back: grain, then vignette, then the ambient light, then the base
+ * gradient.
+ *
+ * The grain exists only to keep large flat gradients from banding and reading
+ * as digital emptiness. At this opacity it is felt, not seen.
+ */
+.market-atmosphere-scope::before {
+  position: fixed;
+  z-index: -20;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background-image:
+    /* 1. Grain, over everything, so no gradient below can band. */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E"),
+    /* 2. Side walls. Two hard-edged columns of shadow down the far left and
+       right, well outside the 1280px content column. This is the single
+       biggest contributor to "a room": the page now has walls that fall away
+       instead of a gradient that runs to the window edge. */
+    linear-gradient(
+      90deg,
+      rgba(0, 2, 6, 0.78) 0%,
+      rgba(1, 3, 8, 0.42) 8%,
+      rgba(2, 5, 11, 0.1) 20%,
+      transparent 34%,
+      transparent 66%,
+      rgba(2, 5, 11, 0.1) 80%,
+      rgba(1, 3, 8, 0.42) 92%,
+      rgba(0, 2, 6, 0.78) 100%
+    ),
+    /* 3. Ceiling and floor shadow, so the space is closed on all four sides
+       rather than only left and right. */
+    linear-gradient(
+      180deg,
+      rgba(0, 2, 6, 0.5) 0%,
+      transparent 14%,
+      transparent 62%,
+      rgba(0, 2, 6, 0.34) 88%,
+      rgba(0, 1, 4, 0.66) 100%
+    ),
+    /* 4. The wall-wash: a tall soft pool of light centred on the content
+       column. This is what gives the middle of the page a clearer ground and
+       lets the periphery read as further away. It lifts by a few levels only —
+       the separation comes from the shadows above, not from brightness. */
+    radial-gradient(
+      ellipse 46% 70% at 50% 34%,
+      rgba(120, 160, 224, 0.075) 0%,
+      rgba(88, 128, 190, 0.038) 40%,
+      rgba(48, 82, 140, 0.012) 68%,
+      transparent 88%
+    ),
+    /* 5. The key light, tightened and pushed to upper centre-right so the wall
+       is lit unevenly and the falloff has a direction. */
+    radial-gradient(
+      ellipse 56% 46% at 66% -6%,
+      rgba(140, 182, 246, 0.12) 0%,
+      rgba(82, 132, 206, 0.055) 34%,
+      rgba(44, 84, 148, 0.016) 62%,
+      transparent 80%
+    ),
+    /* 6. A faint cool bounce off the floor, low and wide. Stops the bottom of
+       the page from reading as a dead black band. */
+    radial-gradient(
+      ellipse 90% 26% at 50% 104%,
+      rgba(70, 110, 172, 0.06) 0%,
+      rgba(46, 78, 132, 0.024) 44%,
+      transparent 78%
+    ),
+    /* 7. The wall itself. */
+    linear-gradient(
+      180deg,
+      #08121f 0%,
+      #0a1524 22%,
+      #081120 52%,
+      #050b14 82%,
+      #03070d 100%
+    );
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 160px 160px, cover, cover, cover, cover, cover, cover;
+}
+
+/* ---- Layer 2: the mural ---------------------------------------------- *
+ * The source art is the full-colour Pokémon wordmark: deep blue letterforms
+ * with a bright #ffca02 fill. At the shared 0.95 saturation that yellow sat a
+ * few points away from --accent (#FACC15) and competed directly with the
+ * active pills, the gain/loss figures and the chart lines — the "muddy"
+ * reading. Here the art is taken to luminance first and re-tinted cool, so it
+ * contributes SHAPE and DEPTH but no brand colour of its own.
+ */
+.market-atmosphere-scope .set-page-atmosphere {
+  /* Dimmer and softer than the shared treatment: a wall graphic seen across a
+     room, not a watermark laid on the document. */
+  --set-artwork-opacity: 0.058;
+  --set-artwork-opacity-lg: 0.066;
+  --set-artwork-bloom-opacity: 0.03;
+  --set-artwork-bloom-opacity-lg: 0.034;
+  --set-artwork-bloom-blur: 58px;
+  --set-artwork-scale: 1.04;
+  --set-artwork-bloom-scale: 1.06;
+  /* The ambient lift is now the room's job; this only feathers the mural. */
+  --set-artwork-lift-opacity: 0.14;
+  /* Strongest through the open band behind the header and the movers strip,
+     then falling away through the dense analysis surfaces below. Reveal the
+     room in the negative space, not behind the numbers. */
+  --set-artwork-mask:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.62) 0%,
+      #000 16%,
+      rgba(0, 0, 0, 0.66) 44%,
+      rgba(0, 0, 0, 0.3) 70%,
+      rgba(0, 0, 0, 0.08) 100%
+    );
+}
+
+/* Duotone, written out rather than tokenised: the shared filter chain has no
+   tint stage, and adding one to it would change three other routes to serve
+   one. grayscale() erases the logo palette; sepia() + hue-rotate() re-tint the
+   remaining luminance to the room's cool blue. */
+.market-atmosphere-scope .set-page-atmosphere-artwork {
+  filter:
+    grayscale(1) brightness(0.74) sepia(0.45) hue-rotate(176deg) saturate(1.9)
+    blur(2.4px);
+}
+
+.market-atmosphere-scope .set-page-atmosphere-bloom {
+  filter:
+    grayscale(1) brightness(0.6) sepia(0.5) hue-rotate(178deg) saturate(2.2)
+    blur(var(--set-artwork-bloom-blur));
+}
+
+/* ---- Layer 3: haze + edge veil --------------------------------------- *
+ * Keeps the inherited breathing bloom and adds a veil that darkens the frame
+ * ABOVE the mural, so the art sinks into the corners instead of running to
+ * the edges of the viewport like wallpaper.
+ */
+.market-atmosphere-scope .set-page-atmosphere::after {
+  background:
+    radial-gradient(
+      ellipse 74% 78% at 50% 38%,
+      transparent 0%,
+      transparent 42%,
+      rgba(3, 8, 16, 0.5) 76%,
+      rgba(2, 5, 12, 0.82) 100%
+    ),
+    radial-gradient(
+      ellipse at center calc(50% + var(--set-artwork-y-offset, 20px)),
+      rgba(147, 187, 245, 0.055) 0%,
+      rgba(59, 130, 246, 0.024) 34%,
+      transparent 68%
+    );
+}
+
+/* ---- Layer 4: the panels --------------------------------------------- *
+ * A denser ground (so the mural genuinely recedes behind dense data rather
+ * than showing through it), one crisp top-edge highlight, and a real cast
+ * shadow so the surfaces read as sitting ABOVE the room.
+ *
+ * Both classes are on the scope root, so this outranks the shared
+ * `.explore-glass-scope .set-glass-surface` rule without !important.
+ */
+.explore-glass-scope.market-atmosphere-scope .set-glass-surface,
+.explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
+  border-color: rgba(156, 186, 226, 0.19);
+  background: rgba(8, 16, 30, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(1, 4, 10, 0.45),
+    0 10px 24px -12px rgba(0, 2, 8, 0.6),
+    0 34px 70px -26px rgba(0, 2, 8, 0.85);
+  -webkit-backdrop-filter: blur(8px) saturate(1.04);
+  backdrop-filter: blur(8px) saturate(1.04);
+}
+
+.explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
+  background: rgba(7, 15, 28, 0.76);
+}
+
+/* ---- Below desktop --------------------------------------------------- *
+ * The mural does not render at all here (the artwork container is
+ * `hidden desk:block`), so the room is the whole treatment — and it is pulled
+ * back further still. A phone is read at arm's length in bad light;
+ * legibility outranks atmosphere. The grain and the ambient light are dropped
+ * entirely and only a soft vignette over the base gradient remains.
+ */
+@media (max-width: 1199.98px) {
+  .market-atmosphere-scope::before {
+    background-image:
+      linear-gradient(
+        90deg,
+        rgba(0, 2, 6, 0.5) 0%,
+        transparent 16%,
+        transparent 84%,
+        rgba(0, 2, 6, 0.5) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(0, 2, 6, 0.34) 0%,
+        transparent 12%,
+        transparent 72%,
+        rgba(0, 1, 4, 0.5) 100%
+      ),
+      radial-gradient(
+        ellipse 70% 46% at 50% 16%,
+        rgba(110, 152, 216, 0.05) 0%,
+        rgba(60, 100, 164, 0.02) 46%,
+        transparent 76%
+      ),
+      linear-gradient(180deg, #081220 0%, #06101c 46%, #04090f 100%);
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+    background-size: cover, cover, cover, cover;
+  }
+
+  /* Cards keep their lift but lose the expensive blur, matching the existing
+     mobile behaviour where backdrop-filter was already absent. */
+  .explore-glass-scope.market-atmosphere-scope .set-glass-surface,
+  .explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 14px 34px -18px rgba(1, 4, 10, 0.7);
+    /* Restores the pre-existing mobile behaviour, where these surfaces had no
+       backdrop-filter at all. There is no mural to blur here, so the filter
+       would cost a compositing pass and buy nothing. */
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

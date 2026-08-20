@@ -1,7 +1,6 @@
 import ExploreMarketMovers from "@/components/explore/ExploreMarketMovers";
-import ExploreTopRankings from "@/components/explore/ExploreTopRankings";
-import PokemonMarketOverview from "@/components/explore/PokemonMarketOverview";
-import PokemonMarketPerformance from "@/components/explore/PokemonMarketPerformance";
+import PokemonMarketAnalysis from "@/components/explore/PokemonMarketAnalysis";
+import SetMarketExplorer from "@/components/explore/SetMarketExplorer";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
@@ -12,8 +11,8 @@ import styles from "@/components/explore/explore.module.css";
 
 // Describes only what this page actually renders: the published Raw Card and
 // Top 10 Chase market indexes, the global 7-day card-market movers and the
-// set-value ladder. No forecast, capitalization, alert or watchlist language —
-// none of that exists here.
+// Set Market explorer. No forecast, capitalization, alert or watchlist
+// language — none of that exists here.
 export const metadata = buildRouteMetadata({
   path: "/Market",
   title: "Pokémon Market Index, Trends & Set Values — inDex",
@@ -36,16 +35,15 @@ export default async function MarketPage() {
   // backend's published authority for every basket value, index value and
   // percentage below; nothing here recomputes one.
   const overview = resolveMarketOverview(setValuePayload);
-  // Eligibility is decided on the COMPLETE target (the coverage predicate reads
-  // fields the ladder never renders), and only the survivors are projected — so
-  // the client boundary carries the ladder's ~1.2% of each target instead of the
-  // whole canonical Rankings document. See marketRankingsProjection.mjs.
+  // The Set Market explorer reads these targets directly; the snapshot is
+  // already the compact Market-domain publication (setId, name, era, logo,
+  // currentSetValue, windows, trend), not the canonical Rankings document.
   const targets = Array.isArray(setValuePayload?.sets) ? setValuePayload.sets : [];
   const loadError = setValuePayload === null || Boolean(setValuePayload?.meta?.requestFailed);
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
-    <div className={`${styles.dashboard} explore-glass-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope market-atmosphere-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
       <header className="mb-4 flex flex-col gap-2 desk:flex-row desk:items-end desk:justify-between">
         <div className="min-w-0">
@@ -63,11 +61,13 @@ export default async function MarketPage() {
           </p>
         ) : null}
       </header>
+      {/* Locked hierarchy: header metadata -> the EXISTING 7D Market Movers,
+          unchanged and merely moved -> the unified Market Overview + Market
+          Performance surface -> the unified Set Market master-detail surface. */}
       <div className="space-y-4">
-        <PokemonMarketOverview overview={overview} />
-        <PokemonMarketPerformance overview={overview} />
         <ExploreMarketMovers payload={moversPayload} />
-        <ExploreTopRankings targets={targets} loadError={loadError} />
+        <PokemonMarketAnalysis overview={overview} />
+        <SetMarketExplorer targets={targets} loadError={loadError} />
       </div>
     </div>
   );

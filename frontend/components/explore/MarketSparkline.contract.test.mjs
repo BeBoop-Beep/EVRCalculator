@@ -9,14 +9,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // below is matched against LF-normalized text.
 const read = (name) => fs.readFileSync(path.join(here, name), "utf8").replace(/\r\n/g, "\n");
 const shared = read("MarketSparkline.jsx");
-const rankings = read("ExploreTopRankings.jsx");
+const setMarket = read("SetMarketExplorer.jsx");
 const setPage = read("RipStatisticsPageClient.jsx");
-const rankingsCss = read("explore.module.css");
 
-test("Set Value and Top Chase consume the canonical market sparkline", () => {
-  assert.ok(rankings.includes('import MarketSparkline from "./MarketSparkline"'));
+test("Set Market and Top Chase consume the canonical market sparkline", () => {
+  assert.ok(setMarket.includes('import MarketSparkline from "./MarketSparkline"'));
   assert.ok(setPage.includes('import MarketSparkline from "@/components/explore/MarketSparkline"'));
-  assert.ok(!rankings.includes("LineChart"), "the primitive ranking sparkline is gone");
+  assert.ok(!setMarket.includes("LineChart"), "no second charting primitive on the Market page");
 });
 
 test("canonical visual language includes frame, gradient, line, guide, marker, and edge dates", () => {
@@ -25,30 +24,29 @@ test("canonical visual language includes frame, gradient, line, guide, marker, a
   }
 });
 
-test("ranking navigation and chart are siblings without event suppression", () => {
-  const row = rankings.slice(rankings.indexOf("return <li key={target.setId}"), rankings.indexOf("</div></li>;"));
-  const linkEnd = row.indexOf("</Link>");
-  assert.ok(linkEnd > 0, "the information region is a link wrapping what it describes");
-  assert.ok(row.indexOf("data-ranking-chart") > linkEnd, "the chart is a sibling of the link, never nested inside it");
-  assert.ok(!rankings.includes("stopPropagation"));
+test("Set Market mounts exactly ONE sparkline — the selected set's, never one per row", () => {
+  // The scalability rule the master-detail redesign exists to enforce: a
+  // 167-set catalogue must not mount 167 interactive charts.
+  assert.equal((setMarket.match(/<MarketSparkline/g) || []).length, 1, "one chart in the whole component");
+  const listPane = setMarket.slice(setMarket.indexOf("const listPane ="), setMarket.indexOf("const detailPane ="));
+  assert.ok(!listPane.includes("MarketSparkline"), "the set list renders no chart at all");
+  assert.ok(!listPane.includes("Sparkline"), "not even a wrapper around one");
 });
 
-test("the ranking row navigates from real links, never a stretched overlay", () => {
-  // Composition follows TopMarketCardRow: the identity link holds rank, logo and
-  // set (plus the value below desktop), and the value gets its own sibling link
-  // in desktop column four. Detailed placement is covered by
-  // ExploreTopRankingsCompactRows.contract.test.mjs.
-  assert.ok(rankingsCss.includes(".ladderNav {\n  display: grid;\n  grid-column: 1 / 3;"));
-  assert.ok(!rankingsCss.includes(".ladderNav {\n  position: absolute;"), "no empty stretched anchor");
-  assert.ok(rankings.includes("data-ranking-value-nav"), "the value area is its own sibling link");
+test("the selected-set chart is a sibling of the row buttons, never nested in one", () => {
+  const listPane = setMarket.slice(setMarket.indexOf("const listPane ="), setMarket.indexOf("const detailPane ="));
+  // Rows are real buttons with no nested interactive children, so nothing has
+  // to be repaired with event suppression.
+  assert.ok(listPane.includes("<button"), "each row is a real button");
+  assert.ok(!setMarket.includes("stopPropagation"));
 });
 
 test("tooltip delta uses the caller's selected-window baseline when given one", () => {
   assert.ok(shared.includes("computeChangeFromBaseline"), "the tooltip reuses the canonical window-delta helper");
   assert.ok(shared.includes("baselineValue = null"), "baseline-relative delta is opt-in per caller");
   assert.ok(
-    rankings.includes("baselineValue={resolveDeltaWindowBaselineValue(movement, value)}"),
-    "the rankings row derives the tooltip baseline from the same published movement as its summary chip"
+    setMarket.includes("baselineValue={resolveDeltaWindowBaselineValue(detailMovement, selected.value)}"),
+    "the selected-set chart derives the tooltip baseline from the same published movement as its summary chip"
   );
   // Callers with no window concept keep the point-over-point reading.
   assert.ok(shared.includes("activePoint.y - previousPoint.y"));
@@ -61,10 +59,11 @@ test("the tooltip escapes its clipping ancestors through a body portal", () => {
   assert.ok(!shared.includes("bottom-[calc(100%+0.55rem)]"), "no absolute positioning inside the clipped plot");
 });
 
-test("mobile ranking chart spans the card and desktop trend width is unchanged", () => {
-  assert.ok(!rankingsCss.includes("width: min(10rem, 42vw)"), "the mobile chart width cap is gone");
-  assert.ok(rankingsCss.includes("grid-column: 1 / -1;"));
-  assert.ok(rankings.includes('className="w-full"'));
-  assert.ok(!rankings.includes("max-w-["), "no desktop cap is introduced on the rankings sparkline");
-  assert.ok(rankingsCss.includes("grid-template-columns: 2.25rem minmax(9rem, 1.35fr) minmax(7rem, 1fr) minmax(8.5rem, auto);"));
+test("the selected-set chart is given real height and no width cap", () => {
+  assert.ok(setMarket.includes('className="w-full"'), "the chart fills its pane");
+  assert.ok(setMarket.includes('plotClassName="h-44 desk:h-[15rem]"'), "a readable plot on both compositions");
+  // Scoped to the chart itself — the toolbar's search field legitimately caps
+  // its own desktop width.
+  const chart = setMarket.slice(setMarket.indexOf("<MarketSparkline"), setMarket.indexOf("<SetMarketTopMovers"));
+  assert.ok(!chart.includes("max-w-"), "no width cap is introduced on the Set Market chart");
 });
