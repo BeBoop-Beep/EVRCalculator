@@ -45,11 +45,19 @@ def _paged_source_rows(client: Any, set_ids: Sequence[str]) -> list[dict[str, An
         offset += PAGE_SIZE
 
 
-def build_index_rows(sets: Sequence[Mapping[str, Any]], source_rows: Iterable[Mapping[str, Any]], *, through_date: str | None = None) -> list[dict[str, Any]]:
+def build_index_rows(sets: Sequence[Mapping[str, Any]], source_rows: Iterable[Mapping[str, Any]], *, through_date: str | None = None, accepted_dates: Iterable[str] | None = None) -> list[dict[str, Any]]:
+    # BLOCKER 1: quality filtering happens HERE, before any observation is
+    # assembled and therefore before build_chain_linked_history runs. A
+    # DEGRADED date must contribute zero mathematical influence to later
+    # dates; filtering persisted output afterwards would still have chained
+    # Aug 19's daily return off Aug 18.
+    accepted = None if accepted_dates is None else {str(day)[:10] for day in accepted_dates}
     by_scope_date_set: dict[tuple[str, str, str], Mapping[str, Any]] = {}
     all_dates: set[str] = set()
     for row in source_rows:
         scope, day, set_id = str(row.get("value_scope")), str(row.get("snapshot_date"))[:10], str(row.get("set_id"))
+        if accepted is not None and day not in accepted:
+            continue
         if scope in ("standard", "top10") and (through_date is None or day <= through_date):
             by_scope_date_set[(scope, day, set_id)] = row
             all_dates.add(day)
@@ -90,9 +98,9 @@ def build_index_rows(sets: Sequence[Mapping[str, Any]], source_rows: Iterable[Ma
     return sorted(built, key=lambda row: (row["market_date"], row["index_key"]))
 
 
-def build_market_index_history(client: Any, *, through_date: str | None = None) -> list[dict[str, Any]]:
+def build_market_index_history(client: Any, *, through_date: str | None = None, accepted_dates: Iterable[str] | None = None) -> list[dict[str, Any]]:
     sets = resolve_eligible_sets(client)
-    return build_index_rows(sets, _paged_source_rows(client, [str(row["id"]) for row in sets]), through_date=through_date)
+    return build_index_rows(sets, _paged_source_rows(client, [str(row["id"]) for row in sets]), through_date=through_date, accepted_dates=accepted_dates)
 
 
 def persist_index_rows(client: Any, rows: Sequence[Mapping[str, Any]]) -> int:
