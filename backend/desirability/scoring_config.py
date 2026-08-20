@@ -574,24 +574,24 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyCollectorAppealV3Version": legacy_collector_appeal_v3_version(),
         "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
-        "overallRipWeights": dict(OVERALL_RIP_V9_WEIGHTS),
+        "overallRipWeights": dict(CANONICAL_OVERALL_RIP_WEIGHTS),
         "overallRipEffectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
         # Implemented and computable, but NOT canonical. Disclosed so a reader of
-        # this payload can see that a newer model exists and has not been
-        # promoted, rather than inferring from its absence that it does not exist.
+        # this payload can see that older models still exist and compute,
+        # rather than inferring from their absence that they no longer exist.
         "availableFinancialRipVersions": list(KNOWN_FINANCIAL_RIP_VERSIONS),
         "availableOverallRipVersions": list(KNOWN_OVERALL_RIP_VERSIONS),
-        "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V4_VERSION,
-        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V10_VERSION,
+        "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V3_VERSION,
+        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V9_VERSION,
         "note": (
-            "Overall RIP V9 is 90% Financial RIP V3 + 10% Collector Appeal V5. "
-            "Financial RIP V2, Overall RIP v4/V5/V6/V7/V8, Collector Appeal V4/V3, "
-            "Collector Appeal V2 and legacy CA7 remain identifiable under "
-            "explicitly legacy labels and are never selected by fallback. "
-            "Financial RIP V4 and Overall RIP V10 are implemented and computable "
-            "but are deliberately not yet canonical; promotion is a separate "
-            "change to CANONICAL_FINANCIAL_RIP_VERSION and "
-            "CANONICAL_OVERALL_RIP_VERSION together with a snapshot rebuild."
+            "Overall RIP V10 is 90% Financial RIP V4 + 10% Collector Appeal V5, "
+            "and Financial RIP V4 is canonical. Financial RIP V2/V3, Overall RIP "
+            "v4/V5/V6/V7/V8/V9, Collector Appeal V4/V3, Collector Appeal V2 and "
+            "legacy CA7 remain identifiable under explicitly legacy labels, stay "
+            "computable, and are never selected by fallback. Promotion to a "
+            "future version is a separate change to "
+            "CANONICAL_FINANCIAL_RIP_VERSION and CANONICAL_OVERALL_RIP_VERSION "
+            "together with a snapshot rebuild."
         ),
         "dualPathDepthStatus": (
             "retained_as_diagnostic_not_a_collector_appeal_input"
