@@ -5896,7 +5896,7 @@ def test_the_reader_does_not_restate_the_set_value_contract_version():
 def _legacy_set_rip_snapshot():
     targets = [
         {"set_id": set_id, "name": set_id.upper(), "calculation_run_id": f"run-{set_id}",
-         "overallRipV9": {"rank": index},
+         "overallRipV10": {"rank": index},
          "setRipV1": {"score": 50, "rank": index, "rankable": True,
                       "participatingFamilyCount": 2,
                       "familyScores": [{"family": "box"}, {"family": "pack"}]}}

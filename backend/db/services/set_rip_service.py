@@ -29,8 +29,8 @@ def _text(value: Any) -> str:
 
 def _ranked_targets(targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     return [target for target in targets if
-            (target.get("overallRipV9") or {}).get("rank") is not None or
-            (((target.get("publicRipContractV9") or {}).get("overallRip") or {}).get("rank") is not None)]
+            (target.get("overallRipV10") or {}).get("rank") is not None or
+            (((target.get("publicRipContractV10") or {}).get("overallRip") or {}).get("rank") is not None)]
 
 
 def build_set_rip(product_family_rankings: Mapping[str, Any], *,
