@@ -277,14 +277,16 @@ def test_v10_contract_reports_which_financial_model_it_carries():
 
 
 def test_v9_contract_is_unchanged_by_the_v10_addition():
-    """`public_rip_contract_v9` freezes `canonicalOverallRipVersion` at V9 (a
-    legacy, structurally-frozen contract field), but its `canonicalFinancialRipVersion`
-    field reads the live `CANONICAL_FINANCIAL_RIP_VERSION` constant, so it moves
-    with the V4 cutover even though this contract module itself is unchanged."""
+    """`public_rip_contract_v9` is structurally frozen at the Financial RIP V3 era:
+    both `canonicalOverallRipVersion` (V9) and `canonicalFinancialRipVersion` (V3)
+    are pinned historical literals, not the live `CANONICAL_FINANCIAL_RIP_VERSION`
+    switch. Following the live constant would make this contract falsely declare a
+    Financial RIP V4 identity while its `financialRip` payload still carries V3
+    numbers, so it must stay unchanged by the V4/V10 cutover."""
     contract = build_public_rip_contract_v9(_target())
     assert contract["contractVersion"] == PUBLIC_RIP_CONTRACT_V9_VERSION
     assert contract["canonicalOverallRipVersion"] == OVERALL_RIP_V9_VERSION
-    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
+    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V3_VERSION
 
 
 def test_building_the_v10_contract_does_not_mutate_the_source_target():

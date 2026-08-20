@@ -566,16 +566,18 @@ def _target():
 
 
 def test_the_v7_contract_publishes_the_canonical_versions():
-    """`public_rip_contract_v7` freezes `canonicalOverallRipVersion` and
-    `canonicalCollectorAppealVersion` at V7/V3 (a legacy, structurally-frozen
-    contract), but its `canonicalFinancialRipVersion` field reads the live
-    `CANONICAL_FINANCIAL_RIP_VERSION` constant, so it moves with the V4
-    cutover even though this contract module itself is unchanged."""
+    """`public_rip_contract_v7` is structurally frozen at the Financial RIP V3 era:
+    `canonicalOverallRipVersion` (V7), `canonicalCollectorAppealVersion` (V3), and
+    `canonicalFinancialRipVersion` (V3) are all pinned historical literals, not the
+    live `CANONICAL_FINANCIAL_RIP_VERSION` switch. Following the live constant would
+    make this contract falsely declare a Financial RIP V4 identity while its
+    `financialRip` payload still carries V3 numbers, so it must stay unchanged by
+    the V4/V10 cutover."""
     contract = build_public_rip_contract_v7(_target())
     assert contract["contractVersion"] == PUBLIC_RIP_CONTRACT_V7_VERSION
     assert contract["canonicalOverallRipVersion"] == OVERALL_RIP_V7_VERSION
     assert contract["canonicalCollectorAppealVersion"] == COLLECTOR_APPEAL_V3_VERSION
-    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
+    assert contract["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V3_VERSION
     assert contract["overallRip"]["score"] == 59.5
     assert contract["collectorAppeal"]["score"] == 46.0
 
