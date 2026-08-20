@@ -2,6 +2,10 @@ from ...clients.tcgplayer_client import TCGPlayerClient
 from ...parsers.tcgplayer_parser import TCGPlayerParser
 from ..dto_builders.tcgplayer_dto_builder import TCGPlayerDTOBuilder
 from backend.db.controllers.ingest_controller import IngestController
+from backend.db.repositories.card_variant_repository import ExternalVariantIdentityConflict
+from backend.db.services.scrape_failure_classification import (
+    ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT,
+)
 from collections import OrderedDict
 import copy
 import json
@@ -171,10 +175,13 @@ def validate_ingestion_result(payload, result):
         raise RuntimeError(f"Database ingestion failed: {(result or {}).get('error', 'Unknown error')}")
     cards_detail = result.get('details', {}).get('cards', {})
     errors = list(cards_detail.get('errors') or [])
+    error_codes = list(cards_detail.get('error_codes') or [])
     efficiency = cards_detail.get('ingestion_efficiency', {})
     priced = any((card.get('prices') or {}).get('market') is not None
                  for card in payload.get('data', {}).get('cards', []))
     if errors:
+        if ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT in error_codes:
+            raise ExternalVariantIdentityConflict(f"Fatal card ingestion errors: {errors[:5]}")
         raise RuntimeError(f"Fatal card ingestion errors: {errors[:5]}")
     if priced and int(efficiency.get('attempted_rows', 0)) == 0:
         raise RuntimeError("Priced payload produced zero attempted price rows")

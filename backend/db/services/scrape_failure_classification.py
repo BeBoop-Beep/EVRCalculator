@@ -30,6 +30,7 @@ ERROR_SET_NOT_FOUND = "set_not_found"
 ERROR_MISSING_CANONICAL_KEY = "missing_canonical_key"
 ERROR_INVALID_SCRAPE_CONFIG = "invalid_scrape_config"
 ERROR_CATALOG_ONLY_NOT_DAILY_ELIGIBLE = "catalog_only_not_daily_eligible"
+ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT = "external_variant_identity_conflict"
 
 NON_RETRYABLE_ERROR_CODES: Tuple[str, ...] = (
     ERROR_INVALID_SET_KEY_FILTER,
@@ -37,6 +38,7 @@ NON_RETRYABLE_ERROR_CODES: Tuple[str, ...] = (
     ERROR_MISSING_CANONICAL_KEY,
     ERROR_INVALID_SCRAPE_CONFIG,
     ERROR_CATALOG_ONLY_NOT_DAILY_ELIGIBLE,
+    ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT,
 )
 
 # Human-facing guidance, so an alert says what to DO rather than only what broke.
@@ -51,6 +53,10 @@ _REMEDIATION: Dict[str, str] = {
     ERROR_CATALOG_ONLY_NOT_DAILY_ELIGIBLE: (
         "This set is catalog_only and must not be in the daily cohort. Re-run the "
         "metadata sync so ready_for_daily_scrape is recomputed."
+    ),
+    ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT: (
+        "The provider identity points at a variant in a different canonical set. "
+        "Review the legacy identity mapping; do not relink automatically."
     ),
 }
 
@@ -104,6 +110,11 @@ def classify_report_failure(report: Optional[Dict[str, Any]]) -> Optional[str]:
         if code in NON_RETRYABLE_ERROR_CODES:
             return code
         return ERROR_TRANSIENT_SCRAPE_FAILURE
+
+    for row in report.get("results") or []:
+        code = str(row.get("error_code") or "").strip()
+        if code:
+            return code
 
     error = " ".join(str(row.get("error") or "") for row in report.get("results") or []).lower()
     classifications = (

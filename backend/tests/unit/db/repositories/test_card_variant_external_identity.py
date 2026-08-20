@@ -84,3 +84,25 @@ def test_known_absent_concurrent_conflicting_mapping_fails(monkeypatch):
             'provider': 'tcgplayer', 'external_product_id': '1',
             'external_variant_key': 'k'}, known_absent=True)
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("incoming_set,mapped_set,card_name", [
+    ("base", "expeditionBaseSet", "Ninetales"),
+    ("exTrainerKit2Plusle", "exTrainerKit2Minun", "Beldum"),
+    ("exTrainerKitLatios", "exTrainerKitLatias", "Magnemite"),
+])
+def test_legacy_cross_set_identity_shapes_fail_closed(
+    monkeypatch, incoming_set, mapped_set, card_name,
+):
+    incoming_variant = f"{incoming_set}:{card_name}"
+    mapped_variant = f"{mapped_set}:{card_name}"
+    monkeypatch.setattr(repo, "get_card_variant_external_identity", lambda *_: {
+        "id": "legacy-identity", "card_variant_id": mapped_variant,
+    })
+
+    with pytest.raises(repo.ExternalVariantIdentityConflict):
+        repo.link_card_variant_external_identity(incoming_variant, {
+            "provider": "tcgplayer",
+            "external_product_id": "legacy-product",
+            "external_variant_key": "edition=|printing_type=holo|special_type=",
+        })

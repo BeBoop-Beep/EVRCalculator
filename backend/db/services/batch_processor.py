@@ -249,6 +249,11 @@ class BatchProcessor(ABC):
             # Accumulate errors
                 if 'errors' in batch_result:
                     results_accumulator['errors'].extend(batch_result['errors'])
+                if 'error_codes' in batch_result:
+                    existing_codes = results_accumulator.setdefault('error_codes', [])
+                    for code in batch_result['error_codes']:
+                        if code not in existing_codes:
+                            existing_codes.append(code)
         
         # Check for discrepancies
         if prices_shipped != prices_expected:

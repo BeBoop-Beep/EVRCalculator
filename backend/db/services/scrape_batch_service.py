@@ -25,6 +25,7 @@ from backend.db.repositories.scrape_jobs_repository import (
     get_active_batch,
     get_scrape_missing_sets,
     requeue_missing_scrape_jobs_for_batch,
+    requeue_unreconciled_retryable_scrape_jobs_for_batch,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,9 +61,19 @@ def run_batch_completion_and_repair(
         return {"ok": True, "batch_id": batch_id, "status": "running", "active": active}
 
     # Queue is idle for this batch — repair missing sets before declaring status.
+    observation_missing_requeued = 0
+    unreconciled_run_requeued = 0
+    deterministic_blocked = 0
     requeued = 0
     if repair:
-        requeued = requeue_missing_scrape_jobs_for_batch(batch_id)
+        # Run reconciliation repair first. A failed job may also be observation-
+        # missing; reopening it here preserves its diagnostic error fields and
+        # makes the later observation repair naturally skip the now-active row.
+        run_repair = requeue_unreconciled_retryable_scrape_jobs_for_batch(batch_id)
+        unreconciled_run_requeued = int(run_repair.get("unreconciledRunRequeued") or 0)
+        deterministic_blocked = int(run_repair.get("deterministicBlocked") or 0)
+        observation_missing_requeued = requeue_missing_scrape_jobs_for_batch(batch_id)
+        requeued = observation_missing_requeued + unreconciled_run_requeued
         if requeued > 0:
             logger.warning(
                 "%s cohort repair requeued %s set(s) for batch %s (%s)",
@@ -74,6 +85,9 @@ def run_batch_completion_and_repair(
                 "batch_id": batch_id,
                 "status": "running",
                 "requeued": requeued,
+                "observationMissingRequeued": observation_missing_requeued,
+                "unreconciledRunRequeued": unreconciled_run_requeued,
+                "deterministicBlocked": deterministic_blocked,
             }
 
     # No requeueable work remains — evaluate completeness authoritatively.
@@ -107,5 +121,8 @@ def run_batch_completion_and_repair(
         "status": status,
         "missing_set_count": missing_count,
         "requeued": requeued,
+        "observationMissingRequeued": observation_missing_requeued,
+        "unreconciledRunRequeued": unreconciled_run_requeued,
+        "deterministicBlocked": deterministic_blocked,
         "promoted": completion.get("promoted", False),
     }
