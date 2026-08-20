@@ -157,6 +157,7 @@ import {
   prefetchPokemonSetCardsPage,
   getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
@@ -9723,6 +9724,10 @@ export default function RipStatisticsPageClient({
     selectedTarget?.logo_image_url || selectedTarget?.hero_image_url || selectedTarget?.symbol_image_url || null,
     SET_LOGO_WIDTH
   );
+  // The environmental identity source: the set's OWN artwork, hero art first
+  // so sets that ship a wide key visual use it and the rest fall back to the
+  // logo. Same optimizer width as heroLogoUrl, so the page still makes one
+  // image request for both the hero slot and the room behind it.
   const ambientSetArtworkUrl = optimizedImageUrl(
     selectedTarget?.hero_image_url || selectedTarget?.logo_image_url || selectedTarget?.symbol_image_url || null,
     SET_LOGO_WIDTH
@@ -12873,35 +12878,36 @@ export default function RipStatisticsPageClient({
         <div
           className={`dashboard-container relative isolate w-full max-w-full min-w-0 !p-0 !bg-transparent !border-0 !rounded-none ${
             setDetailMode
-              ? "set-detail-glass-scope mx-auto flex max-w-[1400px] flex-col space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
+              ? "set-detail-glass-scope index-environment mx-auto flex max-w-[1400px] flex-col space-y-4 xl:!p-0 xl:!bg-transparent xl:!rounded-none xl:!border-0"
               : "space-y-8 xl:!p-6 xl:!bg-[rgba(255,255,255,0.02)] xl:!rounded-2xl xl:!border"
           }`}
         >
+        {/* The set page's branded environment.
+
+            IDENTITY comes from the set's own artwork — the real logo/key
+            visual, oversized and cropped — exactly as it does in production.
+            A giant readable set NAME was tried here and rejected: it read as a
+            word poster rather than a branded room, and it threw away the one
+            thing that actually distinguishes one set from another.
+
+            The ROOM around it — the wall gradient, the ambient key light, the
+            vignette, the grain, the panel elevation and the ambient occlusion
+            that makes the panels sit above it — comes from `.index-environment`
+            on the container above, the same system /Market and /Rankings wear.
+
+            The artwork keeps its NATIVE COLOURS here. The luminance relief the
+            index environment applies to the Pokemon wordmark is scoped to
+            /Market and /Rankings only; a set's palette IS its identity, so on
+            this page the depth is built around the art (backlight, bloom,
+            vignette, occlusion) rather than into its pixels. Every opacity,
+            scale, mask and filter value lives in the `--set-artwork-*` tokens
+            in globals.css — never in this markup. */}
         {setDetailMode && ambientSetArtworkUrl ? (
-          <div
-            data-set-ambient-artwork
-            aria-hidden="true"
-            className="set-page-atmosphere pointer-events-none fixed inset-0 -z-10 hidden select-none overflow-hidden bg-no-repeat sm:block"
-          >
-            {/* Two passes over one cached image URL — the browser fetches it
-                once. The bloom copy sits underneath and supplies the glow;
-                every opacity/filter/mask value comes from the --set-artwork-*
-                tokens in globals.css, never from this markup. */}
-            <img
-              src={ambientSetArtworkUrl}
-              alt=""
-              className="set-page-atmosphere-bloom absolute inset-0 h-full w-full object-contain object-center"
-              loading="eager"
-              decoding="async"
-            />
-            <img
-              src={ambientSetArtworkUrl}
-              alt=""
-              className="set-page-atmosphere-artwork absolute inset-0 h-full w-full object-contain object-center"
-              loading="eager"
-              decoding="async"
-            />
-          </div>
+          <PageArtworkAtmosphere
+            src={ambientSetArtworkUrl}
+            dataAttribute="data-set-ambient-artwork"
+            visibilityClassName="hidden sm:block"
+          />
         ) : null}
         {pageError ? (
           <section className="rounded-2xl border border-red-500/30 bg-[var(--surface-panel)] p-5 sm:p-6">

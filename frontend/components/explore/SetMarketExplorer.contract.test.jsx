@@ -146,22 +146,72 @@ test("the sort control reorders without inventing a metric", () => {
   assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-c", "set-b", "set-a"]);
 });
 
-test("both timeframes default to 7D and the list column reports the published movement", () => {
+// useMediaQuery answers `true` for (min-width: 1200px) on the first paint, so
+// react-test-renderer sees the master-detail composition — the one where the
+// timeframe is shared.
+const checkedWindows = (renderer) => renderer.root
+  .findAll((node) => node.props?.["data-time-range-value"] !== undefined && node.props["aria-checked"] === true)
+  .map((node) => node.props["data-time-range-value"]);
+
+test("the master-detail composition offers exactly ONE timeframe control", () => {
   const renderer = render();
-  const checked = renderer.root
-    .findAll((node) => node.props?.["data-time-range-value"] !== undefined && node.props["aria-checked"] === true)
-    .map((node) => node.props["data-time-range-value"]);
-  assert.deepEqual(checked, ["7D", "7D"], "the list column and the detail chart both start at 7D");
+  // Two selectors for one concept, visible at once, is an ambiguity rather
+  // than a feature. The detail pane's copy is not rendered at all up here —
+  // hiding it with CSS would leave a second radiogroup in the accessibility
+  // tree announcing the same setting.
+  const groups = renderer.root.findAll((node) => node.props?.role === "radiogroup");
+  assert.equal(groups.length, 1, "one radiogroup, in the toolbar");
+  assert.deepEqual(checkedWindows(renderer), ["7D"], "and it starts at 7D");
   assert.match(textOf(rows(renderer)[0]), /▼11\.8%/);
 });
 
-test("changing the detail timeframe re-reads the published window, never a derived one", () => {
+test("the shared timeframe moves the list AND the selected set together", () => {
   const renderer = render();
-  const buttons = renderer.root.findAll((node) => node.props?.["data-time-range-value"] === "lifetime");
-  // The second radiogroup is the detail pane's.
-  TestRenderer.act(() => { buttons[buttons.length - 1].props.onClick(); });
+  const header = () => textOf(renderer.root.findAll((node) => node.props?.["data-set-market-list"] !== undefined)[0]);
+  const detailWindow = () => renderer.root
+    .findAll((node) => node.props?.["data-set-market-detail-window"] !== undefined)[0]
+    .props["data-set-market-detail-window"];
+
+  // Default: everything on 7D.
+  assert.match(header(), /Set value \/ 7D/);
+  assert.equal(detailWindow(), "7D");
+  assert.match(textOf(rows(renderer)[0]), /▼11\.8%/);
+
+  // One control, and every timeframe-dependent figure follows it: the list
+  // header, the row deltas, the selected set's change, its label and its chart
+  // (which reads the same movement object).
+  const to30D = renderer.root.find((node) => node.props?.["data-time-range-value"] === "30D");
+  TestRenderer.act(() => { to30D.props.onClick(); });
+  assert.match(header(), /Set value \/ 30D/);
+  assert.equal(detailWindow(), "30D");
+  assert.match(textOf(rows(renderer)[0]), /▼0\.7%/, "the row now reports its 30D delta");
+  const pane = textOf(renderer.root.findAll((node) => node.props?.["data-set-market-detail"] !== undefined)[0]);
+  assert.match(pane, /-\$40\.00 \(-0\.7%\)/, "the selected set's own 30D movement");
+  assert.match(pane, /Set Value · 30D/);
+});
+
+test("changing the selected set preserves the shared timeframe", () => {
+  const renderer = render();
+  TestRenderer.act(() => { renderer.root.find((node) => node.props?.["data-time-range-value"] === "1D").props.onClick(); });
+  assert.deepEqual(checkedWindows(renderer), ["1D"]);
+
+  // The window is a property of the workspace, not of the row you clicked.
+  const blackBolt = rows(renderer).find((node) => node.props["data-set-market-row"] === "set-c");
+  TestRenderer.act(() => { blackBolt.props.onClick(); });
+  assert.deepEqual(checkedWindows(renderer), ["1D"], "selecting a set must not reset the timeframe");
+  assert.equal(
+    renderer.root.findAll((node) => node.props?.["data-set-market-detail-window"] !== undefined)[0]
+      .props["data-set-market-detail-window"],
+    "1D"
+  );
+});
+
+test("every window re-reads the published movement, never a derived one", () => {
+  const renderer = render();
+  TestRenderer.act(() => { renderer.root.find((node) => node.props?.["data-time-range-value"] === "lifetime").props.onClick(); });
   const pane = textOf(detail(renderer));
   assert.match(pane, /\+\$120\.00 \(\+2\.1%\)/, "the lifetime movement is the backend's own amount and percent");
+  assert.match(pane, /Set Value · LT/);
 });
 
 test("an empty or failed snapshot says so instead of rendering an empty shell", () => {

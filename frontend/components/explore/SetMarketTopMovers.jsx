@@ -150,8 +150,12 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
   return (
     <section data-set-market-top-movers aria-labelledby={headingId} className="mt-4 border-t border-[var(--border-subtle)] pt-3">
       <div className="mb-2 flex items-center justify-between gap-3">
+        {/* The window is named in the heading ON PURPOSE. This rail is the
+            canonical 7D mover dataset and does NOT follow the Set Market
+            timeframe — no 30D/3M/1Y mover data exists to follow it with. An
+            unlabelled heading beside a 30D set chart would imply 30D movers. */}
         <h4 id={headingId} className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
-          Top Movers in {setName || "this set"}
+          Top {WINDOW} Movers in {setName || "this set"}
         </h4>
         {/* A real destination: the selected set's Cards tab, opened on its
             Market Movers section at the same 7D window. Never a dead control. */}

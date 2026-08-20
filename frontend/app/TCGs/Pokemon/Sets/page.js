@@ -1,4 +1,6 @@
 import Link from "next/link";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { toSetSlug } from "@/utils/slugify";
 import { getPokemonSets } from "@/lib/pokemon/pokemonSetsServer";
 import { isHiddenFromPublicPokemonSetsCatalog } from "@/lib/pokemon/pokemonSetPublicCoverage";
@@ -175,133 +177,149 @@ export default async function SetsPage() {
 
   const groupedEras = groupSetsByEra(sets);
 
+  // The same environment /Market wears: `.index-environment` is the room (wall
+  // gradient, side walls, ambient key light, vignette, grain) and
+  // `PageArtworkAtmosphere` is the Pokemon wordmark mural, taken to luminance
+  // relief by the `.explore-glass-scope` compound. `isolate` keeps the
+  // environment's negative-z layers inside this root.
+  //
+  // The `.dashboard-container` that used to wrap the heading and every era
+  // section is gone. It painted a second translucent card around the whole
+  // page, which boxed the content in and — now that there is a room behind it
+  // — would have sat between the environment and the era cards, flattening the
+  // depth the environment exists to create. The era sections keep their own
+  // card treatment and are now the only containers on the page.
   return (
-    <div className="min-h-screen bg-[var(--app-background)]">
+    <div className="min-h-screen bg-[var(--app-background)] explore-glass-scope index-environment relative isolate">
+      <PageArtworkAtmosphere
+        src={getExploreBackground("pokemon")}
+        dataAttribute="data-sets-ambient-artwork"
+        visibilityClassName="hidden desk:block"
+        loading="lazy"
+      />
       <main className="w-full px-2 md:px-6 lg:px-10 py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="dashboard-container">
-            <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-3">
-              Pokémon TCG Sets
-            </h1>
-            <p className="text-base md:text-lg text-[var(--text-secondary)] mb-8">
-              Browse Pokémon sets by era, newest to oldest.
-            </p>
+          <h1 className="text-3xl md:text-4xl font-bold text-[var(--text-primary)] mb-3">
+            Pokémon TCG Sets
+          </h1>
+          <p className="text-base md:text-lg text-[var(--text-secondary)] mb-8">
+            Browse Pokémon sets by era, newest to oldest.
+          </p>
 
-            {loadError ? (
-              <div className="rounded-xl border border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.08)] p-6 text-center text-[var(--text-primary)]">
-                Unable to load Pokémon sets.
-              </div>
-            ) : null}
+          {loadError ? (
+            <div className="rounded-xl border border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.08)] p-6 text-center text-[var(--text-primary)]">
+              Unable to load Pokémon sets.
+            </div>
+          ) : null}
 
-            {!loadError && groupedEras.length === 0 ? (
-              <div className="bg-[var(--surface-panel)] rounded-xl border border-[var(--border-subtle)] p-8 text-center text-[var(--text-secondary)]">
-                No Pokémon sets available yet.
-              </div>
-            ) : !loadError ? (
-              <div className="space-y-8">
-                {groupedEras.map((eraGroup) => {
-                  const yearRange = formatYearRange(eraGroup.earliestTimestamp, eraGroup.latestTimestamp);
-                  return (
-                    <section
-                      key={eraGroup.eraName}
-                      className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,27,45,0.95)_0%,rgba(9,16,27,0.95)_100%)] p-4 md:p-5"
-                    >
-                      <header className="mb-4">
-                        <div className="mb-3 h-[2px] w-16 rounded-full bg-[var(--accent)]/80" aria-hidden="true" />
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <h2 className="text-xl md:text-2xl font-semibold text-[var(--text-primary)]">{eraGroup.eraName}</h2>
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
-                              {eraGroup.sets.length} {eraGroup.sets.length === 1 ? "Set" : "Sets"}
+          {!loadError && groupedEras.length === 0 ? (
+            <div className="bg-[var(--surface-panel)] rounded-xl border border-[var(--border-subtle)] p-8 text-center text-[var(--text-secondary)]">
+              No Pokémon sets available yet.
+            </div>
+          ) : !loadError ? (
+            <div className="space-y-8">
+              {groupedEras.map((eraGroup) => {
+                const yearRange = formatYearRange(eraGroup.earliestTimestamp, eraGroup.latestTimestamp);
+                return (
+                  <section
+                    key={eraGroup.eraName}
+                    className="rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(16,27,45,0.95)_0%,rgba(9,16,27,0.95)_100%)] p-4 md:p-5"
+                  >
+                    <header className="mb-4">
+                      <div className="mb-3 h-[2px] w-16 rounded-full bg-[var(--accent)]/80" aria-hidden="true" />
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-xl md:text-2xl font-semibold text-[var(--text-primary)]">{eraGroup.eraName}</h2>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+                            {eraGroup.sets.length} {eraGroup.sets.length === 1 ? "Set" : "Sets"}
+                          </span>
+                          {yearRange ? (
+                            <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
+                              {yearRange}
                             </span>
-                            {yearRange ? (
-                              <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
-                                {yearRange}
-                              </span>
-                            ) : null}
-                          </div>
+                          ) : null}
                         </div>
-                      </header>
+                      </div>
+                    </header>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
-                        {eraGroup.sets.map((setSummary) => {
-                          const setName = String(setSummary?.name || setSummary?.id || "Unknown Set");
-                          const cardCount = getCardCount(setSummary);
-                          const releaseDateText = toDisplayDate(setSummary?.releaseDate ?? null);
-                          // ONE url for both roles below. The ambient wash and
-                          // the tile logo are the same artwork at different CSS
-                          // sizes; asking the optimizer for one width means the
-                          // browser makes a single request and reuses it,
-                          // exactly as it did when both were the raw source.
-                          // Giving each its own width would turn today's one
-                          // fetch into two.
-                          const setImageUrl = optimizedImageUrl(getSetImageUrl(setSummary), SET_LOGO_WIDTH);
-                          const slug = toSetSlug(setName, setSummary?.slug || setSummary?.id);
-                          // The catalog links to the BARE canonical set URL, not
-                          // `?tab=cards`. The bare URL is the set's canonical
-                          // identity (its RIP view) and is what the set page
-                          // declares as canonical, so the catalog — the single
-                          // largest source of internal set links on the site —
-                          // now reinforces that identity instead of pointing a
-                          // few hundred links at a query variant. The Cards tab
-                          // is unchanged and one click away on the set page.
-                          const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}` : "/TCGs/Pokemon/Sets";
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+                      {eraGroup.sets.map((setSummary) => {
+                        const setName = String(setSummary?.name || setSummary?.id || "Unknown Set");
+                        const cardCount = getCardCount(setSummary);
+                        const releaseDateText = toDisplayDate(setSummary?.releaseDate ?? null);
+                        // ONE url for both roles below. The ambient wash and
+                        // the tile logo are the same artwork at different CSS
+                        // sizes; asking the optimizer for one width means the
+                        // browser makes a single request and reuses it,
+                        // exactly as it did when both were the raw source.
+                        // Giving each its own width would turn today's one
+                        // fetch into two.
+                        const setImageUrl = optimizedImageUrl(getSetImageUrl(setSummary), SET_LOGO_WIDTH);
+                        const slug = toSetSlug(setName, setSummary?.slug || setSummary?.id);
+                        // The catalog links to the BARE canonical set URL, not
+                        // `?tab=cards`. The bare URL is the set's canonical
+                        // identity (its RIP view) and is what the set page
+                        // declares as canonical, so the catalog — the single
+                        // largest source of internal set links on the site —
+                        // now reinforces that identity instead of pointing a
+                        // few hundred links at a query variant. The Cards tab
+                        // is unchanged and one click away on the set page.
+                        const setHref = slug ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}` : "/TCGs/Pokemon/Sets";
 
-                          return (
-                            <Link
-                              key={String(setSummary?.id || setName)}
-                              href={setHref}
-                              className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(19,29,52,0.94)_0%,rgba(16,27,45,0.95)_58%,rgba(9,16,27,0.96)_100%)] p-4 md:p-5 transition-colors duration-200 hover:border-[var(--accent)]/55"
-                            >
-                              {setImageUrl ? (
-                                <img
-                                  src={setImageUrl}
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="pointer-events-none absolute -right-[28%] -top-[24%] h-72 w-72 max-w-none opacity-[0.08] object-contain"
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                              ) : null}
+                        return (
+                          <Link
+                            key={String(setSummary?.id || setName)}
+                            href={setHref}
+                            className="group relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[linear-gradient(180deg,rgba(19,29,52,0.94)_0%,rgba(16,27,45,0.95)_58%,rgba(9,16,27,0.96)_100%)] p-4 md:p-5 transition-colors duration-200 hover:border-[var(--accent)]/55"
+                          >
+                            {setImageUrl ? (
+                              <img
+                                src={setImageUrl}
+                                alt=""
+                                aria-hidden="true"
+                                className="pointer-events-none absolute -right-[28%] -top-[24%] h-72 w-72 max-w-none opacity-[0.08] object-contain"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : null}
 
-                              <div className="relative z-10 space-y-4">
-                                <div className="flex h-20 w-full items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(9,16,27,0.72)]">
-                                  {setImageUrl ? (
-                                    <img
-                                      src={setImageUrl}
-                                      alt={`${setName} logo`}
-                                      className="h-[78%] w-[78%] object-contain"
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                  ) : (
-                                    <span className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                                      {getSetInitials(setName)}
-                                    </span>
-                                  )}
-                                </div>
+                            <div className="relative z-10 space-y-4">
+                              <div className="flex h-20 w-full items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[rgba(9,16,27,0.72)]">
+                                {setImageUrl ? (
+                                  <img
+                                    src={setImageUrl}
+                                    alt={`${setName} logo`}
+                                    className="h-[78%] w-[78%] object-contain"
+                                    loading="lazy"
+                                    decoding="async"
+                                  />
+                                ) : (
+                                  <span className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                                    {getSetInitials(setName)}
+                                  </span>
+                                )}
+                              </div>
 
-                                <div>
-                                  <h3 className="text-base md:text-lg font-semibold text-[var(--text-primary)] leading-snug">
-                                    {setName}
-                                  </h3>
+                              <div>
+                                <h3 className="text-base md:text-lg font-semibold text-[var(--text-primary)] leading-snug">
+                                  {setName}
+                                </h3>
 
-                                  <div className="mt-2 space-y-1 text-sm text-[var(--text-secondary)]">
-                                    {releaseDateText ? <p>Released: {releaseDateText}</p> : null}
-                                    {cardCount !== null ? <p>{cardCount} cards</p> : null}
-                                  </div>
+                                <div className="mt-2 space-y-1 text-sm text-[var(--text-secondary)]">
+                                  {releaseDateText ? <p>Released: {releaseDateText}</p> : null}
+                                  {cardCount !== null ? <p>{cardCount} cards</p> : null}
                                 </div>
                               </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </main>
     </div>

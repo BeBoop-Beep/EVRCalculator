@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import MarketSparkline from "./MarketSparkline";
 import MarketWindowSelector from "./MarketWindowSelector";
 import SetMarketTopMovers from "./SetMarketTopMovers";
@@ -132,11 +133,26 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
   const [query, setQuery] = useState("");
   const [era, setEra] = useState(ALL_ERAS);
   const [sortKey, setSortKey] = useState("value");
-  // The list column's window and the detail chart's window are separate on
-  // purpose: the list is a market-wide scan at one comparable timeframe, the
-  // detail is an inspection of one set. Both start at 7D.
+  // TIMEFRAME, AND WHY THERE ARE TWO STATES FOR ONE CONCEPT
+  // -------------------------------------------------------
+  // At desktop the list and the analysis are one workspace on one screen, so
+  // they read ONE window: the toolbar's. Two selectors for the same concept,
+  // visible at the same time, is an ambiguity rather than a feature — so the
+  // detail pane's selector is not rendered at all up here, and every
+  // timeframe-dependent figure on both sides derives from `listWindowKey`.
+  //
+  // Below `desk` the two panes are separate SCREENS (browse, then detail), so
+  // a local control per screen is the right model: the list keeps the window
+  // you were scanning at, and inspecting one set at 30D does not silently
+  // rewrite it. `detailWindowKey` exists only for that composition.
+  //
+  // The breakpoint is deliberately the same 1200px at which the master-detail
+  // split itself collapses — one idea, one boundary.
   const [listWindowKey, setListWindowKey] = useState(DEFAULT_WINDOW);
   const [detailWindowKey, setDetailWindowKey] = useState(DEFAULT_WINDOW);
+  const isMasterDetail = useMediaQuery("(min-width: 1200px)", true);
+  // The one window the detail pane actually reads.
+  const activeDetailWindowKey = isMasterDetail ? listWindowKey : detailWindowKey;
   const [selectedSetId, setSelectedSetId] = useState(null);
   // Below desktop the browser and the analysis are two states of one screen,
   // never a squeezed split. Desktop ignores this entirely.
@@ -185,11 +201,14 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
 
   const selectSet = (setId, { openDetail = false } = {}) => {
     setSelectedSetId(setId);
-    setDetailWindowKey(DEFAULT_WINDOW);
+    // Only the LOCAL mobile window resets with the selection. The shared
+    // desktop window is a property of the workspace, not of the row you
+    // clicked, so changing sets must leave it exactly where the user put it.
+    if (!isMasterDetail) setDetailWindowKey(DEFAULT_WINDOW);
     if (openDetail) setMobileView("detail");
   };
 
-  const detailMovement = selected?.target?.windows?.[detailWindowKey] || null;
+  const detailMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
   const detailTrend = selected ? clipTrend(selected.target, detailMovement) : [];
   const detailDirection = directionOf(detailMovement?.amount);
   const detailHref = selected
@@ -298,23 +317,29 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
           <span data-set-market-detail-value className="text-[24px] font-semibold leading-none tabular-nums text-[var(--text-primary)]">
             {currency.format(selected.value)}
           </span>
-          <ChangeText movement={detailMovement} windowKey={detailWindowKey} className="text-[13px] font-semibold" />
+          <ChangeText movement={detailMovement} windowKey={activeDetailWindowKey} className="text-[13px] font-semibold" />
         </p>
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {`Set Value · ${windowLabel(detailWindowKey)}`}
+        <p data-set-market-detail-window={activeDetailWindowKey} className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          {`Set Value · ${windowLabel(activeDetailWindowKey)}`}
           {detailMovement?.coverage === "partial" ? <span> · since first available</span> : null}
         </p>
       </div>
 
-      <div className="mt-3">
-        <MarketWindowSelector
-          windows={WINDOWS}
-          value={detailWindowKey}
-          onChange={setDetailWindowKey}
-          fullWidth
-          ariaDescription="Clips the selected set's chart and its change value to this timeframe. No data is fetched."
-        />
-      </div>
+      {/* Not rendered at all in the master-detail composition — the toolbar's
+          selector is the one control up there. Hiding a second copy with CSS
+          would leave two radiogroups in the accessibility tree announcing the
+          same setting. */}
+      {isMasterDetail ? null : (
+        <div className="mt-3">
+          <MarketWindowSelector
+            windows={WINDOWS}
+            value={detailWindowKey}
+            onChange={setDetailWindowKey}
+            fullWidth
+            ariaDescription="Clips the selected set's chart and its change value to this timeframe. No data is fetched."
+          />
+        </div>
+      )}
 
       <div className="mt-3 min-w-0">
         <MarketSparkline
@@ -323,6 +348,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
           trendDirection={detailDirection}
           baselineValue={resolveDeltaWindowBaselineValue(detailMovement, selected.value)}
           label={`${selected.name} Set Value trend`}
+          data-set-market-detail-chart-window={activeDetailWindowKey}
           className="w-full"
           plotClassName="h-44 desk:h-[15rem]"
         />
@@ -390,7 +416,9 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
               windows={WINDOWS}
               value={listWindowKey}
               onChange={setListWindowKey}
-              ariaDescription="Sets the timeframe the set list's change column reports. No data is fetched."
+              ariaDescription={isMasterDetail
+                ? "Sets the timeframe for the whole Set Market: the list's change column, the selected set's change and its chart. No data is fetched."
+                : "Sets the timeframe the set list's change column reports. No data is fetched."}
             />
           </div>
         </div>

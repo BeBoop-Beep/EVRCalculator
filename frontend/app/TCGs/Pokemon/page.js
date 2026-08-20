@@ -1,4 +1,6 @@
 import SecondaryNav from "@/components/SecondaryNav";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/routeMetadata.mjs";
 
 // This page renders three static description cards and no real data — the
@@ -11,8 +13,20 @@ import { NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/routeMetadata.mjs";
 export const metadata = { robots: NOINDEX_FOLLOW_ROBOTS };
 
 export default function PokemonPage() {
+  // Same environment /Market and /Rankings wear: `.index-environment` is the
+  // room (wall gradient, side walls, ambient key light, vignette, grain) and
+  // `PageArtworkAtmosphere` is the Pokemon wordmark mural, which the
+  // `.explore-glass-scope` compound takes to luminance relief exactly as it
+  // does on Market. `isolate` keeps the negative-z layers inside this root.
+  // No layout, content or component here changes.
   return (
-    <div className="min-h-screen bg-[var(--app-background)]">
+    <div className="min-h-screen bg-[var(--app-background)] explore-glass-scope index-environment relative isolate">
+      <PageArtworkAtmosphere
+        src={getExploreBackground("pokemon")}
+        dataAttribute="data-tcg-ambient-artwork"
+        visibilityClassName="hidden desk:block"
+        loading="lazy"
+      />
       <SecondaryNav basePath="/TCGs/Pokemon" />
       <main className="w-full px-2 md:px-6 lg:px-10 py-8">
         <div className="max-w-6xl mx-auto">

@@ -43,7 +43,7 @@ export default async function MarketPage() {
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
-    <div className={`${styles.dashboard} explore-glass-scope market-atmosphere-scope relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
       <header className="mb-4 flex flex-col gap-2 desk:flex-row desk:items-end desk:justify-between">
         <div className="min-w-0">

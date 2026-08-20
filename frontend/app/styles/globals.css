@@ -1321,16 +1321,22 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* ==================================================================== *
- * MARKET PAGE ENVIRONMENT
+ * THE INDEX ENVIRONMENT — a shared premium background system
  *
- * The Market page is a data terminal, and it should read as one: an
+ * The analytical surfaces are data terminals and should read as one: an
  * interface placed inside a dimly lit branded room rather than a graphic
  * pasted onto a page.
  *
- * Everything below is scoped to `.market-atmosphere-scope`, a class carried
- * only by /Market's root. /Explore and the set pages share the same artwork
- * component and the same `--set-artwork-*` token defaults and are deliberately
- * left exactly as they were.
+ * ONE class, `.index-environment`, carries the whole system. It is worn by
+ * three roots today — /Market, /Rankings and the Pokemon set detail page —
+ * and every one of them gets the same room, the same falloff, the same
+ * atmospheric restraint and the same panel elevation. Only the MURAL differs:
+ *
+ *   /Market, /Rankings   the Pokemon wordmark, via PageArtworkAtmosphere
+ *   set detail pages     the set's own name as type, via PageEnvironmentMural
+ *
+ * Anything that is not the mural belongs in this block and is shared. A page
+ * that wants the environment adds one class; it does not copy a style block.
  *
  * FOUR LAYERS, back to front:
  *
@@ -1359,7 +1365,7 @@ body::-webkit-scrollbar-thumb:hover {
  * The grain exists only to keep large flat gradients from banding and reading
  * as digital emptiness. At this opacity it is felt, not seen.
  */
-.market-atmosphere-scope::before {
+.index-environment::before {
   position: fixed;
   z-index: -20;
   inset: 0;
@@ -1374,14 +1380,26 @@ body::-webkit-scrollbar-thumb:hover {
        instead of a gradient that runs to the window edge. */
     linear-gradient(
       90deg,
-      rgba(0, 2, 6, 0.78) 0%,
-      rgba(1, 3, 8, 0.42) 8%,
-      rgba(2, 5, 11, 0.1) 20%,
-      transparent 34%,
-      transparent 66%,
-      rgba(2, 5, 11, 0.1) 80%,
-      rgba(1, 3, 8, 0.42) 92%,
-      rgba(0, 2, 6, 0.78) 100%
+      rgba(0, 1, 4, 0.92) 0%,
+      rgba(0, 2, 6, 0.66) 6%,
+      rgba(1, 3, 8, 0.26) 16%,
+      rgba(2, 5, 11, 0.06) 27%,
+      transparent 38%,
+      transparent 62%,
+      rgba(2, 5, 11, 0.06) 73%,
+      rgba(1, 3, 8, 0.26) 84%,
+      rgba(0, 2, 6, 0.66) 94%,
+      rgba(0, 1, 4, 0.92) 100%
+    ),
+    /* Corner occlusion. The side walls and the ceiling/floor bands meet in a
+       cross, which leaves the four corners lighter than the edges around them;
+       this closes them so the room has corners rather than seams. */
+    radial-gradient(
+      ellipse 78% 70% at 50% 46%,
+      transparent 0%,
+      transparent 56%,
+      rgba(0, 2, 6, 0.3) 82%,
+      rgba(0, 1, 4, 0.62) 100%
     ),
     /* 3. Ceiling and floor shadow, so the space is closed on all four sides
        rather than only left and right. */
@@ -1398,11 +1416,11 @@ body::-webkit-scrollbar-thumb:hover {
        lets the periphery read as further away. It lifts by a few levels only —
        the separation comes from the shadows above, not from brightness. */
     radial-gradient(
-      ellipse 46% 70% at 50% 34%,
-      rgba(120, 160, 224, 0.075) 0%,
-      rgba(88, 128, 190, 0.038) 40%,
-      rgba(48, 82, 140, 0.012) 68%,
-      transparent 88%
+      ellipse 38% 62% at 50% 32%,
+      rgba(126, 166, 230, 0.085) 0%,
+      rgba(92, 132, 194, 0.04) 38%,
+      rgba(48, 82, 140, 0.011) 64%,
+      transparent 82%
     ),
     /* 5. The key light, tightened and pushed to upper centre-right so the wall
        is lit unevenly and the falloff has a direction. */
@@ -1430,79 +1448,111 @@ body::-webkit-scrollbar-thumb:hover {
       #050b14 82%,
       #03070d 100%
     );
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 160px 160px, cover, cover, cover, cover, cover, cover;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 160px 160px, cover, cover, cover, cover, cover, cover, cover;
 }
 
-/* ---- Layer 2: the mural ---------------------------------------------- *
- * The source art is the full-colour Pokémon wordmark: deep blue letterforms
- * with a bright #ffca02 fill. At the shared 0.95 saturation that yellow sat a
- * few points away from --accent (#FACC15) and competed directly with the
- * active pills, the gain/loss figures and the chart lines — the "muddy"
- * reading. Here the art is taken to luminance first and re-tinted cool, so it
- * contributes SHAPE and DEPTH but no brand colour of its own.
+/* ---- Layer 2: the mural, as RELIEF ON THE BACK WALL ------------------- *
+ * The source art is the full-colour Pokémon wordmark. It is taken to luminance
+ * first so it contributes shape and depth but no brand colour of its own — the
+ * #ffca02 fill sat a few points from --accent (#FACC15) and competed with the
+ * pills, the gain/loss figures and the chart lines.
+ *
+ * WHY THIS IS NOT A TRANSLUCENT COPY OF THE LOGO ANY MORE
+ * ------------------------------------------------------
+ * The previous version drew the art twice as two soft glows: a crisp-ish copy
+ * under blur(2.4px), and beneath it a 58px-blurred copy scaled to 1.06. A big
+ * out-of-focus duplicate sitting behind a softer copy is the textbook
+ * apparition effect — and because the two scales did not match, every
+ * letterform carried a halo that did not register with it. That, plus the
+ * breathing animation below, is what read as "ghost" rather than "room".
+ *
+ * The two layers the shared component gives us are now used as an EMBOSS PAIR
+ * instead. Same art, same scale, offset a couple of pixels against each other:
+ *
+ *   .bloom    the shadow cut — dark, pushed down-LEFT
+ *   .artwork  the lit edge   — pale, pushed up-RIGHT, toward the key light
+ *
+ * Where the two copies overlap, shadow and highlight cancel and the fill goes
+ * flat — so the logo's readability actually DROPS. What survives is a thin
+ * bright rim on the light side and a thin dark rim on the dark side: the wall
+ * is carved, not printed on. Relief is anchored to a surface by definition,
+ * which is the whole point of the change.
  */
-.market-atmosphere-scope .set-page-atmosphere {
-  /* Dimmer and softer than the shared treatment: a wall graphic seen across a
-     room, not a watermark laid on the document. */
-  --set-artwork-opacity: 0.058;
-  --set-artwork-opacity-lg: 0.066;
-  --set-artwork-bloom-opacity: 0.03;
-  --set-artwork-bloom-opacity-lg: 0.034;
-  --set-artwork-bloom-blur: 58px;
+.index-environment .set-page-atmosphere {
+  /* Both layers now describe the same edge, so they must share a scale. */
   --set-artwork-scale: 1.04;
-  --set-artwork-bloom-scale: 1.06;
-  /* The ambient lift is now the room's job; this only feathers the mural. */
-  --set-artwork-lift-opacity: 0.14;
+  --set-artwork-bloom-scale: 1.04;
+  --set-artwork-opacity: 0.062;
+  --set-artwork-opacity-lg: 0.07;
+  --set-artwork-bloom-opacity: 0.075;
+  --set-artwork-bloom-opacity-lg: 0.085;
+  /* Near zero. The relief needs a soft edge, not a soft object. Tightened
+     from 3px so the shadow hugs the silhouette instead of pooling around it —
+     a tighter shadow is a crisper outline, at no extra brightness. */
+  --set-artwork-bloom-blur: 2px;
+  /* The broad cool lift behind the art was a third overlapping glow. The room
+     already owns the lighting; this is now only the faintest feathering. */
+  --set-artwork-lift-opacity: 0.04;
   /* Strongest through the open band behind the header and the movers strip,
-     then falling away through the dense analysis surfaces below. Reveal the
-     room in the negative space, not behind the numbers. */
+     then falling away hard through the dense analysis surfaces below. Reveal
+     the room in the negative space, not behind the numbers. */
   --set-artwork-mask:
     linear-gradient(
       to bottom,
-      rgba(0, 0, 0, 0.62) 0%,
-      #000 16%,
-      rgba(0, 0, 0, 0.66) 44%,
-      rgba(0, 0, 0, 0.3) 70%,
-      rgba(0, 0, 0, 0.08) 100%
+      rgba(0, 0, 0, 0.58) 0%,
+      #000 15%,
+      rgba(0, 0, 0, 0.5) 40%,
+      rgba(0, 0, 0, 0.16) 66%,
+      rgba(0, 0, 0, 0.04) 100%
     );
 }
 
-/* Duotone, written out rather than tokenised: the shared filter chain has no
-   tint stage, and adding one to it would change three other routes to serve
-   one. grayscale() erases the logo palette; sepia() + hue-rotate() re-tint the
-   remaining luminance to the room's cool blue. */
-.market-atmosphere-scope .set-page-atmosphere-artwork {
+/* The lit edge. Pushed up and to the RIGHT, because the room's key light comes
+   from upper centre-right — the relief has to agree with the lamp or the eye
+   reads it as two misprinted copies. Blur is gone: a surface has definition,
+   an apparition does not.
+   contrast() is how the silhouette gained definition without gaining volume.
+   It steepens the tonal curve, so the form's own edge separates further from
+   the wall while the fill stays where it was — a sharper OUTLINE rather than a
+   brighter shape. Raising opacity or brightness instead would have made it a
+   pasted logo, which is the thing this whole treatment exists to avoid. */
+.index-environment.explore-glass-scope .set-page-atmosphere-artwork {
+  transform:
+    translate(1.5px, calc(var(--set-artwork-y-offset) - 1.5px))
+    scale(var(--set-artwork-scale));
   filter:
-    grayscale(1) brightness(0.74) sepia(0.45) hue-rotate(176deg) saturate(1.9)
-    blur(2.4px);
+    grayscale(1) brightness(1.2) contrast(1.4) sepia(0.4) hue-rotate(182deg)
+    saturate(1.5) blur(0);
 }
 
-.market-atmosphere-scope .set-page-atmosphere-bloom {
+/* The shadow cut, opposite offset and near-black. */
+.index-environment.explore-glass-scope .set-page-atmosphere-bloom {
+  transform:
+    translate(-2px, calc(var(--set-artwork-y-offset) + 3px))
+    scale(var(--set-artwork-bloom-scale));
   filter:
-    grayscale(1) brightness(0.6) sepia(0.5) hue-rotate(178deg) saturate(2.2)
-    blur(var(--set-artwork-bloom-blur));
+    grayscale(1) brightness(0.04) blur(var(--set-artwork-bloom-blur));
 }
 
-/* ---- Layer 3: haze + edge veil --------------------------------------- *
- * Keeps the inherited breathing bloom and adds a veil that darkens the frame
- * ABOVE the mural, so the art sinks into the corners instead of running to
- * the edges of the viewport like wallpaper.
+/* ---- Layer 3: the veil ------------------------------------------------ *
+ * This layer used to inherit a 14-second breathing animation (opacity pulsing
+ * 0.34 to 0.52) plus a centred blue glow. Nothing in a room breathes, and a
+ * slowly pulsing haze is the single most spectral thing a page can do — so
+ * both are gone here. What remains is pure occlusion: a veil that darkens the
+ * frame ABOVE the mural so the relief dies into the side walls instead of
+ * running to the edges of the viewport like wallpaper.
  */
-.market-atmosphere-scope .set-page-atmosphere::after {
+.index-environment .set-page-atmosphere::after {
+  animation: none;
+  opacity: 1;
   background:
     radial-gradient(
-      ellipse 74% 78% at 50% 38%,
+      ellipse 66% 72% at 50% 36%,
       transparent 0%,
-      transparent 42%,
-      rgba(3, 8, 16, 0.5) 76%,
-      rgba(2, 5, 12, 0.82) 100%
-    ),
-    radial-gradient(
-      ellipse at center calc(50% + var(--set-artwork-y-offset, 20px)),
-      rgba(147, 187, 245, 0.055) 0%,
-      rgba(59, 130, 246, 0.024) 34%,
-      transparent 68%
+      transparent 34%,
+      rgba(3, 8, 16, 0.58) 70%,
+      rgba(1, 4, 10, 0.9) 100%
     );
 }
 
@@ -1514,32 +1564,43 @@ body::-webkit-scrollbar-thumb:hover {
  * Both classes are on the scope root, so this outranks the shared
  * `.explore-glass-scope .set-glass-surface` rule without !important.
  */
-.explore-glass-scope.market-atmosphere-scope .set-glass-surface,
-.explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
-  border-color: rgba(156, 186, 226, 0.19);
-  background: rgba(8, 16, 30, 0.7);
+/* The class is doubled purely for specificity. `.explore-glass-scope
+   .set-glass-surface` and `.set-detail-glass-scope .set-glass-surface` are
+   both (0,2,0); this is (0,3,0), so the environment wins on every root that
+   wears it without depending on where in the file it happens to sit and
+   without a single !important. */
+.index-environment.index-environment .set-glass-surface,
+.index-environment.index-environment .set-glass-surface-dense {
+  border-color: rgba(160, 190, 230, 0.2);
+  /* Denser again: the wall must not be legible THROUGH a data surface. */
+  background: rgba(8, 16, 30, 0.78);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 1px 2px rgba(1, 4, 10, 0.45),
-    0 10px 24px -12px rgba(0, 2, 8, 0.6),
-    0 34px 70px -26px rgba(0, 2, 8, 0.85);
+    inset 0 1px 0 rgba(255, 255, 255, 0.065),
+    /* Ambient occlusion. A tight dark spread hugging the panel is what makes
+       the environment read as being BEHIND it rather than beside it — the
+       cast shadows below only place it above the floor. */
+    0 0 0 6px rgba(0, 2, 8, 0.16),
+    0 1px 2px rgba(1, 4, 10, 0.5),
+    0 10px 24px -12px rgba(0, 2, 8, 0.62),
+    0 34px 70px -26px rgba(0, 2, 8, 0.88);
   -webkit-backdrop-filter: blur(8px) saturate(1.04);
   backdrop-filter: blur(8px) saturate(1.04);
 }
 
-.explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
-  background: rgba(7, 15, 28, 0.76);
+.index-environment.index-environment .set-glass-surface-dense {
+  background: rgba(6, 13, 26, 0.84);
 }
 
 /* ---- Below desktop --------------------------------------------------- *
- * The mural does not render at all here (the artwork container is
- * `hidden desk:block`), so the room is the whole treatment — and it is pulled
- * back further still. A phone is read at arm's length in bad light;
+ * The image mural does not render at all here (its container is
+ * `hidden desk:block`); the type mural stays, but as fragments — see the
+ * mobile block at the end of this file. The room itself is pulled back
+ * further still. A phone is read at arm's length in bad light;
  * legibility outranks atmosphere. The grain and the ambient light are dropped
  * entirely and only a soft vignette over the base gradient remains.
  */
 @media (max-width: 1199.98px) {
-  .market-atmosphere-scope::before {
+  .index-environment::before {
     background-image:
       linear-gradient(
         90deg,
@@ -1568,8 +1629,8 @@ body::-webkit-scrollbar-thumb:hover {
 
   /* Cards keep their lift but lose the expensive blur, matching the existing
      mobile behaviour where backdrop-filter was already absent. */
-  .explore-glass-scope.market-atmosphere-scope .set-glass-surface,
-  .explore-glass-scope.market-atmosphere-scope .set-glass-surface-dense {
+  .index-environment.index-environment .set-glass-surface,
+  .index-environment.index-environment .set-glass-surface-dense {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.045),
       0 14px 34px -18px rgba(1, 4, 10, 0.7);
@@ -1578,5 +1639,137 @@ body::-webkit-scrollbar-thumb:hover {
        would cost a compositing pass and buy nothing. */
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+
+/* ---- The mural, variant two: THE SET'S OWN ARTWORK -------------------- *
+ * Set detail pages carry the same room, and their identity source is the set's
+ * real logo / key visual — oversized, cropped, and sitting on the back wall.
+ *
+ * WHY THIS IS NOT THE LUMINANCE RELIEF ABOVE
+ * ------------------------------------------
+ * /Market and /Rankings paint ONE image, the Pokemon wordmark, so it can be
+ * taken to luminance and embossed: there is no palette to lose, and the
+ * #ffca02 fill actively competed with --accent. A set page paints a DIFFERENT
+ * image on every route, and that image's palette IS the thing the reader
+ * recognises. Duotoning it would hand every set in the catalogue the same navy
+ * silhouette — the exact failure the giant-name experiment also produced.
+ *
+ * So the artwork itself is left alone: no grayscale, no sepia, no hue-rotate,
+ * no saturate, no tint overlay, no blend mode. Depth is built AROUND it in
+ * four moves, none of which touch the crisp layer's pixels:
+ *
+ *   1. the lift (::before)   a cool ambient wash on the wall behind the art
+ *   2. the bloom             a blurred, upscaled copy of the SAME art, so the
+ *                            light spilling onto the wall carries the set's
+ *                            own colour — backlight, not tint
+ *   3. the veil (::after)    the shared vignette, closing the composition into
+ *                            the side walls instead of running to the edges
+ *   4. the panels            `.index-environment`'s denser ground, ambient
+ *                            occlusion ring and cast shadows, which cut across
+ *                            the oversized art and put it firmly behind
+ *
+ * The mask keeps the art strongest in the open band at the top and drops it
+ * away through the dense analysis surfaces below. Between the mask, the veil
+ * and the panels, most of any given set's artwork is occluded — that is the
+ * composition, not a defect.
+ */
+.index-environment.set-detail-glass-scope .set-page-atmosphere {
+  /* Oversized and cropped: the art runs past the frame rather than sitting
+     inside it as a pasted logo. The bloom is a touch larger again so the
+     spill reads as light coming from behind the art. */
+  /* Reduced 12% from 1.28/1.44 so more of a set's complete identity lands
+     inside the viewport. Scale only — every other value in this block is the
+     approved treatment and is untouched. */
+  --set-artwork-scale: 1.13;
+  --set-artwork-bloom-scale: 1.27;
+  /* Restrained, because nothing is being spent on recolouring any more: these
+     are true source colours, which carry further than a navy silhouette at the
+     same alpha. The UI stays the brighter thing on the page. */
+  --set-artwork-opacity: 0.1;
+  --set-artwork-opacity-lg: 0.125;
+  --set-artwork-bloom-opacity: 0.09;
+  --set-artwork-bloom-opacity-lg: 0.11;
+  /* Wide enough to read as illumination around the silhouette rather than an
+     out-of-focus second copy of the logo. */
+  --set-artwork-bloom-blur: 54px;
+  --set-artwork-bloom-brightness: 1.05;
+  --set-artwork-bloom-saturate: 1.1;
+  --set-artwork-lift-opacity: 0.07;
+  /* Strongest through the open band behind the header, then falling away hard
+     through the dense analysis surfaces. Reveal the room in the negative
+     space, not behind the numbers. */
+  --set-artwork-mask:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.55) 0%,
+      #000 16%,
+      rgba(0, 0, 0, 0.62) 40%,
+      rgba(0, 0, 0, 0.2) 66%,
+      rgba(0, 0, 0, 0.04) 100%
+    );
+}
+
+/* The artwork, untouched. blur(0) is deliberate — a surface has definition,
+   an apparition does not — and brightness/saturate stay at 1 so the rendered
+   pixels are the source pixels at a lower alpha. Nothing here shifts hue. */
+.index-environment.set-detail-glass-scope .set-page-atmosphere-artwork {
+  transform:
+    translateY(var(--set-artwork-y-offset))
+    scale(var(--set-artwork-scale));
+  filter: blur(0);
+}
+
+/* The backlight. Same image, heavily blurred and scaled past the crisp copy,
+   so what lands on the wall is the set's own colour spilling out from behind
+   its silhouette. This is the glow — it lives OUTSIDE the art, not over it. */
+.index-environment.set-detail-glass-scope .set-page-atmosphere-bloom {
+  transform:
+    translateY(calc(var(--set-artwork-y-offset) + 6px))
+    scale(var(--set-artwork-bloom-scale));
+  filter:
+    brightness(var(--set-artwork-bloom-brightness)) saturate(var(--set-artwork-bloom-saturate))
+    blur(var(--set-artwork-bloom-blur));
+}
+
+/* Desktop: the strongest form of the environment. The art is pushed further
+   past the frame so the crop is unmistakably environmental, and the vignette
+   closes harder around the content column. */
+@media (min-width: 1200px) {
+  .index-environment.set-detail-glass-scope .set-page-atmosphere {
+    /* Also down 12%, from 1.42/1.6. Still unmistakably oversized and cropped;
+       just enough smaller that a long set logo reads as a whole shape. */
+    --set-artwork-scale: 1.25;
+    --set-artwork-bloom-scale: 1.41;
+    /* Restated rather than inherited: this selector outranks the shared
+       `@media (min-width: 1024px) .set-page-atmosphere` rule that swaps in
+       the -lg tokens, so the swap has to happen here to happen at all. */
+    --set-artwork-opacity: var(--set-artwork-opacity-lg);
+    --set-artwork-bloom-opacity: var(--set-artwork-bloom-opacity-lg);
+  }
+}
+
+/* Below desktop the content column is nearly the full width and the room is
+   already pulled back, so the identity is present but quiet: no oversized
+   crop, a tighter bloom, lower alpha, and a mask that clears out early.
+   Readability of the data outranks atmosphere on a phone. */
+@media (max-width: 1199.98px) {
+  .index-environment.set-detail-glass-scope .set-page-atmosphere {
+    --set-artwork-scale: 1.12;
+    --set-artwork-bloom-scale: 1.22;
+    --set-artwork-opacity: 0.07;
+    --set-artwork-bloom-opacity: 0.055;
+    --set-artwork-bloom-blur: 40px;
+    --set-artwork-lift-opacity: 0.05;
+    --set-artwork-mask:
+      linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.5) 0%,
+        rgba(0, 0, 0, 0.92) 12%,
+        rgba(0, 0, 0, 0.4) 34%,
+        rgba(0, 0, 0, 0.1) 56%,
+        transparent 78%
+      );
   }
 }
