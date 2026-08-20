@@ -161,6 +161,7 @@ def test_missing_date_authority_fails_closed(monkeypatch):
         raise RuntimeError("network down")
 
     monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", _boom)
     monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", _boom)
 
     result = gate.enforce_market_publication_gate(_Recorder(), commit=True)
@@ -172,6 +173,7 @@ def test_missing_date_authority_fails_closed(monkeypatch):
 
 def test_no_accepted_date_blocks_rather_than_crashing(monkeypatch):
     monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: None)
     monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: None)
 
     result = gate.enforce_market_publication_gate(_Recorder(), commit=True)
@@ -209,3 +211,33 @@ def test_invalid_mode_falls_back_to_required(monkeypatch):
         _Recorder(), commit=True, market_date="2026-08-18")
     assert result.proceed is False
     assert result.exit_code == 3
+
+
+def test_publication_targets_the_newest_source_date_not_the_public_authority(monkeypatch):
+    """The pipeline must be able to ADVANCE.
+
+    Targeting the latest *accepted* date would republish yesterday forever, and
+    on day one - when nothing is accepted yet - nothing could ever publish.
+    """
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: "2026-08-19")
+    monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: "2026-08-17")
+
+    assert gate.resolve_market_publication_date(_Recorder(), None) == "2026-08-19"
+
+
+def test_day_one_can_publish_with_no_accepted_history(monkeypatch):
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: "2026-08-19")
+    monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: None)
+
+    assert gate.resolve_market_publication_date(_Recorder(), None) == "2026-08-19"
+
+
+def test_explicit_market_date_always_wins(monkeypatch):
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: "2026-08-19")
+    assert gate.resolve_market_publication_date(_Recorder(), "2026-08-18") == "2026-08-18"
+
+
+def test_no_source_data_falls_back_to_public_authority(monkeypatch):
+    monkeypatch.setattr(gate, "resolve_latest_market_source_date", lambda _c: None)
+    monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: "2026-08-17")
+    assert gate.resolve_market_publication_date(_Recorder(), None) == "2026-08-17"

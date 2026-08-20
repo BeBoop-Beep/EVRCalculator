@@ -68,6 +68,40 @@ class _BatchQuery:
         return _Result([dict(batch)])
 
 
+class _QualityQuery:
+    """Durable Market Date Quality state: readable history plus diagnostic writes."""
+
+    def __init__(self, world):
+        self._world = world
+
+    def select(self, *_a, **_k):
+        return self
+
+    def eq(self, *_a, **_k):
+        return self
+
+    def lte(self, *_a, **_k):
+        return self
+
+    def order(self, *_a, **_k):
+        return self
+
+    def range(self, start, end):
+        self._page = (start, end)
+        return self
+
+    def upsert(self, rows, **_k):
+        for row in rows:
+            self._world.quality_rows[row["market_date"]] = dict(row)
+        return self
+
+    def execute(self):
+        rows = [dict(row) for row in self._world.quality_rows.values()]
+        rows.sort(key=lambda row: row["market_date"])
+        start, end = getattr(self, "_page", (0, len(rows)))
+        return _Result(rows[start:end + 1])
+
+
 class _World:
     """Source state + published snapshot rows for one simulated day."""
 
@@ -76,6 +110,7 @@ class _World:
         self.market_date = None
         self.simulation_date = "2026-07-17"  # deliberately lagging all along
         self.rows = {}          # (table, key) -> row
+        self.quality_rows = {}  # market_date -> persisted Market quality row
         self.revalidations = [] # publish-success cache invalidations
         self.write_log = []     # ordered table writes
 
@@ -99,10 +134,30 @@ class _World:
         self.batch["missing_set_count"] = 0
         self.batch["succeeded_set_count"] = len(SETS)
 
+    # --- Market Date Quality ---------------------------------------------
+    # The Market surface has its own authority. In this simulation the Market
+    # cohort and the full cohort move together, so quality is derived from the
+    # same batch state the rest of the day is judged on.
+    def market_quality(self, market_date):
+        cohort = len(SETS)
+        complete = bool(self.batch) and self.batch["status"] == "complete"
+        return {
+            "marketDate": market_date,
+            "status": "READY" if complete else "INCOMPLETE",
+            "contractVersion": "pokemon-market-date-quality-v1",
+            "cohortSetCount": cohort,
+            "qualifyingSetCount": cohort if complete else 0,
+            "missingSetIds": [] if complete else [row["id"] for row in SETS],
+            "cohortFingerprint": "world-cohort",
+            "evidence": {"derivedFromBatch": True},
+        }
+
     # --- supabase-ish client ---------------------------------------------
     def table(self, table_name):
         if table_name == "pokemon_scrape_batches":
             return _BatchQuery(self)
+        if table_name == "pokemon_market_date_quality":
+            return _QualityQuery(self)
         raise AssertionError(f"unexpected table read: {table_name}")
 
     # --- published state --------------------------------------------------
@@ -154,6 +209,16 @@ def _install(monkeypatch, world):
     def market_upsert_rows(_client, table, rows, **_k):
         for row in rows:
             world.write(table, row, row["set_id"])
+
+    # The Market gate runs for real; only its evidence lookup is served by the
+    # fake world (there is no scrape_job_runs table in this simulation).
+    from backend.db.services import market_publication_gate as market_gate
+    monkeypatch.setattr(
+        market_gate, "evaluate_market_date_quality",
+        lambda _client, market_date, **_k: world.market_quality(market_date))
+    # The publication candidate is the day the Market has source data for.
+    monkeypatch.setattr(
+        market_gate, "resolve_latest_market_source_date", lambda _client: world.market_date)
 
     monkeypatch.setattr(market_cmd, "get_client", lambda: world)
     monkeypatch.setattr(market_cmd, "resolve_target_sets", lambda _c, _a: SETS)

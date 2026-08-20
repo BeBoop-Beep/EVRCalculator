@@ -26,6 +26,7 @@ from backend.db.services.market_date_quality import (
     evaluate_market_date_quality,
     persist_market_date_quality,
     resolve_latest_accepted_market_date,
+    resolve_latest_market_source_date,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,8 +114,23 @@ def resolve_market_gate_mode(explicit: Optional[str] = None) -> str:
 
 
 def resolve_market_publication_date(client: Any, requested: Optional[str]) -> Optional[str]:
+    """Resolve the date a publication run should TARGET.
+
+    Deliberately not ``resolve_latest_accepted_market_date``: that is the public
+    READ authority (what the site serves today). Targeting it would republish
+    yesterday forever and the pipeline could never advance - and on the very
+    first day, when nothing is accepted yet, nothing could ever publish.
+
+    The publication candidate is the newest date the Market actually has source
+    data for. Quality then decides whether that candidate may be published.
+    """
     if requested:
         return str(requested)[:10]
+    candidate = resolve_latest_market_source_date(client)
+    if candidate:
+        return candidate
+    # Nothing to advance to; fall back to the current public authority so a
+    # re-run of an already-published day stays idempotent rather than crashing.
     return resolve_latest_accepted_market_date(client)
 
 

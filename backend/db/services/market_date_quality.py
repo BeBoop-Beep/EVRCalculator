@@ -235,6 +235,23 @@ def accepted_market_dates(
     }
 
 
+def resolve_latest_market_source_date(client: Any) -> str | None:
+    """Newest market date the Market surface has source valuation data for.
+
+    This is the publication CANDIDATE, not an authority: it says what day there
+    is something to publish, never that the day is fit to publish. Quality
+    decides that.
+    """
+    result = (client.table(SOURCE_TABLE).select("snapshot_date")
+              .in_("value_scope", list(REQUIRED_VALUE_SCOPES))
+              .order("snapshot_date", desc=True).limit(1).execute())
+    rows = list((result.data if result else []) or [])
+    if not rows:
+        return None
+    day = rows[0].get("snapshot_date")
+    return str(day)[:10] if day else None
+
+
 def resolve_latest_accepted_market_date(
     client: Any, *, through_date: str | None = None
 ) -> str | None:
