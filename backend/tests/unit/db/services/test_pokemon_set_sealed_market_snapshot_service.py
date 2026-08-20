@@ -185,3 +185,116 @@ def test_product_sort_key_is_numeric_not_lexical():
     assert product_sort_key(dear) < product_sort_key(cheap)
     # String prices are coerced, not compared as text.
     assert product_sort_key({**dear, "currentPrice": "422.60"}) < product_sort_key({**cheap, "currentPrice": "80.38"})
+
+
+# --- Set-level sealed lens ---------------------------------------------------
+#
+# The Market page's "Sealed" segment charts ONE set-level series. These tests
+# pin the property that makes that line trustworthy: it must never move for any
+# reason other than a real price change.
+
+
+def _history(pairs):
+    return [{"date": day, "marketPrice": price, "source": "TCGPLAYER", "isObserved": True} for day, price in pairs]
+
+
+def test_set_market_series_holds_the_basket_constant():
+    """A later-starting product must not manufacture a rally.
+
+    Product B's history begins three days after product A's. A running per-day
+    sum would step from 100 to 150 on 2026-01-04 and report a +50% sealed
+    market move on a day when neither product changed price at all. The fixed
+    basket starts the series where BOTH products report.
+    """
+    series = snapshot_service.build_set_market_series(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-05", 110.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-04", 50.0)])},
+        ]
+    )
+    assert series["basketStartDate"] == "2026-01-04"
+    assert series["productCount"] == 2
+    assert series["history"][0] == {"date": "2026-01-04", "marketPrice": 150.0, "isObserved": True}
+    # Nothing before the basket is complete is ever published.
+    assert all(point["date"] >= "2026-01-04" for point in series["history"])
+    # The only movement in the window is A's real +10.
+    assert series["currentValue"] == 160.0
+    assert series["movements"]["lifetime"]["amount"] == 10.0
+
+
+def test_set_market_series_forward_fills_unobserved_days():
+    """A day without a scrape is not a day the product became worthless."""
+    series = snapshot_service.build_set_market_series(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-04", 100.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-01", 40.0), ("2026-01-04", 40.0)])},
+        ]
+    )
+    assert [point["date"] for point in series["history"]] == [
+        "2026-01-01",
+        "2026-01-02",
+        "2026-01-03",
+        "2026-01-04",
+    ]
+    assert {point["marketPrice"] for point in series["history"]} == {140.0}
+
+
+def test_set_market_series_absent_rather_than_zero_when_there_is_nothing_to_aggregate():
+    assert snapshot_service.build_set_market_series([]) is None
+    assert snapshot_service.build_set_market_series([{"sealedProductId": "a", "history": []}]) is None
+
+
+def test_build_snapshot_publishes_the_set_level_lens():
+    products = [
+        {"id": 20, "set_id": "s", "name": "Set Booster Box", "product_type": "box"},
+        {"id": 21, "set_id": "s", "name": "Set Elite Trainer Box", "product_type": "box"},
+    ]
+    observations = [priced_observation(20, 1, 400.0), priced_observation(21, 2, 60.0)]
+    payload = build_snapshot({"id": "s", "canonical_key": "set", "name": "Set"}, products, observations)["payload_json"]
+    assert payload["setMarket"]["currentValue"] == 460.0
+    assert payload["setMarket"]["productCount"] == 2
+    assert list(payload["setMarket"]["movements"]) == list(MOVEMENT_WINDOWS)
+    # A set with no sealed products publishes no lens rather than $0.
+    empty = build_snapshot({"id": "x", "canonical_key": "x", "name": "X"}, [], [])["payload_json"]
+    assert empty["setMarket"] is None
+
+
+def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():
+    """Stale snapshots serve the new lens without a republication run."""
+
+    class _Client:
+        def table(self, _name):
+            return self
+
+        def select(self, *_args, **_kwargs):
+            return self
+
+        def eq(self, *_args, **_kwargs):
+            return self
+
+        def limit(self, *_args, **_kwargs):
+            return self
+
+        def execute(self):
+            return type(
+                "R",
+                (),
+                {
+                    "data": [
+                        {
+                            "payload_json": {
+                                "products": [
+                                    {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0)])},
+                                    {"sealedProductId": "b", "history": _history([("2026-01-01", 25.0)])},
+                                ]
+                            },
+                            "updated_at": "2026-01-02T00:00:00Z",
+                        }
+                    ]
+                },
+            )()
+
+    payload = snapshot_service.read_snapshot(_Client(), "s")
+    assert payload["setMarket"]["currentValue"] == 125.0
+    # The contract version is deliberately untouched, so no fingerprint moves.
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v3"

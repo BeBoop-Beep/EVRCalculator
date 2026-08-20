@@ -1,4 +1,4 @@
-import { RANK_CONFIG } from "@/constants/rankConfig";
+import { RANK_CONFIG } from "../../constants/rankConfig";
 import { buildRipTierPresentation } from "./ripTierPresentation.mjs";
 
 function withAlpha(color, alpha) {

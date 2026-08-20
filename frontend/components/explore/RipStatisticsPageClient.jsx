@@ -52,6 +52,7 @@ import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
+import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -13201,7 +13202,80 @@ export default function RipStatisticsPageClient({
                     scoring, no portfolio actions, no forecasting. Modelled
                     causation (value structure, EV contribution, concentration)
                     stays on Analysis. */}
+                {/* ONE tab, TWO compositions. Below 1200px Market is a
+                    purpose-built mobile dashboard (SetMarketMobile) rather than
+                    this desktop grid narrowed down: identity hero, then movers,
+                    then Set Value, then chase, then sealed. It reads the SAME
+                    state this branch reads — no extra request, no extra
+                    contract, and the same `set-detail-market-*` ids so every
+                    existing deep link resolves at both widths.
+
+                    Exactly one composition mounts at a time, chosen by the same
+                    1200px reading the hero composition already uses, so the ids
+                    stay unique and no module is fetched twice. */}
                 {setDetailTab === "market" ? (
+                  isDesktopHeroComposition ? null : (
+                  <SetMarketMobile
+                    setId={resolvedSetResourceId}
+                    sectionIds={{
+                      root: "set-detail-market",
+                      hero: "set-detail-market-hero",
+                      movers: "set-detail-market-movers",
+                      setValue: "set-detail-market-set-value",
+                      topChase: "set-detail-market-top-chase",
+                      sealed: "set-detail-market-sealed",
+                    }}
+                    hero={{
+                      setName: selectedName,
+                      era: selectedTarget?.era ?? null,
+                      logoUrl: heroLogoUrl,
+                      releaseDateText:
+                        selectedTarget?.release_date || selectedTarget?.releaseDate
+                          ? formatLongDate(selectedTarget?.release_date ?? selectedTarget?.releaseDate)
+                          : null,
+                      totalCards: authoritativeSetCardCount,
+                      ripTier: setContextRipTier || null,
+                      ripTierStyle: setContextRipPresentation.tierPill,
+                      ripRank: setContextRipRank,
+                      ripCohortSize: setContextRipCohort,
+                    }}
+                    movers={{
+                      entry: moversTickerEntry,
+                      status: moversTickerStatus,
+                      error: activeMarketMoversState.error,
+                      viewAllHref: moversTickerHref,
+                      onRetry: retryMarketMoversModule,
+                    }}
+                    setValue={{
+                      setValueContract: activeSetValueContract,
+                      history: activeSetValueHistory.history,
+                      historiesByScope: activeSetValueHistory.historiesByScope,
+                      availableScopes: activeSetValueHistory.availableScopes,
+                      status: activeSetValueHistory.status,
+                      error: activeSetValueHistory.error,
+                      selectedScope: setValueTrendScope,
+                      onSelectedScopeChange: setSetValueTrendScope,
+                      marketAsOfDate,
+                    }}
+                    topChase={{
+                      cards: topPricedCards,
+                      status: topPricedCardsStatus,
+                      error: activeTopMarketCardsState.error,
+                      selectedWindowKey: topMarketCardsWindowKey,
+                      onWindowChange: setTopMarketCardsWindowKey,
+                      marketAsOfDate,
+                      rowHref: topChaseRowHref,
+                      viewAllHref: topChaseRowHref,
+                      onRetry: retryTopChaseModule,
+                    }}
+                    sealed={{
+                      canonicalSetKey: selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey ?? null,
+                    }}
+                  />
+                  )
+                ) : null}
+
+                {setDetailTab === "market" && isDesktopHeroComposition ? (
                   <section id="set-detail-market" data-market-page className="scroll-mt-24 space-y-5 md:scroll-mt-28">
                     {/* 1. Set Value — the primary wide surface. */}
                     <div id="set-detail-market-set-value" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">

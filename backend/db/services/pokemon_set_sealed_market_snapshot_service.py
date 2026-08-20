@@ -162,6 +162,87 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
     }
 
 
+def _forward_filled_daily_series(history: List[Dict[str, Any]], start: str, end: str) -> Dict[str, float]:
+    """Carry each product's last observed price forward across every day in range.
+
+    A sealed product is not observed every calendar day, but its market value
+    does not cease to exist on the days between observations. Forward filling
+    is the same convention the card surfaces already use, so the aggregate does
+    not dip on days that merely lack a scrape.
+    """
+    by_day: Dict[str, float] = {}
+    cursor = date.fromisoformat(start)
+    end_date = date.fromisoformat(end)
+    index = 0
+    last: Optional[float] = None
+    while cursor <= end_date:
+        key = cursor.isoformat()
+        while index < len(history) and history[index]["date"] <= key:
+            last = history[index]["marketPrice"]
+            index += 1
+        if last is not None:
+            by_day[key] = last
+        cursor += timedelta(days=1)
+    return by_day
+
+
+def build_set_market_series(products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Aggregate the per-product histories into ONE set-level sealed series.
+
+    This is a FIXED BASKET index, not a running sum of whatever happened to be
+    priced on each day. The basket is every eligible product that carries
+    history, and the series starts on the first day on which ALL of them have
+    begun reporting. That start rule is the whole point: a naive per-day sum
+    steps upward every time another product's history begins, which reads as a
+    sealed market rally that never happened. Holding the basket constant means
+    every movement in this line is a real price movement.
+
+    The cost of the rule is stated rather than hidden — ``basketStartDate`` and
+    ``productCount`` travel with the series so the surface can say what the
+    line actually covers. Returns None when there is nothing to aggregate;
+    callers omit the lens rather than publishing a zero.
+    """
+    basket = [product for product in products if product.get("history")]
+    if not basket:
+        return None
+
+    start = max(product["history"][0]["date"] for product in basket)
+    end = max(product["history"][-1]["date"] for product in basket)
+    if start > end:
+        return None
+
+    filled = [_forward_filled_daily_series(product["history"], start, end) for product in basket]
+    history: List[Dict[str, Any]] = []
+    cursor = date.fromisoformat(start)
+    end_date = date.fromisoformat(end)
+    while cursor <= end_date:
+        key = cursor.isoformat()
+        # Every basket member is required on every day. The start rule already
+        # guarantees this; the check keeps a partial day out of the total
+        # rather than silently understating the market.
+        if all(key in series for series in filled):
+            history.append(
+                {
+                    "date": key,
+                    "marketPrice": round(sum(series[key] for series in filled), 2),
+                    "isObserved": True,
+                }
+            )
+        cursor += timedelta(days=1)
+
+    if not history:
+        return None
+
+    return {
+        "currentValue": history[-1]["marketPrice"],
+        "valueAsOf": history[-1]["date"],
+        "basketStartDate": start,
+        "productCount": len(basket),
+        "history": history,
+        "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+    }
+
+
 def fingerprint(set_id: str, products: List[Dict[str, Any]], observation_rows: Iterable[Dict[str, Any]]) -> str:
     latest: Dict[str, tuple] = {}
     eligible_ids = {str(product["id"]) for product in products}
@@ -212,6 +293,10 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
         # expensive valid product and the API order matches what the UI shows.
         "defaultProductId": payload_products[0]["sealedProductId"] if payload_products else None,
         "products": payload_products,
+        # The set-level sealed lens. Derived once, here, so every consumer
+        # reads the same canonical aggregate instead of each one summing the
+        # per-product histories its own way.
+        "setMarket": build_set_market_series(payload_products),
         "meta": {
             "snapshotContractVersion": SNAPSHOT_CONTRACT_VERSION,
             "classificationVersion": CLASSIFICATION_VERSION,
@@ -242,6 +327,13 @@ def read_snapshot(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
     if not rows:
         return None
     payload = dict(rows[0]["payload_json"])
+    # Snapshots persisted before setMarket existed still serve it: the series
+    # is a pure function of products[] already in the payload, so deriving it
+    # here is identical to what the builder stores. This deliberately avoids a
+    # SNAPSHOT_CONTRACT_VERSION bump, which would change every fingerprint and
+    # force a republication run this change does not need.
+    if payload.get("setMarket") is None:
+        payload["setMarket"] = build_set_market_series(list(payload.get("products") or []))
     payload.setdefault("meta", {}).update(
         {"source": "pokemon_set_sealed_market_snapshot_latest", "updatedAt": rows[0].get("updated_at")}
     )

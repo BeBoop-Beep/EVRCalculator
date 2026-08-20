@@ -1,7 +1,7 @@
 "use client";
 
-import DeltaTrendIcon from "@/components/ui/DeltaTrendIcon";
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+import DeltaTrendIcon from "./DeltaTrendIcon";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "../../lib/explore/interpretationTone";
 import { buildMarketValueChangeModel } from "./marketValueChangeModel.mjs";
 
 const VARIANT_CLASSES = {
