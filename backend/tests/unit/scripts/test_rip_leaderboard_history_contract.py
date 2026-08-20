@@ -267,8 +267,8 @@ def test_a_legacy_v4_rank_no_longer_gates_canonical_publication():
 
     Migration 054's RPC counted ranked targets by the LEGACY ``rip.rank``, so the
     publisher carried a precondition requiring the Overall RIP v4 cohort to match
-    the canonical V7 one. Migration 061 repointed the RPC at ``overallRipV10.rank``
-    and made it verify ``publicRipContractV10.contractVersion`` itself; it is
+    the canonical V7 one. Migration 061 repointed the RPC at ``overallRipV7.rank``
+    and made it verify ``publicRipContractV7.contractVersion`` itself; it is
     applied in production, so the database is now authoritative about the
     canonical cohort.
 
@@ -403,7 +403,7 @@ def test_production_code_has_no_direct_latest_writer_outside_canonical_rpc():
             "061_update_public_rip_rpc_to_v7.sql",
             # The canonical V8 revision, and the writer in force today. It is a
             # forward-only CREATE OR REPLACE of the SAME function 061 defines,
-            # repointed at `{overallRipV10,rank}` and the Collector Appeal V4
+            # repointed at `{overallRipV8,rank}` and the Collector Appeal V4
             # identity strings. Each entry above it is a superseded revision of
             # that one function retained for history, not an additional writer -
             # this list is "revisions of the single authoritative writer", which

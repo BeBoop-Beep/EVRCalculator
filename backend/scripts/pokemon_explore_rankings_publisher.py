@@ -95,7 +95,7 @@ LEGACY_CONTRACT_KEYS_NOT_PERSISTED_IN_LATEST = (
 #
 #     calculation_runs.financial_rip_v3_payload      raw simulation document
 #       -> _build_financial_rip_v3(target)           score / status / components
-#         -> target[financialRipV3]
+#         -> target["financialRipV3"]
 #           -> _rank_financial_rip_v3                rank / tier / relativeScore / cohortSize
 #             -> publicRipContractV8.financialRip    public packaging
 #
