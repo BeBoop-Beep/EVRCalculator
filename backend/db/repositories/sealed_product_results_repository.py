@@ -26,8 +26,11 @@ _SELECT_FIELDS = (
     "median_loss_when_losing,total_value_to_cost_ratio,"
     "financial_rip_v3_score,financial_rip_v3_status,financial_rip_v3_rankable,"
     "financial_rip_v3_version,financial_rip_v3_payload,"
+    "financial_rip_v4_score,financial_rip_v4_status,financial_rip_v4_rankable,"
+    "financial_rip_v4_version,financial_rip_v4_payload,"
     "collector_appeal_score,collector_appeal_version,"
     "overall_rip_score,overall_rip_version,overall_rip_rankable,overall_rip_payload,"
+    "overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable,overall_rip_v10_payload,"
     "created_at,updated_at"
 )
 
@@ -65,6 +68,10 @@ ENRICHMENT_FIELDS = (
     "overall_rip_version",
     "overall_rip_rankable",
     "overall_rip_payload",
+    "overall_rip_v10_score",
+    "overall_rip_v10_version",
+    "overall_rip_v10_rankable",
+    "overall_rip_v10_payload",
 )
 
 
