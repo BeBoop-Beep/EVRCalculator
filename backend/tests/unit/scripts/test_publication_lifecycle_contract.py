@@ -55,10 +55,16 @@ def _capture_revalidations(monkeypatch, module):
 
 
 def _run_market(monkeypatch, *, build, sets, argv=None, gate_mode="disabled"):
+    # Market artifacts are gated by Market Date Quality, whose local/test
+    # disable is a SEPARATE variable so turning off the batch gate can never
+    # silently turn off Market quality. These lifecycle cases exercise the
+    # build loop, not gating, so both move in lockstep.
     if gate_mode is None:
         monkeypatch.delenv("PUBLICATION_GATE_MODE", raising=False)
+        monkeypatch.delenv("MARKET_PUBLICATION_GATE_MODE", raising=False)
     else:
         monkeypatch.setenv("PUBLICATION_GATE_MODE", gate_mode)
+        monkeypatch.setenv("MARKET_PUBLICATION_GATE_MODE", gate_mode)
     monkeypatch.setattr(market_cmd, "get_client", lambda: object())
     monkeypatch.setattr(market_cmd, "resolve_target_sets", lambda _c, _a: sets)
     monkeypatch.setattr(market_cmd, "build_coordinated_set_market_snapshot_rows", build)

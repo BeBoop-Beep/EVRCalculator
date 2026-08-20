@@ -15,6 +15,9 @@ from backend.db.services.pokemon_explore_set_value_service import (
     build_global_set_value_row,
     upsert_explore_set_value_snapshot,
 )
+from backend.db.services.market_publication_gate import (
+    MarketForcePublishRejected, enforce_market_publication_gate,
+)
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
 from backend.db.services.pokemon_market_index_service import build_market_overview, read_index_history
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
@@ -96,7 +99,14 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
 def main() -> None:
     args = parser().parse_args()
     client = get_client()
-    gate = enforce_cli_publication_gate(client, commit=bool(args.commit), market_date=args.market_date, override=args.force_publish, entry_point="Global Market Set Value snapshot")
+    try:
+        gate = enforce_market_publication_gate(
+            client, commit=bool(args.commit), market_date=args.market_date,
+            force_publish=bool(args.force_publish),
+            entry_point="Global Market Set Value snapshot")
+    except MarketForcePublishRejected as exc:
+        print(str(exc))
+        raise SystemExit(2) from exc
     if not gate.proceed:
         raise SystemExit(gate.exit_code)
     market_date = args.market_date or gate.decision.market_date
