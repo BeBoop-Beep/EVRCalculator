@@ -13,6 +13,7 @@ nothing.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -37,6 +38,16 @@ DEFERRAL_MARKER = "PUBLICATION_DEFERRED"
 MARKET_FORCE_PUBLISH_REJECTION = (
     "Market Date Quality cannot be overridden with --force-publish")
 
+# Operating mode. DELIBERATELY a different variable from PUBLICATION_GATE_MODE:
+# disabling the 167-set batch gate must never silently disable Market quality.
+# Unset or invalid resolves to required (fail-closed); "disabled" is local/test
+# only and must be chosen explicitly.
+MARKET_GATE_MODE_ENV = "MARKET_PUBLICATION_GATE_MODE"
+MODE_REQUIRED = "required"
+MODE_DISABLED = "disabled"
+
+REASON_DISABLED_EXPLICITLY = "market_disabled_explicitly"
+REASON_BLOCKED_AUTHORITY_UNAVAILABLE = "market_blocked_authority_unavailable"
 REASON_ALLOWED_READY = "market_allowed_ready"
 REASON_ALLOWED_LEGACY_VERIFIED = "market_allowed_legacy_verified"
 REASON_BLOCKED_INCOMPLETE = "market_blocked_incomplete"
@@ -88,10 +99,51 @@ def add_market_gate_args(parser: Any) -> None:
             help="America/Phoenix market date whose Market Date Quality gates publication")
 
 
+def resolve_market_gate_mode(explicit: Optional[str] = None) -> str:
+    """Resolve the operating mode. Unset/invalid => required (fail-closed)."""
+    raw = explicit if explicit is not None else os.getenv(MARKET_GATE_MODE_ENV)
+    text = str(raw or "").strip().lower()
+    if text == MODE_DISABLED:
+        return MODE_DISABLED
+    if text in ("", MODE_REQUIRED):
+        return MODE_REQUIRED
+    logger.warning("%s invalid %s=%r; defaulting to required (fail-closed)",
+                   _GATE_TAG, MARKET_GATE_MODE_ENV, raw)
+    return MODE_REQUIRED
+
+
 def resolve_market_publication_date(client: Any, requested: Optional[str]) -> Optional[str]:
     if requested:
         return str(requested)[:10]
     return resolve_latest_accepted_market_date(client)
+
+
+def _blocked_without_evaluation(
+    reason: str,
+    reason_code: str,
+    *,
+    commit: bool,
+    entry_point: str,
+    market_date: Optional[str],
+) -> MarketGateEnforcement:
+    """Block (or, in dry-run, report) when no quality verdict could be reached."""
+    day = str(market_date)[:10] if market_date else None
+    decision = MarketGateDecision(
+        allowed=False, status="", market_date=day, reason=reason,
+        reason_code=reason_code, evaluation=None)
+    if not commit:
+        print(f"{entry_point}: Market Date Quality (dry-run) [{reason_code}] "
+              f"allowed=False: {reason}")
+        return MarketGateEnforcement(decision=decision, proceed=True, exit_code=0)
+    for line in (
+        f"{entry_point}: Market publication gate CLOSED [{reason_code}]: {reason}",
+        (f"{DEFERRAL_MARKER} entry_point={entry_point!r} market_date={day or 'unknown'} "
+         f"market_quality_status=unknown reason_code={reason_code}"),
+        "preserving previous good public Market authority; no promotion performed",
+    ):
+        print(line)
+    return MarketGateEnforcement(
+        decision=decision, proceed=False, exit_code=MARKET_GATE_DEFERRED_EXIT_CODE)
 
 
 def enforce_market_publication_gate(
@@ -102,6 +154,7 @@ def enforce_market_publication_gate(
     force_publish: bool = False,
     entry_point: str = "Market publication",
     persist: bool = True,
+    mode: Optional[str] = None,
 ) -> MarketGateEnforcement:
     """Evaluate Market Date Quality once per invocation and decide.
 
@@ -114,12 +167,45 @@ def enforce_market_publication_gate(
                      MARKET_FORCE_PUBLISH_REJECTION, entry_point)
         raise MarketForcePublishRejected()
 
-    target = str(market_date)[:10] if market_date else None
-    if target is None:
-        raise ValueError(
-            f"{entry_point}: --market-date is required when no accepted Market date exists")
+    # Explicitly disabled - local/test only. Never touches the client, and is
+    # never selected implicitly or as a consequence of a failed read.
+    if resolve_market_gate_mode(mode) == MODE_DISABLED:
+        logger.warning("%s gate DISABLED via %s=disabled; publishing ungated "
+                       "(local/test only)", _GATE_TAG, MARKET_GATE_MODE_ENV)
+        decision = MarketGateDecision(
+            allowed=True, status="", market_date=(str(market_date)[:10] if market_date else None),
+            reason="Market publication gate explicitly disabled (local/test only)",
+            reason_code=REASON_DISABLED_EXPLICITLY, evaluation=None)
+        return MarketGateEnforcement(decision=decision, proceed=True, exit_code=0)
 
-    evaluation = evaluate_market_date_quality(client, target)
+    # No explicit date: fall back to the latest ACCEPTED Market date, which by
+    # construction can never be a DEGRADED one. A failed read is NEVER a green
+    # light - it blocks, exactly like the batch gate.
+    try:
+        target = resolve_market_publication_date(client, market_date)
+    except Exception as exc:
+        reason = (f"Market Date Quality authority unavailable ({exc}); "
+                  "blocking publication (fail-closed)")
+        logger.error("%s %s", _GATE_TAG, reason)
+        return _blocked_without_evaluation(
+            reason, REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
+            commit=commit, entry_point=entry_point, market_date=market_date)
+    if not target:
+        return _blocked_without_evaluation(
+            "no accepted Market date exists and no --market-date was given; "
+            "nothing may be promoted",
+            REASON_BLOCKED_NO_EVIDENCE,
+            commit=commit, entry_point=entry_point, market_date=None)
+
+    try:
+        evaluation = evaluate_market_date_quality(client, target)
+    except Exception as exc:
+        reason = (f"Market Date Quality could not be evaluated for {target} ({exc}); "
+                  "blocking publication (fail-closed)")
+        logger.error("%s %s", _GATE_TAG, reason)
+        return _blocked_without_evaluation(
+            reason, REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
+            commit=commit, entry_point=entry_point, market_date=target)
     status = str(evaluation.get("status") or "")
     reason_code = _REASON_BY_STATUS.get(status, REASON_BLOCKED_NO_EVIDENCE)
     allowed = status in ACCEPTED_STATUSES

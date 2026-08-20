@@ -136,3 +136,76 @@ def test_gate_never_reads_the_full_batch_authority(monkeypatch):
     result = gate.enforce_market_publication_gate(
         _Strict(), commit=True, market_date="2026-08-19")
     assert result.proceed is True
+
+
+def test_authority_read_failure_fails_closed(monkeypatch):
+    """A failed read is never permission to publish."""
+    def _boom(*_a, **_k):
+        raise RuntimeError("PGRST002 schema cache unavailable")
+
+    monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+    monkeypatch.setattr(gate, "evaluate_market_date_quality", _boom)
+    client = _Recorder()
+
+    result = gate.enforce_market_publication_gate(
+        client, commit=True, market_date="2026-08-19")
+
+    assert result.proceed is False
+    assert result.exit_code == 3
+    assert result.decision.reason_code == gate.REASON_BLOCKED_AUTHORITY_UNAVAILABLE
+    assert client.upserts == []
+
+
+def test_missing_date_authority_fails_closed(monkeypatch):
+    def _boom(*_a, **_k):
+        raise RuntimeError("network down")
+
+    monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+    monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", _boom)
+
+    result = gate.enforce_market_publication_gate(_Recorder(), commit=True)
+
+    assert result.proceed is False
+    assert result.exit_code == 3
+    assert result.decision.reason_code == gate.REASON_BLOCKED_AUTHORITY_UNAVAILABLE
+
+
+def test_no_accepted_date_blocks_rather_than_crashing(monkeypatch):
+    monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+    monkeypatch.setattr(gate, "resolve_latest_accepted_market_date", lambda *a, **k: None)
+
+    result = gate.enforce_market_publication_gate(_Recorder(), commit=True)
+
+    assert result.proceed is False
+    assert result.exit_code == 3
+    assert result.decision.reason_code == gate.REASON_BLOCKED_NO_EVIDENCE
+
+
+def test_batch_gate_disable_does_not_disable_market_quality(monkeypatch):
+    """PUBLICATION_GATE_MODE=disabled must NOT weaken Market Date Quality."""
+    _stub(monkeypatch, STATUS_DEGRADED)
+    monkeypatch.setenv("PUBLICATION_GATE_MODE", "disabled")
+    monkeypatch.delenv(gate.MARKET_GATE_MODE_ENV, raising=False)
+
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-08-18")
+
+    assert result.proceed is False
+    assert result.exit_code == 3
+
+
+def test_market_gate_disable_is_explicit_and_separate(monkeypatch):
+    monkeypatch.setenv(gate.MARKET_GATE_MODE_ENV, "disabled")
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-08-18")
+    assert result.proceed is True
+    assert result.decision.reason_code == gate.REASON_DISABLED_EXPLICITLY
+
+
+def test_invalid_mode_falls_back_to_required(monkeypatch):
+    _stub(monkeypatch, STATUS_DEGRADED)
+    monkeypatch.setenv(gate.MARKET_GATE_MODE_ENV, "off-ish")
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-08-18")
+    assert result.proceed is False
+    assert result.exit_code == 3

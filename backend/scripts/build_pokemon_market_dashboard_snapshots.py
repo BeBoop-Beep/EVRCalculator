@@ -12,6 +12,9 @@ if str(REPO_ROOT) not in sys.path:
 
 from backend.db.services.pokemon_set_market_service import PokemonSetMarketError
 from backend.db.services.data_service_health import is_transient_data_service_error
+from backend.db.services.market_publication_gate import (
+    MarketForcePublishRejected, enforce_market_publication_gate,
+)
 from backend.db.services.publication_gate import (
     add_publication_gate_args,
     enforce_cli_publication_gate,
@@ -83,15 +86,20 @@ def main() -> int:
     args = build_parser().parse_args()
     commit = should_commit(args)
 
-    # Batch-cohort gate: evaluated once per invocation (never per set). A closed
-    # gate in --commit mode defers with the dedicated exit code and writes nothing.
-    gate = enforce_cli_publication_gate(
-        get_client(),
-        commit=commit,
-        market_date=args.market_date,
-        override=args.force_publish,
-        entry_point="cards + market dashboard snapshots",
-    )
+    # Market Date Quality is the authority for Market artifacts. It is
+    # evaluated on the canonical Market cohort alone: an unrelated non-Market
+    # failure in the 167-set batch must not hold the Market surface hostage.
+    try:
+        gate = enforce_market_publication_gate(
+            get_client(),
+            commit=commit,
+            market_date=args.market_date,
+            force_publish=bool(args.force_publish),
+            entry_point="cards + market dashboard snapshots",
+        )
+    except MarketForcePublishRejected as exc:
+        print(str(exc))
+        return 2
     if not gate.proceed:
         return gate.exit_code
 
