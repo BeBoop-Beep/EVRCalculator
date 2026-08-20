@@ -16,6 +16,11 @@ def _batch(monkeypatch, active=0):
     monkeypatch.setattr(svc, "get_active_batch",
                         lambda md=None: {"id": 1, "market_date": "2026-07-18"})
     monkeypatch.setattr(svc, "count_active_scrape_jobs", lambda bid: active)
+    monkeypatch.setattr(
+        svc,
+        "requeue_unreconciled_retryable_scrape_jobs_for_batch",
+        lambda bid: {"unreconciledRunRequeued": 0, "deterministicBlocked": 0},
+    )
 
 
 def test_complete_cohort_is_promoted_without_alert(monkeypatch, _no_alert):
@@ -42,6 +47,57 @@ def test_missing_sets_are_automatically_requeued(monkeypatch, _no_alert):
 
     assert result["status"] == "running"
     assert result["requeued"] == 3
+    assert result["observationMissingRequeued"] == 3
+    assert result["unreconciledRunRequeued"] == 0
+
+
+def test_observation_and_run_repairs_are_reported_separately(monkeypatch, _no_alert):
+    _batch(monkeypatch, active=0)
+    monkeypatch.setattr(svc, "requeue_missing_scrape_jobs_for_batch", lambda bid: 2)
+    monkeypatch.setattr(
+        svc,
+        "requeue_unreconciled_retryable_scrape_jobs_for_batch",
+        lambda bid: {"unreconciledRunRequeued": 9, "deterministicBlocked": 3},
+    )
+    monkeypatch.setattr(
+        svc, "complete_scrape_batch_if_ready",
+        lambda bid: pytest.fail("should not complete while draining"),
+    )
+
+    result = svc.run_batch_completion_and_repair()
+
+    assert result["requeued"] == 11
+    assert result["observationMissingRequeued"] == 2
+    assert result["unreconciledRunRequeued"] == 9
+    assert result["deterministicBlocked"] == 3
+
+
+def test_deterministic_missing_observation_is_blocked_by_both_repairs(
+    monkeypatch, _no_alert,
+):
+    _batch(monkeypatch, active=0)
+    monkeypatch.setattr(
+        svc, "requeue_unreconciled_retryable_scrape_jobs_for_batch",
+        lambda bid: {"unreconciledRunRequeued": 0, "deterministicBlocked": 1},
+    )
+    monkeypatch.setattr(svc, "requeue_missing_scrape_jobs_for_batch", lambda bid: 0)
+    monkeypatch.setattr(
+        svc, "complete_scrape_batch_if_ready",
+        lambda bid: {"status": "incomplete", "missing_set_count": 1,
+                     "promoted": False, "succeeded_set_count": 166,
+                     "failed_set_count": 1},
+    )
+    monkeypatch.setattr(
+        svc, "get_scrape_missing_sets",
+        lambda _date: [{"canonical_key": "base"}],
+    )
+
+    result = svc.run_batch_completion_and_repair()
+
+    assert result["requeued"] == 0
+    assert result["observationMissingRequeued"] == 0
+    assert result["unreconciledRunRequeued"] == 0
+    assert result["deterministicBlocked"] == 1
 
 
 def test_partial_cohort_cannot_be_promoted_and_alerts(monkeypatch, _no_alert):

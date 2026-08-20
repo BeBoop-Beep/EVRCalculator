@@ -81,6 +81,27 @@ def test_400_variant_call_count_is_major_reduction_from_legacy_loop(monkeypatch)
     assert chunks * 2 + 4 == 10  # Phase 1 client constructions before session reuse
 
 
+def test_cross_set_external_identity_conflict_is_structured(monkeypatch):
+    work, card_ids = _payload(1)
+    identity_key = ("tcgplayer", "0", "variant-0")
+    monkeypatch.setattr(
+        module, "get_card_variant_external_identities_bulk",
+        lambda *_: ({identity_key: {"card_variant_id": "legacy-variant"}}, 1),
+    )
+    monkeypatch.setattr(
+        module, "get_card_variants_bulk",
+        lambda **_: ({"legacy-variant": {
+            "id": "legacy-variant", "card_id": "different-set-card",
+            "printing_type": "holo", "special_type": None, "edition": None,
+        }}, {}, 1),
+    )
+
+    result = module.CardsService()._process_batch_worker((work, card_ids), 0)
+
+    assert result["error_codes"] == [module.ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT]
+    assert "external identity contradicts incoming variant" in result["errors"][0]
+
+
 @pytest.mark.parametrize("count", [100, 400])
 def test_warm_path_real_bulk_queries_construct_one_worker_client(monkeypatch, count):
     identities = [{"id": f"identity-{i}", "provider": "tcgplayer",

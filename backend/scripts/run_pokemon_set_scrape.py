@@ -656,6 +656,10 @@ def _scrape_one_set(
         RequestCapExceededError,
         SustainedRateLimitError,
     )
+    from backend.db.repositories.card_variant_repository import ExternalVariantIdentityConflict
+    from backend.db.services.scrape_failure_classification import (
+        ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT,
+    )
 
     while attempt < MAX_RETRIES:
         attempt += 1
@@ -735,6 +739,23 @@ def _scrape_one_set(
             }
         except (RequestCapExceededError, SustainedRateLimitError):
             raise
+        except ExternalVariantIdentityConflict as exc:
+            last_error = str(exc)
+            logger.error(
+                "%s deterministic external identity conflict for %s: %s",
+                RUNNER_TAG,
+                canonical_key,
+                exc,
+            )
+            return {
+                "canonical_key": canonical_key,
+                "status": "failed",
+                "attempt": attempt,
+                "cards_scraped": 0,
+                "sealed_scraped": 0,
+                "error": last_error,
+                "error_code": ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT,
+            }
         except Exception as exc:
             last_error = str(exc)
             logger.warning(

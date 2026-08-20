@@ -569,6 +569,39 @@ def requeue_missing_scrape_jobs_for_batch(batch_id: int) -> int:
         raise
 
 
+def requeue_unreconciled_retryable_scrape_jobs_for_batch(batch_id: int) -> Dict[str, int]:
+    """Reopen failed retryable jobs that lack a qualifying exact-date success.
+
+    This is intentionally independent of observation completeness: partial price
+    rows do not prove that a scrape run reconciled successfully.
+    """
+    try:
+        result = supabase.rpc(
+            "requeue_unreconciled_retryable_scrape_jobs_for_batch",
+            {"p_batch_id": batch_id},
+        ).execute()
+        data = _rpc_data(result)
+        payload = data[0] if isinstance(data, list) and data else data
+        if not isinstance(payload, dict):
+            payload = {}
+        normalized = {
+            "unreconciledRunRequeued": int(payload.get("unreconciledRunRequeued") or 0),
+            "deterministicBlocked": int(payload.get("deterministicBlocked") or 0),
+        }
+        if normalized["unreconciledRunRequeued"]:
+            logger.info(
+                "%s run reconciliation repair requeued %s job(s) for batch=%s",
+                _JOB_TAG, normalized["unreconciledRunRequeued"], batch_id,
+            )
+        return normalized
+    except Exception as exc:
+        logger.error(
+            "%s requeue_unreconciled_retryable_scrape_jobs_for_batch failed batch=%s: %s",
+            _JOB_TAG, batch_id, exc,
+        )
+        raise
+
+
 def get_active_batch(market_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Fetch the batch row for a market date (defaults to newest batch)."""
     try:

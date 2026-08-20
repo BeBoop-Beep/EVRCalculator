@@ -58,13 +58,14 @@ def test_transient_and_unknown_errors_remain_retryable(code):
     assert is_deterministic(code) is False
 
 
-def test_the_non_retryable_set_is_exactly_the_documented_five():
+def test_the_non_retryable_set_is_exactly_the_documented_codes():
     assert set(NON_RETRYABLE_ERROR_CODES) == {
         "invalid_set_key_filter",
         "set_not_found",
         "missing_canonical_key",
         "invalid_scrape_config",
         "catalog_only_not_daily_eligible",
+        "external_variant_identity_conflict",
     }
 
 

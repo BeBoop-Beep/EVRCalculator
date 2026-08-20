@@ -25,6 +25,9 @@ from backend.db.services.supabase_persistence_retry import (
     scraper_persistence_session,
 )
 from backend.db.services.orchestrators.data_preparation_orchestrator import DataPreparationOrchestrator
+from backend.db.services.scrape_failure_classification import (
+    ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT,
+)
 
 class CardsService(BatchProcessor):
     """
@@ -130,8 +133,22 @@ class CardsService(BatchProcessor):
     def _process_batch_worker(self, batch_data, batch_id):
         # This wrapper executes inside the child process. The client is created
         # there and never passed through ProcessPool serialization.
-        with scraper_persistence_session():
-            return self._process_batch_worker_with_session(batch_data, batch_id)
+        try:
+            with scraper_persistence_session():
+                return self._process_batch_worker_with_session(batch_data, batch_id)
+        except ExternalVariantIdentityConflict as exc:
+            # Preserve deterministic identity classification even when the
+            # conflict happens during bulk prefetch, before an item result exists.
+            return {
+                'batch_id': batch_id,
+                'inserted_variants': 0,
+                'inserted_prices': 0,
+                'external_identities_linked': 0,
+                'errors': [f"Batch {batch_id} external identity conflict: {exc}"],
+                'error_codes': [ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT],
+                'prices_to_ship': [],
+                'persistence_metrics': {},
+            }
 
     def _process_batch_worker_with_session(self, batch_data, batch_id):
         """
@@ -154,6 +171,7 @@ class CardsService(BatchProcessor):
             'inserted_prices': 0,
             'external_identities_linked': 0,
             'errors': [],
+            'error_codes': [],
             'prices_to_ship': [],  # Prices that need to be inserted (after batch completes)
             'persistence_metrics': {'payloadVariantCount': len(work_items),
                 'identityReadOperations': 0, 'variantReadOperations': 0,
@@ -267,6 +285,12 @@ class CardsService(BatchProcessor):
                     price['card_variant_id'] = variant_id
                     batch_result['prices_to_ship'].append(price)
                 
+            except ExternalVariantIdentityConflict as e:
+                error_msg = f"Batch {batch_id} error on item {item_index}: {e}"
+                print(f"[ERROR] {error_msg}")
+                batch_result['errors'].append(error_msg)
+                if ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT not in batch_result['error_codes']:
+                    batch_result['error_codes'].append(ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT)
             except Exception as e:
                 error_msg = f"Batch {batch_id} error on item {item_index}: {e}"
                 print(f"[ERROR] {error_msg}")
@@ -538,7 +562,8 @@ class CardsService(BatchProcessor):
             'price_rows_updated': 0,
             'price_batch_operations': 0,
             'failed': 0,
-            'errors': []
+            'errors': [],
+            'error_codes': []
         }
 
         # Group all upstream rows by base card identity: (name, card_number).
