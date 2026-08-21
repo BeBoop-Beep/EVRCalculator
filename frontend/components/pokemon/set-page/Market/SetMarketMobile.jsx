@@ -3,7 +3,6 @@
 import React from "react";
 
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
-import SetMarketMobileHero from "./SetMarketMobileHero.jsx";
 import SetMarketMobileMovers from "./SetMarketMobileMovers.jsx";
 import SetMarketMobileSetValue from "./SetMarketMobileSetValue.jsx";
 import SetMarketMobileTopChase from "./SetMarketMobileTopChase.jsx";
@@ -16,16 +15,18 @@ import SetMarketMobileSealed from "./SetMarketMobileSealed.jsx";
 // narrowed copy of it. Same tab, same routing, same four data owners, same
 // section semantics — but the reading order is re-cut for a thumb:
 //
-//   1. Set hero          who am I looking at, and where does it stand?
-//   2. 7D Market Movers  what changed this week? (the headline)
-//   3. Set Value         what is the set worth, and how has it moved?
-//   4. Top Chase Cards   what carries that value?
-//   5. Sealed Market     what does unopened product cost?
+//   1. 7D Market Movers  what changed this week? (the headline)
+//   2. Set Value         what is the set worth, and how has it moved?
+//   3. Top Chase Cards   what carries that value?
+//   4. Sealed Market     what does unopened product cost?
 //
-// Movers lead because on a phone the first screenful has to answer "is anything
-// happening?" before it can afford a chart. Desktop can put Set Value first
-// because the movers strip is visible in the same viewport regardless; on a
-// phone they are two separate screens, so the cheap, glanceable one goes first.
+// There is deliberately NO set-identity hero card here. The primary mobile
+// set header (logo, name, era) already renders once, above the tab
+// navigation, before any tab's content mounts — repeating it as the first
+// card inside Market told the reader which set they were looking at twice
+// before they reached anything new. Movers leads Market's own content
+// because on a phone the first screenful has to answer "is anything
+// happening?" before it can afford a chart.
 //
 // The section ids are the SAME ids the desktop composition uses, so every
 // existing `?section=` deep link resolves at both widths. Only one of the two
@@ -41,7 +42,6 @@ import SetMarketMobileSealed from "./SetMarketMobileSealed.jsx";
 export default function SetMarketMobile({
   setId,
   sectionIds,
-  hero,
   movers,
   setValue,
   topChase,
@@ -49,10 +49,6 @@ export default function SetMarketMobile({
 }) {
   return (
     <section id={sectionIds.root} data-market-page data-market-mobile className="min-w-0 space-y-3">
-      <SectionErrorBoundary sectionName="market-mobile-hero" resetKeys={[setId]} title="Set" minHeightClassName="min-h-[6rem]">
-        <SetMarketMobileHero id={sectionIds.hero} {...hero} />
-      </SectionErrorBoundary>
-
       <SectionErrorBoundary sectionName="market-mobile-movers" resetKeys={[setId]} title="7D Market Movers" minHeightClassName="min-h-[10rem]">
         <SetMarketMobileMovers id={sectionIds.movers} {...movers} />
       </SectionErrorBoundary>

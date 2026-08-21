@@ -40,7 +40,11 @@ test("Analysis no longer owns market observation", () => {
     pageSource.indexOf("RETIRED: the pre-RIP-page Overview composition")
   );
   assert.ok(marketSection.length > 0, "the Market section must exist to own these modules");
-  for (const moduleName of ["SetValueTrendCard", "SevenDayMarketMoversTicker", "SealedMarketTrendCard", "TopChaseCardsModule"]) {
+  // Market's composition was redesigned into three sections; set value and
+  // sealed pricing are now lenses inside SetMarketOverviewSection rather than
+  // standalone cards. What this test is actually about — that market
+  // observation lives on Market and nowhere else — is unchanged.
+  for (const moduleName of ["SevenDayMarketMoversTicker", "SetMarketOverviewSection", "TopChaseCardsPanel"]) {
     assert.ok(marketSection.includes(moduleName), `${moduleName} is Market-owned`);
   }
   assert.ok(!pageSource.includes('title="Market Snapshot"'), "the invented Analysis Market Snapshot must not survive");

@@ -216,10 +216,10 @@ export default function SetMarketMobileTopChase({
                 type="button"
                 onClick={() => setExpanded((value) => !value)}
                 aria-expanded={expanded}
-                aria-label={expanded ? "Show fewer chase cards" : `Show ${hiddenCount} more chase cards`}
+                aria-label={expanded ? "Show fewer chase cards" : "View Top 10 chase cards"}
                 className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold text-[rgb(45,212,191)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
               >
-                <span aria-hidden="true">{expanded ? "Show less" : `Show ${hiddenCount} more`}</span>
+                <span aria-hidden="true">{expanded ? "Show less" : "View Top 10"}</span>
                 <svg
                   viewBox="0 0 20 20"
                   fill="currentColor"

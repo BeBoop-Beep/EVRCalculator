@@ -26,7 +26,7 @@ import { selectMoversTickerItems } from "../../../explore/moversTickerSelector.m
 import { compactSealedProductLabel } from "../Overview/sealedMarketTrendSelector.mjs";
 
 export const MOBILE_MOVERS_MAX_ITEMS = 8;
-export const MOBILE_TOP_CHASE_PREVIEW_LIMIT = 5;
+export const MOBILE_TOP_CHASE_PREVIEW_LIMIT = 3;
 export const MOBILE_TOP_CHASE_MAX_ROWS = 10;
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -141,7 +141,25 @@ export function buildMoverCards(entry, { maxItems = MOBILE_MOVERS_MAX_ITEMS } = 
 
 // --- Top Chase Cards --------------------------------------------------------
 
-function buildTopChaseHistory(card, selectedWindowKey, marketAsOfDate) {
+/**
+ * The desktop chase detail wants the LARGEST published artwork, not the
+ * thumbnail the compact rows use. Upscaling a small image to fill a detail
+ * panel is visible as blur, so the large URL is preferred and the small one is
+ * only a fallback for cards that publish nothing else.
+ */
+export function readCardHeroImageUrl(card) {
+  const raw =
+    card?.imageLargeUrl ||
+    card?.image_large_url ||
+    card?.imageUrl ||
+    card?.image_url ||
+    card?.imageSmallUrl ||
+    card?.image_small_url;
+  const text = String(raw || "").trim();
+  return text || null;
+}
+
+export function buildTopChaseHistory(card, selectedWindowKey, marketAsOfDate) {
   const rawHistory = Array.isArray(card?.priceHistory)
     ? card.priceHistory
     : Array.isArray(card?.price_history)

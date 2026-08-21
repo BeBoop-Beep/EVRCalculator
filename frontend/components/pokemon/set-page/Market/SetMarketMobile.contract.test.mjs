@@ -31,15 +31,19 @@ const marketBranch = page.slice(
   page.indexOf("RETIRED: the pre-RIP-page Overview composition")
 );
 
-test("the mobile composition renders the five sections in the required order", () => {
-  const order = ["SetMarketMobileHero", "SetMarketMobileMovers", "SetMarketMobileSetValue", "SetMarketMobileTopChase", "SetMarketMobileSealed"];
+test("the mobile composition renders the four Market sections in the required order, with no duplicate set-identity card", () => {
+  const order = ["SetMarketMobileMovers", "SetMarketMobileSetValue", "SetMarketMobileTopChase", "SetMarketMobileSealed"];
   const positions = order.map((name) => shell.indexOf(`<${name}`));
   assert.ok(positions.every((position) => position > 0), "every section is mounted");
-  assert.deepEqual(positions, [...positions].sort((left, right) => left - right), "hero → movers → set value → top chase → sealed");
+  assert.deepEqual(positions, [...positions].sort((left, right) => left - right), "movers → set value → top chase → sealed");
+  // The primary mobile set header already renders once, above the tab
+  // navigation. A second identity card inside Market repeated it; it was
+  // removed so 7D Movers is the first Market-content module.
+  assert.equal(shell.includes("SetMarketMobileHero"), false, "no duplicate set-identity card is mounted inside Market");
 });
 
 test("each mobile section is independently boundaried so one failure cannot take the tab down", () => {
-  assert.equal((shell.match(/<SectionErrorBoundary\b/g) || []).length, 5);
+  assert.equal((shell.match(/<SectionErrorBoundary\b/g) || []).length, 4);
 });
 
 test("exactly one Market composition mounts, chosen by the same 1200px reading the page already makes", () => {
@@ -55,14 +59,30 @@ test("exactly one Market composition mounts, chosen by the same 1200px reading t
   );
 });
 
-test("desktop Market keeps its own four production modules untouched", () => {
-  for (const moduleName of ["SetValueTrendCard", "TopChaseCardsModule", "SevenDayMarketMoversTicker", "SealedMarketTrendCard"]) {
+test("desktop Market mounts its own production modules exactly once", () => {
+  // The desktop composition was redesigned into three sections: the shared 7D
+  // Movers strip, one Market Overview (which absorbed the standalone Set Value
+  // and Sealed Market cards as the Cards and Sealed lenses), and Top 10 Chase
+  // Cards. The invariant this test exists to protect is unchanged — no module
+  // is mounted twice, and the two compositions never mount each other's — only
+  // the list of desktop modules moved.
+  for (const moduleName of ["SevenDayMarketMoversTicker", "SetMarketOverviewSection", "TopChaseCardsPanel"]) {
     assert.equal(
       (marketBranch.match(new RegExp(`<${moduleName}\\b`, "g")) || []).length,
       1,
-      `${moduleName} is still mounted exactly once, by the desktop branch only`
+      `${moduleName} is mounted exactly once, by the desktop branch only`
     );
     assert.equal(shell.includes(moduleName), false, `${moduleName} is not re-mounted by the mobile composition`);
+  }
+
+  // The retired standalone cards must not linger in the desktop branch beside
+  // the lenses that replaced them, which would show the same series twice.
+  for (const retired of ["SetValueTrendCard", "TopChaseCardsModule", "SealedMarketTrendCard"]) {
+    assert.equal(
+      (marketBranch.match(new RegExp(`<${retired}\\b`, "g")) || []).length,
+      0,
+      `${retired} was folded into the redesigned composition and must not still mount`
+    );
   }
 });
 
