@@ -49,7 +49,7 @@ from backend.db.services.sealed_product_rip_service import (
     COLLECTOR_APPEAL_STATUS_UNAVAILABLE,
     interpret_collector_appeal_payload,
 )
-from backend.desirability.weighted_rip import compute_overall_rip_v9
+from backend.desirability.weighted_rip import compute_overall_rip_v9, compute_overall_rip_v10
 from backend.domain.pokemon.sealed_product_comparison_scope import (
     sealed_product_comparison_scope_contract,
 )
@@ -112,16 +112,26 @@ def _enrichment_for(
     row: Mapping[str, Any],
     appeal: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    """The six enrichment columns for one row. Pure; performs no I/O."""
+    """The ten enrichment columns for one row. Pure; performs no I/O.
+
+    V9 (Financial RIP V3-backed) and V10 (Financial RIP V4-backed) are computed
+    from the SAME Collector Appeal score, read once into `appeal_score`, so the
+    appeal input cannot silently diverge between the two models.
+    """
     appeal_score = appeal.get("score")
-    overall = compute_overall_rip_v9(row.get("financial_rip_v3_score"), appeal_score)
+    overall_v9 = compute_overall_rip_v9(row.get("financial_rip_v3_score"), appeal_score)
+    overall_v10 = compute_overall_rip_v10(row.get("financial_rip_v4_score"), appeal_score)
     return {
         "collector_appeal_score": appeal_score,
         "collector_appeal_version": appeal.get("version"),
-        "overall_rip_score": overall.get("score"),
-        "overall_rip_version": overall.get("version"),
-        "overall_rip_rankable": bool(overall.get("rankable")),
-        "overall_rip_payload": overall,
+        "overall_rip_score": overall_v9.get("score"),
+        "overall_rip_version": overall_v9.get("version"),
+        "overall_rip_rankable": bool(overall_v9.get("rankable")),
+        "overall_rip_payload": overall_v9,
+        "overall_rip_v10_score": overall_v10.get("score"),
+        "overall_rip_v10_version": overall_v10.get("version"),
+        "overall_rip_v10_rankable": bool(overall_v10.get("rankable")),
+        "overall_rip_v10_payload": overall_v10,
     }
 
 

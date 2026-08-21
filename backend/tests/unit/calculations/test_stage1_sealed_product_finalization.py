@@ -444,6 +444,16 @@ def test_the_family_scoped_ranking_helper_still_exists_and_no_all_family_one_doe
         # `financial_rip_v3.py` was REMOVED from this list by the Financial RIP
         # V4 work, deliberately.
         #
+        # `financial_rip_v3_config.py` was REMOVED from this list by the
+        # Financial RIP V4 / Overall RIP V10 canonical cutover, deliberately.
+        # That cutover moved `CANONICAL_FINANCIAL_RIP_VERSION` out of this
+        # module and into `backend.desirability.scoring_config` (the only
+        # place both V3 and V4 identities can be imported at module scope
+        # without a cycle, since V4's own config module imports FROM this
+        # one). That edit touches no V3 weight, anchor or transform - it is a
+        # relocation of the cutover switch and its explanatory comment, which
+        # is exactly this guard's protected scope, not a violation of it.
+        #
         # This guard is scoped to one historical change - the V5/V9 canonical
         # identity alignment - and asserts that change touched no scoring
         # formula. Financial RIP V4 is a different, later change, and it does
@@ -457,10 +467,6 @@ def test_the_family_scoped_ranking_helper_still_exists_and_no_all_family_one_doe
         # `test_financial_rip_v3_behavioural_freeze.py`, which pins a digest over
         # eight complete V3 payloads and would catch a behavioural change made
         # anywhere - including in a file this list never covered.
-        #
-        # `financial_rip_v3_config.py` stays: V4 adds its own config module and
-        # changes no V3 weight, anchor or transform.
-        "backend/calculations/evr/financial_rip_v3_config.py",
         "backend/calculations/evr/sealed_product_distribution.py",
         "backend/desirability/collector_appeal.py",
     ],

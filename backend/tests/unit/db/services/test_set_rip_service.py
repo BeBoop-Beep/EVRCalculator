@@ -15,7 +15,7 @@ from backend.desirability.scoring_config import (
 
 def target(set_id, rank):
     return {"set_id": set_id, "name": set_id.upper(), "calculation_run_id": f"run-{set_id}",
-            "overallRipV9": {"rank": rank}}
+            "overallRipV10": {"rank": rank}}
 
 
 def product(set_id, family, rank, size, sku="1", **overrides):
@@ -100,6 +100,26 @@ def test_run_versions_projection_completeness_and_deterministic_ties_fail_closed
     incomplete["families"]["booster_bundle"]["currentlyRankableCount"] = 2
     with pytest.raises(ValueError, match="incomplete"):
         service.build_set_rip(incomplete, set_targets=targets)
+
+
+def test_build_set_rip_succeeds_end_to_end_with_v4_v10_canonical_product_family_rankings():
+    """Regression for the Finding 1/2 chain: once product_family_rankings_service._project
+    emits V4/V10 canonical versions (Finding 1) and this file's _ranked_targets reads the
+    V10 rank contract key (Finding 2), build_set_rip must succeed rather than raising."""
+    targets = [target("a", 1), target("b", 2), target("c", 3)]
+    families = {}
+    for family in ("loose_booster_pack", "booster_bundle"):
+        families[family] = [product(s, family, 2, 3) for s in ("a", "b", "c")]
+    result = service.build_set_rip(projection(targets, families), set_targets=targets)
+    assert result["rankedSetCount"] == 3
+    assert all(row["rankable"] for row in result["sets"])
+
+
+def test_ranked_targets_reads_the_v10_rank_contract_key():
+    v10_only = {"set_id": "a", "calculation_run_id": "run-a", "overallRipV10": {"rank": 1}}
+    v9_only = {"set_id": "b", "calculation_run_id": "run-b", "overallRipV9": {"rank": 1}}
+    ranked = service._ranked_targets([v10_only, v9_only])
+    assert ranked == [v10_only]
 
 
 def test_no_raw_scores_or_research_harness_dependency():

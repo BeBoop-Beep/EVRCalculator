@@ -28,11 +28,19 @@ def row(product, family="booster_box", run="current", overall=80, financial=70, 
         "calculation_run_id": run, "sealed_product_id": product, "set_id": "set-1",
         "product_family": family, "product_name": product, "pack_count": 36,
         "product_market_cost": price, "expected_value": 80, "median_value": 55,
-        "chance_to_recover_cost": chance, "financial_rip_v3_score": financial,
-        "financial_rip_v3_version": CANONICAL_FINANCIAL_RIP_VERSION,
-        "collector_appeal_score": 60, "collector_appeal_version": canonical_collector_appeal_version(),
-        "overall_rip_score": overall, "overall_rip_version": CANONICAL_OVERALL_RIP_VERSION,
+        "chance_to_recover_cost": chance,
+        # Historical V3/V9 columns. Kept populated so the service can still describe
+        # what it read even though canonical selection no longer keys off these.
+        "financial_rip_v3_score": financial,
+        "financial_rip_v3_version": "financial_rip_v3",
+        "overall_rip_score": overall, "overall_rip_version": "overall_rip_v9",
         "overall_rip_rankable": True,
+        # Canonical V4/V10 columns.
+        "financial_rip_v4_score": financial,
+        "financial_rip_v4_version": CANONICAL_FINANCIAL_RIP_VERSION,
+        "collector_appeal_score": 60, "collector_appeal_version": canonical_collector_appeal_version(),
+        "overall_rip_v10_score": overall, "overall_rip_v10_version": CANONICAL_OVERALL_RIP_VERSION,
+        "overall_rip_v10_rankable": True,
     }
     value.update(changes)
     return value
@@ -53,7 +61,7 @@ def test_current_canonical_rows_only_and_deferred_products_are_not_fabricated(mo
 
 
 def test_versions_and_rankable_flag_gate_rankings(monkeypatch):
-    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_version="v8"), row("not-rankable", overall_rip_rankable=False)]
+    rows = [row("good"), row("old-ca", collector_appeal_version="v4"), row("old-overall", overall_rip_v10_version="v8"), row("not-rankable", overall_rip_v10_rankable=False)]
     family = build(monkeypatch, rows)["families"]["booster_box"]
     assert family["currentlyScoredCount"] == 4
     assert family["currentlyRankableCount"] == family["count"] == 1
@@ -134,6 +142,40 @@ def test_conflicting_target_run_authority_fails_closed():
     import pytest
     with pytest.raises(ValueError, match="conflicting calculation_run_id authority"):
         service.build_product_family_rankings(Client([]), set_targets=targets)
+
+
+def test_canonical_checks_v4_v10_columns_not_the_legacy_v3_v9_columns():
+    v4_v10_row = row("has-v4-v10")
+    assert service._canonical(v4_v10_row) is True
+
+    # A row that ONLY carries legacy V3/V9 columns -- even if those legacy columns
+    # happen to equal what the OLD canonical selection used to require -- must not
+    # be treated as canonical now that canonical selection is V4/V10.
+    v3_v9_only_row = dict(v4_v10_row)
+    v3_v9_only_row.pop("financial_rip_v4_version")
+    v3_v9_only_row.pop("overall_rip_v10_version")
+    v3_v9_only_row.pop("overall_rip_v10_rankable")
+    assert service._canonical(v3_v9_only_row) is False
+
+
+def test_rank_key_and_project_read_the_v4_v10_fields_not_v3_v9():
+    canonical_row = row("x", overall=42, financial=17)
+    # _rank_key must sort on the V10/V4 columns.
+    assert service._rank_key(canonical_row)[0] == -42
+    assert service._rank_key(canonical_row)[1] == -17
+
+    # Even if the legacy V3/V9 columns disagree with the V4/V10 columns, _project
+    # must publish the V4/V10 values as "the" score/version.
+    diverging_row = row("y", overall=42, financial=17)
+    diverging_row["overall_rip_score"] = 999
+    diverging_row["financial_rip_v3_score"] = 999
+    diverging_row["overall_rip_version"] = "overall_rip_v9"
+    diverging_row["financial_rip_v3_version"] = "financial_rip_v3"
+    projected = service._project(diverging_row, {}, 1, 1)
+    assert projected["overallRipScore"] == 42
+    assert projected["financialRipScore"] == 17
+    assert projected["overallRipVersion"] == CANONICAL_OVERALL_RIP_VERSION
+    assert projected["financialRipVersion"] == CANONICAL_FINANCIAL_RIP_VERSION
 
 
 def test_missing_target_run_authority_fails_closed():

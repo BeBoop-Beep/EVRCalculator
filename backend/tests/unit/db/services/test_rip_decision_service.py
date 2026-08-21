@@ -111,15 +111,22 @@ def _product_row(**overrides):
         "chance_to_recover_cost": 0.21,
         "expected_loss_when_losing": 38.0,
         "total_value_to_cost_ratio": 0.75,
-        "financial_rip_v3_score": 41.2,
-        "financial_rip_v3_status": "ok",
-        "financial_rip_v3_rankable": True,
+        "financial_rip_v3_score": 999.0,
+        "financial_rip_v3_status": "historical-only",
+        "financial_rip_v3_rankable": False,
         "financial_rip_v3_version": "financial-rip-v3",
+        "financial_rip_v4_score": 41.2,
+        "financial_rip_v4_status": "ok",
+        "financial_rip_v4_rankable": True,
+        "financial_rip_v4_version": "financial-rip-v4",
         "collector_appeal_score": 71.0,
         "collector_appeal_version": "collector-appeal-v4",
-        "overall_rip_score": 44.2,
-        "overall_rip_version": "overall-rip-v8",
-        "overall_rip_rankable": True,
+        "overall_rip_score": 999.0,
+        "overall_rip_version": "overall-rip-v9",
+        "overall_rip_rankable": False,
+        "overall_rip_v10_score": 44.2,
+        "overall_rip_v10_version": "overall-rip-v10",
+        "overall_rip_v10_rankable": True,
     }
     row.update(overrides)
     return row
@@ -633,9 +640,12 @@ def test_builder_publishes_consumed_source_provenance_and_score_versions(monkeyp
     row = _product_row(
         updated_at="2026-08-18T10:00:00Z",
         financial_rip_v3_version="financial-v3",
+        financial_rip_v4_version="financial-v4",
         collector_appeal_version="collector-v7",
         overall_rip_version="overall-v9",
-        overall_rip_rankable=True,
+        overall_rip_rankable=False,
+        overall_rip_v10_version="overall-v10",
+        overall_rip_v10_rankable=True,
     )
     monkeypatch.setattr(service, "get_sealed_product_results_for_run", lambda *_a, **_k: [row])
     snapshot = {
@@ -655,10 +665,31 @@ def test_builder_publishes_consumed_source_provenance_and_score_versions(monkeyp
     assert contract["sourceSealedProductResultCount"] == 1
     assert contract["sourceSealedProductResultsUpdatedAt"] == "2026-08-18T10:00:00Z"
     assert product["sourceCalculationRunId"] == RUN_A
-    assert product["financialRipVersion"] == "financial-v3"
+    # Canonical after the V4/V10 cutover: the decision output must read the V4/
+    # V10 columns, never the historical V3/V9 ones, even when both are present.
+    assert product["financialRipVersion"] == "financial-v4"
     assert product["collectorAppealVersion"] == "collector-v7"
-    assert product["overallRipVersion"] == "overall-v9"
+    assert product["overallRipVersion"] == "overall-v10"
     assert product["overallRipRankable"] is True
+
+
+def test_product_family_rankings_and_rip_decision_agree_on_the_same_row():
+    """The same sealed-product row must publish the same canonical financial/
+    overall values whether read by the product-family rankings path (which
+    already reads the v4/v10 columns) or this decision-layer contract."""
+    row = _product_row(
+        financial_rip_v4_score=55.5,
+        financial_rip_v4_version="financial-rip-v4",
+        overall_rip_v10_score=61.1,
+        overall_rip_v10_version="overall-rip-v10",
+    )
+    contract = build_sealed_product_decision_contract([row])
+    product = contract["products"][0]
+
+    assert product["financialRipScore"] == row["financial_rip_v4_score"]
+    assert product["financialRipVersion"] == row["financial_rip_v4_version"]
+    assert product["overallRipScore"] == row["overall_rip_v10_score"]
+    assert product["overallRipVersion"] == row["overall_rip_v10_version"]
 
 
 def test_combined_contract_survives_a_run_with_no_sealed_product_rows(monkeypatch):
@@ -687,9 +718,9 @@ def test_no_public_product_number_is_ever_nan_or_infinity(bad):
                 median_value=bad,
                 chance_to_recover_cost=bad,
                 expected_loss_when_losing=bad,
-                financial_rip_v3_score=bad,
+                financial_rip_v4_score=bad,
                 collector_appeal_score=bad,
-                overall_rip_score=bad,
+                overall_rip_v10_score=bad,
                 guaranteed_component_market_value=bad,
             )
         ]

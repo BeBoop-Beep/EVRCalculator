@@ -4,17 +4,20 @@ WHAT THIS PUBLISHES, AND WHAT IT USED TO
 ----------------------------------------
 It publishes the CANONICAL models:
 
-    overall_rip_score  <- target['overallRipV8']  (0.90 V3 + 0.10 Collector Appeal V4)
-    financial_rip_score<- target['financialRipV3'] (six-component, fixed anchors)
+    overall_rip_score  <- target['overallRipV10']  (0.90 Financial RIP V4 + 0.10 Collector Appeal, uncapped)
+    financial_rip_score<- target['financialRipV4'] (P95-only Realistic Upside @25%)
 
-It previously read ``target['rip']`` (Overall RIP v4, off the Financial RIP V2
-pillars and legacy CA7) and ``target['ripCore']`` (Financial RIP V2), and was
-never repointed when the V3, V5, V6 or V7 cutovers landed. That is why the newest
-published leaderboard reported ``overall_rip_v4_90_financial_10_ca7`` and
-``financial_rip_v2_60_25_15`` while 22 fresh Financial RIP V3 simulations sat
-underneath it - the publisher was faithfully publishing the legacy objects, and
-the version strings it copied alongside them were accurate about that, so nothing
-downstream contradicted it.
+It previously read ``target['overallRipV9']`` / ``target['financialRipV3']`` and,
+before that, ``target['rip']`` (Overall RIP v4, off the Financial RIP V2 pillars
+and legacy CA7) and ``target['ripCore']`` (Financial RIP V2). Earlier cutovers (V3,
+V5, V6, V7) landed without repointing this file, which is why a past published
+leaderboard reported ``overall_rip_v4_90_financial_10_ca7`` and
+``financial_rip_v2_60_25_15`` while fresher simulations sat underneath it - the
+publisher was faithfully publishing the legacy objects, and the version strings it
+copied alongside them were accurate about that, so nothing downstream contradicted
+it. This file is now part of the V10/V4 promotion checklist for exactly that
+reason: the hard-coded target keys never follow `scoring_config`'s canonical
+selection automatically, so every cutover must repoint them here too.
 
 THE VERSIONS ARE VERIFIED, NOT JUST COPIED
 ------------------------------------------
@@ -189,10 +192,10 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
     rest.
     """
     label = target.get("canonical_key") or target.get("set_id") or target.get("target_id")
-    contract = target.get("publicRipContractV9") or {}
+    contract = target.get("publicRipContractV10") or {}
     problems = []
     if not contract:
-        return [f"{label}: publicRipContractV9 is missing"]
+        return [f"{label}: publicRipContractV10 is missing"]
     for pillar in CANONICAL_PILLARS:
         block = contract.get(pillar) or {}
         for field in REQUIRED_PILLAR_FIELDS:
@@ -246,8 +249,8 @@ def publication_contract(row):
     financial_count = int(cohort.get("eligibleSetCount") or 0)
 
     all_targets = list(payload.get("targets") or [])
-    # The canonical ranked cohort: targets carrying an Overall RIP V8 rank.
-    targets = [target for target in all_targets if _ranked(target, "overallRipV9")]
+    # The canonical ranked cohort: targets carrying an Overall RIP V10 rank.
+    targets = [target for target in all_targets if _ranked(target, "overallRipV10")]
     appeal_versions = sorted({
         str(((target.get("openingExperience") or {}).get("collectorAppeal") or {}).get("version"))
         for target in targets
@@ -267,7 +270,7 @@ def publication_contract(row):
         problems.append("missing built timestamp")
     if ranked_count <= 0 or len(targets) != ranked_count:
         problems.append(
-            f"incomplete Overall RIP V8 cohort expected={ranked_count} actual={len(targets)}"
+            f"incomplete Overall RIP V10 cohort expected={ranked_count} actual={len(targets)}"
         )
     if financial_count <= 0:
         problems.append("missing Financial RIP cohort count")
@@ -278,8 +281,8 @@ def publication_contract(row):
             f"Collector Appeal version {appeal_versions[0]!r} is not the canonical "
             f"{canonical['collectorAppealVersion']!r}"
         )
-    if any(not _ranked(target, "financialRipV3") for target in targets):
-        problems.append("missing Financial RIP V3 rank")
+    if any(not _ranked(target, "financialRipV4") for target in targets):
+        problems.append("missing Financial RIP V4 rank")
     # Versions are VERIFIED against the canonical selection, never merely copied.
     for label, observed, expected in (
         ("Overall RIP", overall_version, canonical["overallRipVersion"]),
@@ -363,10 +366,10 @@ def publication_contract(row):
     rows = [{
         "set_id": target.get("set_id") or target.get("target_id"),
         "set_canonical_key": target.get("canonical_key") or target.get("slug"),
-        "overall_rip_score": (target.get("overallRipV9") or {}).get("score"),
-        "overall_rip_rank": (target.get("overallRipV9") or {}).get("rank"),
-        "financial_rip_score": (target.get("financialRipV3") or {}).get("score"),
-        "financial_rip_rank": (target.get("financialRipV3") or {}).get("rank"),
+        "overall_rip_score": (target.get("overallRipV10") or {}).get("score"),
+        "overall_rip_rank": (target.get("overallRipV10") or {}).get("rank"),
+        "financial_rip_score": (target.get("financialRipV4") or {}).get("score"),
+        "financial_rip_rank": (target.get("financialRipV4") or {}).get("rank"),
         "overall_ranked_cohort_count": ranked_count,
         "financial_ranked_cohort_count": financial_count,
         "simulation_calculation_run_id": target.get("calculation_run_id"),
@@ -441,7 +444,7 @@ def validate_publication_payload(
     expected = int(snapshot.get("eligible_cohort_count") or 0)
     ranked_targets = [
         target for target in targets
-        if isinstance(target, dict) and (target.get("overallRipV9") or {}).get("rank") is not None
+        if isinstance(target, dict) and (target.get("overallRipV10") or {}).get("rank") is not None
     ]
     if expected <= 0 or len(ranked_targets) != expected:
         raise RuntimeError(

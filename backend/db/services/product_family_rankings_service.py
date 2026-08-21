@@ -21,8 +21,9 @@ RESULT_FIELDS = (
     "random_pack_count,guaranteed_component_count,product_market_cost,price_as_of,"
     "expected_value,median_value,p05_value,p95_value,p99_value,chance_to_recover_cost,"
     "total_value_to_cost_ratio,financial_rip_v3_score,financial_rip_v3_version,"
+    "financial_rip_v4_score,financial_rip_v4_version,"
     "collector_appeal_score,collector_appeal_version,overall_rip_score,overall_rip_version,"
-    "overall_rip_rankable"
+    "overall_rip_rankable,overall_rip_v10_score,overall_rip_v10_version,overall_rip_v10_rankable"
 )
 
 
@@ -36,8 +37,8 @@ def _number(value: Any, default: float) -> float:
 def _rank_key(row: Mapping[str, Any]) -> tuple:
     """One-family canonical order. This comparator must never receive mixed families."""
     return (
-        -_number(row.get("overall_rip_score"), float("-inf")),
-        -_number(row.get("financial_rip_v3_score"), float("-inf")),
+        -_number(row.get("overall_rip_v10_score"), float("-inf")),
+        -_number(row.get("financial_rip_v4_score"), float("-inf")),
         -_number(row.get("chance_to_recover_cost"), float("-inf")),
         _number(row.get("product_market_cost"), float("inf")),
         str(row.get("sealed_product_id") or ""),
@@ -45,11 +46,11 @@ def _rank_key(row: Mapping[str, Any]) -> tuple:
 
 
 def _canonical(row: Mapping[str, Any]) -> bool:
-    return bool(row.get("overall_rip_rankable")) and all(
+    return bool(row.get("overall_rip_v10_rankable")) and all(
         (
-            row.get("financial_rip_v3_version") == CANONICAL_FINANCIAL_RIP_VERSION,
+            row.get("financial_rip_v4_version") == CANONICAL_FINANCIAL_RIP_VERSION,
             row.get("collector_appeal_version") == canonical_collector_appeal_version(),
-            row.get("overall_rip_version") == CANONICAL_OVERALL_RIP_VERSION,
+            row.get("overall_rip_v10_version") == CANONICAL_OVERALL_RIP_VERSION,
         )
     )
 
@@ -61,14 +62,14 @@ def _text(value: Any) -> str:
 def _ranked_targets(set_targets: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
     """Use canonical ranked targets when rank blocks are present; keep plain test/input rows usable."""
     has_rank_contract = any(
-        "overallRipV9" in target or "publicRipContractV9" in target for target in set_targets
+        "overallRipV10" in target or "publicRipContractV10" in target for target in set_targets
     )
     if not has_rank_contract:
         return list(set_targets)
     return [
         target for target in set_targets
-        if (target.get("overallRipV9") or {}).get("rank") is not None
-        or (((target.get("publicRipContractV9") or {}).get("overallRip") or {}).get("rank") is not None)
+        if (target.get("overallRipV10") or {}).get("rank") is not None
+        or (((target.get("publicRipContractV10") or {}).get("overallRip") or {}).get("rank") is not None)
     ]
 
 
@@ -126,10 +127,10 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "familyRank": rank,
         "familySize": size,
         "marketPrice": row.get("product_market_cost"),
-        "overallRipScore": row.get("overall_rip_score"),
-        "overallRipVersion": row.get("overall_rip_version"),
-        "financialRipScore": row.get("financial_rip_v3_score"),
-        "financialRipVersion": row.get("financial_rip_v3_version"),
+        "overallRipScore": row.get("overall_rip_v10_score"),
+        "overallRipVersion": row.get("overall_rip_v10_version"),
+        "financialRipScore": row.get("financial_rip_v4_score"),
+        "financialRipVersion": row.get("financial_rip_v4_version"),
         "collectorAppealScore": row.get("collector_appeal_score"),
         "collectorAppealVersion": row.get("collector_appeal_version"),
         "expectedValue": row.get("expected_value"),

@@ -1419,6 +1419,8 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
                     },
                     "ripCore": {"score": 74.25, "rank": 3, "tier": "A", "cohortSize": 21},
                     "overallRipV8": {"score": 73.0, "rank": 15, "tier": "D", "cohortSize": 22},
+                    "overallRipV10": {"score": 75.0, "rank": 12, "tier": "C", "cohortSize": 22},
+                    "publicRipContractV10": {"contractVersion": "public_rip_contract_v10"},
                     "publicRipContractV8": {
                         "collectorAppeal": {
                             "components": {
@@ -1546,6 +1548,11 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
             }
         }
     }
+    # Canonical after the V4/V10 cutover: the V10 rank block and public contract
+    # travel from the rankings target into the set-page snapshot verbatim too,
+    # alongside the V9 entries which remain valid history.
+    assert payload["overallRipV10"] == {"score": 75.0, "rank": 12, "tier": "C", "cohortSize": 22}
+    assert payload["publicRipContractV10"] == {"contractVersion": "public_rip_contract_v10"}
     assert payload["publicAnalyticsStatus"] == "analytics_ready"
     assert payload["publicAnalyticsCohort"]["eligibleSetCount"] == 21
     # The legacy validation payload is retired: new snapshots never carry it.
@@ -1553,17 +1560,17 @@ def test_build_set_page_snapshot_row_merges_canonical_rip_contract(monkeypatch):
     assert "desirability_validation" not in payload
 
 
-def test_canonical_set_page_completeness_rejects_ranked_v9_without_contract():
-    with pytest.raises(RuntimeError, match="publicRipContractV9 is missing"):
+def test_canonical_set_page_completeness_rejects_ranked_v10_without_contract():
+    with pytest.raises(RuntimeError, match="publicRipContractV10 is missing"):
         pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
-            {"overallRipV9": {"rank": 1}}, set_id="set-1"
+            {"overallRipV10": {"rank": 1}}, set_id="set-1"
         )
 
 
 def test_canonical_set_page_completeness_rejects_missing_collector_factor_metadata():
     payload = {
-        "overallRipV9": {"rank": 1},
-        "publicRipContractV9": {
+        "overallRipV10": {"rank": 1},
+        "publicRipContractV10": {
             "collectorAppeal": {
                 "components": {
                     "rosterDesirability": {
@@ -1585,7 +1592,7 @@ def test_canonical_set_page_completeness_rejects_missing_collector_factor_metada
 
 def test_canonical_set_page_completeness_allows_unsupported_historical_set():
     pokemon_snapshot_builders._assert_canonical_set_page_contract_complete(
-        {"overallRipV9": {"rank": None}}, set_id="historical-set"
+        {"overallRipV10": {"rank": None}}, set_id="historical-set"
     )
 
 

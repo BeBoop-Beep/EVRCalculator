@@ -356,16 +356,19 @@ DEPTH_AND_ROBUSTNESS_LABELS: Dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Canonical version resolution (the cutover switch)
+# Canonical version resolution (the cutover switch) — OWNED ELSEWHERE
 # ---------------------------------------------------------------------------
-# ONE authoritative selection, read by every public builder, ranking path and
-# presenter. Promotion is this constant, not a scattering of conditionals and
-# not an environment variable that can differ between two workers mid-publish
-# and emit two score versions into one leaderboard.
+# This module previously also defined `CANONICAL_FINANCIAL_RIP_VERSION`, pinned to
+# FINANCIAL_RIP_V3_VERSION. When the V4 cutover needed it to point at Financial RIP
+# V4 instead, importing V4's identity here would create a circular import: V4's own
+# config module imports FROM this one (V4 reuses V3's weight tables and transforms).
+# The switch therefore lives in `backend.desirability.scoring_config`, which already
+# imports both identities at module scope with no cycle, and which already owns the
+# identical kind of switch for `CANONICAL_OVERALL_RIP_VERSION` (see the comment
+# block above this one for why a second definition of a cutover switch is a second
+# cutover). This module describes Financial RIP V3 only.
 #
-# THE FINANCIAL half is resolved HERE, because this module defines it.
-
-CANONICAL_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V3_VERSION
+#     from backend.desirability.scoring_config import CANONICAL_FINANCIAL_RIP_VERSION
 
 # THE OVERALL half is resolved in `backend.desirability.scoring_config`, and
 # deliberately NOT restated here.

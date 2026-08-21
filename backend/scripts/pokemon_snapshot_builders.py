@@ -456,6 +456,11 @@ def _merge_canonical_rip_contract_into_set_payload(
         "publicRipContractV8",
         "overallRipV9",
         "publicRipContractV9",
+        # CANONICAL after the Financial RIP V4 / Overall RIP V10 cutover. Copy the
+        # packaged V10 contract verbatim, alongside the V9 entries above which
+        # remain valid history.
+        "overallRipV10",
+        "publicRipContractV10",
         "setRipV1",
         "openingExperience",
         "publicAnalyticsStatus",
@@ -481,21 +486,21 @@ COLLECTOR_FACTOR_NAMES = ("rosterDesirability", "desirableOutcomeFrequency")
 
 
 def _assert_canonical_set_page_contract_complete(payload: Dict[str, Any], *, set_id: str) -> None:
-    """Reject an incomplete canonical contract for a V8-ranked set page.
+    """Reject an incomplete canonical contract for a V10-ranked set page.
 
-    Historical and unsupported sets legitimately have no Overall RIP V8 rank and
+    Historical and unsupported sets legitimately have no Overall RIP V10 rank and
     bypass this invariant. Zero is a valid relative score, so presence is tested
     with ``is None`` rather than truthiness.
     """
-    overall = payload.get("overallRipV9")
+    overall = payload.get("overallRipV10")
     if not isinstance(overall, dict) or overall.get("rank") is None:
         return
 
-    contract = payload.get("publicRipContractV9")
+    contract = payload.get("publicRipContractV10")
     if not isinstance(contract, dict) or not contract:
         raise RuntimeError(
             f"Refusing incomplete canonical set-page snapshot set_id={set_id}: "
-            "publicRipContractV9 is missing"
+            "publicRipContractV10 is missing"
         )
 
     collector = contract.get("collectorAppeal")
