@@ -400,3 +400,51 @@ test("the mobile Market composition still mounts and is unchanged by this pass",
   const mobileBranch = page.slice(start, page.indexOf(DESKTOP_BRANCH_START));
   assert.ok(mobileBranch.includes("isDesktopHeroComposition ? null : ("), "exactly one composition mounts at a time");
 });
+
+// ---------------------------------------------------------------------------
+// REGRESSION LOCK — desktop Top 10 permanent master-detail layout.
+//
+// An earlier pass briefly collapsed the desktop list to a Top-3-plus-disclosure
+// pattern (the correct behaviour for MOBILE, borrowed from
+// SetMarketMobileTopChase, but never approved for desktop). These tests pin
+// the corrected desktop contract so that regression cannot silently return.
+// ---------------------------------------------------------------------------
+
+test("desktop Top 10 has no collapsed state: no View Top 10, no Show more/less, no expand toggle", () => {
+  const chase = code(componentSource("TopChaseCardsPanel"));
+  assert.ok(!/View Top 10/i.test(chase), "View Top 10 is a mobile-only disclosure and must not appear on desktop");
+  assert.ok(!/Show \d+ more|Show less|Show all/i.test(chase), "no progressive-disclosure copy on desktop");
+  assert.ok(!/useState\(false\)/.test(chase) || !/expanded|showAll/i.test(chase), "no expanded/showAll state on desktop");
+  assert.ok(!chase.includes("aria-expanded"), "desktop has no disclosure button to expand");
+});
+
+test("desktop Top 10 always renders all ten rows with no row slice", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  assert.ok(chase.includes("maxRows: 10"), "the model is built for all ten rows");
+  // rows.map is used directly on the full list — no .slice(...) gating a preview.
+  assert.ok(!/rows\.slice\(/.test(code(chase)), "desktop must not slice the row list down to a preview");
+  assert.match(chase, /\{rows\.map\(\(row\)/, "every row in the model is rendered");
+});
+
+test("the master-detail proportions target the approved 35-40 / 60-65 split", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  assert.match(chase, /desk:grid-cols-\[minmax\(0,37fr\)_minmax\(0,63fr\)\]/, "37/63 sits inside the approved 35-40/60-65 range");
+});
+
+test("selecting any of the ten rows updates the right-hand detail, never navigates away", () => {
+  const chase = code(componentSource("TopChaseCardsPanel"));
+  assert.ok(chase.includes("onClick={() => setSelectedKey(row.key)}"), "a click sets local selection state");
+  assert.ok(!/window\.location|router\.push|<a\s+href/.test(chase), "no row is a navigation link");
+});
+
+test("the selected-card graph renders only inside the right pane, never beneath the list", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  const listStart = chase.indexOf("data-top-chase-list");
+  const detailStart = chase.indexOf("data-top-chase-detail");
+  const graphStart = chase.indexOf("data-chase-graph-zone");
+  assert.ok(listStart < detailStart && detailStart < graphStart, "list, then detail column, then graph inside it");
+  // The list and detail column are two cells of the same grid row — the graph
+  // living inside the detail column's own flex stack is what keeps it out from
+  // underneath the list.
+  assert.match(chase, /grid-cols-1[^"]*desk:grid-cols-\[minmax\(0,37fr\)_minmax\(0,63fr\)\][^>]*>/s);
+});

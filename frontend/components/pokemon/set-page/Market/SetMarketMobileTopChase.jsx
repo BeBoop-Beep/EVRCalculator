@@ -139,7 +139,7 @@ export default function SetMarketMobileTopChase({
   const hasCards = Array.isArray(cards) && cards.length > 0;
   const availableWindows = hasCards ? WINDOWS : [];
   const effectiveWindowKey =
-    selectedWindowKey && availableWindows.some((entry) => entry.key === selectedWindowKey) ? selectedWindowKey : "30D";
+    selectedWindowKey && availableWindows.some((entry) => entry.key === selectedWindowKey) ? selectedWindowKey : "7D";
 
   const model = useMemo(
     () => buildTopChaseModel(cards, { selectedWindowKey: effectiveWindowKey, marketAsOfDate }),

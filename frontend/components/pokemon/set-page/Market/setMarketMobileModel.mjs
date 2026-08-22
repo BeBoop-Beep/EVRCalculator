@@ -67,6 +67,14 @@ export function formatSignedPercent(value) {
   return `${parsed >= 0 ? "+" : "−"}${Math.abs(parsed).toFixed(1)}%`;
 }
 
+/** Signed currency for a period-change micro-stat: "+$21.86" / "-$886.98" / "-$40k". */
+export function formatSignedCompactMoney(value) {
+  const parsed = toFiniteNumber(value);
+  if (parsed === null) return null;
+  const formatted = formatCompactMoney(Math.abs(parsed));
+  return formatted === null ? null : `${parsed >= 0 ? "+" : "−"}${formatted}`;
+}
+
 export function formatCount(value) {
   const parsed = toFiniteNumber(value);
   return parsed === null || parsed <= 0 ? null : Math.round(parsed).toLocaleString("en-US");

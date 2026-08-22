@@ -74,7 +74,11 @@ export function normalizeSegmentHistory(history) {
 export function selectSegmentTrend({
   history,
   selectedWindowKey = null,
-  preferredWindowKey = "30D",
+  // Site-wide market convention: 7D is the initial timeframe everywhere a
+  // reader hasn't made an explicit choice. Callers that DO have an explicit
+  // selection (a click, a URL param) pass it as `selectedWindowKey`, which
+  // always wins — this default only governs the very first render.
+  preferredWindowKey = "7D",
   trackedItemCount = null,
   trackedItemNoun = "Cards",
 } = {}) {

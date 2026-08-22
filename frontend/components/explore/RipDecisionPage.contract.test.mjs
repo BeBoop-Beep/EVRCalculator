@@ -9,47 +9,80 @@ const pagePath = path.resolve(directory, "RipDecisionPage.jsx");
 const cssPath = path.resolve(directory, "RipDecisionPage.module.css");
 const evidencePath = path.resolve(directory, "RipStoryEvidence.jsx");
 
-test("the page leads with the decision, not with the scoring model", () => {
+test("the primary page is now five sections: hero, compare, chase (merged with desirability), why it ranks, simulation — then one Deep Dive", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
   const rendered = source.slice(renderStart);
-  // QUESTION -> ANSWER -> EVIDENCE -> why it scores that way. Product economics
-  // and the chase precede every methodology section.
   const tokens = [
-    'data-rip-section="set-rip-breakdown"',
-    "<ProductOpeningValue",
-    "<ChaseReality",
-    "<MaterialCards",
-    'data-rip-section="simulation-evidence"',
-    'data-rip-section="simulation-drivers"',
+    'data-rip-section="hero-recommendation"',
+    'data-rip-section="compare-products"',
+    'data-rip-section="chase-summary"',
     'data-rip-section="why-it-ranks"',
+    'data-rip-section="simulation-evidence"',
+    'data-rip-section="deep-dive"',
+    "<EvContributionSection",
+    "<ProductOpeningValue",
     'data-rip-section="financial-explanation"',
     'data-rip-section="collector-explanation"',
-    'data-rip-section="collector-drivers"',
   ];
   const positions = tokens.map((token) => rendered.indexOf(token));
   assert.ok(positions.every((position) => position >= 0), "every section must render");
   assert.deepEqual([...positions].sort((a, b) => a - b), positions);
 });
 
-test("methodology never precedes the decision surface", () => {
+test("Opening Snapshot no longer renders — it duplicated Simulation Evidence", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  assert.equal(source.includes('data-rip-section="opening-snapshot"'), false);
+  assert.equal(source.includes(">Opening Snapshot<"), false);
+  assert.equal(source.includes("spectrumSteps"), false, "the spectrum computation was removed with its only consumer");
+});
+
+test("Most Desirable Pokémon is merged into What Are You Chasing, not a separate top-level section", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  assert.equal(source.includes('data-rip-section="desirable-pokemon"'), false, "no separate top-level section");
+  const chaseStart = source.indexOf('data-rip-section="chase-summary"');
+  const chaseArticleEnd = source.indexOf("</article>", chaseStart);
+  const subjectsIndex = source.indexOf("<CollectorDriverSubjects", chaseStart);
+  assert.ok(chaseStart >= 0 && subjectsIndex > chaseStart && subjectsIndex < chaseArticleEnd, "Most Desirable Pokémon renders inside the same <article> as Top Chase");
+});
+
+test("Other Major Value Chases was deleted, not just unmounted", () => {
+  const source = fs.readFileSync(pagePath, "utf8");
+  assert.equal(source.includes("MaterialCards"), false, "the component and its usage are both gone");
+  assert.equal(source.includes("Other Major Value Chases"), false);
+  assert.equal(source.includes("selectMarketChaseCards"), false, "its only data selector is unused now");
+});
+
+test("methodology never precedes the decision surface, and EV contribution / break-even / Set RIP construction all live inside Deep Dive, collapsed", () => {
   const source = fs.readFileSync(pagePath, "utf8");
   const renderStart = source.indexOf("return (", source.indexOf("export default function RipDecisionPage"));
   const rendered = source.slice(renderStart);
+  const heroIndex = rendered.indexOf('data-rip-section="hero-recommendation"');
+  const compareIndex = rendered.indexOf('data-rip-section="compare-products"');
+  const chaseIndex = rendered.indexOf('data-rip-section="chase-summary"');
+  const whyIndex = rendered.indexOf('data-rip-section="why-it-ranks"');
+  const simIndex = rendered.indexOf('data-rip-section="simulation-evidence"');
+  const deepDiveIndex = rendered.indexOf('data-rip-section="deep-dive"');
   for (const methodology of [
     'data-rip-section="financial-explanation"',
     'data-rip-section="collector-explanation"',
-    'data-rip-section="why-it-ranks"',
+    "<EvContributionSection",
+    "<ProductOpeningValue",
+    "deep-dive-set-rip-breakdown",
   ]) {
-    assert.ok(
-      rendered.indexOf("<ProductOpeningValue") < rendered.indexOf(methodology),
-      `${methodology} must come after product opening value`
-    );
-    assert.ok(
-      rendered.indexOf("<ChaseReality") < rendered.indexOf(methodology),
-      `${methodology} must come after the chase`
-    );
+    const methodologyIndex = rendered.indexOf(methodology);
+    assert.ok(heroIndex < methodologyIndex, `${methodology} must come after the hero recommendation`);
+    assert.ok(compareIndex < methodologyIndex, `${methodology} must come after the product comparison`);
+    assert.ok(chaseIndex < methodologyIndex, `${methodology} must come after the chase`);
+    assert.ok(whyIndex < methodologyIndex, `${methodology} must come after Why It Ranks`);
+    assert.ok(simIndex < methodologyIndex, `${methodology} must come after Simulation Evidence`);
+    assert.ok(deepDiveIndex < methodologyIndex, `${methodology} must render inside Deep Dive`);
   }
+  // EV contribution and break-even are now DeepDiveRow children (collapsed
+  // disclosures), not their own primary-flow <article> sections.
+  assert.equal(rendered.includes('data-rip-section="ev-contribution" className={`${styles.panel}'), false, "EV contribution is no longer its own top-level panel");
+  assert.equal(rendered.includes('data-rip-section="break-even"'), false, "break-even is no longer its own top-level section id");
+  assert.ok(source.includes('<EvContributionSection rankings={rankings} bare />'), "EV contribution renders in bare mode inside a DeepDiveRow");
 });
 
 test("the deep dive is collapsed and accessible rather than deleted", () => {
@@ -58,22 +91,23 @@ test("the deep dive is collapsed and accessible rather than deleted", () => {
   assert.ok(source.includes("<CollectorAppealBreakdown"), "existing component is reused, not rewritten");
   assert.ok(source.includes("financialDeepDiveOpen"));
   assert.ok(source.includes("collectorDeepDiveOpen"));
-  assert.ok(source.includes('aria-controls="financial-rip-deep-dive"'));
-  assert.ok(source.includes('aria-controls="collector-appeal-deep-dive"'));
-  assert.ok(source.includes("aria-expanded={financialDeepDiveOpen}"));
-  assert.ok(source.includes("aria-expanded={collectorDeepDiveOpen}"));
+  assert.ok(source.includes('id="deep-dive-financial-rip"'));
+  assert.ok(source.includes('id="deep-dive-collector-appeal"'));
+  assert.ok(source.includes("defaultOpen={financialDeepDiveOpen}"));
+  assert.ok(source.includes("defaultOpen={collectorDeepDiveOpen}"));
+  assert.ok(source.includes("function DeepDiveRow"), "deep dive rows share one collapsible primitive");
+  assert.ok(source.includes("aria-expanded={open}") && source.includes("aria-controls={panelId}"), "every deep dive row is independently disclosure-accessible");
 });
 
 test("decision sections keep critical information visible and probabilistic", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(source.includes("50% modeled chance"));
-  assert.ok(source.includes("90% modeled chance"));
-  assert.ok(source.includes("not guaranteed outcomes"));
+  assert.ok(source.includes("50/50 Chance to Pull One"));
+  assert.ok(source.includes("90% Chance to Pull One"));
+  assert.ok(source.includes("It is not guaranteed"));
+  assert.equal(source.includes(">Gross Pack Spend<"), false);
+  assert.ok(source.includes("not a guaranteed acquisition cost"));
   assert.ok(source.includes('data-chase-state="unavailable"'));
   assert.ok(!source.includes("you will pull"));
-  // Gross spend is spend, never an acquisition cost: each opened pack also
-  // produces other cards.
-  assert.ok(source.includes("gross pack spend"));
   assert.ok(!source.includes("Cost to acquire"));
   assert.ok(!source.includes("Expected cost"));
 });
@@ -258,12 +292,12 @@ test("gross-spend pack price is never guessed across multiple loose-pack SKUs", 
   }
 });
 
-test("the secondary chase list excludes the canonical Top Chase", () => {
+test("the removed secondary chase list leaves no dangling selector, and the obsolete decision model block stays gone", () => {
   const source = fs.readFileSync(pagePath, "utf8");
-  assert.ok(
-    source.includes("selectMarketChaseCards(chaseCards, { excludeCard: decision.topChase })"),
-    "Other Major Value Chases must not repeat the Top Chase"
-  );
+  // The market-value "other chases" list this selector fed was deleted
+  // (see the "Other Major Value Chases was deleted" test); its selector
+  // must not linger unused.
+  assert.equal(source.includes("selectMarketChaseCards"), false);
   assert.ok(!source.includes("model.decision"), "the obsolete decision model block is gone");
 });
 
@@ -272,7 +306,7 @@ test("simulation reuses one distribution chart and existing top-hit evidence", (
   const evidence = fs.readFileSync(evidencePath, "utf8");
   assert.equal((source.match(/<RipDistributionChart/g) || []).length, 1);
   for (const label of ["Expected Value", "Typical Opening", "Chance to Beat Cost", "Strong Upside", "Jackpot Upside"]) assert.ok(source.includes(label));
-  assert.ok(source.includes("simulationDrivers={topHits}") || source.includes("drivers={simulationDrivers}"));
+  assert.ok(source.includes("rankings={rankings}"), "published rarity contribution remains available in Deep Dive");
   assert.ok(evidence.includes("driver.ev_contribution"));
   assert.ok(evidence.includes("driver.current_near_mint_price"));
   assert.ok(source.includes("<SimulationFullReport"));
@@ -289,7 +323,7 @@ test("Collector story keeps two factors and diagnostic depth separate", () => {
   assert.ok(source.includes("What Are You Chasing?"));
   assert.ok(source.includes("View all modeled pull rates"));
   const evidence = fs.readFileSync(evidencePath, "utf8");
-  assert.ok(evidence.includes("Share of set demand"));
+  assert.ok(evidence.includes("Set Demand"));
   assert.ok(!evidence.includes("Demand {subject"));
 });
 
@@ -317,9 +351,9 @@ test("mobile analytical rows and collector subjects use compact disclosures", ()
   assert.ok(rowSource.includes("aria-expanded={isOpen}"));
   assert.ok(rowSource.includes("aria-controls={panelId}"));
   assert.ok(evidence.includes("subjectMobileList"));
-  assert.ok(evidence.includes("representative = subject.accessiblePath || subject.elitePath"));
-  assert.ok(evidence.includes('<SubjectPath label="More attainable"'));
+  assert.ok(evidence.includes("representative = subject.elitePath || subject.accessiblePath"));
   assert.ok(evidence.includes('<SubjectPath label="Elite chase"'));
+  assert.ok(evidence.includes('<SubjectPath label="More attainable"'));
   assert.ok(chart.includes("data-mobile-chart-layout"));
   assert.ok(chart.includes("compact={isMobile}"));
 });

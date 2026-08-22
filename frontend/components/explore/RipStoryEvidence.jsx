@@ -93,7 +93,14 @@ function SubjectPath({ label, path }) {
       <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
       <div className="mt-2 flex min-w-0 items-center gap-3">
         <CardImage src={path.imageUrl} name={path.cardName} compact />
-        <div className="min-w-0"><p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{path.cardName || "Card name unavailable"}</p><p className="mt-1 text-xs text-[var(--text-secondary)]">{path.impliedOdds ? `Approx. 1 in ${Math.round(path.impliedOdds).toLocaleString()} packs` : "Modeled odds unavailable"}</p></div>
+        <div className="min-w-0">
+          <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{path.cardName || "Card name unavailable"}</p>
+          {path.rarity ? <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{path.rarity}</p> : null}
+          <p className="mt-1 text-xs tabular-nums text-[var(--text-secondary)]">
+            {path.currentMarketPrice !== null ? `${money(path.currentMarketPrice)} · ` : ""}
+            {path.impliedOdds ? `1 in ${Math.round(path.impliedOdds).toLocaleString()} packs` : "Modeled odds unavailable"}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -101,7 +108,7 @@ function SubjectPath({ label, path }) {
 
 function CollectorDriverSubjectsDesktop({ subjects = [] }) {
   if (!subjects.length) return <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">Top collector subjects are not available for this set yet.</p>;
-  return <div data-collector-driver-subjects className="mt-4 grid gap-3 xl:grid-cols-3">{subjects.map((subject) => <article key={subject.subjectName} className={styles.subjectCard}><div className="flex items-start justify-between gap-3"><h3 className="text-lg font-semibold text-[var(--text-primary)]">{subject.subjectName}</h3>{subject.demandShareLabel ? <div className="text-right"><p data-demand-share-value className="text-xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel}</p><p data-demand-share-label className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">Share of set demand <InfoPopover text="Estimates how much of this set's modeled Pokémon-subject demand is associated with this Pokémon. It is not pull probability, market value, or Collector Appeal points." /></p></div> : null}</div><div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"><SubjectPath label="More attainable" path={subject.accessiblePath} /><SubjectPath label="Elite chase" path={subject.elitePath} /></div></article>)}</div>;
+  return <div data-collector-driver-subjects className="mt-4 grid gap-3 xl:grid-cols-3">{subjects.map((subject) => <article key={subject.subjectName} className={styles.subjectCard}><div className="flex items-start justify-between gap-3"><h3 className="text-lg font-semibold text-[var(--text-primary)]">{subject.subjectName}</h3>{subject.demandShareLabel ? <div className="text-right"><p data-demand-share-value className="text-xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel}</p><p data-demand-share-label className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">Set Demand <InfoPopover text="The share of this set's modeled Pokémon-subject demand attributed to this Pokémon. It is not pull probability, market value, or sales share." /></p></div> : null}</div><div className="mt-3"><SubjectPath label="Elite Chase" path={subject.elitePath || subject.accessiblePath} />{subject.elitePath && subject.accessiblePath ? <details className={styles.attainableDisclosure}><summary>More attainable chase</summary><SubjectPath label="More Attainable Chase" path={subject.accessiblePath} /></details> : null}</div></article>)}</div>;
 }
 
 export function CollectorDriverSubjects({ subjects = [] }) {
@@ -112,7 +119,7 @@ export function CollectorDriverSubjects({ subjects = [] }) {
     <div className={styles.subjectMobileList}>{subjects.map((subject, index) => {
       const panelId = `collector-subject-${index}`;
       const isOpen = openSubject === index;
-      const representative = subject.accessiblePath || subject.elitePath;
+      const representative = subject.elitePath || subject.accessiblePath;
       return <div key={subject.subjectName} className={styles.subjectMobileItem}>
         <button type="button" aria-expanded={isOpen} aria-controls={panelId} onClick={() => setOpenSubject(isOpen ? null : index)} className={styles.subjectMobileButton}>
           <span className={styles.subjectMobileImage}><CardImage src={representative?.imageUrl} name={representative?.cardName || subject.subjectName} compact /></span>
@@ -120,7 +127,7 @@ export function CollectorDriverSubjects({ subjects = [] }) {
           <span className="text-right"><strong data-demand-share-value className="block text-lg tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel || "—"}</strong><small data-demand-share-label className="text-[10px] text-[var(--text-secondary)]">set demand</small></span>
           <span aria-hidden="true" className={`text-lg text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
         </button>
-        {isOpen ? <div id={panelId} className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}><SubjectPath label="More attainable" path={subject.accessiblePath} /><SubjectPath label="Elite chase" path={subject.elitePath} /></div> : null}
+        {isOpen ? <div id={panelId} className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}><SubjectPath label="Elite chase" path={subject.elitePath || subject.accessiblePath} />{subject.elitePath ? <SubjectPath label="More attainable" path={subject.accessiblePath} /> : null}</div> : null}
       </div>;
     })}</div>
   </div>;

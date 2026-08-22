@@ -6,16 +6,6 @@ import Link from "next/link";
 import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
-const RIP_PRODUCT_NAV_ITEMS = Object.freeze([
-  { key: "overview", label: "Set Overview", family: null, targetId: "set-detail-overview" },
-  { key: "all", label: "All Products", family: null, targetId: "set-rip-opening-value" },
-  { key: "loose_booster_pack", label: "Booster Pack", family: "loose_booster_pack", targetId: "set-rip-opening-value" },
-  { key: "booster_box", label: "Booster Box", family: "booster_box", targetId: "set-rip-opening-value" },
-  { key: "booster_bundle", label: "Bundle", family: "booster_bundle", targetId: "set-rip-opening-value" },
-  { key: "elite_trainer_box", label: "ETB", family: "elite_trainer_box", targetId: "set-rip-opening-value" },
-  { key: "special_collection", label: "SPC", family: "special_collection", targetId: "set-rip-opening-value" },
-  { key: "ultra_premium_collection", label: "UPC", family: "ultra_premium_collection", targetId: "set-rip-opening-value" },
-]);
 import {
   Area,
   CartesianGrid,
@@ -288,7 +278,7 @@ const VISIBLE_SET_VALUE_SCOPE_OPTIONS = SET_VALUE_SCOPE_OPTIONS.filter((entry) =
 // Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
 const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
-const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+const DEFAULT_TOP_MARKET_CARDS_WINDOW = "7D"; // site-wide market timeframe default
 // Fixed request window for the slim /market/top-chase fetch — unrelated to
 // topMarketCardsWindowKey, which only picks which already-fetched delta to
 // display client-side.
@@ -3967,7 +3957,9 @@ function MarketValueTrendPanel({
  */
 function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top10Value, moversByWindow }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
-  const [selectedWindowKey, setSelectedWindowKey] = useState("30D");
+  // Site convention: every market timeframe control opens on 7D. The reader
+  // can still switch away; nothing here re-forces 7D after that.
+  const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
   const sealedState = useSealedSetMarket(setId);
 
   const cardsTrend = useMemo(
@@ -13703,13 +13695,16 @@ export default function RipStatisticsPageClient({
                       { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
-                  {setDetailTab === "overview" ? (
-                    <nav aria-label="Set RIP product families" className="flex gap-1 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {RIP_PRODUCT_NAV_ITEMS.map((item) => (
-                        <button key={item.key} type="button" onClick={() => { setRipProductNavSelection(item.key); setRipProductFamilyFilter(item.family); document.getElementById(item.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} aria-current={ripProductNavSelection === item.key ? "page" : undefined} className={`flex-none whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold ${ripProductNavSelection === item.key ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>
-                      ))}
-                    </nav>
-                  ) : null}
+                  {/* The secondary product-family toggle row (Set Overview /
+                      All Products / Booster Pack / Booster Box / Bundle /
+                      ETB / SPC / UPC) was removed from Set Overview: RIP is a
+                      decision surface now, not a product-detail browser, and
+                      the persistent RIP / Market / Cards & Products / Pull
+                      Rates row above is the only navigation this screen
+                      needs. `ripProductFamilyFilter` stays wired (still
+                      passed to RipDecisionPage) in case a future surface
+                      needs a scoped view; it is simply never set from here
+                      anymore, so RipDecisionPage always renders unfiltered. */}
                 </div>
                 <section
                   data-set-context-header
@@ -13865,6 +13860,13 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
+                    // The canonical GLOBAL same-family product ranking
+                    // (build_product_family_rankings on the backend) already
+                    // flows this far via targetsPayload — it was simply never
+                    // read past this point. Passed straight through; the only
+                    // new code is the lookup-by-sealedProductId inside
+                    // RipDecisionPage, not a second ranking calculation.
+                    productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
@@ -13928,15 +13930,13 @@ export default function RipStatisticsPageClient({
                       onRetry: retryMarketMoversModule,
                     }}
                     setValue={{
-                      setValueContract: activeSetValueContract,
                       history: activeSetValueHistory.history,
                       historiesByScope: activeSetValueHistory.historiesByScope,
-                      availableScopes: activeSetValueHistory.availableScopes,
                       status: activeSetValueHistory.status,
                       error: activeSetValueHistory.error,
-                      selectedScope: setValueTrendScope,
-                      onSelectedScopeChange: setSetValueTrendScope,
-                      marketAsOfDate,
+                      cardsTrackedCount: authoritativeSetCardCount,
+                      top10Value: setValueTop10CurrentValue,
+                      moversByWindow: marketMoversByWindow,
                     }}
                     topChase={{
                       cards: topPricedCards,
@@ -13948,9 +13948,6 @@ export default function RipStatisticsPageClient({
                       rowHref: topChaseRowHref,
                       viewAllHref: topChaseRowHref,
                       onRetry: retryTopChaseModule,
-                    }}
-                    sealed={{
-                      canonicalSetKey: selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey ?? null,
                     }}
                   />
                   )

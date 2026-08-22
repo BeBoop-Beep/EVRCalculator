@@ -12,6 +12,11 @@ from backend.domain.pokemon.sealed_product_classifier import (
     CLASSIFICATION_VERSION,
     classify_sealed_product,
 )
+from backend.domain.pokemon.market_index import (
+    MARKET_INDEX_BASE_VALUE,
+    build_chain_linked_history,
+    compute_strict_window_movements,
+)
 
 SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v3"
 WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
@@ -162,84 +167,237 @@ def movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
     }
 
 
-def _forward_filled_daily_series(history: List[Dict[str, Any]], start: str, end: str) -> Dict[str, float]:
-    """Carry each product's last observed price forward across every day in range.
+# Sealed price freshness allowance for Tracked Value forward-fill.
+#
+# DERIVED FROM MEASURED CADENCE, not chosen arbitrarily (no existing canonical
+# freshness convention was found anywhere in the codebase for market prices —
+# audited across services/scripts referencing "stale"/"freshness"; the closest
+# analogues, e.g. pokemon_set_market_service's mover-baseline span tolerance,
+# govern a different question, "how far back is an acceptable comparison
+# baseline", not "how old before a price stops describing today").
+#
+# Measured across 8 representative production sets / 48+ eligible sealed
+# products: median observation interval 1 day, 90th percentile 1 day, 99th
+# percentile 3 days, single historical outlier 15 days (a one-time gap shared
+# across many sets on the same date, already resolved). Every eligible product
+# in every audited set had a same-day observation at audit time — there is no
+# live stale-product case today. This threshold exists to bound the FUTURE
+# failure mode (an abandoned product's last price silently inflating Tracked
+# Value forever), set comfortably above the worst normal gap ever observed
+# (10x the P99, 2x the one historical anomaly) so it never trims a legitimate
+# short scrape gap, confirmed to be a no-op against all current production
+# data (every product's freshest observation is 0 days old as of this audit).
+SEALED_PRICE_FRESHNESS_DAYS = 30
 
-    A sealed product is not observed every calendar day, but its market value
-    does not cease to exist on the days between observations. Forward filling
-    is the same convention the card surfaces already use, so the aggregate does
-    not dip on days that merely lack a scrape.
+
+def _forward_filled_daily_series(history: List[Dict[str, Any]], start: str, end: str) -> Dict[str, float]:
+    """Carry each product's last observed price forward across every day in
+    range — but only while that price is still within the freshness
+    allowance. A sealed product is not observed every calendar day, and its
+    market value does not cease to exist on the days between observations
+    (that is what forward-filling is for), but a price that has gone
+    ``SEALED_PRICE_FRESHNESS_DAYS`` without a fresh observation stops
+    describing today's market and stops contributing to CURRENT Tracked
+    Value. The historical fact that it once had that price is untouched —
+    this only governs how far a stale last-known price projects forward.
     """
     by_day: Dict[str, float] = {}
     cursor = date.fromisoformat(start)
     end_date = date.fromisoformat(end)
     index = 0
     last: Optional[float] = None
+    last_date: Optional[date] = None
     while cursor <= end_date:
         key = cursor.isoformat()
         while index < len(history) and history[index]["date"] <= key:
             last = history[index]["marketPrice"]
+            last_date = date.fromisoformat(history[index]["date"])
             index += 1
-        if last is not None:
+        if last is not None and (cursor - last_date).days <= SEALED_PRICE_FRESHNESS_DAYS:
             by_day[key] = last
         cursor += timedelta(days=1)
     return by_day
 
 
-def build_set_market_series(products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Aggregate the per-product histories into ONE set-level sealed series.
+def _observed_cohort_constituents(basket: List[Dict[str, Any]], end: str) -> List[Dict[str, Any]]:
+    """One chain-link observation per day, built ONLY from genuinely observed prices.
 
-    This is a FIXED BASKET index, not a running sum of whatever happened to be
-    priced on each day. The basket is every eligible product that carries
-    history, and the series starts on the first day on which ALL of them have
-    begun reporting. That start rule is the whole point: a naive per-day sum
-    steps upward every time another product's history begins, which reads as a
-    sealed market rally that never happened. Holding the basket constant means
-    every movement in this line is a real price movement.
+    METHODOLOGY DECISION (measured, not assumed — see the density audit in
+    docs referenced from the sealed-hardening pass): each day's constituent
+    set is whatever eligible products were GENUINELY observed that day — never
+    forward-filled, never zero-filled. This is deliberately looser than
+    requiring the full current eligible basket to report every day.
 
-    The cost of the rule is stated rather than hidden — ``basketStartDate`` and
-    ``productCount`` travel with the series so the surface can say what the
-    line actually covers. Returns None when there is nothing to aggregate;
-    callers omit the lens rather than publishing a zero.
+    That full-basket requirement was tried first and measured against six
+    representative sets (pitchBlack, destinedRivals, prismaticEvolutions,
+    surgingSparks, shroudedFable, baseSetShadowless): on every set with more
+    than one day of real history, full-completeness days matched
+    any-observation days almost exactly (within 0-2 days out of 100+), so it
+    was not losing meaningful density TODAY. But it has an unbounded-blast-
+    radius failure mode that the audit data cannot rule out for the future: if
+    even ONE still-eligible product stops receiving fresh observations (a
+    dead scrape source, a delisted SKU nobody reclassified), the full-basket
+    rule silences the ENTIRE set's index from that day forward, forever — a
+    single stale product taking down every other product's legitimate price
+    history. That failure mode is proven by
+    test_market_index_excludes_days_after_a_still_eligible_sku_stops_reporting
+    against the OLD rule.
+
+    The observed-cohort rule removes that single point of failure while
+    matching the old rule's output on every day where the full basket WAS
+    observed (which is nearly always, per the audit): a day with one missing
+    product still contributes an index observation from the OTHER products
+    that were genuinely priced, and the chain-linked common-cohort algorithm
+    (unchanged, unforked) determines the return from whatever cohort is common
+    to two consecutive observed days. No price is ever invented for the
+    missing day; the missing product simply does not contribute a data point
+    on a day it was not priced.
+    """
+    by_date: Dict[str, Dict[str, float]] = {}
+    for product in basket:
+        for point in product["history"]:
+            if point["date"] <= end:
+                by_date.setdefault(point["date"], {})[str(product["sealedProductId"])] = point["marketPrice"]
+
+    observations = []
+    for day in sorted(by_date):
+        prices = by_date[day]
+        if prices:
+            observations.append(
+                {
+                    "marketDate": day,
+                    "constituents": [
+                        {"setId": product_id, "setValue": prices[product_id]} for product_id in sorted(prices)
+                    ],
+                }
+            )
+    return observations
+
+
+def _chain_link_with_cohort_breaks(observations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Chain-link ``observations``, tolerating days that share no constituent
+    with the prior surviving day rather than raising.
+
+    ``build_chain_linked_history`` is the unforked, unmodified global
+    methodology, and its contract is to raise ``MarketIndexError`` when two
+    consecutive observations share no common cohort — a reasonable contract
+    for the global cross-set index, whose 30+ constituents make a zero-overlap
+    day implausible. A single set's sealed basket can be as small as one or
+    two SKUs, where a zero-overlap day (the one priced product on Tuesday is
+    different from the one priced product on Wednesday) is realistic. Rather
+    than fork the domain function's error behavior, a cohort break here simply
+    starts a NEW chain segment at the base value — the index legitimately
+    cannot say anything about the market's movement across a day with no
+    shared constituent, so it says nothing about that one transition instead
+    of fabricating one or crashing the whole history.
+    """
+    from backend.domain.pokemon.market_index import MarketIndexError
+
+    all_rows: List[Dict[str, Any]] = []
+    segment: List[Dict[str, Any]] = []
+    for observation in observations:
+        segment.append(observation)
+        try:
+            build_chain_linked_history(segment)
+        except MarketIndexError:
+            # This observation broke the chain with the rest of the current
+            # segment. Flush everything before it, then restart the segment
+            # at this single observation (a fresh baseline).
+            if len(segment) > 1:
+                all_rows.extend(build_chain_linked_history(segment[:-1]))
+            segment = [observation]
+    if segment:
+        all_rows.extend(build_chain_linked_history(segment))
+    return all_rows
+
+
+def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The set-level Sealed segment: Tracked Value and Market Index, kept separate.
+
+    TRACKED VALUE answers "what is the eligible sealed basket worth right now".
+    It is a forward-filled running sum of every eligible product's latest known
+    price, starting the day the FIRST eligible product began reporting. It is
+    explicitly allowed to move when the eligible universe changes — a newly
+    tracked $150 SKU legitimately adds ~$150 to the basket the day it enters.
+
+    MARKET INDEX answers "how has the underlying sealed market actually
+    performed", chain-linked via the same common-cohort methodology the global
+    Raw Card Market / Top 10 Chase Market indexes use
+    (``backend.domain.pokemon.market_index.build_chain_linked_history``). A
+    constituent entering or leaving the eligible universe cannot move the
+    index by itself: each day's return is computed only from the cohort common
+    to that day and the previous day, so a same-day entry/exit is excluded
+    from that day's return rather than counted as a price change. This is the
+    same function backing the global indexes, called here with each eligible
+    sealed product as one constituent instead of one set — the algorithm does
+    not care what a constituent represents, only that it has a stable id and a
+    positive value.
+
+    Returns None when there is nothing to aggregate; callers omit the lens
+    rather than publishing a zero.
     """
     basket = [product for product in products if product.get("history")]
     if not basket:
         return None
 
-    start = max(product["history"][0]["date"] for product in basket)
+    tracked_start = min(product["history"][0]["date"] for product in basket)
     end = max(product["history"][-1]["date"] for product in basket)
-    if start > end:
+    if tracked_start > end:
         return None
 
-    filled = [_forward_filled_daily_series(product["history"], start, end) for product in basket]
-    history: List[Dict[str, Any]] = []
-    cursor = date.fromisoformat(start)
+    # Tracked Value: lenient, forward-filled, starts as soon as ANY eligible
+    # product has a price. This is deliberately looser than the index below.
+    filled = [_forward_filled_daily_series(product["history"], tracked_start, end) for product in basket]
+    tracked_history: List[Dict[str, Any]] = []
+    cursor = date.fromisoformat(tracked_start)
     end_date = date.fromisoformat(end)
     while cursor <= end_date:
         key = cursor.isoformat()
-        # Every basket member is required on every day. The start rule already
-        # guarantees this; the check keeps a partial day out of the total
-        # rather than silently understating the market.
-        if all(key in series for series in filled):
-            history.append(
-                {
-                    "date": key,
-                    "marketPrice": round(sum(series[key] for series in filled), 2),
-                    "isObserved": True,
-                }
-            )
+        day_values = [series[key] for series in filled if key in series]
+        if day_values:
+            tracked_history.append({"date": key, "marketPrice": round(sum(day_values), 2), "isObserved": True})
         cursor += timedelta(days=1)
-
-    if not history:
+    if not tracked_history:
         return None
 
+    # Market Index: strict, chain-linked, common-cohort. May legitimately start
+    # later than Tracked Value and may have fewer points — every point it does
+    # have is a day every eligible constituent was genuinely observed.
+    index_observations = _observed_cohort_constituents(basket, end)
+    index_history = _chain_link_with_cohort_breaks(index_observations) if index_observations else []
+    index_points = [{"date": row["marketDate"], "value": row["normalizedIndexValue"]} for row in index_history]
+    index_movements = compute_strict_window_movements(index_points) if index_points else {}
+
+    # Catalog eligibility (len(basket)) versus CURRENT aggregate eligibility
+    # (contributingProductCount): a product stays catalog-eligible forever —
+    # it is never declassified for going stale — but only counts toward
+    # today's Tracked Value while its last price is within the freshness
+    # allowance. On every set audited when this policy was introduced, the
+    # two counts were identical (nothing was stale); they are expected to
+    # diverge only if a product's scrape source genuinely goes dark.
+    contributing_product_count = sum(
+        1
+        for product in basket
+        if product["history"] and (date.fromisoformat(end) - date.fromisoformat(product["history"][-1]["date"])).days <= SEALED_PRICE_FRESHNESS_DAYS
+    )
+
     return {
-        "currentValue": history[-1]["marketPrice"],
-        "valueAsOf": history[-1]["date"],
-        "basketStartDate": start,
+        "currentValue": tracked_history[-1]["marketPrice"],
+        "valueAsOf": tracked_history[-1]["date"],
+        "trackingSince": tracked_start,
         "productCount": len(basket),
-        "history": history,
-        "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+        "contributingProductCount": contributing_product_count,
+        "history": tracked_history,
+        "movements": {key: movement(tracked_history, key) for key in MOVEMENT_WINDOWS},
+        "marketIndex": {
+            "currentValue": index_points[-1]["value"] if index_points else None,
+            "baseValue": MARKET_INDEX_BASE_VALUE,
+            "trackingSince": index_points[0]["date"] if index_points else None,
+            "history": [{"date": row["marketDate"], "indexValue": row["normalizedIndexValue"]} for row in index_history],
+            "movements": index_movements,
+        }
+        if index_points
+        else None,
     }
 
 
@@ -296,7 +454,7 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
         # The set-level sealed lens. Derived once, here, so every consumer
         # reads the same canonical aggregate instead of each one summing the
         # per-product histories its own way.
-        "setMarket": build_set_market_series(payload_products),
+        "setMarket": build_sealed_segment_history(payload_products),
         "meta": {
             "snapshotContractVersion": SNAPSHOT_CONTRACT_VERSION,
             "classificationVersion": CLASSIFICATION_VERSION,
@@ -333,7 +491,7 @@ def read_snapshot(client: Any, set_id: str) -> Optional[Dict[str, Any]]:
     # SNAPSHOT_CONTRACT_VERSION bump, which would change every fingerprint and
     # force a republication run this change does not need.
     if payload.get("setMarket") is None:
-        payload["setMarket"] = build_set_market_series(list(payload.get("products") or []))
+        payload["setMarket"] = build_sealed_segment_history(list(payload.get("products") or []))
     payload.setdefault("meta", {}).update(
         {"source": "pokemon_set_sealed_market_snapshot_latest", "updatedAt": rows[0].get("updated_at")}
     )
