@@ -6,16 +6,6 @@ import Link from "next/link";
 import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
-const RIP_PRODUCT_NAV_ITEMS = Object.freeze([
-  { key: "overview", label: "Set Overview", family: null, targetId: "set-detail-overview" },
-  { key: "all", label: "All Products", family: null, targetId: "set-rip-opening-value" },
-  { key: "loose_booster_pack", label: "Booster Pack", family: "loose_booster_pack", targetId: "set-rip-opening-value" },
-  { key: "booster_box", label: "Booster Box", family: "booster_box", targetId: "set-rip-opening-value" },
-  { key: "booster_bundle", label: "Bundle", family: "booster_bundle", targetId: "set-rip-opening-value" },
-  { key: "elite_trainer_box", label: "ETB", family: "elite_trainer_box", targetId: "set-rip-opening-value" },
-  { key: "special_collection", label: "SPC", family: "special_collection", targetId: "set-rip-opening-value" },
-  { key: "ultra_premium_collection", label: "UPC", family: "ultra_premium_collection", targetId: "set-rip-opening-value" },
-]);
 import {
   Area,
   CartesianGrid,
@@ -52,6 +42,7 @@ import RipDistributionChart from "@/components/explore/RipDistributionChart";
 import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/PokemonSetMobileHero";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
+import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -163,9 +154,26 @@ import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
   getPokemonSetOverview,
+  getPokemonSetSealedMarket,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
+import {
+  MARKET_SEGMENT_LABELS,
+  SEGMENT_UNAVAILABLE_TEXT,
+  buildMarketSegmentRows,
+  buildSupportingDetails,
+  resolveActiveSegmentKey,
+  selectChaseConcentration,
+  selectMarketBreadth,
+  selectSegmentTrend,
+  unavailableSegmentTrend,
+} from "@/components/pokemon/set-page/Market/setMarketOverviewModel.mjs";
+import {
+  buildTopChaseHistory,
+  buildTopChaseModel,
+  readCardHeroImageUrl,
+} from "@/components/pokemon/set-page/Market/setMarketMobileModel.mjs";
 import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
 import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
 import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
@@ -270,7 +278,7 @@ const VISIBLE_SET_VALUE_SCOPE_OPTIONS = SET_VALUE_SCOPE_OPTIONS.filter((entry) =
 // Matches backend DEFAULT_CARDS_PAGE_SIZE (pokemon_public_snapshot_service.py).
 const CARDS_PAGE_SIZE = 60;
 const DEFAULT_MARKET_DASHBOARD_SOURCE_WINDOW = "365d";
-const DEFAULT_TOP_MARKET_CARDS_WINDOW = "30D";
+const DEFAULT_TOP_MARKET_CARDS_WINDOW = "7D"; // site-wide market timeframe default
 // Fixed request window for the slim /market/top-chase fetch — unrelated to
 // topMarketCardsWindowKey, which only picks which already-fetched delta to
 // display client-side.
@@ -3540,6 +3548,674 @@ function TopChaseCardsModule({ cards, status, error, infoText, selectedWindowKey
           </button>
         </div>
       ) : null}
+    </SectionCard>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// SET MARKET — desktop composition (Sections 2 and 3 of the Market tab).
+//
+// The tab reads top to bottom as three separate answers, and they are kept
+// separate on purpose:
+//
+//   1. Set header + 7D Movers  — "what moved this week?"      (above)
+//   2. Main Market Overview    — "what is this set worth?"    (here)
+//   3. Top 10 Chase Cards      — "which cards carry it?"      (here)
+//
+// Section 2 is deliberately NOT a single set total. Cards, Sealed and Graded
+// are three LENSES on the same set, and adding them together would produce a
+// dollar figure that answers no real question: a sealed booster box and the
+// singles pulled out of it are the same value counted twice. Each lens is
+// charted on its own, and the segment control switches between them.
+// ---------------------------------------------------------------------------
+
+/** Portrait trading-card ratio (63mm x 88mm). */
+const CHASE_ARTWORK_RATIO = "63 / 88";
+
+/**
+ * The ONE place a Pokemon card image is drawn on this page.
+ *
+ * A trading card is a portrait 63x88mm object and it must read as one. The
+ * frame is therefore sized by HEIGHT only, and the image inside is
+ * `object-contain` with `w-auto`, so the browser derives the width from the
+ * artwork's own intrinsic ratio. Three things are avoided deliberately:
+ *
+ *   - `object-cover`, which would crop the card's border and art off,
+ *   - a forced width AND height together, which would squash or stretch it,
+ *   - stretching to fill a wider container, which is what makes a card look
+ *     subtly wrong in a way readers notice before they can name it.
+ *
+ * When the surrounding area is wider than the card, the card stays its correct
+ * width and the leftover space goes to the metadata beside it. The frame may be
+ * larger than the artwork; the artwork is never larger than itself.
+ */
+function CardArtworkFrame({ imageUrl, alt, initials, className = "" }) {
+  return (
+    <div
+      data-chase-artwork-frame
+      className={`flex min-h-0 items-center justify-center overflow-hidden ${className}`}
+      style={{ aspectRatio: CHASE_ARTWORK_RATIO }}
+    >
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          data-chase-artwork-image
+          // h-full + w-auto + object-contain is the whole contract: height
+          // drives, width follows the intrinsic ratio, nothing is cropped.
+          className="h-full w-auto max-h-full max-w-full object-contain"
+          style={{ aspectRatio: CHASE_ARTWORK_RATIO }}
+        />
+      ) : (
+        <div
+          className="flex h-full w-full items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-sm font-semibold text-[var(--text-secondary)]"
+          aria-hidden="true"
+        >
+          {initials || "?"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatSegmentMoney(value, { compact = false } = {}) {
+  const parsed = toNumber(value);
+  if (parsed === null) return null;
+  const dropCents = compact && Math.abs(parsed) >= 1000;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: dropCents ? 0 : 2,
+    maximumFractionDigits: dropCents ? 0 : 2,
+  }).format(parsed);
+}
+
+function formatSignedMoney(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) return null;
+  return `${parsed >= 0 ? "+" : "−"}${formatSegmentMoney(Math.abs(parsed))}`;
+}
+
+function formatSignedPercentValue(value) {
+  const parsed = toNumber(value);
+  if (parsed === null) return null;
+  return `${parsed >= 0 ? "+" : "−"}${Math.abs(parsed).toFixed(1)}%`;
+}
+
+function deltaToneClassName(value) {
+  const parsed = toNumber(value);
+  if (parsed === null || parsed === 0) return "text-[var(--text-secondary)]";
+  return parsed > 0 ? "text-[var(--positive)]" : "text-[var(--negative)]";
+}
+
+/**
+ * The set's sealed market, read once for the whole Market tab.
+ *
+ * The page already fetches Cards history and the movers windows; sealed is the
+ * one lens whose payload nothing else on this tab has loaded. It reads the same
+ * prepared snapshot endpoint the Sealed card used, so no new contract and no
+ * client-side aggregation: `setMarket` is the canonical set-level series the
+ * snapshot service publishes.
+ */
+function useSealedSetMarket(setId) {
+  const [state, setState] = useState({ status: "idle", payload: null, error: null });
+
+  useEffect(() => {
+    if (!setId) {
+      setState({ status: "idle", payload: null, error: null });
+      return undefined;
+    }
+    let cancelled = false;
+    setState((current) => ({ ...current, status: "loading" }));
+    getPokemonSetSealedMarket(setId).then(
+      (payload) => {
+        if (!cancelled) setState({ status: "success", payload, error: null });
+      },
+      (error) => {
+        if (!cancelled) {
+          setState({ status: "error", payload: null, error: error?.message || "Unable to load sealed market" });
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [setId]);
+
+  return state;
+}
+
+/** One Market Segments row on the right rail. */
+function MarketSegmentRow({ row, active, onSelect }) {
+  const valueText = row.available ? formatSegmentMoney(row.currentValue, { compact: true }) : null;
+  const amountText = row.available ? formatSignedMoney(row.deltaAmount) : null;
+  const percentText = row.available ? formatSignedPercentValue(row.deltaPercent) : null;
+  const className = `w-full min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+    active ? "border-[var(--accent)] bg-[var(--accent)]/10" : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
+  } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-default opacity-70"}`;
+
+  const body = (
+    <>
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          {row.label}
+        </span>
+        {row.available ? (
+          <span className={`flex-none text-[11px] font-semibold ${deltaToneClassName(row.deltaAmount)}`}>
+            {percentText || "—"}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-1 flex min-w-0 items-baseline gap-2">
+        <span className="truncate text-base font-semibold text-[var(--text-primary)]">
+          {/* An unavailable lens prints an em dash. Never $0 — zero is a real
+              price, and claiming it here would be a false reading. */}
+          {valueText || "—"}
+        </span>
+        {row.available && amountText ? (
+          <span className={`flex-none text-[11px] ${deltaToneClassName(row.deltaAmount)}`}>{amountText}</span>
+        ) : null}
+      </div>
+      {!row.available ? (
+        <p data-segment-unavailable className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+          {row.unavailableReason}
+        </p>
+      ) : null}
+    </>
+  );
+
+  if (!row.selectable) {
+    return (
+      <div data-market-segment-row={row.key} data-segment-available="false" aria-disabled="true" className={className}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-market-segment-row={row.key}
+      data-segment-available="true"
+      aria-pressed={active}
+      onClick={() => onSelect?.(row.key)}
+      className={className}
+    >
+      {body}
+    </button>
+  );
+}
+
+/** SECTION 2B — the right-hand signal rail. */
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, concentration, windowLabel }) {
+  return (
+    <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
+      <div className="space-y-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            Market Segments
+          </p>
+          <div className="mt-2 space-y-2">
+            {segmentRows.map((row) => (
+              <MarketSegmentRow key={row.key} row={row} active={row.key === activeSegmentKey} onSelect={onSegmentChange} />
+            ))}
+          </div>
+        </div>
+
+        <div
+          data-market-breadth
+          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+              Market Breadth
+            </p>
+            <InfoPopover text="Share of mover-eligible tracked cards whose market price rose versus fell across the selected period. Published for 1D, 7D and 30D only." />
+          </div>
+          {breadth.available ? (
+            <>
+              <div className="mt-2 flex items-baseline justify-between gap-2">
+                <span className="text-sm font-semibold text-[var(--positive)]">{breadth.advancingPercent}% Advancing</span>
+                <span className="text-sm font-semibold text-[var(--negative)]">{breadth.decliningPercent}% Declining</span>
+              </div>
+              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
+                <div className="h-full bg-[var(--positive)]" style={{ width: `${breadth.advancingPercent}%` }} />
+                <div className="h-full bg-[var(--negative)]" style={{ width: `${breadth.decliningPercent}%` }} />
+              </div>
+              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
+                {breadth.total.toLocaleString("en-US")} mover-eligible cards · {windowLabel}
+              </p>
+            </>
+          ) : (
+            <p data-breadth-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
+              {breadth.reason}
+            </p>
+          )}
+        </div>
+
+        <div
+          data-chase-concentration
+          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+              Chase Concentration
+            </p>
+            <InfoPopover text="The published Top 10 set-value scope as a share of the published Set scope, compared on the same date." />
+          </div>
+          {concentration.available ? (
+            <>
+              <p className="mt-2 text-2xl font-semibold leading-none text-[var(--text-primary)]">
+                {concentration.sharePercent}%
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Top 10 cards of card-market value</p>
+              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
+                Top 10 Value: {formatSegmentMoney(concentration.top10Value, { compact: true })}
+              </p>
+            </>
+          ) : (
+            <p data-concentration-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
+              {concentration.reason}
+            </p>
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/** SECTION 2A — the dominant Market Value Trend panel. */
+function MarketValueTrendPanel({
+  setId,
+  segmentRows,
+  activeSegmentKey,
+  onSegmentChange,
+  trend,
+  onWindowChange,
+  windowLabel,
+}) {
+  const chartKey = `${setId || "set"}-${activeSegmentKey}-${trend.effectiveWindowKey || "window"}-${trend.series.length}`;
+  const details = useMemo(() => buildSupportingDetails(trend), [trend]);
+  const trendDirection =
+    trend.deltaAmount === null ? "neutral" : trend.deltaAmount < 0 ? "negative" : trend.deltaAmount > 0 ? "positive" : "neutral";
+
+  return (
+    <SectionCard
+      title="Market Value Trend"
+      titleInfoText="Three separate lenses on this set's market. Cards, Sealed and Graded are charted independently and are never summed into one set total."
+      className="h-full"
+      bodySpacingClassName="mt-2"
+    >
+      <div className="flex min-h-0 flex-col space-y-4">
+        {/* Segment lenses. The active one carries the teal treatment. */}
+        <div data-market-segment-tabs role="tablist" aria-label="Market segment" className="flex min-w-0 flex-wrap gap-1.5">
+          {segmentRows.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              role="tab"
+              data-market-segment-tab={row.key}
+              aria-selected={row.key === activeSegmentKey}
+              disabled={!row.selectable}
+              onClick={() => onSegmentChange?.(row.key)}
+              className={`min-h-9 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                row.key === activeSegmentKey
+                  ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-[var(--text-secondary)]"
+              } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-not-allowed opacity-50"}`}
+            >
+              {row.label}
+            </button>
+          ))}
+        </div>
+
+        {trend.available ? (
+          <>
+            <MarketValueChange
+              value={trend.currentValue}
+              changeAmount={trend.deltaAmount}
+              changePercent={trend.deltaPercent}
+              windowLabel={windowLabel}
+              variant="chart-summary"
+              accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
+            />
+
+            <div className="flex min-w-0 items-center gap-2">
+              <MarketWindowSelector
+                windows={trend.availableDeltaWindows}
+                value={trend.effectiveWindowKey}
+                onChange={onWindowChange}
+              />
+            </div>
+
+            {/* The graph dominates the panel; it is a chart, not a sparkline. */}
+            <div data-market-trend-chart className="min-h-[20rem]">
+              <SetValueLineChart
+                key={chartKey}
+                points={trend.series}
+                trendDirection={trendDirection}
+                scopeLabel={MARKET_SEGMENT_LABELS[activeSegmentKey]}
+              />
+            </div>
+          </>
+        ) : (
+          <div
+            data-market-trend-unavailable
+            className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 py-8 text-center"
+          >
+            <p className="text-2xl font-semibold text-[var(--text-primary)]">—</p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{trend.unavailableReason || SEGMENT_UNAVAILABLE_TEXT}</p>
+          </div>
+        )}
+
+        <div data-supporting-details>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            Supporting Details
+          </p>
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            {details.map((detail) => {
+              let value = "—";
+              let toneClassName = "text-[var(--text-primary)]";
+              if (detail.key === "periodChange" && detail.amount !== null) {
+                value = formatSignedMoney(detail.amount);
+                toneClassName = deltaToneClassName(detail.amount);
+              } else if (detail.key === "periodReturn" && detail.percent !== null) {
+                value = formatSignedPercentValue(detail.percent);
+                toneClassName = deltaToneClassName(detail.percent);
+              } else if ((detail.key === "periodHigh" || detail.key === "periodLow") && detail.value !== null) {
+                value = formatSegmentMoney(detail.value, { compact: true });
+              } else if (detail.key === "trackingSince" && detail.date) {
+                value = formatLongDate(detail.date);
+              } else if (detail.key === "trackedItems" && detail.count !== null) {
+                value = `${detail.count.toLocaleString("en-US")} ${detail.noun}`;
+              }
+              return (
+                <div key={detail.key} className="min-w-0" data-supporting-detail={detail.key}>
+                  <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                    {detail.label}
+                  </dt>
+                  <dd className={`mt-1 truncate text-sm font-semibold ${toneClassName}`}>{value}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/**
+ * SECTION 2 — Main Market Overview.
+ *
+ * The chart takes roughly two thirds and the signal rail one third, which is
+ * what makes this read as "one dominant chart with supporting signals" rather
+ * than as two equal cards competing for the eye.
+ */
+function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top10Value, moversByWindow }) {
+  const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
+  // Site convention: every market timeframe control opens on 7D. The reader
+  // can still switch away; nothing here re-forces 7D after that.
+  const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
+  const sealedState = useSealedSetMarket(setId);
+
+  const cardsTrend = useMemo(
+    () =>
+      selectSegmentTrend({
+        history: cardsHistory,
+        selectedWindowKey,
+        trackedItemCount: cardsTrackedCount,
+        trackedItemNoun: "Cards",
+      }),
+    [cardsHistory, cardsTrackedCount, selectedWindowKey]
+  );
+
+  const sealedTrend = useMemo(() => {
+    const setMarket = sealedState.payload?.setMarket || null;
+    if (!setMarket?.history?.length) {
+      return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
+    }
+    return selectSegmentTrend({
+      history: setMarket.history,
+      selectedWindowKey,
+      trackedItemCount: setMarket.productCount,
+      trackedItemNoun: "Sealed Products",
+    });
+  }, [sealedState.payload, selectedWindowKey]);
+
+  // GRADED. The product publishes no graded market series for a set — the only
+  // graded prices that exist anywhere are per-user collection valuations, which
+  // are not a set-level market. The lens is therefore rendered as genuinely
+  // unavailable rather than fabricated from unrelated data or shown as $0.
+  const gradedTrend = useMemo(() => unavailableSegmentTrend({ trackedItemNoun: "Graded Cards" }), []);
+
+  const trendsByKey = useMemo(
+    () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
+    [cardsTrend, gradedTrend, sealedTrend]
+  );
+  const resolvedSegmentKey = resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
+  const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
+  const segmentRows = useMemo(() => buildMarketSegmentRows(trendsByKey), [trendsByKey]);
+  const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
+  const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
+
+  const breadth = useMemo(
+    () => selectMarketBreadth({ moversByWindow, windowKey: effectiveWindowKey }),
+    [effectiveWindowKey, moversByWindow]
+  );
+  const concentration = useMemo(
+    () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),
+    [cardsTrend.currentValue, top10Value]
+  );
+
+  return (
+    <div className="grid min-w-0 grid-cols-1 gap-5 desk:grid-cols-[minmax(0,67fr)_minmax(0,33fr)]">
+      <div className="min-w-0">
+        <MarketValueTrendPanel
+          setId={setId}
+          segmentRows={segmentRows}
+          activeSegmentKey={resolvedSegmentKey}
+          onSegmentChange={setActiveSegmentKey}
+          trend={activeTrend}
+          onWindowChange={setSelectedWindowKey}
+          windowLabel={windowLabel}
+        />
+      </div>
+      <div className="min-w-0">
+        <SetSignalsRail
+          segmentRows={segmentRows}
+          activeSegmentKey={resolvedSegmentKey}
+          onSegmentChange={setActiveSegmentKey}
+          breadth={breadth}
+          concentration={concentration}
+          windowLabel={windowLabel}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SECTION 3 — Top 10 Chase Cards.
+ *
+ * Left: the ranked list. Right: the selected card, in TWO stacked zones —
+ * Zone A is the detail (artwork plus metadata, side by side), Zone B is the
+ * price graph spanning the full width beneath it.
+ *
+ * The artwork lives in Zone A only. It deliberately does NOT run down the side
+ * of the graph: an image column beside a chart forces the chart into a narrow
+ * strip and forces the card to stretch to fill a tall thin box. Stacking gives
+ * the chart its full width and lets the card keep its real proportions.
+ *
+ * There is NO movers strip in here. 7D movers is Section 1's job, and repeating
+ * it would make the reader check two places for one answer.
+ */
+function TopChaseCardsPanel({ cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+  const model = useMemo(
+    () => buildTopChaseModel(cards, { selectedWindowKey, marketAsOfDate, maxRows: 10 }),
+    [cards, marketAsOfDate, selectedWindowKey]
+  );
+  const [selectedKey, setSelectedKey] = useState(null);
+  // Desktop shows the full authoritative Top 10 in the left list at all
+  // times — no collapsed/expanded state here. (Progressive disclosure to a
+  // Top 3 default is a MOBILE-only pattern; see SetMarketMobileTopChase.)
+  const rows = model.rows;
+  const resolvedKey = rows.some((row) => row.key === selectedKey) ? selectedKey : rows[0]?.key || null;
+  const selectedRow = rows.find((row) => row.key === resolvedKey) || null;
+  const selectedCard = useMemo(() => {
+    if (!Array.isArray(cards)) return null;
+    return (
+      cards.find(
+        (card, index) => String(card?.id || card?.cardId || card?.cardNumber || card?.name || index) === resolvedKey
+      ) || null
+    );
+  }, [cards, resolvedKey]);
+
+  // The selected card's own series, read through the SAME window machinery the
+  // Market Value Trend uses, so a 30D move means the same thing in both places.
+  const cardTrend = useMemo(() => {
+    if (!selectedCard) return unavailableSegmentTrend({ trackedItemNoun: "Cards" });
+    const history = buildTopChaseHistory(selectedCard, selectedWindowKey, marketAsOfDate);
+    return selectSegmentTrend({ history, selectedWindowKey, trackedItemNoun: "Cards" });
+  }, [marketAsOfDate, selectedCard, selectedWindowKey]);
+
+  const heroImageUrl = selectedCard ? readCardHeroImageUrl(selectedCard) : null;
+  const windowLabel = getDeltaWindowLabel(cardTrend.effectiveWindowKey || selectedWindowKey) || "Trend";
+  const trendDirection =
+    cardTrend.deltaAmount === null
+      ? "neutral"
+      : cardTrend.deltaAmount < 0
+      ? "negative"
+      : cardTrend.deltaAmount > 0
+      ? "positive"
+      : "neutral";
+
+  if ((status === "loading" || status === "idle") && rows.length === 0) {
+    return (
+      <SectionCard title="Top 10 Chase Cards">
+        <InlinePanelSkeleton rows={5} />
+      </SectionCard>
+    );
+  }
+
+  if (status === "error" && rows.length === 0) {
+    return (
+      <SectionCard title="Top 10 Chase Cards">
+        <p className="text-sm text-red-300">{error || "Unable to load chase cards for this set."}</p>
+        {onRetry ? (
+          <button type="button" onClick={onRetry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
+            Try again
+          </button>
+        ) : null}
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard
+      title="Top 10 Chase Cards"
+      titleInfoText="The ten highest-value tracked cards in this set, with the selected card's own price history."
+    >
+      <div className="grid min-w-0 grid-cols-1 gap-5 desk:grid-cols-[minmax(0,37fr)_minmax(0,63fr)]">
+        {/* LEFT — the ranked list. */}
+        <ol id="top-chase-list" data-top-chase-list className="min-w-0 space-y-1.5">
+          {rows.map((row) => {
+            const active = row.key === resolvedKey;
+            return (
+              <li key={row.key} className="min-w-0">
+                <button
+                  type="button"
+                  data-top-chase-row={row.rank}
+                  aria-pressed={active}
+                  onClick={() => setSelectedKey(row.key)}
+                  className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
+                    active
+                      ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 hover:border-[var(--accent)]/50"
+                  }`}
+                >
+                  <span className="w-6 flex-none text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
+                    #{row.rank}
+                  </span>
+                  <CardArtworkFrame imageUrl={row.imageUrl} alt="" initials={row.initials} className="h-12 flex-none" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">{row.name}</span>
+                    {row.rarity ? (
+                      <span className="block truncate text-[11px] text-[var(--text-secondary)]">{row.rarity}</span>
+                    ) : null}
+                  </span>
+                  <span className="flex-none text-right">
+                    <span className="block text-sm font-semibold text-[var(--text-primary)]">{row.priceText || "—"}</span>
+                    {row.hasMovement ? (
+                      <span className={`block text-[11px] ${deltaToneClassName(row.amount ?? row.percent)}`}>
+                        {[row.amountText, row.percentText].filter(Boolean).join(" ")}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* RIGHT — selected card detail. Two stacked zones. */}
+        <div data-top-chase-detail className="flex min-w-0 flex-col gap-4">
+          {/* ZONE A — detail. Artwork left, metadata right. The artwork is
+              height-constrained here and appears nowhere else in this column. */}
+          <div data-chase-detail-zone className="flex min-w-0 items-start gap-4">
+            <CardArtworkFrame
+              imageUrl={heroImageUrl}
+              alt={selectedRow ? `${selectedRow.name} card artwork` : ""}
+              initials={selectedRow?.initials}
+              className="h-40 flex-none desk:h-48"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-semibold text-[var(--text-primary)]">{selectedRow?.name || "—"}</p>
+              <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
+                {[selectedRow?.rarity, selectedRow?.cardNumber].filter(Boolean).join(" · ") || "—"}
+              </p>
+              <div className="mt-3">
+                <MarketValueChange
+                  value={cardTrend.currentValue ?? selectedRow?.price ?? null}
+                  changeAmount={cardTrend.deltaAmount}
+                  changePercent={cardTrend.deltaPercent}
+                  windowLabel={windowLabel}
+                  variant="chart-summary"
+                  unavailable={cardTrend.currentValue === null && (selectedRow?.price ?? null) === null}
+                  accessibleLabel={`Current price for ${selectedRow?.name || "selected card"}`}
+                />
+              </div>
+              <div className="mt-3 flex min-w-0 items-center gap-2">
+                <MarketWindowSelector
+                  windows={cardTrend.availableDeltaWindows}
+                  value={cardTrend.effectiveWindowKey}
+                  onChange={onWindowChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ZONE B — the graph. Full width of this column, and it takes the
+              larger share of the height so it reads as substantial. */}
+          <div data-chase-graph-zone className="min-w-0 flex-1">
+            {cardTrend.series.length ? (
+              <SetValueLineChart
+                key={`${resolvedKey}-${cardTrend.effectiveWindowKey}-${cardTrend.series.length}`}
+                points={cardTrend.series}
+                trendDirection={trendDirection}
+                scopeLabel={selectedRow?.name || "Card"}
+              />
+            ) : (
+              <p className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+                {SEGMENT_UNAVAILABLE_TEXT}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </SectionCard>
   );
 }
@@ -10600,6 +11276,19 @@ export default function RipStatisticsPageClient({
     topMarketCardsWindowKey,
   ]);
   const marketMoversByWindow = activeTopMarketCardsState.marketMoversByWindow || null;
+  // Chase Concentration reads the PUBLISHED top10 set-value scope, not a sum
+  // of the Top 10 list's prices. The scope is a figure the set-value builder
+  // recorded the same way it recorded the Set scope, so the two are directly
+  // comparable; re-summing today's card prices would not be.
+  const setValueTop10CurrentValue = useMemo(() => {
+    const points = activeSetValueHistory.historiesByScope?.top10;
+    if (!Array.isArray(points) || points.length === 0) return null;
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+      if (value !== null) return value;
+    }
+    return null;
+  }, [activeSetValueHistory.historiesByScope]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -13006,13 +13695,16 @@ export default function RipStatisticsPageClient({
                       { value: "pull-rates", label: "Pull Rates", icon: "target", hideIconOnMobile: true },
                     ]}
                   />
-                  {setDetailTab === "overview" ? (
-                    <nav aria-label="Set RIP product families" className="flex gap-1 overflow-x-auto px-1 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {RIP_PRODUCT_NAV_ITEMS.map((item) => (
-                        <button key={item.key} type="button" onClick={() => { setRipProductNavSelection(item.key); setRipProductFamilyFilter(item.family); document.getElementById(item.targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }); }} aria-current={ripProductNavSelection === item.key ? "page" : undefined} className={`flex-none whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold ${ripProductNavSelection === item.key ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{item.label}</button>
-                      ))}
-                    </nav>
-                  ) : null}
+                  {/* The secondary product-family toggle row (Set Overview /
+                      All Products / Booster Pack / Booster Box / Bundle /
+                      ETB / SPC / UPC) was removed from Set Overview: RIP is a
+                      decision surface now, not a product-detail browser, and
+                      the persistent RIP / Market / Cards & Products / Pull
+                      Rates row above is the only navigation this screen
+                      needs. `ripProductFamilyFilter` stays wired (still
+                      passed to RipDecisionPage) in case a future surface
+                      needs a scoped view; it is simply never set from here
+                      anymore, so RipDecisionPage always renders unfiltered. */}
                 </div>
                 <section
                   data-set-context-header
@@ -13168,6 +13860,13 @@ export default function RipStatisticsPageClient({
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
                     ripDecision={explorePayload?.ripDecision ?? null}
+                    // The canonical GLOBAL same-family product ranking
+                    // (build_product_family_rankings on the backend) already
+                    // flows this far via targetsPayload — it was simply never
+                    // read past this point. Passed straight through; the only
+                    // new code is the lookup-by-sealedProductId inside
+                    // RipDecisionPage, not a second ranking calculation.
+                    productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
@@ -13201,48 +13900,65 @@ export default function RipStatisticsPageClient({
                     scoring, no portfolio actions, no forecasting. Modelled
                     causation (value structure, EV contribution, concentration)
                     stays on Analysis. */}
+                {/* ONE tab, TWO compositions. Below 1200px Market is a
+                    purpose-built mobile dashboard (SetMarketMobile) rather than
+                    this desktop grid narrowed down: identity hero, then movers,
+                    then Set Value, then chase, then sealed. It reads the SAME
+                    state this branch reads — no extra request, no extra
+                    contract, and the same `set-detail-market-*` ids so every
+                    existing deep link resolves at both widths.
+
+                    Exactly one composition mounts at a time, chosen by the same
+                    1200px reading the hero composition already uses, so the ids
+                    stay unique and no module is fetched twice. */}
                 {setDetailTab === "market" ? (
+                  isDesktopHeroComposition ? null : (
+                  <SetMarketMobile
+                    setId={resolvedSetResourceId}
+                    sectionIds={{
+                      root: "set-detail-market",
+                      movers: "set-detail-market-movers",
+                      setValue: "set-detail-market-set-value",
+                      topChase: "set-detail-market-top-chase",
+                      sealed: "set-detail-market-sealed",
+                    }}
+                    movers={{
+                      entry: moversTickerEntry,
+                      status: moversTickerStatus,
+                      error: activeMarketMoversState.error,
+                      viewAllHref: moversTickerHref,
+                      onRetry: retryMarketMoversModule,
+                    }}
+                    setValue={{
+                      history: activeSetValueHistory.history,
+                      historiesByScope: activeSetValueHistory.historiesByScope,
+                      status: activeSetValueHistory.status,
+                      error: activeSetValueHistory.error,
+                      cardsTrackedCount: authoritativeSetCardCount,
+                      top10Value: setValueTop10CurrentValue,
+                      moversByWindow: marketMoversByWindow,
+                    }}
+                    topChase={{
+                      cards: topPricedCards,
+                      status: topPricedCardsStatus,
+                      error: activeTopMarketCardsState.error,
+                      selectedWindowKey: topMarketCardsWindowKey,
+                      onWindowChange: setTopMarketCardsWindowKey,
+                      marketAsOfDate,
+                      rowHref: topChaseRowHref,
+                      viewAllHref: topChaseRowHref,
+                      onRetry: retryTopChaseModule,
+                    }}
+                  />
+                  )
+                ) : null}
+
+                {setDetailTab === "market" && isDesktopHeroComposition ? (
                   <section id="set-detail-market" data-market-page className="scroll-mt-24 space-y-5 md:scroll-mt-28">
-                    {/* 1. Set Value — the primary wide surface. */}
-                    <div id="set-detail-market-set-value" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="market-set-value" resetKeys={[resolvedSetResourceId]} title="Set Value" minHeightClassName="min-h-[16rem]">
-                        <SetValueTrendCard
-                          setId={resolvedSetResourceId}
-                          setValueContract={activeSetValueContract}
-                          history={activeSetValueHistory.history}
-                          historiesByScope={activeSetValueHistory.historiesByScope}
-                          availableScopes={activeSetValueHistory.availableScopes}
-                          status={activeSetValueHistory.status}
-                          error={activeSetValueHistory.error}
-                          selectedScope={setValueTrendScope}
-                          onSelectedScopeChange={setSetValueTrendScope}
-                          marketAsOfDate={marketAsOfDate}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-
-                    {/* 2. Top 10 Chase Cards — the MARKET reading of the chase
-                        pool (what they are worth and how they are moving), not
-                        RIP's three-card "what could I pull" preview. */}
-                    <div id="set-detail-market-top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-                        <TopChaseCardsModule
-                          cards={topPricedCards}
-                          status={topPricedCardsStatus}
-                          error={activeTopMarketCardsState.error}
-                          infoText={topPricedCardsInfo}
-                          selectedWindowKey={topMarketCardsWindowKey}
-                          onWindowChange={setTopMarketCardsWindowKey}
-                          marketAsOfDate={marketAsOfDate}
-                          rowHref={topChaseRowHref}
-                          onRetry={retryTopChaseModule}
-                        />
-                      </SectionErrorBoundary>
-                    </div>
-
-                    {/* 3. 7D Movers — the set-level market pulse. Fixed 7D
-                        window, independent of every other selector on the page. */}
-                    <div id="set-detail-market-movers" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                    {/* SECTION 1 — 7D Movers, directly under the set header.
+                        Fixed 7D, independent of every other selector on the
+                        page, and the ONLY movers strip on this tab. */}
+                    <div id="set-detail-market-movers" data-market-section="movers" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
                       <SectionErrorBoundary sectionName="market-movers-ticker" resetKeys={[resolvedSetResourceId]} title="7D Movers" minHeightClassName="min-h-[3rem]">
                         <SevenDayMarketMoversTicker
                           entry={moversTickerEntry}
@@ -13256,11 +13972,43 @@ export default function RipStatisticsPageClient({
                       </SectionErrorBoundary>
                     </div>
 
-                    {/* 4. Sealed Market — product pricing context only. Sealed
-                        products are not scored here. */}
-                    <div id="set-detail-market-sealed" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
-                      <SectionErrorBoundary sectionName="market-sealed-market" resetKeys={[resolvedSetResourceId]} title="Sealed Market" minHeightClassName="min-h-[11rem]">
-                        <SealedMarketTrendCard setId={resolvedSetResourceId} />
+                    {/* SECTION 2 — Main Market Overview. The dominant analytics
+                        surface: Market Value Trend on the left, Set Signals on
+                        the right. The retired Set Value and Sealed Market cards
+                        are folded in here as the Cards and Sealed lenses, which
+                        is why #set-detail-market-sealed now resolves to this
+                        section rather than to a card of its own. */}
+                    <div
+                      id="set-detail-market-set-value"
+                      data-market-section="overview"
+                      data-mobile-section
+                      className="min-w-0 scroll-mt-24 md:scroll-mt-28"
+                    >
+                      <span id="set-detail-market-sealed" aria-hidden="true" className="block scroll-mt-24 md:scroll-mt-28" />
+                      <SectionErrorBoundary sectionName="market-overview" resetKeys={[resolvedSetResourceId]} title="Market Value Trend" minHeightClassName="min-h-[28rem]">
+                        <SetMarketOverviewSection
+                          setId={resolvedSetResourceId}
+                          cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
+                          cardsTrackedCount={authoritativeSetCardCount}
+                          top10Value={setValueTop10CurrentValue}
+                          moversByWindow={marketMoversByWindow}
+                        />
+                      </SectionErrorBoundary>
+                    </div>
+
+                    {/* SECTION 3 — Top 10 Chase Cards. A dedicated module, not
+                        part of Section 2's card. */}
+                    <div id="set-detail-market-top-chase" data-market-section="top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
+                      <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
+                        <TopChaseCardsPanel
+                          cards={topPricedCards}
+                          status={topPricedCardsStatus}
+                          error={activeTopMarketCardsState.error}
+                          selectedWindowKey={topMarketCardsWindowKey}
+                          onWindowChange={setTopMarketCardsWindowKey}
+                          marketAsOfDate={marketAsOfDate}
+                          onRetry={retryTopChaseModule}
+                        />
                       </SectionErrorBoundary>
                     </div>
                   </section>

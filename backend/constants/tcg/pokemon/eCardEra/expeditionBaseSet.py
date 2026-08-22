@@ -11,9 +11,12 @@ class SetExpeditionBaseSetConfig(BaseSetConfig):
     SYMBOL_IMAGE_URL = 'https://images.pokemontcg.io/ecard1/symbol.png'
     LOGO_IMAGE_URL = 'https://images.pokemontcg.io/ecard1/logo.png'
 
-    # TODO: Populate scrape targets once TCGplayer set links are resolved.
-    CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/604/cards/?rows=5000&productTypeID=1'
-    SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/604/cards/?rows=5000&productTypeID=25'
+    # TCGplayer group 1375 ("Expedition", EX, 2002-09-15, 165 cards). This set
+    # previously pointed at group 604, which is Base Set: Expedition therefore
+    # ingested Base Set prices for its entire history and claimed the /102
+    # external identities that belong to `base`.
+    CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=1'
+    SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}
 
     # TODO: Add set-specific pull rate mappings when data is available.

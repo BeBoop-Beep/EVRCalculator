@@ -1,7 +1,7 @@
 "use client";
 
-import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
-import { getDeltaTrendDirection } from "@/lib/explore/marketDeltaWindows.mjs";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "../../lib/explore/interpretationTone";
+import { getDeltaTrendDirection } from "../../lib/explore/marketDeltaWindows.mjs";
 
 export default function DeltaTrendIcon({
   value = null,

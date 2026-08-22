@@ -19,6 +19,7 @@
 .supportingScores { display: grid; width: min(100%,52rem); grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
 .overallDisclosure { width: min(100%,52rem); margin: 1rem auto 0; border-top: 1px solid var(--border-subtle); padding: 1rem 1rem 0; text-align: center; color: var(--text-secondary); font-size: .875rem; line-height: 1.6; }
 .eyebrow,.collectorEyebrow { color: var(--text-secondary); font-size: .67rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+.chaseDivider { margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: .9rem; }
 .rankDrivers { margin-top: 1rem; border-block: 1px solid var(--border-subtle); padding-block: .7rem; }
 .driverStrip { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 1rem; margin-top: .55rem; }
 .driverStrip > div + div { border-left: 1px solid var(--border-subtle); padding-left: 1rem; }
@@ -75,6 +76,10 @@
 .detailRail span { display: block; height: 100%; border-radius: inherit; background: #38bdf8; }
 .subjectCard { min-width: 0; border: 1px solid rgba(148,163,184,.16); border-radius: .875rem; background: linear-gradient(145deg,rgba(15,23,42,.58),rgba(2,8,23,.38)); padding: 1rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }
 .subjectPath { min-width: 0; border-top: 1px solid var(--border-subtle); padding: .7rem 0 0; }
+.attainableDisclosure { margin-top: .7rem; border-top: 1px solid var(--border-subtle); padding-top: .55rem; }
+.attainableDisclosure summary { cursor: pointer; color: var(--text-secondary); font-size: .72rem; font-weight: 650; list-style-position: inside; }
+.attainableDisclosure summary:focus-visible { border-radius: .25rem; outline: 2px solid var(--accent); outline-offset: 3px; }
+.attainableDisclosure .subjectPath { margin-top: .55rem; }
 .subjectCardImage { display: flex; width: 3rem; height: 4.25rem; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: .4rem; background: rgba(0,0,0,.18); }
 .pullRatesCta { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; margin-top: 1rem; border-radius: .5rem; color: var(--accent); font-size: .875rem; font-weight: 650; }
 .subjectMobileList { display: none; }
@@ -124,6 +129,109 @@
 /* Compact score row — replaces the full-width anatomy diagram. */
 .compactScores { display: grid; min-width: 0; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .75rem; margin-top: .9rem; }
 .compactScoreTakeaway { margin-top: .75rem; max-width: 58rem; color: var(--text-secondary); font-size: .875rem; line-height: 1.55; }
+
+/* ============================================================
+   HERO — Section 1, "Best way to open [set]".
+   ============================================================ */
+.heroPanel { position: relative; }
+.heroLayout { display: grid; min-width: 0; gap: 1rem; margin-top: .75rem; }
+.heroIdentity { display: flex; min-width: 0; align-items: flex-start; gap: 1rem; }
+.heroProductArt { position: relative; width: clamp(4.5rem,10vw,7.5rem); height: clamp(6rem,13vw,10rem); flex: none; filter: drop-shadow(0 10px 14px rgba(0,0,0,.35)); }
+.heroBadge { display: inline-flex; align-items: center; border: 1px solid var(--border-subtle); border-radius: .5rem; padding: .3rem .6rem; color: var(--text-primary); font-size: .72rem; font-weight: 650; }
+.heroMetrics { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: .8rem; background: rgba(2,8,23,.28); }
+.heroMetrics > div { min-width: 0; padding: .85rem .9rem; border-left: 1px solid var(--border-subtle); }
+.heroMetrics > div:first-child { border-left: 0; }
+.heroMetrics dt { display: flex; align-items: center; gap: .3rem; font-size: .68rem; font-weight: 650; color: var(--text-secondary); }
+.heroMetrics dd { margin-top: .25rem; font-size: 1.3rem; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.heroMetrics p { margin-top: .15rem; font-size: .66rem; line-height: 1.3; color: var(--text-secondary); }
+.heroCtaDisabled { display: inline-flex; width: fit-content; min-height: 2.5rem; align-items: center; gap: .45rem; margin-top: .25rem; border: 1px solid var(--border-subtle); border-radius: .5rem; padding: .45rem .9rem; color: var(--text-secondary); font-size: .85rem; font-weight: 650; cursor: not-allowed; opacity: .65; }
+
+/* ============================================================
+   PRODUCT COMPARISON — Section 2. ONE shared header for the whole
+   table; family groups are a thin divider label, never a repeated
+   header. Bloomberg/Seeking-Alpha-style dense financial rows, not
+   boxed ecommerce cards.
+   ============================================================ */
+/* Product | Family Rank | Set SKU Rank | Price | Price/Pack | Typical Back |
+   Entertainment/Pack | Recover | RIP. Family Rank gets more width than Set
+   SKU Rank — it is the rank that matters (spec: emphasize Family Rank over
+   the local/secondary Set SKU Rank). */
+.comparisonRowGrid { grid-template-columns: minmax(8rem,1.3fr) 6rem 4.75rem repeat(4,minmax(5rem,1fr)) 4.5rem; }
+.comparisonGroup { margin-top: 1rem; }
+.comparisonGroup:first-of-type { margin-top: .75rem; }
+.comparisonGroupLabel { margin-top: .1rem; color: var(--text-secondary); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.comparisonGroup:first-of-type .comparisonGroupLabel { margin-top: 0; }
+.comparisonHead { composes: comparisonRowGrid; display: none; margin-top: .5rem; gap: .6rem; border-bottom: 1px solid var(--border-subtle); padding: 0 .5rem .5rem; color: var(--text-secondary); font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.comparisonHead > span:not(:first-child) { text-align: right; }
+.comparisonList { margin-top: .2rem; display: grid; }
+.comparisonRow { composes: comparisonRowGrid; display: grid; min-width: 0; align-items: center; gap: .6rem; border-left: 2px solid transparent; padding: .55rem .5rem; }
+.comparisonRow + .comparisonRow { border-top: 1px solid color-mix(in srgb,var(--border-subtle) 55%,transparent); }
+.comparisonRow[data-best-in-family="true"] { border-left-color: #d4af37; background: linear-gradient(90deg,rgba(212,175,55,.09),transparent 60%); }
+/* Family Rank — the rank that matters, given more visual weight. */
+.comparisonRank { color: var(--text-primary); font-size: .88rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.comparisonRow[data-best-in-family="true"] .comparisonRank { color: #d4af37; }
+.comparisonRank small { display: block; color: var(--text-secondary); font-size: .6rem; font-weight: 500; white-space: nowrap; }
+/* Set SKU Rank — secondary/local, deliberately smaller and muted. */
+.comparisonSkuRank { color: var(--text-secondary); font-size: .72rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.comparisonProduct { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: .84rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.comparisonBestTag { display: inline-block; margin-left: .5rem; border: 1px solid rgba(212,175,55,.45); border-radius: .35rem; padding: .05rem .35rem; color: #d4af37; font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.comparisonCell { min-width: 0; color: var(--text-primary); font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.comparisonCell small { display: block; color: var(--text-secondary); font-size: .64rem; font-weight: 500; }
+.comparisonRip { min-width: 0; color: var(--text-primary); font-size: .92rem; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.comparisonTableWrap { display: none; margin-top: .9rem; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: .8rem; background: color-mix(in srgb,var(--surface-page) 58%,transparent); }
+.comparisonTable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.comparisonTable th,.comparisonTable td { padding: .62rem .7rem; }
+.comparisonTable thead th { border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: .62rem; font-weight: 700; letter-spacing: .055em; text-align: right; text-transform: uppercase; vertical-align: middle; }
+.comparisonTable thead th:first-child { width: 18%; text-align: left; }
+.comparisonTable tbody tr:not(.comparisonFamilyRow) { border-top: 1px solid color-mix(in srgb,var(--border-subtle) 58%,transparent); transition: background-color .14s ease; }
+.comparisonTable tbody tr:not(.comparisonFamilyRow):hover { background: color-mix(in srgb,var(--text-primary) 4%,transparent); }
+.comparisonTable tbody tr[data-best-in-family="true"] { box-shadow: inset 2px 0 0 var(--accent); background: color-mix(in srgb,var(--accent) 6%,transparent); }
+.comparisonTable td { text-align: right; vertical-align: middle; }
+.comparisonTable .comparisonProduct { display: table-cell; text-align: left; }
+.comparisonFamilyRow th { padding-block: .4rem; border-top: 1px solid var(--border-subtle); background: color-mix(in srgb,var(--surface-raised,var(--surface-page)) 68%,transparent); color: var(--text-secondary); font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.comparisonFamilyRow:first-child th { border-top: 0; }
+.comparisonMobile { display: block; }
+
+@media (min-width:1024px) {
+  .comparisonTableWrap { display: block; }
+  .comparisonMobile { display: none; }
+}
+
+@media (min-width:768px) {
+  .heroLayout { grid-template-columns: minmax(0,1fr) auto; align-items: start; }
+  .heroLayout > .heroCtaDisabled { grid-column: 2; grid-row: 1; justify-self: end; }
+  .heroLayout > .heroMetrics { grid-column: 1 / -1; }
+}
+
+/* ============================================================
+   TWO-COLUMN SECTION — 3. Opening Snapshot beside 4. The Chase.
+   ============================================================ */
+.twoColumnSection { display: grid; min-width: 0; gap: 1rem; grid-template-columns: 1fr; }
+@media (min-width:1024px) {
+  .twoColumnSection { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; }
+}
+
+/* Opening Snapshot — a horizontal outcome PROGRESSION (typical -> average ->
+   strong -> jackpot), deliberately unlike the hero's metric grid so the two
+   sections read as different questions. The connecting line is a visual
+   sequence cue, not a claim that values are evenly/linearly spaced. */
+.spectrum { position: relative; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .5rem; margin-top: 1.1rem; padding-top: .35rem; }
+.spectrum::before { content: ""; position: absolute; top: .55rem; left: 6%; right: 6%; height: 1px; background: linear-gradient(90deg,color-mix(in srgb,var(--accent) 35%,transparent),color-mix(in srgb,var(--accent) 70%,transparent)); }
+.spectrumStep { position: relative; min-width: 0; text-align: center; }
+.spectrumMarker { display: inline-flex; width: .55rem; height: .55rem; border-radius: 999px; background: var(--accent); opacity: .55; }
+.spectrumMarker[data-spectrum-index="3"] { opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent); }
+.spectrumLabel { display: flex; align-items: center; justify-content: center; gap: .25rem; margin-top: .5rem; color: var(--text-secondary); font-size: .68rem; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+.spectrumValue { margin-top: .3rem; color: var(--text-primary); font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.spectrumHelper { margin-top: .1rem; color: var(--text-secondary); font-size: .64rem; }
+.spectrumRecover { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1.1rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
+.spectrumRecover > span { display: flex; align-items: center; gap: .3rem; color: var(--text-secondary); font-size: .78rem; font-weight: 600; }
+.spectrumRecover > strong { color: var(--text-primary); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   DEEP DIVE — Section 7, compact expandable rows.
+   ============================================================ */
+.deepDiveRow { border-top: 1px solid var(--border-subtle); padding-top: .75rem; margin-top: .75rem; }
+.deepDiveRow:first-of-type { border-top: 0; padding-top: .5rem; margin-top: .5rem; }
 
 @media (max-width:767px) {
   .economicsGrid { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -199,6 +307,30 @@
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }
   .fullReportGroup header { align-items: flex-start; flex-direction: column; gap: .15rem; }
   .fullReportRow { grid-template-columns: minmax(0,1fr) minmax(4.5rem,auto); }
+}
+
+/* ============================================================
+   WHAT DRIVES EXPECTED VALUE — Section 8. Donut + contribution
+   table, deliberately not a repeat of the Chase card images: this
+   answers "why is EV this number", not "which cards are expensive".
+   ============================================================ */
+.evLayout { display: grid; min-width: 0; gap: 1.25rem; margin-top: 1rem; grid-template-columns: 1fr; align-items: center; }
+.evDonutWrap { position: relative; min-width: 0; }
+.evDonutCenter { position: absolute; top: 50%; left: 50%; display: flex; flex-direction: column; align-items: center; transform: translate(-50%,-50%); pointer-events: none; }
+.evDonutCenter span { color: var(--text-primary); font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.evDonutCenter small { margin-top: .15rem; color: var(--text-secondary); font-size: .62rem; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; }
+.evTable { min-width: 0; }
+.evTableHead { display: grid; grid-template-columns: 1.1rem minmax(0,1fr) auto auto; gap: .6rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: .35rem; color: var(--text-secondary); font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.evTableHead > span:not(:first-child) { text-align: right; }
+.evTable ul { margin-top: .2rem; }
+.evTable li { display: grid; grid-template-columns: 1.1rem minmax(0,1fr) auto auto; align-items: center; gap: .6rem; padding: .45rem 0; border-top: 1px solid color-mix(in srgb,var(--border-subtle) 55%,transparent); }
+.evTable li:first-child { border-top: 0; }
+.evSwatch { display: inline-block; width: .65rem; height: .65rem; border-radius: 999px; }
+.evRarityLabel { min-width: 0; overflow: hidden; color: var(--text-primary); font-size: .82rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; }
+.evCell { color: var(--text-primary); font-size: .82rem; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }
+
+@media (min-width:900px) {
+  .evLayout { grid-template-columns: 14rem minmax(0,1fr); }
 }
 
 @media (min-width:768px) and (max-width:1179px) {
