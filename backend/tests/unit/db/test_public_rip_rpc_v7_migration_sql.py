@@ -29,9 +29,9 @@ from pathlib import Path
 
 import pytest
 
+from backend.calculations.evr.financial_rip_v3_config import FINANCIAL_RIP_V3_VERSION
 from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V3_VERSION
 from backend.desirability.scoring_config import (
-    CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
     canonical_public_rip_contract_version,
 )
@@ -114,8 +114,15 @@ def test_snapshot_version_fields_are_migration_061s_own_identity(sql):
     061 is historical. Its identity strings are the V7-era ones and must stay
     that way, or the record of what the RPC used to enforce becomes fiction. The
     CURRENT canonical identity is pinned by the V8 sibling of this file.
+
+    This asserts against the literal ``FINANCIAL_RIP_V3_VERSION``, not the live
+    ``CANONICAL_FINANCIAL_RIP_VERSION`` selection. Before the Financial RIP V4 /
+    Overall RIP V10 cutover the two happened to be the same string, which let an
+    import of the mutable canonical constant pass here by coincidence; pinning
+    the literal is what the docstring above actually promises, and it survives
+    the next cutover instead of breaking again.
     """
-    assert f"c_financial_rip_version CONSTANT TEXT := '{CANONICAL_FINANCIAL_RIP_VERSION}'" in sql
+    assert f"c_financial_rip_version CONSTANT TEXT := '{FINANCIAL_RIP_V3_VERSION}'" in sql
     assert f"c_collector_appeal_version CONSTANT TEXT := '{COLLECTOR_APPEAL_V3_VERSION}'" in sql
     assert "c_overall_rip_version CONSTANT TEXT := 'overall_rip_v7_90_financial_v3_10_collector_appeal_v3'" in sql
     assert (

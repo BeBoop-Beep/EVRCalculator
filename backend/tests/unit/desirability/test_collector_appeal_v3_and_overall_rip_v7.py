@@ -1,8 +1,10 @@
 """Collector Appeal V3 (0.40D + 0.35H + 0.25P) and Overall RIP V7 (90/10).
 
-THE CANONICAL CONTRACT. The superseded V2/V6 models keep their own suite in
-``test_collector_appeal_v2_and_overall_rip_v6.py``, which is now the
-backward-compatibility file.
+BOTH MODELS ARE NOW SUPERSEDED: Financial RIP V4 and Overall RIP V10 (90/10
+over Collector Appeal V5) are canonical - see
+``test_overall_rip_v10_and_financial_v4_integration.py``. This file remains
+the backward-compatibility suite for Collector Appeal V3 / Overall RIP V7,
+one rung above the V2/V6 suite in ``test_collector_appeal_v2_and_overall_rip_v6.py``.
 
 Organised around the claims these models make:
 
@@ -31,6 +33,9 @@ from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
     FINANCIAL_RIP_V3_VERSION,
     FINANCIAL_RIP_V3_WEIGHTS,
+)
+from backend.calculations.evr.financial_rip_v4_config import (
+    FINANCIAL_RIP_V4_VERSION,
 )
 from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_CA7_VERSION,
@@ -64,8 +69,10 @@ from backend.desirability.scoring_config import (
     legacy_collector_appeal_v3_version,
     canonical_overall_rip_is_v8,
     canonical_public_rip_contract_version,
-    canonical_scoring_selection,
+    canonical_scoring_selection,
     canonical_overall_rip_is_v9,
+    canonical_overall_rip_is_v10,
+    OVERALL_RIP_V10_VERSION,
 )
 from backend.desirability.weighted_rip import compute_overall_rip_v7
 
@@ -377,15 +384,21 @@ def test_there_is_exactly_one_authoritative_source_for_each_canonical_version():
     # V7 is SUPERSEDED: its string must not move, and it must no longer be canonical.
     assert OVERALL_RIP_V7_VERSION == "overall_rip_v7_90_financial_v3_10_collector_appeal_v3"
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V7_VERSION
-    # STALE EXPECTATION CORRECTED: the canonical Overall model is V9.
+    # STALE EXPECTATION CORRECTED: the canonical Overall model is now V10
+    # (90/10 Financial RIP V4 over Collector Appeal V5). V9 is preserved and
+    # identifiable, and is no longer canonical.
     assert canonical_overall_rip_is_v8() is False
-    assert canonical_overall_rip_is_v9() is True
+    assert canonical_overall_rip_is_v9() is False
+    assert canonical_overall_rip_is_v10() is True
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
 
     selection = canonical_scoring_selection()
     assert selection["legacyCollectorAppealV3Version"] == COLLECTOR_APPEAL_V3_VERSION
     assert selection["legacyOverallRipV7Version"] == OVERALL_RIP_V7_VERSION
     assert selection["canonicalPublicRipContractVersion"] != PUBLIC_RIP_CONTRACT_V7_VERSION
-    assert selection["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V3_VERSION
+    # `canonicalFinancialRipVersion` reads the live CANONICAL_FINANCIAL_RIP_VERSION
+    # constant, which the V4 cutover moved from V3 to V4.
+    assert selection["canonicalFinancialRipVersion"] == FINANCIAL_RIP_V4_VERSION
 
 
 def test_every_historical_version_stays_distinct_and_readable():
@@ -553,6 +566,13 @@ def _target():
 
 
 def test_the_v7_contract_publishes_the_canonical_versions():
+    """`public_rip_contract_v7` is structurally frozen at the Financial RIP V3 era:
+    `canonicalOverallRipVersion` (V7), `canonicalCollectorAppealVersion` (V3), and
+    `canonicalFinancialRipVersion` (V3) are all pinned historical literals, not the
+    live `CANONICAL_FINANCIAL_RIP_VERSION` switch. Following the live constant would
+    make this contract falsely declare a Financial RIP V4 identity while its
+    `financialRip` payload still carries V3 numbers, so it must stay unchanged by
+    the V4/V10 cutover."""
     contract = build_public_rip_contract_v7(_target())
     assert contract["contractVersion"] == PUBLIC_RIP_CONTRACT_V7_VERSION
     assert contract["canonicalOverallRipVersion"] == OVERALL_RIP_V7_VERSION

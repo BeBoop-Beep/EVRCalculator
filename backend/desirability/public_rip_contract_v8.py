@@ -89,9 +89,9 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V4_VERSION,
     collector_appeal_v4_public_identity,
 )
+from backend.calculations.evr.financial_rip_v3_config import FINANCIAL_RIP_V3_VERSION
 from backend.desirability.public_rip_contract_v7 import build_public_rip_contract_v7
 from backend.desirability.scoring_config import (
-    CANONICAL_FINANCIAL_RIP_VERSION,
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V8_EFFECTIVE_WEIGHTS,
     OVERALL_RIP_V8_VERSION,
@@ -410,7 +410,11 @@ def build_public_rip_contract_v8(target: Mapping[str, Any]) -> Dict[str, Any]:
 
     return {
         "contractVersion": CONTRACT_VERSION,
-        "canonicalFinancialRipVersion": CANONICAL_FINANCIAL_RIP_VERSION,
+        # Frozen historical literal, NOT the live CANONICAL_FINANCIAL_RIP_VERSION switch:
+        # this contract is structurally frozen at the Financial RIP V3 era, and must keep
+        # declaring the identity that actually matches the `financialRip` payload it emits,
+        # even after the cutover moves the live canonical constant to Financial RIP V4.
+        "canonicalFinancialRipVersion": FINANCIAL_RIP_V3_VERSION,
         "canonicalOverallRipVersion": OVERALL_RIP_V8_VERSION,
         "canonicalCollectorAppealVersion": COLLECTOR_APPEAL_V4_VERSION,
         "overallRip": _build_overall_v8(

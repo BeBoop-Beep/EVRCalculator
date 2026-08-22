@@ -5392,6 +5392,61 @@ def test_insights_critical_payload_warns_when_snapshot_predates_the_contract(mon
     assert any("rebuild set-page snapshots" in str(w) for w in payload["meta"]["warnings"])
 
 
+def test_insights_critical_payload_resolves_v10_v4_as_canonical_and_keeps_v9_historical(monkeypatch):
+    """Insights must serve `overallRipV10`/`publicRipContractV10` as the
+    canonical blocks. `overallRipV9`/`publicRipContractV9` stay published as
+    historical/backward-readable data only, and their presence must never
+    substitute for a missing V10 block."""
+    snapshot = _ascended_heroes_snapshot_payload_json()
+    snapshot["overallRipV9"] = {"score": 70.0, "rank": 5, "version": "overall-rip-v9"}
+    snapshot["publicRipContractV9"] = {"contractVersion": "public_rip_contract_v9"}
+    snapshot["overallRipV10"] = {"score": 91.0, "rank": 1, "version": "overall-rip-v10"}
+    snapshot["publicRipContractV10"] = {"contractVersion": "public_rip_contract_v10"}
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _q: [
+                {"set_id": _TEST_UUID, "updated_at": "2026-07-16T00:00:00+00:00", "payload_json": snapshot}
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
+
+    assert payload["overallRipV10"]["score"] == 91.0
+    assert payload["overallRipV10"]["version"] == "overall-rip-v10"
+    assert payload["publicRipContractV10"]["contractVersion"] == "public_rip_contract_v10"
+    # Historical, unchanged, not read as a source for the V10 block above.
+    assert payload["overallRipV9"]["score"] == 70.0
+    assert payload["overallRipV9"] != payload["overallRipV10"]
+    assert not any("Overall RIP V10" in str(w) for w in payload["meta"]["warnings"])
+
+
+def test_insights_critical_payload_does_not_fall_back_to_v9_when_v10_is_missing(monkeypatch):
+    """A snapshot carrying only the historical V9 block must publish an empty
+    V10 block and a warning - never silently substitute the V9 data under the
+    V10 key."""
+    snapshot = _ascended_heroes_snapshot_payload_json()
+    snapshot["overallRipV9"] = {"score": 70.0, "rank": 5, "version": "overall-rip-v9"}
+    snapshot["publicRipContractV9"] = {"contractVersion": "public_rip_contract_v9"}
+    snapshot.pop("overallRipV10", None)
+    snapshot.pop("publicRipContractV10", None)
+    client = _Client(
+        {
+            "pokemon_set_page_snapshot_latest": lambda _q: [
+                {"set_id": _TEST_UUID, "updated_at": "2026-07-16T00:00:00+00:00", "payload_json": snapshot}
+            ],
+        }
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
+
+    assert payload["overallRipV10"] == {}
+    assert payload["publicRipContractV10"] == {}
+    assert any("Overall RIP V10" in str(w) for w in payload["meta"]["warnings"])
+
+
 # ---------------------------------------------------------------------------
 # Checklist set value: freshest-candidate selection across snapshot windows.
 #
@@ -5896,7 +5951,7 @@ def test_the_reader_does_not_restate_the_set_value_contract_version():
 def _legacy_set_rip_snapshot():
     targets = [
         {"set_id": set_id, "name": set_id.upper(), "calculation_run_id": f"run-{set_id}",
-         "overallRipV9": {"rank": index},
+         "overallRipV10": {"rank": index},
          "setRipV1": {"score": 50, "rank": index, "rankable": True,
                       "participatingFamilyCount": 2,
                       "familyScores": [{"family": "box"}, {"family": "pack"}]}}

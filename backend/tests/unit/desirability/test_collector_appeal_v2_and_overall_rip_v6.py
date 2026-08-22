@@ -2,8 +2,10 @@
 
 BOTH MODELS ARE NOW SUPERSEDED, and this file's job changed accordingly: it is
 the BACKWARD-COMPATIBILITY suite. Collector Appeal V3 (the balanced 0.40D +
-0.35H + 0.25P sum) and Overall RIP V7 (90/10) are canonical, and their contract
-lives in ``test_collector_appeal_v3_and_overall_rip_v7.py``.
+0.35H + 0.25P sum) is preserved but no longer canonical either: Financial RIP
+V4 and Overall RIP V10 (90/10 over Collector Appeal V5) are canonical. The
+Collector Appeal V3 / Overall RIP V7 contract lives in
+``test_collector_appeal_v3_and_overall_rip_v7.py``.
 
 Every assertion below still runs, unchanged, because that is the point: a
 superseded model must keep computing exactly what it always computed, or a
@@ -67,9 +69,10 @@ from backend.desirability.scoring_config import (
     canonical_collector_appeal_version,
     canonical_overall_rip_is_v8,
     canonical_scoring_selection,
-    legacy_collector_appeal_v2_version,
+    legacy_collector_appeal_v2_version,
     canonical_overall_rip_is_v9,
     OVERALL_RIP_V9_VERSION,
+    OVERALL_RIP_V10_VERSION,
 )
 from backend.desirability.weighted_rip import (
     compute_overall_rip_v5,
@@ -535,18 +538,20 @@ def test_v6_and_collector_appeal_v2_are_preserved_but_no_longer_canonical():
     superseded model that stopped computing would orphan its rows, and one that
     stayed canonical would publish the model the validation rejected.
     """
-    # STALE EXPECTATION CORRECTED: production was promoted to Overall RIP V9
-    # (90/10 over Collector Appeal V5). V8 is preserved and identifiable, and is
-    # no longer canonical - which is exactly what this test is about.
+    # STALE EXPECTATION CORRECTED: production was promoted to Overall RIP V10
+    # (90/10 Financial RIP V4 over Collector Appeal V5). V8 and V9 are preserved
+    # and identifiable, and are no longer canonical - which is exactly what this
+    # test is about.
     assert canonical_overall_rip_is_v8() is False
-    assert canonical_overall_rip_is_v9() is True
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
+    assert canonical_overall_rip_is_v9() is False
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V9_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V8_VERSION
     assert CANONICAL_OVERALL_RIP_VERSION != OVERALL_RIP_V6_VERSION
     assert canonical_collector_appeal_version() != COLLECTOR_APPEAL_V2_VERSION
 
     selection = canonical_scoring_selection()
-    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V9_VERSION
+    assert selection["canonicalOverallRipVersion"] == OVERALL_RIP_V10_VERSION
     # Every superseded identifier is still readable from the canonical selection,
     # so an operator interpreting an old row never has to guess.
     assert selection["legacyOverallRipV5Version"] == OVERALL_RIP_V5_VERSION

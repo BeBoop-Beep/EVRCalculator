@@ -6372,6 +6372,9 @@ def _empty_insights_critical_payload(
         "overallRipV9": {},
         "publicRipContractV9": {},
         "publicRipContractV7": {},
+        # CANONICAL after the Financial RIP V4 / Overall RIP V10 cutover.
+        "overallRipV10": {},
+        "publicRipContractV10": {},
         "openingExperience": {},
         "publicAnalyticsCohort": {},
         "publicAnalyticsStatus": None,
@@ -6522,6 +6525,21 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("publicRipContractV9"), dict)
         else {}
     )
+    # CANONICAL after the Financial RIP V4 / Overall RIP V10 cutover. `overallRipV9`
+    # and `publicRipContractV9` above stay published as historical/backward-readable
+    # data only; they are NEVER read as a fallback for a missing V10 block below -
+    # an implicit V9 fallback becoming canonical is exactly the bug this guards
+    # against.
+    overall_rip_v10 = (
+        payload_json.get("overallRipV10")
+        if isinstance(payload_json.get("overallRipV10"), dict)
+        else {}
+    )
+    public_rip_contract_v10 = (
+        payload_json.get("publicRipContractV10")
+        if isinstance(payload_json.get("publicRipContractV10"), dict)
+        else {}
+    )
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)
@@ -6547,6 +6565,13 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         warnings.append(
             "Financial RIP V3 is not in this snapshot yet; rebuild set-page "
             "snapshots after a simulation run that computes V3."
+        )
+    if not overall_rip_v10:
+        # Same rule for the canonical model: a missing V10 block is a warning,
+        # never a fallback to the historical V9 block above.
+        warnings.append(
+            "Overall RIP V10 / Financial RIP V4 is not in this snapshot yet; "
+            "rebuild set-page snapshots after a simulation run that computes V10."
         )
 
     payload = {
@@ -6577,6 +6602,8 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "publicRipContractV8": public_rip_contract_v8,
         "overallRipV9": overall_rip_v9,
         "publicRipContractV9": public_rip_contract_v9,
+        "overallRipV10": overall_rip_v10,
+        "publicRipContractV10": public_rip_contract_v10,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,
         "publicAnalyticsStatus": _to_optional_str(payload_json.get("publicAnalyticsStatus")),

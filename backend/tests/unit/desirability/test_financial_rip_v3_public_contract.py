@@ -33,12 +33,16 @@ from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
     FINANCIAL_RIP_V2_VERSION,
+    FINANCIAL_RIP_V4_VERSION,
     OVERALL_RIP_V4_VERSION,
     OVERALL_RIP_V6_VERSION,
     OVERALL_RIP_V8_VERSION,
+    OVERALL_RIP_V10_VERSION,
     canonical_financial_rip_is_v3,
-    canonical_overall_rip_is_v8,
+    canonical_financial_rip_is_v4,
+    canonical_overall_rip_is_v8,
     canonical_overall_rip_is_v9,
+    canonical_overall_rip_is_v10,
     OVERALL_RIP_V9_VERSION,
 )
 from backend.desirability.weighted_rip import (
@@ -101,24 +105,28 @@ def make_target(payload: dict, *, ca7: float | None = 70.0, set_id: str = "set-a
 # The cutover switch
 # ---------------------------------------------------------------------------
 
-def test_canonical_versions_point_at_v3_and_v9():
-    """Financial RIP V3 is still canonical; Overall RIP was promoted through V9.
+def test_canonical_versions_point_at_v4_and_v10():
+    """Financial RIP V4 / Overall RIP V10 are now canonical (the V4/V10 cutover).
 
-    V5 (90/10 over legacy CA7), V6 (80/20 over Collector Appeal V2), V7 and V8
-    are LEGACY models. Their identifiers and their arithmetic are unchanged -
-    only their canonical status moved - and the tests below still pin that
-    arithmetic.
+    V3 and V9 (this module's own subject) are now LEGACY, alongside V5 (90/10
+    over legacy CA7), V6 (80/20 over Collector Appeal V2), V7 and V8. Their
+    identifiers and their arithmetic are unchanged - only their canonical status
+    moved - and the tests below (and elsewhere in this module) still pin that
+    arithmetic, and still exercise it directly as history.
 
-    STALE EXPECTATION CORRECTED: this test asserted V8 long after production was
-    promoted to V9 (90/10 over Collector Appeal V5). The canonical selection,
-    the V9 contract module and migration 067 all agree that V9 is correct, so
-    the TEST was wrong, not the production configuration.
+    UPDATED FOR THE V4/V10 CUTOVER: this test previously asserted that V3/V9
+    were canonical. The ownership move in `scoring_config.py` flips
+    `CANONICAL_FINANCIAL_RIP_VERSION` to Financial RIP V4 and
+    `CANONICAL_OVERALL_RIP_VERSION` to Overall RIP V10; V3/V9 remain registered
+    and computable as history but are no longer the canonical selection.
     """
-    assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V3_VERSION
-    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V9_VERSION
-    assert canonical_financial_rip_is_v3() is True
-    assert canonical_overall_rip_is_v9() is True
-    # V8 is retained and identifiable, but is no longer the canonical selection.
+    assert CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
+    assert CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
+    assert canonical_financial_rip_is_v4() is True
+    assert canonical_financial_rip_is_v3() is False
+    assert canonical_overall_rip_is_v10() is True
+    assert canonical_overall_rip_is_v9() is False
+    # V8 and V9 are retained and identifiable, but are no longer canonical.
     assert canonical_overall_rip_is_v8() is False
     assert OVERALL_RIP_V8_VERSION != OVERALL_RIP_V9_VERSION
     # Every legacy identifier still exists and is still distinct.

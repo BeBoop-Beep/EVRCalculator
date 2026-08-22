@@ -21,7 +21,6 @@ from typing import Dict, Iterable, Mapping, Optional, Tuple
 # so there is exactly ONE definition of each. The dependency runs
 # desirability -> calculations (never the reverse).
 from backend.calculations.evr.financial_rip_v3_config import (
-    CANONICAL_FINANCIAL_RIP_VERSION as _CANONICAL_FINANCIAL_RIP_VERSION,
     FINANCIAL_RIP_V3_VERSION as FINANCIAL_RIP_V3_VERSION,
     FINANCIAL_RIP_V3_WEIGHTS as FINANCIAL_RIP_V3_WEIGHTS,
     OVERALL_RIP_V5_VERSION as OVERALL_RIP_V5_VERSION_FROM_CONFIG,
@@ -404,28 +403,28 @@ OVERALL_RIP_PRODUCTION_GUARDRAILS: Dict[str, float] = {
 }
 
 
-# THE CUTOVER SWITCHES, AND WHY THEY STILL READ V3/V9
+# THE CUTOVER SWITCHES
 # ---------------------------------------------------
-# Financial RIP V4 and Overall RIP V10 are IMPLEMENTED, registered, computable
-# and serializable - but they are not yet the canonical selection.
+# Financial RIP V4 and Overall RIP V10 are now the canonical selection.
 #
-# Promotion is exactly these two constants, and flipping them is a PUBLICATION
+# Promotion is exactly these two constants, and flipping them was a PUBLICATION
 # event, not a code-implementation one: every published snapshot, leaderboard
-# row and product row currently stored carries the V3/V9 identifiers, and
-# several production readers (product_family_rankings_service among them) admit
-# a row only when its stored version EQUALS the canonical one. Repointing these
-# constants without first rebuilding snapshots under V4/V10 would not roll the
-# model forward, it would empty the surfaces that filter on it.
+# row and product row must be rebuilt under V4/V10, since several production
+# readers (product_family_rankings_service among them) admit a row only when
+# its stored version EQUALS the canonical one. V3/V9 remain registered and
+# computable so historical rows stay readable - they are simply no longer the
+# constants returned here.
 #
-# The V4 decision record also records that V4 carries no independent temporal
-# validation. The next stage is the budget-specific equal-spend product
-# comparison, not a cutover.
-#
-# So: the switch stays here, singular, and stays pointed at V3/V9 until a
-# deliberate promotion change flips it together with a snapshot rebuild.
-CANONICAL_FINANCIAL_RIP_VERSION = _CANONICAL_FINANCIAL_RIP_VERSION
-CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V9_VERSION
-CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V9_WEIGHTS)
+# `CANONICAL_FINANCIAL_RIP_VERSION` is defined HERE, not in
+# `financial_rip_v3_config`, because that module cannot import Financial RIP
+# V4's identity without creating a circular import (V4's config module imports
+# FROM the V3 one). This module already imports both identities at module
+# scope with no cycle, and already owns the identical kind of switch for
+# `CANONICAL_OVERALL_RIP_VERSION` below - a second definition of a cutover
+# switch is a second cutover. There is one.
+CANONICAL_FINANCIAL_RIP_VERSION = FINANCIAL_RIP_V4_VERSION
+CANONICAL_OVERALL_RIP_VERSION = OVERALL_RIP_V10_VERSION
+CANONICAL_OVERALL_RIP_WEIGHTS: Dict[str, float] = dict(OVERALL_RIP_V10_WEIGHTS)
 
 # The registry of every model version this build can compute, canonical or not.
 # Publication contracts, audit scripts and the historical readers resolve a
@@ -506,11 +505,11 @@ def canonical_public_rip_contract_version() -> str:
     module-scope import would be a cycle. The string is defined once, in the
     contract module that implements it.
     """
-    from backend.desirability.public_rip_contract_v9 import (
-        PUBLIC_RIP_CONTRACT_V9_VERSION,
+    from backend.desirability.public_rip_contract_v10 import (
+        PUBLIC_RIP_CONTRACT_V10_VERSION,
     )
 
-    return PUBLIC_RIP_CONTRACT_V9_VERSION
+    return PUBLIC_RIP_CONTRACT_V10_VERSION
 
 
 def canonical_overall_rip_is_v9() -> bool:
@@ -518,17 +517,12 @@ def canonical_overall_rip_is_v9() -> bool:
 
 
 def canonical_overall_rip_is_v10() -> bool:
-    """True when Overall RIP V10 (90% Financial V4 + 10% Collector Appeal V5) is canonical.
-
-    Currently False by design - see the cutover note above. The predicate exists
-    so a caller asking the V10 question gets a truthful answer rather than an
-    ImportError that a try/except might swallow into a default.
-    """
+    """True when Overall RIP V10 (90% Financial V4 + 10% Collector Appeal V5) is canonical."""
     return CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION
 
 
 def canonical_financial_rip_is_v4() -> bool:
-    """True when Financial RIP V4 is the canonical financial score. Currently False."""
+    """True when Financial RIP V4 is the canonical financial score."""
     return CANONICAL_FINANCIAL_RIP_VERSION == FINANCIAL_RIP_V4_VERSION
 
 
@@ -580,24 +574,24 @@ def canonical_scoring_selection() -> Dict[str, object]:
         "legacyCollectorAppealV3Version": legacy_collector_appeal_v3_version(),
         "legacyCollectorAppealV2Version": legacy_collector_appeal_v2_version(),
         "legacyCollectorAppealVersion": legacy_collector_appeal_version(),
-        "overallRipWeights": dict(OVERALL_RIP_V9_WEIGHTS),
+        "overallRipWeights": dict(CANONICAL_OVERALL_RIP_WEIGHTS),
         "overallRipEffectiveWeights": dict(OVERALL_RIP_V9_EFFECTIVE_WEIGHTS),
         # Implemented and computable, but NOT canonical. Disclosed so a reader of
-        # this payload can see that a newer model exists and has not been
-        # promoted, rather than inferring from its absence that it does not exist.
+        # this payload can see that older models still exist and compute,
+        # rather than inferring from their absence that they no longer exist.
         "availableFinancialRipVersions": list(KNOWN_FINANCIAL_RIP_VERSIONS),
         "availableOverallRipVersions": list(KNOWN_OVERALL_RIP_VERSIONS),
-        "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V4_VERSION,
-        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V10_VERSION,
+        "implementedNotCanonicalFinancialRipVersion": FINANCIAL_RIP_V3_VERSION,
+        "implementedNotCanonicalOverallRipVersion": OVERALL_RIP_V9_VERSION,
         "note": (
-            "Overall RIP V9 is 90% Financial RIP V3 + 10% Collector Appeal V5. "
-            "Financial RIP V2, Overall RIP v4/V5/V6/V7/V8, Collector Appeal V4/V3, "
-            "Collector Appeal V2 and legacy CA7 remain identifiable under "
-            "explicitly legacy labels and are never selected by fallback. "
-            "Financial RIP V4 and Overall RIP V10 are implemented and computable "
-            "but are deliberately not yet canonical; promotion is a separate "
-            "change to CANONICAL_FINANCIAL_RIP_VERSION and "
-            "CANONICAL_OVERALL_RIP_VERSION together with a snapshot rebuild."
+            "Overall RIP V10 is 90% Financial RIP V4 + 10% Collector Appeal V5, "
+            "and Financial RIP V4 is canonical. Financial RIP V2/V3, Overall RIP "
+            "v4/V5/V6/V7/V8/V9, Collector Appeal V4/V3, Collector Appeal V2 and "
+            "legacy CA7 remain identifiable under explicitly legacy labels, stay "
+            "computable, and are never selected by fallback. Promotion to a "
+            "future version is a separate change to "
+            "CANONICAL_FINANCIAL_RIP_VERSION and CANONICAL_OVERALL_RIP_VERSION "
+            "together with a snapshot rebuild."
         ),
         "dualPathDepthStatus": (
             "retained_as_diagnostic_not_a_collector_appeal_input"
@@ -630,6 +624,12 @@ def _audit_overall_rip_weights() -> None:
             raise ValueError(
                 "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V7_WEIGHTS "
                 "while V7 is the canonical Overall RIP."
+            )
+    if CANONICAL_OVERALL_RIP_VERSION == OVERALL_RIP_V10_VERSION:
+        if CANONICAL_OVERALL_RIP_WEIGHTS != OVERALL_RIP_V10_WEIGHTS:
+            raise ValueError(
+                "CANONICAL_OVERALL_RIP_WEIGHTS must match OVERALL_RIP_V10_WEIGHTS "
+                "while V10 is the canonical Overall RIP."
             )
     # The V4 decision record fixes V10 at 90/10 over Financial V4 and Collector
     # Appeal V5. A drift in either share is an import-time failure.
