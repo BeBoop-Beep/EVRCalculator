@@ -31,3 +31,20 @@ test("product navigation uses the set RIP route and preserves sealed product con
   assert.ok(source.includes("buildTcgSetHrefFromTarget"));
   assert.ok(source.includes("sealedProduct="));
 });
+
+test("a locked Overall tab exists and shows only Coming Soon, with no ranking data or budget controls", () => {
+  assert.ok(source.includes('setView("overall-locked")'), "the Overall tab exists as a distinct view");
+  assert.ok(source.includes(">Overall<"), "the tab is labeled Overall");
+  assert.ok(source.includes("OverallRankingLockedPanel"), "a dedicated locked panel component renders it");
+  assert.ok(source.includes("Coming Soon"), "the locked panel says Coming Soon");
+
+  // No real ranking data, no budget selector, no entitlement/tier disclosure.
+  const forbidden = [
+    "budgetRank", "budgetTier", "overallRipV10Score", "financialRipV4Score",
+    "$25", "$50", "$100", "$150", "$250", "$500",
+    "Index Plus", "Index Premium", "Premium",
+  ];
+  for (const term of forbidden) {
+    assert.equal(source.includes(term), false, `locked Overall surface must not reference ${term}`);
+  }
+});
