@@ -343,6 +343,47 @@ def test_set_market_series_forward_fills_unobserved_days():
     assert {point["marketPrice"] for point in series["history"]} == {140.0}
 
 
+def test_a_price_inside_the_freshness_window_still_contributes():
+    limit = snapshot_service.SEALED_PRICE_FRESHNESS_DAYS
+    series = snapshot_service.build_sealed_segment_history(
+        [{"sealedProductId": "a", "history": _history([("2026-01-01", 100.0)])}]
+    )
+    # The tracked-value window here only spans the one observed day, well
+    # inside any freshness allowance, so it must contribute normally.
+    assert series["currentValue"] == 100.0
+    assert series["contributingProductCount"] == 1
+    assert limit > 0, "the constant itself must be a positive, evidence-derived allowance"
+
+
+def test_a_price_outside_the_freshness_window_stops_contributing_to_current_tracked_value():
+    """The failure mode this policy exists for: product B's only price is
+    from far enough in the past that it can no longer honestly describe
+    today's market. B stays catalog-eligible (it is never declassified) but
+    drops out of CURRENT Tracked Value and out of contributingProductCount.
+    Product A, which keeps reporting, is unaffected.
+    """
+    stale_date = "2026-01-01"
+    fresh_end = date.fromisoformat(stale_date) + timedelta(days=snapshot_service.SEALED_PRICE_FRESHNESS_DAYS + 5)
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([(stale_date, 100.0), (fresh_end.isoformat(), 105.0)])},
+            {"sealedProductId": "b", "history": _history([(stale_date, 50.0)])},
+        ]
+    )
+    # B is still catalog-eligible (counted in productCount) but has fallen
+    # outside the freshness window as of the latest tracked date.
+    assert series["productCount"] == 2
+    assert series["contributingProductCount"] == 1
+    # Current Tracked Value is A alone — B's stale $50 is not silently baked
+    # into the current basket forever.
+    assert series["currentValue"] == 105.0
+    # The historical fact that B was once priced at $50 on stale_date is not
+    # erased — it is still present in the raw tracked-value history for that
+    # earlier date.
+    early_point = next(point for point in series["history"] if point["date"] == stale_date)
+    assert early_point["marketPrice"] == 150.0, "B's $50 is real history on the day it was actually observed"
+
+
 def test_set_market_series_absent_rather_than_zero_when_there_is_nothing_to_aggregate():
     assert snapshot_service.build_sealed_segment_history([]) is None
     assert snapshot_service.build_sealed_segment_history([{"sealedProductId": "a", "history": []}]) is None

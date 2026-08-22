@@ -45,10 +45,13 @@
 --   position, not resolved from the Pokémon TCG API, so the api id is NOT
 --   authoritative here. Expedition rebuilds its true 165-card roster from 1375.
 --
--- Trainer Kits: the Pokémon TCG API id. Rows whose `pokemon_tcg_api_id` matches
---   the set's own `<pokemon_api_set_id>-N` are the authoritative child roster
---   (tk2a 9, tk2b 9, tk1a 8, tk1b 0). Every other row was generated from the
---   combined TCGplayer group and is not truthful child-set membership.
+-- Trainer Kits: the child's authoritative Pokémon TCG API roster, matched on
+--   printed number + name (parenthetical stripped) + deck agreement. All 44
+--   authoritative cards (tk2a 12, tk2b 12, tk1a 10, tk1b 10) already exist as
+--   rows, because the combined scrape wrote the full union into BOTH children —
+--   so this is a SELECTION, not an insertion, and no child is left empty. The
+--   44 non-matching rows are the sibling deck's cards. (`pokemon_tcg_api_id` is
+--   NOT usable here: it is populated on only 26 of the 88 rows.)
 --
 -- DELETION ORDER
 -- --------------
@@ -99,8 +102,12 @@ DECLARE
     v_base_identities  INTEGER;
     v_base_obs         INTEGER;
     v_kit_identities   INTEGER;
-    v_cohort           INTEGER;
     v_expedition_roster INTEGER;
+    v_kits_detached    INTEGER;
+    v_kits_in_cohort   INTEGER;
+    v_base_url         TEXT;
+    v_expb_url         TEXT;
+    v_exp_url          TEXT;
 BEGIN
     SELECT count(*) INTO v_exp_contaminated
     FROM public.sets s JOIN public.cards c ON c.set_id = s.id
@@ -135,7 +142,62 @@ BEGIN
     WHERE s.canonical_key IN ('exTrainerKit2Minun', 'exTrainerKit2Plusle',
                               'exTrainerKitLatias', 'exTrainerKitLatios');
 
-    SELECT count(*) INTO v_cohort FROM public.pokemon_scrape_ready_cohort();
+    -- Ownership boundary: the Trainer Kit lifecycle transition belongs to
+    -- migration 20260822110000, not here. Assert its OUTCOME semantically rather
+    -- than asserting a cohort size — a literal cohort count would be a
+    -- cross-migration coupling that goes stale the moment any unrelated set
+    -- joins or leaves the cohort, which is exactly how the original 167 guard
+    -- broke once 110000 landed. `pokemon_scrape_ready_cohort()` stays the sole
+    -- authority; this only checks that the four kits are no longer in it.
+    SELECT count(*) INTO v_kits_detached
+    FROM public.sets
+    WHERE canonical_key IN ('exTrainerKit2Minun', 'exTrainerKit2Plusle',
+                            'exTrainerKitLatias', 'exTrainerKitLatios')
+      AND catalog_only = TRUE
+      AND ready_for_daily_scrape = FALSE
+      AND card_details_url IS NULL
+      AND sealed_details_url IS NULL
+      AND has_card_details_url = FALSE;
+
+    SELECT count(*) INTO v_kits_in_cohort
+    FROM public.pokemon_scrape_ready_cohort() c
+    JOIN public.sets s ON s.id = c.set_id
+    WHERE s.canonical_key IN ('exTrainerKit2Minun', 'exTrainerKit2Plusle',
+                              'exTrainerKitLatias', 'exTrainerKitLatios');
+
+    -- Source assumptions this migration acts on. `base` and `expeditionBaseSet`
+    -- must still be colliding on group 604 (the defect being repaired), and
+    -- `expedition` must still hold group 1375 with its authoritative roster,
+    -- because step 5/5b move exactly those two mappings.
+    SELECT card_details_url INTO v_base_url
+    FROM public.sets WHERE canonical_key = 'base';
+    SELECT card_details_url INTO v_expb_url
+    FROM public.sets WHERE canonical_key = 'expeditionBaseSet';
+    SELECT card_details_url INTO v_exp_url
+    FROM public.sets WHERE canonical_key = 'expedition';
+
+    IF v_kits_detached <> 4 THEN
+        RAISE EXCEPTION
+            'Precondition failed: expected all 4 Trainer Kits in the detached catalog-only state '
+            'established by migration 20260822110000, found % — apply 110000 first', v_kits_detached;
+    END IF;
+    IF v_kits_in_cohort <> 0 THEN
+        RAISE EXCEPTION
+            'Precondition failed: % Trainer Kit set(s) are still in the scrape-ready cohort', v_kits_in_cohort;
+    END IF;
+    IF v_base_url IS NULL OR v_base_url NOT LIKE '%/priceguide/set/604/%' THEN
+        RAISE EXCEPTION 'Precondition failed: base is not on TCGplayer group 604 (found %)', COALESCE(v_base_url, 'NULL');
+    END IF;
+    IF v_expb_url IS NULL OR v_expb_url NOT LIKE '%/priceguide/set/604/%' THEN
+        RAISE EXCEPTION
+            'Precondition failed: expeditionBaseSet is not on group 604, so the 604 collision this '
+            'migration repairs is not present (found %)', COALESCE(v_expb_url, 'NULL');
+    END IF;
+    IF v_exp_url IS NULL OR v_exp_url NOT LIKE '%/priceguide/set/1375/%' THEN
+        RAISE EXCEPTION
+            'Precondition failed: the `expedition` catalog row no longer holds group 1375 (found %)',
+            COALESCE(v_exp_url, 'NULL');
+    END IF;
 
     SELECT count(*) INTO v_expedition_roster
     FROM public.sets s JOIN public.cards c ON c.set_id = s.id
@@ -159,11 +221,16 @@ BEGIN
     IF v_kit_identities <> 44 THEN
         RAISE EXCEPTION 'Precondition failed: expected 44 Trainer Kit identities, found %', v_kit_identities;
     END IF;
-    IF v_cohort <> 167 THEN
-        RAISE EXCEPTION 'Precondition failed: expected a 167-set daily cohort, found %', v_cohort;
-    END IF;
 END;
 $precheck$;
+
+-- The scrape-ready cohort size is deliberately NOT asserted as a literal here.
+-- This migration must not change it: the four kits already left in 110000, and
+-- `base` / `expeditionBaseSet` both stay in. Section 6 therefore captures the
+-- cohort before any mutation and asserts it is unchanged afterwards, which is
+-- the real invariant and stays correct however the registry evolves.
+CREATE TEMP TABLE _cohort_before ON COMMIT DROP AS
+SELECT count(*) AS n FROM public.pokemon_scrape_ready_cohort();
 
 -- =============================================================================
 -- 2. Resolve the contaminated row sets once
@@ -394,7 +461,17 @@ DECLARE
     v_kit_roster     INTEGER;
     v_kit_obs        INTEGER;
     v_kit_empty      INTEGER;
+    v_cohort_before  INTEGER;
+    v_kits_still_in_cohort INTEGER;
 BEGIN
+    SELECT n INTO v_cohort_before FROM _cohort_before;
+
+    SELECT count(*) INTO v_kits_still_in_cohort
+    FROM public.pokemon_scrape_ready_cohort() c
+    JOIN public.sets s ON s.id = c.set_id
+    WHERE s.canonical_key IN ('exTrainerKit2Minun', 'exTrainerKit2Plusle',
+                              'exTrainerKitLatias', 'exTrainerKitLatios');
+
     -- Each child must end with exactly its authoritative roster size.
     SELECT count(*) INTO v_kit_empty FROM (
         SELECT s.canonical_key, count(c.id) AS n
@@ -509,8 +586,16 @@ BEGIN
     IF v_kit_identities <> 0 THEN
         RAISE EXCEPTION 'Postcondition failed: % Trainer Kit external identities still attached', v_kit_identities;
     END IF;
-    IF v_cohort <> 163 THEN
-        RAISE EXCEPTION 'Postcondition failed: expected a 163-set daily cohort, found %', v_cohort;
+    -- This migration repairs contamination; it must not resize the cohort.
+    -- Compared against the pre-mutation reading rather than a literal.
+    IF v_cohort <> v_cohort_before THEN
+        RAISE EXCEPTION
+            'Postcondition failed: scrape-ready cohort changed from % to %; this migration must not resize it',
+            v_cohort_before, v_cohort;
+    END IF;
+    IF v_kits_still_in_cohort <> 0 THEN
+        RAISE EXCEPTION
+            'Postcondition failed: % Trainer Kit set(s) re-entered the scrape-ready cohort', v_kits_still_in_cohort;
     END IF;
     IF v_total_sets <> 210 THEN
         RAISE EXCEPTION 'Postcondition failed: canonical set count changed to % (expected 210)', v_total_sets;

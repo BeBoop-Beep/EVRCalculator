@@ -289,12 +289,46 @@ def test_repair_migration_disambiguates_kit_cards_by_deck(repair_migration_sql):
     assert "deck_name" in repair_migration_sql
 
 
+def test_repair_migration_has_no_hardcoded_cohort_size(repair_migration_sql):
+    """A literal cohort count is cross-migration coupling that goes stale.
+
+    The original guard asserted a 167-set cohort. Once migration 20260822110000
+    detached the four Trainer Kits the cohort became 163, and this migration
+    aborted on a number that had nothing to do with what it repairs. The cohort
+    is derived by `pokemon_scrape_ready_cohort()`; this migration only asserts
+    that it does not CHANGE.
+    """
+    for literal in ("<> 167", "<> 163", "= 167", "= 163"):
+        assert literal not in repair_migration_sql, (
+            f"hardcoded cohort size {literal!r} reintroduced"
+        )
+    assert "v_cohort <> v_cohort_before" in repair_migration_sql
+
+
+def test_repair_migration_precondition_is_ownership_scoped(repair_migration_sql):
+    """It verifies 110000's OUTCOME semantically, and says so when unmet."""
+    precheck = repair_migration_sql.split("$precheck$", 2)[1]
+    assert "catalog_only = TRUE" in precheck
+    assert "ready_for_daily_scrape = FALSE" in precheck
+    assert "apply 110000 first" in precheck
+    # and the Base/Expedition source assumptions this migration acts on
+    assert "/priceguide/set/604/" in precheck
+    assert "/priceguide/set/1375/" in precheck
+
+
+def test_repair_migration_retains_exact_drift_guards(repair_migration_sql):
+    """Removing the cohort guard must not weaken the row-count guards."""
+    precheck = repair_migration_sql.split("$precheck$", 2)[1]
+    for guard in ("<> 101", "<> 0", "<> 62888", "<> 44", "<> 165"):
+        assert guard in precheck, f"lost precondition drift guard {guard!r}"
+
+
 def test_repair_migration_asserts_its_invariants(repair_migration_sql):
     for invariant in (
         "contaminated /102 Expedition cards remain",
         "Trainer Kit TCGplayer URLs still active",
         "Trainer Kit external identities still attached",
-        "expected a 163-set daily cohort",
+        "this migration must not resize it",
         "canonical set count changed",
         "orphan observations",
         "base observations changed",
