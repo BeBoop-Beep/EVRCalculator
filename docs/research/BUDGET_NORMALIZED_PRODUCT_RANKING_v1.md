@@ -4,6 +4,16 @@
 **Status:** Internal infrastructure only. No customer-facing exposure.
 **Supersedes nothing; extends** `OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md`.
 
+> **⚠ See also:** `BUDGET_NORMALIZED_PRODUCT_RANKING_v1_VALIDATION_APPENDIX.md` (2026-08-22).
+> That appendix freezes the V1 semantics as **budget-constrained whole-unit** ranking and
+> **corrects two claims made below**, which are left unedited here for the historical record:
+> (1) the "zero dominance inversions" figure was a measurement artifact — raw metrics were read
+> off the Financial RIP V4 projection, whose `audit.normalizedInputs` is empty, so the four-metric
+> dominance test could never fire; properly measured, the allocation is 0.044% inverted at $1,350,
+> not 0%; and (2) the method described below as "equal-committed-capital" is in fact
+> floor-to-budget — the two produce materially different top-5 results (overlap 2/5), so the
+> `equal_committed_capital_cross_format_v1` scope name requires renaming.
+
 ## Why universal Overall Rank was rejected
 
 Rank is budget-dependent: no single tested budget (or a practical full-cohort anchor at the raw
