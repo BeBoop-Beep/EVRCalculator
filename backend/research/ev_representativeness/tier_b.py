@@ -115,7 +115,15 @@ def run_tier_b(
     started = time.perf_counter()
     groups = dict(rarity_groups or DEFAULT_RARITY_GROUPS)
 
-    card_groups = extract_scarletandviolet_card_groups(config, calculation_input)
+    # The extractor adds this identity to its private copy. Special-pack row
+    # resolution, however, operates on the frame passed directly to the
+    # simulator. Stamp the same stable identity there as well; otherwise those
+    # rows fall back to reset DataFrame indices and can collide with unrelated
+    # pool entities (most visibly on god packs).
+    simulation_input = calculation_input.copy()
+    if "__source_row_index__" not in simulation_input.columns:
+        simulation_input["__source_row_index__"] = simulation_input.index
+    card_groups = extract_scarletandviolet_card_groups(config, simulation_input)
     validate_pack_state_model(config, card_groups)
 
     # The seed is derived from the run identity, so the same authoritative run
@@ -138,7 +146,7 @@ def run_tier_b(
         reverse_pool=card_groups["reverse"],
         slots_per_rarity=config.SLOTS_PER_RARITY,
         config=config,
-        df=calculation_input,
+        df=simulation_input,
         rarity_pull_counts=rarity_pull_counts,
         rarity_value_totals=rarity_value_totals,
         pack_logs=None,
@@ -159,9 +167,14 @@ def run_tier_b(
     rebuilt = decomposition.pack_values()
     max_error = float(np.max(np.abs(rebuilt - values))) if values.size else 0.0
     if max_error > 1e-6:
+        mismatch = np.flatnonzero(np.abs(rebuilt - values) > 1e-6)
+        first = int(mismatch[0])
         raise RuntimeError(
             f"{canonical_key}: recorded decomposition does not reproduce the simulated "
-            f"pack values (max abs error {max_error:.9f}); card attribution would be incomplete"
+            f"pack values (max abs error {max_error:.9f}; mismatches={mismatch.size}; "
+            f"first_pack={first}; simulated={values[first]:.9f}; "
+            f"recorded={rebuilt[first]:.9f}; recorded_draws={decomposition.pack_lengths()[first]}); "
+            "card attribution would be incomplete"
         )
 
     contributions = compute_card_contributions(decomposition)

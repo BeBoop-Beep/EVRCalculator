@@ -121,12 +121,8 @@ def load_dataset(client: Any, *, market_date: str) -> Dict[str, Any]:
         ):
             products[str(row["calculation_run_id"])].append(row)
 
-    # Curve rows: paged, filtered to the metrics the report actually uses.
-    wanted_metrics = (
-        [f"realization_ge_{t:.2f}" for t in REALIZATION_TARGETS]
-        + [f"within_tau_{t:.2f}" for t in CONVERGENCE_TOLERANCES]
-        + ["session_recovers_cost", "session_p50_per_pack", "session_mean_per_pack"]
-    )
+    # Curves are the primary reusable research dataset, so export every metric,
+    # not merely the subset currently rendered in Markdown.
     curve_rows: List[Dict[str, Any]] = []
     for start in range(0, len(run_ids), 5):
         chunk = run_ids[start : start + 5]
@@ -134,11 +130,14 @@ def load_dataset(client: Any, *, market_date: str) -> Dict[str, Any]:
         while True:
             page = _rows(
                 client.table("ev_representativeness_curve")
-                .select("calculation_run_id,scope_kind,sealed_product_key,pack_count,metric_key,"
-                        "estimate,ci_lower,ci_upper,session_count,stage")
+                .select("*")
                 .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
                 .in_("calculation_run_id", chunk)
-                .in_("metric_key", wanted_metrics)
+                .order("calculation_run_id")
+                .order("scope_kind")
+                .order("pack_count")
+                .order("metric_key")
+                .order("stage")
                 .range(offset, offset + 999)
                 .execute()
             )
@@ -150,24 +149,31 @@ def load_dataset(client: Any, *, market_date: str) -> Dict[str, Any]:
     cards: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for start in range(0, len(run_ids), 5):
         chunk = run_ids[start : start + 5]
-        for row in _rows(
-            client.table("ev_representativeness_card_contribution")
-            .select("calculation_run_id,card_name,card_number,rarity_key,price_used,"
-                    "expected_copies_per_pack,ev_contribution_per_pack,ev_share,ev_rank")
-            .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
-            .in_("calculation_run_id", chunk)
-            .lte("ev_rank", 10)
-            .execute()
-        ):
-            cards[str(row["calculation_run_id"])].append(row)
+        offset = 0
+        while True:
+            page = _rows(
+                client.table("ev_representativeness_card_contribution")
+                .select("*")
+                .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
+                .in_("calculation_run_id", chunk)
+                .order("calculation_run_id")
+                .order("source_row_index")
+                .order("price_column")
+                .range(offset, offset + 999)
+                .execute()
+            )
+            for row in page:
+                cards[str(row["calculation_run_id"])].append(row)
+            if len(page) < 1000:
+                break
+            offset += 1000
 
     counterfactuals: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for start in range(0, len(run_ids), 5):
         chunk = run_ids[start : start + 5]
         for row in _rows(
             client.table("ev_representativeness_counterfactual")
-            .select("calculation_run_id,scenario_key,scenario_family,ev,p50,typical_capture,"
-                    "top1_outcome_ev_share,delta_vs_baseline")
+            .select("*")
             .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
             .in_("calculation_run_id", chunk)
             .execute()
@@ -189,7 +195,7 @@ def load_dataset(client: Any, *, market_date: str) -> Dict[str, Any]:
 # Flatten to the analysis frame
 # ---------------------------------------------------------------------------
 
-CURVE_POINTS_OF_INTEREST = (1, 6, 9, 11, 18, 36, 72, 144)
+CURVE_POINTS_OF_INTEREST = (1, 6, 9, 11, 18, 36, 50, 72, 100, 150, 250, 500, 1000)
 
 
 def build_frame(dataset: Mapping[str, Any]) -> List[Dict[str, Any]]:
@@ -428,15 +434,44 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for key in record:
             if key not in columns:
                 columns.append(key)
-    csv_path = out_dir / f"ev_representativeness_set_level_{args.market_date}.csv"
+    csv_path = out_dir / "ev_representativeness_set_summary.csv"
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         for record in frame:
             writer.writerow(record)
 
+    def export_rows(filename: str, rows: Sequence[Mapping[str, Any]]) -> Path:
+        path = out_dir / filename
+        fields: List[str] = []
+        for row in rows:
+            for key in row:
+                if key not in fields:
+                    fields.append(key)
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields)
+            if fields:
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow({k: json.dumps(v, sort_keys=True) if isinstance(v, (dict, list)) else v
+                                     for k, v in row.items()})
+        return path
+
+    curve_path = export_rows("ev_representativeness_curve.csv", dataset["curves"])
+    card_path = export_rows(
+        "ev_representativeness_card_contributions.csv",
+        [row for rows in dataset["cards"].values() for row in rows],
+    )
+    counterfactual_path = export_rows(
+        "ev_representativeness_counterfactuals.csv",
+        [row for rows in dataset["counterfactuals"].values() for row in rows],
+    )
+
     analysis = run_hypotheses(frame)
-    json_path = out_dir / f"ev_representativeness_analysis_{args.market_date}.json"
+    correlation_rows = [row for family, rows in analysis.items() for row in rows
+                        for row in [dict(row, hypothesisFamily=family)]]
+    correlation_path = export_rows("ev_representativeness_correlations.csv", correlation_rows)
+    json_path = out_dir / "ev_representativeness_results.json"
     json_path.write_text(
         json.dumps(
             {
@@ -454,10 +489,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
 
     report = render_report(dataset, frame, analysis)
-    md_path = out_dir / f"EV_REPRESENTATIVENESS_RESEARCH_REPORT_{args.market_date}.md"
+    md_path = out_dir / "EV_REPRESENTATIVENESS_RESEARCH_REPORT.md"
     md_path.write_text(report, encoding="utf-8")
 
     print(f"wrote {csv_path}")
+    print(f"wrote {curve_path}")
+    print(f"wrote {card_path}")
+    print(f"wrote {counterfactual_path}")
+    print(f"wrote {correlation_path}")
     print(f"wrote {json_path}")
     print(f"wrote {md_path}")
     return 0
