@@ -593,13 +593,23 @@ def test_tier_a_exists_before_same_run_snapshot_projection(monkeypatch, patched)
 
 def test_one_tier_a_failure_is_recorded_but_does_not_block_other_sets(monkeypatch, patched):
     from backend.db.services import ev_representativeness_service as service
+    from backend.db.services.ev_representativeness_public_service import project_opening_outcome_profile_v1
     from backend.db.services.opening_simulation_gate import OpeningSetSimulationStatus, OpeningSimulationFreshnessReport
 
     attempts = []
+    research_rows = {}
     def fake_build(_client, run_id):
         attempts.append(run_id)
         if run_id == "run-bad":
             raise RuntimeError("artifact read failed")
+        research_rows[run_id] = {
+            "calculation_run_id": run_id, "research_method_version": "ev_representativeness_v1",
+            "market_date": MARKET_DATE, "source_artifact_sha256": "b" * 64, "ev": 5, "p50": 2,
+            "return_ratio_buckets_json": {"cost": 10, "sampleSize": 8, "buckets": [
+                {"ratioFloor": floor, "ratioCeiling": ceiling, "occurrenceCount": 1, "probability": .125}
+                for floor, ceiling in ((0,.25),(.25,.5),(.5,.75),(.75,1),(1,1.5),(1.5,2),(2,5),(5,None))
+            ]},
+        }
         return {"status": "research_built", "calculationRunId": run_id}
 
     monkeypatch.setattr(service, "build_tier_a_for_run", fake_build)
@@ -610,6 +620,10 @@ def test_one_tier_a_failure_is_recorded_but_does_not_block_other_sets(monkeypatc
     status = orchestrator._build_ev_representativeness_tier_a(object(), freshness, dry_run=False)
     assert attempts == ["run-good", "run-bad"]
     assert status == "research_partial eligible=2 existing=0 built=1 failed=1"
+    assert project_opening_outcome_profile_v1(
+        research_rows["run-good"], expected_calculation_run_id="run-good"
+    )["calculationRunId"] == "run-good"
+    assert research_rows.get("run-bad") is None  # affected target has no optional projection source
 
     # The orchestration treats that status as observability, never as a gate.
     calls = []

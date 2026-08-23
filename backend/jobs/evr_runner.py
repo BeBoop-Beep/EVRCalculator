@@ -692,7 +692,7 @@ class EVRRunOrchestrator:
         ev_representativeness_status: Dict[str, Any]
         try:
             if metadata.get("trigger") == "daily_batch":
-                raise RuntimeError("deferred_to_post_publication_sweep")
+                raise RuntimeError("deferred_to_daily_pre_snapshot_sweep")
             from backend.db.clients.supabase_client import create_service_role_client
             from backend.db.services.ev_representativeness_service import build_tier_a_for_run
 
@@ -700,9 +700,9 @@ class EVRRunOrchestrator:
                 create_service_role_client(), run_id
             )
         except Exception as exc:  # noqa: BLE001 - explicitly non-blocking boundary
-            if str(exc) == "deferred_to_post_publication_sweep":
+            if str(exc) == "deferred_to_daily_pre_snapshot_sweep":
                 ev_representativeness_status = {
-                    "status": "deferred_to_post_publication_sweep",
+                    "status": "deferred_to_daily_pre_snapshot_sweep",
                     "calculationRunId": run_id,
                 }
             else:
