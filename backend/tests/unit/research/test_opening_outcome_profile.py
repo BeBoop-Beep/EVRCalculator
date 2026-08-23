@@ -26,3 +26,19 @@ def test_invalid_persisted_partition_is_rejected():
     ]}
     with pytest.raises(ValueError):
         profile_from_persisted(raw)
+
+
+def test_each_probability_must_reconcile_to_its_own_occurrence_count():
+    profile = compute_profile([0, 1, 2, 3, 6], 10)
+    raw = {"cost": 10, "sampleSize": 5, "buckets": [
+        {"ratioFloor": row["floorRatio"], "ratioCeiling": row["ceilingRatio"],
+         "occurrenceCount": row["occurrenceCount"], "probability": row["probability"]}
+        for row in profile["buckets"]
+    ]}
+    raw["buckets"][0]["probability"], raw["buckets"][2]["probability"] = (
+        raw["buckets"][2]["probability"], raw["buckets"][0]["probability"]
+    )
+    assert sum(row["occurrenceCount"] for row in raw["buckets"]) == raw["sampleSize"]
+    assert sum(row["probability"] for row in raw["buckets"]) == pytest.approx(1)
+    with pytest.raises(ValueError, match="probability/count mismatch"):
+        profile_from_persisted(raw)

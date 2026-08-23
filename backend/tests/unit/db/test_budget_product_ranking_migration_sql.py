@@ -1,11 +1,9 @@
 """Contract: internal Budget-Constrained Whole-Unit Product Ranking storage.
 
-Migration 20260822213027 has NOT been applied to production (verified: none of
-its three tables exist there) and has never been pushed, so the V1 freeze
-edits it in place rather than stacking a follow-on migration — matching the
-repo's own discipline, where a follow-on is used precisely WHEN the original
-is already applied (see `test_sealed_product_results_access_migration_sql.py`,
-which stacks 065 onto 064 for exactly that reason).
+The SQL was originally authored as migration 20260822213027. The connected
+Supabase migration API recorded the authorized production apply as version
+20260823193538, so the repository filename mirrors that effective remote
+identity. The SQL itself is unchanged.
 
 Comments are stripped: executable SQL is the contract, prose is not.
 """
@@ -14,7 +12,7 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[3]
 MIGRATIONS = BACKEND / "db" / "migrations"
-MIGRATION = MIGRATIONS / "20260822213027_create_budget_normalized_product_rankings.sql"
+MIGRATION = MIGRATIONS / "20260823193538_20260822213027_create_budget_normalized_product_rankings.sql"
 SUPABASE_MIRROR = BACKEND.parent / "supabase" / "migrations" / MIGRATION.name
 
 

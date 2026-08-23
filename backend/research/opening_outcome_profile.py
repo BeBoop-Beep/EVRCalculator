@@ -60,6 +60,8 @@ def profile_from_persisted(raw: Mapping[str, Any]) -> dict[str, Any]:
         probability = float(source.get("probability"))
         if count < 0 or not math.isfinite(probability) or probability < 0 or probability > 1:
             raise ValueError("opening outcome profile bucket value is invalid")
+        if not math.isclose(probability, count / sample_size, rel_tol=0.0, abs_tol=1e-12):
+            raise ValueError("opening outcome profile probability/count mismatch")
         total_count += count
         buckets.append({"key": key, "floorRatio": floor, "ceilingRatio": ceiling,
                         "probability": probability, "occurrenceCount": count,

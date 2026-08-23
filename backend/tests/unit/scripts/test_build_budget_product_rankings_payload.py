@@ -23,7 +23,7 @@ from backend.scripts.build_budget_normalized_product_rankings import to_publicat
 
 MIGRATION = (
     Path(__file__).resolve().parents[3]
-    / "db" / "migrations" / "20260822213027_create_budget_normalized_product_rankings.sql"
+    / "db" / "migrations" / "20260823193538_20260822213027_create_budget_normalized_product_rankings.sql"
 )
 
 

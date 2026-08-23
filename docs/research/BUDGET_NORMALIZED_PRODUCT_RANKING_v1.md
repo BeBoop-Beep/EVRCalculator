@@ -256,7 +256,7 @@ standard bands + Full Market; the calculator itself is budget-agnostic and ready
 
 ## Internal production architecture (Phase 8)
 
-- **Migration:** `backend/db/migrations/20260822213027_create_budget_normalized_product_rankings.sql`
+- **Migration:** `backend/db/migrations/20260823193538_20260822213027_create_budget_normalized_product_rankings.sql`
   — `budget_product_ranking_snapshots`, `budget_product_ranking_rows`,
   `budget_product_ranking_latest`, and `publish_budget_product_ranking_snapshot(...)`. Mirrors the
   existing `pokemon_rip_stats_snapshots` publication pattern (one coherent snapshot, atomic
@@ -268,14 +268,14 @@ standard bands + Full Market; the calculator itself is budget-agnostic and ready
   `market_date`/version triple as its snapshot, rejects duplicate `(product, budget, type)` keys,
   and rejects any ranked row missing its Financial/Overall score — failing the whole publish rather
   than constructing a partially-mixed snapshot.
-- **NOT APPLIED to the live database.** Per this session's established boundary around production
-  writes (raised and confirmed with the user earlier in this task sequence), I authored the
-  migration but did not execute schema DDL against the live database myself — that requires the
-  repository's normal migration-deployment process, which I do not have visibility into from this
-  environment. The builder script (`build_budget_normalized_product_rankings.py`) was exercised in
-  `--dry-run` mode against the live, real, authoritative product cohort — every computed number in
-  this document is real, not simulated — but its `--commit` path (which calls the new RPC) cannot
-  run until the migration is applied.
+- **Production migration identity:** the SQL was originally authored under version
+  `20260822213027`. The authorized production apply occurred through the connected Supabase
+  migration API, which recorded version `20260823193538` with the name
+  `20260822213027_create_budget_normalized_product_rankings`. The repository migration was
+  therefore renamed to
+  `20260823193538_20260822213027_create_budget_normalized_product_rankings.sql` so local history
+  matches production. The SQL content is unchanged. No ranking snapshot was published as part of
+  that schema apply or this history-alignment change.
 - **Builder:** `backend/scripts/build_budget_normalized_product_rankings.py`. Idempotent (same
   input → same output, verified by the engine's determinism tests); `--dry-run` (default-safe,
   writes only a local JSON) vs `--commit` (additionally publishes, pending migration application).
@@ -314,8 +314,8 @@ remain green.
   validation of one frozen cohort is not a promise that market drift can never change the result.
 - The builder now records per-budget utilization diagnostics and timings in its local dry-run
   artifact. These diagnostics remain internal and are not part of any public payload.
-- The migration is authored but not applied to the live database (see above) — `--commit`
-  publication has not actually been exercised end-to-end.
+- The migration is applied to the live database under production version `20260823193538`, but
+  `--commit` publication has not yet been exercised end-to-end.
 - `chanceToRecoverCapital` is populated from Financial RIP V3's canonical
   `true_win_probability` raw input and persisted in the internal ranking row. It is computed for
   the actual whole-unit strategy; unused cash is not passed into that metric.
@@ -325,7 +325,7 @@ remain green.
 
 # FINAL DATA CONTRACT (V1 FROZEN)
 
-Migration `20260822213027_create_budget_normalized_product_rankings.sql`.
+Migration `20260823193538_20260822213027_create_budget_normalized_product_rankings.sql`.
 
 ## `budget_product_ranking_snapshots`
 
