@@ -41,6 +41,7 @@ def test_market_audit_rejects_normalized_index_tamper(monkeypatch):
     expected = market_rows(); persisted = copy.deepcopy(expected); persisted[0]["normalized_index_value"] = 999
     monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: expected)
     monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: persisted)
+    monkeypatch.setattr(market_audit, "read_raw_index_history_for_audit", lambda *_a, **_k: persisted)
     public = market_audit.build_market_overview(persisted, market_date="2026-08-17")
     result = market_audit.audit(MarketClient(public), "2026-08-17")
     assert result["status"] == "failed"
@@ -50,6 +51,7 @@ def test_market_audit_rejects_normalized_index_tamper(monkeypatch):
 def test_market_audit_rejects_public_basket_or_index_tamper(monkeypatch):
     rows = market_rows(); monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: rows)
     monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: rows)
+    monkeypatch.setattr(market_audit, "read_raw_index_history_for_audit", lambda *_a, **_k: rows)
     public = market_audit.build_market_overview(rows, market_date="2026-08-17"); public["raw"]["basketValue"] += 1
     result = market_audit.audit(MarketClient(public), "2026-08-17")
     assert result["status"] == "failed"
@@ -125,6 +127,7 @@ def test_market_audit_reports_a_public_payload_missing_the_tracked_value_fields(
     rows = market_rows()
     monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: rows)
     monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: rows)
+    monkeypatch.setattr(market_audit, "read_raw_index_history_for_audit", lambda *_a, **_k: rows)
     public = market_audit.build_market_overview(rows, market_date="2026-08-17")
     # A snapshot published before the additive tracked-value extension.
     for family in ("raw", "topChase"):
@@ -139,6 +142,7 @@ def test_market_audit_rejects_a_tampered_public_tracked_value_change(monkeypatch
     rows = market_rows()
     monkeypatch.setattr(market_audit, "build_market_index_history", lambda *_a, **_k: rows)
     monkeypatch.setattr(market_audit, "read_index_history", lambda *_a, **_k: rows)
+    monkeypatch.setattr(market_audit, "read_raw_index_history_for_audit", lambda *_a, **_k: rows)
     public = market_audit.build_market_overview(rows, market_date="2026-08-17")
     public["raw"]["basketChanges"]["SinceTracking"]["percent"] += 1
     result = market_audit.audit(MarketClient(public), "2026-08-17")

@@ -45,6 +45,13 @@ def backfill() -> dict:
     return build_lifecycle_backfill()
 
 
+@pytest.fixture(scope="module")
+def config_map() -> dict:
+    from backend.scripts.run_pokemon_set_scrape import build_valid_set_key_registry
+
+    return build_valid_set_key_registry()["config_map"]
+
+
 # --- config flag discovery ---------------------------------------------------
 class _CatalogOnlyConfig:
     CATALOG_ONLY = True
@@ -150,24 +157,98 @@ def test_url_normalization_is_conservative():
 
 
 # --- migration list generation ----------------------------------------------
-def test_migration_catalog_only_list_matches_configs(migration_sql, backfill):
-    assert _sql_array_values(migration_sql, "v_catalog_only_keys") == backfill["catalog_only_keys"]
+def test_migration_058_catalog_only_list_is_a_frozen_subset_of_current_configs(
+    migration_sql, backfill
+):
+    """Migration 058's list is history, not a mirror of today's configuration.
+
+    The previous version of this test asserted byte-equality between 058's
+    hand-embedded array and the CURRENT ``SET_CONFIG_MAP``. That premise is
+    unsound: 058 is applied in production and immutable, while lifecycle state
+    keeps evolving forward. Every later set that legitimately becomes catalog-only
+    — the four EX Trainer Kit children detached from their combined TCGplayer
+    groups on 2026-08-22, for example — made the old assertion fail and applied
+    pressure to rewrite applied history to silence it. That is exactly backwards.
+
+    What must still hold is the containment direction: a set 058 recorded as
+    catalog-only must NOT have silently become daily-scrape-ready since. Sets may
+    join the catalog-only population over time; they may not quietly leave it.
+    """
+    frozen = _sql_array_values(migration_sql, "v_catalog_only_keys")
+    current = set(backfill["catalog_only_keys"])
+
+    regressed = sorted(key for key in frozen if key not in current)
+    assert not regressed, (
+        "sets recorded catalog-only by migration 058 are no longer catalog-only: "
+        f"{regressed}"
+    )
 
 
-def test_migration_058_simulation_list_is_a_frozen_historical_artifact(migration_sql, backfill):
+def test_migration_058_simulation_list_is_a_frozen_historical_artifact(migration_sql):
     """Migration 058 is APPLIED IN PRODUCTION and must never be rewritten.
 
     Under 058's (now superseded) `not catalog_only` default, its no-simulation
-    list was by construction identical to its catalog-only list. That is frozen
-    history. The corrected capability lives in migration 059, and the generator's
-    current `no_simulation_keys` is deliberately NOT compared against 058 — doing
-    so would pressure someone into editing an already-applied migration.
+    list was by construction identical to its catalog-only list. That internal
+    identity is the frozen contract worth asserting. The corrected capability
+    lives in migration 059, and neither list is compared against current configs —
+    doing so would pressure someone into editing an already-applied migration.
     """
     assert _sql_array_values(migration_sql, "v_no_simulation_keys") == _sql_array_values(
         migration_sql, "v_catalog_only_keys"
     )
-    # And that frozen list is still exactly today's catalog-only set.
-    assert _sql_array_values(migration_sql, "v_catalog_only_keys") == backfill["catalog_only_keys"]
+
+
+def test_a_config_that_drops_its_card_url_is_carried_by_a_forward_migration(config_map):
+    """The latest EFFECTIVE state — 058 plus every forward migration — must
+    account for current configuration, for the one change sync cannot make.
+
+    This is the assertion the old test was reaching for, done correctly. Most
+    lifecycle changes need no migration at all: ``sync_pokemon_era_and_set_metadata``
+    propagates flags like ``catalog_only`` straight from the configs, which is how
+    e.g. ``megaEvolutionPromos`` became catalog-only without one.
+
+    CLEARING a details URL is the exception. ``_coalesce_value`` treats a None
+    source as "no opinion" and keeps the EXISTING database value — a deliberate
+    guard so a config parse failure can never wipe every set's URL. The
+    consequence is that setting ``CARD_DETAILS_URL = None`` in a config is by
+    itself inert: without an explicit migration the database keeps serving the old
+    URL, and the set silently stays in the daily cohort. That is precisely how a
+    detached set would keep scraping a source it no longer claims.
+
+    Scope note: a set that never had a URL (the promo/miscellany sets such as
+    ``bestOfGame`` and the Black Star Promos) has nothing stale to clear and needs
+    no migration. Static configuration cannot distinguish "never had one" from
+    "gave one up", so this test asserts the concrete, known set of detachments.
+    The general config-vs-database divergence check is the runtime preflight's
+    job (``pokemon_scrape_runtime_preflight``, ``MISMATCH_URL``), which compares
+    live rows rather than guessing from source.
+    """
+    detached_by_this_repair = [
+        "exTrainerKit2Minun",
+        "exTrainerKit2Plusle",
+        "exTrainerKitLatias",
+        "exTrainerKitLatios",
+    ]
+    for key in detached_by_this_repair:
+        assert resolve_config_lifecycle_flags(config_map[key])["card_details_url"] is None
+
+    all_sql = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(_MIGRATIONS_DIR.glob("*.sql"))
+    )
+    uncovered = sorted(
+        key
+        for key in detached_by_this_repair
+        if not re.search(
+            rf"'{re.escape(key)}'[^;]*?card_details_url\s*=\s*NULL"
+            rf"|card_details_url\s*=\s*NULL[^;]*?'{re.escape(key)}'",
+            all_sql,
+            re.DOTALL,
+        )
+    )
+    assert not uncovered, (
+        "config declares no card_details_url but no migration NULLs it, so the "
+        f"database keeps the stale URL: {uncovered}"
+    )
 
 
 # --- migration 059: corrected opening-simulation capability -------------------

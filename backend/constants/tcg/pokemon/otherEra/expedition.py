@@ -13,12 +13,21 @@ class SetExpeditionConfig(BaseSetConfig):
     SYMBOL_IMAGE_URL = None
     LOGO_IMAGE_URL = None
 
-    # Authoritative TCGplayer catalog identity from the cold-start baseline.
-    TCGPLAYER_SET_ID = '1375'
+    # Retired duplicate of `expeditionBaseSet` (ecard1).
+    #
+    # This cold-start catalog row and `expeditionBaseSet` both modelled the same
+    # real-world set. `expeditionBaseSet` is the canonical owner: it holds the
+    # ecard1 identity, the daily-cohort slot and the public daily history, and it
+    # now owns TCGplayer group 1375 plus the authoritative 165-card roster that
+    # was consolidated out of this row.
+    #
+    # The source URLs are cleared so one provider group has exactly one canonical
+    # owner. Re-adding them here would recreate the duplicate-source defect that
+    # blocked batch 26.
     TCGPLAYER_SET_NAME = 'Expedition'
 
-    CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=1'
-    SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=25'
+    CARD_DETAILS_URL = None
+    SEALED_DETAILS_URL = None
     PRICE_ENDPOINTS = {}
 
     # Historical catalog identity added for market/card coverage only.

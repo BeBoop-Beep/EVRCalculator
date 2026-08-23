@@ -51,6 +51,7 @@ function selectSubjectPath(value) {
     cardName: name,
     cardNumber: path.cardNumber ?? path.card_number ?? null,
     rarity: path.rarity ?? null,
+    currentMarketPrice: numberOrNull(path.currentMarketPrice ?? path.current_market_price ?? path.marketPrice ?? path.market_price),
     imageUrl: path.imageUrl ?? path.image_url ?? null,
     modeledProbability: numberOrNull(path.modeledProbability ?? path.modeled_probability),
     impliedOdds: odds !== null && odds > 0 ? odds : null,

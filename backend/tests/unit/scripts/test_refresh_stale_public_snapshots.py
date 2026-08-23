@@ -52,7 +52,10 @@ def test_rankings_without_canonical_metadata_is_stale(monkeypatch):
 
 def _canonical_rankings_payload():
     return {
-        "targets": [{"overallRipRankComparisonStatus1d": "unavailable"}],
+        "targets": [{
+            "overallRipV10": {"rank": 1},
+            "overallRipRankComparisonStatus1d": "unavailable",
+        }],
         "meta": {
             "snapshot": {
                 "publicationId": "publication-1", "marketDate": "2026-08-01",
@@ -74,6 +77,75 @@ def _stub_structural_reads(monkeypatch):
 
     monkeypatch.setattr(refresh, "_read_snapshot_row", read)
     return payload
+
+
+def _stub_rankings_payload(monkeypatch, payload):
+    monkeypatch.setattr(refresh, "_latest_for_explore_rankings", lambda _client: (None, []))
+    monkeypatch.setattr(refresh, "_leaderboard_contract_staleness", lambda _client: ([], []))
+
+    def read(_client, table, *_args, **_kwargs):
+        if table == "pokemon_explore_rankings_snapshot_latest":
+            return {"updated_at": "2026-08-01T08:00:00Z", "ranking_payload_json": payload}
+        return {"id": "publication-1", "publication_status": "complete"}
+
+    monkeypatch.setattr(refresh, "_read_snapshot_row", read)
+
+
+def _rankings_payload_with_cohort(*, ranked_targets, ranked_set_count=22):
+    payload = _canonical_rankings_payload()
+    payload["targets"] = [
+        {
+            "targetId": f"ranked-{index}",
+            "overallRipV10": {"rank": index + 1},
+            "overallRipRankComparisonStatus1d": "unavailable",
+        }
+        for index in range(ranked_targets)
+    ] + [
+        {
+            "targetId": f"discovery-{index}",
+            "overallRipRankComparisonStatus1d": "unavailable",
+        }
+        for index in range(12)
+    ]
+    payload["meta"]["publicAnalyticsCohort"]["overallRanked"]["rankedSetCount"] = ranked_set_count
+    return payload
+
+
+def test_rankings_allows_34_total_targets_when_only_22_are_canonically_ranked(monkeypatch):
+    payload = _rankings_payload_with_cohort(ranked_targets=22)
+    original_targets = payload["targets"]
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is False
+    assert len(payload["targets"]) == 34
+    assert payload["targets"] is original_targets
+    assert all("overallRipV10" not in target for target in payload["targets"][22:])
+
+
+@pytest.mark.parametrize("ranked_targets", [21, 23])
+def test_rankings_ranked_target_count_must_match_ranked_set_count(monkeypatch, ranked_targets):
+    payload = _rankings_payload_with_cohort(ranked_targets=ranked_targets)
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is True
+    assert result.reason == "complete public ranked cohort marker/count invalid"
+
+
+@pytest.mark.parametrize("marker_state", ["zero", "absent"])
+def test_rankings_requires_a_positive_ranked_set_count(monkeypatch, marker_state):
+    payload = _rankings_payload_with_cohort(ranked_targets=22, ranked_set_count=0)
+    if marker_state == "absent":
+        payload["meta"]["publicAnalyticsCohort"]["overallRanked"].pop("rankedSetCount")
+    _stub_rankings_payload(monkeypatch, payload)
+
+    result = refresh._global_snapshot_staleness(object(), family="explore_rankings")
+
+    assert result.stale is True
+    assert result.reason == "complete public ranked cohort marker/count invalid"
 
 
 def test_canonical_rankings_shape_is_fresh(monkeypatch):

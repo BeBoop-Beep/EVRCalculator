@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import public_read_client
+from backend.desirability.composite import assign_composite_tier
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -126,6 +127,13 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "productFamilyLabel": FAMILY_LABELS.get(family, family.replace("_", " ").title()),
         "familyRank": rank,
         "familySize": size,
+        # Reuses the ONE canonical absolute-score tier bucketer already in the
+        # repo (S>=90, A>=75, B>=55, C>=35, D>=15, else F — desirability
+        # composite tiers), rather than inventing new cutoffs for this
+        # context. Derived server-side from the same overall_rip_v10_score
+        # that produced this row's rank, so rank and tier always describe the
+        # identical cohort/score.
+        "familyTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
         "marketPrice": row.get("product_market_cost"),
         "overallRipScore": row.get("overall_rip_v10_score"),
         "overallRipVersion": row.get("overall_rip_v10_version"),

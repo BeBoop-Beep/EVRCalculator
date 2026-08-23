@@ -316,7 +316,8 @@ def test_v4_does_not_unlock_a_cross_family_comparison():
 def test_the_scope_reason_states_that_v4_does_not_change_it():
     reason = scope.SEALED_PRODUCT_COMPARISON_SCOPE_REASON
     assert "V4" in reason
-    assert "equal-committed-capital" in reason
+    assert "V4 natural-unit scores are not cross-format comparable" in reason
+    assert "validated budget-constrained whole-unit framework" in reason
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,11 @@
 "use client";
 
-import { getCompactWindowLabel, needsAccessibleWindowLabel } from "@/lib/explore/compactWindowLabel.mjs";
+
+// React is imported explicitly (rather than relying on the bundler's automatic
+// JSX runtime) so this control can be rendered directly under `tsx --test`,
+// which compiles JSX to React.createElement.
+import React from "react";
+import { getCompactWindowLabel, needsAccessibleWindowLabel } from "../../lib/explore/compactWindowLabel.mjs";
 
 export const TIME_RANGE_OPTIONS = [
   { key: "1D", desktopLabel: "1D", mobileLabel: "1D", ariaLabel: "1D" },

@@ -1,0 +1,840 @@
+{
+  "methodVersion": "ev_representativeness_v1",
+  "totalHistoricalArtifacts": 88,
+  "eligibleRuns": 88,
+  "alreadyBuiltRuns": 88,
+  "backfillableRuns": 0,
+  "uniqueMarketDates": [
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-20",
+    "2026-08-22"
+  ],
+  "earliestRecoverableDate": "2026-08-17",
+  "latestRecoverableDate": "2026-08-22",
+  "observationsPerDate": {
+    "2026-08-17": 22,
+    "2026-08-18": 22,
+    "2026-08-20": 22,
+    "2026-08-22": 22
+  },
+  "observationsPerSet": {
+    "ascendedHeroes": 4,
+    "blackBolt": 4,
+    "chaosRising": 4,
+    "destinedRivals": 4,
+    "journeyTogether": 4,
+    "megaEvolution": 4,
+    "obsidianFlames": 4,
+    "paldeaEvolved": 4,
+    "paldeanFates": 4,
+    "paradoxRift": 4,
+    "perfectOrder": 4,
+    "phantasmalFlames": 4,
+    "pitchBlack": 4,
+    "prismaticEvolutions": 4,
+    "scarletAndViolet151": 4,
+    "scarletAndVioletBase": 4,
+    "shroudedFable": 4,
+    "stellarCrown": 4,
+    "surgingSparks": 4,
+    "temporalForces": 4,
+    "twilightMasquerade": 4,
+    "whiteFlare": 4
+  },
+  "skipped": [],
+  "eligible": [
+    {
+      "calculationRunId": "d023c938-042f-42b0-8f2e-c2b9c9b378e9",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setCanonicalKey": "ascendedHeroes",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "a3bc4832121ba20e1f125390fc18f9fc6a1fe734e7c7164d2edb78f2132d3d02",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "16d711b2-e585-4c4a-aa78-ee90bffef779",
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setCanonicalKey": "perfectOrder",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "c5aca9bc51baa2de5a1a1e1dc5f0dcf7b77abfa5b016f81568767e0cf154b67b",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "105c6049-3d0e-4ad8-bdd0-f3ffe82e3283",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setCanonicalKey": "phantasmalFlames",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "79c924088727bb3225849d21a93a017929c88dbac5c6f3c013cd5626c112eceb",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "0de3387e-3756-451c-bfcc-9931bb63d8ed",
+      "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "setCanonicalKey": "blackBolt",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "62875880a16f7948ab23cae56d1c1f78d9c56bda692434759ea1d0674d8367ac",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "6c909305-6a8d-4801-848b-32e2209e0076",
+      "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "setCanonicalKey": "chaosRising",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "19ee22294d2ded347499ae8c3bf49bb9c447e3f98af813505f2b4cec50fce313",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "fb119198-3176-493d-9c1a-b0b51dc6d39a",
+      "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "setCanonicalKey": "destinedRivals",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "6836eeb53a4c198bc40c38ba546d4cb6d6e4975c13ce8df079f7b3eeb5b593b7",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "566f66f8-5755-45eb-b359-f42523dd73f8",
+      "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+      "setCanonicalKey": "journeyTogether",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "89e3e8393f0571a71e136366a4c96ab7173c49f29acbcb143deadf9060a17508",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "178472f0-bccd-4f4a-8393-507e205dda3c",
+      "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "setCanonicalKey": "megaEvolution",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "8bdf9f9d51575240660879c9d0d815ee6c491a77aaca595bc815ccfe67b807c8",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "f854d62d-53e4-40de-81bd-d2638423bdb0",
+      "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "setCanonicalKey": "obsidianFlames",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "1b40ede2ae344d2d789983f6230e3f8863326f1ec0a3250fb6c91172713b1d66",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "0a58cd45-5166-48c6-8b20-3927bc11cd9d",
+      "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "setCanonicalKey": "paldeaEvolved",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "0116bc2fb693f01a5b669829e0eed55b987f46b7433228cd9339dde22f501359",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "109d3f0e-502a-4db5-8fd1-2c8274a5c0cf",
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setCanonicalKey": "paradoxRift",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "92034f5b561731c1c4256a38f2651f2fb4064519bc89757e48f2900db658c714",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "6a714ee9-9d56-47af-8195-e595f34be1d8",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setCanonicalKey": "pitchBlack",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "f71a5e78a2b0dcb28000c7d7d6423fcaf9a917907777a9725c9129f77e63db6b",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "46853402-13dd-44a7-bdf5-291eda6a92e5",
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setCanonicalKey": "scarletAndViolet151",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "b566f10f3f8d0d1f41109952d307e55162addabf57ea102a6be149704d8b9aa2",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "a2b49b31-69a7-4f22-8181-4edd8699ecdb",
+      "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "setCanonicalKey": "twilightMasquerade",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "31acbdbd19efbedabea779ce53c9ae4a84859f8790abfec72a492d7304b74d94",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "92e133b2-484d-47a2-8f9e-0630b5185c93",
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setCanonicalKey": "whiteFlare",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "5395c70debab7819d385536708621dcb5e4485a968fb82185f19db3c2afc21b3",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "9e9960c5-c7d6-4184-b75c-0190b62cc685",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setCanonicalKey": "paldeanFates",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "e55f314bde580e3e54f31277157461abbc736484ca159deb0b187a40cda59645",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "6cb2056a-b332-4132-adfb-feb450d1c9af",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setCanonicalKey": "prismaticEvolutions",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "478092a99ff2a602d979f471568711f5454c1229baa10d834ddfa1e22a7dbf29",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "f879708e-0ad8-4395-9c68-68323c2727ce",
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setCanonicalKey": "shroudedFable",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "4b6cdcf4e1844161e1106cf31dec9ec03aa07fbba2fabb05042acea19e42c540",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "43373ecd-5ba8-40b2-acbd-c96dec471098",
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "setCanonicalKey": "stellarCrown",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "de17e8dc9f341d41006987ea2fb404c6525e337d0e8803f6c3832f4ae90da7da",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "c8fa7886-18d7-4c33-8904-04df1191c202",
+      "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+      "setCanonicalKey": "surgingSparks",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "9b531a9fae05976adc8f847b22fa4569f4d7ec66fdb07c45b5a2385b5eb88665",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "310d49b8-4165-4edc-972b-a96cb3e2820e",
+      "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "setCanonicalKey": "temporalForces",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "906ca3c34fe183a60c06a99d0e7d2be150da119f2b9ca66c7c63cb8f924612aa",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "80ba53f0-161c-4ef5-b55a-badb040220d3",
+      "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "setCanonicalKey": "scarletAndVioletBase",
+      "marketDate": "2026-08-17",
+      "artifactSha256": "21b1b6f391572609e2719f207144c69b09746af2b69ebd6423ae90e8cd071441",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "11ad1e8a-0295-413e-a3b1-c7cb805f9333",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setCanonicalKey": "ascendedHeroes",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "14a0b8533702b5ced98e842f1c4997806d81a1e0d644c96c149a3416725c29d6",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "e0865483-2745-49d2-97c7-de75b993cb7c",
+      "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "setCanonicalKey": "blackBolt",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "297566d4b23f1e98976df82404ca9c174dc9e6af753137f29e243565728dbfdb",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "51cbbf47-026d-47c0-b826-61de932c1f2b",
+      "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "setCanonicalKey": "chaosRising",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "4dac7083694a2b1ed0201fa240e6e01ca6532eb893a357f7f59d192b4cf6f80a",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "c85abc7e-cf70-4a2a-be4d-f663d3d7b04a",
+      "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "setCanonicalKey": "destinedRivals",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "3fd3a6dd2b38931177383d3a1911c50a089e29b060eb602ff61380d32ba2b442",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "d3831926-585b-4449-aa8c-685c8f7b0615",
+      "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+      "setCanonicalKey": "journeyTogether",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "09319e51d608533eba9d269dbc81699cf34e12aa9d8ca8022399b20229972506",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "13b9dd96-d7a2-415a-b872-ac8ecb32215c",
+      "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "setCanonicalKey": "megaEvolution",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "0fc5328028b0b351eb0d9bd9bd15f8314640a0af19c8a5abd1d1bf17e0c59ef4",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "81c2a4ec-855c-4c1b-a00c-4df2afd59943",
+      "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "setCanonicalKey": "obsidianFlames",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "03d008baa8111ffb812768b01ba992150d04a8fc54fddf73c8346a3f6fa3b28e",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "29e24b5d-a318-4bf6-bcc1-986dfdf0a05d",
+      "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "setCanonicalKey": "paldeaEvolved",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "2e3406262e443deafe8205b4905c29c4a2402eecc2f17ceefd123f82704c49ae",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "e14d0df2-8d9c-428f-92b5-e60bdfdf29da",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setCanonicalKey": "paldeanFates",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "6d17b551159bfe10eaa79593e7a235155a3d737fab306332f40508b43f63f64d",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "63ead6e2-039f-4f4e-91f5-9d8d07041953",
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setCanonicalKey": "paradoxRift",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "e1a9275d7d7c1dba61f900654e8d833a6cabe70585b6ace24c9d8b23c905f203",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "0cff4713-9b17-4f50-bfc3-88188d87064c",
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setCanonicalKey": "perfectOrder",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "dd78fc1905de9ecc3ceb955f3f96fdde5a3a08b9e19605d9f54d7c8568e868d5",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "33492f0e-00ce-4f6c-97f7-3bd7e385828b",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setCanonicalKey": "phantasmalFlames",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "603f94ffb7ba385b2b0ba53236d3e626b18d96421cdbf9207a677fead5ba3429",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "edbb0ac7-9a05-4648-9315-03cb0e77b7e1",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setCanonicalKey": "pitchBlack",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "0c29aa89c45c3992e3da06079769b8c7fb950de286246c3e86079caba36be915",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "44e371eb-2a1b-4f4a-af66-a1924cad265a",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setCanonicalKey": "prismaticEvolutions",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "cce812faf5a69627276c2fe5a205105ddfae262968479fb15383c91282467b96",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "e536973a-8798-4723-af88-c30dd0ec4f69",
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setCanonicalKey": "scarletAndViolet151",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "765040b64fcc50ca5312a88b213020cb16ce5c775c56b48312d7505bb1e9a48f",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "18b3e40e-52e3-4dd1-8ddb-28c4f0fe2f1f",
+      "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "setCanonicalKey": "scarletAndVioletBase",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "481b29d6580f3fd41a46ac9264d7d26be7c39b1ee987de98c92cc46dd2e9253d",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "a7bd5ce0-beb6-4a08-8017-179fa5c12731",
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setCanonicalKey": "shroudedFable",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "53584cd03b4ffe5e4e81b25cd7609dd9b8c6fce838e48f43857f5dcde12299ea",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "ca690ecb-b4d8-42d4-a60e-fb8e43d18149",
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "setCanonicalKey": "stellarCrown",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "8ead6741cab155ea5f4289b4ee1bf5b7a4cd9abb4ad54f34bc8a28c205a8f175",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "4f44ec14-73c0-43e6-b8c5-4d1def20c4ec",
+      "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+      "setCanonicalKey": "surgingSparks",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "e776fa499c394a23768cbdba51e842cbf81f85427415d35845d904db27df37a0",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "5c7d8351-45fb-4829-8901-a013e8a0bd78",
+      "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "setCanonicalKey": "temporalForces",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "a07a8354b0ffb8f163bf28c2101d793d4290e35929fd614972b55f0679c884aa",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "125f2716-4f9e-4f0c-9da1-2038eae4c308",
+      "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "setCanonicalKey": "twilightMasquerade",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "c64e0a9b9a3fe85c99cda15f1c8da82d3c3e00cc45de4d4eab64c9c68c376784",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "de567c41-4fe1-4879-a405-6e1139e5bc27",
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setCanonicalKey": "whiteFlare",
+      "marketDate": "2026-08-18",
+      "artifactSha256": "fa48fe4cd22fa66a01ee72327b0390fc07358030af5405f300b9b5658e203aee",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "8a887d42-33b2-4f35-a440-2611c3c824c8",
+      "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "setCanonicalKey": "blackBolt",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "7660b5762a54c24780c3cf61ad807c376b33801469fe1550a7e1206dc4f05dc8",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "1f72718d-390e-4fce-bda2-15ed058b0b29",
+      "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "setCanonicalKey": "destinedRivals",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "87d36992b9a318a54de3e567d1f0cf10579db8eea15693bcbe132a31f67805c9",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "f9194acd-d61b-4511-b429-419768c93715",
+      "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+      "setCanonicalKey": "journeyTogether",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "fda4b0b0bf1c8dc5f5c444748728614d4986f1d4cf0d5abe9e334ad71ede5d00",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "1ffdc6cc-4263-48aa-814a-4e44c2c4b4b3",
+      "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "setCanonicalKey": "obsidianFlames",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "f6994913bb111f25adeef67a733c49b6089354250fc2e42b894575b36492a282",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "b088cf28-10e6-4f6d-9878-011e5e307728",
+      "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "setCanonicalKey": "paldeaEvolved",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "47177ff4d8f8b3d7d609263c254f025194503e34e787b8cc754f7e01c76f6fca",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "752b8938-be68-41c1-a163-08144f561a19",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setCanonicalKey": "paldeanFates",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "c9d546ecfcff2d43ba1d192dcdc3a0593d822ab89807ecabac6f74e9c00b768e",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "a4f0fece-12f5-4254-8af9-bf25e2588974",
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setCanonicalKey": "paradoxRift",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "d86e6cb086509f0eeea2549dbd7fe4308a9d06c82a90e1b6771a22cda5be4885",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "59c016cb-699a-4c86-b6a6-c3a59e97d921",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setCanonicalKey": "prismaticEvolutions",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "20699705b271b79573cacb798dd45d9571f7f7253573288140dc829149f5253b",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "f1b38102-cbda-4d90-a522-a345cc2f7e5a",
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setCanonicalKey": "scarletAndViolet151",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "4e2e4367203cb38823252aa1d5c695d635f373a77755f5c952a57b0c294d30cc",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "fe35ccb6-7a58-4dd2-aec8-db80316203d8",
+      "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "setCanonicalKey": "scarletAndVioletBase",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "5474b41cb4bdb788d3d58922ca3e53b329b423dd07688ebc8afc8ecaf1d8a74c",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "ea8a9d22-0ab0-4492-ae4a-9d019777de4f",
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setCanonicalKey": "shroudedFable",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "3534909120c465a07047684601eb3a0fb241d104e548acd87fdc0ccb729fcbdb",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "018ba637-d4cb-42ca-9f6e-b7922a1cc484",
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "setCanonicalKey": "stellarCrown",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "06fc6bd3b9ccb2e6c5120f4b5e803086615bbfdda10c1c7b8305fe385f3bb7c5",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "5c10198f-78af-4101-8993-22c34c3dadd2",
+      "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+      "setCanonicalKey": "surgingSparks",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "923d482918369e669b61414c5b4f0ce0656b0cc037fa2f8ab2d979370079aea5",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "c3b46892-be05-44bd-bdde-f6890d5b404a",
+      "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "setCanonicalKey": "temporalForces",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "b1853b79f37bb010c29263be748fe4352b8dfc1bf38bd58d9020b8db7133b3b0",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "30f66902-a189-4a2b-b693-c6b6c43e28d8",
+      "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "setCanonicalKey": "twilightMasquerade",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "dfcc992907674e118560a0103352f891096906ab1bbc2e130b412eab4d3b3a49",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "3178c30b-45ee-4a1e-9c3b-1db578ef93d8",
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setCanonicalKey": "whiteFlare",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "af37370dd413f129a5c16f15fa2d1499bc65d53f1e6337049419c9c841d5d145",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "892e6bcc-2059-448e-bf4f-0ffd896a546c",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setCanonicalKey": "ascendedHeroes",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "6a65920ba5ce8951f13e0f5a79e1203914df6195f737aa932f595e5fc25ee777",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "47d51e4c-7c43-4ac0-9ff0-2ba351bdc4f8",
+      "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "setCanonicalKey": "megaEvolution",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "7d36803f64be2a7baea0871b916cddaca2a0b5f52f51ebbb87917235d27e6c48",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "f7ddfed2-0aa3-4215-a0db-7bef3a7b82a2",
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setCanonicalKey": "perfectOrder",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "6bb2e8c07e9c70ad1508d809981496cd8db79b2c72405f4745c3434ccd043260",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "ad91c981-d7ab-4b2a-acea-da404bc96eaa",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setCanonicalKey": "phantasmalFlames",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "1e2fd50f672d9737f1335f12292d999eab7742d392838b0b39e2e3d6df50f672",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "84080871-1155-4e75-b8ab-60605ad64038",
+      "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "setCanonicalKey": "chaosRising",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "27848619731b567ba8d7865cc77d9f25c59005e8a97385b2e65456528f504d3b",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "755a31f9-0084-4396-89af-6e1befa2ce6b",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setCanonicalKey": "pitchBlack",
+      "marketDate": "2026-08-20",
+      "artifactSha256": "039b4c0f2217870ef4e146334d32f5e9f2b94e4702de14a3f400aaceaecfb15a",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "687b238f-44ef-427f-aa01-c47d24497a04",
+      "setId": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+      "setCanonicalKey": "ascendedHeroes",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "21812c0ffffeb497d6aca2d8adda0e9ec3064823feb0b4d02bf8addebd9c3852",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "48c725d9-21dd-4264-8f69-13043e89ff51",
+      "setId": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+      "setCanonicalKey": "blackBolt",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "9219ddb220f5869cb549a24f727dc5e4c23049858ab7367e85c3b11bd1df40ae",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "d2572d76-ef4d-4478-b2c1-38dcd65e0c25",
+      "setId": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+      "setCanonicalKey": "chaosRising",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "1fa367dfc83e086ad92a08c12201a6d2fb4a2fb682b7761c68330d59089286ef",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "5a4f1a2c-216b-44f0-bd80-7a683a6b9d68",
+      "setId": "de291399-ead5-41dc-bc12-e7c587684f85",
+      "setCanonicalKey": "destinedRivals",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "d6a51dc120f57cc230cc8a0541a9495cb2bf3c94501fb7e81db4e7d0e318711a",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "75220055-ecfe-4bcc-81dd-a85bc6b268f4",
+      "setId": "142d3869-9d39-48b6-a810-751af2aac748",
+      "setCanonicalKey": "journeyTogether",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "d988ae7e4d42fb77533f4f8618d50d16ce3f4ac0098fb0b4bb5e62e06a912617",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "bc40be6a-0eef-4545-b200-91a1ce4e027e",
+      "setId": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+      "setCanonicalKey": "megaEvolution",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "65727b03276831c8d8a891fbfd6f623d02b392b4c30c448bd5090cfc358230f5",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "528199b8-05af-4ba9-9bc5-8d5ed376685c",
+      "setId": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+      "setCanonicalKey": "obsidianFlames",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "05601c73a7ad0ff937deb0d081d6672e620c6fe30b01082677f3a6c5040e5795",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "14323aa8-03e8-408d-a34d-351aa4a60da0",
+      "setId": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+      "setCanonicalKey": "paldeaEvolved",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "a63ad4946832dcf6590088c37a40f4561b5e13b1627a21e9ea1a2bb05582f3d2",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "993f324e-2189-472f-9149-02dfd800b200",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "setCanonicalKey": "paldeanFates",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "f0d1751cae9ff7d605b91e87522b9f61a6eba9a3b5f9ebbae4103d2e3414fedf",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "73be42a8-991a-46b5-9ae3-c810f48e7664",
+      "setId": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+      "setCanonicalKey": "paradoxRift",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "502ec3e45990d2aa0d4708677175373b7afcc9d1e37873d9bcf8ae58b19bd344",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "774a1fcb-ed7d-4b99-94d2-49f5dbc06f9c",
+      "setId": "5e99f658-39f0-4845-9228-db8db3965f32",
+      "setCanonicalKey": "perfectOrder",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "b3f0559b8191981c3ea0f8719bf3466b4e9ef33c182e94ab1a4be6fa709210a0",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "a1c0ed85-ff61-4dfb-9969-3cc315f561fd",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "setCanonicalKey": "phantasmalFlames",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "db362b9ca33355da4fa96f0c063b972ed99b45205e85f84ef0b3303a428af650",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "c6cd123b-c1cb-4d05-91a7-3aabf68501c6",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "setCanonicalKey": "pitchBlack",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "c06d36f5074f75472d0fe974f0464317163de7ab115251d69490059f26327edd",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "25bf50bf-bd10-40b0-bf34-df74cba05dc3",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "setCanonicalKey": "prismaticEvolutions",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "4a720a6756ae1609749d356c36ca158f4932fddf8fe2258d0977b5d45c7640db",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "6d902b21-a0da-4d63-8a2f-064880697869",
+      "setId": "d001d563-988b-4f8e-904f-acb926748e22",
+      "setCanonicalKey": "scarletAndViolet151",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "00b7f2967eb1bc6571539189fabf89e06b3b1e00d5ce8173d3b7e23becbccedb",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "b0caac26-e38e-4201-96b7-44ddc8126bd9",
+      "setId": "3c459327-59d0-41d5-b21e-aae36361cc77",
+      "setCanonicalKey": "scarletAndVioletBase",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "feea154d249b817767c5adceb19246e38d15125ae06daf7b220c5ac54ed455ac",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "e6940d26-49f9-4b46-9625-2c97d5395035",
+      "setId": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+      "setCanonicalKey": "shroudedFable",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "dc976a98e7a93b196e07d41143ebed5d7680ae3646b62e862b9617b220d54cd6",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "ad120bac-9242-43cf-a0eb-c379c6b684bd",
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "setCanonicalKey": "stellarCrown",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "f5fe86a7db388e8318f0b6b64dddbdb24b9a247d1d7a8bc9821526695517555d",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "c5c81ccc-460f-43e7-b0bb-cc19d880e4ae",
+      "setId": "f59f25a2-d3da-4100-a918-901271a99925",
+      "setCanonicalKey": "surgingSparks",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "97d8a4f470293bf666a533548c505e7145a231fccade1f1d9bc3c5dd8cb5a7d9",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "2116e5f9-e556-4c1f-88cc-ad226f751e85",
+      "setId": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+      "setCanonicalKey": "temporalForces",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "e1f88b3be9f362fc986a2435174fd60c51900ba2334958201c0e735f4faebd7c",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "cb69a4d0-34c6-49b4-9269-b0745cdcbf89",
+      "setId": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+      "setCanonicalKey": "twilightMasquerade",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "50a78c29355d7889044eead4ad044a9c3afaacc40dabaefd259fd6e04b61567d",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    },
+    {
+      "calculationRunId": "b572193b-a72a-48d9-9c06-797f70ca2971",
+      "setId": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+      "setCanonicalKey": "whiteFlare",
+      "marketDate": "2026-08-22",
+      "artifactSha256": "10f785c8d2b01fd91b45ac68749e8b7503b1d228647ae7a5f38097475d9ff360",
+      "outcomeCount": 1000000,
+      "alreadyBuilt": true
+    }
+  ]
+}

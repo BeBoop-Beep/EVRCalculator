@@ -1,0 +1,69 @@
+label,x,y,n,pearson,spearman,spearmanCiLow,spearmanCiHigh,spearmanCiIncludesZero,pValue,pValueAdjusted,hypothesisFamily
+top1OutcomeShare vs typicalCapture,top1OutcomeShare,typicalCapture,22,-0.5338515919674264,-0.32806324110671936,-0.695386,0.109737,True,0.133087,0.162019,H1_concentration
+top1OutcomeShare vs gapCostNormalized,top1OutcomeShare,gapCostNormalized,22,0.5822581168685118,0.3020892151326934,-0.137536,0.67353,True,0.176282,0.205662,H1_concentration
+top1OutcomeShare vs horizonTau20C80,top1OutcomeShare,horizonTau20C80,22,0.8927149639155726,0.976108942148482,0.907695,0.993162,False,0.0001,0.00056,H1_concentration
+top1OutcomeShare vs horizonR80C80,top1OutcomeShare,horizonR80C80,22,0.8863535584766766,0.9658205781478196,0.90942,0.985577,False,0.0001,0.00056,H1_concentration
+top5OutcomeShare vs typicalCapture,top5OutcomeShare,typicalCapture,22,-0.7715358162742174,-0.6804065499717674,-0.901775,-0.31157,False,0.0009,0.0042,H1_concentration
+top5OutcomeShare vs gapCostNormalized,top5OutcomeShare,gapCostNormalized,22,0.5871365192565942,0.35064935064935066,-0.125436,0.716247,True,0.111389,0.155451,H1_concentration
+top5OutcomeShare vs horizonTau20C80,top5OutcomeShare,horizonTau20C80,22,0.8928266681896065,0.8410605946358198,0.585487,0.95391,False,0.0001,0.00056,H1_concentration
+top5OutcomeShare vs horizonR80C80,top5OutcomeShare,horizonR80C80,22,0.8830567487411864,0.8053367962803571,0.530289,0.942417,False,0.0001,0.00056,H1_concentration
+top10OutcomeShare vs typicalCapture,top10OutcomeShare,typicalCapture,22,-0.9466686144541618,-0.9446640316205533,-0.985245,-0.82623,False,0.0001,0.00056,H1_concentration
+top10OutcomeShare vs gapCostNormalized,top10OutcomeShare,gapCostNormalized,22,0.5023482782458673,0.3370976849237719,-0.12478,0.707933,True,0.127987,0.162019,H1_concentration
+top10OutcomeShare vs horizonTau20C80,top10OutcomeShare,horizonTau20C80,22,0.7404196671327832,0.5772319663726867,0.182359,0.822766,False,0.005599,0.022396,H1_concentration
+top10OutcomeShare vs horizonR80C80,top10OutcomeShare,horizonR80C80,22,0.7276399160918116,0.5088794828670082,0.077696,0.803154,False,0.016398,0.038262,H1_concentration
+simCardHhi vs typicalCapture,simCardHhi,typicalCapture,22,-0.4461944400497441,-0.4127611518915867,-0.717705,0.007391,True,0.055494,0.103589,H1_concentration
+simCardHhi vs gapCostNormalized,simCardHhi,gapCostNormalized,22,0.04800346275904871,0.1507622811970638,-0.312083,0.562018,True,0.50025,0.518778,H1_concentration
+simCardHhi vs horizonTau20C80,simCardHhi,horizonTau20C80,22,0.583863209168402,0.4575688736399481,-0.014572,0.773108,True,0.030797,0.066332,H1_concentration
+simCardHhi vs horizonR80C80,simCardHhi,horizonR80C80,22,0.5824546438057343,0.44935458922889493,-0.032813,0.790782,True,0.034197,0.068394,H1_concentration
+simTopCardShare vs typicalCapture,simTopCardShare,typicalCapture,22,-0.48026774410122053,-0.40372670807453415,-0.71028,0.04097,True,0.063094,0.110414,H1_concentration
+simTopCardShare vs gapCostNormalized,simTopCardShare,gapCostNormalized,22,0.06138987592356955,0.12027103331451157,-0.360329,0.537239,True,0.589041,0.589041,H1_concentration
+simTopCardShare vs horizonTau20C80,simTopCardShare,horizonTau20C80,22,0.5937642133386178,0.5191098927596421,0.069059,0.803355,False,0.013199,0.038077,H1_concentration
+simTopCardShare vs horizonR80C80,simTopCardShare,horizonR80C80,22,0.5913014919379945,0.5164659889189247,0.093764,0.799822,False,0.013599,0.038077,H1_concentration
+simTop5CardShare vs typicalCapture,simTop5CardShare,typicalCapture,22,-0.5038366904414692,-0.3438735177865613,-0.654438,0.074349,True,0.112989,0.155451,H1_concentration
+simTop5CardShare vs gapCostNormalized,simTop5CardShare,gapCostNormalized,22,0.188841191794614,0.18464144551101072,-0.273174,0.605463,True,0.412159,0.443864,H1_concentration
+simTop5CardShare vs horizonTau20C80,simTop5CardShare,horizonTau20C80,22,0.6679483331877667,0.5054341107330435,0.0583,0.803564,False,0.016098,0.038262,H1_concentration
+simTop5CardShare vs horizonR80C80,simTop5CardShare,horizonR80C80,22,0.668935351962157,0.5258032271366679,0.070568,0.82554,False,0.011699,0.038077,H1_concentration
+simTop10CardShare vs typicalCapture,simTop10CardShare,typicalCapture,22,-0.504625920368936,-0.339356295878035,-0.702059,0.117851,True,0.116588,0.155451,H1_concentration
+simTop10CardShare vs gapCostNormalized,simTop10CardShare,gapCostNormalized,22,0.32075703359467994,0.19593450028232637,-0.269216,0.600941,True,0.378762,0.424213,H1_concentration
+simTop10CardShare vs horizonTau20C80,simTop10CardShare,horizonTau20C80,22,0.7116510989856438,0.37095558747148966,-0.139341,0.757589,True,0.086791,0.135008,H1_concentration
+simTop10CardShare vs horizonR80C80,simTop10CardShare,horizonR80C80,22,0.7103749422299036,0.37815814781860246,-0.141322,0.777455,True,0.079492,0.130928,H1_concentration
+hitProb__illustration_rare vs typicalCapture,hitProb__illustration_rare,typicalCapture,22,0.5098148275647065,0.3168596568036009,-0.179698,0.701601,True,0.149685,0.30537,H2_accessible_hits
+hitProb__illustration_rare vs horizonTau20C80,hitProb__illustration_rare,horizonTau20C80,22,-0.6041987789163057,0.12767668383271816,-0.367625,0.585087,True,0.564044,0.712129,H2_accessible_hits
+hitProb__special_illustration_rare vs typicalCapture,hitProb__special_illustration_rare,typicalCapture,22,-0.26532190478447837,-0.30999435347261434,-0.678279,0.158632,True,0.152685,0.30537,H2_accessible_hits
+hitProb__special_illustration_rare vs horizonTau20C80,hitProb__special_illustration_rare,horizonTau20C80,22,0.09260179071976529,-0.1954497181301397,-0.590066,0.275401,True,0.383962,0.658221,H2_accessible_hits
+hitProb__any_premium vs typicalCapture,hitProb__any_premium,typicalCapture,22,0.026884023493095578,0.3246753246753247,-0.179489,0.693108,True,0.144086,0.30537,H2_accessible_hits
+hitProb__any_premium vs horizonTau20C80,hitProb__any_premium,horizonTau20C80,22,0.11059977989286929,0.1168139714771972,-0.341499,0.533915,True,0.593441,0.712129,H2_accessible_hits
+econHit__1.00x vs typicalCapture,econHit__1.00x,typicalCapture,22,-0.031218980021774395,-0.13495200451722192,-0.612421,0.368542,True,0.544646,0.712129,H2_accessible_hits
+econHit__1.00x vs horizonTau20C80,econHit__1.00x,horizonTau20C80,22,-0.5584190964283211,-0.5601372388394383,-0.840605,-0.111092,False,0.007399,0.044394,H2_accessible_hits
+econHit__0.50x vs typicalCapture,econHit__0.50x,typicalCapture,22,0.24719134706865603,0.07509881422924901,-0.422444,0.533726,True,0.738726,0.738726,H2_accessible_hits
+econHit__0.50x vs horizonTau20C80,econHit__0.50x,horizonTau20C80,22,-0.6814853177392748,-0.48719973469757855,-0.802914,-0.044549,False,0.021298,0.085192,H2_accessible_hits
+econHit__2.00x vs typicalCapture,econHit__2.00x,typicalCapture,22,-0.014393879390011717,-0.07622811970638058,-0.512807,0.384532,True,0.738726,0.738726,H2_accessible_hits
+econHit__2.00x vs horizonTau20C80,econHit__2.00x,horizonTau20C80,22,-0.403591790095166,-0.6028740576725592,-0.807975,-0.22438,False,0.0045,0.044394,H2_accessible_hits
+rarityShare__special_illustration_rare vs typicalCapture,rarityShare__special_illustration_rare,typicalCapture,22,-0.3903436015619987,-0.07058159232072275,-0.536638,0.461285,True,0.759824,0.759824,H3_rarity_structure
+rarityShare__special_illustration_rare vs horizonTau20C80,rarityShare__special_illustration_rare,horizonTau20C80,22,0.8560461994995973,0.5897680998970688,0.144652,0.861677,False,0.004,0.032,H3_rarity_structure
+rarityShare__illustration_rare vs typicalCapture,rarityShare__illustration_rare,typicalCapture,21,-0.21961175521193674,-0.34675324675324676,-0.753981,0.159174,True,0.125587,0.251174,H3_rarity_structure
+rarityShare__illustration_rare vs horizonTau20C80,rarityShare__illustration_rare,horizonTau20C80,21,-0.5537470208352722,-0.5138078449172429,-0.783962,-0.115329,False,0.016998,0.067992,H3_rarity_structure
+rarityShare__hyper_rare vs typicalCapture,rarityShare__hyper_rare,typicalCapture,14,0.28403083729026646,0.33186813186813185,-0.245536,0.733932,True,0.247675,0.330233,H3_rarity_structure
+rarityShare__hyper_rare vs horizonTau20C80,rarityShare__hyper_rare,horizonTau20C80,14,-0.2619497964503532,-0.22503467207520564,-0.703354,0.3715,True,0.444656,0.508178,H3_rarity_structure
+rarityShare__double_rare vs typicalCapture,rarityShare__double_rare,typicalCapture,22,0.4421947162641108,0.409373235460192,-0.05296,0.756181,True,0.058094,0.154917,H3_rarity_structure
+rarityShare__double_rare vs horizonTau20C80,rarityShare__double_rare,horizonTau20C80,22,0.032520674695559346,-0.2723759920297574,-0.660011,0.217538,True,0.218578,0.330233,H3_rarity_structure
+financialRipV3 vs typicalCapture,financialRipV3,typicalCapture,22,0.5462098322698014,0.39920948616600793,-0.03201,0.725143,True,0.065493,0.07368,H5_financial_rip
+financialRipV3 vs gapCostNormalized,financialRipV3,gapCostNormalized,22,0.1034016496219076,0.3551665725578769,-0.143187,0.75625,True,0.10429,0.10429,H5_financial_rip
+financialRipV3 vs horizonTau20C80,financialRipV3,horizonTau20C80,22,-0.6032166669580197,-0.5971758151614764,-0.831744,-0.203694,False,0.0041,0.009225,H5_financial_rip
+financialRipV3 vs horizonR80C80,financialRipV3,horizonR80C80,22,-0.5984657803148198,-0.5964160911583515,-0.827847,-0.195791,False,0.004,0.009225,H5_financial_rip
+financialRipV3 vs top1OutcomeShare,financialRipV3,top1OutcomeShare,22,-0.6897532669697878,-0.6002258610954263,-0.828028,-0.203856,False,0.004,0.009225,H5_financial_rip
+financialRipV3 vs simCardHhi,financialRipV3,simCardHhi,22,-0.7687078849406938,-0.5460191981931113,-0.839929,-0.092038,False,0.010299,0.013242,H5_financial_rip
+financialRipV3 vs realize0.80@36,financialRipV3,realize0.80@36,22,0.7175949077715472,0.5765104460756635,0.163853,0.821206,False,0.005599,0.010078,H5_financial_rip
+financialRipV3 vs within0.20@36,financialRipV3,within0.20@36,22,0.7107534265047817,0.5640880858272163,0.135219,0.825117,False,0.007299,0.010948,H5_financial_rip
+financialRipV3 vs cv,financialRipV3,cv,22,-0.6896529962760539,-0.6137775268210051,-0.806048,-0.268257,False,0.0029,0.009225,H5_financial_rip
+cv vs convergence horizon,cv,horizonTau20C80,22,0.959200439818726,0.9840864816639979,0.929819,0.997149,False,0.0001,0.000275,predictor_ranking
+top1OutcomeShare vs convergence horizon,top1OutcomeShare,horizonTau20C80,22,0.8927149639155726,0.976108942148482,0.907695,0.993162,False,0.0001,0.000275,predictor_ranking
+top5OutcomeShare vs convergence horizon,top5OutcomeShare,horizonTau20C80,22,0.8928266681896065,0.8410605946358198,0.585487,0.95391,False,0.0001,0.000275,predictor_ranking
+top10OutcomeShare vs convergence horizon,top10OutcomeShare,horizonTau20C80,22,0.7404196671327832,0.5772319663726867,0.182359,0.822766,False,0.005599,0.012318,predictor_ranking
+simCardHhi vs convergence horizon,simCardHhi,horizonTau20C80,22,0.583863209168402,0.4575688736399481,-0.014572,0.773108,True,0.030797,0.042346,predictor_ranking
+gmSkew vs convergence horizon,gmSkew,horizonTau20C80,22,0.4195722058192657,0.39830715152468704,-0.077012,0.73927,True,0.068693,0.075562,predictor_ranking
+pearsonSkew2 vs convergence horizon,pearsonSkew2,horizonTau20C80,22,-0.6353680914732157,-0.9390703658264439,-0.980788,-0.824366,False,0.0001,0.000275,predictor_ranking
+typicalCapture vs convergence horizon,typicalCapture,horizonTau20C80,22,-0.5857026039219644,-0.4097036365468526,-0.747301,0.015634,True,0.057394,0.070148,predictor_ranking
+hitProb__any_premium vs convergence horizon,hitProb__any_premium,horizonTau20C80,22,0.11059977989286929,0.1168139714771972,-0.341499,0.533915,True,0.593441,0.593441,predictor_ranking
+econHit__1.00x vs convergence horizon,econHit__1.00x,horizonTau20C80,22,-0.5584190964283211,-0.5601372388394383,-0.840605,-0.111092,False,0.007399,0.013565,predictor_ranking
+simEffectiveCardCount vs convergence horizon,simEffectiveCardCount,horizonTau20C80,22,-0.5267783105789574,-0.4575688736399481,-0.773108,0.014572,True,0.030797,0.042346,predictor_ranking

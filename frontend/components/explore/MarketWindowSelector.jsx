@@ -1,6 +1,11 @@
 "use client";
 
-import TimeRangeSelector from "@/components/explore/TimeRangeSelector";
+
+// React is imported explicitly (rather than relying on the bundler's automatic
+// JSX runtime) so this control can be rendered directly under `tsx --test`,
+// which compiles JSX to React.createElement.
+import React from "react";
+import TimeRangeSelector from "./TimeRangeSelector";
 
 export default function MarketWindowSelector({ windows, value, onChange, fullWidth = false, className = "", ariaDescription }) {
   const windowOptions = Array.isArray(windows) ? windows.filter(Boolean) : [];

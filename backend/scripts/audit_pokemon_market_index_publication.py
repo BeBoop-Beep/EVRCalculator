@@ -11,7 +11,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from backend.db.services.pokemon_market_index_service import build_market_index_history, build_market_overview, read_index_history
+from backend.db.services.pokemon_market_index_service import (
+    build_market_index_history, build_market_overview, read_index_history,
+    read_raw_index_history_for_audit,
+)
 from backend.domain.pokemon.market_index import INDEX_KEYS, deterministic_fingerprint
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -47,7 +50,15 @@ def _compare_json(expected: Any, actual: Any, path: str, failures: list[str]) ->
 
 def audit(client: Any, market_date: str) -> dict[str, Any]:
     expected_history = build_market_index_history(client, through_date=market_date)
+    # Parity is compared ACCEPTED-vs-ACCEPTED. Both sides are quality-scoped, so
+    # a retained-but-unaccepted row (e.g. the 2026-08-18 DEGRADED legacy row) is
+    # evidence, not a parity failure.
     persisted_history = read_index_history(client, through_date=market_date)
+    # Audit keeps sight of what the public view withholds.
+    raw_history = read_raw_index_history_for_audit(client, through_date=market_date)
+    retained_unaccepted = sorted(
+        {str(row["market_date"])[:10] for row in raw_history}
+        - {str(row["market_date"])[:10] for row in persisted_history})
     expected = {(str(row["market_date"])[:10], row["index_key"]): row for row in expected_history}
     actual = {(str(row["market_date"])[:10], row["index_key"]): row for row in persisted_history}
     failures: list[str] = []
@@ -93,7 +104,11 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
                 if not isinstance(family.get(field), dict) or not family[field]:
                     failures.append(f"marketOverview.{family_key}.{field} absent from public payload (republish required)")
         _compare_json(expected_overview, public, "marketOverview", failures)
-    return {"status": "passed" if not failures else "failed", "marketDate": market_date, "indexRows": len(actual), "failures": failures}
+    return {"status": "passed" if not failures else "failed", "marketDate": market_date,
+            "indexRows": len(actual), "failures": failures,
+            # Retained as evidence, withheld from the public view. Informational:
+            # these are not failures.
+            "retainedUnacceptedDates": retained_unaccepted}
 
 
 def main() -> None:

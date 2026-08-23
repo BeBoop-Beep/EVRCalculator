@@ -103,6 +103,7 @@ class PublicationSummary:
     sealed_product_finalization_status: str = "not_attempted"
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None
     rip_stats_publication_status: str = "not_attempted"
+    ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
     rip_stats_set_count: int = 0
@@ -147,6 +148,7 @@ class PublicationSummary:
         for failure in self.chase_audit_failures:
             out.append(f"{TAG}   chase_audit_failed={failure}")
         out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
+        out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
@@ -403,7 +405,16 @@ def orchestrate(
         dry_run=dry_run,
     )
 
-    # ---- Step 3c: exact Pokemon-wide RIP Stats ----------------------------
+    # ---- Step 3c: optional exact-artifact research -------------------------
+    # Current run ids are authoritative now, and every downstream public
+    # snapshot may project their same-run research.  Failures are isolated per
+    # set and are observability only: this is deliberately NOT a publication
+    # gate.
+    summary.ev_representativeness_status = _build_ev_representativeness_tier_a(
+        client, after, dry_run=dry_run
+    )
+
+    # ---- Step 3d: exact Pokemon-wide RIP Stats ----------------------------
     # This is Phase 2 only and is never attempted before the simulation gate.
     if skip_snapshots:
         summary.rip_stats_publication_status = "skipped_skip_snapshots"
@@ -568,6 +579,36 @@ def orchestrate(
 
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _build_ev_representativeness_tier_a(client: Any, freshness: Any, *, dry_run: bool) -> str:
+    eligible = sum(
+        1 for item in freshness.statuses
+        if item.status == "current" and item.calculation_run_id
+    )
+    if dry_run:
+        return f"validated_dry_run eligible={eligible} existing=0 built=0 failed=0"
+    from backend.db.services.ev_representativeness_service import build_tier_a_for_run
+    failures = []
+    built = 0
+    existing = 0
+    for item in freshness.statuses:
+        if item.status != "current" or not item.calculation_run_id:
+            continue
+        try:
+            result = build_tier_a_for_run(client, str(item.calculation_run_id))
+            if result.get("status") == "research_built":
+                built += 1
+            elif result.get("status") == "already_built":
+                existing += 1
+        except Exception as exc:  # explicitly non-fatal before publication
+            failures.append(f"{item.canonical_key}:{exc}")
+            logger.exception("%s Tier A pre-snapshot build failed non-blocking set=%s", TAG, item.canonical_key)
+    if failures:
+        return (f"research_partial eligible={eligible} existing={existing} "
+                f"built={built} failed={len(failures)}")
+    return (f"research_complete eligible={eligible} existing={existing} "
+            f"built={built} failed=0")
 
 
 def _rip_stats_capability_expected(client: Any) -> bool:

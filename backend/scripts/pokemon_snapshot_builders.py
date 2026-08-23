@@ -19,10 +19,15 @@ from backend.db.services.explore_page_service import (
     get_explore_page_payload,
 )
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
+from backend.db.services.ev_representativeness_public_service import attach_public_v1_to_targets
 from backend.db.services import rip_decision_service
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
+from backend.db.services.pokemon_set_cards_market_analytics_service import (
+    PokemonSetCardsMarketAnalyticsError,
+    build_cards_market_analytics,
+)
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
     WINDOW_CONVENTION,
@@ -194,7 +199,7 @@ def resolve_set_row(client: Any, set_identifier: str) -> Dict[str, Any]:
 
     selected_columns = (
         "id,name,canonical_key,pokemon_api_set_id,release_date,logo_image_url,"
-        "symbol_image_url,hero_image_url"
+        "symbol_image_url,hero_image_url,supports_opening_simulation"
     )
     for column in lookup_columns:
         try:
@@ -214,7 +219,7 @@ def resolve_set_row(client: Any, set_identifier: str) -> Dict[str, Any]:
 def list_pokemon_sets(client: Any) -> List[Dict[str, Any]]:
     columns = (
         "id,name,canonical_key,pokemon_api_set_id,release_date,logo_image_url,"
-        "symbol_image_url,hero_image_url"
+        "symbol_image_url,hero_image_url,supports_opening_simulation"
     )
     try:
         result = client.table("sets").select(columns).order("release_date", desc=True).execute()
@@ -1056,13 +1061,35 @@ def _merge_last_known_good_snapshot_sections(
     *,
     existing_row: Optional[Dict[str, Any]],
     built_at: str,
+    carry_forward_simulation_sections: bool = True,
 ) -> Dict[str, Any]:
+    """Restore last-known-good sections onto a freshly built page.
+
+    ``carry_forward_simulation_sections`` is False for a set that canonically is
+    not an opening-simulation product. Carry-forward exists so a transient gap
+    does not blank a section that genuinely still applies; for these sets the old
+    simulation numbers do not apply at all, and restoring them would repopulate
+    simulation-derived sections on a page that has already declared them
+    unavailable — which strict verification correctly rejects
+    ("simulation section ... is populated but not labeled stale while simulation
+    is unavailable"). The previous snapshot is left in the quarantine of history
+    rather than resurrected onto a page that contradicts it.
+    """
     if not isinstance(payload, dict):
         return payload
 
     old_payload = (existing_row or {}).get("payload_json")
     if not isinstance(old_payload, dict):
         old_payload = {}
+    if not carry_forward_simulation_sections:
+        # Drop every simulation-derived section from the carry-forward source so
+        # the restore logic below has nothing stale to bring back. Non-simulation
+        # sections still carry forward normally.
+        old_payload = {
+            key: value
+            for key, value in old_payload.items()
+            if key not in SIMULATION_DEPENDENT_SECTIONS
+        }
 
     next_payload = dict(payload)
     meta = dict(next_payload.get("meta") or {})
@@ -1109,7 +1136,15 @@ def _merge_last_known_good_snapshot_sections(
     current_summary = next_payload.get("summary") if isinstance(next_payload.get("summary"), dict) else {}
     current_set_payload = next_payload.get("set") if isinstance(next_payload.get("set"), dict) else {}
     missing_rank_keys = [key for key in RANK_CONTEXT_FIELDS if current_summary.get(key) is None and current_set_payload.get(key) is None]
-    copied_rank_context = {key: old_rank_context[key] for key in missing_rank_keys if key in old_rank_context}
+    # Decision-signal ranks (pack/profit/safety/stability/desirability) are
+    # simulation-derived and live on `set` as well as `summary`, so dropping the
+    # simulation sections from the carry-forward source is not enough to keep
+    # them off a simulation-unavailable page. Suppress the restore outright.
+    copied_rank_context = (
+        {key: old_rank_context[key] for key in missing_rank_keys if key in old_rank_context}
+        if carry_forward_simulation_sections
+        else {}
+    )
     if copied_rank_context:
         summary = dict(next_payload.get("summary") or {})
         set_payload = dict(next_payload.get("set") or {})
@@ -1377,6 +1412,14 @@ SIMULATION_UNAVAILABLE_WARNING = (
 )
 
 
+class _SkipSimulationDerivedEnrichment(Exception):
+    """Control-flow marker: this page must not receive simulation-derived merges.
+
+    Raised for a canonically simulation-unsupported set so the shared enrichment
+    block is skipped without being reported as a merge failure.
+    """
+
+
 def _is_simulation_unavailable_error(exc: Exception) -> bool:
     """True when a set has no simulation/RIP run yet (not a genuine failure).
 
@@ -1433,6 +1476,96 @@ def _build_partial_set_page_payload(
     }
 
 
+def _ensure_set_page_target_identity(
+    payload: Dict[str, Any], *, set_row: Dict[str, Any], set_id: str
+) -> Dict[str, Any]:
+    """Guarantee the canonical ``payload.target`` identity block on every page.
+
+    Strict verification requires identity on EVERY published page, partial or
+    full (``_set_page_has_identity``). Only the partial builder constructed the
+    block, so full pages coming back from the Explore path published without one
+    and every supported set snapshot reported ``set identity missing``.
+
+    This is a FILL, not a replacement: values already present on the source
+    target win, and any extra fields it carries are preserved. Only the
+    canonical keys are guaranteed.
+    """
+    existing = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+    return {
+        **payload,
+        "target": {
+            **existing,
+            "target_type": "set",
+            "target_id": set_id,
+            "id": set_id,
+            "name": first_non_empty(existing.get("name"), set_row.get("name")),
+            "canonical_key": first_non_empty(
+                existing.get("canonical_key"), set_row.get("canonical_key")
+            ),
+        },
+    }
+
+
+# Canonical metadata says whether a set is an opening-simulation product at all.
+# It is the AUTHORITY for simulation availability: a set can carry simulation
+# rows from a previous era of the model and still not be a supported simulation
+# product today, and inferring support from "a historical row is fetchable" is
+# what made twelve unsupported Sword & Shield sets advertise current simulation
+# support on 2026-08-22.
+#
+# A row that does not carry the column at all is UNKNOWN rather than false. The
+# builder is reachable from call sites that select their own column list, and
+# silently reclassifying every set as unsupported because one query forgot a
+# column would be a far worse failure than the one being fixed. Both first-party
+# helpers above now select it, and the absence is logged.
+def _resolve_canonical_simulation_support(set_row: Dict[str, Any], *, set_id: str) -> Optional[bool]:
+    if "supports_opening_simulation" not in set_row:
+        logger.warning(
+            "set row has no supports_opening_simulation column set_id=%s; "
+            "falling back to inferred simulation availability",
+            set_id,
+        )
+        return None
+    return bool(set_row.get("supports_opening_simulation"))
+
+
+def _current_decision_contract_is_required(
+    *,
+    canonical_simulation_support: Optional[bool],
+    matching_rankings_target: Optional[Dict[str, Any]],
+    decision_run_id: Optional[str],
+) -> bool:
+    """Whether this page must carry a CURRENT-run RIP decision contract.
+
+    The previous predicate was ``matching_rankings_target is not None``, which
+    asks "does a rankings row exist for this set?" — a question a set answers
+    "yes" to forever once it has been simulated even once. Twelve sets that are
+    no longer simulation products still had May rows, so the builder demanded
+    current modeled products for them and refused the snapshot.
+
+    The contract is mandatory only when all three hold:
+
+    1. the set is canonically an opening-simulation product;
+    2. it is currently ranked (it holds a canonical Overall RIP rank), so a
+       current decision is something it should actually have; and
+    3. there is an authoritative current run to attribute that decision to.
+
+    A set failing any of these publishes truthfully as simulation-unavailable
+    rather than being rejected.
+    """
+    if canonical_simulation_support is False:
+        return False
+    if matching_rankings_target is None:
+        return False
+    if first_non_empty(decision_run_id) is None:
+        return False
+    ranked = any(
+        (matching_rankings_target.get(key) or {}).get("rank") is not None
+        for key in ("overallRipV10", "overallRipV9")
+    )
+    return ranked
+
+
 def _apply_simulation_availability_metadata(
     payload: Dict[str, Any], *, available: bool, reason: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -1475,28 +1608,59 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
     simulation_unavailable_reason: Optional[str] = None
     decision_run_id: Optional[str] = None
     matching_rankings_target: Optional[Dict[str, Any]] = None
-    try:
-        payload = get_explore_page_payload("set", set_id)
-    except ExplorePageError as exc:
-        if not _is_simulation_unavailable_error(exc):
-            # Genuine backend failure (summary/derived query error) — do not mask.
-            raise
+    canonical_simulation_support = _resolve_canonical_simulation_support(set_row, set_id=set_id)
+    if canonical_simulation_support is False:
+        # Canonical metadata is authoritative and is checked BEFORE the Explore
+        # fetch. A set that is not a simulation product must not be classified
+        # by whether an old simulation row happens to still be retrievable.
         simulation_available = False
-        simulation_unavailable_reason = str(getattr(exc, "message", exc))
-        logger.warning(
-            "set page snapshot publishing without simulation set_id=%s reason=%s",
+        simulation_unavailable_reason = (
+            "This set is not an opening-simulation product "
+            "(sets.supports_opening_simulation is false)."
+        )
+        logger.info(
+            "set page snapshot building as simulation-unavailable set_id=%s "
+            "reason=canonical_supports_opening_simulation_false",
             set_id,
-            simulation_unavailable_reason,
         )
         payload = _build_partial_set_page_payload(
             set_row, set_id=set_id, reason=simulation_unavailable_reason
         )
+    else:
+        try:
+            payload = get_explore_page_payload("set", set_id)
+        except ExplorePageError as exc:
+            if not _is_simulation_unavailable_error(exc):
+                # Genuine backend failure (summary/derived query error) — do not mask.
+                raise
+            simulation_available = False
+            simulation_unavailable_reason = str(getattr(exc, "message", exc))
+            logger.warning(
+                "set page snapshot publishing without simulation set_id=%s reason=%s",
+                set_id,
+                simulation_unavailable_reason,
+            )
+            payload = _build_partial_set_page_payload(
+                set_row, set_id=set_id, reason=simulation_unavailable_reason
+            )
     payload = _complete_snapshot_top_hits(payload, set_id=set_id, client=client)
     try:
+        if canonical_simulation_support is False:
+            # Every merge below is simulation-derived: the RIP/desirability
+            # comparison, the rank context and the canonical RIP contract are all
+            # lifted from a rankings target. For a set that is not a simulation
+            # product the only target available is a legacy one, and copying it in
+            # would put current-looking simulation content on a page that has
+            # already been classified simulation-unavailable — the page would
+            # contradict itself. The independent sections (identity, Cards, card
+            # market prices, set value, market dashboard, card appeal) are merged
+            # outside this block and still publish normally.
+            raise _SkipSimulationDerivedEnrichment()
         rankings_payload = get_rip_statistics_targets_payload(
             limit=DEFAULT_RANKINGS_LIMIT, include_rankings_top_chase=False
         )
-        target_rows = rankings_payload.get("targets") or []
+        target_rows = attach_public_v1_to_targets(client or get_client(), rankings_payload.get("targets") or [])
+        rankings_payload = {**rankings_payload, "targets": target_rows}
         # Set pages materialize the same production Set RIP block from the same
         # full canonical cohort used by the global snapshot. This is required
         # only when a set-page snapshot is normally/explicitly rebuilt.
@@ -1535,6 +1699,10 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         # Desirability is price-independent by construction, so validating it
         # against set value was never the right proof for the construct.
         # backend/desirability/set_validation.py remains for research use.
+    except _SkipSimulationDerivedEnrichment:
+        # Deliberate, not a failure: no warning is added because nothing went
+        # wrong and the page already declares the sections unavailable.
+        pass
     except Exception as exc:
         if is_transient_data_service_error(exc):
             raise
@@ -1547,23 +1715,36 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         meta["warnings"] = warnings
         payload["meta"] = meta
     payload = _merge_card_appeal_snapshot_payload(payload, set_id=set_id, client=client)
+    decision_required = _current_decision_contract_is_required(
+        canonical_simulation_support=canonical_simulation_support,
+        matching_rankings_target=matching_rankings_target,
+        decision_run_id=decision_run_id,
+    )
     payload = _merge_rip_decision_contract_into_set_payload(
         payload=payload, set_id=set_id, decision_run_id=decision_run_id,
-        required=matching_rankings_target is not None, client=client
+        required=decision_required, client=client
     )
     payload = with_snapshot_meta(payload, snapshot_type="pokemon_set_page", built_at=built_at)
     existing_row = _load_existing_set_page_snapshot_row(client, set_id) if client is not None else None
-    payload = _merge_last_known_good_snapshot_sections(payload, existing_row=existing_row, built_at=built_at)
+    payload = _merge_last_known_good_snapshot_sections(
+        payload,
+        existing_row=existing_row,
+        built_at=built_at,
+        carry_forward_simulation_sections=canonical_simulation_support is not False,
+    )
     payload = _finalize_snapshot_completeness(payload, set_id=set_id, client=client, built_at=built_at)
     payload = _apply_simulation_availability_metadata(
         payload,
         available=simulation_available,
         reason=simulation_unavailable_reason,
     )
+    # Identity is guaranteed on BOTH paths, before contract verification and
+    # persistence, so strict mode never sees a page without one.
+    payload = _ensure_set_page_target_identity(payload, set_row=set_row, set_id=set_id)
     _assert_canonical_set_page_contract_complete(payload, set_id=set_id)
     _assert_current_run_rip_decision(
         payload, set_id=set_id, expected_run_id=decision_run_id,
-        required=matching_rankings_target is not None,
+        required=decision_required,
     )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
 
@@ -1767,6 +1948,77 @@ def _load_simulation_performance_history(client: Any, set_id: str) -> List[Dict[
             "is_carried_forward": False,
         })
     return points
+
+
+def _load_standard_set_value_by_date(client: Any, set_id: str) -> Dict[str, Any]:
+    """Full standard-scope Set Value history for one set, keyed by market date.
+
+    Read in full rather than reusing the dashboard's windowed
+    ``histories_by_scope`` because the Cards Market Index is chain-linked over
+    the ENTIRE history: seeding it from a 30-day window would restart the index
+    at 100 every build and destroy the very continuity the chain link exists to
+    provide. One set is on the order of a hundred rows, so this is cheap.
+    """
+    rows: List[Dict[str, Any]] = []
+    page = 0
+    while True:
+        result = (
+            client.table("pokemon_set_value_daily_history")
+            .select("snapshot_date,set_value")
+            .eq("set_id", set_id)
+            .eq("value_scope", "standard")
+            .order("snapshot_date")
+            .range(page * 1000, page * 1000 + 999)
+            .execute()
+        )
+        data = getattr(result, "data", None) or []
+        rows.extend(data)
+        if len(data) < 1000:
+            break
+        page += 1
+    return {
+        str(row["snapshot_date"])[:10]: row["set_value"]
+        for row in rows
+        if row.get("snapshot_date") is not None and row.get("set_value") is not None
+    }
+
+
+def _build_cards_market_analytics_section(client: Any, set_id: str) -> Dict[str, Any]:
+    """Prepared Cards Market Index + Market Breadth for one set.
+
+    Computed SERVER-SIDE here, at snapshot build time, precisely so the browser
+    never has to: the underlying constituent RPC returns tens of thousands of
+    rows per set and takes seconds. What lands in the payload is the finished
+    index history and breadth counts, not raw constituent rows.
+
+    Failure DEGRADES rather than aborting the whole set page. A Cards analytics
+    problem must not take down RIP, simulations, Top Chase and Sealed with it,
+    so the section is published with an explicit unavailable reason and the
+    caller records a warning.
+    """
+    try:
+        set_value_by_date = _load_standard_set_value_by_date(client, set_id)
+        if not set_value_by_date:
+            return {"available": False, "reason": "no_set_value_history"}
+        start_date = min(set_value_by_date)
+        end_date = max(set_value_by_date)
+        payload = build_cards_market_analytics(
+            set_id,
+            start_date,
+            end_date,
+            client=client,
+            set_value_by_date=set_value_by_date,
+        )
+        payload["available"] = payload.get("marketIndex") is not None
+        if not payload["available"]:
+            payload["reason"] = "no_constituent_observations"
+        return payload
+    except PokemonSetCardsMarketAnalyticsError as error:
+        logger.warning("[pokemon-snapshot] cards market analytics unavailable set_id=%s: %s", set_id, error)
+        return {"available": False, "reason": "reconciliation_failed", "detail": str(error)}
+    except Exception as error:  # pragma: no cover - defensive
+        logger.warning("[pokemon-snapshot] cards market analytics failed set_id=%s: %s", set_id, error)
+        return {"available": False, "reason": "error", "detail": str(error)}
 
 
 def _latest_history_date(histories_by_scope: Dict[str, List[Dict[str, Any]]]) -> Optional[str]:
@@ -2966,6 +3218,11 @@ def build_market_dashboard_snapshot_rows(
         cards_snapshot_source_date=canonical_market_date,
         simulation_source_date=latest_performance_date,
     )
+    # Cards lens analytics (Cards Market Index + Market Breadth), derived from
+    # the SAME canonical card constituents that reproduce Set Value. Prepared
+    # here so the frontend consumes finished analytics, never raw constituents.
+    cards_market_section = _build_cards_market_analytics_section(client, set_id)
+
     dashboard_payload = {
         "set": top_payload.get("set")
         or {
@@ -2989,6 +3246,14 @@ def build_market_dashboard_snapshot_rows(
         "market_movers": market_movers_snake,
         "marketMoversByWindow": market_movers_by_window,
         "market_movers_by_window": market_movers_by_window_snake,
+        # Breadth is DELIBERATELY not derived from marketMoversByWindow. Movers
+        # answers "which individual cards moved most" and is populated only for
+        # the mover windows; Breadth answers "how many cards participated" over
+        # every supported period. Reusing movers for breadth is what made the UI
+        # report "Not enough market data" on sets that had ample card history.
+        # Movers keeps its own payload above, unchanged.
+        "cardsMarket": cards_market_section,
+        "cards_market": cards_market_section,
         "availableScopes": list(available_scope_lookup.values()),
         "available_scopes": list(available_scope_lookup.values()),
         "latestMarketDate": latest_market_date,
@@ -3748,6 +4013,7 @@ def build_explore_rankings_snapshot_row(
     payload = get_rip_statistics_targets_payload(limit=limit)
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
+    opening_targets = attach_public_v1_to_targets(get_client(), opening_targets)
     meta = dict(payload.get("meta") or {})
     opening_set_audit = build_opening_set_audit(targets)
     meta["snapshot"] = {

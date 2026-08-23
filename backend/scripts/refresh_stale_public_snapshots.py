@@ -1427,10 +1427,16 @@ def _global_snapshot_staleness(client: Any, *, family: str) -> FreshnessResult:
         cohort = meta.get("publicAnalyticsCohort") or {}
         ranked_count = int((cohort.get("overallRanked") or {}).get("rankedSetCount") or 0)
         targets = list(payload.get("targets") or [])
+        ranked_targets = [
+            target
+            for target in targets
+            if isinstance(target, dict)
+            and (target.get("overallRipV10") or {}).get("rank") is not None
+        ]
         if any(not snapshot_meta.get(key) for key in ("publicationId", "marketDate", "builtAt")):
             return FreshnessResult(family, True, "canonical publication metadata missing", snapshot_updated_at, dependency_updated_at, checks)
-        if ranked_count <= 0 or len(targets) != ranked_count:
-            return FreshnessResult(family, True, "complete public cohort marker/count invalid", snapshot_updated_at, dependency_updated_at, checks)
+        if ranked_count <= 0 or len(ranked_targets) != ranked_count:
+            return FreshnessResult(family, True, "complete public ranked cohort marker/count invalid", snapshot_updated_at, dependency_updated_at, checks)
         if any(
             (target.get("overallRipRankComparisonStatus1d")
              or target.get("overall_rip_rank_comparison_status_1d"))

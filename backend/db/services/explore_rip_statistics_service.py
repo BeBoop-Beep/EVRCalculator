@@ -89,6 +89,9 @@ from backend.calculations.evr.financial_rip_v3_config import (
 from backend.calculations.evr.financial_rip_v4 import (
     project_financial_rip_v4_from_v3_payload,
 )
+from backend.calculations.evr.financial_rip_v4_config import (
+    FINANCIAL_RIP_V4_COMPONENT_ORDER,
+)
 from backend.desirability.universal_set_desirability import assess_simulation_coverage
 from backend.desirability.weighted_rip import (
     compute_financial_rip,
@@ -675,6 +678,15 @@ PUBLIC_RANKED_METRICS: Tuple[Tuple[str, str], ...] = (
         (f"_rank_v3_{component}", f"financialRipV3.{component}")
         for component in FINANCIAL_RIP_V3_COMPONENT_ORDER
     ),
+    # The V4 components get their OWN standings, generated from the V4 order
+    # constant rather than V3's. The two constants are equal today (V4 aliases
+    # V3), but Realistic Upside is already redefined in V4 and the orders are
+    # free to diverge; deriving V4's registration from V3's list would make that
+    # divergence silently mis-register the components.
+    *(
+        (f"_rank_v4_{component}", f"financialRipV4.{component}")
+        for component in FINANCIAL_RIP_V4_COMPONENT_ORDER
+    ),
 )
 
 
@@ -856,6 +868,27 @@ def _make_v3_component_extractor(component: str):
 # can each acquire their own typo.
 for _v3_component_key in FINANCIAL_RIP_V3_COMPONENT_ORDER:
     globals()[f"_rank_v3_{_v3_component_key}"] = _make_v3_component_extractor(_v3_component_key)
+
+
+def _make_v4_component_extractor(component: str):
+    """Read one V4 component's own ABSOLUTE score off a target row.
+
+    Deliberately reads the `financialRipV4` namespace only. Five of the six V4
+    components currently share V3's definition, which makes borrowing V3's
+    number look harmless — but Realistic Upside is redefined in V4, and a
+    component that earns its standing from another model's score is publishing a
+    number that does not belong to the model named on the field.
+    """
+    def _extract(row: Mapping[str, Any]) -> Optional[float]:
+        components = (row.get("financialRipV4") or {}).get("components") or {}
+        return _to_optional_float((components.get(component) or {}).get("score"))
+
+    _extract.__name__ = f"_rank_v4_{component}"
+    return _extract
+
+
+for _v4_component_key in FINANCIAL_RIP_V4_COMPONENT_ORDER:
+    globals()[f"_rank_v4_{_v4_component_key}"] = _make_v4_component_extractor(_v4_component_key)
 
 
 # Appeal versions that are definitively NOT legacy CA7. Everything else found in
@@ -1315,6 +1348,25 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
                 relative = relatives.get(str(row.get("target_id")))
                 component["relativeScore"] = round(relative, 2) if relative is not None else None
 
+    # Every WEIGHTED Financial RIP V4 component carries its own relative score on
+    # exactly the same terms as V3 above: computed independently from that V4
+    # component's own absolute score across this cohort, never derived from the
+    # parent and never fed back into it. Driven by the V4 order constant so a
+    # future divergence from V3's component list is picked up here too.
+    for component_key in FINANCIAL_RIP_V4_COMPONENT_ORDER:
+        extractor = globals()[f"_rank_v4_{component_key}"]
+        scratch = [
+            {"target_id": row.get("target_id"), "_score": extractor(row)}
+            for row in cohort_rows
+        ]
+        relatives = _compute_relative_scores(scratch, "_score")
+        for row in cohort_rows:
+            components = (row.get("financialRipV4") or {}).get("components") or {}
+            component = components.get(component_key)
+            if isinstance(component, dict):
+                relative = relatives.get(str(row.get("target_id")))
+                component["relativeScore"] = round(relative, 2) if relative is not None else None
+
     for factor_key, extractor in (
         ("rosterDesirability", _rank_collector_roster_desirability),
         ("desirableOutcomeFrequency", _rank_collector_desirable_outcome_frequency),
@@ -1389,6 +1441,18 @@ def _apply_rank(
         # weighted component.
         component_key = contract_key.split(".", 1)[1]
         components = (row.get("financialRipV3") or {}).get("components") or {}
+        component = components.get(component_key)
+        if isinstance(component, dict):
+            component["rank"] = entry.get("rank")
+            component["tier"] = entry.get("tier")
+            component["cohortSize"] = metric_cohort_size
+        return
+    if contract_key.startswith("financialRipV4."):
+        # The same per-component standing on the V4 breakdown, written into the
+        # V4 namespace. Kept as its own branch rather than a shared prefix match
+        # so a V4 standing can never be written onto a V3 component object.
+        component_key = contract_key.split(".", 1)[1]
+        components = (row.get("financialRipV4") or {}).get("components") or {}
         component = components.get(component_key)
         if isinstance(component, dict):
             component["rank"] = entry.get("rank")

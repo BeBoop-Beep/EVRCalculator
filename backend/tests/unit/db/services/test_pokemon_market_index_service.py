@@ -80,9 +80,19 @@ def test_read_index_history_has_total_order_across_tied_market_date_boundary():
         def execute(self):
             ordered = sorted(rows, key=lambda row: tuple(row[column] for column, _ in self.orders))
             return Result(ordered[self.bounds[0]:self.bounds[1] + 1])
+    class EmptyQuery:
+        def select(self, *_a): return self
+        def eq(self, *_a): return self
+        def lte(self, *_a): return self
+        def order(self, *_a, **_k): return self
+        def range(self, *_a): return self
+        def execute(self): return Result([])
     class Client:
         def __init__(self): self.query = Query()
-        def table(self, _name): return self.query
+        # Only the index table serves index rows; the Market Date Quality
+        # authority is empty here, so this exercises the unfiltered read.
+        def table(self, name):
+            return self.query if name == "pokemon_market_index_daily_history" else EmptyQuery()
     client = Client(); loaded = read_index_history(client)
     identities = [(row["market_date"], row["index_key"], row["row"]) for row in loaded]
     assert len(identities) == 1003 == len(set(identities))

@@ -541,6 +541,101 @@ def test_simulations_run_before_snapshots_are_built(patched):
     assert summary.snapshot_publication_status == "published"
 
 
+def test_tier_a_exists_before_same_run_snapshot_projection(monkeypatch, patched):
+    """Regression: daily research must be available to this day's projection."""
+    from backend.db.services.ev_representativeness_public_service import (
+        project_opening_outcome_profile_v1,
+        project_public_v1,
+    )
+
+    research = {}
+
+    def build_before_snapshot(_client, freshness, *, dry_run):
+        patched.append(("tier_a", []))
+        run_id = next(item.calculation_run_id for item in freshness.statuses if item.status == "current")
+        research[run_id] = {
+            "calculation_run_id": run_id,
+            "research_method_version": "ev_representativeness_v1",
+            "market_date": MARKET_DATE,
+            "source_artifact_sha256": "a" * 64,
+            "typical_capture": .5,
+            "top1_outcome_ev_share": .2,
+            "ev": 5,
+            "p50": 2.5,
+            "return_ratio_buckets_json": {
+                "cost": 10, "sampleSize": 8,
+                "buckets": [
+                    {"ratioFloor": floor, "ratioCeiling": ceiling,
+                     "occurrenceCount": 1, "probability": .125}
+                    for floor, ceiling in ((0,.25),(.25,.5),(.5,.75),(.75,1),(1,1.5),(1.5,2),(2,5),(5,None))
+                ],
+            },
+        }
+        return "research_complete eligible=1 existing=0 built=1 failed=0"
+
+    def project_during_refresh(**_kwargs):
+        patched.append(("refresh", []))
+        row = research[RUN_ID]  # proves the builder ran before projection
+        ev = project_public_v1(row, [], expected_calculation_run_id=RUN_ID)
+        outcome = project_opening_outcome_profile_v1(row, expected_calculation_run_id=RUN_ID)
+        assert ev["calculationRunId"] == RUN_ID
+        assert outcome["calculationRunId"] == RUN_ID
+        return 0
+
+    monkeypatch.setattr(orchestrator, "_build_ev_representativeness_tier_a", build_before_snapshot)
+    monkeypatch.setattr(orchestrator, "refresh_public_snapshots", project_during_refresh)
+    summary = _orchestrate(_client([_history(MARKET_DATE)]))
+
+    order = [step for step, _ in patched]
+    assert order.index("tier_a") < order.index("refresh")
+    assert summary.exit_code == EXIT_OK
+
+
+def test_one_tier_a_failure_is_recorded_but_does_not_block_other_sets(monkeypatch, patched):
+    from backend.db.services import ev_representativeness_service as service
+    from backend.db.services.ev_representativeness_public_service import project_opening_outcome_profile_v1
+    from backend.db.services.opening_simulation_gate import OpeningSetSimulationStatus, OpeningSimulationFreshnessReport
+
+    attempts = []
+    research_rows = {}
+    def fake_build(_client, run_id):
+        attempts.append(run_id)
+        if run_id == "run-bad":
+            raise RuntimeError("artifact read failed")
+        research_rows[run_id] = {
+            "calculation_run_id": run_id, "research_method_version": "ev_representativeness_v1",
+            "market_date": MARKET_DATE, "source_artifact_sha256": "b" * 64, "ev": 5, "p50": 2,
+            "return_ratio_buckets_json": {"cost": 10, "sampleSize": 8, "buckets": [
+                {"ratioFloor": floor, "ratioCeiling": ceiling, "occurrenceCount": 1, "probability": .125}
+                for floor, ceiling in ((0,.25),(.25,.5),(.5,.75),(.75,1),(1,1.5),(1.5,2),(2,5),(5,None))
+            ]},
+        }
+        return {"status": "research_built", "calculationRunId": run_id}
+
+    monkeypatch.setattr(service, "build_tier_a_for_run", fake_build)
+    freshness = OpeningSimulationFreshnessReport(market_date=MARKET_DATE, statuses=[
+        OpeningSetSimulationStatus("good", "set-good", "Good", "current", calculation_run_id="run-good"),
+        OpeningSetSimulationStatus("bad", "set-bad", "Bad", "current", calculation_run_id="run-bad"),
+    ])
+    status = orchestrator._build_ev_representativeness_tier_a(object(), freshness, dry_run=False)
+    assert attempts == ["run-good", "run-bad"]
+    assert status == "research_partial eligible=2 existing=0 built=1 failed=1"
+    assert project_opening_outcome_profile_v1(
+        research_rows["run-good"], expected_calculation_run_id="run-good"
+    )["calculationRunId"] == "run-good"
+    assert research_rows.get("run-bad") is None  # affected target has no optional projection source
+
+    # The orchestration treats that status as observability, never as a gate.
+    calls = []
+    monkeypatch.setattr(orchestrator, "_build_ev_representativeness_tier_a", lambda *_a, **_k: status)
+    monkeypatch.setattr(orchestrator, "refresh_public_snapshots", lambda **_k: calls.append("refresh") or 0)
+    monkeypatch.setattr(orchestrator, "refresh_chase_economics_snapshots", lambda **_k: 0)
+    summary = _orchestrate(_client([_history(MARKET_DATE)]))
+    assert calls == ["refresh"]
+    assert summary.exit_code == EXIT_OK
+    assert summary.ev_representativeness_status == status
+
+
 def test_chase_refresh_targets_current_authorities_and_same_market_date(monkeypatch):
     captured = []
     monkeypatch.setattr(orchestrator, "_run_command", lambda command, **_k: captured.append(command) or 0)

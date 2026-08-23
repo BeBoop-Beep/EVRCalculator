@@ -36,24 +36,30 @@ test("set tabs preserve desktop labels and define the compact mobile presentatio
   assert.ok(pageSource.includes('<span className="hidden max-desk:inline">{option.mobileLabel}</span>'));
 });
 
-test("Market renders exactly the four production market modules", () => {
-  for (const moduleName of [
-    "SetValueTrendCard",
-    "TopChaseCardsModule",
-    "SevenDayMarketMoversTicker",
-    "SealedMarketTrendCard",
-  ]) {
+test("Market renders exactly the three production market sections", () => {
+  // The tab was redesigned from four stacked cards into three sections. Set
+  // Value and Sealed Market are no longer standalone cards: they are the Cards
+  // and Sealed lenses inside the Market Overview, which is why neither mounts
+  // its own module any more. The invariant is unchanged — each section mounts
+  // exactly once, in a fixed reading order.
+  for (const moduleName of ["SevenDayMarketMoversTicker", "SetMarketOverviewSection", "TopChaseCardsPanel"]) {
     assert.equal(
       (marketSection.match(new RegExp(`<${moduleName}\\b`, "g")) || []).length,
       1,
       `${moduleName} is mounted exactly once on Market`
     );
   }
-  // Reading order: Set Value -> Top 10 Chase -> 7D Movers -> Sealed.
-  const positions = ["SetValueTrendCard", "TopChaseCardsModule", "SevenDayMarketMoversTicker", "SealedMarketTrendCard"].map(
-    (moduleName) => marketSection.indexOf(`<${moduleName}`)
+  // Reading order: 7D Movers -> Market Overview -> Top 10 Chase Cards.
+  const positions = ["SevenDayMarketMoversTicker", "SetMarketOverviewSection", "TopChaseCardsPanel"].map((moduleName) =>
+    marketSection.indexOf(`<${moduleName}`)
   );
   assert.deepEqual(positions, [...positions].sort((left, right) => left - right));
+
+  // The retired standalone cards must not linger beside the lenses that
+  // replaced them, which would chart the same series twice on one tab.
+  for (const retired of ["SetValueTrendCard", "TopChaseCardsModule", "SealedMarketTrendCard"]) {
+    assert.equal((marketSection.match(new RegExp(`<${retired}\\b`, "g")) || []).length, 0, `${retired} was folded in`);
+  }
 });
 
 test("Market carries no RIP evidence, no forecasts, and no Product RIP", () => {
@@ -92,8 +98,12 @@ test("market-owned data loads for Market, not for RIP or Analysis", () => {
     pageSource.includes('...(setDetailTab === "market" ? [setValueTrendScope || CANONICAL_SET_VALUE_SCOPE] : [])'),
     "non-canonical set-value scopes are only fetched where the scope selector renders"
   );
-  // Sealed Market owns its own prepared-snapshot request inside the component.
-  assert.ok(marketSection.includes("<SealedMarketTrendCard setId={resolvedSetResourceId} />"));
+  // Sealed still owns its own prepared-snapshot request rather than widening
+  // the page's shared fetches — it just does so from the Market Overview's
+  // sealed lens now instead of from a standalone Sealed Market card.
+  assert.ok(pageSource.includes("function useSealedSetMarket(setId)"), "sealed reads its own prepared snapshot");
+  assert.ok(pageSource.includes("getPokemonSetSealedMarket(setId)"));
+  assert.ok(marketSection.includes("<SetMarketOverviewSection"), "the sealed lens renders inside Market Overview");
 });
 
 test("Top Chase is shared by RIP and Market and never Market-only", () => {
