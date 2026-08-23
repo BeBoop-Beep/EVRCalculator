@@ -13868,6 +13868,7 @@ export default function RipStatisticsPageClient({
                     // RipDecisionPage, not a second ranking calculation.
                     productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
                     evRepresentativeness={selectedTarget?.evRepresentativeness ?? null}
+                    openingOutcomeProfile={selectedTarget?.openingOutcomeProfile ?? null}
                     calculationRunId={selectedTarget?.calculation_run_id ?? selectedTarget?.calculationRunId ?? null}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}

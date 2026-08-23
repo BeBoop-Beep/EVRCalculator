@@ -656,6 +656,7 @@ export default function RipDecisionPage({
   familyFilter = null,
   productFamilyRankings = null,
   evRepresentativeness = null,
+  openingOutcomeProfile = null,
   calculationRunId = null,
 }) {
   const [overallOpen, setOverallOpen] = useState(false);
@@ -1115,6 +1116,7 @@ export default function RipDecisionPage({
           summary={summary}
           percentiles={percentiles}
           evRepresentativeness={evRepresentativeness}
+          openingOutcomeProfile={openingOutcomeProfile}
           calculationRunId={calculationRunId}
         />
       </article>

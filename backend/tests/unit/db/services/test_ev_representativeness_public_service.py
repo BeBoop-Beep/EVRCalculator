@@ -1,7 +1,10 @@
+import pytest
+
 from backend.db.services.ev_representativeness_public_service import (
     PUBLIC_CONTRACT_VERSION,
     attach_public_v1_to_targets,
     project_public_v1,
+    project_opening_outcome_profile_v1,
     sort_history_rows,
 )
 
@@ -90,3 +93,19 @@ def test_history_order_is_deterministic_in_both_directions():
     ]
     assert [row["calculation_run_id"] for row in sort_history_rows(rows)] == ["z", "a", "b"]
     assert [row["calculation_run_id"] for row in sort_history_rows(rows, descending=True)] == ["b", "a", "z"]
+
+
+def test_outcome_profile_is_exact_run_versioned_and_allowlisted():
+    row = summary(return_ratio_buckets_json={
+        "cost": 10, "sampleSize": 8,
+        "buckets": [
+            {"ratioFloor": floor, "ratioCeiling": ceiling, "occurrenceCount": 1, "probability": .125}
+            for floor, ceiling in ((0,.25),(.25,.5),(.5,.75),(.75,1),(1,1.5),(1.5,2),(2,5),(5,None))
+        ],
+    }, ev=7, p50=3)
+    payload = project_opening_outcome_profile_v1(row, expected_calculation_run_id="run-A")
+    assert payload["contractVersion"] == "opening_outcome_profile_v1"
+    assert payload["calculationRunId"] == "run-A"
+    assert payload["cumulativeProbabilities"][1]["probability"] == pytest.approx(.5)
+    assert "diagnostics_json" not in payload
+    assert project_opening_outcome_profile_v1(row, expected_calculation_run_id="run-B") is None

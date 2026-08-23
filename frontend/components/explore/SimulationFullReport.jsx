@@ -3,14 +3,16 @@ import { useId, useMemo, useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { selectSimulationFullReport } from "./simulationFullReportSelector.mjs";
 import { formatEvRepPacks, formatEvRepPercent, selectEvRepresentativenessPublicV1 } from "./evRepresentativenessSelector.mjs";
+import { formatOutcomePercent, selectOpeningOutcomeProfileV1 } from "./openingOutcomeProfileSelector.mjs";
 import styles from "./RipDecisionPage.module.css";
 
-export default function SimulationFullReport({ canonical, summary, percentiles, evRepresentativeness = null, calculationRunId = null }) {
+export default function SimulationFullReport({ canonical, summary, percentiles, evRepresentativeness = null, openingOutcomeProfile = null, calculationRunId = null }) {
   const [open, setOpen] = useState(false);
   const generatedId = useId();
   const panelId = `simulation-full-report-${generatedId.replaceAll(":", "")}`;
   const report = useMemo(() => selectSimulationFullReport({ canonical, summary, percentiles }), [canonical, summary, percentiles]);
   const evRep = useMemo(() => selectEvRepresentativenessPublicV1(evRepresentativeness, calculationRunId), [evRepresentativeness, calculationRunId]);
+  const outcomeProfile = useMemo(() => selectOpeningOutcomeProfileV1(openingOutcomeProfile, calculationRunId), [openingOutcomeProfile, calculationRunId]);
   if (!report.available) return null;
   return <div data-simulation-full-report className={styles.fullReportDisclosure}>
     <button type="button" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((value) => !value)} className={`${styles.disclosureButton} ${styles.fullReportButton}`}>
@@ -18,6 +20,12 @@ export default function SimulationFullReport({ canonical, summary, percentiles, 
     </button>
     {open ? <div id={panelId} className={styles.fullReportPanel}>
       <p className={styles.fullReportIntro}>Financial RIP is built from six scored dimensions. These statistics include both the measurements behind those dimensions and additional simulation diagnostics.</p>
+      <section aria-labelledby={`${panelId}-outcome-breakdown`} className={styles.outcomeProfileSection}>
+        <header><div><h3 id={`${panelId}-outcome-breakdown`}>Outcome Breakdown</h3><p>Where do modeled openings actually land relative to opening cost?</p></div><InfoPopover text="Each range shows the share of simulated openings returning that portion of opening cost in gross modeled card market value. Selling fees, grading and liquidity are not included." /></header>
+        {outcomeProfile ? <><div className={styles.outcomeProfileBar} aria-hidden="true">{outcomeProfile.buckets.map((row) => <span key={row.key} style={{ flexGrow: Math.max(row.probability, .002) }} />)}</div>
+          <dl className={styles.outcomeProfileRows}>{outcomeProfile.buckets.map((row) => <div key={row.key}><dt><span>{row.label}</span><small>{row.interpretation}</small></dt><dd>{formatOutcomePercent(row.probability)}</dd></div>)}</dl>
+          <div className={styles.outcomeProfileCallouts}>{outcomeProfile.cumulativeProbabilities.map((row) => <div key={row.key}><span>{row.label}</span><strong>{formatOutcomePercent(row.probability)}</strong></div>)}</div></> : <p className={styles.outcomeProfileUnavailable}>An exact same-run outcome breakdown is not available for this simulation.</p>}
+      </section>
       {evRep ? <section aria-labelledby={`${panelId}-ev-representativeness`} className={styles.evRepSection}>
         <header><div><h3 id={`${panelId}-ev-representativeness`}>How Representative Is EV?</h3><p>EV is a long-run average. These metrics show how closely realistic modeled openings tend to resemble it.</p></div><InfoPopover text="Estimated from one million modeled outcomes at current market prices. Horizons assume independent pack draws and are not recommendations to open that many packs." /></header>
         <dl className={styles.evRepMetrics}>

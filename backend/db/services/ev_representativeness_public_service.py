@@ -10,6 +10,11 @@ import logging
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.research.ev_representativeness.version import EV_REPRESENTATIVENESS_VERSION
+from backend.research.opening_outcome_profile import (
+    CONTRACT_VERSION as OUTCOME_CONTRACT_VERSION,
+    RESEARCH_METHOD_VERSION as OUTCOME_RESEARCH_METHOD_VERSION,
+    profile_from_persisted,
+)
 
 PUBLIC_CONTRACT_VERSION = "ev_representativeness_public_v1"
 PUBLIC_PACK_COUNTS = (1, 6, 9, 11, 18, 36, 50, 100)
@@ -103,6 +108,36 @@ def project_public_v1(
     }
 
 
+def project_opening_outcome_profile_v1(
+    research_row: Mapping[str, Any], *, expected_calculation_run_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Allowlisted exact-run projection of the persisted return-ratio partition."""
+    run_id = str(research_row.get("calculation_run_id") or "")
+    if run_id != str(expected_calculation_run_id or ""):
+        return None
+    if research_row.get("research_method_version") != EV_REPRESENTATIVENESS_VERSION:
+        return None
+    try:
+        profile = profile_from_persisted(research_row.get("return_ratio_buckets_json") or {})
+    except (TypeError, ValueError):
+        return None
+    return {
+        "contractVersion": OUTCOME_CONTRACT_VERSION,
+        "researchMethodVersion": OUTCOME_RESEARCH_METHOD_VERSION,
+        "calculationRunId": run_id,
+        "marketDate": str(research_row.get("market_date") or "")[:10] or None,
+        "sourceArtifactSha256": research_row.get("source_artifact_sha256"),
+        "openingCost": profile["openingCost"],
+        "expectedValue": _number(research_row.get("ev")),
+        "medianValue": _number(research_row.get("p50")),
+        "sampleSize": profile["sampleSize"],
+        "buckets": profile["buckets"],
+        "cumulativeProbabilities": profile["cumulativeProbabilities"],
+        "disclosures": {"grossMarketValue": True, "sellingFeesExcluded": True,
+                        "gradingExcluded": True, "liquidityExcluded": True},
+    }
+
+
 def attach_public_v1_to_targets(client: Any, targets: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     """Attach projections without ever making public snapshot publication fail."""
     copied = [dict(target) for target in targets]
@@ -151,6 +186,9 @@ def _attach_public_v1_to_targets(client: Any, copied: List[Dict[str, Any]]) -> L
             projection = project_public_v1(row, curves.get(run_id, []), expected_calculation_run_id=run_id)
             if projection:
                 target["evRepresentativeness"] = projection
+            outcome_profile = project_opening_outcome_profile_v1(row, expected_calculation_run_id=run_id)
+            if outcome_profile:
+                target["openingOutcomeProfile"] = outcome_profile
     return copied
 
 
