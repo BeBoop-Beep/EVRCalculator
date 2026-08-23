@@ -65,21 +65,34 @@
 .outcomeProfileSection > header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
 .outcomeProfileSection h3 { color: var(--text-primary); font-size: .9rem; font-weight: 750; }
 .outcomeProfileSection header p { margin-top: .2rem; color: var(--text-secondary); font-size: .72rem; line-height: 1.45; }
-.outcomeProfileBar { display: flex; gap: 2px; height: .5rem; margin: .8rem 0; overflow: hidden; border-radius: 999px; background: var(--border-subtle); }
-.outcomeProfileBar span { min-width: 2px; background: var(--accent); opacity: .45; }
-.outcomeProfileBar span:nth-child(even) { opacity: .72; }
+.outcomeHero { display: grid; margin-top: .9rem; }
+.outcomeHero strong { color: var(--text-primary); font-size: 2rem; line-height: 1; }
+.outcomeHero span { margin-top: .25rem; color: var(--text-primary); font-size: .82rem; font-weight: 650; }
+.outcomeHero small { margin-top: .15rem; color: var(--text-secondary); font-size: .68rem; }
+.outcomeProfileBar { position: relative; display: flex; gap: 2px; height: 2rem; margin: 1.45rem 0 .45rem; border-radius: .45rem; background: var(--border-subtle); }
+.outcomeProfileBar span { display: grid; min-width: 0; place-items: center; overflow: hidden; background: color-mix(in srgb,var(--accent) 45%,transparent); }
+.outcomeProfileBar span:nth-child(n+3) { background: color-mix(in srgb,var(--accent) 78%,transparent); }
+.outcomeProfileBar i { color: var(--text-primary); font-size: .62rem; font-style: normal; font-weight: 750; }
+.outcomeProfileBar b { position: absolute; bottom: calc(100% + .25rem); transform: translateX(-50%); color: var(--text-secondary); font-size: .55rem; letter-spacing: .06em; white-space: nowrap; }
+.outcomeProfileBar b::after { position: absolute; top: 100%; left: 50%; width: 1px; height: 2.25rem; background: var(--text-primary); content: ""; opacity: .6; }
+.outcomeLegend { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .25rem; color: var(--text-secondary); font-size: .58rem; }
 .outcomeProfileRows { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 .9rem; }
 .outcomeProfileRows > div { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: .7rem; border-bottom: 1px solid var(--border-subtle); padding: .5rem 0; }
 .outcomeProfileRows dt { min-width: 0; color: var(--text-primary); font-size: .78rem; }
 .outcomeProfileRows dt span,.outcomeProfileRows dt small { display: block; }
 .outcomeProfileRows dt small { margin-top: .1rem; color: var(--text-secondary); font-size: .62rem; line-height: 1.35; }
 .outcomeProfileRows dd { flex: none; color: var(--text-primary); font-size: .88rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.outcomeProfileCallouts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .5rem; margin-top: .8rem; }
+.outcomeProfileCallouts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .5rem; margin-top: .8rem; }
 .outcomeProfileCallouts > div { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .6rem; padding: .55rem; }
 .outcomeProfileCallouts span,.outcomeProfileCallouts strong { display: block; }
 .outcomeProfileCallouts span { color: var(--text-secondary); font-size: .64rem; }
 .outcomeProfileCallouts strong { margin-top: .18rem; color: var(--text-primary); font-size: .9rem; }
 .outcomeProfileUnavailable { margin: .8rem 0 0; border: 1px dashed var(--border-subtle); border-radius: .6rem; padding: .7rem; color: var(--text-secondary); font-size: .72rem; }
+.outcomeDetails,.evRepRealization { margin-top: .8rem; border-top: 1px solid var(--border-subtle); padding-top: .65rem; }
+.outcomeDetails summary,.evRepRealization summary { cursor: pointer; color: var(--text-secondary); font-size: .7rem; font-weight: 700; }
+.outcomeDetails dl { margin-top: .45rem; }
+.outcomeDetails dl > div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; color: var(--text-secondary); font-size: .68rem; }
+.outcomeDetails dt { display: flex; align-items: center; gap: .3rem; }
 .evRepSection { min-width: 0; border-top: 1px solid var(--border-subtle); padding: 1rem; }
 .evRepSection > header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
 .evRepSection h3 { color: var(--text-primary); font-size: .9rem; font-weight: 750; }
@@ -97,6 +110,18 @@
 .evRepTableRow { border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: .75rem; font-variant-numeric: tabular-nums; }
 .evRepTableHead > :last-child,.evRepTableRow > :last-child { text-align: right; }
 .evRepTableRow strong { color: var(--text-primary); }
+.evComparison { display: grid; gap: .55rem; margin-top: .85rem; }
+.evComparison > div { display: grid; grid-template-columns: 8rem minmax(0,1fr) 5rem; align-items: center; gap: .6rem; color: var(--text-secondary); font-size: .7rem; }
+.evComparison > div > div { height: .65rem; overflow: hidden; border-radius: 999px; background: var(--border-subtle); }
+.evComparison i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.evComparison strong { text-align: right; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.evCapture { margin-top: .75rem; color: var(--text-primary); font-size: .82rem; }
+.evGapTitle { margin-top: .8rem; color: var(--text-primary); font-size: .72rem; font-weight: 750; }
+.evSkew { margin-top: .35rem; color: var(--text-secondary); font-size: .7rem; }
+.evMilestones { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem; margin-top: .85rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
+.evMilestones span,.evMilestones strong,.evMilestones small { display: block; }
+.evMilestones span,.evMilestones small { color: var(--text-secondary); font-size: .62rem; }
+.evMilestones strong { margin-top: .15rem; color: var(--text-primary); font-size: .85rem; }
 .fullReportGroups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border-top: 1px solid var(--border-subtle); }
 .fullReportGroup { min-width: 0; padding: 1rem; border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
 .fullReportGroup:nth-child(even) { border-right: 0; }
@@ -341,7 +366,10 @@
   .subjectMobilePanel { padding: .25rem .2rem .75rem 3.15rem; }
   .fullReportGroups { grid-template-columns: minmax(0,1fr); }
   .evRepMetrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .outcomeProfileRows,.outcomeProfileCallouts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .outcomeProfileRows,.outcomeProfileCallouts { grid-template-columns: 1fr; }
+  .outcomeLegend { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .evMilestones { grid-template-columns: 1fr; }
+  .evComparison > div { grid-template-columns: 6.5rem minmax(0,1fr) 4.5rem; }
   .outcomeProfileSection { padding: .8rem; }
   .evRepSection { padding: .8rem; }
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }

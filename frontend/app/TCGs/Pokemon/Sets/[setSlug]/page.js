@@ -134,6 +134,7 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
     shellPayload: null,
     cardsPayload: null,
     marketDashboardPayload: null,
+    simulationEvidencePayload: null,
     errors: {},
     timings: {},
   };
@@ -214,6 +215,7 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
     initialCardsSnapshotMs: snapshotTimings.cardsMs ?? null,
     initialMarketDashboardSnapshotMs: snapshotTimings.marketDashboardMs ?? null,
     initialOverviewSnapshotMs: snapshotTimings.overviewMs ?? null,
+    initialSimulationEvidenceMs: snapshotTimings.simulationEvidenceMs ?? null,
     initialModuleSnapshotsTotalMs: snapshotTimings.totalMs ?? null,
     snapshotTimedOut,
     routeTotalMs,
