@@ -85,7 +85,8 @@ SEALED_PRODUCT_COMPARISON_SCOPE_REASON = (
     "product-sized outcome vector against a product-sized cost, not of the "
     "Realistic Upside definition V4 revises, so V4 natural-unit scores are not "
     "cross-format comparable either. Cross-format comparison requires the "
-    "validated equal-committed-capital framework, not a natural-unit ranking."
+    "validated budget-constrained whole-unit framework, not a natural-unit "
+    "ranking."
 )
 
 
