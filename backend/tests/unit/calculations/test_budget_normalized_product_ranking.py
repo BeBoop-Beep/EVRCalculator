@@ -1,8 +1,10 @@
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
 
+from backend.calculations.evr import budget_normalized_product_ranking as bnpr
 from backend.calculations.evr.budget_normalized_product_ranking import (
     BUDGET_TYPE_FULL_MARKET,
     CANONICAL_BUDGET_BANDS,
@@ -179,3 +181,127 @@ def test_every_rank_is_budget_qualified_no_naked_context_free_rank_field():
 
 def test_full_market_budget_type_constant_is_distinct_from_standard_bands():
     assert BUDGET_TYPE_FULL_MARKET not in {f"{b:g}" for b in CANONICAL_BUDGET_BANDS}
+
+
+# --- V1 FREEZE: budget-constrained whole-unit semantics -----------------------
+# The methodology validation approved BUDGET_CONSTRAINED_WHOLE_UNIT_RANKING_V1
+# and rejected equal-committed-capital. These tests pin the frozen contract.
+
+def test_scope_version_states_budget_constrained_not_equal_capital():
+    """The scope name is the contract other systems read. The pre-freeze string
+    claimed equal-committed-capital while the implementation was floor-to-budget,
+    and validation proved those rank differently (top-5 overlap 1-3 of 5)."""
+    assert bnpr.BUDGET_COMPARISON_SCOPE_VERSION == "budget_constrained_whole_unit_cross_format_v1"
+    for stale in ("equal_committed_capital", "equal_spend", "matched_capital"):
+        assert stale not in bnpr.BUDGET_COMPARISON_SCOPE_VERSION
+
+
+def test_pre_freeze_scope_constant_is_retained_unmutated_for_historical_artifacts():
+    """Retained, not redefined: any artifact carrying the old string keeps its
+    original meaning and stays identifiable as pre-freeze."""
+    assert bnpr.LEGACY_BUDGET_COMPARISON_SCOPE_VERSION_PRE_FREEZE == "equal_committed_capital_cross_format_v1"
+    assert bnpr.LEGACY_BUDGET_COMPARISON_SCOPE_VERSION_PRE_FREEZE != bnpr.BUDGET_COMPARISON_SCOPE_VERSION
+
+
+def test_module_never_describes_itself_as_equal_committed_capital():
+    """Historical references to the equal-spend RESEARCH stay accurate; what is
+    forbidden is describing THIS ENGINE as equal capital."""
+    source = Path(bnpr.__file__).read_text(encoding="utf-8")
+    assert "capital-matched ranking engine" not in source
+    assert "Budget-Constrained Whole-Unit Product Ranking" in source
+
+
+@pytest.mark.parametrize("budget,price", [
+    (1350.0, 450.0), (1350.0, 1339.19), (100.0, 33.0), (80.0, 12.78), (425.0, 704.23),
+])
+def test_capital_fields_reconcile_exactly(budget, price):
+    """actual + unused == budget, and utilization + unused% == 1."""
+    a = bnpr.whole_unit_allocation(budget, price)
+    assert a["actualCommittedCapital"] + a["unusedCapital"] == pytest.approx(budget, abs=1e-9)
+    if a["eligible"]:
+        assert a["capitalUtilization"] + a["unusedCapitalPercent"] == pytest.approx(1.0, abs=1e-12)
+        assert 0 < a["capitalUtilization"] <= 1.0
+    else:
+        # Ineligible: nothing is committed, the whole budget is unused.
+        assert a["quantity"] == 0
+        assert a["capitalUtilization"] == pytest.approx(0.0)
+
+
+def test_capital_utilization_is_committed_over_budget_not_price_over_budget():
+    """A 3x$450 strategy uses 100% of $1,350 — utilization is about the
+    STRATEGY's committed capital, not one unit's price."""
+    a = bnpr.whole_unit_allocation(1350.0, 450.0)
+    assert a["quantity"] == 3
+    assert a["capitalUtilization"] == pytest.approx(1.0)
+    b = bnpr.whole_unit_allocation(1350.0, 704.23)
+    assert b["quantity"] == 1
+    assert b["capitalUtilization"] == pytest.approx(704.23 / 1350.0)
+
+
+@pytest.mark.parametrize("budget", [80.0, 175.0, 300.0, 425.0])
+def test_nonstandard_budgets_are_first_class(budget):
+    """The future personalized 'enter your budget' flow depends on this: no
+    canonical-band lookup, no new scoring architecture."""
+    a = bnpr.whole_unit_allocation(budget, 33.0)
+    assert a["eligible"] is True
+    assert a["quantity"] == int(budget // 33.0)
+    assert a["targetBudget"] == budget
+    assert a["capitalUtilization"] + a["unusedCapitalPercent"] == pytest.approx(1.0)
+
+
+def test_full_market_rounding_rule_version_is_frozen_and_emitted():
+    assert bnpr.FULL_MARKET_ROUNDING_RULE_VERSION == "full_market_next_50_above_max_eligible_sku_v1"
+    assert bnpr.FULL_MARKET_ROUNDING_INCREMENT == 50.0
+    resolved = bnpr.resolve_full_market_budget([5.65, 1339.19])
+    assert resolved["roundingRuleVersion"] == bnpr.FULL_MARKET_ROUNDING_RULE_VERSION
+    assert resolved["budget"] == 1350.0
+
+
+# --- financial_only_rank (internal audit lens) --------------------------------
+
+def test_financial_only_rank_orders_by_v4_independently_of_overall_rank():
+    """Collector Appeal can legitimately lift a financially weaker SKU in V10.
+    The financial-only lens must ignore that and order purely on V4."""
+    strategies = [
+        _strategy("appealing", overall=95.0, financial=10.0),
+        _strategy("efficient", overall=60.0, financial=90.0),
+    ]
+    ranked = bnpr.rank_budget_cohort(strategies)
+    by_id = {r["sealedProductId"]: r for r in ranked}
+    assert by_id["appealing"]["budgetRank"] == 1
+    assert by_id["efficient"]["budgetRank"] == 2
+    # ...and exactly inverted on the financial-only lens.
+    assert by_id["efficient"]["financialOnlyRank"] == 1
+    assert by_id["appealing"]["financialOnlyRank"] == 2
+
+
+def test_financial_only_rank_covers_the_same_cohort_contiguously():
+    strategies = [_strategy(p, overall=80 - i, financial=50 + i) for i, p in enumerate("abcde")]
+    ranked = bnpr.rank_budget_cohort(strategies)
+    ranks = sorted(r["financialOnlyRank"] for r in ranked)
+    assert ranks == list(range(1, len(ranked) + 1))
+    assert all(r["financialOnlyRank"] <= r["budgetCohortSize"] for r in ranked)
+
+
+def test_financial_only_rank_excludes_unrankable_strategies_like_the_primary_rank():
+    strategies = [_strategy("a", 80), _strategy("b", None), _strategy("c", 70)]
+    ranked = bnpr.rank_budget_cohort(strategies)
+    assert {r["sealedProductId"] for r in ranked} == {"a", "c"}
+    assert sorted(r["financialOnlyRank"] for r in ranked) == [1, 2]
+
+
+def test_financial_only_rank_is_deterministic():
+    strategies = [_strategy(p, overall=70.0, financial=50.0) for p in ("b", "a", "c")]
+    first = {r["sealedProductId"]: r["financialOnlyRank"] for r in bnpr.rank_budget_cohort(strategies)}
+    second = {r["sealedProductId"]: r["financialOnlyRank"] for r in bnpr.rank_budget_cohort(list(reversed(strategies)))}
+    assert first == second
+
+
+def test_budget_tier_is_a_score_tier_not_a_rank_percentile():
+    """Rank #1 does not imply tier S. A cohort where everyone scores poorly
+    still has a rank #1, and that row's tier comes from its own score."""
+    strategies = [_strategy("a", 12.0), _strategy("b", 10.0)]
+    ranked = bnpr.rank_budget_cohort(strategies)
+    top = next(r for r in ranked if r["budgetRank"] == 1)
+    assert top["budgetTier"] == bnpr.assign_composite_tier(12.0)
+    assert top["budgetTier"] != "S"

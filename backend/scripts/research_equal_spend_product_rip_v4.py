@@ -137,7 +137,26 @@ def score_values(values: np.ndarray, committed: float) -> dict[str, Any]:
     payload = project_financial_rip_v4_from_v3_payload(v3_payload)
     if payload.get("status") != "ready" or not payload.get("rankable"):
         raise RuntimeError(f"Financial RIP V4 rejected a strategy: {payload.get('statusReason')}")
-    raw = {key: rec.get("raw") for key, rec in ((payload.get("audit") or {}).get("normalizedInputs") or {}).items()}
+    # Raw distribution inputs live ONLY on the V3 payload. The V4 projection
+    # carries an EMPTY `audit.normalizedInputs`, so reading them off `payload`
+    # (the V4 projection) silently produced None for every raw metric —
+    # including `typical_retention_ratio` and `true_win_probability`. Because
+    # `multi_metric_dominator` requires all four of its metrics to be present,
+    # that made the dominance test VACUOUS: it reported 0 comparable pairs,
+    # which was then read as "zero dominance inversions". Corrected to read
+    # from `v3_payload`; see the V1 validation appendix.
+    raw = {key: rec.get("raw") for key, rec in ((v3_payload.get("audit") or {}).get("normalizedInputs") or {}).items()}
+    missing_dominance_inputs = [
+        key for key in ("typical_retention_ratio", "true_win_probability")
+        if raw.get(key) is None
+    ]
+    if missing_dominance_inputs:
+        raise RuntimeError(
+            "Financial RIP V3 payload is missing raw dominance input(s) %s — refusing to "
+            "continue, because absent inputs silently disable multi_metric_dominator and a "
+            "vacuous dominance test reads as a clean 'zero inversions' result"
+            % missing_dominance_inputs
+        )
     disclosure = payload.get("distributionDisclosures") or {}
     return {
         "financialRipV4": payload["score"], "rtp": float(np.mean(values) / committed),

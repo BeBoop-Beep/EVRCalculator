@@ -1,18 +1,115 @@
-# Budget-Normalized Product Ranking — Internal Capability (v1)
+# Budget-Constrained Whole-Unit Product Ranking — Internal Capability (V1, FROZEN)
 
-**Date:** 2026-08-22
-**Status:** Internal infrastructure only. No customer-facing exposure.
-**Supersedes nothing; extends** `OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md`.
+**Date:** 2026-08-22 (methodology) / 2026-08-23 (V1 freeze + implementation)
+**Status:** FROZEN. Internal infrastructure only. No customer-facing exposure.
+**Extends** `OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md`.
+**Validation detail:** `BUDGET_NORMALIZED_PRODUCT_RANKING_v1_VALIDATION_APPENDIX.md`.
 
-> **⚠ See also:** `BUDGET_NORMALIZED_PRODUCT_RANKING_v1_VALIDATION_APPENDIX.md` (2026-08-22).
-> That appendix freezes the V1 semantics as **budget-constrained whole-unit** ranking and
-> **corrects two claims made below**, which are left unedited here for the historical record:
-> (1) the "zero dominance inversions" figure was a measurement artifact — raw metrics were read
-> off the Financial RIP V4 projection, whose `audit.normalizedInputs` is empty, so the four-metric
-> dominance test could never fire; properly measured, the allocation is 0.044% inverted at $1,350,
-> not 0%; and (2) the method described below as "equal-committed-capital" is in fact
-> floor-to-budget — the two produce materially different top-5 results (overlap 2/5), so the
-> `equal_committed_capital_cross_format_v1` scope name requires renaming.
+---
+
+# APPROVED METHOD
+
+## `BUDGET_CONSTRAINED_WHOLE_UNIT_RANKING_V1_APPROVED`
+
+### Exact semantics
+
+For a budget ceiling `B` and product market price `P`:
+
+```
+quantity                = floor(B / P)          -- eligible only when quantity >= 1
+actualCommittedCapital  = quantity * P
+unusedCapital           = B - actualCommittedCapital
+unusedCapitalPercent    = unusedCapital / B
+capitalUtilization      = actualCommittedCapital / B
+```
+
+A strategy is: **buying and opening the maximum number of whole units of ONE sealed-product SKU
+that fit within the selected spending ceiling.** No fractional purchases. A product priced above
+the ceiling is recorded ineligible, never silently dropped.
+
+### The question this answers
+
+> **What should I OPEN with up to $X?**
+
+Consumer statement: *"Ranks whole-product opening strategies that fit within your selected
+spending limit."*
+
+Fuller tooltip: *"Different sealed products cost different amounts. inDex compares how many whole
+units of each product fit within your selected budget, then ranks the resulting modeled opening
+strategies. Any money left over is not included in the opening score."*
+
+### Unused cash
+
+Recorded as metadata and disclosure. **Never** scored, invested, or folded into Financial RIP V4.
+
+This is a real product limitation, deliberately preserved rather than papered over. The
+retained-cash control (appendix §7) showed that adding leftover cash materially changes
+terminal-wealth ordering (Spearman 0.67 on terminal median wealth) — because holding cash is a
+guaranteed risk-free retention no pack-opening distribution can match. Ranked on terminal wealth,
+the "best" strategy trends toward buying as little as possible, which does not answer "what should
+I open?".
+
+**Therefore:** this ranking evaluates *the opening strategy*, not *the optimal financial use of
+the entire budget*. Copy must say "to open", never "the best use of your money".
+
+### This is NOT equal committed capital
+
+Two strategies at the same budget generally commit different amounts: a $1,339 product commits
+$1,339 of a $1,350 ceiling; a $450 product commits $1,350 exactly. Never describe this as equal
+spend, equal committed capital, identical spend, matched capital, best use of your money,
+portfolio optimization, or total-wealth optimization.
+
+### Why matched capital was rejected for production UX
+
+1. **It excludes the most expensive SKU.** Under the preregistered pairwise bounds (5% tolerance,
+   `MAX_PAIR_SPEND = $1,000`) the $1,339.19 SKU cannot be matched against anything, giving
+   136/137 coverage. Restoring full coverage requires abandoning the bound the existing validated
+   research rests on.
+2. **It answers a different question** — "which format is fairer at comparable spend" — which is a
+   researcher's question, not a shopper's.
+3. **The two are not interchangeable.** They agree globally (Spearman ~0.95) but disagree on the
+   podium (top-5 overlap 1–3 of 5), so the choice is substantive, not cosmetic.
+
+Matched capital is retained as a **research control** in
+`backend/scripts/research_budget_ranking_semantics.py`, not as production semantics.
+
+### Why budget-constrained was approved
+
+* **Negligible allocation bias.** Spearman(capital utilization, rank) = **−0.073**, Pearson
+  **−0.028** — inside ±0.10, and the sign is the opposite of the feared bias. Utilization
+  quartiles are non-monotonic (Q1 beats Q2).
+* **Dominance-clean allocation.** Isolating the allocation from Collector Appeal (ranking on
+  Financial RIP V4 alone): **2 inversions / 4,508 comparable pairs = 0.044%** at $1,350; worst
+  observed 0.108% at $1,600. ~98–100% of the higher V10 inversion rate is Collector Appeal
+  operating exactly as designed (0.90 financial + 0.10 appeal).
+* **High Full Market stability.** Spearman ≥ 0.993 from $1,350 to $1,600, with Top-5, Top-10 and
+  Top-20 perfectly preserved at every anchor; mean rank movement ≤ 2.
+* **Replicated** on two independent cohorts (`price_as_of` 2026-08-17 and 2026-08-21).
+
+### Full Market rule
+
+```
+full_market_budget = ceil(maxEligibleSkuPrice / 50) * 50
+```
+
+Rule version: `full_market_next_50_above_max_eligible_sku_v1`. **Dynamic — never hard-code the
+dollar value.** Each publication persists `full_market_budget`, `max_eligible_sku_price`,
+`full_market_rounding_increment` and `full_market_rounding_rule_version`.
+
+$50 is evidence-backed: $25 resolves to the same anchor on the current cohort but churns twice as
+often (4 boundary changes vs 2 across a price sweep); $100 inflates committed capital 4.54% above
+the max SKU versus 0.81% for $50 — 5.6× the excess — and buys no measured stability, because ranks
+are near-invariant from $1,350 to $1,600. Confirmed by real drift during validation: the max SKU
+price moved $1,339.19 → $1,331.19 and the $50 anchor held at $1,350.
+
+### Full Market's role
+
+**Internal reference first.** It is the complete-cohort benchmark, methodology monitor,
+regression/stability anchor and cross-format reference. The intended future customer experience is
+*the user selecting their own budget* — Full Market is not assumed to be a customer-facing control
+and is not mentioned on the locked UI.
+
+---
 
 ## Why universal Overall Rank was rejected
 
@@ -23,18 +120,34 @@ honestly describe one stable population.
 
 ## Why budget-normalized ranking is supported
 
-Equal-committed-capital comparison, using whole purchasable retail units and the real multi-unit
-outcome distribution (never `single-unit metric × quantity`), behaved coherently across every
-tested budget: zero dominance inversions, near-perfect (median Spearman ρ = 1.0) cross-budget rank
-stability. This is genuinely useful, auditable, and explainable in one sentence — it was simply
-never a *universal* rank.
+Budget-ceiling comparison, using whole purchasable retail units and the real multi-unit outcome
+distribution (never `single-unit metric × quantity`), behaved coherently across every tested
+budget. This is genuinely useful, auditable, and explainable in one sentence — it was simply never
+a *universal* rank.
+
+> **Corrected at the V1 freeze (2026-08-23).** This section originally read *"Equal-committed-capital
+> comparison … zero dominance inversions, near-perfect (median Spearman ρ = 1.0) cross-budget rank
+> stability."* The original wording is quoted here rather than quietly rewritten:
+>
+> * **"Equal-committed-capital"** was never what the implementation did — it has always been
+>   floor-to-budget. See "This is NOT equal committed capital" above.
+> * **"Zero dominance inversions"** was a measurement artifact, not a result. Raw metrics were read
+>   from the Financial RIP V4 projection, whose `audit.normalizedInputs` is empty, so
+>   `multi_metric_dominator` (which requires all four metrics present) could never fire and
+>   reported zero *comparable pairs*. Measured correctly, the allocation inverts on **0.044%** of
+>   comparable pairs at $1,350 — excellent, but not zero. Fixed in
+>   `research_equal_spend_product_rip_v4.py`, which now raises rather than silently reporting a
+>   vacuous pass.
+> * **"median Spearman ρ = 1.0"** was computed *within* small per-set cohorts, not across the
+>   cross-format population; it is not comparable to the ρ ≈ 0.93–0.99 figures reported elsewhere
+>   and should not be read as contradicting them.
 
 ## Why Full Market exists
 
 To give one budget point where every currently eligible modeled SKU can participate, so "what's
 best across everything" has an actual, complete answer — while still being explicit that it is
 one specific (large) budget, not an intrinsic property of the product. **Live-verified: Full
-Market resolves to $1,350 today (`ceil(1339.19 / 50) * 50`), and produces 137/137 (100%) coverage
+Market resolves to $1,350 for the pinned 2026-08-21 cohort (`ceil(1331.19 / 50) * 50`), and produces 137/137 (100%) coverage
 across all 8 product families** — confirmed by actually running the builder against the live
 authoritative cohort (`backend/scripts/build_budget_normalized_product_rankings.py --dry-run`).
 
@@ -53,18 +166,25 @@ itself is validated and production-ready; only its public exposure is withheld.
 ## Canonical budget bands (Phase 1A/7)
 
 Preserved from the already-validated equal-spend research: **$25, $50, $100, $150, $250, $500**,
-plus the dynamic **Full Market** anchor. Live coverage (re-verified this task, matches the prior
-equal-spend research exactly — a strong internal consistency check):
+plus the dynamic **Full Market** anchor. Live coverage was re-verified against the frozen pinned
+cohort; counts can differ from earlier research when prices move:
 
-| Budget | Eligible | Families represented |
-|---:|---:|---|
-| $25 | 36 | loose_booster_pack, sleeved_booster_pack |
-| $50 | 41 | + booster_bundle |
-| $100 | 58 | + elite_trainer_box |
-| $150 | 78 | + pokemon_center_elite_trainer_box |
-| $250 | 106 | + booster_box, half_booster_box |
-| $500 | 131 | + enhanced_booster_box (all 8 families, 95.6%) |
-| **Full Market ($1,350)** | **137** | **all 8 families, 100%** |
+Live coverage from the V1-freeze dry run (`--price-as-of 2026-08-21`, 137 SKUs / 22 runs):
+
+| Budget | Eligible | Ranked | Families | Median util. | Min util. |
+|---:|---:|---:|---:|---:|---:|
+| $25 | 36 | 36 | 2 | 0.8460 | 0.5160 |
+| $50 | 41 | 41 | 3 | 0.9080 | 0.5764 |
+| $100 | 58 | 58 | 4 | 0.9200 | 0.5193 |
+| $150 | 77 | 77 | 5 | 0.9429 | 0.5185 |
+| $250 | 106 | 106 | 7 | 0.9164 | 0.5088 |
+| $500 | 131 | 131 | 8 | 0.9164 | 0.5009 |
+| **Full Market ($1,350)** | **137** | **137** | **8** | **0.9731** | **0.5151** |
+
+586 ranking rows in one publication. $150 admits **77**, not the 78 recorded against the earlier
+2026-08-17 cohort — a genuine price movement between cohorts, not a contract change. Coverage
+counts are cohort-dependent by nature and must be re-read from the current dry run rather than
+quoted from this table.
 
 No band was dropped as redundant — each admits a materially different, monotonically growing
 cohort and family set, so each remains a meaningful, distinct answer to "what's best at roughly
@@ -102,8 +222,13 @@ folded into the scored outcome distribution.
 ## Cross-format ranking semantics (Phase 4/F)
 
 One budget-qualified rank means: *"Ranks this product against every other eligible modeled sealed
-product purchasable at this same committed-capital level, in whole retail units, using Financial
-RIP V4 (computed on the real multi-unit outcome distribution) and Overall RIP V10."* The rank,
+product whose whole retail units fit within this same spending ceiling, using Financial RIP V4
+(computed on the real multi-unit outcome distribution) and Overall RIP V10."*
+
+`comparison_scope_version = budget_constrained_whole_unit_cross_format_v1`. The pre-freeze value
+`equal_committed_capital_cross_format_v1` is retained UNMUTATED in the engine as
+`LEGACY_BUDGET_COMPARISON_SCOPE_VERSION_PRE_FREEZE` so any artifact carrying it keeps its original
+meaning; no publication ever used it (the storage migration was never applied). The rank,
 its cohort size, and its tier are computed together from the exact same ranked set and can never
 describe different cohorts. Comparator: Overall RIP V10 (desc) → Financial RIP V4 (desc) →
 chance-to-recover (desc, when present) → committed-capital closeness to target (asc) →
@@ -178,23 +303,108 @@ shows no changes, so there is no integration conflict.
 ## Family Rank (Phase 12)
 
 Unchanged. `product_family_rankings_service.py`'s comparator, population, and (from the prior
-task) `familyTier` field are untouched by this task; existing tests still pass (114/114 across the
-touched test files, including all pre-existing Family Rank tests).
+task) `familyTier` field are untouched by this task; the focused Family Rank regression modules
+remain green.
 
 ## Deferred / not done (honest accounting)
 
-- The full Phase 6 statistical stress-test sweep (Spearman/top-5/top-10/rank-range at Full Market
-  ± 10%/20% neighboring anchors) was **not run** — only the two boundary-crossing unit tests above.
-  Time-boxed given the scope of this task; the underlying engine is real and tested, so this is a
-  follow-up validation exercise, not a missing capability.
-- Per-budget diagnostics beyond coverage (median committed capital, median unused capital, maximum
-  unused-capital ratio, unused-capital-vs-rank correlation — Phase 1A/6C) were not computed this
-  pass; the raw per-row data needed for them is already in
-  `logs/budget_normalized_product_rankings.json` from the dry run, so this is a follow-up analysis
-  query, not new engineering.
+- The post-implementation semantics audit was completed for the pinned 2026-08-21 cohort. It
+  includes neighboring-anchor rank stability, utilization/rank correlation, dominance, retained
+  cash, matched-capital, and Full Market diagnostics. Future cohorts still require monitoring;
+  validation of one frozen cohort is not a promise that market drift can never change the result.
+- The builder now records per-budget utilization diagnostics and timings in its local dry-run
+  artifact. These diagnostics remain internal and are not part of any public payload.
 - The migration is authored but not applied to the live database (see above) — `--commit`
   publication has not actually been exercised end-to-end.
-- `chanceToRecoverCost` is not currently populated on budget strategies (the tie-break degrades
-  gracefully to Financial RIP / capital-closeness / SKU id instead) — a real, minor gap, not a
-  design flaw: Financial RIP V3's payload carries this as a raw metric that could be threaded
-  through in a follow-up.
+- `chanceToRecoverCapital` is populated from Financial RIP V3's canonical
+  `true_win_probability` raw input and persisted in the internal ranking row. It is computed for
+  the actual whole-unit strategy; unused cash is not passed into that metric.
+
+
+---
+
+# FINAL DATA CONTRACT (V1 FROZEN)
+
+Migration `20260822213027_create_budget_normalized_product_rankings.sql`.
+
+## `budget_product_ranking_snapshots`
+
+`id`, `market_date`, `built_at`, `published_at`, `publication_status`, `ranking_method_version`,
+`allocation_method_version`, `comparison_scope_version`, `financial_rip_version`,
+`overall_rip_version`, `collector_appeal_version`, `eligible_cohort_count`, `cohort_fingerprint`,
+**`pinned_price_as_of`**, **`full_market_budget`**, **`max_eligible_sku_price`**,
+**`full_market_rounding_increment`**, **`full_market_rounding_rule_version`**, `diagnostics_json`,
+`created_at`.
+
+Unique on `(market_date, ranking_method_version, allocation_method_version)` — republishing the
+same date/method REPLACES the row set rather than coexisting as ambiguous authority.
+
+## `budget_product_ranking_rows`
+
+`snapshot_id`, `sealed_product_id`, `set_id`, `product_family`, `target_budget`, `budget_type`,
+`quantity`, `actual_committed_capital`, `unused_capital`, `unused_capital_percent`,
+**`capital_utilization`**, `budget_rank`, `budget_cohort_size`, `budget_tier`,
+**`financial_only_rank`**, `financial_rip_v4_score`, `overall_rip_v10_score`,
+`collector_appeal_score`, **`chance_to_recover_capital`**, `product_market_price`, `price_as_of`,
+`full_market_anchor`, `max_eligible_sku_price`, `full_market_rounding_rule`,
+**`full_market_rounding_increment`**, **`full_market_rounding_rule_version`**,
+`source_calculation_run_id`, `created_at`.
+
+Primary key `(snapshot_id, sealed_product_id, target_budget, budget_type)` — the budget is part of
+the identity, so a context-free product rank cannot be represented.
+
+Enforced at the storage layer: `capital_utilization + unused_capital_percent = 1`,
+`actual_committed_capital + unused_capital = target_budget` (within currency rounding),
+`financial_only_rank <= budget_cohort_size`, Full Market anchor provenance is all-or-nothing, and
+every row's `price_as_of` must equal the snapshot's `pinned_price_as_of`.
+
+### Field mapping notes
+
+* `source_publication_id` is not a separate column: the ranking's own publication identity is
+  `snapshot_id`, and the *source* authority is `source_calculation_run_id` plus the snapshot's
+  `pinned_price_as_of`. No duplicate field was added.
+* `pinned_price_as_of` lives on the snapshot (authority is per publication) while `price_as_of`
+  stays per row; the RPC asserts they agree, so the row-level value is a verifiable projection
+  rather than a redundant copy.
+
+---
+
+# RANK AND TIER SEMANTICS
+
+| Concept | Population | Ordered by | Public today |
+|---|---|---|---|
+| **Budget Rank** (primary) | All eligible SKUs at one budget ceiling, cross-format | Overall RIP V10 → Financial RIP V4 → chance-to-recover → budget utilisation → id | No (internal) |
+| **Financial-only Rank** | The same budget cohort | Financial RIP V4 → id | No (internal audit only) |
+| **Family Rank** | One canonical product family, all budgets irrelevant | Existing validated family comparator | Yes (unchanged) |
+
+## Tier semantics — score tiers, not rank percentiles
+
+Both **Family Tier** and **Budget Tier** are derived from a *score* via `assign_composite_tier()`.
+They are **not** rank percentiles.
+
+```
+Family Rank: #7/22        <- position within the family
+RIP Tier:    B            <- earned by the SCORE, independent of that position
+```
+
+`#7/22` does **not** imply `B`, and `B` does not imply any particular rank. A cohort in which every
+product scores poorly still has a rank #1, and that row's tier is whatever its own score earns. The
+two ideas must never be merged into a single "tier" meaning, and UI copy must not imply that one
+determines the other.
+
+## Why Budget Rank uses Overall RIP V10
+
+The product proposition being ranked is the whole opening proposition — financial opening quality
+*and* collector appeal. V10 (0.90 financial + 0.10 appeal) expresses that. A consequence, measured
+and accepted: a financially dominated SKU can outrank its dominator on desirability. That is the
+design, not a defect — which is exactly why `financial_only_rank` exists as the clean allocation
+diagnostic.
+
+## Dominance interpretation
+
+**Do not block publication on V10 dominance inversions.** They are explained by Collector Appeal
+(~98–100% of them at the freeze). Monitor **financial-only dominance** instead — the validated
+baseline is 2 / 4,508 comparable pairs ≈ **0.044%**, worst observed 0.108%. The builder carries
+`FINANCIAL_DOMINANCE_WARN_RATE = 1%` as an audit warning threshold, deliberately not a hard gate:
+a small residual is expected because the four-metric dominance test is not a monotone function of
+V4's six scored components.

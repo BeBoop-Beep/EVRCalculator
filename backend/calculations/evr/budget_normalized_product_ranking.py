@@ -1,13 +1,34 @@
-"""Budget-Normalized Product Ranking — the internal, cross-format capital-matched
-ranking engine.
+"""Budget-Constrained Whole-Unit Product Ranking — the internal, cross-format
+budget-ceiling ranking engine.
 
 WHAT THIS IS
 ------------
-The validated answer to "if I have about $X to spend, which eligible sealed
-product opening strategy performs best" — using WHOLE purchasable retail
-units at a stated committed-capital level, never a natural-unit cross-format
-sort of ``overall_rip_v10_score`` (that comparison remains invalid; see
+The validated answer to "if I have UP TO $X to spend, which eligible sealed
+product opening strategy performs best" — using the maximum number of WHOLE
+purchasable retail units that fit under a budget CEILING, never a
+natural-unit cross-format sort of ``overall_rip_v10_score`` (that comparison
+remains invalid; see
 ``backend.domain.pokemon.sealed_product_comparison_scope``).
+
+THIS IS NOT EQUAL COMMITTED CAPITAL
+-----------------------------------
+Two strategies at the same budget generally commit DIFFERENT amounts of
+capital: a $1,339 product commits $1,339 of a $1,350 budget, while a $450
+product commits $1,350 exactly. Both are valid answers to "what can I open
+for up to $1,350"; neither is an equal-spend comparison.
+
+The methodology validation measured both semantics against each other and
+found them NOT interchangeable — they agree globally (Spearman ~0.95) but
+disagree on the podium (top-5 overlap 1-3 of 5). Budget-constrained was
+approved (``BUDGET_CONSTRAINED_WHOLE_UNIT_RANKING_V1_APPROVED``) because it
+is the only one of the two that answers the actual user question, and
+because matched capital cannot represent the most expensive SKU at all under
+the preregistered 5% / $1,000 pairwise bound.
+
+Do NOT describe this engine as equal spend, equal committed capital, matched
+capital, "the best use of your money", or total-wealth optimisation. It
+ranks OPENING STRATEGIES under a spending ceiling. See
+``docs/research/BUDGET_NORMALIZED_PRODUCT_RANKING_v1.md``.
 
 This is NOT a context-free universal "Overall Product Rank". Research
 (``docs/research/OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md``) found no
@@ -83,7 +104,24 @@ ALLOCATION_METHOD_VERSION = "budget_allocation_floor_quantity_v1"
 
 #: Comparison-scope identity for THIS ranking — deliberately distinct from
 #: the natural-unit `within_product_family_only` scope, which is untouched.
-BUDGET_COMPARISON_SCOPE_VERSION = "equal_committed_capital_cross_format_v1"
+#:
+#: V1 FINAL. The name states the four properties that define the scope:
+#: budget-CONSTRAINED (a ceiling, not a match), WHOLE-UNIT (indivisible
+#: retail units), CROSS-FORMAT (families compared against each other), V1.
+BUDGET_COMPARISON_SCOPE_VERSION = "budget_constrained_whole_unit_cross_format_v1"
+
+#: HISTORICAL ONLY — never emitted by this engine again.
+#:
+#: The pre-freeze scope string. It described the implementation as
+#: equal-committed-capital when the implementation was in fact
+#: floor-to-budget; the methodology validation proved the two produce
+#: materially different rankings, so the name was wrong rather than loose.
+#:
+#: Retained (not deleted, not redefined) so that any artifact carrying this
+#: string keeps its original meaning and can be identified as pre-freeze.
+#: No production publication ever used it: the storage migration was authored
+#: but never applied, so zero rows exist under this scope.
+LEGACY_BUDGET_COMPARISON_SCOPE_VERSION_PRE_FREEZE = "equal_committed_capital_cross_format_v1"
 
 #: Validated in research (docs/research/OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md):
 #: near-perfect (median Spearman 1.0) cross-budget rank stability, zero
@@ -107,6 +145,20 @@ BUDGET_TYPE_CUSTOM = "custom"
 #: cohort, with no stability benefit measured). See decision record for the
 #: comparison.
 FULL_MARKET_ROUNDING_INCREMENT = 50.0
+
+#: Frozen identity of the Full Market rounding rule, persisted per publication
+#: so a historical anchor stays auditable if the increment ever changes.
+#:
+#: EVIDENCE for $50 (methodology validation, replicated on two cohorts):
+#:   * $25 resolves to the SAME anchor on the current cohort ($1,350) but
+#:     churns twice as often across a price sweep (4 changes vs 2).
+#:   * $100 inflates committed capital 4.54% above the max SKU vs 0.81% for
+#:     $50 — 5.6x the excess — and buys no measured stability, because ranks
+#:     are near-invariant from $1,350 to $1,600 (Spearman >= 0.993, top-20
+#:     overlap 20/20).
+#:   * Confirmed by real drift: the max SKU price moved $1,339.19 -> $1,331.19
+#:     during validation and the $50 anchor held at $1,350.
+FULL_MARKET_ROUNDING_RULE_VERSION = "full_market_next_50_above_max_eligible_sku_v1"
 
 
 def resolve_full_market_budget(eligible_market_prices: Sequence[float]) -> Dict[str, Any]:
@@ -133,6 +185,7 @@ def resolve_full_market_budget(eligible_market_prices: Sequence[float]) -> Dict[
         "maxEligibleSkuPrice": max_price,
         "roundingIncrement": increment,
         "roundingRule": f"ceil(maxEligibleSkuPrice / {increment:g}) * {increment:g}",
+        "roundingRuleVersion": FULL_MARKET_ROUNDING_RULE_VERSION,
     }
 
 
@@ -147,7 +200,14 @@ def whole_unit_allocation(target_budget: float, product_market_price: float) -> 
     quantity = int(math.floor(budget / price))
     actual_committed_capital = quantity * price
     unused_capital = budget - actual_committed_capital
+    # `capitalUtilization` and `unusedCapitalPercent` are exact complements by
+    # construction (they sum to 1.0 up to float error), and BOTH are persisted:
+    # utilization is the diagnostic the methodology validation correlates
+    # against rank to prove the absence of budget-divisibility bias, while
+    # unused percent is the disclosure that stops leftover cash from being
+    # read as opening value.
     unused_capital_percent = (unused_capital / budget) if budget > 0 else None
+    capital_utilization = (actual_committed_capital / budget) if budget > 0 else None
     return {
         "eligible": quantity >= 1,
         "quantity": quantity,
@@ -155,6 +215,7 @@ def whole_unit_allocation(target_budget: float, product_market_price: float) -> 
         "actualCommittedCapital": actual_committed_capital,
         "unusedCapital": unused_capital,
         "unusedCapitalPercent": unused_capital_percent,
+        "capitalUtilization": capital_utilization,
     }
 
 
@@ -205,6 +266,17 @@ def score_budget_strategy(
     v3_kwargs = {} if not min_simulation_count else {"min_simulation_count": min_simulation_count}
     v3_payload = build_financial_rip_v3(values, actual_committed_capital, **v3_kwargs)
     v4_payload = project_financial_rip_v4_from_v3_payload(v3_payload)
+    # `chance_to_recover_capital` is the canonical `true_win_probability` raw
+    # input. It MUST be read from the V3 payload: the V4 projection carries an
+    # EMPTY `audit.normalizedInputs`, so sourcing it from V4 silently yields
+    # None. That exact mistake made the prior research's four-metric dominance
+    # test vacuous ("0 comparable pairs" reported as "zero inversions").
+    v3_raw = {
+        key: record.get("raw")
+        for key, record in ((v3_payload.get("audit") or {}).get("normalizedInputs") or {}).items()
+    }
+    chance_to_recover_capital = v3_raw.get("true_win_probability")
+    typical_retention_ratio = v3_raw.get("typical_retention_ratio")
     financial_v4_score = v4_payload.get("score")
     financial_v4_status = v4_payload.get("status")
     financial_v4_rankable = bool(v4_payload.get("rankable"))
@@ -221,6 +293,9 @@ def score_budget_strategy(
         "overallRipV10Version": overall_v10.get("version") if overall_v10 else None,
         "expectedValue": float(np.mean(values)),
         "medianValue": float(np.median(values)),
+        "chanceToRecoverCapital": chance_to_recover_capital,
+        "typicalRetentionRatio": typical_retention_ratio,
+        "lossResilience": (v4_payload.get("components") or {}).get("loss_resilience", {}).get("score"),
     }
 
 
@@ -229,11 +304,24 @@ def _tier_sort_key(entry: Mapping[str, Any]) -> tuple:
     (desc, when present) -> committed-capital closeness to target (asc) ->
     sealed_product_id (deterministic final tie-break). Mirrors the validated
     Family Rank comparator's structure so the two ranking systems read
-    consistently, adapted with a capital-closeness tie-break specific to
-    budget matching."""
+    consistently, adapted with a budget-utilisation tie-break specific to a
+    spending ceiling: among strategies that are otherwise indistinguishable,
+    the one using MORE of the available budget ranks first. This is a
+    tie-break on utilisation, NOT a capital-matching requirement — nothing
+    here forces or rewards equal committed capital."""
     overall = entry.get("overallRipV10Score")
     financial = entry.get("financialRipV4Score")
-    recover = entry.get("chanceToRecoverCost")
+    # Tie-break 3 is the canonical chance-to-recover-capital. It was
+    # historically read from `chanceToRecoverCost`, which the builder always
+    # set to None, leaving this position inert. `chanceToRecoverCapital` is
+    # now populated from the V3 raw inputs; the legacy key is still honoured
+    # so existing callers keep working. The comparator's SHAPE is unchanged
+    # (validated semantics preserved) — the slot simply carries a real value
+    # now. Verified non-binding on the current cohort: exact (V10, V4) ties
+    # number 0 at every tested budget, so ordering is unaffected.
+    recover = entry.get("chanceToRecoverCapital")
+    if recover is None:
+        recover = entry.get("chanceToRecoverCost")
     mismatch = abs(entry.get("actualCommittedCapital", 0.0) - entry.get("targetBudget", 0.0))
     return (
         -(overall if overall is not None else float("-inf")),
@@ -254,6 +342,26 @@ def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str
     rankable = [s for s in strategies if s.get("overallRipV10Score") is not None]
     ordered = sorted(rankable, key=_tier_sort_key)
     size = len(ordered)
+
+    # INTERNAL AUDIT LENS (never surfaced publicly): the SAME cohort ordered by
+    # Financial RIP V4 alone. Overall RIP V10 is 0.90 financial + 0.10
+    # Collector Appeal, so a financially dominated SKU can legitimately outrank
+    # its dominator on desirability. Dominance diagnostics are financial, so
+    # they need an ordering with appeal removed — validation measured 1.06%
+    # inversions under V10 versus 0.044% under this financial-only lens, and
+    # confirmed ~98-100% of the V10 inversions are Collector Appeal by design.
+    financial_only = sorted(
+        rankable,
+        key=lambda e: (
+            -(e["financialRipV4Score"] if e.get("financialRipV4Score") is not None else float("-inf")),
+            str(e.get("sealedProductId") or ""),
+        ),
+    )
+    financial_only_rank = {
+        str(entry.get("sealedProductId")): index
+        for index, entry in enumerate(financial_only, start=1)
+    }
+
     out = []
     for index, entry in enumerate(ordered, start=1):
         out.append(
@@ -261,7 +369,12 @@ def rank_budget_cohort(strategies: Sequence[Mapping[str, Any]]) -> List[Dict[str
                 **entry,
                 "budgetRank": index,
                 "budgetCohortSize": size,
+                # SCORE tier, not a rank-percentile tier: derived from the
+                # Overall RIP V10 score via the shared composite thresholds.
+                # Rank #1 does not imply tier S, and tier S does not imply
+                # rank #1 — see the decision record's tier semantics section.
                 "budgetTier": assign_composite_tier(entry["overallRipV10Score"]),
+                "financialOnlyRank": financial_only_rank[str(entry.get("sealedProductId"))],
             }
         )
     return out

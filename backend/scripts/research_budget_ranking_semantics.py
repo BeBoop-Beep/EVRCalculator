@@ -38,6 +38,7 @@ from backend.calculations.evr.financial_rip_v4 import (
 )
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
 from backend.desirability.weighted_rip import compute_overall_rip_v10
+from backend.db.services.budget_product_ranking_authority import load_pinned_cohort
 from backend.scripts.build_budget_normalized_product_rankings import (
     build_stage1_distributions_cached,
 )
@@ -65,72 +66,24 @@ RELAXED_PAIR_SPEND = 2800.0
 
 
 # ------------------------------------------------------------------ authority
-def load_pinned_products(client: Any, price_as_of: Optional[str] = None) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """One coherent priced cohort, pinned to a SINGLE `price_as_of`.
-
-    `build_budget_normalized_product_rankings.load_eligible_products` fails
-    closed the moment any SKU has more than one V4-ready run — which is
-    correct for publication but unusable here, because production keeps
-    landing partial single-set refresh runs. Rather than "latest run wins"
-    (which would silently blend 2026-08-17 prices for most SKUs with newer
-    prices for a handful — exactly the mixed authority this pass must
-    refuse), we pin to the price_as_of covering the MOST SKUs and drop
-    every run outside it, then re-assert one run per SKU.
-    """
-    rows = client.table("simulation_sealed_product_results").select("*").eq(
-        "financial_rip_v4_status", "ready"
-    ).execute().data or []
-    rows = [r for r in rows if float(r.get("product_market_cost") or 0) > 0]
-    if not rows:
-        raise RuntimeError("no V4-ready priced sealed-product rows exist")
-
-    by_as_of: Dict[str, list] = defaultdict(list)
-    for r in rows:
-        by_as_of[str(r.get("price_as_of"))].append(r)
-    if price_as_of is not None:
-        if price_as_of not in by_as_of:
-            raise RuntimeError(
-                "requested price_as_of %s has no V4-ready rows (available: %s)"
-                % (price_as_of, sorted(by_as_of))
-            )
-        pinned_as_of = price_as_of
-    else:
-        # Deterministic: most SKUs wins; ties break to the LATEST date. Both
-        # halves matter — production now carries two complete 137-SKU cohorts
-        # (2026-08-17 and 2026-08-21), so a count-only rule is a coin flip.
-        pinned_as_of = max(
-            by_as_of,
-            key=lambda k: (len({str(r["sealed_product_id"]) for r in by_as_of[k]}), k),
-        )
-    pinned = by_as_of[pinned_as_of]
-
-    seen: Dict[str, set] = defaultdict(set)
-    for r in pinned:
-        seen[str(r["sealed_product_id"])].add(str(r["calculation_run_id"]))
-    ambiguous = sorted(p for p, runs in seen.items() if len(runs) > 1)
-    if ambiguous:
-        raise RuntimeError(
-            "MIXED AUTHORITY: %d SKU(s) have >1 V4-ready run inside price_as_of %s"
-            % (len(ambiguous), pinned_as_of)
-        )
-
-    excluded = [
-        {
-            "sealedProductId": str(r["sealed_product_id"]),
-            "productName": r.get("product_name"),
-            "calculationRunId": str(r["calculation_run_id"]),
-            "priceAsOf": str(r.get("price_as_of")),
-            "reason": "outside_pinned_price_as_of",
-        }
-        for k, group in by_as_of.items() if k != pinned_as_of for r in group
-    ]
+# Authority resolution is NOT duplicated here. The audit must validate the
+# SAME cohort the production builder would publish, so it delegates to the
+# production resolver. (Research may depend on production; the reverse is
+# forbidden and is enforced by
+# test_research_equal_spend_product_rip.test_production_modules_never_import_a_research_harness.)
+def load_pinned_products(client: Any, price_as_of: Optional[str] = None) -> tuple:
+    """Delegate to the production authority resolver, returning its provenance."""
+    products, authority = load_pinned_cohort(client, price_as_of)
     provenance = {
-        "pinnedPriceAsOf": pinned_as_of,
-        "excludedRunCount": len({e["calculationRunId"] for e in excluded}),
-        "excludedRowCount": len(excluded),
-        "excludedRows": excluded,
+        "pinnedPriceAsOf": authority["pinnedPriceAsOf"],
+        "pinMode": authority["pinMode"],
+        "excludedRunCount": authority["excludedRunCount"],
+        "excludedRowCount": authority["excludedRowCount"],
+        "excludedRows": authority["excludedRows"],
+        "authorityResolverVersion": authority["authorityResolverVersion"],
+        "candidateCohorts": authority["candidateCohorts"],
     }
-    return pinned, provenance
+    return products, provenance
 
 
 # ---------------------------------------------------------------- statistics
