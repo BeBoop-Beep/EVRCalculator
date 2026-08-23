@@ -103,6 +103,7 @@ class PublicationSummary:
     sealed_product_finalization_status: str = "not_attempted"
     sealed_product_finalization_report: Optional[Dict[str, Any]] = None
     rip_stats_publication_status: str = "not_attempted"
+    ev_representativeness_status: str = "not_attempted"
     rip_stats_audit_status: str = "not_attempted"
     rip_stats_market_date: Optional[str] = None
     rip_stats_set_count: int = 0
@@ -147,6 +148,7 @@ class PublicationSummary:
         for failure in self.chase_audit_failures:
             out.append(f"{TAG}   chase_audit_failed={failure}")
         out.append(f"{TAG} rip_stats_publication_status={self.rip_stats_publication_status}")
+        out.append(f"{TAG} ev_representativeness_status={self.ev_representativeness_status}")
         out.append(f"{TAG} rip_stats_audit_status={self.rip_stats_audit_status}")
         out.append(f"{TAG} rip_stats_market_date={self.rip_stats_market_date}")
         out.append(f"{TAG} rip_stats_set_count={self.rip_stats_set_count}")
@@ -566,8 +568,35 @@ def orchestrate(
         summary.error = "published Pokemon RIP Stats failed its provenance audit"
         return summary
 
+    # Post-publication, best-effort Tier A sweep. The public snapshots and every
+    # contract audit are already complete, so research latency/failure cannot
+    # delay or invalidate publication. Missing rows remain retryable by run id.
+    summary.ev_representativeness_status = _build_ev_representativeness_tier_a(
+        client, after, dry_run=dry_run
+    )
     summary.exit_code = EXIT_OK
     return summary
+
+
+def _build_ev_representativeness_tier_a(client: Any, freshness: Any, *, dry_run: bool) -> str:
+    if dry_run:
+        return "validated_dry_run"
+    from backend.db.services.ev_representativeness_service import build_tier_a_for_run
+    failures = []
+    built = 0
+    for item in freshness.statuses:
+        if item.status != "current" or not item.calculation_run_id:
+            continue
+        try:
+            result = build_tier_a_for_run(client, str(item.calculation_run_id))
+            if result.get("status") == "research_built":
+                built += 1
+        except Exception as exc:  # explicitly non-fatal after publication
+            failures.append(f"{item.canonical_key}:{exc}")
+            logger.exception("%s Tier A post-publication build failed set=%s", TAG, item.canonical_key)
+    if failures:
+        return f"research_partial built={built} failed={len(failures)}"
+    return f"research_complete built={built}"
 
 
 def _rip_stats_capability_expected(client: Any) -> bool:

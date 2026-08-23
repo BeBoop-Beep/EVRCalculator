@@ -14,7 +14,7 @@ How representative is EV of a real opener's finite-sample experience, and how ma
 
 ## 3. Methodology
 
-Tier A reads each exact, SHA-256-verified one-million-pack float64 artifact. Tier B is a separate deterministic, seeded reconstruction used only for latent card identity, paired ablations, and price shocks. Tier B attribution is accepted only after mean and quantile reconciliation against Tier A. Sessions bootstrap independent packs with replacement from Tier A, using common random numbers across the N grid. Probability rows report Wilson 95% intervals. First crossings are retained as noisy diagnostics; stable horizons require a Wilson lower bound above the target across a validation band and an independent 250,000-session confirmation. CLT estimates are comparisons, never substitutes for empirical horizons.
+Tier A reads each exact, SHA-256-verified one-million-pack float64 artifact. Tier B is a separate deterministic, seeded reconstruction used only for latent card identity, paired ablations, and price shocks. Tier B attribution is accepted only after mean and quantile reconciliation against Tier A. Sessions bootstrap independent packs with replacement from Tier A, using common random numbers across the N grid. Probability rows report Wilson 95% intervals. The stored first crossing is the coarse-grid first crossing and remains a noisy diagnostic; stable horizons may be refined between coarse points and require a Wilson lower bound above the target across a validation band plus an independent 250,000-session confirmation. CLT estimates are comparisons, never substitutes for empirical horizons.
 
 ## 4. Dataset
 
@@ -222,6 +222,8 @@ Cells show P(realized average ≥ 80% of EV). The machine-readable curve include
 | shroudedFable | 150 | 250 | resolved | 16 |
 | temporalForces | 250 | 250 | resolved | 16 |
 | journeyTogether | 150 | 150 | resolved | 18 |
+
+Paldea Evolved's 500-pack convergence value is an audit candidate whose independent confirmation did not ratify the validation band. It is retained in research output with status `confirmation_did_not_ratify` but is not exposed as a confirmed public horizon.
 
 ## 13. CLT vs Empirical Reality
 

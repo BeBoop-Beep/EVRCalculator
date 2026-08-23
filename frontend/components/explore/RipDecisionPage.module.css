@@ -61,6 +61,23 @@
 .fullReportButton small { color: var(--text-secondary); font-size: .72rem; font-weight: 450; }
 .fullReportPanel { margin-top: .65rem; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: .75rem; background: rgba(2,8,23,.28); }
 .fullReportIntro { padding: .8rem 1rem; color: var(--text-secondary); font-size: .75rem; line-height: 1.5; }
+.evRepSection { min-width: 0; border-top: 1px solid var(--border-subtle); padding: 1rem; }
+.evRepSection > header { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.evRepSection h3 { color: var(--text-primary); font-size: .9rem; font-weight: 750; }
+.evRepSection header p,.evRepRealization > p { margin-top: .2rem; color: var(--text-secondary); font-size: .72rem; line-height: 1.45; }
+.evRepMetrics { display: grid; min-width: 0; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .55rem; margin-top: .8rem; }
+.evRepMetrics > div { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .65rem; background: color-mix(in srgb,var(--surface-page) 52%,transparent); padding: .65rem; }
+.evRepMetrics dt { color: var(--text-secondary); font-size: .65rem; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+.evRepMetrics dd { margin-top: .25rem; overflow-wrap: anywhere; color: var(--text-primary); font-size: 1.05rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.evRepMetrics small { display: block; margin-top: .3rem; color: var(--text-secondary); font-size: .64rem; line-height: 1.4; }
+.evRepRealization { margin-top: 1rem; }
+.evRepRealization h4 { color: var(--text-primary); font-size: .74rem; font-weight: 700; }
+.evRepRealization > div { margin-top: .55rem; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: .6rem; }
+.evRepTableHead,.evRepTableRow { display: grid; grid-template-columns: minmax(4rem,1fr) minmax(8rem,1fr); gap: 1rem; padding: .42rem .65rem; }
+.evRepTableHead { background: color-mix(in srgb,var(--surface-page) 65%,transparent); color: var(--text-secondary); font-size: .62rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.evRepTableRow { border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.evRepTableHead > :last-child,.evRepTableRow > :last-child { text-align: right; }
+.evRepTableRow strong { color: var(--text-primary); }
 .fullReportGroups { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border-top: 1px solid var(--border-subtle); }
 .fullReportGroup { min-width: 0; padding: 1rem; border-right: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
 .fullReportGroup:nth-child(even) { border-right: 0; }
@@ -304,6 +321,8 @@
   .subjectMobileImage { display: flex; width: 2.5rem; height: 3.25rem; align-items: center; justify-content: center; overflow: hidden; border-radius: .3rem; background: rgba(0,0,0,.18); }
   .subjectMobilePanel { padding: .25rem .2rem .75rem 3.15rem; }
   .fullReportGroups { grid-template-columns: minmax(0,1fr); }
+  .evRepMetrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .evRepSection { padding: .8rem; }
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }
   .fullReportGroup header { align-items: flex-start; flex-direction: column; gap: .15rem; }
   .fullReportRow { grid-template-columns: minmax(0,1fr) minmax(4.5rem,auto); }

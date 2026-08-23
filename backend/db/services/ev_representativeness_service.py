@@ -216,6 +216,92 @@ def resolve_research_cohort(
     return targets
 
 
+def resolve_research_target_for_run(client: Any, calculation_run_id: str) -> ResearchTarget:
+    """Resolve one already-complete authoritative set run for postprocessing/backfill."""
+    run_id = str(calculation_run_id)
+    run_rows = _rows(
+        client.table("calculation_runs").select("id,target_id,target_type,created_at")
+        .eq("id", run_id).limit(1).execute()
+    )
+    if not run_rows or run_rows[0].get("target_type") != "set":
+        raise EvRepresentativenessError(f"run {run_id} is not a persisted set calculation run")
+    summary_rows = _rows(
+        client.table("simulation_run_summary")
+        .select("calculation_run_id,pack_cost,mean_value,median_value,std_dev,simulation_count")
+        .eq("calculation_run_id", run_id).limit(1).execute()
+    )
+    if not summary_rows:
+        raise EvRepresentativenessError(f"run {run_id} has no simulation_run_summary row")
+    artifact_rows = _rows(
+        client.table("simulation_pack_outcome_artifacts").select("calculation_run_id")
+        .eq("calculation_run_id", run_id).limit(1).execute()
+    )
+    if not artifact_rows:
+        raise EvRepresentativenessError(f"run {run_id} has no exact pack-outcome artifact")
+    run = run_rows[0]
+    set_id = str(run.get("target_id") or "")
+    set_rows = _rows(
+        client.table("sets").select("id,name,canonical_key").eq("id", set_id).limit(1).execute()
+    )
+    if not set_rows:
+        raise EvRepresentativenessError(f"run {run_id} target set {set_id} is missing")
+    history_rows = _rows(
+        client.table("calculation_history_trend").select("snapshot_date")
+        .eq("calculation_run_id", run_id).limit(1).execute()
+    )
+    market_date = (
+        str(history_rows[0].get("snapshot_date"))[:10]
+        if history_rows else str(run.get("created_at") or "")[:10]
+    )
+    summary = summary_rows[0]
+    cost = float(summary.get("pack_cost") or 0.0)
+    if not market_date or not math.isfinite(cost) or cost <= 0:
+        raise EvRepresentativenessError(f"run {run_id} lacks a valid market date or pack cost")
+    set_row = set_rows[0]
+    return ResearchTarget(
+        set_id=set_id,
+        canonical_key=str(set_row.get("canonical_key") or set_id),
+        set_name=set_row.get("name"),
+        calculation_run_id=run_id,
+        market_date=market_date,
+        pack_cost=cost,
+        simulation_count=int(summary.get("simulation_count") or 0),
+        simulated_mean=float(summary.get("mean_value") or 0.0),
+        simulated_median=float(summary.get("median_value") or 0.0),
+        simulated_std_dev=float(summary.get("std_dev") or 0.0),
+    )
+
+
+def build_tier_a_for_run(client: Any, calculation_run_id: str) -> Dict[str, Any]:
+    """Idempotent exact-artifact Tier A build for one completed run."""
+    build_started = time.perf_counter()
+    existing = _rows(
+        client.table("ev_representativeness_run_summary")
+        .select("calculation_run_id")
+        .eq("calculation_run_id", str(calculation_run_id))
+        .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
+        .limit(1).execute()
+    )
+    if existing:
+        return {"status": "already_built", "calculationRunId": str(calculation_run_id)}
+    resolve_started = time.perf_counter()
+    target = resolve_research_target_for_run(client, calculation_run_id)
+    resolve_seconds = time.perf_counter() - resolve_started
+    analysis_started = time.perf_counter()
+    result = analyse_tier_a(client, target)
+    analysis_seconds = time.perf_counter() - analysis_started
+    persist_started = time.perf_counter()
+    written = persist_research(client, result, tier_b=None)
+    persistence_seconds = time.perf_counter() - persist_started
+    return {"status": STATUS_BUILT, "calculationRunId": calculation_run_id,
+            "marketDate": target.market_date, "written": written,
+            "runtimeSeconds": time.perf_counter() - build_started,
+            "timings": {"resolveSeconds": resolve_seconds,
+                        "analysisSeconds": analysis_seconds,
+                        "persistenceSeconds": persistence_seconds,
+                        "artifactAndComputationSeconds": result.runtime_seconds}}
+
+
 def load_product_scopes(client: Any, run_id: str) -> List[Dict[str, Any]]:
     """Real SKUs for one run, with their authoritative pack counts and costs.
 

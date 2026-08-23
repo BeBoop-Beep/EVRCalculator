@@ -13867,6 +13867,8 @@ export default function RipStatisticsPageClient({
                     // new code is the lookup-by-sealedProductId inside
                     // RipDecisionPage, not a second ranking calculation.
                     productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
+                    evRepresentativeness={selectedTarget?.evRepresentativeness ?? null}
+                    calculationRunId={selectedTarget?.calculation_run_id ?? selectedTarget?.calculationRunId ?? null}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}
