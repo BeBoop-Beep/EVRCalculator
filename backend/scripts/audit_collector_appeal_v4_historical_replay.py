@@ -259,7 +259,7 @@ def boundary_diagnostics(
 
 def fetch_snapshots() -> Dict[str, Any]:
     """Every complete public RIP snapshot and its rows. READ-ONLY."""
-    from backend.db.clients.supabase_client import public_read_client as client
+    from backend.db.clients.supabase_client import service_read_client as client
 
     snapshots = (
         client.table("pokemon_public_rip_leaderboard_snapshots")

@@ -4146,13 +4146,13 @@ def snapshot_service_client_scope(client: Any):
         pokemon_set_market_service,
         set_desirability_service,
     )
-    previous = [(module, getattr(module, "public_read_client", None)) for module in modules]
+    previous = [(module, getattr(module, "service_read_client", None)) for module in modules]
     try:
         for module, _old_client in previous:
-            if hasattr(module, "public_read_client"):
-                module.public_read_client = client
+            if hasattr(module, "service_read_client"):
+                module.service_read_client = client
         yield
     finally:
         for module, old_client in previous:
-            if hasattr(module, "public_read_client"):
-                module.public_read_client = old_client
+            if hasattr(module, "service_read_client"):
+                module.service_read_client = old_client

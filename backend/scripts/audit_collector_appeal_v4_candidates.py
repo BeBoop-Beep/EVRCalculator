@@ -685,10 +685,10 @@ def _round_map(mapping: Mapping[str, Optional[float]]) -> Dict[str, Optional[flo
 
 def fetch_financial_rip() -> Tuple[Dict[str, float], Dict[str, float]]:
     """Live, READ-ONLY read of canonical Financial RIP V3 and sealed pack price."""
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
     response = (
-        public_read_client.table("explore_rip_statistics_latest")
+        service_read_client.table("explore_rip_statistics_latest")
         .select("set_name,financial_rip_v3_score,financial_rip_v3_rankable,current_market_pack_cost")
         .execute()
     )

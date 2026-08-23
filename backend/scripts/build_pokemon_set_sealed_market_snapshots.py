@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.db.clients.supabase_client import public_read_client, supabase
+from backend.db.clients.supabase_client import service_read_client, supabase
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import build_snapshot, upsert_snapshot
 from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 from backend.scripts.pokemon_snapshot_builders import list_pokemon_sets, resolve_set_row
@@ -36,24 +36,24 @@ def _paged_rows(query_factory: Any, page_size: int = 1000) -> List[Dict[str, Any
 
 def resolve_sets(selector: str | None, all_sets: bool) -> List[Dict[str, Any]]:
     if all_sets:
-        return list_pokemon_sets(public_read_client)
-    return [resolve_set_row(public_read_client, str(selector))]
+        return list_pokemon_sets(service_read_client)
+    return [resolve_set_row(service_read_client, str(selector))]
 
 
 def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
     products = _rows(
-        public_read_client.table("sealed_products").select("id,set_id,name,product_type").eq("set_id", set_row["id"])
+        service_read_client.table("sealed_products").select("id,set_id,name,product_type").eq("set_id", set_row["id"])
     )
     product_ids = [product["id"] for product in products]
     observations = _paged_rows(
-        lambda: public_read_client.table("sealed_product_price_observations")
+        lambda: service_read_client.table("sealed_product_price_observations")
         .select("id,sealed_product_id,market_price,source,currency,captured_at")
         .in_("sealed_product_id", product_ids)
         .order("captured_at")
     ) if product_ids else []
     row = build_snapshot(set_row, products, observations)
     existing = _rows(
-        public_read_client.table("pokemon_set_sealed_market_snapshot_latest")
+        service_read_client.table("pokemon_set_sealed_market_snapshot_latest")
         .select("source_generation_fingerprint")
         .eq("set_id", set_row["id"])
         .limit(1)

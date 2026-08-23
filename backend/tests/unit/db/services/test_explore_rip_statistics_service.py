@@ -106,7 +106,7 @@ def test_rankings_top_chase_is_copied_from_set_page_in_one_batch(monkeypatch):
         ]
     }
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     sources, warnings = {}, []
 
     lookup = service._load_rankings_top_chase_lookup(
@@ -127,7 +127,7 @@ def test_rankings_top_chase_run_mismatch_refuses_stale_publication(monkeypatch):
             "cardName": "Stale", "sourceCalculationRunId": "run-old",
         }}},
     }]}
-    monkeypatch.setattr(service, "public_read_client", _Client(handlers))
+    monkeypatch.setattr(service, "service_read_client", _Client(handlers))
     with pytest.raises(RuntimeError, match="Refusing stale Rankings Top Chase publication"):
         service._load_rankings_top_chase_lookup(
             [{"set_id": "set-1", "calculation_run_id": "run-current"}],
@@ -141,7 +141,7 @@ def test_missing_canonical_chase_stays_unavailable(monkeypatch):
             "cardName": "Incomplete", "sourceCalculationRunId": "run-1",
         }}}},
     ]})
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     sources, warnings = {}, []
     lookup = service._load_rankings_top_chase_lookup(
         [{"set_id": "set-1", "calculation_run_id": "run-1"}],
@@ -314,7 +314,7 @@ def _build_handlers():
 def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
     handlers = _build_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
 
     def _mock_interpretation(summary_row):
@@ -388,7 +388,7 @@ def test_targets_endpoint_returns_sorted_targets_and_default(monkeypatch):
 def test_targets_endpoint_includes_canonical_checklist_set_value_for_validation(monkeypatch):
     handlers = _build_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
     monkeypatch.setattr(
         service,
@@ -414,7 +414,7 @@ def test_targets_endpoint_without_rows_raises_404(monkeypatch):
     handlers = _build_handlers()
     handlers["explore_rip_statistics_latest"] = lambda _q: []
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
 
     try:
@@ -433,7 +433,7 @@ def test_set_enrichment_failure_falls_back_to_target_id(monkeypatch):
 
     handlers["sets"] = _sets_fail
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
 
     payload = service.get_rip_statistics_targets_payload()
@@ -446,7 +446,7 @@ def test_set_enrichment_failure_falls_back_to_target_id(monkeypatch):
 def test_limit_is_safely_clamped(monkeypatch):
     handlers = _build_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
 
     payload = service.get_rip_statistics_targets_payload(limit="999")
@@ -504,7 +504,7 @@ def test_all_scored_opening_desirability_rows_join_into_canonical_comparison(mon
         "set_pack_score_rankings_latest": lambda _q: [],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
     monkeypatch.setattr(
         service,
@@ -530,7 +530,7 @@ def test_top_10_card_value_sorts_before_aggregation_and_reports_unavailable_pric
         ],
     ]
     client = _Client({"pokemon_canonical_card_market_prices_latest": lambda _q: rows})
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
     sources = {}
     warnings = []
@@ -577,7 +577,7 @@ def test_targets_publish_average_loss_when_losing_as_a_passthrough(monkeypatch):
     """
     handlers = _build_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     _stub_collector_appeal_bundle(monkeypatch)
     monkeypatch.setattr(service, "build_rip_interpretation", lambda summary_row: {})
 

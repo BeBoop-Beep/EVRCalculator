@@ -35,7 +35,7 @@ from dotenv import load_dotenv
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.db.clients.supabase_client import public_read_client  # noqa: E402
+from backend.db.clients.supabase_client import service_read_client  # noqa: E402
 from backend.desirability.card_links import subject_key_for  # noqa: E402
 from backend.desirability.collector_appeal import (  # noqa: E402
     CA7_PRODUCTION_LAMBDA,
@@ -695,7 +695,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     load_dotenv()
 
-    guard = ReadOnlyClientGuard(public_read_client)
+    guard = ReadOnlyClientGuard(service_read_client)
 
     logger.info("[dry-run] reading production state (read-only guard active)...")
     source_state = load_source_state(

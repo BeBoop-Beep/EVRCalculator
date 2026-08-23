@@ -14,7 +14,7 @@ Audited at commit `2995b90` on `feature/rip-decision-layer`.
 | `rip_decision_service.py` | modified by in-flight work, lines stale | **committed and stable**; `_product_decision_row` :167, `build_sealed_product_decision_contract` :196, `_load_run_population` :306, `build_top_chase_contract` :413, `build_rip_decision_contract` :470. Constants `INPUT_CARDS_TABLE` :78, `NEAR_MINT_PRICE_VIEW` :77 | **No conflict.** Structure matches. Task 6 proceeds as planned. |
 | Timestamp helper | `_utc_now_iso` "if in globals()" conditional hack | **`utc_now_iso()` exists** at `pokemon_snapshot_builders.py:125`, public, no underscore | **Defect 1.** Use `utc_now_iso()`. Delete the conditional. |
 | Snapshot persistence | raw `client.table(...).upsert(...).execute()` | **`upsert_row(client, table, row, *, on_conflict, commit)`** at :3725 — carries dry-run logging and statement-timeout retry | **Defect 2.** Raw upsert bypasses dry-run and retry. Use `upsert_row`. |
-| Chase snapshot reader | add to `pokemon_public_snapshot_service.py` using `_service_client()` | `_service_client()` **does not exist**. That module reads via `public_read_client`. Migration 069 **revokes anon/authenticated** on the chase table | **Defect 3 (architectural).** A public read of a backend-only table returns nothing. See ruling below. |
+| Chase snapshot reader | add to `pokemon_public_snapshot_service.py` using `_service_client()` | `_service_client()` **does not exist**. That module reads via `service_read_client`. Migration 069 **revokes anon/authenticated** on the chase table | **Defect 3 (architectural).** A public read of a backend-only table returns nothing. See ruling below. |
 | Run identity | Task 7 takes `run_id` param | `_merge_rip_decision_contract_into_set_payload` (:581) resolves it as `first_non_empty(decision_run_id, _snapshot_payload_run_id(payload))` | **Defect 4.** The chase snapshot must reuse the SAME resolved run id, never resolve its own. |
 | `evPriceBasisAsOf` | sourced from `price_used_as_of` on the price view | **No such column.** `simulation_input_cards` carries **`captured_at`** (verified in `calculation_run_persistence_service.persist_simulation_inputs`) | **Defect 5 (spec gap).** Left as-is, this field is permanently `null`, violating the spec's provenance requirement. |
 | Migration 069 | — | exactly one `069_*` file; the chase table is referenced nowhere else in the repo | **No conflict.** |
@@ -23,7 +23,7 @@ Audited at commit `2995b90` on `feature/rip-decision-layer`.
 ### Ruling: the chase reader moves out of `pokemon_public_snapshot_service.py`
 
 Migration 069 deliberately grants the chase table to `service_role` only. The
-public snapshot service is built entirely on `public_read_client`, so a reader
+public snapshot service is built entirely on `service_read_client`, so a reader
 placed there would return zero rows for every set — silently, looking exactly
 like "not built yet".
 

@@ -4,7 +4,7 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.db.services.pokemon_card_market_delta_contract import (
     MOVEMENT_CONTRACT_VERSION,
@@ -220,7 +220,7 @@ def build_global_card_movers_row(
 
 
 def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None) -> Dict[str, Any]:
-    active = client or public_read_client
+    active = client or service_read_client
     rows = list((active.table(TABLE).select("*").eq("tcg", "pokemon").eq("scope", "explore")
                  .eq("window_key", "7D").limit(1).execute()).data or [])
     if not rows:

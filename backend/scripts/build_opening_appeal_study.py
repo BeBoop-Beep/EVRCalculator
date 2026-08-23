@@ -105,9 +105,9 @@ DIRECTIONAL_SPEARMAN_GATE = 0.02  # or >= +0.02 held-out Spearman
 # ---------------------------------------------------------------------------
 
 def _client():
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
-    return public_read_client
+    return service_read_client
 
 
 def _paged_select(query: Any, *, page_size: int = 1000, attempts: int = 4) -> List[Dict[str, Any]]:

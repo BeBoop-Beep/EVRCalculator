@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-from backend.db.clients.supabase_client import create_service_role_client, public_read_client, supabase
+from backend.db.clients.supabase_client import create_service_role_client, service_read_client, supabase
 from backend.db.services.collection_portfolio_service import get_public_collection_data_by_username
 from backend.db.services.public_identity_service import normalize_profile_username, resolve_public_user_by_username
 
@@ -539,7 +539,7 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
     if token_user and token_user.get("id"):
         viewer_user_id = str(token_user.get("id"))
 
-    public_user, public_user_trace = resolve_public_user_by_username(username, db_client=public_read_client)
+    public_user, public_user_trace = resolve_public_user_by_username(username, db_client=service_read_client)
     if not public_user or not public_user.get("id"):
         return {"message": "Public profile not found", "code": "PROFILE_NOT_FOUND"}, 404
 
@@ -552,7 +552,7 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
 
     for select_clause in profile_select_candidates:
         try:
-            result = public_read_client.table("users").select(select_clause).eq("id", public_user.get("id")).limit(1).execute()
+            result = service_read_client.table("users").select(select_clause).eq("id", public_user.get("id")).limit(1).execute()
             row = _first_row(result)
             if row is not None:
                 profile = row
@@ -591,7 +591,7 @@ def get_public_profile(username_param: Any, viewer_token: Optional[str]) -> Tupl
     if favorite_tcg_id:
         try:
             tcg_result = (
-                public_read_client.table("tcgs")
+                service_read_client.table("tcgs")
                 .select("id, name")
                 .eq("id", favorite_tcg_id)
                 .limit(1)

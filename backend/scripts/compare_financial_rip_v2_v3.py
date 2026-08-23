@@ -106,10 +106,10 @@ def _assign_ranks(entries: List[Dict[str, Any]], score_key: str, rank_key: str) 
 
 
 def load_rows() -> List[Dict[str, Any]]:
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
     response = (
-        public_read_client.table("explore_rip_statistics_latest")
+        service_read_client.table("explore_rip_statistics_latest")
         .select("*")
         .order("run_at", desc=True)
         .limit(500)

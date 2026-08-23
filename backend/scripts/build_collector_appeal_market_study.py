@@ -689,10 +689,10 @@ def main() -> int:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
     logger.info("Loading cohort...")
-    cohort = build_cohort(public_read_client)
+    cohort = build_cohort(service_read_client)
     rows = build_rows(cohort)
     for row in rows:
         row["log_checklist_size"] = math.log(max(row["checklist_size"], 1))
@@ -709,14 +709,14 @@ def main() -> int:
 
     # Top-1 card value needs the raw price list, which build_cohort does not keep.
     from backend.scripts.build_opening_appeal_study import load_prices
-    prices = load_prices(public_read_client, [str(r["set_id"]) for r in scored])
+    prices = load_prices(service_read_client, [str(r["set_id"]) for r in scored])
     by_set: Dict[str, List[float]] = defaultdict(list)
     card_sets = {}
     for set_id, data in cohort["sets"].items():
         for card in data["eligible_cards"]:
             card_sets[card.get("card_name")] = set_id
     from backend.scripts.build_opening_appeal_study import load_cards
-    all_cards = load_cards(public_read_client, [str(r["set_id"]) for r in scored])
+    all_cards = load_cards(service_read_client, [str(r["set_id"]) for r in scored])
     for card in all_cards:
         price = prices.get(str(card.get("id")))
         if price is not None:

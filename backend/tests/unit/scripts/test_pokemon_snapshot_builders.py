@@ -377,7 +377,7 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
 
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client(
             {
                 "pokemon_card_desirability_links": lambda _query: links,

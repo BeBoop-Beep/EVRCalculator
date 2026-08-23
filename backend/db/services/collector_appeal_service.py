@@ -54,7 +54,7 @@ import threading
 import time
 from typing import Any, Dict, List, Mapping, Optional
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.universal_set_desirability_service import (
     get_universal_desirability_bundle,
 )
@@ -485,7 +485,7 @@ def _build_bundle() -> Dict[str, Any]:
     payloads: Mapping[str, Any] = universal.get("payloads") or {}
 
     set_ids = sorted(payloads)
-    pull_model = load_pull_rate_model(public_read_client)
+    pull_model = load_pull_rate_model(service_read_client)
 
     # load_pull_rate_model reads pokemon_set_page_snapshot_latest, which is the
     # table the set-page snapshot build writes. A set whose row has not been
@@ -519,7 +519,7 @@ def _build_bundle() -> Dict[str, Any]:
             )
             pull_model.update(recovered)
 
-    subjects_by_set = build_subject_index(public_read_client, set_ids, pull_model)
+    subjects_by_set = build_subject_index(service_read_client, set_ids, pull_model)
 
     built: Dict[str, Any] = {}
     for set_id in set_ids:

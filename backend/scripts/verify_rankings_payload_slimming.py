@@ -28,10 +28,10 @@ def report(label, v):
 
 # --- 1. Publication identity + persisted payload size -----------------------
 from backend.db.services.pokemon_public_snapshot_service import (
-    _load_pokemon_explore_rankings_snapshot_row, public_read_client, create_public_read_client)
+    _load_pokemon_explore_rankings_snapshot_row, service_read_client, create_short_timeout_service_client)
 from backend.db.services.public_read_retry import run_public_read_with_retry
 
-row = _load_pokemon_explore_rankings_snapshot_row(public_read_client)
+row = _load_pokemon_explore_rankings_snapshot_row(service_read_client)
 payload = row["ranking_payload_json"]
 meta = payload.get("meta") or {}
 snap = meta.get("snapshot") or {}
@@ -63,11 +63,11 @@ print("=" * 74)
 pg, svc = [], []
 for _ in range(3):
     run_public_read_with_retry(_load_pokemon_explore_rankings_snapshot_row,
-        operation_name="verify", initial_client=public_read_client, client_factory=create_public_read_client)
+        operation_name="verify", initial_client=service_read_client, client_factory=create_short_timeout_service_client)
 for _ in range(N):
     t = time.perf_counter()
     r = run_public_read_with_retry(_load_pokemon_explore_rankings_snapshot_row,
-        operation_name="verify", initial_client=public_read_client, client_factory=create_public_read_client)
+        operation_name="verify", initial_client=service_read_client, client_factory=create_short_timeout_service_client)
     pg.append((time.perf_counter() - t) * 1000)
     t2 = time.perf_counter()
     p = r["ranking_payload_json"]

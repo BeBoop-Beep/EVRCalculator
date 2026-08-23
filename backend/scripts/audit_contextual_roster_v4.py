@@ -10,7 +10,7 @@ from backend.db.services.contextual_set_desirability_service import build_contex
 from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.universal_set_desirability_service import get_universal_desirability_bundle
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.collector_appeal import compute_collector_appeal_v4
 from backend.desirability.weighted_rip import compute_overall_rip_v8, spearman
 
@@ -72,7 +72,7 @@ def main():
     targets = {str(row.get("target_id")): row for row in production.get("targets") or []}
     public_ids = set((((production.get("meta") or {}).get("publicAnalyticsCohort") or {}).get("overallRanked") or {}).get("rankedSetIds") or [])
     run_ids = [row.get("source_calculation_run_id") for row in candidate.values() if row.get("source_calculation_run_id")]
-    metric_rows = (public_read_client.table("simulation_derived_metrics")
+    metric_rows = (service_read_client.table("simulation_derived_metrics")
                    .select("calculation_run_id,financial_rip_v3_score")
                    .in_("calculation_run_id", run_ids).execute()).data or []
     financial_by_run = {str(row.get("calculation_run_id")): row.get("financial_rip_v3_score") for row in metric_rows}

@@ -180,7 +180,7 @@ def _find_snake_case_keys(value, path=""):
 def test_cards_page_payload_returns_only_requested_page(monkeypatch):
     row = _cards_row(150)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, page=2, page_size=60)
 
@@ -197,7 +197,7 @@ def test_cards_page_payload_returns_only_requested_page(monkeypatch):
 def test_cards_page_payload_last_page_has_no_next_page(monkeypatch):
     row = _cards_row(150)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, page=3, page_size=60)
 
@@ -209,7 +209,7 @@ def test_cards_page_payload_last_page_has_no_next_page(monkeypatch):
 def test_cards_page_payload_page_size_max_clamp(monkeypatch):
     row = _cards_row(200)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, page_size=999)
 
@@ -220,7 +220,7 @@ def test_cards_page_payload_page_size_max_clamp(monkeypatch):
 def test_cards_page_payload_defaults_page_size_to_60(monkeypatch):
     row = _cards_row(10)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, page_size=None)
 
@@ -230,7 +230,7 @@ def test_cards_page_payload_defaults_page_size_to_60(monkeypatch):
 def test_cards_page_payload_search_query_filters_by_name(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, query="005")
 
@@ -241,7 +241,7 @@ def test_cards_page_payload_search_query_filters_by_name(monkeypatch):
 def test_cards_page_payload_rarity_filter(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, rarity="Rare")
 
@@ -253,7 +253,7 @@ def test_cards_page_payload_rarity_filter(monkeypatch):
 def test_cards_page_payload_movement_filter_heating_and_cooling(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     heating = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, movement_filter="heating")
     cooling = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, movement_filter="cooling")
@@ -267,7 +267,7 @@ def test_cards_page_payload_movement_filter_heating_and_cooling(monkeypatch):
 def test_cards_page_payload_30d_gainers_sort_orders_by_change_descending(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, sort="30d-gainers", page_size=20)
 
@@ -278,7 +278,7 @@ def test_cards_page_payload_30d_gainers_sort_orders_by_change_descending(monkeyp
 def test_cards_page_payload_movement_sort_overrides_sort(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
         _TEST_UUID, sort="set-number", movement_sort="30d-decliners", page_size=20
@@ -306,7 +306,7 @@ def test_cards_page_30d_sorts_reliable_full_windows_before_partial_deltas(monkey
     row["cards_json"] = [partial, reliable]
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -333,7 +333,7 @@ def test_cards_page_payload_7d_movers_sort_is_global_and_paginated(monkeypatch):
     row["cards_json"] = cards
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -360,7 +360,7 @@ def test_cards_page_payload_7d_movers_filters_sign_and_sorts_missing_last(monkey
     row["cards_json"] = cards
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -388,7 +388,7 @@ def test_cards_page_payload_7d_movers_ties_are_deterministic(monkeypatch):
     row["cards_json"] = cards
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -427,7 +427,7 @@ def test_cards_snapshot_enrichment_keeps_7d_fields_distinct_from_30d():
 def test_cards_page_payload_default_sort_is_set_number(monkeypatch):
     row = _cards_row(20)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID, page_size=20)
 
@@ -439,7 +439,7 @@ def test_cards_page_set_number_descending_is_numeric_and_deterministic(monkeypat
     row["cards_json"] = [_make_card(10), _make_card(2), _make_card(1)]
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -459,7 +459,7 @@ def test_cards_page_name_sort_is_case_insensitive_with_number_tiebreaker(monkeyp
     ]
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -478,7 +478,7 @@ def test_cards_page_name_descending_reverses_primary_order_deterministically(mon
     ]
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -498,7 +498,7 @@ def test_cards_page_price_sort_keeps_missing_values_last_in_both_directions(monk
     ]
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]}),
     )
 
@@ -521,7 +521,7 @@ def test_cards_page_payload_reads_cards_json_not_payload_json(monkeypatch):
         return [_cards_row(5)]
 
     client = _Client({"pokemon_set_cards_snapshot_latest": read_cards})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID)
 
@@ -534,7 +534,7 @@ def test_cards_page_payload_reads_cards_json_not_payload_json(monkeypatch):
 def test_cards_page_payload_excludes_payload_json_and_duplicate_aliases(monkeypatch):
     row = _cards_row(10)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID)
 
@@ -555,7 +555,7 @@ def test_cards_page_payload_serialized_size_is_under_250kb(monkeypatch):
     size, must serialize under 250KB."""
     row = _cards_row(300)
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID)
 
@@ -581,8 +581,8 @@ def test_cards_page_payload_resolves_hyphenated_slug(monkeypatch):
             "pokemon_set_cards_snapshot_latest": lambda _q: [row],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload("prismatic-evolutions")
 
@@ -592,7 +592,7 @@ def test_cards_page_payload_resolves_hyphenated_slug(monkeypatch):
 
 def test_cards_page_payload_missing_snapshot_returns_empty_fallback(monkeypatch):
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID)
 

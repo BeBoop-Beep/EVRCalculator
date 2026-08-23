@@ -432,7 +432,7 @@ def test_fingerprint_is_stable_across_processes():
 def test_fingerprint_generation_performs_no_database_access():
     """Fingerprinting must be callable with no network and no credentials."""
     source = inspect.getsource(fp)
-    for banned in ("supabase", "public_read_client", "service_role", "requests", "httpx", ".execute(", "psycopg"):
+    for banned in ("supabase", "service_read_client", "service_role", "requests", "httpx", ".execute(", "psycopg"):
         assert banned not in source, f"database surface in fingerprint module: {banned}"
 
 

@@ -74,9 +74,9 @@ PULL_RATE_MIN_CARD_SHARE = 0.5
 # ---------------------------------------------------------------------------
 
 def _client():
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
-    return public_read_client
+    return service_read_client
 
 
 def _paged_select(query: Any, *, page_size: int = 1000) -> List[Dict[str, Any]]:

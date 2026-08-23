@@ -190,7 +190,7 @@ def _reset_cache():
 
 def _bundle(monkeypatch, rows):
     client = _Client(rows)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     monkeypatch.setattr(service, "_load_authoritative_species_ranks", lambda: {})
     return service.get_universal_desirability_bundle(force_refresh=True)
 
@@ -443,7 +443,7 @@ def test_reader_reads_every_column_the_calculation_needs(monkeypatch):
     calculation silently computes without.
     """
     client = _Client([_row("s1", V2_CLEANUP)])
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     service.get_universal_desirability_bundle(force_refresh=True)
 
     selects = [
@@ -469,7 +469,7 @@ def test_selection_read_does_not_fetch_the_toasted_jsonb(monkeypatch):
     JSONB may only be fetched for rows already selected.
     """
     client = _Client([_row("s1", V2_CLEANUP)])
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     service.get_universal_desirability_bundle(force_refresh=True)
 
     selection_read = next(

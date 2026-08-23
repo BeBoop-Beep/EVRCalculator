@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
-from backend.db.clients.supabase_client import public_read_client  # noqa: E402
+from backend.db.clients.supabase_client import service_read_client  # noqa: E402
 
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
@@ -114,13 +114,13 @@ def _check_url(url: Optional[str], timeout_seconds: float) -> UrlAuditResult:
 
 
 def _fetch_eras() -> List[Dict[str, Any]]:
-    result = public_read_client.table("eras").select("id,name,canonical_key").execute()
+    result = service_read_client.table("eras").select("id,name,canonical_key").execute()
     return result.data or []
 
 
 def _fetch_sets() -> List[Dict[str, Any]]:
     result = (
-        public_read_client.table("sets")
+        service_read_client.table("sets")
         .select("id,name,canonical_key,pokemon_api_set_id,logo_image_url,symbol_image_url,hero_image_url,era_id")
         .execute()
     )

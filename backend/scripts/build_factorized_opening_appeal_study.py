@@ -1112,10 +1112,10 @@ def main() -> int:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
     logger.info("Loading cohort...")
-    cohort = build_cohort(public_read_client)
+    cohort = build_cohort(service_read_client)
 
     rows = build_rows(cohort)
     for row in rows:

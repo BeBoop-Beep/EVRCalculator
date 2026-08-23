@@ -41,7 +41,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from backend.calculations.utils.rarity_classification import normalize_rarity_key  # noqa: E402
-from backend.db.clients.supabase_client import public_read_client  # noqa: E402
+from backend.db.clients.supabase_client import service_read_client  # noqa: E402
 from backend.desirability.card_appeal import get_treatment_score  # noqa: E402
 from backend.desirability.collector_appeal import (  # noqa: E402
     CA6_DUAL_PATH_FLOOR,
@@ -479,7 +479,7 @@ def main() -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     load_dotenv()
-    client = public_read_client
+    client = service_read_client
 
     logger.info("[dual-path-audit] loading production data (read-only)...")
     v2_rows = load_latest_v2_rows(client)

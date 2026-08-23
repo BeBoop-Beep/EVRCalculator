@@ -407,10 +407,10 @@ def main() -> int:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
-    from backend.db.clients.supabase_client import public_read_client
+    from backend.db.clients.supabase_client import service_read_client
 
     logger.info("Building card rows...")
-    rows, diagnostics = build_card_rows(public_read_client)
+    rows, diagnostics = build_card_rows(service_read_client)
     logger.info("Cards usable: %s across %s sets", len(rows),
                 len({r["set_id"] for r in rows}))
 

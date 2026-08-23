@@ -5,7 +5,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
@@ -192,7 +192,7 @@ def build_global_set_value_row(
 
 
 def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
-    active = client or public_read_client
+    active = client or service_read_client
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
     if not rows:
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")

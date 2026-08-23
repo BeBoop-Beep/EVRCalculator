@@ -1675,7 +1675,7 @@ test("backend set resolver accepts URL slugs like journey-together, shared acros
   assert.ok(marketSource.includes('row.get("canonical_key")'));
 
   assert.ok(!snapshotSource.includes("def _normalise_set_lookup_key"), "must not reimplement the normalized-slug fallback locally");
-  assert.ok(snapshotSource.includes("resolve_pokemon_set_identifier(set_id, client=public_read_client)"));
+  assert.ok(snapshotSource.includes("resolve_pokemon_set_identifier(set_id, client=service_read_client)"));
 });
 
 test("card snapshot client preserves precomputed card validation fields", () => {

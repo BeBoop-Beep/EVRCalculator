@@ -150,7 +150,7 @@ def _movers_membership_fixture():
 
 def test_cards_page_market_movers_membership_uses_valid_nonzero_movement_not_reliability(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -173,7 +173,7 @@ def test_cards_page_market_movers_membership_uses_valid_nonzero_movement_not_rel
 
 def test_cards_page_all_cards_keeps_zero_and_no_movement_rows(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     all_cards = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -188,7 +188,7 @@ def test_cards_page_all_cards_keeps_zero_and_no_movement_rows(monkeypatch):
 
 def test_cards_page_market_movers_sorts_by_absolute_dollar_then_percent_then_id(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -207,7 +207,7 @@ def test_cards_page_market_movers_percent_tiebreak_and_canonical_id_determinism(
         _movement_card("a-card", amount=5.0, percent=10.0),
         _movement_card("z-higher-percent", amount=5.0, percent=12.0),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
         _TEST_UUID, sort="7d-movers", movement_sort="7d-movers", section="market-movers"
@@ -224,7 +224,7 @@ def test_cards_tab_market_movers_orders_complete_list_by_direction_without_sign_
         _movement_card("minus-20", amount=-2.0, percent=-20.0),
         _movement_card("missing", amount=None, percent=None, history_points=None),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
         _TEST_UUID,
@@ -257,7 +257,7 @@ def test_cards_tab_market_movers_timeframe_selects_matching_field_and_reorders(m
     second.update(change30dAmount=1.0, change30dPercent=40.0, movement30d={"changeAmount": 1.0, "changePercent": 40.0})
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "public_read_client",
+        "service_read_client",
         _cards_snapshot_client([first, second]),
     )
 
@@ -287,7 +287,7 @@ def _metric_divergence_fixture():
 
 def test_cards_tab_market_movers_defaults_to_percentage_ranking(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_metric_divergence_fixture())
     )
 
     default_metric = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -308,7 +308,7 @@ def test_cards_tab_market_movers_defaults_to_percentage_ranking(monkeypatch):
 
 def test_cards_tab_market_movers_dollar_metric_reranks_by_absolute_price_change(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_metric_divergence_fixture())
     )
 
     gainers = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -337,7 +337,7 @@ def test_cards_tab_market_movers_metric_is_independent_of_direction_and_timefram
     first.update(change30dAmount=5.0, change30dPercent=-20.0, movement30d={"changeAmount": 5.0, "changePercent": -20.0})
     second.update(change30dAmount=1.0, change30dPercent=40.0, movement30d={"changeAmount": 1.0, "changePercent": 40.0})
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client([first, second])
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client([first, second])
     )
 
     def _ids(movement_sort, sort_direction, movement_metric):
@@ -368,7 +368,7 @@ def test_cards_tab_market_movers_dollar_metric_never_falls_back_to_percentage(mo
         # so it sorts last rather than having its percent read as a $ amount.
         _movement_card("percent-only", amount=None, percent=90.0),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     by_percent = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
         _TEST_UUID, movement_sort="7d-movers", sort_direction="desc", section="market-movers", movement_metric="percent"
@@ -384,7 +384,7 @@ def test_cards_tab_market_movers_dollar_metric_never_falls_back_to_percentage(mo
 @pytest.mark.parametrize("raw_metric", [None, "", "   ", "nonsense", "PERCENT", "Percent"])
 def test_cards_page_unknown_movement_metric_falls_back_to_percentage(monkeypatch, raw_metric):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_metric_divergence_fixture())
     )
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -401,7 +401,7 @@ def test_cards_page_unknown_movement_metric_falls_back_to_percentage(monkeypatch
 
 def test_cards_page_movement_metric_does_not_affect_membership_or_totals(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     def _payload(movement_metric):
@@ -432,7 +432,7 @@ def test_overview_movers_banner_is_unaffected_by_the_cards_tab_metric(monkeypatc
     """The Overview ticker never sends sort_direction, so it keeps its own
     largest-absolute-dollar-move contract regardless of the new parameter."""
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_metric_divergence_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_metric_divergence_fixture())
     )
 
     ranked = pokemon_public_snapshot_service._apply_cards_page_filters_and_sort(
@@ -450,7 +450,7 @@ def test_overview_movers_banner_is_unaffected_by_the_cards_tab_metric(monkeypatc
 
 def test_cards_page_heating_and_cooling_filter_by_direction_only(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     heating = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
@@ -472,7 +472,7 @@ def test_cards_page_heating_and_cooling_filter_by_direction_only(monkeypatch):
 def test_cards_page_market_movers_pagination_traverses_complete_filtered_list(monkeypatch):
     cards = [_movement_card(f"card-{index:03d}", amount=float(200 - index), percent=5.0) for index in range(160)]
     cards.extend(_movement_card(f"flat-{index}", amount=0.0, percent=0.0) for index in range(30))
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     page1 = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(
         _TEST_UUID, sort="7d-movers", movement_sort="7d-movers", section="market-movers", page=1, page_size=60
@@ -496,7 +496,7 @@ def test_cards_page_market_movers_pagination_traverses_complete_filtered_list(mo
 
 def test_cards_page_meta_exposes_market_as_of_date_from_generation(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_page_snapshot_payload(_TEST_UUID)
@@ -563,7 +563,7 @@ def test_market_movers_endpoint_is_first_n_of_canonical_cards_query(monkeypatch)
             "pokemon_set_market_dashboard_snapshot_latest": _legacy_dashboard_handler({"365d": _legacy_dashboard_row()})
         },
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10
@@ -606,7 +606,7 @@ def test_market_movers_endpoint_banner_can_be_ten_negatives_and_is_not_five_five
         _movement_card(f"drop-{index:02d}", amount=-float(50 - index), percent=-10.0) for index in range(12)
     ]
     cards.append(_movement_card("small-gain", amount=0.5, percent=1.0))
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10
@@ -627,7 +627,7 @@ def test_market_movers_endpoint_serves_fewer_than_ten_only_when_fewer_valid_move
         _movement_card("zero", amount=0.0, percent=0.0),
         _movement_card("no-movement", amount=None, percent=None),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(cards))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(cards))
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10
@@ -640,7 +640,7 @@ def test_market_movers_endpoint_serves_fewer_than_ten_only_when_fewer_valid_move
 
 def test_market_movers_endpoint_heating_and_cooling_movement_filters(monkeypatch):
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "public_read_client", _cards_snapshot_client(_movers_membership_fixture())
+        pokemon_public_snapshot_service, "service_read_client", _cards_snapshot_client(_movers_membership_fixture())
     )
 
     heating = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
@@ -663,7 +663,7 @@ def test_market_movers_endpoint_falls_back_to_diagnosed_legacy_list_when_cards_s
             "pokemon_set_market_dashboard_snapshot_latest": _legacy_dashboard_handler({"365d": _legacy_dashboard_row()}),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
 
     movers = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10

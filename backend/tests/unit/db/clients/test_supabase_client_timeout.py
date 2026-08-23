@@ -2,7 +2,7 @@
 
 Why this exists
 ---------------
-`public_read_client` always received an explicit 20s PostgREST timeout, but
+`service_read_client` always received an explicit 20s PostgREST timeout, but
 `create_service_role_client()` — the client every snapshot builder and every
 publication script uses — called `create_client(...)` with no options at all. Its
 bound was therefore whatever the installed supabase-py happened to default to:
@@ -31,7 +31,7 @@ FAKE_SERVICE_KEY = "service-role-key-under-test"
 FAKE_ANON_KEY = "anon-key-under-test"
 
 
-def _load_isolated(monkeypatch, *, timeout_env=None):
+def _load_isolated(monkeypatch, *, timeout_env=None, anon_key=FAKE_ANON_KEY):
     """Import a FRESH copy of supabase_client with create_client stubbed out.
 
     Returns ``(module, created)`` where ``created`` records one entry per
@@ -48,7 +48,12 @@ def _load_isolated(monkeypatch, *, timeout_env=None):
     monkeypatch.setattr(supabase_package, "create_client", fake_create_client)
     monkeypatch.setenv("SUPABASE_URL", FAKE_URL)
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", FAKE_SERVICE_KEY)
-    monkeypatch.setenv("SUPABASE_ANON_KEY", FAKE_ANON_KEY)
+    if anon_key is None:
+        # Keep dotenv from repopulating the real local value during isolated
+        # module import while still representing unusable configuration.
+        monkeypatch.setenv("SUPABASE_ANON_KEY", "")
+    else:
+        monkeypatch.setenv("SUPABASE_ANON_KEY", anon_key)
     if timeout_env is None:
         monkeypatch.delenv(
             "SUPABASE_SERVICE_ROLE_POSTGREST_TIMEOUT_SECONDS", raising=False
@@ -171,18 +176,60 @@ def test_each_service_role_client_gets_its_own_options_instance(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# The public-read path is untouched
+# Short-timeout service reads remain explicitly privileged
 # ---------------------------------------------------------------------------
-def test_the_public_read_timeout_is_unchanged(monkeypatch):
+def test_the_short_timeout_service_reader_uses_service_role(monkeypatch):
     module, created = _load_isolated(monkeypatch, timeout_env="45")
 
-    assert module._PUBLIC_READ_TIMEOUT_SECONDS == 20
-    public_read = created[1]  # the module-level public_read_client
-    assert public_read["options"].postgrest_client_timeout == 20
+    assert module._READ_TIMEOUT_SECONDS == 20
+    service_read = created[1]  # the module-level service_read_client
+    assert service_read["key"] == FAKE_SERVICE_KEY
+    assert service_read["options"].postgrest_client_timeout == 20
 
     created.clear()
-    module.create_public_read_client()
+    module.create_short_timeout_service_client()
+    assert created[0]["key"] == FAKE_SERVICE_KEY
     assert created[0]["options"].postgrest_client_timeout == 20
+
+
+# ---------------------------------------------------------------------------
+# Public reads are genuinely anon/RLS constrained
+# ---------------------------------------------------------------------------
+def test_public_read_client_uses_only_the_anon_credential(monkeypatch):
+    module, created = _load_isolated(monkeypatch)
+    created.clear()
+
+    module.create_public_read_client()
+
+    assert len(created) == 1
+    assert created[0]["key"] == FAKE_ANON_KEY
+    assert created[0]["key"] != FAKE_SERVICE_KEY
+    assert created[0]["options"].postgrest_client_timeout == 20
+
+
+def test_public_read_client_fails_closed_when_anon_key_is_missing(monkeypatch):
+    module, created = _load_isolated(monkeypatch, anon_key=None)
+    created.clear()
+
+    with pytest.raises(module.MissingPublicCredential, match="SUPABASE_ANON_KEY"):
+        module.create_public_read_client()
+
+    assert created == []
+
+
+def test_service_and_public_factories_never_share_credential_sources(monkeypatch):
+    module, created = _load_isolated(monkeypatch)
+    created.clear()
+
+    module.create_service_role_client()
+    module.create_short_timeout_service_client()
+    module.create_public_read_client()
+
+    assert [call["key"] for call in created] == [
+        FAKE_SERVICE_KEY,
+        FAKE_SERVICE_KEY,
+        FAKE_ANON_KEY,
+    ]
 
 
 # ---------------------------------------------------------------------------

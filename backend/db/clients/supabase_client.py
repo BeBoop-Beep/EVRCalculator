@@ -32,19 +32,23 @@ else:
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 # Use service role key for backend operations (bypasses RLS policies)
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Public clients are deliberately sourced independently. Never fall back to
+# ``SUPABASE_KEY``: doing so would turn an RLS-constrained helper into an admin
+# client while retaining a reassuring but false name.
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 logger.info(
     "supabase_client: env presence SUPABASE_URL=%s SUPABASE_SERVICE_ROLE_KEY=%s SUPABASE_ANON_KEY=%s JWT_SECRET=%s",
     bool(SUPABASE_URL),
     bool(SUPABASE_KEY),
-    bool(os.getenv("SUPABASE_ANON_KEY")),
+    bool(SUPABASE_ANON_KEY),
     bool(os.getenv("JWT_SECRET")),
 )
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in the environment")
 
-_PUBLIC_READ_TIMEOUT_SECONDS = 20
+_READ_TIMEOUT_SECONDS = 20
 
 # --- service-role (publication / snapshot write) PostgREST timeout -----------
 # Every service-role client previously relied on whatever implicit default the
@@ -124,10 +128,10 @@ def _service_role_options() -> ClientOptions:
 
 try:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY, options=_service_role_options())
-    public_read_client = create_client(
+    service_read_client = create_client(
         SUPABASE_URL,
         SUPABASE_KEY,
-        options=ClientOptions(postgrest_client_timeout=_PUBLIC_READ_TIMEOUT_SECONDS),
+        options=ClientOptions(postgrest_client_timeout=_READ_TIMEOUT_SECONDS),
     )
     logger.info("supabase_client: supabase client initialized successfully")
     # Clear the schema cache to avoid stale schema issues
@@ -158,11 +162,33 @@ def create_service_role_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY, options=_service_role_options())
 
 
-def create_public_read_client():
+def create_short_timeout_service_client():
+    """Internal service-role reader with the latency-sensitive read timeout."""
     return create_client(
         SUPABASE_URL,
         SUPABASE_KEY,
-        options=ClientOptions(postgrest_client_timeout=_PUBLIC_READ_TIMEOUT_SECONDS),
+        options=ClientOptions(postgrest_client_timeout=_READ_TIMEOUT_SECONDS),
+    )
+
+
+class MissingPublicCredential(RuntimeError):
+    """Raised when an RLS-constrained public client cannot be constructed."""
+
+
+def create_public_read_client():
+    """Create a genuine anon-key client constrained by grants and RLS.
+
+    Missing public configuration is a hard failure. This helper must never
+    silently escalate to the service-role credential.
+    """
+    if not SUPABASE_ANON_KEY:
+        raise MissingPublicCredential(
+            "SUPABASE_ANON_KEY must be set to create an RLS-constrained public client"
+        )
+    return create_client(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY,
+        options=ClientOptions(postgrest_client_timeout=_READ_TIMEOUT_SECONDS),
     )
 
 

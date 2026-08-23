@@ -579,20 +579,20 @@ def _load_sets(*, limit: Optional[int], set_ids: Optional[List[str]]) -> List[Di
 def run_diagnosis(*, limit: Optional[int] = None, set_ids: Optional[List[str]] = None, verbose: bool = True) -> List[Dict[str, Any]]:
     assert READ_ONLY_DIAGNOSTIC is True, "This diagnostic must never run with mutations enabled."
 
-    from backend.db.services.pokemon_public_snapshot_service import TOP_CHASE_NEAR_MINT_CONDITION_ID, public_read_client
+    from backend.db.services.pokemon_public_snapshot_service import TOP_CHASE_NEAR_MINT_CONDITION_ID, service_read_client
 
     sets = _load_sets(limit=limit, set_ids=set_ids)
     total = len(sets)
     if verbose:
         print(f"Loaded {total} sets. Fetching bulk read-only indices...")
 
-    dashboard_index = fetch_market_dashboard_index(public_read_client)
-    page_snapshot_index = fetch_page_snapshot_index(public_read_client)
-    canonical_counts = fetch_canonical_card_counts(public_read_client)
-    variant_counts, variant_ids_by_set = fetch_variant_counts_and_ids(public_read_client)
-    simulation_set_ids = fetch_simulation_set_ids(public_read_client)
+    dashboard_index = fetch_market_dashboard_index(service_read_client)
+    page_snapshot_index = fetch_page_snapshot_index(service_read_client)
+    canonical_counts = fetch_canonical_card_counts(service_read_client)
+    variant_counts, variant_ids_by_set = fetch_variant_counts_and_ids(service_read_client)
+    simulation_set_ids = fetch_simulation_set_ids(service_read_client)
     pull_rate_presence = fetch_pull_rate_assumptions_presence(
-        public_read_client, [set_row["id"] for set_row in sets if set_row.get("id") in page_snapshot_index]
+        service_read_client, [set_row["id"] for set_row in sets if set_row.get("id") in page_snapshot_index]
     )
 
     rows: List[Dict[str, Any]] = []
@@ -607,7 +607,7 @@ def run_diagnosis(*, limit: Optional[int] = None, set_ids: Optional[List[str]] =
             variant_counts=variant_counts,
             variant_ids_by_set=variant_ids_by_set,
             simulation_set_ids=simulation_set_ids,
-            client=public_read_client,
+            client=service_read_client,
             condition_id=TOP_CHASE_NEAR_MINT_CONDITION_ID,
         )
         elapsed_ms = round((time.perf_counter() - started) * 1000, 1)

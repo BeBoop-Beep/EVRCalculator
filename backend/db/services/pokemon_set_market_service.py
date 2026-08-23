@@ -7,7 +7,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.clients.supabase_client import create_short_timeout_service_client, service_read_client
 from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.pokemon_card_market_delta_contract import (
@@ -341,10 +341,10 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
     pokemon_api_set_id, exact set name, or a normalized/hyphenated slug (e.g.
     "prismatic-evolutions").
 
-    `client` defaults to this module's own `public_read_client`. Callers in
-    other modules that monkeypatch their own module-level `public_read_client`
+    `client` defaults to this module's own `service_read_client`. Callers in
+    other modules that monkeypatch their own module-level `service_read_client`
     (e.g. in tests) must pass their own patched client explicitly — a plain
-    function reference would otherwise always resolve `public_read_client`
+    function reference would otherwise always resolve `service_read_client`
     from this module's globals, silently bypassing a caller's mock.
 
     THE RETRY IS ABOUT DEAD SOCKETS, NOT SLOW QUERIES. This is the first
@@ -361,18 +361,18 @@ def resolve_pokemon_set_identifier(set_id: str, *, client: Any = None) -> Dict[s
     same pool can be handed the same dead connection. A genuine miss stays a
     fast 404: it is not transient, so it raises on the first attempt.
     """
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     return run_public_read_with_retry(
         lambda attempt_client: _resolve_pokemon_set_identifier_once(attempt_client, set_id),
         operation_name="pokemon_set.resolve_identifier",
         initial_client=active_client,
-        client_factory=create_public_read_client,
+        client_factory=create_short_timeout_service_client,
     )
 
 
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     # Internal call sites in this module always use this module's own
-    # public_read_client (picked up by resolve_pokemon_set_identifier's
+    # service_read_client (picked up by resolve_pokemon_set_identifier's
     # default), so this stays a plain wrapper rather than a bare alias —
     # see resolve_pokemon_set_identifier's docstring for why that matters.
     return resolve_pokemon_set_identifier(set_id)
@@ -384,7 +384,7 @@ def _load_near_mint_condition_id(
     *,
     client: Any = None,
 ) -> Optional[str]:
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     try:
         result = (
             active_client.table("conditions")
@@ -410,7 +410,7 @@ def _load_near_mint_condition_id(
 
 
 def _load_canonical_cards(set_id: str, sources: Dict[str, str], *, client: Any = None) -> List[Dict[str, Any]]:
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     result = (
         active_client.table("pokemon_canonical_cards")
         .select(
@@ -432,7 +432,7 @@ def _load_selected_canonical_price_rows(
     client: Any = None,
 ) -> List[Dict[str, Any]]:
     """Load the authoritative public card identity/current-price layer."""
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     result = (
         active_client.table("pokemon_canonical_card_market_prices_latest")
         .select(
@@ -448,7 +448,7 @@ def _load_selected_canonical_price_rows(
 
 
 def _load_legacy_cards(set_id: str, sources: Dict[str, str], *, client: Any = None) -> List[Dict[str, Any]]:
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     result = (
         active_client.table("cards")
         .select("id,set_id,name,rarity,card_number,image_small_url,image_large_url,pokemon_tcg_api_id")
@@ -470,7 +470,7 @@ def _load_variants(
         sources["card_variants"] = "NO_CARD_IDS"
         return []
 
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     rows: List[Dict[str, Any]] = []
     for card_id_chunk in _chunk(legacy_card_ids):
         result = (
@@ -496,7 +496,7 @@ def _load_latest_price_rows(
     rows: List[Dict[str, Any]] = []
     for variant_id_chunk in _chunk(variant_ids):
         result = (
-            public_read_client.table("card_market_usd_latest_by_condition")
+            service_read_client.table("card_market_usd_latest_by_condition")
             .select("variant_id,condition_id,market_price,source,captured_at")
             .in_("variant_id", variant_id_chunk)
             .eq("condition_id", condition_id)
@@ -521,7 +521,7 @@ def _load_price_observation_rows(
     rows: List[Dict[str, Any]] = []
     for variant_id_chunk in _chunk(variant_ids):
         result = (
-            public_read_client.table("card_variant_price_observations")
+            service_read_client.table("card_variant_price_observations")
             .select("card_variant_id,condition_id,market_price,source,captured_at")
             .in_("card_variant_id", variant_id_chunk)
             .eq("condition_id", condition_id)
@@ -549,7 +549,7 @@ def _load_price_observation_rows_for_window(
         sources[source_key] = "NO_VARIANTS_OR_CONDITION"
         return []
 
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     rows: List[Dict[str, Any]] = []
     seen: set[Tuple[Any, ...]] = set()
     safe_page_size = max(1, int(page_size))
@@ -605,7 +605,7 @@ def _load_conditioned_latest_price_rows(
         sources["card_market_usd_latest_by_condition_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
         return []
 
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     rows: List[Dict[str, Any]] = []
     condition_ids = sorted(set(condition_by_variant.values()))
     # Large sets (e.g. Prismatic Evolutions) can time out this query at the default
@@ -642,7 +642,7 @@ def _load_conditioned_price_observation_rows(
         sources["card_variant_price_observations_for_movers"] = "NO_VARIANTS_OR_CONDITIONS"
         return []
 
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows: List[Dict[str, Any]] = []
     seen: set[Tuple[Any, ...]] = set()
@@ -1389,7 +1389,7 @@ def build_pokemon_set_card_movements_by_window_payload(
         "observationPageCount": 0,
         "windowsCalculated": len(resolved_windows),
     }
-    active_client = client if client is not None else public_read_client
+    active_client = client if client is not None else service_read_client
     set_row = resolve_pokemon_set_identifier(set_id, client=active_client)
     context = _build_market_context(
         set_row,
@@ -1654,7 +1654,7 @@ def _public_market_card(
 def _load_latest_combined_set_run(set_id: str, sources: Dict[str, str]) -> Optional[Dict[str, Any]]:
     try:
         result = (
-            public_read_client.table("calculation_runs")
+            service_read_client.table("calculation_runs")
             .select("id,created_at,target_type,target_id,valuation_method")
             .eq("target_type", "set")
             .eq("valuation_method", "combined")
@@ -1680,7 +1680,7 @@ def _load_simulation_input_card_rows(
 ) -> List[Dict[str, Any]]:
     try:
         result = (
-            public_read_client.table("simulation_input_cards")
+            service_read_client.table("simulation_input_cards")
             .select(
                 "card_id,card_variant_id,condition_id,card_name,rarity_bucket,"
                 "price_source,price_used,captured_at"
@@ -1723,7 +1723,7 @@ def _load_simulation_card_image_context(
     if variant_ids:
         try:
             variant_result = (
-                public_read_client.table("card_variants")
+                service_read_client.table("card_variants")
                 .select("id,card_id,image_small_url,image_large_url,pokemon_tcg_api_id")
                 .in_("id", variant_ids)
                 .execute()
@@ -1753,7 +1753,7 @@ def _load_simulation_card_image_context(
     if all_card_ids:
         try:
             card_result = (
-                public_read_client.table("cards")
+                service_read_client.table("cards")
                 .select("id,set_id,name,rarity,card_number,image_small_url,image_large_url,pokemon_tcg_api_id")
                 .in_("id", all_card_ids)
                 .execute()
@@ -1813,7 +1813,7 @@ def _load_variant_price_history(
     try:
         for variant_id_chunk in _chunk(variant_ids):
             query = (
-                public_read_client.table("card_variant_price_observations")
+                service_read_client.table("card_variant_price_observations")
                 .select("card_variant_id,condition_id,market_price,source,captured_at")
                 .in_("card_variant_id", variant_id_chunk)
                 .order("captured_at", desc=True)
@@ -2599,14 +2599,14 @@ def _run_set_value_history_read(operation, *, operation_name: str):
 
     This is a thin wiring wrapper, not a second retry policy: bounds, transient
     classification, the elapsed-time budget and the circuit breaker all stay in
-    `run_public_read_with_retry`. `public_read_client` is resolved at call time
+    `run_public_read_with_retry`. `service_read_client` is resolved at call time
     so tests (and any caller that swaps the module client) are not bypassed.
     """
     return run_public_read_with_retry(
         operation,
         operation_name=operation_name,
-        initial_client=public_read_client,
-        client_factory=create_public_read_client,
+        initial_client=service_read_client,
+        client_factory=create_short_timeout_service_client,
     )
 
 
