@@ -47,6 +47,12 @@ class _ArrayPool:
     source_row_indices: Optional[np.ndarray]
     card_names: Optional[np.ndarray]
     rarities: Optional[np.ndarray]
+    #: Research instrumentation only. When a ``research_recorder`` is supplied to
+    #: ``make_simulate_pack_fn_v2`` this holds, per pool position, the recorder's
+    #: global sampling-entity id, so the hot loop can translate a sampled
+    #: position into a recordable identity with one array lookup. ``None`` in
+    #: every production run, in which case no recording code executes at all.
+    entity_ids: Optional[np.ndarray] = None
 
 
 def _emit_sim_pool_debug(prefix: str, pool_name: str, pool_df: pd.DataFrame, price_col: str) -> None:
@@ -467,6 +473,7 @@ def _build_array_pool(
     value_col: str,
     rarity_col: str = "Rarity",
     default_rarity: Optional[str] = None,
+    recorder: Optional[object] = None,
 ) -> _ArrayPool:
     if df.empty or value_col not in df.columns:
         return _ArrayPool(
@@ -500,11 +507,28 @@ def _build_array_pool(
     else:
         rarities = None
 
+    entity_ids = None
+    if recorder is not None:
+        card_numbers = None
+        if "Card Number" in df.columns:
+            card_numbers = (
+                df["Card Number"].where(df["Card Number"].notna(), None).to_numpy(dtype=object, copy=True)
+            )
+        entity_ids = recorder.register_pool(
+            price_column=value_col,
+            prices=prices,
+            source_row_indices=source_row_indices,
+            card_names=card_names,
+            rarities=rarities,
+            card_numbers=card_numbers,
+        )
+
     return _ArrayPool(
         prices=prices,
         source_row_indices=source_row_indices,
         card_names=card_names,
         rarities=rarities,
+        entity_ids=entity_ids,
     )
 
 
@@ -514,12 +538,19 @@ def _sample_pool_total(
     rng: np.random.Generator,
     *,
     include_card_names: bool,
+    entity_sink: Optional[object] = None,
 ) -> Tuple[float, int, List[str]]:
     if pool.prices.size == 0 or n <= 0:
         return 0.0, 0, []
 
     indices = rng.integers(0, pool.prices.size, size=n)
     total = float(pool.prices[indices].sum(dtype=np.float64))
+
+    # Research instrumentation. Placed AFTER the draw so the RNG stream is
+    # untouched: instrumented and uninstrumented runs consume randomness
+    # identically, which is what makes a seeded parity test meaningful.
+    if entity_sink is not None and pool.entity_ids is not None:
+        entity_sink.add(pool.entity_ids[indices])
 
     if not include_card_names or pool.card_names is None:
         return total, int(indices.size), []
@@ -535,6 +566,7 @@ def _sample_single_from_array_pool(
     fallback: float = 0.0,
     *,
     include_card_name: bool = True,
+    entity_sink: Optional[object] = None,
 ) -> Tuple[float, Optional[str], Optional[object]]:
     if pool.prices.size == 0:
         return float(fallback), None, None
@@ -565,6 +597,12 @@ def _sample_single_from_array_pool(
                 chosen_index = int(rng.integers(0, pool.prices.size))
 
     value = float(pool.prices[chosen_index])
+
+    # Research instrumentation. See _sample_pool_total: recorded after the draw,
+    # never influencing it.
+    if entity_sink is not None and pool.entity_ids is not None:
+        entity_sink.add(int(pool.entity_ids[chosen_index]))
+
     card_name = None
     if include_card_name and pool.card_names is not None:
         raw_name = pool.card_names[chosen_index]
@@ -586,10 +624,10 @@ def _sample_rows_with_rarity(
     rarity_col: str = "Rarity",
     default_rarity: Optional[str] = None,
     replace: bool = True,
-) -> Tuple[List[str], List[float]]:
+) -> Tuple[List[str], List[float], List[Dict[str, object]]]:
     rows = _sample_rows_controlled(df, n, rng, replace=replace)
     if rows.empty or value_col not in rows.columns:
-        return [], []
+        return [], [], []
 
     values = pd.to_numeric(rows[value_col], errors="coerce").fillna(0.0).astype(float).tolist()
     if default_rarity is not None:
@@ -599,7 +637,7 @@ def _sample_rows_with_rarity(
     else:
         rarities = ["unknown" for _ in values]
 
-    return rarities, values
+    return rarities, values, _row_identities(rows, value_col=value_col, rarities=rarities)
 
 
 def _resolved_rows_to_rarities_and_values(
@@ -607,16 +645,56 @@ def _resolved_rows_to_rarities_and_values(
     *,
     value_col: str,
     rarity_col: str = "Rarity",
-) -> Tuple[List[str], List[float]]:
+) -> Tuple[List[str], List[float], List[Dict[str, object]]]:
     if rows.empty or value_col not in rows.columns:
-        return [], []
+        return [], [], []
 
     values = pd.to_numeric(rows[value_col], errors="coerce").fillna(0.0).astype(float).tolist()
     if rarity_col in rows.columns:
         rarities = [_normalize_rarity(v) for v in rows[rarity_col].fillna("unknown").astype(str).tolist()]
     else:
         rarities = ["unknown" for _ in values]
-    return rarities, values
+    return rarities, values, _row_identities(rows, value_col=value_col, rarities=rarities)
+
+
+def _row_identities(
+    rows: pd.DataFrame,
+    *,
+    value_col: str,
+    rarities: List[str],
+) -> List[Dict[str, object]]:
+    """Per-row identity for the special-pack paths.
+
+    These paths resolve rows straight off the source DataFrame rather than
+    through an ``_ArrayPool``, so they cannot carry a precomputed entity id. The
+    identity is assembled here and translated by the recorder one row at a time.
+    That costs a dict per drawn card, which is irrelevant: god and demi-god packs
+    together are ~0.2% of packs (measured: 502 + 1,412 per million).
+
+    Building it unconditionally - rather than only when a recorder is attached -
+    keeps ONE return shape for these helpers. They are module-private with no
+    callers outside this file, so the cost is bounded to the special-pack path
+    and there is no second code path to keep in sync.
+    """
+    source_indices = (
+        rows["__source_row_index__"].tolist()
+        if "__source_row_index__" in rows.columns
+        else list(rows.index)
+    )
+    names = rows["Card Name"].tolist() if "Card Name" in rows.columns else [None] * len(rows)
+    numbers = rows["Card Number"].tolist() if "Card Number" in rows.columns else [None] * len(rows)
+    prices = pd.to_numeric(rows[value_col], errors="coerce").fillna(0.0).astype(float).tolist()
+    return [
+        {
+            "source_row_index": None if source is None else int(source),
+            "price_column": value_col,
+            "price": float(price),
+            "rarity_key": rarity,
+            "card_name": None if name is None else str(name),
+            "card_number": None if number is None else str(number),
+        }
+        for source, name, number, price, rarity in zip(source_indices, names, numbers, prices, rarities)
+    ]
 
 
 def _parse_rarity_config(qty_spec: object) -> Tuple[int, bool]:
@@ -638,6 +716,21 @@ def _sample_special_pack_details(
 ) -> Dict[str, object]:
     rarities: List[str] = []
     values: List[float] = []
+    identities: List[Dict[str, object]] = []
+
+    def _collect(sampled: Tuple[List[str], List[float], List[Dict[str, object]]]) -> None:
+        """Accumulate one sampling result into the pack's running lists.
+
+        Exists so the eight sampling call sites below stay one-liners after the
+        helpers gained their row-identity return element. Without it, each site
+        would repeat the same three ``extend`` calls and one of them would
+        eventually be missed.
+        """
+        sampled_rarities, sampled_values, sampled_identities = sampled
+        rarities.extend(sampled_rarities)
+        values.extend(sampled_values)
+        identities.extend(sampled_identities)
+
     common_sampling_pool = _get_base_slot_sampling_pool(common_cards)
     uncommon_sampling_pool = _get_base_slot_sampling_pool(uncommon_cards)
     strategy = config_map.get("strategy", {}) if isinstance(config_map, dict) else {}
@@ -652,14 +745,12 @@ def _sample_special_pack_details(
                 selected_pack = packs[int(rng.integers(0, len(packs)))]
                 cards = selected_pack.get("cards", [])
                 context_label = f"god.fixed_pack:{selected_pack.get('name', '?')}"
-                c_rarities, c_values = _sample_rows_with_rarity(
+                _collect(_sample_rows_with_rarity(
                     common_sampling_pool, 4, rng, "Price ($)", default_rarity="common"
-                )
-                u_rarities, u_values = _sample_rows_with_rarity(
+                ))
+                _collect(_sample_rows_with_rarity(
                     uncommon_sampling_pool, 3, rng, "Price ($)", default_rarity="uncommon"
-                )
-                rarities.extend(c_rarities + u_rarities)
-                values.extend(c_values + u_values)
+                ))
             elif "cards" in strategy:
                 cards = strategy.get("cards", [])
 
@@ -670,12 +761,10 @@ def _sample_special_pack_details(
                     context_label=context_label,
                 )
                 if not selected_rows.empty:
-                    hit_rarities, hit_values = _resolved_rows_to_rarities_and_values(
+                    _collect(_resolved_rows_to_rarities_and_values(
                         selected_rows,
                         value_col="Price ($)",
-                    )
-                    rarities.extend(hit_rarities)
-                    values.extend(hit_values)
+                    ))
 
         elif strategy_type == "random":
             rules = strategy.get("rules", {})
@@ -683,32 +772,26 @@ def _sample_special_pack_details(
             rarity_rules = rules.get("rarities", [])
             if isinstance(rarity_rules, list):
                 eligible = df[df.get("Rarity", pd.Series(dtype=str)).isin(rarity_rules)]
-                hit_rarities, hit_values = _sample_rows_with_rarity(
+                _collect(_sample_rows_with_rarity(
                     eligible, count, rng, "Price ($)"
-                )
-                rarities.extend(hit_rarities)
-                values.extend(hit_values)
+                ))
             elif isinstance(rarity_rules, dict):
                 for rarity, sample_count, use_replacement in iter_rarity_bucket_rules(rarity_rules):
                     eligible = df[
                         df.get("Rarity", pd.Series(dtype=str)).astype(str).str.strip().str.lower()
                         == _normalize_rarity(rarity)
                     ]
-                    hit_rarities, hit_values = _sample_rows_with_rarity(
+                    _collect(_sample_rows_with_rarity(
                         eligible, sample_count, rng, "Price ($)", replace=use_replacement
-                    )
-                    rarities.extend(hit_rarities)
-                    values.extend(hit_values)
+                    ))
 
     elif entry_path == "demi_god":
-        c_rarities, c_values = _sample_rows_with_rarity(
+        _collect(_sample_rows_with_rarity(
             common_sampling_pool, 4, rng, "Price ($)", default_rarity="common"
-        )
-        u_rarities, u_values = _sample_rows_with_rarity(
+        ))
+        _collect(_sample_rows_with_rarity(
             uncommon_sampling_pool, 3, rng, "Price ($)", default_rarity="uncommon"
-        )
-        rarities.extend(c_rarities + u_rarities)
-        values.extend(c_values + u_values)
+        ))
 
         rules = strategy.get("rules", {})
         rarity_rules = rules.get("rarities", {})
@@ -723,20 +806,17 @@ def _sample_special_pack_details(
                     df.get("Rarity", pd.Series(dtype=str)).astype(str).str.strip().str.lower()
                     == normalized_rarity
                 ]
-                hit_rarities, hit_values = _sample_rows_with_rarity(
+                _collect(_sample_rows_with_rarity(
                     eligible, sample_count, rng, "Price ($)", replace=use_replacement
-                )
-                rarities.extend(hit_rarities)
-                values.extend(hit_values)
+                ))
         elif isinstance(rarity_rules, list) and count > 0:
             eligible = df[df.get("Rarity", pd.Series(dtype=str)).isin(rarity_rules)]
-            hit_rarities, hit_values = _sample_rows_with_rarity(eligible, count, rng, "Price ($)")
-            rarities.extend(hit_rarities)
-            values.extend(hit_values)
+            _collect(_sample_rows_with_rarity(eligible, count, rng, "Price ($)"))
 
     return {
         "rarities": rarities,
         "values": values,
+        "row_identities": identities,
         "total_value": float(sum(values)),
     }
 
@@ -864,6 +944,7 @@ def _sample_cards_fast(
     rarity_value_totals: MutableMapping[str, float],
     rng: np.random.Generator,
     include_details: bool = False,
+    entity_sink: Optional[object] = None,
 ) -> Dict[str, object]:
     """Hot-path card sampler using precomputed pools and slot-key lookup table.
 
@@ -878,6 +959,7 @@ def _sample_cards_fast(
         n_common,
         rng,
         include_card_names=include_details,
+        entity_sink=entity_sink,
     )
     total_value += common_value
     rarity_pull_counts["common"] += common_count
@@ -888,6 +970,7 @@ def _sample_cards_fast(
         n_uncommon,
         rng,
         include_card_names=include_details,
+        entity_sink=entity_sink,
     )
     total_value += uncommon_value
     rarity_pull_counts["uncommon"] += uncommon_count
@@ -908,6 +991,7 @@ def _sample_cards_fast(
                 rng,
                 selected_source_rows,
                 include_card_name=include_details,
+                entity_sink=entity_sink,
             )
         elif pool_type == "reverse_pool":
             value, card_name, source_row_index = _sample_single_from_array_pool(
@@ -915,6 +999,7 @@ def _sample_cards_fast(
                 rng,
                 selected_source_rows,
                 include_card_name=include_details,
+                entity_sink=entity_sink,
             )
         else:
             # hit_pool: key_info = ("hit_pool", mode, canonical_token)
@@ -929,6 +1014,7 @@ def _sample_cards_fast(
                 rng,
                 selected_source_rows,
                 include_card_name=include_details,
+                entity_sink=entity_sink,
             )
 
         if source_row_index is not None:
@@ -969,6 +1055,7 @@ def make_simulate_pack_fn_v2(
     max_pack_logs: int = 0,
     path_counts: Optional[MutableMapping[str, int]] = None,
     state_counts: Optional[MutableMapping[str, int]] = None,
+    research_recorder: Optional[object] = None,
 ) -> Callable[..., object]:
     """Create a V2 pack simulator with special-pack bypass and state-first normal packs.
 
@@ -986,6 +1073,19 @@ def make_simulate_pack_fn_v2(
     state_counts:
         Optional external counter for normal-pack state names, same contract
         as *path_counts*.
+    research_recorder:
+        RESEARCH INSTRUMENTATION, off by default and never supplied by the
+        production caller. When given a
+        ``backend.research.ev_representativeness.recorder.PackDecompositionRecorder``,
+        every sampled card is recorded against a global sampling-entity id so a
+        run can be decomposed per card and re-valued under counterfactual prices
+        without re-simulating.
+
+        The recording is strictly OBSERVATIONAL: it happens after each draw, it
+        never consumes randomness, and it never changes a sampling decision. With
+        ``None`` the emitted code path is exactly today's, which
+        ``test_recorder_does_not_perturb_sampling`` asserts by comparing seeded
+        runs with and without a recorder attached.
     """
     rng = _to_rng(rng)
 
@@ -1046,14 +1146,21 @@ def make_simulate_pack_fn_v2(
     _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "base_rare_prepared", _rare_base_pool_df, "Price ($)")
     _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "reverse_prepared", reverse_pool, "Reverse Variant Price ($)")
 
-    _common_pool = _build_array_pool(_common_pool_df, value_col="Price ($)", default_rarity="common")
+    _common_pool = _build_array_pool(
+        _common_pool_df, value_col="Price ($)", default_rarity="common", recorder=research_recorder
+    )
     _uncommon_pool = _build_array_pool(
         _uncommon_pool_df,
         value_col="Price ($)",
         default_rarity="uncommon",
+        recorder=research_recorder,
     )
-    _rare_base_pool = _build_array_pool(_rare_base_pool_df, value_col="Price ($)")
-    _reverse_pool = _build_array_pool(reverse_pool, value_col="Reverse Variant Price ($)")
+    _rare_base_pool = _build_array_pool(
+        _rare_base_pool_df, value_col="Price ($)", recorder=research_recorder
+    )
+    _reverse_pool = _build_array_pool(
+        reverse_pool, value_col="Reverse Variant Price ($)", recorder=research_recorder
+    )
 
     # Slot-count constants
     _n_common = int(slots_per_rarity.get("common", 4))
@@ -1076,7 +1183,9 @@ def make_simulate_pack_fn_v2(
                 _eligible, _ = resolve_hit_pool_rows(hit_cards, _token, mode=_mode)
                 if _mode == "pattern":
                     _validate_pattern_token_pool(_eligible, token=_token)
-                _token_pool_map[_key] = _build_array_pool(_eligible, value_col="Price ($)")
+                _token_pool_map[_key] = _build_array_pool(
+                    _eligible, value_col="Price ($)", recorder=research_recorder
+                )
 
     # Per-state slot-pool key lookup: avoids get_simulation_token_mode +
     # normalize_simulation_token calls inside the hot loop.
@@ -1124,6 +1233,13 @@ def make_simulate_pack_fn_v2(
                 rarity_pull_counts=rarity_pull_counts,
                 rarity_value_totals=rarity_value_totals,
             )
+            if research_recorder is not None:
+                # Special packs resolve rows off the source frame rather than an
+                # _ArrayPool, so they carry identities instead of entity ids.
+                # ~0.2% of packs take this path, so the per-row registration cost
+                # never reaches the hot loop.
+                for _identity in special["row_identities"]:
+                    research_recorder.add(research_recorder.register_row(**_identity))
             value = float(special["total_value"])
             if path_counts is not None:
                 path_counts["god"] += 1
@@ -1162,6 +1278,13 @@ def make_simulate_pack_fn_v2(
                 rarity_pull_counts=rarity_pull_counts,
                 rarity_value_totals=rarity_value_totals,
             )
+            if research_recorder is not None:
+                # Special packs resolve rows off the source frame rather than an
+                # _ArrayPool, so they carry identities instead of entity ids.
+                # ~0.2% of packs take this path, so the per-row registration cost
+                # never reaches the hot loop.
+                for _identity in special["row_identities"]:
+                    research_recorder.add(research_recorder.register_row(**_identity))
             value = float(special["total_value"])
             if path_counts is not None:
                 path_counts["demi_god"] += 1
@@ -1209,6 +1332,7 @@ def make_simulate_pack_fn_v2(
             rarity_value_totals=rarity_value_totals,
             rng=rng,
             include_details=_collect_details,
+            entity_sink=research_recorder,
         )
 
         # Cheap direct-counter update — no record dict needed for normal runs.
@@ -1233,7 +1357,24 @@ def make_simulate_pack_fn_v2(
 
         return sampled["total_value"]
 
-    return simulate_one_pack
+    if research_recorder is None:
+        return simulate_one_pack
+
+    def simulate_one_pack_recorded(*, return_pack_data: bool = False):
+        """Pack-boundary wrapper for the research recorder.
+
+        A wrapper rather than open/close calls inside ``simulate_one_pack``: that
+        function has five return points across three entry paths, and a
+        try/finally here closes every pack exactly once without threading
+        bookkeeping through logic that must stay identical to production.
+        """
+        research_recorder.open_pack()
+        try:
+            return simulate_one_pack(return_pack_data=return_pack_data)
+        finally:
+            research_recorder.close_pack()
+
+    return simulate_one_pack_recorded
 
 
 def run_simulation_v2(

@@ -1,0 +1,1775 @@
+{
+  "status": "research_partial",
+  "marketDate": "2026-08-22",
+  "researchMethodVersion": "ev_representativeness_v1",
+  "cohortCount": 22,
+  "builtCount": 19,
+  "failedCount": 3,
+  "failures": [
+    {
+      "canonicalKey": "prismaticEvolutions",
+      "error": "prismaticEvolutions: recorded decomposition does not reproduce the simulated pack values (max abs error 3806.740000000); card attribution would be incomplete"
+    },
+    {
+      "canonicalKey": "scarletAndViolet151",
+      "error": "scarletAndViolet151: recorded decomposition does not reproduce the simulated pack values (max abs error 451.720000000); card attribution would be incomplete"
+    },
+    {
+      "canonicalKey": "twilightMasquerade",
+      "error": "name 'APIError' is not defined"
+    }
+  ],
+  "withResimulation": true,
+  "dryRun": false,
+  "elapsedSeconds": 1174.82,
+  "results": [
+    {
+      "canonicalKey": "ascendedHeroes",
+      "setName": "Ascended Heroes",
+      "calculationRunId": "687b238f-44ef-427f-aa01-c47d24497a04",
+      "marketDate": "2026-08-22",
+      "packCost": 13.87,
+      "ev": 9.058324540000001,
+      "p50": 3.2699999999999996,
+      "typicalCapture": 0.36099391069068487,
+      "evTypicalGapAbsolute": 5.788324540000001,
+      "evTypicalGapCostNormalized": 0.41732693150684946,
+      "coefficientOfVariation": 6.487568619797648,
+      "groeneveldMeedenSkew": 0.8764944816409114,
+      "pearsonSkew2": 0.29549101986804704,
+      "top1OutcomeEvShare": 0.44263089518318366,
+      "top5OutcomeEvShare": 0.5958128654109803,
+      "top10OutcomeEvShare": 0.6504916404772576,
+      "top1ConditionalTailMean": 400.94943,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 1000,
+          "stableN": 792,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.801592,
+          "stableCiLower": 0.8000240996685383,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 1000,
+          "refinedStableN": 792
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 2250,
+          "stableN": 1750,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.810948,
+          "stableCiLower": 0.8094083789629878,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 2250,
+          "refinedStableN": 1750
+        }
+      },
+      "runtimeSeconds": 83.18,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "687b238f-44ef-427f-aa01-c47d24497a04",
+        "canonical_key": "ascendedHeroes",
+        "curve_rows": 1034,
+        "card_rows": 468,
+        "scenario_rows": 19,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 9.058324540000001,
+        "tierBEv": 9.07190396,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.013579419999999232,
+        "relativeDiff": 0.0014991094589330346,
+        "pooledSigma": 59.51368532182312,
+        "differenceStandardError": 0.08416506092892685,
+        "z": 0.16134272167243324,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 3.2699999999999996,
+            "tierB": 3.2600000000000002,
+            "absolute": -0.009999999999999343,
+            "relative": -0.0030581039755349674
+          },
+          "0.95": {
+            "tierA": 11.6,
+            "tierB": 11.540000000000001,
+            "absolute": -0.05999999999999872,
+            "relative": -0.005172413793103338
+          }
+        }
+      },
+      "simCardHhi": 0.027635985592093217,
+      "simTopCardEvShare": 0.09118261873662957
+    },
+    {
+      "canonicalKey": "blackBolt",
+      "setName": "Black Bolt",
+      "calculationRunId": "48c725d9-21dd-4264-8f69-13043e89ff51",
+      "marketDate": "2026-08-22",
+      "packCost": 14.59,
+      "ev": 6.04392326,
+      "p50": 1.7999999999999998,
+      "typicalCapture": 0.2978197972685709,
+      "evTypicalGapAbsolute": 4.24392326,
+      "evTypicalGapCostNormalized": 0.2908789074708705,
+      "coefficientOfVariation": 4.633859115919104,
+      "groeneveldMeedenSkew": 0.9539715594895977,
+      "pearsonSkew2": 0.4545974652007661,
+      "top1OutcomeEvShare": 0.3253612141329538,
+      "top5OutcomeEvShare": 0.5477258524953541,
+      "top10OutcomeEvShare": 0.6846289176742459,
+      "top1ConditionalTailMean": 196.645821,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 458,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.815368,
+          "stableCiLower": 0.8138422310223973,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 458
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 1000,
+          "stableN": 875,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.80546,
+          "stableCiLower": 0.803903622782976,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 1000,
+          "refinedStableN": 875
+        }
+      },
+      "runtimeSeconds": 72.09,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "48c725d9-21dd-4264-8f69-13043e89ff51",
+        "canonical_key": "blackBolt",
+        "curve_rows": 1034,
+        "card_rows": 407,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 6.04392326,
+        "tierBEv": 6.08154055,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.037617290000000025,
+        "relativeDiff": 0.006223985378662804,
+        "pooledSigma": 28.079193031093652,
+        "differenceStandardError": 0.039709975605064736,
+        "z": 0.9473007582306899,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.7999999999999998,
+            "tierB": 1.7999999999999998,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 21.43,
+            "tierB": 21.44,
+            "absolute": 0.010000000000001563,
+            "relative": 0.00046663555762956434
+          }
+        }
+      },
+      "simCardHhi": 0.01827432017551258,
+      "simTopCardEvShare": 0.0722031525383811
+    },
+    {
+      "canonicalKey": "chaosRising",
+      "setName": "Chaos Rising",
+      "calculationRunId": "d2572d76-ef4d-4478-b2c1-38dcd65e0c25",
+      "marketDate": "2026-08-22",
+      "packCost": 5.54,
+      "ev": 2.83880102,
+      "p50": 1.24,
+      "typicalCapture": 0.4368041265533996,
+      "evTypicalGapAbsolute": 1.59880102,
+      "evTypicalGapCostNormalized": 0.2885922418772563,
+      "coefficientOfVariation": 3.883502892031765,
+      "groeneveldMeedenSkew": 0.9093386528890157,
+      "pearsonSkew2": 0.43506794440826213,
+      "top1OutcomeEvShare": 0.30398586724475674,
+      "top5OutcomeEvShare": 0.45192220622775453,
+      "top10OutcomeEvShare": 0.5438937491997942,
+      "top1ConditionalTailMean": 86.295539,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 333,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.808732,
+          "stableCiLower": 0.8071855547072755,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 333
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 750,
+          "stableN": 625,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.808884,
+          "stableCiLower": 0.8073380202582809,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 750,
+          "refinedStableN": 625
+        }
+      },
+      "runtimeSeconds": 43.12,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "d2572d76-ef4d-4478-b2c1-38dcd65e0c25",
+        "canonical_key": "chaosRising",
+        "curve_rows": 1009,
+        "card_rows": 198,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 2.83880102,
+        "tierBEv": 2.8408271900000006,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.0020261700000006044,
+        "relativeDiff": 0.0007137414654023918,
+        "pooledSigma": 11.032120835281484,
+        "differenceStandardError": 0.015601774906993871,
+        "z": 0.12986791644406592,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.24,
+            "tierB": 1.24,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 6.97,
+            "tierB": 6.97,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.03165014283694497,
+      "simTopCardEvShare": 0.13668259067880859
+    },
+    {
+      "canonicalKey": "destinedRivals",
+      "setName": "Destined Rivals",
+      "calculationRunId": "5a4f1a2c-216b-44f0-bd80-7a683a6b9d68",
+      "marketDate": "2026-08-22",
+      "packCost": 9.44,
+      "ev": 4.47159789,
+      "p50": 1.86,
+      "typicalCapture": 0.4159586898812138,
+      "evTypicalGapAbsolute": 2.6115978899999996,
+      "evTypicalGapCostNormalized": 0.27665231885593217,
+      "coefficientOfVariation": 4.320245749291863,
+      "groeneveldMeedenSkew": 0.9181361435915745,
+      "pearsonSkew2": 0.4055611722188608,
+      "top1OutcomeEvShare": 0.312624666704993,
+      "top5OutcomeEvShare": 0.5131978828266242,
+      "top10OutcomeEvShare": 0.6010316392738078,
+      "top1ConditionalTailMean": 139.79317999999998,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 375,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.814624,
+          "stableCiLower": 0.8130958766660569,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 375
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 750,
+          "stableN": 750,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.809336,
+          "stableCiLower": 0.807791406862035,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 750,
+          "refinedStableN": 750
+        }
+      },
+      "runtimeSeconds": 47.61,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "5a4f1a2c-216b-44f0-bd80-7a683a6b9d68",
+        "canonical_key": "destinedRivals",
+        "curve_rows": 1019,
+        "card_rows": 409,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 4.47159789,
+        "tierBEv": 4.443946459999999,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.027651430000000587,
+        "relativeDiff": -0.006183791718356095,
+        "pooledSigma": 19.210421840460725,
+        "differenceStandardError": 0.027167639105687872,
+        "z": -1.0178076163493879,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.86,
+            "tierB": 1.8599999999999999,
+            "absolute": -2.220446049250313e-16,
+            "relative": -1.1937881985216736e-16
+          },
+          "0.95": {
+            "tierA": 11.66,
+            "tierB": 11.639999999999999,
+            "absolute": -0.02000000000000135,
+            "relative": -0.0017152658662093782
+          }
+        }
+      },
+      "simCardHhi": 0.02258819321228312,
+      "simTopCardEvShare": 0.10588292506116286
+    },
+    {
+      "canonicalKey": "journeyTogether",
+      "setName": "Journey Together",
+      "calculationRunId": "75220055-ecfe-4bcc-81dd-a85bc6b268f4",
+      "marketDate": "2026-08-22",
+      "packCost": 6.4,
+      "ev": 3.44404084,
+      "p50": 1.8900000000000001,
+      "typicalCapture": 0.5487739802760295,
+      "evTypicalGapAbsolute": 1.5540408399999999,
+      "evTypicalGapCostNormalized": 0.24281888124999998,
+      "coefficientOfVariation": 1.9740828044572292,
+      "groeneveldMeedenSkew": 0.8636345059666406,
+      "pearsonSkew2": 0.6857250648835387,
+      "top1OutcomeEvShare": 0.1665112426483305,
+      "top5OutcomeEvShare": 0.36069634121992583,
+      "top10OutcomeEvShare": 0.45692653865277627,
+      "top1ConditionalTailMean": 57.347152,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 72,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.92072,
+          "stableCiLower": 0.9196544561572934,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 150,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.805092,
+          "stableCiLower": 0.8035345163869626,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        }
+      },
+      "runtimeSeconds": 45.88,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "75220055-ecfe-4bcc-81dd-a85bc6b268f4",
+        "canonical_key": "journeyTogether",
+        "curve_rows": 911,
+        "card_rows": 333,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 3.44404084,
+        "tierBEv": 3.43704102,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.006999819999999879,
+        "relativeDiff": -0.0020324439590559207,
+        "pooledSigma": 6.785747940700769,
+        "differenceStandardError": 0.009596496768584328,
+        "z": -0.7294140944135898,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.8900000000000001,
+            "tierB": 1.8900000000000001,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 9.17,
+            "tierB": 9.149999999999999,
+            "absolute": -0.02000000000000135,
+            "relative": -0.0021810250817885877
+          }
+        }
+      },
+      "simCardHhi": 0.014457459347626952,
+      "simTopCardEvShare": 0.05888227659267215
+    },
+    {
+      "canonicalKey": "megaEvolution",
+      "setName": "Mega Evolution",
+      "calculationRunId": "bc40be6a-0eef-4545-b200-91a1ce4e027e",
+      "marketDate": "2026-08-22",
+      "packCost": 8.3,
+      "ev": 3.79534727,
+      "p50": 1.7,
+      "typicalCapture": 0.44791685162448913,
+      "evTypicalGapAbsolute": 2.0953472700000004,
+      "evTypicalGapCostNormalized": 0.25245147831325304,
+      "coefficientOfVariation": 3.470904382026946,
+      "groeneveldMeedenSkew": 0.8926771049975353,
+      "pearsonSkew2": 0.47718094848793063,
+      "top1OutcomeEvShare": 0.28158483637256204,
+      "top5OutcomeEvShare": 0.46381424274780536,
+      "top10OutcomeEvShare": 0.5564494760976115,
+      "top1ConditionalTailMean": 106.871224,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.805892,
+          "stableCiLower": 0.8043369243260553,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 500,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.811796,
+          "stableCiLower": 0.8102590115604834,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 500
+        }
+      },
+      "runtimeSeconds": 49.32,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "bc40be6a-0eef-4545-b200-91a1ce4e027e",
+        "canonical_key": "megaEvolution",
+        "curve_rows": 1013,
+        "card_rows": 310,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 3.79534727,
+        "tierBEv": 3.7971339000000004,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.0017866300000002333,
+        "relativeDiff": 0.0004707421674223327,
+        "pooledSigma": 13.194029188751902,
+        "differenceStandardError": 0.018659175021079423,
+        "z": 0.09575074985801156,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.7,
+            "tierB": 1.7,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 9.46,
+            "tierB": 9.459999999999999,
+            "absolute": -1.7763568394002505e-15,
+            "relative": -1.877755644186311e-16
+          }
+        }
+      },
+      "simCardHhi": 0.014774172318993705,
+      "simTopCardEvShare": 0.051347538731778726
+    },
+    {
+      "canonicalKey": "obsidianFlames",
+      "setName": "Obsidian Flames",
+      "calculationRunId": "528199b8-05af-4ba9-9bc5-8d5ed376685c",
+      "marketDate": "2026-08-22",
+      "packCost": 13.09,
+      "ev": 4.36567297,
+      "p50": 1.8299999999999998,
+      "typicalCapture": 0.41917935964864533,
+      "evTypicalGapAbsolute": 2.5356729700000002,
+      "evTypicalGapCostNormalized": 0.19371069289534,
+      "coefficientOfVariation": 2.3212571506739286,
+      "groeneveldMeedenSkew": 0.9236767360986564,
+      "pearsonSkew2": 0.7506544117906869,
+      "top1OutcomeEvShare": 0.18303811473995957,
+      "top5OutcomeEvShare": 0.4388403834105788,
+      "top10OutcomeEvShare": 0.5632710963230946,
+      "top1ConditionalTailMean": 79.908455,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 150,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.86034,
+          "stableCiLower": 0.8589756822642526,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.832208,
+          "stableCiLower": 0.8307380933193121,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        }
+      },
+      "runtimeSeconds": 46.24,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "528199b8-05af-4ba9-9bc5-8d5ed376685c",
+        "canonical_key": "obsidianFlames",
+        "curve_rows": 919,
+        "card_rows": 406,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 4.36567297,
+        "tierBEv": 4.36519167,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.00048130000000057294,
+        "relativeDiff": -0.00011024646218531868,
+        "pooledSigma": 10.12377228474579,
+        "differenceStandardError": 0.014317176067464351,
+        "z": -0.03361696452796461,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.8299999999999998,
+            "tierB": 1.8299999999999998,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 16.8,
+            "tierB": 16.8,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.03329861985128086,
+      "simTopCardEvShare": 0.13416132538345105
+    },
+    {
+      "canonicalKey": "paldeaEvolved",
+      "setName": "Paldea Evolved",
+      "calculationRunId": "14323aa8-03e8-408d-a34d-351aa4a60da0",
+      "marketDate": "2026-08-22",
+      "packCost": 16.05,
+      "ev": 5.772340799999999,
+      "p50": 1.69,
+      "typicalCapture": 0.2927755062556251,
+      "evTypicalGapAbsolute": 4.082340799999999,
+      "evTypicalGapCostNormalized": 0.25435145171339557,
+      "coefficientOfVariation": 3.566101492669646,
+      "groeneveldMeedenSkew": 0.9506629246804249,
+      "pearsonSkew2": 0.5949560004375541,
+      "top1OutcomeEvShare": 0.25666026683663584,
+      "top5OutcomeEvShare": 0.5281646624191004,
+      "top10OutcomeEvShare": 0.6698820277555337,
+      "top1ConditionalTailMean": 148.153053,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.812604,
+          "stableCiLower": 0.8110695309561731,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 500,
+          "status": "confirmation_did_not_ratify",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": null,
+          "stableCiLower": null,
+          "stableSessionCount": null,
+          "bandPointsChecked": 0,
+          "coarseStableN": 500,
+          "refinedStableN": 500
+        }
+      },
+      "runtimeSeconds": 47.35,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "14323aa8-03e8-408d-a34d-351aa4a60da0",
+        "canonical_key": "paldeaEvolved",
+        "curve_rows": 929,
+        "card_rows": 455,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 5.772340799999999,
+        "tierBEv": 5.8010109000000005,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.028670100000001142,
+        "relativeDiff": 0.004966806533668481,
+        "pooledSigma": 20.71684106335877,
+        "differenceStandardError": 0.029298037601329825,
+        "z": 0.9785672470670806,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.69,
+            "tierB": 1.69,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 22.29,
+            "tierB": 22.29,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.029087911003397506,
+      "simTopCardEvShare": 0.14167968551826027
+    },
+    {
+      "canonicalKey": "paldeanFates",
+      "setName": "Paldean Fates",
+      "calculationRunId": "993f324e-2189-472f-9149-02dfd800b200",
+      "marketDate": "2026-08-22",
+      "packCost": 23.1,
+      "ev": 7.62288221,
+      "p50": 1.76,
+      "typicalCapture": 0.23088379847863344,
+      "evTypicalGapAbsolute": 5.86288221,
+      "evTypicalGapCostNormalized": 0.25380442467532466,
+      "coefficientOfVariation": 6.476415436436833,
+      "groeneveldMeedenSkew": 0.9283723698955901,
+      "pearsonSkew2": 0.35626939426750964,
+      "top1OutcomeEvShare": 0.447802288683141,
+      "top5OutcomeEvShare": 0.6062460317093106,
+      "top10OutcomeEvShare": 0.6881336842800303,
+      "top1ConditionalTailMean": 341.35441,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 1000,
+          "stableN": 833,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.809524,
+          "stableCiLower": 0.8079799845630695,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 1000,
+          "refinedStableN": 833
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 2250,
+          "stableN": 1750,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.807636,
+          "stableCiLower": 0.8060862088348895,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 2250,
+          "refinedStableN": 1750
+        }
+      },
+      "runtimeSeconds": 74.33,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "993f324e-2189-472f-9149-02dfd800b200",
+        "canonical_key": "paldeanFates",
+        "curve_rows": 1034,
+        "card_rows": 326,
+        "scenario_rows": 20,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 7.62288221,
+        "tierBEv": 7.588564509999999,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.034317700000000784,
+        "relativeDiff": -0.004501932347187716,
+        "pooledSigma": 49.08296365603973,
+        "differenceStandardError": 0.0694137928838371,
+        "z": -0.4943930964474297,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.76,
+            "tierB": 1.76,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 16.75,
+            "tierB": 16.759999999999998,
+            "absolute": 0.00999999999999801,
+            "relative": 0.0005970149253730155
+          }
+        }
+      },
+      "simCardHhi": 0.08923261420600777,
+      "simTopCardEvShare": 0.2760218243173372
+    },
+    {
+      "canonicalKey": "paradoxRift",
+      "setName": "Paradox Rift",
+      "calculationRunId": "73be42a8-991a-46b5-9ae3-c810f48e7664",
+      "marketDate": "2026-08-22",
+      "packCost": 8.4,
+      "ev": 3.9621937000000003,
+      "p50": 1.5699999999999998,
+      "typicalCapture": 0.39624514066538435,
+      "evTypicalGapAbsolute": 2.3921937000000004,
+      "evTypicalGapCostNormalized": 0.2847849642857143,
+      "coefficientOfVariation": 2.309705397612489,
+      "groeneveldMeedenSkew": 0.9197503799661001,
+      "pearsonSkew2": 0.78419723133354,
+      "top1OutcomeEvShare": 0.1752015808818231,
+      "top5OutcomeEvShare": 0.4524216698441573,
+      "top10OutcomeEvShare": 0.5939665796752946,
+      "top1ConditionalTailMean": 69.41826,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 100,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.862836,
+          "stableCiLower": 0.8614818884469699,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.834488,
+          "stableCiLower": 0.8330260526383941,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        }
+      },
+      "runtimeSeconds": 46.07,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "73be42a8-991a-46b5-9ae3-c810f48e7664",
+        "canonical_key": "paradoxRift",
+        "curve_rows": 975,
+        "card_rows": 428,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 3.9621937000000003,
+        "tierBEv": 3.96521912,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.0030254199999997233,
+        "relativeDiff": 0.0007635719576253233,
+        "pooledSigma": 9.158019846644436,
+        "differenceStandardError": 0.012951395871606533,
+        "z": 0.23359798665658735,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.5699999999999998,
+            "tierB": 1.5699999999999998,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 16.63,
+            "tierB": 16.63,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.012702000461092025,
+      "simTopCardEvShare": 0.06809555583904274
+    },
+    {
+      "canonicalKey": "perfectOrder",
+      "setName": "Perfect Order",
+      "calculationRunId": "774a1fcb-ed7d-4b99-94d2-49f5dbc06f9c",
+      "marketDate": "2026-08-22",
+      "packCost": 5.45,
+      "ev": 2.9143974900000003,
+      "p50": 1.39,
+      "typicalCapture": 0.47694249146501966,
+      "evTypicalGapAbsolute": 1.5243974900000004,
+      "evTypicalGapCostNormalized": 0.27970596146788995,
+      "coefficientOfVariation": 2.8750087383501266,
+      "groeneveldMeedenSkew": 0.8605129375685715,
+      "pearsonSkew2": 0.5457974804297249,
+      "top1OutcomeEvShare": 0.251193515130292,
+      "top5OutcomeEvShare": 0.4340687343921642,
+      "top10OutcomeEvShare": 0.5270821517211779,
+      "top1ConditionalTailMean": 73.207775,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.875552,
+          "stableCiLower": 0.8742522898257685,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 333,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.8047,
+          "stableCiLower": 0.8031413401829095,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 333
+        }
+      },
+      "runtimeSeconds": 44.06,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "774a1fcb-ed7d-4b99-94d2-49f5dbc06f9c",
+        "canonical_key": "perfectOrder",
+        "curve_rows": 919,
+        "card_rows": 203,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 2.9143974900000003,
+        "tierBEv": 2.93267999,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.018282499999999757,
+        "relativeDiff": 0.006273166259143243,
+        "pooledSigma": 8.453975314854405,
+        "differenceStandardError": 0.011955726546234457,
+        "z": 1.529183519654685,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.39,
+            "tierB": 1.39,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 6.369999999999999,
+            "tierB": 6.38,
+            "absolute": 0.010000000000000675,
+            "relative": 0.0015698587127159617
+          }
+        }
+      },
+      "simCardHhi": 0.02314163430348238,
+      "simTopCardEvShare": 0.09174722128478804
+    },
+    {
+      "canonicalKey": "phantasmalFlames",
+      "setName": "Phantasmal Flames",
+      "calculationRunId": "a1c0ed85-ff61-4dfb-9969-3cc315f561fd",
+      "marketDate": "2026-08-22",
+      "packCost": 11.69,
+      "ev": 4.5541453700000005,
+      "p50": 1.54,
+      "typicalCapture": 0.3381534568800995,
+      "evTypicalGapAbsolute": 3.0141453700000005,
+      "evTypicalGapCostNormalized": 0.25783963815226696,
+      "coefficientOfVariation": 7.619155929587545,
+      "groeneveldMeedenSkew": 0.93704746214008,
+      "pearsonSkew2": 0.26059837174997763,
+      "top1OutcomeEvShare": 0.45878178016965676,
+      "top5OutcomeEvShare": 0.5875820033386417,
+      "top10OutcomeEvShare": 0.6540778143847437,
+      "top1ConditionalTailMean": 208.93589200000002,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 1500,
+          "stableN": 1167,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.817808,
+          "stableCiLower": 0.8162900177016587,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 1500,
+          "refinedStableN": 1167
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 3375,
+          "stableN": 2438,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.809,
+          "stableCiLower": 0.8074543757977933,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 3375,
+          "refinedStableN": 2438
+        }
+      },
+      "runtimeSeconds": 85.55,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "a1c0ed85-ff61-4dfb-9969-3cc315f561fd",
+        "canonical_key": "phantasmalFlames",
+        "curve_rows": 1090,
+        "card_rows": 214,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 4.5541453700000005,
+        "tierBEv": 4.608441099999999,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.054295729999998876,
+        "relativeDiff": 0.011922265450213082,
+        "pooledSigma": 34.92891252305916,
+        "differenceStandardError": 0.049396941809053706,
+        "z": 1.0991718922576559,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.54,
+            "tierB": 1.54,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 7.47,
+            "tierB": 7.470000000000001,
+            "absolute": 8.881784197001252e-16,
+            "relative": 1.1889938684071288e-16
+          }
+        }
+      },
+      "simCardHhi": 0.1476397118917368,
+      "simTopCardEvShare": 0.3741596805913393
+    },
+    {
+      "canonicalKey": "pitchBlack",
+      "setName": "Pitch Black",
+      "calculationRunId": "c6cd123b-c1cb-4d05-91a7-3aabf68501c6",
+      "marketDate": "2026-08-22",
+      "packCost": 5.97,
+      "ev": 3.79974642,
+      "p50": 1.67,
+      "typicalCapture": 0.43950301294053196,
+      "evTypicalGapAbsolute": 2.12974642,
+      "evTypicalGapCostNormalized": 0.3567414438860972,
+      "coefficientOfVariation": 3.421546423266874,
+      "groeneveldMeedenSkew": 0.91755153076718,
+      "pearsonSkew2": 0.4914418082256869,
+      "top1OutcomeEvShare": 0.2876578563892693,
+      "top5OutcomeEvShare": 0.44878463231764815,
+      "top10OutcomeEvShare": 0.5453535238806804,
+      "top1ConditionalTailMean": 109.30269100000001,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.81246,
+          "stableCiLower": 0.8109250811681034,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 500,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.817584,
+          "stableCiLower": 0.8160652986539895,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 500
+        }
+      },
+      "runtimeSeconds": 46.25,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "c6cd123b-c1cb-4d05-91a7-3aabf68501c6",
+        "canonical_key": "pitchBlack",
+        "curve_rows": 901,
+        "card_rows": 194,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 3.79974642,
+        "tierBEv": 3.79966605,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -8.037000000005179e-05,
+        "relativeDiff": -2.1151411467097795e-05,
+        "pooledSigma": 13.013086529799041,
+        "differenceStandardError": 0.01840328345877644,
+        "z": -0.004367155468755425,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.67,
+            "tierB": 1.6600000000000001,
+            "absolute": -0.009999999999999787,
+            "relative": -0.005988023952095681
+          },
+          "0.95": {
+            "tierA": 9.930000000000001,
+            "tierB": 9.930000000000001,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.027803884482896512,
+      "simTopCardEvShare": 0.12590782287301275
+    },
+    {
+      "canonicalKey": "scarletAndVioletBase",
+      "setName": "Scarlet and Violet Base Set",
+      "calculationRunId": "b0caac26-e38e-4201-96b7-44ddc8126bd9",
+      "marketDate": "2026-08-22",
+      "packCost": 9.18,
+      "ev": 4.03064178,
+      "p50": 1.74,
+      "typicalCapture": 0.43169303921620145,
+      "evTypicalGapAbsolute": 2.2906417799999996,
+      "evTypicalGapCostNormalized": 0.24952524836601303,
+      "coefficientOfVariation": 1.9440589901458223,
+      "groeneveldMeedenSkew": 0.9212058276671455,
+      "pearsonSkew2": 0.8769903027600571,
+      "top1OutcomeEvShare": 0.14628109918515259,
+      "top5OutcomeEvShare": 0.4070839805565653,
+      "top10OutcomeEvShare": 0.5433441544884695,
+      "top1ConditionalTailMean": 58.960671,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 72,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.9063,
+          "stableCiLower": 0.9051514389535739,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.9,
+          "stableCiLower": 0.8988178683428012,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        }
+      },
+      "runtimeSeconds": 44.55,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "b0caac26-e38e-4201-96b7-44ddc8126bd9",
+        "canonical_key": "scarletAndVioletBase",
+        "curve_rows": 975,
+        "card_rows": 446,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 4.03064178,
+        "tierBEv": 4.04033748,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.009695699999999974,
+        "relativeDiff": 0.0024054978162807547,
+        "pooledSigma": 7.860286520414688,
+        "differenceStandardError": 0.011116123801308875,
+        "z": 0.8722195050453061,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.74,
+            "tierB": 1.74,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 16.62,
+            "tierB": 16.64,
+            "absolute": 0.019999999999999574,
+            "relative": 0.00120336943441634
+          }
+        }
+      },
+      "simCardHhi": 0.01397065684773546,
+      "simTopCardEvShare": 0.05674355202625301
+    },
+    {
+      "canonicalKey": "shroudedFable",
+      "setName": "Shrouded Fable",
+      "calculationRunId": "e6940d26-49f9-4b46-9625-2c97d5395035",
+      "marketDate": "2026-08-22",
+      "packCost": 14.79,
+      "ev": 5.97231984,
+      "p50": 2.01,
+      "typicalCapture": 0.33655263848025924,
+      "evTypicalGapAbsolute": 3.96231984,
+      "evTypicalGapCostNormalized": 0.2679053306288033,
+      "coefficientOfVariation": 1.9059706974436637,
+      "groeneveldMeedenSkew": 0.9178541065288531,
+      "pearsonSkew2": 1.0442668857547073,
+      "top1OutcomeEvShare": 0.11693555916456076,
+      "top5OutcomeEvShare": 0.4040934552493759,
+      "top10OutcomeEvShare": 0.5977616932183591,
+      "top1ConditionalTailMean": 69.83765600000001,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 72,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.907368,
+          "stableCiLower": 0.9062252820299103,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 150,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.905172,
+          "stableCiLower": 0.9040173166459538,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        }
+      },
+      "runtimeSeconds": 42.17,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "e6940d26-49f9-4b46-9625-2c97d5395035",
+        "canonical_key": "shroudedFable",
+        "curve_rows": 863,
+        "card_rows": 168,
+        "scenario_rows": 19,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 5.97231984,
+        "tierBEv": 5.992709539999999,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.020389699999999067,
+        "relativeDiff": 0.003414033498915736,
+        "pooledSigma": 11.402082151158519,
+        "differenceStandardError": 0.01612497921746057,
+        "z": 1.2644791490906566,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 2.01,
+            "tierB": 2.01,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 31.509999999999998,
+            "tierB": 31.78,
+            "absolute": 0.2700000000000031,
+            "relative": 0.008568708346556748
+          }
+        }
+      },
+      "simCardHhi": 0.022865671243899724,
+      "simTopCardEvShare": 0.07028419234882523
+    },
+    {
+      "canonicalKey": "stellarCrown",
+      "setName": "Stellar Crown",
+      "calculationRunId": "ad120bac-9242-43cf-a0eb-c379c6b684bd",
+      "marketDate": "2026-08-22",
+      "packCost": 10.58,
+      "ev": 4.47968157,
+      "p50": 1.7800000000000002,
+      "typicalCapture": 0.397349671441044,
+      "evTypicalGapAbsolute": 2.69968157,
+      "evTypicalGapCostNormalized": 0.2551683903591683,
+      "coefficientOfVariation": 2.8083557891455735,
+      "groeneveldMeedenSkew": 0.9121219304891584,
+      "pearsonSkew2": 0.6437756186964213,
+      "top1OutcomeEvShare": 0.25097097470702584,
+      "top5OutcomeEvShare": 0.4712413320038727,
+      "top10OutcomeEvShare": 0.5690005082213913,
+      "top1ConditionalTailMean": 112.42700499999998,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.876348,
+          "stableCiLower": 0.8750518361161298,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 333,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.80998,
+          "stableCiLower": 0.8084373881730362,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 333
+        }
+      },
+      "runtimeSeconds": 49.42,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "ad120bac-9242-43cf-a0eb-c379c6b684bd",
+        "canonical_key": "stellarCrown",
+        "curve_rows": 947,
+        "card_rows": 300,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 4.47968157,
+        "tierBEv": 4.49347665,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.013795079999999516,
+        "relativeDiff": 0.003079477812080182,
+        "pooledSigma": 12.617355467246437,
+        "differenceStandardError": 0.017843635223062232,
+        "z": 0.7731092811273058,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.7800000000000002,
+            "tierB": 1.7800000000000002,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 11.459999999999999,
+            "tierB": 11.42,
+            "absolute": -0.03999999999999915,
+            "relative": -0.0034904013961604844
+          }
+        }
+      },
+      "simCardHhi": 0.048435091835464475,
+      "simTopCardEvShare": 0.15374444640766075
+    },
+    {
+      "canonicalKey": "surgingSparks",
+      "setName": "Surging Sparks",
+      "calculationRunId": "c5c81ccc-460f-43e7-b0bb-cc19d880e4ae",
+      "marketDate": "2026-08-22",
+      "packCost": 7.78,
+      "ev": 3.5596749899999995,
+      "p50": 1.6300000000000001,
+      "typicalCapture": 0.45790697313071277,
+      "evTypicalGapAbsolute": 1.9296749899999994,
+      "evTypicalGapCostNormalized": 0.24803020437017986,
+      "coefficientOfVariation": 3.4928989220430147,
+      "groeneveldMeedenSkew": 0.9039946037517115,
+      "pearsonSkew2": 0.4655958036302529,
+      "top1OutcomeEvShare": 0.2553832562112644,
+      "top5OutcomeEvShare": 0.4337912714890861,
+      "top10OutcomeEvShare": 0.542734093822425,
+      "top1ConditionalTailMean": 90.908139,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.820696,
+          "stableCiLower": 0.8191873652862066,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 500,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.81762,
+          "stableCiLower": 0.8161014141576145,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 500
+        }
+      },
+      "runtimeSeconds": 46.8,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "c5c81ccc-460f-43e7-b0bb-cc19d880e4ae",
+        "canonical_key": "surgingSparks",
+        "curve_rows": 957,
+        "card_rows": 417,
+        "scenario_rows": 19,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 3.5596749899999995,
+        "tierBEv": 3.57914108,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": 0.019466090000000325,
+        "relativeDiff": 0.0054685020555768,
+        "pooledSigma": 12.597091652741218,
+        "differenceStandardError": 0.017814977861763538,
+        "z": 1.092681122090002,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.6300000000000001,
+            "tierB": 1.6300000000000001,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 10.2,
+            "tierB": 10.2,
+            "absolute": 0.0,
+            "relative": 0.0
+          }
+        }
+      },
+      "simCardHhi": 0.01705117224553077,
+      "simTopCardEvShare": 0.08618883500395576
+    },
+    {
+      "canonicalKey": "temporalForces",
+      "setName": "Temporal Forces",
+      "calculationRunId": "2116e5f9-e556-4c1f-88cc-ad226f751e85",
+      "marketDate": "2026-08-22",
+      "packCost": 11.37,
+      "ev": 5.50882873,
+      "p50": 1.9399999999999997,
+      "typicalCapture": 0.35216197400277494,
+      "evTypicalGapAbsolute": 3.568828730000001,
+      "evTypicalGapCostNormalized": 0.31388115479331585,
+      "coefficientOfVariation": 2.0280334360688963,
+      "groeneveldMeedenSkew": 0.9173883340673782,
+      "pearsonSkew2": 0.9583244750436406,
+      "top1OutcomeEvShare": 0.14276912362820907,
+      "top5OutcomeEvShare": 0.42822527176298686,
+      "top10OutcomeEvShare": 0.5824271705030845,
+      "top1ConditionalTailMean": 78.649065,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 100,
+          "stableN": 150,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.894276,
+          "stableCiLower": 0.8930646204531983,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 150
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 250,
+          "stableN": 250,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.88328,
+          "stableCiLower": 0.8820154712162637,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 250
+        }
+      },
+      "runtimeSeconds": 44.05,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "2116e5f9-e556-4c1f-88cc-ad226f751e85",
+        "canonical_key": "temporalForces",
+        "curve_rows": 1003,
+        "card_rows": 358,
+        "scenario_rows": 19,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 5.50882873,
+        "tierBEv": 5.48821877,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.020609960000000704,
+        "relativeDiff": -0.0037412598957311752,
+        "pooledSigma": 11.141763296456855,
+        "differenceStandardError": 0.015756832762600047,
+        "z": -1.3080014435972118,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.9399999999999997,
+            "tierB": 1.94,
+            "absolute": 2.220446049250313e-16,
+            "relative": 1.1445598192011924e-16
+          },
+          "0.95": {
+            "tierA": 25.369999999999997,
+            "tierB": 25.279999999999998,
+            "absolute": -0.08999999999999986,
+            "relative": -0.0035474970437524584
+          }
+        }
+      },
+      "simCardHhi": 0.01693073919071397,
+      "simTopCardEvShare": 0.062205457600590514
+    },
+    {
+      "canonicalKey": "whiteFlare",
+      "setName": "White Flare",
+      "calculationRunId": "b572193b-a72a-48d9-9c06-797f70ca2971",
+      "marketDate": "2026-08-22",
+      "packCost": 13.45,
+      "ev": 5.60919832,
+      "p50": 1.74,
+      "typicalCapture": 0.31020475667546016,
+      "evTypicalGapAbsolute": 3.8691983199999997,
+      "evTypicalGapCostNormalized": 0.2876727375464684,
+      "coefficientOfVariation": 4.212997201098489,
+      "groeneveldMeedenSkew": 0.9451214036718981,
+      "pearsonSkew2": 0.491190862750645,
+      "top1OutcomeEvShare": 0.2907033406513607,
+      "top5OutcomeEvShare": 0.5135690299500768,
+      "top10OutcomeEvShare": 0.6572787945212107,
+      "top1ConditionalTailMean": 163.06126899999998,
+      "horizons": {
+        "realization_ge_0.80": {
+          "metricKey": "realization_ge_0.80",
+          "confidence": 0.8,
+          "firstCrossingN": 500,
+          "stableN": 375,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.819764,
+          "stableCiLower": 0.8182523329904283,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 500,
+          "refinedStableN": 375
+        },
+        "within_tau_0.20": {
+          "metricKey": "within_tau_0.20",
+          "confidence": 0.8,
+          "firstCrossingN": 750,
+          "stableN": 708,
+          "status": "resolved",
+          "stage": "confirm",
+          "searchCap": 100000,
+          "stableEstimate": 0.804544,
+          "stableCiLower": 0.8029848727743283,
+          "stableSessionCount": 250000,
+          "bandPointsChecked": 3,
+          "coarseStableN": 750,
+          "refinedStableN": 708
+        }
+      },
+      "runtimeSeconds": 51.53,
+      "tierB": true,
+      "written": {
+        "calculation_run_id": "b572193b-a72a-48d9-9c06-797f70ca2971",
+        "canonical_key": "whiteFlare",
+        "curve_rows": 953,
+        "card_rows": 405,
+        "scenario_rows": 18,
+        "tier_b": true
+      },
+      "reconciliation": {
+        "status": "reconciled",
+        "passed": true,
+        "tierAEv": 5.60919832,
+        "tierBEv": 5.54077559,
+        "tierACount": 1000000,
+        "tierBCount": 1000000,
+        "absoluteDiff": -0.06842272999999999,
+        "relativeDiff": -0.01219830822455213,
+        "pooledSigma": 23.364698009294592,
+        "differenceStandardError": 0.03304267280549607,
+        "z": -2.0707383571167726,
+        "zTolerance": 5.0,
+        "relativeFloor": 0.005,
+        "quantiles": {
+          "0.50": {
+            "tierA": 1.74,
+            "tierB": 1.74,
+            "absolute": 0.0,
+            "relative": 0.0
+          },
+          "0.95": {
+            "tierA": 20.349999999999998,
+            "tierB": 20.29,
+            "absolute": -0.05999999999999872,
+            "relative": -0.002948402948402886
+          }
+        }
+      },
+      "simCardHhi": 0.01435217384498672,
+      "simTopCardEvShare": 0.06706390720292645
+    }
+  ]
+}
