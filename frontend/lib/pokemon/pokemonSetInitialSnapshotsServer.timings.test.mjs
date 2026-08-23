@@ -93,8 +93,8 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
   const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
   assert.equal(
     emptyPlaceholderCount,
-    3,
-    "the cards slot and the market dashboard slot must unconditionally resolve to the empty placeholder, and the overview slot must fall back to it off the Market tab"
+    4,
+    "cards and market-dashboard stay empty while market and simulation-evidence seeds fall back empty off their owning tabs"
   );
 });
 
@@ -105,17 +105,14 @@ test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Ma
   const fnSource = source.slice(fnStart, fnEnd);
 
   assert.ok(
-    fnSource.includes('const wantsMarketSeed = resolveSetDetailTab(tab) === "market"'),
+    fnSource.includes('const resolvedTab = resolveSetDetailTab(tab)') && fnSource.includes('const wantsMarketSeed = resolvedTab === "market"'),
     "the slim market seed must gate on the resolved set-detail tab (aliases + absent-tab default included)"
   );
   assert.ok(
     fnSource.includes("wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
     "the slim /overview payload must be fetched only when Market is the active tab, resolving empty otherwise"
   );
-  assert.ok(
-    !fnSource.includes('resolveSetDetailTab(tab) === "overview"'),
-    "RIP (internal tab value `overview`) must NOT pull the Set Value/market payload it does not render"
-  );
+  assert.ok(fnSource.includes('const wantsSimulationEvidence = resolvedTab === "overview"'));
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
   assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");
   assert.ok(fnSource.includes("overviewMs: overview.elapsedMs"), "must return overviewMs in timings");
@@ -124,8 +121,8 @@ test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Ma
   const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
   assert.deepEqual(
     snapshotCalls,
-    ["getPokemonSetOverviewInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
-    "only the shell and overview initial snapshots may be fetched here"
+    ["getPokemonSetOverviewInitialSnapshot(", "getPokemonSetShellInitialSnapshot(", "getPokemonSetSimulationEvidenceInitialSnapshot("],
+    "only shell, market overview, and simulation evidence initial snapshots may be fetched here"
   );
 });
 

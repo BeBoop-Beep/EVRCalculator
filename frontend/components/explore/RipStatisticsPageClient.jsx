@@ -228,6 +228,7 @@ import {
   adaptMarketDashboardFromSources,
   adaptSetValueHistoriesFromSources,
 } from "@/lib/pokemon/set-page/setPageAdapters.mjs";
+import { selectRequestedPokemonSetTarget, selectSameSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -8718,6 +8719,10 @@ export default function RipStatisticsPageClient({
 
   const rawTargets = targetsPayload?.targets;
   const targets = useMemo(() => (Array.isArray(rawTargets) ? rawTargets : []), [rawTargets]);
+  const activeTarget = useMemo(
+    () => selectRequestedPokemonSetTarget(targets, requestedTargetId, selectedTarget),
+    [targets, requestedTargetId, selectedTarget]
+  );
   // Set-switcher option lists must match Explore and the public Sets catalog,
   // which exclude hidden/unvalidated-era sets (e.g. Sword & Shield pending
   // validation — see pokemonSetPublicCoverage.js); otherwise hidden sets stay
@@ -8769,7 +8774,15 @@ export default function RipStatisticsPageClient({
   // receives), so this must merge field-by-field rather than picking one
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
-  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}) };
+  const activeCalculationRunId = activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null;
+  const simulationEvidence = useMemo(
+    () => selectSameSetSimulationEvidence(initialModuleSnapshots?.simulationEvidencePayload, {
+      setId: resolvedSetResourceId,
+      calculationRunId: activeCalculationRunId,
+    }),
+    [initialModuleSnapshots?.simulationEvidencePayload, resolvedSetResourceId, activeCalculationRunId]
+  );
+  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(simulationEvidence?.summary || {}) };
   const preferredSetRip = useMemo(
     () => selectPreferredSetRipContract(
       explorePayload?.setRipV1,
@@ -8829,9 +8842,9 @@ export default function RipStatisticsPageClient({
     ? Boolean(explorePayload || shellPayload || resolvedSetResourceId)
     : Boolean(explorePayload);
   const canRenderPrimaryContent = !pageError && hasSetDetailShellPayload;
-  const percentiles = explorePayload?.percentiles || [];
-  const distributionBins = explorePayload?.distribution_bins || [];
-  const thresholdBins = explorePayload?.threshold_bins || [];
+  const percentiles = simulationEvidence?.percentiles || explorePayload?.percentiles || [];
+  const distributionBins = simulationEvidence?.distributionBins || explorePayload?.distribution_bins || [];
+  const thresholdBins = simulationEvidence?.thresholdBins || explorePayload?.threshold_bins || [];
   const simulationDrivers = useMemo(() => selectSimulationDrivers(explorePayload || {}), [explorePayload]);
   const topHits = simulationDrivers.rows;
   const simulationDriversSummaryValue = getSimulationDriversSummaryValue(summary.mean_value, topHits);
@@ -13867,9 +13880,9 @@ export default function RipStatisticsPageClient({
                     // new code is the lookup-by-sealedProductId inside
                     // RipDecisionPage, not a second ranking calculation.
                     productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
-                    evRepresentativeness={selectedTarget?.evRepresentativeness ?? null}
-                    openingOutcomeProfile={selectedTarget?.openingOutcomeProfile ?? null}
-                    calculationRunId={selectedTarget?.calculation_run_id ?? selectedTarget?.calculationRunId ?? null}
+                    evRepresentativeness={activeTarget?.evRepresentativeness ?? null}
+                    openingOutcomeProfile={activeTarget?.openingOutcomeProfile ?? null}
+                    calculationRunId={activeCalculationRunId}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     chaseCards={topPricedCards}

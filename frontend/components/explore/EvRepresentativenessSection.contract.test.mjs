@@ -8,9 +8,10 @@ const styles = fs.readFileSync(new URL("./RipDecisionPage.module.css", import.me
 
 test("EV representativeness appears inside the existing full report before technical groups", () => {
   assert.ok(page.includes("<SimulationFullReport"));
-  assert.ok(report.indexOf("How Representative Is EV?") < report.indexOf("report.groups.map"));
-  assert.ok(report.includes("EV Realization by Opening Size"));
-  assert.ok(report.includes("not recommendations to open that many packs"));
+  assert.ok(report.indexOf("How Closely Does EV Match Real Openings?") < report.indexOf("report.groups.map"));
+  assert.ok(report.includes("Typical pack (P50)"));
+  assert.ok(report.includes("Long-run EV"));
+  assert.ok(report.includes("not opening recommendations"));
 });
 
 test("section retains same-run selector and accessible table/info affordance", () => {
@@ -19,7 +20,10 @@ test("section retains same-run selector and accessible table/info affordance", (
   assert.ok(report.includes("<InfoPopover"));
 });
 
-test("responsive layout prevents four-card overflow on mobile", () => {
-  assert.ok(styles.includes(".evRepMetrics { display: grid; min-width: 0;"));
-  assert.ok(styles.includes(".evRepMetrics { grid-template-columns: repeat(2,minmax(0,1fr)); }"));
+test("shared comparison scale and milestone progression remain responsive", () => {
+  assert.ok(report.includes("value / scale * 100"));
+  assert.ok(report.includes("36 packs"));
+  assert.ok(report.includes("Not confirmed"));
+  assert.ok(report.includes("Explore other pack counts"));
+  assert.ok(styles.includes(".evMilestones { grid-template-columns: 1fr; }"));
 });

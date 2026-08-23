@@ -6288,6 +6288,52 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return payload
 
 
+def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    """Small exact-run transport for the Set RIP distribution surface."""
+    try:
+        row, _set_row, resolved_set_id, _query_ms, started = _fetch_insights_snapshot_row(set_id)
+    except PokemonSetMarketError as exc:
+        if exc.status_code == 400:
+            raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_SIMULATION_EVIDENCE_ID_REQUIRED") from exc
+        raise
+    payload_json = row.get("payload_json") if row else None
+    if not isinstance(payload_json, dict):
+        return {"contractVersion": "pokemon-set-simulation-evidence-v1", "setId": resolved_set_id,
+                "calculationRunId": None, "marketDate": None, "summary": {}, "percentiles": [],
+                "distributionBins": [], "thresholdBins": [],
+                "meta": {"source": "empty_fallback_missing_pokemon_set_page_snapshot_latest"}}
+    target = payload_json.get("target") if isinstance(payload_json.get("target"), dict) else {}
+    summary = payload_json.get("summary") if isinstance(payload_json.get("summary"), dict) else {}
+    meta = payload_json.get("meta") if isinstance(payload_json.get("meta"), dict) else {}
+    run_id = _to_optional_str(summary.get("calculation_run_id") or target.get("calculation_run_id") or meta.get("calculation_run_id"))
+    if not run_id:
+        try:
+            run_row = _first_row(
+                public_read_client.table("explore_rip_statistics_latest")
+                .select("calculation_run_id").eq("set_id", resolved_set_id).limit(1).execute()
+            )
+            run_id = _to_optional_str((run_row or {}).get("calculation_run_id"))
+        except Exception:
+            logger.warning("[pokemon-snapshot] simulation evidence run lookup failed set_id=%s", resolved_set_id, exc_info=True)
+    market_date = _to_optional_str(summary.get("market_date") or meta.get("as_of_date") or meta.get("asOfDate"))
+    allowed_summary = {key: summary.get(key) for key in (
+        "calculation_run_id", "mean_value", "median_value", "max_value", "pack_cost",
+        "p95_value", "p99_value", "coefficient_of_variation",
+    ) if summary.get(key) is not None}
+    return {
+        "contractVersion": "pokemon-set-simulation-evidence-v1",
+        "setId": resolved_set_id,
+        "calculationRunId": run_id,
+        "marketDate": str(market_date)[:10] if market_date else None,
+        "summary": _to_camel_case_only(allowed_summary),
+        "percentiles": payload_json.get("percentiles") if isinstance(payload_json.get("percentiles"), list) else [],
+        "distributionBins": payload_json.get("distribution_bins") if isinstance(payload_json.get("distribution_bins"), list) else [],
+        "thresholdBins": payload_json.get("threshold_bins") if isinstance(payload_json.get("threshold_bins"), list) else [],
+        "meta": {"source": "pokemon_set_page_snapshot_latest", "updatedAt": _to_optional_str(row.get("updated_at")),
+                 "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3)},
+    }
+
+
 def _fetch_insights_snapshot_row(set_id: str):
     """Shared row-fetch step for the full/critical/secondary Insights
     payloads below — one indexed read against pokemon_set_page_snapshot_latest,
