@@ -14,7 +14,7 @@ from backend.domain.pokemon.sealed_product_classifier import (
 )
 from backend.domain.pokemon.market_index import (
     MARKET_INDEX_BASE_VALUE,
-    build_chain_linked_history,
+    build_chain_linked_history_with_segments,
     compute_strict_window_movements,
 )
 
@@ -291,24 +291,7 @@ def _chain_link_with_cohort_breaks(observations: List[Dict[str, Any]]) -> List[D
     shared constituent, so it says nothing about that one transition instead
     of fabricating one or crashing the whole history.
     """
-    from backend.domain.pokemon.market_index import MarketIndexError
-
-    all_rows: List[Dict[str, Any]] = []
-    segment: List[Dict[str, Any]] = []
-    for observation in observations:
-        segment.append(observation)
-        try:
-            build_chain_linked_history(segment)
-        except MarketIndexError:
-            # This observation broke the chain with the rest of the current
-            # segment. Flush everything before it, then restart the segment
-            # at this single observation (a fresh baseline).
-            if len(segment) > 1:
-                all_rows.extend(build_chain_linked_history(segment[:-1]))
-            segment = [observation]
-    if segment:
-        all_rows.extend(build_chain_linked_history(segment))
-    return all_rows
+    return build_chain_linked_history_with_segments(observations)
 
 
 def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -365,7 +348,12 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
     # have is a day every eligible constituent was genuinely observed.
     index_observations = _observed_cohort_constituents(basket, end)
     index_history = _chain_link_with_cohort_breaks(index_observations) if index_observations else []
-    index_points = [{"date": row["marketDate"], "value": row["normalizedIndexValue"]} for row in index_history]
+    current_segment_id = index_history[-1]["chainSegmentId"] if index_history else None
+    index_points = [
+        {"date": row["marketDate"], "value": row["normalizedIndexValue"]}
+        for row in index_history
+        if row["chainSegmentId"] == current_segment_id
+    ]
     index_movements = compute_strict_window_movements(index_points) if index_points else {}
 
     # Catalog eligibility (len(basket)) versus CURRENT aggregate eligibility
@@ -393,7 +381,18 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
             "currentValue": index_points[-1]["value"] if index_points else None,
             "baseValue": MARKET_INDEX_BASE_VALUE,
             "trackingSince": index_points[0]["date"] if index_points else None,
-            "history": [{"date": row["marketDate"], "indexValue": row["normalizedIndexValue"]} for row in index_history],
+            "currentSegmentId": current_segment_id,
+            "segmentCount": current_segment_id + 1,
+            "history": [
+                {
+                    "date": row["marketDate"],
+                    "indexValue": row["normalizedIndexValue"],
+                    "chainSegmentId": row["chainSegmentId"],
+                    "segmentStartDate": row["segmentStartDate"],
+                    "isNewSegment": row["marketDate"] == row["segmentStartDate"],
+                }
+                for row in index_history
+            ],
             "movements": index_movements,
         }
         if index_points

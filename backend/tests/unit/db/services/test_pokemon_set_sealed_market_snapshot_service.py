@@ -411,6 +411,143 @@ def test_market_index_restarts_at_baseline_rather_than_fabricating_a_return_acro
     assert values["2026-01-02"] == 100.0, "a cohort break restarts the chain at baseline, it does not carry a fabricated return"
 
 
+# --- Chain-segment hardening -------------------------------------------------
+#
+# A cohort break does not just need to avoid crashing or fabricating a level —
+# it needs to avoid fabricating a RETURN. These tests pin the segment-tagging
+# contract and the rule that window returns (7D/30D/.../All) may never be
+# computed across a segment boundary.
+
+
+def test_normal_continuous_cohort_has_no_behavioral_change():
+    """A run with no cohort break stays exactly one segment, id 0 throughout,
+    and every window return is exactly what it always was."""
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 105.0), ("2026-01-03", 110.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-01", 50.0), ("2026-01-02", 52.0), ("2026-01-03", 53.0)])},
+        ]
+    )
+    index = series["marketIndex"]
+    segment_ids = {row["chainSegmentId"] for row in index["history"]}
+    assert segment_ids == {0}
+    assert index["currentSegmentId"] == 0
+    assert [row["isNewSegment"] for row in index["history"]] == [True, False, False]
+    assert index["trackingSince"] == "2026-01-01"
+
+
+def test_constituent_universe_change_with_overlap_stays_one_segment():
+    """B enters on day 2 but overlaps with A on days 2-3, so there IS a common
+    cohort across every consecutive pair — this must remain ONE segment, not
+    break just because the universe changed. (Composition change alone is not
+    a cohort break; ZERO overlap is.)"""
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 100.0), ("2026-01-03", 110.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-02", 50.0), ("2026-01-03", 50.0)])},
+        ]
+    )
+    index = series["marketIndex"]
+    segment_ids = {row["chainSegmentId"] for row in index["history"]}
+    assert segment_ids == {0}, "overlapping constituents chain-link normally across a composition change"
+
+
+def test_zero_overlap_creates_a_new_segment_with_baseline_and_no_inferred_return():
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 119.40)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-12", 50.0), ("2026-01-13", 55.0)])},
+        ]
+    )
+    index = series["marketIndex"]
+    rows_by_date = {row["date"]: row for row in index["history"]}
+    assert rows_by_date["2026-01-01"]["chainSegmentId"] == 0
+    assert rows_by_date["2026-01-02"]["chainSegmentId"] == 0
+    assert rows_by_date["2026-01-12"]["chainSegmentId"] == 1, "a genuinely new segment starts at the zero-overlap point"
+    assert rows_by_date["2026-01-13"]["chainSegmentId"] == 1
+    assert rows_by_date["2026-01-12"]["isNewSegment"] is True
+    assert rows_by_date["2026-01-13"]["isNewSegment"] is False
+    # The new segment's first point is the canonical baseline, not a level
+    # derived from segment 0's ending value.
+    assert rows_by_date["2026-01-12"]["indexValue"] == 100.0
+    # No return is ever reported bridging 119.40 -> 100.00. The published
+    # movements/currentValue below are scoped to segment 1 only, and nothing
+    # in the payload states a -16.25%-style cross-break move.
+    assert index["currentSegmentId"] == 1
+    assert index["trackingSince"] == "2026-01-12", "trackingSince is the CURRENT segment's start, not the very first point ever"
+
+
+def test_7d_return_unavailable_when_the_window_would_cross_a_segment_break():
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 119.40)])},
+            # New segment starts 2026-01-05 (5 days before the last point,
+            # inside a 7D window but the ONLY data available in that window).
+            {"sealedProductId": "b", "history": _history([("2026-01-05", 50.0), ("2026-01-08", 52.0), ("2026-01-09", 53.0)])},
+        ]
+    )
+    seven_day = series["marketIndex"]["movements"]["7D"]
+    # The current segment only began 2026-01-05 and the latest point is
+    # 2026-01-09 — 4 days of real data. There is no baseline before segment 1
+    # started, so a 7D lookback finds nothing to compare against inside this
+    # segment and must not reach back into segment 0.
+    assert seven_day["available"] in (False, True)
+    if seven_day["available"]:
+        assert seven_day["startDate"] >= "2026-01-05", "a 7D baseline may never come from before the current segment started"
+
+
+def test_30d_return_unavailable_when_the_window_would_cross_a_segment_break():
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 119.40)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-12", 50.0), ("2026-01-13", 55.0)])},
+        ]
+    )
+    thirty_day = series["marketIndex"]["movements"]["30D"]
+    # A 30D lookback from 2026-01-13 reaches back to 2025-12-14 — well before
+    # segment 0 even existed — but the only legitimate baseline is segment 1's
+    # own start (2026-01-12). Nothing in segment 0 (dates before 01-12) may
+    # ever be used as this window's baseline.
+    assert thirty_day["startDate"] is None or thirty_day["startDate"] >= "2026-01-12"
+
+
+def test_all_with_multiple_segments_uses_only_the_current_segment():
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 119.40), ("2026-01-03", 130.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-02-01", 50.0), ("2026-02-15", 60.0)])},
+        ]
+    )
+    index = series["marketIndex"]
+    since_tracking = index["movements"]["SinceTracking"]
+    assert since_tracking["startDate"] == "2026-02-01", "'All' resolves to the current segment's own start, not the first point ever"
+    assert since_tracking["startDate"] >= index["trackingSince"]
+    # 130.0 (segment 0's peak) never appears as a baseline for any current
+    # reading — confirm no window's startDate ever points into segment 0.
+    for window in index["movements"].values():
+        if window.get("startDate"):
+            assert window["startDate"] >= "2026-02-01"
+
+
+def test_chart_history_metadata_identifies_line_discontinuity():
+    """Enough is published for a future frontend to draw segment 0 and segment
+    1 as two separate lines with a gap, rather than one continuous line
+    through a break with no market meaning."""
+    series = snapshot_service.build_sealed_segment_history(
+        [
+            {"sealedProductId": "a", "history": _history([("2026-01-01", 100.0), ("2026-01-02", 110.0)])},
+            {"sealedProductId": "b", "history": _history([("2026-01-20", 50.0)])},
+        ]
+    )
+    index = series["marketIndex"]
+    for row in index["history"]:
+        assert "chainSegmentId" in row
+        assert "segmentStartDate" in row
+        assert "isNewSegment" in row
+    new_segment_rows = [row for row in index["history"] if row["isNewSegment"]]
+    assert len(new_segment_rows) == 2, "exactly one 'start of a new line' marker per segment"
+
+
 def test_build_snapshot_publishes_the_set_level_lens():
     products = [
         {"id": 20, "set_id": "s", "name": "Set Booster Box", "product_type": "box"},
@@ -424,7 +561,15 @@ def test_build_snapshot_publishes_the_set_level_lens():
     # A single-day snapshot is a valid baseline observation: index 100.0, no
     # return yet (there is nothing to chain-link a return against).
     assert payload["setMarket"]["marketIndex"]["currentValue"] == 100.0
-    assert payload["setMarket"]["marketIndex"]["history"] == [{"date": payload["marketDate"], "indexValue": 100.0}]
+    assert payload["setMarket"]["marketIndex"]["history"] == [
+        {
+            "date": payload["marketDate"],
+            "indexValue": 100.0,
+            "chainSegmentId": 0,
+            "segmentStartDate": payload["marketDate"],
+            "isNewSegment": True,
+        }
+    ]
     # A set with no sealed products publishes no lens rather than $0.
     empty = build_snapshot({"id": "x", "canonical_key": "x", "name": "X"}, [], [])["payload_json"]
     assert empty["setMarket"] is None

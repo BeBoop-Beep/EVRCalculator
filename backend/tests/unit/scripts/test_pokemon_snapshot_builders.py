@@ -1,4 +1,8 @@
+from pathlib import Path
+
+from backend.db.services.explore_page_service import ExplorePageError
 from backend.scripts import pokemon_snapshot_builders
+from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
 from backend.scripts.set_value_scope_invariants import SetValueScopeInvariantError
 import pytest
 
@@ -2698,3 +2702,365 @@ def test_mixed_freshness_july_16_17_25_full_contract():
 
     # Explicitly stale simulation data is permitted (present, dated, labeled).
     assert fresh["openingProfitVsCost"] == {"sourceDate": "2026-07-17", "status": "stale"}
+
+
+# --------------------------------------------------------------------------- #
+# CANONICAL SIMULATION SUPPORT IS AUTHORITATIVE (2026-08-22 publication defect)
+# --------------------------------------------------------------------------- #
+# Twelve Sword & Shield sets are market-supported but opening-simulation
+# UNSUPPORTED. They still carry simulation/ranking rows from May, and the
+# builder inferred availability from "can I fetch a historical row?", so those
+# pages advertised current simulation support and then failed the set-page
+# rebuild with "required modeled products are missing".
+
+
+def _legacy_target(set_id="set-1"):
+    """A stale rankings target of the shape an unsupported set still has."""
+    return {
+        "target_type": "set",
+        "target_id": set_id,
+        "canonical_key": "silvertempest",
+        "calculation_run_id": "run-from-may",
+        # V9 rank deliberately absent: a non-null V9 rank sends the builder into
+        # the product-family projection, which is not what these tests exercise.
+        "overallRipV9": {"rank": None, "score": 50.0},
+        "overallRipV10": {"rank": 4, "score": 50.0},
+        "financialRipV4": {"score": 40.0, "status": "ready", "rankable": True},
+    }
+
+
+def _legacy_explore_payload(set_id="set-1"):
+    """An OLD historical explore payload — the thing that fooled the builder."""
+    return {
+        "target": {"target_type": "set", "target_id": set_id, "name": "Silver Tempest"},
+        "summary": {
+            "calculation_run_id": "run-from-may",
+            "run_at": "2026-05-01T00:00:00+00:00",
+            "pack_cost": 4.0,
+        },
+        "rankings": [],
+        "rip_statistics": {"pack_paths": {}, "normal_pack_states": {}},
+        "percentiles": [],
+        "distribution_bins": [],
+        "threshold_bins": [],
+        "top_hits": [],
+        "history_trend": [],
+        "interpretation": None,
+        "pull_rate_assumptions": None,
+        "meta": {"request": {"target_type": "set", "target_id": set_id}},
+    }
+
+
+def _unsupported_set_row():
+    return {
+        "id": "set-1",
+        "name": "Silver Tempest",
+        "canonical_key": "silverTempest",
+        "supports_opening_simulation": False,
+    }
+
+
+def test_set_listing_helpers_select_canonical_simulation_support():
+    """The builder cannot honour a column it never reads."""
+    source = Path(pokemon_snapshot_builders.__file__).read_text(encoding="utf-8")
+    # Both the single-set lookup and the full listing must request the column in
+    # their own select list, or the builder cannot see canonical support.
+    for marker in ("def resolve_set_row", "def list_pokemon_sets"):
+        start = source.index(marker)
+        body = source[start : start + 1200]
+        assert "supports_opening_simulation" in body, marker
+
+
+def test_unsupported_set_is_simulation_unavailable_despite_historical_rows(monkeypatch):
+    """supports_opening_simulation=False beats a fetchable historical row.
+
+    This is the exact uncovered production condition: canonical metadata says
+    unsupported, but an old simulation row AND an old rankings target both
+    exist. The page must still publish as simulation-unavailable.
+    """
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: _legacy_explore_payload(set_id),
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": [_legacy_target()]},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        _unsupported_set_row(), client=client
+    )
+
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["available"] is False
+    for section in SIMULATION_DEPENDENT_SECTIONS:
+        assert section in availability["unavailableSections"], section
+
+
+def test_unsupported_set_does_not_require_the_current_decision_contract(monkeypatch):
+    """A legacy rankings target must not make current modeled products mandatory."""
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: _legacy_explore_payload(set_id),
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": [_legacy_target()]},
+    )
+
+    client = _fail_graceful_client()
+    # Must not raise "required modeled products are missing".
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        _unsupported_set_row(), client=client
+    )
+    assert row["set_id"] == "set-1"
+
+
+def test_unsupported_set_publishes_identity_and_independent_sections(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: _legacy_explore_payload(set_id),
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": [_legacy_target()]},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        _unsupported_set_row(), client=client
+    )
+
+    assert row["set_identity_json"]["id"] == "set-1"
+    assert row["set_identity_json"]["name"] == "Silver Tempest"
+    assert row["title_card_json"]["id"] == "set-1"
+    target = row["payload_json"]["target"]
+    assert target["target_id"] == "set-1"
+    assert target["canonical_key"] == "silverTempest"
+
+
+def test_unsupported_set_does_not_advertise_a_current_run(monkeypatch):
+    """No stale run id may be carried as though it were authoritative."""
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_explore_page_payload",
+        lambda target_type, set_id: _legacy_explore_payload(set_id),
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": [_legacy_target()]},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        _unsupported_set_row(), client=client
+    )
+    availability = row["payload_json"]["meta"]["simulationAvailability"]
+    assert availability["asOfDate"] is None
+    assert row["rip_summary_json"] == {}
+    assert row["market_summary_json"] == {}
+
+
+def test_decision_contract_predicate_distinguishes_support_from_legacy_history():
+    """The predicate itself, asserted directly.
+
+    Exercised at the unit level rather than through a full build: the point is
+    the decision rule, and routing it through the whole builder would test the
+    fake client's table coverage as much as the predicate.
+    """
+    required = pokemon_snapshot_builders._current_decision_contract_is_required
+    target = _legacy_target()
+
+    # Supported + currently ranked + a current run => the contract is mandatory
+    # and must stay mandatory. This is the guard against going soft.
+    assert required(
+        canonical_simulation_support=True,
+        matching_rankings_target=target,
+        decision_run_id="run-1",
+    ) is True
+
+    # Canonically unsupported: a legacy target is NOT enough to demand a current
+    # decision. This is the exact 2026-08-22 condition.
+    assert required(
+        canonical_simulation_support=False,
+        matching_rankings_target=target,
+        decision_run_id="run-1",
+    ) is False
+
+    # No target at all, and no authoritative run: both independently sufficient
+    # to make the contract non-mandatory.
+    assert required(
+        canonical_simulation_support=True,
+        matching_rankings_target=None,
+        decision_run_id="run-1",
+    ) is False
+    assert required(
+        canonical_simulation_support=True,
+        matching_rankings_target=target,
+        decision_run_id=None,
+    ) is False
+
+    # Supported and has a run, but holds no canonical Overall RIP rank.
+    assert required(
+        canonical_simulation_support=True,
+        matching_rankings_target={"target_id": "set-1", "overallRipV10": {"rank": None}},
+        decision_run_id="run-1",
+    ) is False
+
+
+def test_canonical_simulation_support_resolution_treats_absence_as_unknown():
+    """An explicit False is authoritative; a missing column is not.
+
+    Reclassifying every set as unsupported because one query forgot a column
+    would be worse than the bug being fixed, so absence falls back to inference.
+    """
+    resolve = pokemon_snapshot_builders._resolve_canonical_simulation_support
+    assert resolve({"supports_opening_simulation": False}, set_id="s") is False
+    assert resolve({"supports_opening_simulation": True}, set_id="s") is True
+    assert resolve({}, set_id="s") is None
+
+
+# --------------------------------------------------------------------------- #
+# CANONICAL TARGET IDENTITY ON EVERY PAGE
+# --------------------------------------------------------------------------- #
+# Strict verification reported "set identity missing" for all 22 supported
+# snapshots: only the PARTIAL builder constructed payload.target, and the full
+# Explore path did not guarantee it.
+
+
+def test_full_page_always_carries_canonical_target_identity(monkeypatch):
+    payload = _legacy_explore_payload()
+    payload.pop("target")  # the full Explore path may omit it entirely
+    monkeypatch.setattr(
+        pokemon_snapshot_builders, "get_explore_page_payload", lambda t, s: payload
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": []},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Alpha", "canonical_key": "alpha",
+         "supports_opening_simulation": True},
+        client=client,
+    )
+
+    target = row["payload_json"]["target"]
+    assert target["target_type"] == "set"
+    assert target["target_id"] == "set-1"
+    assert target["id"] == "set-1"
+    assert target["canonical_key"] == "alpha"
+    assert target["name"] == "Alpha"
+
+
+def test_target_identity_fill_preserves_existing_valid_fields(monkeypatch):
+    payload = _legacy_explore_payload()
+    payload["target"] = {
+        "target_type": "set",
+        "target_id": "set-1",
+        "name": "Explore Name",
+        "canonical_key": "explore-key",
+        "extra_field": "keep-me",
+    }
+    monkeypatch.setattr(
+        pokemon_snapshot_builders, "get_explore_page_payload", lambda t, s: payload
+    )
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": []},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Row Name", "canonical_key": "row-key",
+         "supports_opening_simulation": True},
+        client=client,
+    )
+
+    target = row["payload_json"]["target"]
+    assert target["extra_field"] == "keep-me"
+    # A guarantee, not a destructive overwrite: existing values win.
+    assert target["name"] == "Explore Name"
+    assert target["canonical_key"] == "explore-key"
+    assert target["id"] == "set-1"
+
+
+def test_partial_page_also_carries_canonical_target_identity(monkeypatch):
+    def _raise_missing(target_type, set_id):
+        raise ExplorePageError(
+            status_code=404,
+            message="No simulation data found for this target",
+            code="TARGET_NOT_FOUND",
+        )
+
+    monkeypatch.setattr(pokemon_snapshot_builders, "get_explore_page_payload", _raise_missing)
+    monkeypatch.setattr(
+        pokemon_snapshot_builders,
+        "get_rip_statistics_targets_payload",
+        lambda limit, **_kwargs: {"targets": []},
+    )
+
+    client = _fail_graceful_client()
+    row = pokemon_snapshot_builders.build_set_page_snapshot_row(
+        {"id": "set-1", "name": "Alpha", "canonical_key": "alpha"}, client=client
+    )
+    target = row["payload_json"]["target"]
+    assert target["target_type"] == "set"
+    assert target["target_id"] == "set-1"
+    assert target["canonical_key"] == "alpha"
+
+
+def test_unsupported_set_does_not_resurrect_previous_simulation_sections(monkeypatch):
+    """Carry-forward must not repopulate a simulation-unavailable page.
+
+    The last-known-good merge exists so a transient gap does not blank a section
+    that still applies. For a set that is no longer a simulation product the old
+    numbers do not apply at all, and restoring them made strict verification
+    report "simulation section simulationSummary is populated but not labeled
+    stale while simulation is unavailable". Decision-signal ranks live on `set`
+    as well as `summary`, so both routes are covered here.
+    """
+    previous_payload = {
+        "summary": {"pack_rank": 32, "pack_tier": "F", "calculation_run_id": "run-from-may"},
+        "set": {"pack_rank": 32, "profit_rank": 31},
+        "top_hits": [{"card_id": "c1"}],
+        "meta": {"snapshot": {"builtAt": "2026-05-01T00:00:00+00:00"}},
+    }
+    merged = pokemon_snapshot_builders._merge_last_known_good_snapshot_sections(
+        {"summary": {}, "set": {}, "meta": {}},
+        existing_row={"payload_json": previous_payload, "updated_at": "2026-05-01T00:00:00+00:00"},
+        built_at="2026-08-22T00:00:00+00:00",
+        carry_forward_simulation_sections=False,
+    )
+    assert merged["summary"].get("pack_rank") is None
+    assert merged["set"].get("pack_rank") is None
+    assert not merged.get("top_hits")
+
+
+def test_supported_set_still_carries_forward_previous_simulation_sections():
+    """The suppression must be scoped to unsupported sets only."""
+    previous_payload = {
+        "summary": {"pack_rank": 32, "pack_tier": "F"},
+        "set": {"pack_rank": 32},
+        "meta": {"snapshot": {"builtAt": "2026-08-21T00:00:00+00:00"}},
+    }
+    merged = pokemon_snapshot_builders._merge_last_known_good_snapshot_sections(
+        {"summary": {}, "set": {}, "meta": {}},
+        existing_row={"payload_json": previous_payload, "updated_at": "2026-08-21T00:00:00+00:00"},
+        built_at="2026-08-22T00:00:00+00:00",
+        carry_forward_simulation_sections=True,
+    )
+    assert merged["summary"]["pack_rank"] == 32
+    freshness = merged["meta"]["sectionFreshness"]["decisionSignalRanks"]
+    assert freshness["status"] == "stale"
