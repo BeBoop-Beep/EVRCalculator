@@ -31,7 +31,11 @@ test("the Articles hub lists exactly seven real published article routes", () =>
 });
 test("the EV representativeness research article is fully registered", () => {
   const research = read("how-representative-is-pokemon-pack-expected-value/page.js");
+  const editorialTitle = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
   assert.ok(articleData.includes('evRepresentativeness: "/Articles/how-representative-is-pokemon-pack-expected-value"'));
+  assert.ok(articleData.includes(`title: "${editorialTitle}"`));
+  assert.ok(research.includes(`const title = "${editorialTitle}"`));
+  assert.ok(research.includes('title: "Pokémon Pack Expected Value vs Real Outcomes: 22 Million Simulations | inDex"'));
   assert.ok(articleData.includes("22 million modeled pack outcomes"));
   assert.ok(research.includes("<ArticleJsonLd"));
   assert.ok(research.includes("<H2>References</H2>"));
