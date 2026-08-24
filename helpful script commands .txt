@@ -261,6 +261,45 @@ group by pcc.name
 order by pcc.name;
 
 
+------------------------------
+Manual scrape daily card data
+------------------------------
+cd D:\EVRCalculator
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+
+git branch --show-current
+git rev-parse --short HEAD
+git status –short
+
+
+& D:\EVRCalculator\.venv\Scripts\python.exe `
+  backend/scripts/create_daily_scrape_batch.py `
+  --market-date 2026-08-23 `
+  --trigger-source manual
+
+
+& D:\EVRCalculator\.venv\Scripts\python.exe `
+  backend/scripts/run_next_scrape_job.py `
+  2>&1 | Tee-Object -FilePath scrape_20260823.log
+
+
+& D:\EVRCalculator\.venv\Scripts\python.exe `
+  backend/scripts/refresh_stale_public_snapshots.py `
+  --commit `
+  --market-date 2026-08-23 `
+  --gate-wait-attempts 6 `
+  --gate-wait-seconds 600 `
+  2>&1 | Tee-Object -FilePath market_publication_20260823.log
+
+
+& D:\EVRCalculator\.venv\Scripts\python.exe `
+  backend/scripts/audit_pokemon_market_publication.py `
+  --phase post-scrape `
+  --market-date 2026-08-23
+
+
 ---------------------------
 new set flow
 ---------------------------

@@ -1,3 +1,5 @@
+import hashlib
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -9,6 +11,14 @@ MIGRATIONS_DIR = (
 )
 MIGRATION = MIGRATIONS_DIR / "038_set_value_daily_history_market_day_timezone.sql"
 HOTFIX_MIGRATION = MIGRATIONS_DIR / "039_fix_set_value_hits_rollup.sql"
+FUNCTION_TIMEZONE_MIGRATION = (
+    MIGRATIONS_DIR / "20260824030000_set_set_value_history_refresh_timezone.sql"
+)
+
+HISTORICAL_MIGRATION_SHA256 = {
+    MIGRATION: "f66a2914a9eeb59a9f25b2bd7d1c3f22685e44f3f89d2e4ac1b2a678687843aa",
+    HOTFIX_MIGRATION: "face518fb4dcbcb73699f838cda54e0ea62b525307154a8416b914013ae86d72",
+}
 
 
 def _migration_sql() -> str:
@@ -17,6 +27,45 @@ def _migration_sql() -> str:
 
 def _hotfix_sql() -> str:
     return HOTFIX_MIGRATION.read_text(encoding="utf-8")
+
+
+def _function_timezone_sql() -> str:
+    return FUNCTION_TIMEZONE_MIGRATION.read_text(encoding="utf-8")
+
+
+def test_set_value_refresh_function_timezone_migration_contract():
+    assert FUNCTION_TIMEZONE_MIGRATION.is_file()
+    sql = _function_timezone_sql()
+    executable_sql = re.sub(r"--[^\n]*", "", sql)
+    normalized_sql = " ".join(executable_sql.split())
+
+    assert normalized_sql == (
+        "BEGIN; ALTER FUNCTION "
+        "public.refresh_pokemon_set_value_daily_history(UUID, DATE, DATE) "
+        "SET \"TimeZone\" TO 'America/Phoenix'; COMMIT;"
+    )
+
+    assert re.search(
+        r"ALTER\s+FUNCTION\s+"
+        r"public\.refresh_pokemon_set_value_daily_history\s*"
+        r"\(\s*UUID\s*,\s*DATE\s*,\s*DATE\s*\)\s*"
+        r'SET\s+"TimeZone"\s+TO\s+\'America/Phoenix\'\s*;',
+        executable_sql,
+        flags=re.IGNORECASE,
+    )
+    assert not re.search(r"\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\b", executable_sql, re.IGNORECASE)
+    assert not re.search(r"\bALTER\s+(?:ROLE|DATABASE)\b", executable_sql, re.IGNORECASE)
+    assert not re.search(
+        r"\b(?:INSERT|UPDATE|DELETE|MERGE|TRUNCATE|COPY|CALL)\b",
+        executable_sql,
+        re.IGNORECASE,
+    )
+    assert "backfill" not in executable_sql.lower()
+
+
+def test_historical_set_value_market_day_migrations_are_byte_unchanged():
+    for migration, expected_sha256 in HISTORICAL_MIGRATION_SHA256.items():
+        assert hashlib.sha256(migration.read_bytes()).hexdigest() == expected_sha256
 
 
 def test_set_value_market_day_uses_phoenix_business_dates():

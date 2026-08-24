@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set
+from backend.db.repositories.cards_repository import insert_card, insert_cards_batch, get_card_by_name_and_set, get_card_by_name_number_rarity_and_set, get_all_cards_for_set, get_card_set_ids_bulk
 from backend.db.repositories.card_variant_repository import (insert_card_variant, get_card_variant_by_card_and_type,
     insert_card_variants_batch, get_card_variant_external_identity, link_card_variant_external_identity,
     get_card_variant_by_id, get_card_variant_external_identities_bulk, get_card_variants_bulk,
@@ -85,13 +85,19 @@ class CardsService(BatchProcessor):
     @staticmethod
     def _normalize_base_card_name(name: str) -> str:
         """
-        Strip trailing card-number suffix from a product name.
-        e.g. "Black Belt's Training - 096/131" -> "Black Belt's Training"
+        Strip a redundant card number from a product name while preserving
+        promo qualifiers and trailing markers.
+
+        Examples:
+        - "Black Belt's Training - 096/131" -> "Black Belt's Training"
+        - "Treecko - 016 (EX Deck Tin)" -> "Treecko(EX Deck Tin)"
         """
         if not name:
             return name
         name = re.sub(r'\s*\(Pokemon Center Exclusive[^)]*\)\s*$', '', name, flags=re.I)
-        return re.sub(r'\s*-\s*\d+(?:/\d+)?\s*$', '', name).strip()
+        name = re.sub(r'\s*-\s*\d+(?:/\d+)?\s*(?=\()', '', name)
+        name = re.sub(r'\s*-\s*\d+(?:/\d+)?\s*$', '', name)
+        return re.sub(r'\s+\(', '(', name).strip()
 
     def _extract_variant_info(self, card):
         """
@@ -129,6 +135,61 @@ class CardsService(BatchProcessor):
         special_type = variant if variant else None
         
         return printing_type, special_type, edition
+
+    @staticmethod
+    def _validate_external_identities_before_card_insert(set_id, cards):
+        """Reject cross-set provider identities before base-card persistence."""
+        pairs_by_provider = {}
+        for card in cards:
+            product_id = card.get('tcgplayer_product_id')
+            variant_key = card.get('external_variant_key')
+            if product_id and variant_key:
+                pairs_by_provider.setdefault('tcgplayer', []).append(
+                    (product_id, variant_key)
+                )
+
+        identities = {}
+        for provider, pairs in pairs_by_provider.items():
+            loaded, _operations = get_card_variant_external_identities_bulk(provider, pairs)
+            identities.update(loaded)
+        if not identities:
+            return
+
+        variant_ids = sorted({str(row['card_variant_id']) for row in identities.values()})
+        variants_by_id, _variants_by_natural_key, _operations = get_card_variants_bulk(
+            variant_ids=variant_ids, card_ids=[]
+        )
+        missing_variants = sorted(set(variant_ids) - set(variants_by_id))
+        if missing_variants:
+            raise ExternalVariantIdentityConflict(
+                f"external identity maps to missing variants before card insert: {missing_variants[:5]}"
+            )
+
+        card_ids = sorted({str(row['card_id']) for row in variants_by_id.values()})
+        set_id_by_card = get_card_set_ids_bulk(card_ids)
+        missing_cards = sorted(set(card_ids) - set(set_id_by_card))
+        if missing_cards:
+            raise ExternalVariantIdentityConflict(
+                f"external identity maps to missing cards before card insert: {missing_cards[:5]}"
+            )
+
+        incoming_set_id = str(set_id)
+        conflicts = []
+        for identity_key, identity in sorted(identities.items()):
+            variant = variants_by_id[str(identity['card_variant_id'])]
+            owner_set_id = set_id_by_card[str(variant['card_id'])]
+            if owner_set_id != incoming_set_id:
+                conflicts.append({
+                    'provider': identity_key[0],
+                    'external_product_id': identity_key[1],
+                    'external_variant_key': identity_key[2],
+                    'owner_set_id': owner_set_id,
+                    'incoming_set_id': incoming_set_id,
+                })
+        if conflicts:
+            raise ExternalVariantIdentityConflict(
+                f"external identity belongs to a different set before card insert: {conflicts[:5]}"
+            )
 
     def _process_batch_worker(self, batch_data, batch_id):
         # This wrapper executes inside the child process. The client is created
@@ -584,6 +645,27 @@ class CardsService(BatchProcessor):
             if key not in cards_by_key:
                 cards_by_key[key] = []
             cards_by_key[key].append(card)
+
+        # External identities are globally provider-owned.  Validate their
+        # existing set ownership before the first base-card write so a fatal
+        # conflict cannot leave orphan base cards behind.  Worker validation
+        # remains in place as defense in depth.
+        try:
+            self._validate_external_identities_before_card_insert(set_id, cards)
+        except ExternalVariantIdentityConflict as exc:
+            results['errors'].append(str(exc))
+            results['error_codes'].append(ERROR_EXTERNAL_VARIANT_IDENTITY_CONFLICT)
+            results['failed'] += 1
+            results['ingestion_efficiency'] = {
+                'table': 'card_variant_price_observations',
+                'attempted_rows': 0,
+                'inserted_rows': 0,
+                'updated_rows': 0,
+                'skipped_duplicates': 0,
+                'db_batch_operations': 0,
+                'estimated_write_reduction_ratio': 0.0,
+            }
+            return results
 
         # Fetch all existing cards for this set once to avoid repeated DB calls.
         # Normalize DB names too so that any previously-ingested dirty rows

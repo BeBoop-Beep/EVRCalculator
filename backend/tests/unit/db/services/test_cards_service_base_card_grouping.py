@@ -68,6 +68,104 @@ class TestBaseCardGrouping(unittest.TestCase):
         service.ship_results_sequentially = MagicMock(return_value=(0, 0, []))
         return service
 
+    def test_promo_qualifier_names_normalize_deterministically(self):
+        normalize = self._make_service()._normalize_base_card_name
+
+        self.assertEqual(
+            normalize("Treecko - 016 (EX Deck Tin)"),
+            normalize("Treecko(EX Deck Tin)"),
+        )
+        self.assertEqual(
+            normalize("Treecko - 016 (Target Promo)"),
+            normalize("Treecko(Target Promo)"),
+        )
+        self.assertNotEqual(
+            normalize("Treecko - 016 (EX Deck Tin)"),
+            normalize("Treecko - 016 (Target Promo)"),
+        )
+
+    def test_promo_qualifier_normalization_preserves_trailing_marker(self):
+        normalize = self._make_service()._normalize_base_card_name
+
+        self.assertEqual(
+            normalize("Grovyle - 004 (e-League) [Winner]"),
+            normalize("Grovyle(e-League) [Winner]"),
+        )
+        self.assertEqual(
+            normalize("Grovyle - 004 (e-League) [Winner]"),
+            "Grovyle(e-League) [Winner]",
+        )
+
+    def test_normal_name_and_trailing_number_behavior_is_unchanged(self):
+        normalize = self._make_service()._normalize_base_card_name
+
+        self.assertEqual(normalize("Escavalier"), "Escavalier")
+        self.assertEqual(
+            normalize("Black Belt's Training - 096/131"),
+            "Black Belt's Training",
+        )
+
+    @patch(_make_patch_target("insert_cards_batch"))
+    @patch(_make_patch_target("get_all_cards_for_set"), return_value=[])
+    @patch(_make_patch_target("get_card_set_ids_bulk"), return_value={"base-card": "base-set"})
+    @patch(_make_patch_target("get_card_variants_bulk"), return_value=(
+        {"base-variant": {"id": "base-variant", "card_id": "base-card",
+                          "printing_type": "holo", "special_type": None, "edition": None}},
+        {}, 1,
+    ))
+    @patch(_make_patch_target("get_card_variant_external_identities_bulk"))
+    def test_cross_set_identity_fails_before_any_base_card_insert(
+        self, mock_identities, _mock_variants, _mock_card_sets, _mock_existing,
+        mock_insert_cards,
+    ):
+        identity_key = (
+            "tcgplayer", "42346", "edition=|printing_type=holo|special_type="
+        )
+        mock_identities.return_value = ({identity_key: {
+            "provider": "tcgplayer",
+            "external_product_id": "42346",
+            "external_variant_key": identity_key[2],
+            "card_variant_id": "base-variant",
+        }}, 1)
+        expedition_card = {
+            **_escavalier_rows()[0],
+            "name": "Alakazam",
+            "card_number": "001/102",
+            "tcgplayer_product_id": "42346",
+            "external_variant_key": identity_key[2],
+        }
+
+        result = self._make_service().insert_cards_with_variants_and_prices(
+            "expedition-set", [expedition_card]
+        )
+
+        mock_insert_cards.assert_not_called()
+        _mock_existing.assert_not_called()
+        self.assertEqual(result["inserted_cards"], 0)
+        self.assertEqual(result["inserted_variants"], 0)
+        self.assertEqual(result["inserted_prices"], 0)
+        self.assertEqual(result["external_identities_linked"], 0)
+        self.assertEqual(
+            result["error_codes"], ["external_variant_identity_conflict"]
+        )
+
+    @patch(_make_patch_target("get_card_set_ids_bulk"), return_value={"card-a": "set-a"})
+    @patch(_make_patch_target("get_card_variants_bulk"), return_value=(
+        {"variant-a": {"id": "variant-a", "card_id": "card-a"}}, {}, 1,
+    ))
+    @patch(_make_patch_target("get_card_variant_external_identities_bulk"))
+    def test_preinsert_validation_allows_existing_same_set_identity(
+        self, mock_identities, _mock_variants, _mock_card_sets,
+    ):
+        key = ("tcgplayer", "1", "edition=|printing_type=holo|special_type=")
+        mock_identities.return_value = ({key: {
+            "card_variant_id": "variant-a",
+        }}, 1)
+        self._make_service()._validate_external_identities_before_card_insert(
+            "set-a",
+            [{"tcgplayer_product_id": "1", "external_variant_key": key[2]}],
+        )
+
     def test_price_write_uses_explicit_scraper_market_date(self):
         service = self._make_service()
         service._conditions_cache = {"Near Mint": "nm-id"}

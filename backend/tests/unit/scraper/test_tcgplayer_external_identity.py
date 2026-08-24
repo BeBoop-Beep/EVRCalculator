@@ -4,7 +4,7 @@ from backend.Scraper.parsers.tcgplayer_parser import TCGPlayerParser
 def _raw(product_id, name):
     return {'productID': product_id, 'productName': name, 'number': '031',
             'condition': 'Near Mint', 'marketPrice': 8.42, 'rarity': 'Promo',
-            'printing': 'Holofoil', 'set': 'ME: Mega Evolution Promo', 'setAbbrv': 'MEP'}
+            'printing': 'Holofoil', 'setID': 999, 'set': 'ME: Mega Evolution Promo', 'setAbbrv': 'MEP'}
 
 def test_product_id_survives_parser_and_pc_printing_stays_distinct():
     parsed = TCGPlayerParser({}).parse_cards({'result': [
@@ -20,6 +20,8 @@ def test_process_card_preserves_external_provenance():
     _, row = process_card(_raw(685563, 'Tyrunt - 070 (Pokemon Center Exclusive)'), {})
     assert row['tcgplayerProductID'] == '685563'
     assert row['externalSourcePayload']['setAbbrv'] == 'MEP'
+    assert row['externalSourcePayload']['setID'] == 999
+    assert row['externalSourcePayload']['productID'] == 685563
 
 
 def test_parser_keeps_one_nm_row_per_unambiguous_commercial_product():

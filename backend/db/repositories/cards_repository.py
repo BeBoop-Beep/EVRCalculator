@@ -3,6 +3,7 @@ from supabase import create_client
 from postgrest.exceptions import APIError
 from typing import Optional, Dict, Any, List
 import time
+from backend.db.services.supabase_persistence_retry import run_supabase_with_transient_retry
 
 # Define allowed fields for each table to prevent schema mismatches
 # Only these fields will be sent to the database on insert operations
@@ -13,6 +14,8 @@ TABLE_ALLOWED_FIELDS = {
     'sealed_products': {'set_id', 'product_type', 'name'},
     'sealed_product_price_observations': {'sealed_product_id', 'market_price', 'low_price'},
 }
+
+CARD_BULK_READ_CHUNK_SIZE = 150
 
 def _filter_row_fields(table_name: str, row: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -168,6 +171,25 @@ def get_all_cards_for_set(set_id: int) -> list:
         .execute()
     )
     return res.data if res and res.data else []
+
+
+def get_card_set_ids_bulk(card_ids: List[Any]) -> Dict[str, str]:
+    """Resolve card IDs to set IDs with bounded, read-only queries."""
+    resolved: Dict[str, str] = {}
+    unique_ids = sorted({str(value) for value in card_ids if value is not None})
+    for offset in range(0, len(unique_ids), CARD_BULK_READ_CHUNK_SIZE):
+        chunk = unique_ids[offset:offset + CARD_BULK_READ_CHUNK_SIZE]
+
+        def operation(client, _attempt, chunk=chunk):
+            return list((client.table("cards").select("id,set_id")
+                         .in_("id", chunk).execute()).data or [])
+
+        rows = run_supabase_with_transient_retry(
+            operation, operation_name="get_card_set_ids_bulk"
+        )
+        for row in rows:
+            resolved[str(row["id"])] = str(row["set_id"])
+    return resolved
 
 
 def update_card_image_sync_fields(card_id: str, update_fields: Dict[str, Any]) -> Dict[str, Any]:
