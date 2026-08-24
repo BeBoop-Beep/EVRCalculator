@@ -12,7 +12,10 @@ import {
   resolveDefaultSegmentKey,
   selectChaseConcentration,
   selectMarketBreadth,
+  selectPreparedMarketBreadth,
+  selectPreparedSegmentTrend,
   selectSegmentTrend,
+  toPreparedMovementKey,
   unavailableSegmentTrend,
 } from "./setMarketOverviewModel.mjs";
 
@@ -41,6 +44,30 @@ test("history normalization sorts and drops undated points", () => {
     points.map((point) => point.date),
     ["2026-01-01", "2026-01-03"]
   );
+});
+
+test("prepared index movement owns Period Return while Set Value owns dollar change", () => {
+  const trend = selectPreparedSegmentTrend({
+    valueHistory: dailyHistory([100, 110], { startDate: "2026-01-01" }),
+    marketIndex: {
+      currentValue: 103.25,
+      trackingSince: "2026-01-01",
+      history: [{ date: "2026-01-01", indexValue: 100 }, { date: "2026-01-02", indexValue: 103.25 }],
+      movements: { "7D": { available: true, percent: 3.25 } },
+    },
+    selectedWindowKey: "7D",
+  });
+  assert.equal(trend.deltaAmount, 10);
+  assert.equal(trend.deltaPercent, 3.25);
+  assert.equal(trend.marketIndexValue, 103.25);
+});
+
+test("prepared breadth is displayed verbatim and All maps centrally to SinceTracking", () => {
+  assert.equal(toPreparedMovementKey("lifetime"), "SinceTracking");
+  assert.deepEqual(selectPreparedMarketBreadth({
+    windowKey: "7D",
+    marketBreadth: { "7D": { available: true, eligibleCount: 10, advancingCount: 6, decliningCount: 3, unchangedCount: 1, advancingPercent: 60, decliningPercent: 30 } },
+  }), { available: true, windowKey: "7D", advancing: 6, declining: 3, flat: 1, total: 10, advancingPercent: 60, decliningPercent: 30 });
 });
 
 test("a segment trend reports value, delta, return, high and low for the selected window", () => {
@@ -192,11 +219,11 @@ test("supporting details publish the six approved fields in order", () => {
   );
   assert.deepEqual(
     details.map((detail) => detail.key),
-    ["periodChange", "periodReturn", "periodHigh", "periodLow", "trackingSince", "trackedItems"]
+    ["periodChange", "periodReturn", "periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]
   );
   assert.deepEqual(
     details.map((detail) => detail.label),
-    ["Period Change", "Period Return", "Period High", "Period Low", "Tracking Since", "Tracked Items"]
+    ["Period Change", "Period Return", "Period High", "Period Low", "Tracking Since", "Market Index", "Tracked Items"]
   );
 });
 

@@ -66,7 +66,7 @@ export default function SetMarketMobile({
       </SectionErrorBoundary>
 
       <SectionErrorBoundary sectionName="market-mobile-top-chase" resetKeys={[setId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-        <SetMarketMobileTopChase id={sectionIds.topChase} {...topChase} />
+        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} {...topChase} />
       </SectionErrorBoundary>
     </section>
   );

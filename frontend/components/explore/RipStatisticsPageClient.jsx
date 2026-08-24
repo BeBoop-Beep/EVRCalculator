@@ -165,13 +165,15 @@ import {
   buildSupportingDetails,
   resolveActiveSegmentKey,
   selectChaseConcentration,
-  selectMarketBreadth,
+  selectPreparedMarketBreadth,
+  selectPreparedSegmentTrend,
   selectSegmentTrend,
   unavailableSegmentTrend,
 } from "@/components/pokemon/set-page/Market/setMarketOverviewModel.mjs";
 import {
   buildTopChaseHistory,
   buildTopChaseModel,
+  buildTopSealedModel,
   readCardHeroImageUrl,
 } from "@/components/pokemon/set-page/Market/setMarketMobileModel.mjs";
 import { getPokemonSetPullRates } from "@/lib/pokemon/pokemonSetPullRatesClient";
@@ -3720,6 +3722,9 @@ function MarketSegmentRow({ row, active, onSelect }) {
           <span className={`flex-none text-[11px] ${deltaToneClassName(row.deltaAmount)}`}>{amountText}</span>
         ) : null}
       </div>
+      {row.available && row.marketIndexValue !== null && row.marketIndexValue !== undefined ? (
+        <p className="mt-0.5 text-[11px] tabular-nums text-[var(--text-secondary)]">Index {Number(row.marketIndexValue).toFixed(2)}</p>
+      ) : null}
       {!row.available ? (
         <p data-segment-unavailable className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
           {row.unavailableReason}
@@ -3774,7 +3779,7 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
               Market Breadth
             </p>
-            <InfoPopover text="Share of mover-eligible tracked cards whose market price rose versus fell across the selected period. Published for 1D, 7D and 30D only." />
+            <InfoPopover text="Share of eligible tracked cards that rose, fell, or were unchanged over the selected period." />
           </div>
           {breadth.available ? (
             <>
@@ -3785,6 +3790,7 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
               <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
                 <div className="h-full bg-[var(--positive)]" style={{ width: `${breadth.advancingPercent}%` }} />
                 <div className="h-full bg-[var(--negative)]" style={{ width: `${breadth.decliningPercent}%` }} />
+                {breadth.flat > 0 ? <div className="h-full bg-slate-500/60" style={{ width: `${Math.max(0, 100 - breadth.advancingPercent - breadth.decliningPercent)}%` }} /> : null}
               </div>
               <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
                 {breadth.total.toLocaleString("en-US")} mover-eligible cards · {windowLabel}
@@ -3932,6 +3938,8 @@ function MarketValueTrendPanel({
                 value = formatLongDate(detail.date);
               } else if (detail.key === "trackedItems" && detail.count !== null) {
                 value = `${detail.count.toLocaleString("en-US")} ${detail.noun}`;
+              } else if (detail.key === "marketIndex" && detail.value !== null) {
+                value = Number(detail.value).toFixed(2);
               }
               return (
                 <div key={detail.key} className="min-w-0" data-supporting-detail={detail.key}>
@@ -3956,7 +3964,7 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top10Value, moversByWindow }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
@@ -3965,13 +3973,14 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top1
 
   const cardsTrend = useMemo(
     () =>
-      selectSegmentTrend({
-        history: cardsHistory,
+      selectPreparedSegmentTrend({
+        valueHistory: cardsHistory,
+        marketIndex: cardsMarket?.marketIndex || cardsMarket?.market_index,
         selectedWindowKey,
         trackedItemCount: cardsTrackedCount,
         trackedItemNoun: "Cards",
       }),
-    [cardsHistory, cardsTrackedCount, selectedWindowKey]
+    [cardsHistory, cardsMarket, cardsTrackedCount, selectedWindowKey]
   );
 
   const sealedTrend = useMemo(() => {
@@ -3979,8 +3988,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top1
     if (!setMarket?.history?.length) {
       return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
     }
-    return selectSegmentTrend({
-      history: setMarket.history,
+    return selectPreparedSegmentTrend({
+      valueHistory: setMarket.history,
+      marketIndex: setMarket.marketIndex || setMarket.market_index,
       selectedWindowKey,
       trackedItemCount: setMarket.productCount,
       trackedItemNoun: "Sealed Products",
@@ -4004,8 +4014,8 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top1
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
   const breadth = useMemo(
-    () => selectMarketBreadth({ moversByWindow, windowKey: effectiveWindowKey }),
-    [effectiveWindowKey, moversByWindow]
+    () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
+    [cardsMarket, effectiveWindowKey]
   );
   const concentration = useMemo(
     () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),
@@ -4054,10 +4064,18 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsTrackedCount, top1
  * There is NO movers strip in here. 7D movers is Section 1's job, and repeating
  * it would make the reader check two places for one answer.
  */
-function TopChaseCardsPanel({ cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+  const [lens, setLens] = useState("cards");
+  const sealedState = useSealedSetMarket(setId);
+  const sealedProducts = useMemo(
+    () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
+    [sealedState.payload]
+  );
   const model = useMemo(
-    () => buildTopChaseModel(cards, { selectedWindowKey, marketAsOfDate, maxRows: 10 }),
-    [cards, marketAsOfDate, selectedWindowKey]
+    () => lens === "cards"
+      ? buildTopChaseModel(cards, { selectedWindowKey, marketAsOfDate, maxRows: 10 })
+      : buildTopSealedModel(sealedProducts, { selectedWindowKey, maxRows: 10 }),
+    [cards, lens, marketAsOfDate, sealedProducts, selectedWindowKey]
   );
   const [selectedKey, setSelectedKey] = useState(null);
   // Desktop shows the full authoritative Top 10 in the left list at all
@@ -4067,21 +4085,24 @@ function TopChaseCardsPanel({ cards, status, error, selectedWindowKey, onWindowC
   const resolvedKey = rows.some((row) => row.key === selectedKey) ? selectedKey : rows[0]?.key || null;
   const selectedRow = rows.find((row) => row.key === resolvedKey) || null;
   const selectedCard = useMemo(() => {
-    if (!Array.isArray(cards)) return null;
+    const source = lens === "cards" ? cards : sealedProducts;
+    if (!Array.isArray(source)) return null;
     return (
-      cards.find(
-        (card, index) => String(card?.id || card?.cardId || card?.cardNumber || card?.name || index) === resolvedKey
+      source.find(
+        (card, index) => String(card?.sealedProductId || card?.id || card?.cardId || card?.cardNumber || card?.name || index) === resolvedKey
       ) || null
     );
-  }, [cards, resolvedKey]);
+  }, [cards, lens, resolvedKey, sealedProducts]);
 
   // The selected card's own series, read through the SAME window machinery the
   // Market Value Trend uses, so a 30D move means the same thing in both places.
   const cardTrend = useMemo(() => {
     if (!selectedCard) return unavailableSegmentTrend({ trackedItemNoun: "Cards" });
-    const history = buildTopChaseHistory(selectedCard, selectedWindowKey, marketAsOfDate);
+    const history = lens === "cards"
+      ? buildTopChaseHistory(selectedCard, selectedWindowKey, marketAsOfDate)
+      : (selectedCard.history || []).map((point) => ({ ...point, setValue: point.marketPrice }));
     return selectSegmentTrend({ history, selectedWindowKey, trackedItemNoun: "Cards" });
-  }, [marketAsOfDate, selectedCard, selectedWindowKey]);
+  }, [lens, marketAsOfDate, selectedCard, selectedWindowKey]);
 
   const heroImageUrl = selectedCard ? readCardHeroImageUrl(selectedCard) : null;
   const windowLabel = getDeltaWindowLabel(cardTrend.effectiveWindowKey || selectedWindowKey) || "Trend";
@@ -4093,19 +4114,21 @@ function TopChaseCardsPanel({ cards, status, error, selectedWindowKey, onWindowC
       : cardTrend.deltaAmount > 0
       ? "positive"
       : "neutral";
+  const effectiveStatus = lens === "cards" ? status : sealedState.status;
+  const effectiveError = lens === "cards" ? error : sealedState.error;
 
-  if ((status === "loading" || status === "idle") && rows.length === 0) {
+  if ((effectiveStatus === "loading" || effectiveStatus === "idle") && rows.length === 0) {
     return (
-      <SectionCard title="Top 10 Chase Cards">
+      <SectionCard title="Top 10">
         <InlinePanelSkeleton rows={5} />
       </SectionCard>
     );
   }
 
-  if (status === "error" && rows.length === 0) {
+  if (effectiveStatus === "error" && rows.length === 0) {
     return (
-      <SectionCard title="Top 10 Chase Cards">
-        <p className="text-sm text-red-300">{error || "Unable to load chase cards for this set."}</p>
+      <SectionCard title="Top 10">
+        <p className="text-sm text-red-300">{effectiveError || "Unable to load this ranking for this set."}</p>
         {onRetry ? (
           <button type="button" onClick={onRetry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
             Try again
@@ -4117,9 +4140,16 @@ function TopChaseCardsPanel({ cards, status, error, selectedWindowKey, onWindowC
 
   return (
     <SectionCard
-      title="Top 10 Chase Cards"
-      titleInfoText="The ten highest-value tracked cards in this set, with the selected card's own price history."
+      title="Top 10"
+      titleInfoText="The ten highest-value tracked cards or sealed products in this set."
     >
+      <div className="mb-4 flex gap-1.5" role="tablist" aria-label="Top 10 market lens">
+        {["cards", "sealed"].map((key) => (
+          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+            {key === "cards" ? "Cards" : "Sealed"}
+          </button>
+        ))}
+      </div>
       <div className="grid min-w-0 grid-cols-1 gap-5 desk:grid-cols-[minmax(0,37fr)_minmax(0,63fr)]">
         {/* LEFT — the ranked list. */}
         <ol id="top-chase-list" data-top-chase-list className="min-w-0 space-y-1.5">
@@ -13953,6 +13983,7 @@ export default function RipStatisticsPageClient({
                       cardsTrackedCount: authoritativeSetCardCount,
                       top10Value: setValueTop10CurrentValue,
                       moversByWindow: marketMoversByWindow,
+                      cardsMarket: activeMarketDashboardDerivedState.setValue.cardsMarket,
                     }}
                     topChase={{
                       cards: topPricedCards,
@@ -14005,9 +14036,9 @@ export default function RipStatisticsPageClient({
                         <SetMarketOverviewSection
                           setId={resolvedSetResourceId}
                           cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
+                          cardsMarket={activeMarketDashboardDerivedState.setValue.cardsMarket}
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
-                          moversByWindow={marketMoversByWindow}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -14017,6 +14048,7 @@ export default function RipStatisticsPageClient({
                     <div id="set-detail-market-top-chase" data-market-section="top-chase" data-mobile-section className="min-w-0 scroll-mt-24 md:scroll-mt-28">
                       <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
                         <TopChaseCardsPanel
+                          setId={resolvedSetResourceId}
                           cards={topPricedCards}
                           status={topPricedCardsStatus}
                           error={activeTopMarketCardsState.error}

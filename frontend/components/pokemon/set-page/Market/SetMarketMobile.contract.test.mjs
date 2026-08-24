@@ -157,7 +157,7 @@ test("Market Snapshot reads the same segment model the desktop Market Overview r
   // `selectSegmentTrend` and friends from setMarketOverviewModel.mjs — so a 7D
   // move, an unavailable lens, and a tracked-item count all mean the same
   // thing in both compositions.
-  assert.ok(setValue.includes("selectSegmentTrend"));
+  assert.ok(setValue.includes("selectPreparedSegmentTrend"));
   assert.ok(setValue.includes("unavailableSegmentTrend"));
   assert.ok(setValue.includes("setMarketOverviewModel.mjs"));
   // No local arithmetic on a value, delta or window.
@@ -188,7 +188,7 @@ test("an unavailable lens in Market Snapshot never fabricates a value", () => {
 
 test("Market Breadth and Chase Concentration are Cards-only micro-stats on mobile", () => {
   assert.ok(setValue.includes('segmentKey === "cards"'), "breadth/concentration are gated to the Cards lens");
-  assert.ok(setValue.includes("selectMarketBreadth"));
+  assert.ok(setValue.includes("selectPreparedMarketBreadth"));
   assert.ok(setValue.includes("selectChaseConcentration"));
 });
 

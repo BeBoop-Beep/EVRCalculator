@@ -8,6 +8,7 @@ import {
   buildSealedMetrics,
   buildSealedProductChips,
   buildTopChaseModel,
+  buildTopSealedModel,
   directionOf,
   formatCompactMoney,
   formatSignedPercent,
@@ -22,6 +23,14 @@ test("prices come from the payload's own fields and never from a fabricated defa
   assert.equal(readCardMarketPrice({}), null);
   assert.equal(readCardMarketPrice({ marketPrice: 0 }), null);
   assert.equal(readCardMarketPrice({ marketPrice: -4 }), null);
+});
+
+test("sealed Top 10 ranks prepared products by current price", () => {
+  const model = buildTopSealedModel([
+    { sealedProductId: "low", name: "Low", currentPrice: 20 },
+    { sealedProductId: "high", name: "High", currentPrice: 80 },
+  ]);
+  assert.deepEqual(model.rows.map((row) => row.key), ["high", "low"]);
 });
 
 test("headline currency drops cents only once cents are noise", () => {

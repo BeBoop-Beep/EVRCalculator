@@ -744,6 +744,34 @@ function normalizeSetValueHistoryPayload(payload) {
   };
 }
 
+export function normalizePreparedMarketIndex(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    ...value,
+    currentValue: value.currentValue ?? value.current_value ?? null,
+    baseValue: value.baseValue ?? value.base_value ?? null,
+    trackingSince: value.trackingSince ?? value.tracking_since ?? null,
+    history: Array.isArray(value.history) ? value.history.map((point) => ({
+      ...point,
+      indexValue: point?.indexValue ?? point?.index_value ?? null,
+      chainSegmentId: point?.chainSegmentId ?? point?.chain_segment_id ?? null,
+      isNewSegment: point?.isNewSegment ?? point?.is_new_segment ?? false,
+      segmentStartDate: point?.segmentStartDate ?? point?.segment_start_date ?? null,
+    })) : [],
+    movements: value.movements && typeof value.movements === "object" ? value.movements : {},
+  };
+}
+
+export function normalizePreparedCardsMarket(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    ...value,
+    available: value.available !== false,
+    marketIndex: normalizePreparedMarketIndex(value.marketIndex || value.market_index),
+    marketBreadth: value.marketBreadth || value.market_breadth || {},
+  };
+}
+
 export function normalizeMarketDashboardPayload(payload) {
   const historiesByScope =
     payload?.setValueHistoriesByScope && typeof payload.setValueHistoriesByScope === "object"
@@ -767,6 +795,7 @@ export function normalizeMarketDashboardPayload(payload) {
   });
   const marketMovers = normalizeMarketMoversPayload(payload);
   const marketMoversByWindow = normalizeMarketMoversByWindowPayload(payload);
+  const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
 
   const normalizedHistoriesByScope = Object.fromEntries(
     Object.entries(historiesByScope).map(([scope, history]) => [
@@ -790,6 +819,8 @@ export function normalizeMarketDashboardPayload(payload) {
     market_movers: marketMovers,
     marketMoversByWindow,
     market_movers_by_window: marketMoversByWindow,
+    cardsMarket,
+    cards_market: cardsMarket,
     setValueHistoriesByScope: normalizedHistoriesByScope,
     set_value_histories_by_scope: normalizedHistoriesByScope,
     performanceVsCostHistory: normalizeSimulationPerformanceHistory(
@@ -1203,7 +1234,21 @@ export async function getPokemonSetSealedMarket(setId) {
       error.retryable = true;
       throw error;
     }
-    return payload;
+    const setMarket = payload?.setMarket || payload?.set_market || null;
+    const normalizedSetMarket = setMarket
+      ? {
+          ...setMarket,
+          history: setMarket.history || [],
+          productCount: setMarket.productCount ?? setMarket.product_count ?? payload?.products?.length ?? null,
+          marketIndex: normalizePreparedMarketIndex(setMarket.marketIndex || setMarket.market_index),
+        }
+      : null;
+    return {
+      ...payload,
+      products: Array.isArray(payload?.products) ? payload.products : [],
+      setMarket: normalizedSetMarket,
+      set_market: normalizedSetMarket,
+    };
   });
 }
 

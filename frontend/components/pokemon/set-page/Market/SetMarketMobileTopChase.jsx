@@ -4,10 +4,12 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import MarketMobileSection, { MarketMobileSectionLink } from "./MarketMobileSection.jsx";
 import MarketWindowSelector from "../../../explore/MarketWindowSelector";
+import SegmentedControl from "../../../ui/SegmentedControl";
+import { getPokemonSetSealedMarket } from "../../../../lib/pokemon/pokemonSetMarketClient";
 import { getStandardDeltaWindowDefinitions } from "../../../../lib/explore/marketDeltaWindows.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "../../../../lib/explore/interpretationTone";
 import { CARD_ART_WIDTH, CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "../../../../lib/images/remoteImageDelivery.mjs";
-import { MOBILE_TOP_CHASE_PREVIEW_LIMIT, buildTopChaseModel } from "./setMarketMobileModel.mjs";
+import { MOBILE_TOP_CHASE_PREVIEW_LIMIT, buildTopChaseModel, buildTopSealedModel } from "./setMarketMobileModel.mjs";
 
 // ---------------------------------------------------------------------------
 // Top Chase Cards — featured card plus a ranked list.
@@ -125,6 +127,7 @@ function RankedChaseRow({ row, href }) {
 
 export default function SetMarketMobileTopChase({
   id,
+  setId,
   cards,
   status = "success",
   error = null,
@@ -136,15 +139,32 @@ export default function SetMarketMobileTopChase({
   onRetry = null,
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [lens, setLens] = useState("cards");
+  const [sealedState, setSealedState] = useState({ status: "idle", payload: null, error: null });
+  useEffect(() => {
+    let cancelled = false;
+    if (!setId) return undefined;
+    setSealedState((current) => ({ ...current, status: "loading" }));
+    getPokemonSetSealedMarket(setId).then(
+      (payload) => !cancelled && setSealedState({ status: "success", payload, error: null }),
+      (requestError) => !cancelled && setSealedState({ status: "error", payload: null, error: requestError?.message || "Unable to load sealed products" })
+    );
+    return () => { cancelled = true; };
+  }, [setId]);
   const hasCards = Array.isArray(cards) && cards.length > 0;
-  const availableWindows = hasCards ? WINDOWS : [];
+  const sealedProducts = useMemo(
+    () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
+    [sealedState.payload]
+  );
+  const hasRows = lens === "cards" ? hasCards : sealedProducts.length > 0;
+  const availableWindows = hasRows ? WINDOWS : [];
   const effectiveWindowKey =
     selectedWindowKey && availableWindows.some((entry) => entry.key === selectedWindowKey) ? selectedWindowKey : "7D";
 
-  const model = useMemo(
-    () => buildTopChaseModel(cards, { selectedWindowKey: effectiveWindowKey, marketAsOfDate }),
-    [cards, effectiveWindowKey, marketAsOfDate]
-  );
+  const model = useMemo(() => lens === "cards"
+    ? buildTopChaseModel(cards, { selectedWindowKey: effectiveWindowKey, marketAsOfDate })
+    : buildTopSealedModel(sealedProducts, { selectedWindowKey: effectiveWindowKey }),
+    [cards, effectiveWindowKey, lens, marketAsOfDate, sealedProducts]);
 
   const resetKey = model.rows.map((row) => row.key).join("|");
   useEffect(() => {
@@ -162,10 +182,13 @@ export default function SetMarketMobileTopChase({
     <MarketMobileSection
       id={id}
       eyebrow="Chase Pool"
-      title="Top Chase Cards"
-      action={<MarketMobileSectionLink href={hasCards ? viewAllHref : null} label="All cards" />}
+      title="Top 10"
+      action={lens === "cards" ? <MarketMobileSectionLink href={hasCards ? viewAllHref : null} label="All cards" /> : null}
     >
-      {(status === "loading" || status === "idle") && !hasCards ? (
+      <div className="mb-3">
+        <SegmentedControl options={[{ value: "cards", label: "Cards" }, { value: "sealed", label: "Sealed" }]} value={lens} onChange={setLens} ariaLabel="Top 10 market lens" equalWidth mobileFullWidth />
+      </div>
+      {((lens === "cards" ? status : sealedState.status) === "loading" || (lens === "cards" ? status : sealedState.status) === "idle") && !hasRows ? (
         <div className="space-y-2" aria-hidden="true">
           <div className="h-[8.5rem] w-full animate-pulse rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/50" />
           {Array.from({ length: 4 }).map((_, index) => (
@@ -175,10 +198,10 @@ export default function SetMarketMobileTopChase({
             />
           ))}
         </div>
-      ) : status === "error" && !hasCards ? (
+      ) : (lens === "cards" ? status : sealedState.status) === "error" && !hasRows ? (
         <div className="flex flex-col items-start gap-2">
-          <p className="text-[13px] text-red-300">{error || "Unable to load market cards for this set."}</p>
-          {onRetry ? (
+          <p className="text-[13px] text-red-300">{(lens === "cards" ? error : sealedState.error) || "Unable to load this ranking."}</p>
+          {lens === "cards" && onRetry ? (
             <button
               type="button"
               onClick={onRetry}
@@ -189,7 +212,7 @@ export default function SetMarketMobileTopChase({
           ) : null}
         </div>
       ) : !model.featured ? (
-        <p className="text-[13px] text-[var(--text-secondary)]">No priced chase cards are available yet for this set.</p>
+        <p className="text-[13px] text-[var(--text-secondary)]">No priced {lens === "cards" ? "chase cards" : "sealed products"} are available yet for this set.</p>
       ) : (
         <div className="space-y-3">
           <MarketWindowSelector
@@ -200,12 +223,12 @@ export default function SetMarketMobileTopChase({
             ariaDescription="Chooses which published change window these chase cards report. No data is fetched."
           />
 
-          <FeaturedChaseCard row={model.featured} href={rowHref} />
+          <FeaturedChaseCard row={model.featured} href={lens === "cards" ? rowHref : null} />
 
           {visibleRanked.length > 0 ? (
             <div className="divide-y divide-[var(--border-subtle)]">
               {visibleRanked.map((row) => (
-                <RankedChaseRow key={row.key} row={row} href={rowHref} />
+                <RankedChaseRow key={row.key} row={row} href={lens === "cards" ? rowHref : null} />
               ))}
             </div>
           ) : null}

@@ -38,6 +38,10 @@ export const SEGMENT_UNAVAILABLE_TEXT = "Not enough market data";
 /** Breadth is only defined for the windows the movers contract publishes. */
 export const BREADTH_SUPPORTED_WINDOW_KEYS = ["1D", "7D", "30D"];
 
+export function toPreparedMovementKey(windowKey) {
+  return String(windowKey || "").toLowerCase() === "lifetime" ? "SinceTracking" : String(windowKey || "");
+}
+
 export function toFiniteNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -125,6 +129,57 @@ export function selectSegmentTrend({
   };
 }
 
+/**
+ * Overlay the prepared market-index contract on a dollar-value trend.
+ * Dollar amounts/highs/lows remain Set Value readings; percentage movement is
+ * the canonical index movement so constituent churn cannot masquerade as
+ * market performance.
+ */
+export function selectPreparedSegmentTrend({
+  valueHistory,
+  marketIndex,
+  selectedWindowKey = "7D",
+  trackedItemCount = null,
+  trackedItemNoun = "Cards",
+} = {}) {
+  const valueTrend = selectSegmentTrend({
+    history: valueHistory,
+    selectedWindowKey,
+    trackedItemCount,
+    trackedItemNoun,
+  });
+  const indexHistory = normalizeSegmentHistory(
+    (marketIndex?.history || []).map((point) => ({
+      ...point,
+      setValue: point?.indexValue ?? point?.index_value,
+    }))
+  );
+  const indexTrend = selectSegmentTrend({ history: indexHistory, selectedWindowKey });
+  const movementKey = toPreparedMovementKey(selectedWindowKey);
+  const movement = marketIndex?.movements?.[movementKey] || marketIndex?.movements?.[String(movementKey).toLowerCase()] || null;
+  const movementPercent = toFiniteNumber(movement?.percent);
+
+  if (!valueTrend.available || !indexTrend.available) {
+    return unavailableSegmentTrend({ trackedItemNoun });
+  }
+
+  return {
+    ...valueTrend,
+    deltaPercent: movement?.available === false ? null : movementPercent ?? indexTrend.deltaPercent,
+    marketIndexValue: toFiniteNumber(marketIndex?.currentValue ?? marketIndex?.current_value) ?? indexTrend.currentValue,
+    marketIndexBaseValue: toFiniteNumber(marketIndex?.baseValue ?? marketIndex?.base_value),
+    marketIndexTrackingSinceDate:
+      getHistoryDateKey(marketIndex?.trackingSince ?? marketIndex?.tracking_since) || indexTrend.trackingSinceDate,
+    indexSeries: indexTrend.series,
+    indexMovement: movement,
+    trackingSinceDate:
+      getHistoryDateKey(marketIndex?.trackingSince ?? marketIndex?.tracking_since) || indexTrend.trackingSinceDate,
+    availableDeltaWindows: valueTrend.availableDeltaWindows.map((window) =>
+      window.key === "lifetime" ? { ...window, label: "All" } : window
+    ),
+  };
+}
+
 /** The unavailable lens. One shape, so callers never branch on null. */
 export function unavailableSegmentTrend({ reason = SEGMENT_UNAVAILABLE_TEXT, trackedItemNoun = "Items" } = {}) {
   return {
@@ -166,6 +221,7 @@ export function buildMarketSegmentRows(trendsByKey = {}) {
       currentValue: trend.currentValue,
       deltaAmount: trend.deltaAmount,
       deltaPercent: trend.deltaPercent,
+      marketIndexValue: trend.marketIndexValue,
       unavailableReason: trend.available ? null : trend.unavailableReason || SEGMENT_UNAVAILABLE_TEXT,
     };
   });
@@ -259,6 +315,25 @@ export function selectMarketBreadth({ moversByWindow, windowKey } = {}) {
   };
 }
 
+/** Reads the canonical cardsMarket.marketBreadth entry without recounting UI rows. */
+export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
+  const normalized = String(windowKey || "").trim().toUpperCase();
+  const entry = marketBreadth?.[normalized] || marketBreadth?.[normalized.toLowerCase()] || null;
+  if (!entry || entry.available === false) {
+    return { available: false, reason: entry?.status || SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
+  }
+  const advancing = toFiniteNumber(entry.advancingCount ?? entry.advancing_count);
+  const declining = toFiniteNumber(entry.decliningCount ?? entry.declining_count);
+  const flat = toFiniteNumber(entry.unchangedCount ?? entry.unchanged_count);
+  const total = toFiniteNumber(entry.eligibleCount ?? entry.eligible_count);
+  const advancingPercent = toFiniteNumber(entry.advancingPercent ?? entry.advancing_percent);
+  const decliningPercent = toFiniteNumber(entry.decliningPercent ?? entry.declining_percent);
+  if (total === null || advancingPercent === null || decliningPercent === null) {
+    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
+  }
+  return { available: true, windowKey: normalized, advancing, declining, flat, total, advancingPercent, decliningPercent };
+}
+
 // --- Chase Concentration ----------------------------------------------------
 
 /**
@@ -304,11 +379,7 @@ export function buildSupportingDetails(trend = {}) {
     { key: "periodHigh", label: "Period High", value: trend.periodHigh ?? null },
     { key: "periodLow", label: "Period Low", value: trend.periodLow ?? null },
     { key: "trackingSince", label: "Tracking Since", date: trend.trackingSinceDate ?? null },
-    {
-      key: "trackedItems",
-      label: "Tracked Items",
-      count,
-      noun: trend.trackedItemNoun || "Items",
-    },
+    { key: "marketIndex", label: "Market Index", value: trend.marketIndexValue ?? null },
+    { key: "trackedItems", label: "Tracked Items", count, noun: trend.trackedItemNoun || "Items", secondary: true },
   ];
 }

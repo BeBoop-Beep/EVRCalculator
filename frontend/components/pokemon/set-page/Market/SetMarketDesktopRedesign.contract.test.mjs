@@ -216,7 +216,7 @@ test("segment rows are clickable and switch the left chart", () => {
 test("breadth and concentration use authoritative data or render unavailable", () => {
   const section = componentSource("SetMarketOverviewSection");
   const rail = componentSource("SetSignalsRail");
-  assert.ok(section.includes("selectMarketBreadth({ moversByWindow"), "breadth reads the published movers windows");
+  assert.ok(section.includes("selectPreparedMarketBreadth({ marketBreadth"), "breadth reads cardsMarket.marketBreadth");
   assert.ok(section.includes("selectChaseConcentration({ top10Value"), "concentration reads the published scopes");
   assert.ok(rail.includes("data-breadth-unavailable"), "breadth degrades gracefully");
   assert.ok(rail.includes("data-concentration-unavailable"), "concentration degrades gracefully");
@@ -242,7 +242,8 @@ test("no Low / Medium / High banding is invented for concentration", () => {
 
 test("Top 10 renders a ranked list whose rows switch the detail", () => {
   const chase = componentSource("TopChaseCardsPanel");
-  assert.ok(chase.includes('title="Top 10 Chase Cards"'));
+  assert.ok(chase.includes('title="Top 10"'));
+  assert.ok(chase.includes('["cards", "sealed"]'), "Top 10 exposes Cards and Sealed lenses");
   assert.ok(chase.includes("data-top-chase-list"));
   assert.ok(chase.includes("data-top-chase-row={row.rank}"));
   assert.ok(chase.includes("#{row.rank}"), "rows are ranked #1..#10");
