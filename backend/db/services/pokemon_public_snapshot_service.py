@@ -6288,6 +6288,32 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
     return payload
 
 
+def _resolve_simulation_evidence_snapshot_run_id(payload_json: Dict[str, Any]) -> Optional[str]:
+    """Return one internally consistent run id owned by this exact snapshot."""
+    summary = payload_json.get("summary") if isinstance(payload_json.get("summary"), dict) else {}
+    target = payload_json.get("target") if isinstance(payload_json.get("target"), dict) else {}
+    meta = payload_json.get("meta") if isinstance(payload_json.get("meta"), dict) else {}
+    rip_decision = payload_json.get("ripDecision") if isinstance(payload_json.get("ripDecision"), dict) else {}
+    financial_rip = payload_json.get("financialRipV3") if isinstance(payload_json.get("financialRipV3"), dict) else {}
+    source_run = financial_rip.get("sourceRun") if isinstance(financial_rip.get("sourceRun"), dict) else {}
+    completeness_camel = meta.get("snapshotCompleteness") if isinstance(meta.get("snapshotCompleteness"), dict) else {}
+    completeness_snake = meta.get("snapshot_completeness") if isinstance(meta.get("snapshot_completeness"), dict) else {}
+    simulation_latest_camel = completeness_camel.get("simulation_latest_by_target") if isinstance(completeness_camel.get("simulation_latest_by_target"), dict) else {}
+    simulation_latest_snake = completeness_snake.get("simulation_latest_by_target") if isinstance(completeness_snake.get("simulation_latest_by_target"), dict) else {}
+    candidates = {
+        run_id for run_id in (
+            _to_optional_str(summary.get("calculation_run_id") or summary.get("calculationRunId")),
+            _to_optional_str(target.get("calculation_run_id") or target.get("calculationRunId")),
+            _to_optional_str(meta.get("calculation_run_id") or meta.get("calculationRunId")),
+            _to_optional_str(rip_decision.get("sourceCalculationRunId") or rip_decision.get("source_calculation_run_id")),
+            _to_optional_str(simulation_latest_camel.get("calculation_run_id") or simulation_latest_camel.get("calculationRunId")),
+            _to_optional_str(simulation_latest_snake.get("calculation_run_id") or simulation_latest_snake.get("calculationRunId")),
+            _to_optional_str(source_run.get("calculationRunId") or source_run.get("calculation_run_id")),
+        ) if run_id
+    }
+    return next(iter(candidates)) if len(candidates) == 1 else None
+
+
 def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[str, Any]:
     """Small exact-run transport for the Set RIP distribution surface."""
     try:
@@ -6305,16 +6331,14 @@ def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[st
     target = payload_json.get("target") if isinstance(payload_json.get("target"), dict) else {}
     summary = payload_json.get("summary") if isinstance(payload_json.get("summary"), dict) else {}
     meta = payload_json.get("meta") if isinstance(payload_json.get("meta"), dict) else {}
-    run_id = _to_optional_str(summary.get("calculation_run_id") or target.get("calculation_run_id") or meta.get("calculation_run_id"))
+    run_id = _resolve_simulation_evidence_snapshot_run_id(payload_json)
     if not run_id:
-        try:
-            run_row = _first_row(
-                public_read_client.table("explore_rip_statistics_latest")
-                .select("calculation_run_id").eq("set_id", resolved_set_id).limit(1).execute()
-            )
-            run_id = _to_optional_str((run_row or {}).get("calculation_run_id"))
-        except Exception:
-            logger.warning("[pokemon-snapshot] simulation evidence run lookup failed set_id=%s", resolved_set_id, exc_info=True)
+        return {"contractVersion": "pokemon-set-simulation-evidence-v1", "setId": resolved_set_id,
+                "calculationRunId": None, "marketDate": None, "summary": {}, "percentiles": [],
+                "distributionBins": [], "thresholdBins": [],
+                "meta": {"source": "empty_fallback_unverifiable_snapshot_run_identity",
+                         "updatedAt": _to_optional_str(row.get("updated_at")),
+                         "snapshotReadMs": round((time.perf_counter() - started) * 1000, 3)}}
     market_date = _to_optional_str(summary.get("market_date") or meta.get("as_of_date") or meta.get("asOfDate"))
     allowed_summary = {key: summary.get(key) for key in (
         "calculation_run_id", "mean_value", "median_value", "max_value", "pack_cost",
