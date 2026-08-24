@@ -67,3 +67,51 @@ Controlled recovery may add `--force-price-as-of YYYY-MM-DD`. It only selects a
 date within the exact coordinated runs and bypasses none of the gates. The
 original canonical builder remains available for operator diagnostics with
 `--price-as-of`; its scoring and allocation formulas are unchanged.
+
+## Hardening migration identity
+
+The RPC-hardening migration was authored locally as `20260824004604` but
+production Supabase recorded its application under version `20260824025349`.
+The repository has been aligned to production; production was not altered.
+
+| | |
+| --- | --- |
+| Original authored migration ID | `20260824004604` |
+| Production-recorded Supabase version | `20260824025349` |
+| Canonical repository identity | `20260824025349_strengthen_budget_product_ranking_publication.sql` |
+| SQL content | unchanged (blob `19fcdb52146f3e59216e5ce44e739b919a9c1de5`, 100% rename) |
+
+Both the `backend/db/migrations/` and `supabase/migrations/` copies carry the
+canonical identity and remain byte-identical mirrors. This is the same
+migration-history reconciliation previously applied to the original Budget
+Ranking schema migration.
+
+## Production validation record
+
+Recurring automation was validated end to end against production on
+2026-08-24 (UTC), publishing the 2026-08-22 authority:
+
+1. **New authority discovery** — the unattended wrapper independently advanced
+   from `2026-08-21` to `2026-08-22` with no forced date, resolving the exact
+   coordinated 22-run authority (138 products, 22 sets, 8 families,
+   fingerprint `81622b7c…70183`).
+2. **Real publication** — one `--commit` run, all gates passed, `PUBLISHED`,
+   exit `0`, zero warnings, through the hardened RPC.
+3. **Persisted verification** — read-back confirmed 589 rows across all seven
+   cohorts, contiguous primary and financial ranks, Full Market 138/138 at the
+   `$1,350` next-$50 anchor, single price authority `2026-08-22`, exact
+   source-run match, no NULL required values, and both capital equations.
+   The 2026-08-21 snapshot was retained historically.
+4. **NO_NEW_AUTHORITY no-op** — a second unattended dry run returned
+   `NO_NEW_AUTHORITY` / exit `0` in 10.4 s versus 181.5 s, with null
+   build/publish durations proving the builder and RPC were both skipped and
+   the database was unchanged.
+
+Access remains private: `anon` receives `42501 permission denied` on all three
+ranking tables and on the publication function, and no frontend or public API
+consumer of the ranking data exists.
+
+Known non-blocking maintenance: `--dry-run` reports `status = PUBLISHED` when it
+means *publish eligible*. A future clearer `PUBLISH_READY` is possible. Daily
+automation uses `--commit`, where `PUBLISHED` semantics are correct, and the
+null `snapshot_id`/`publish_duration_ms` fields disambiguate dry runs.

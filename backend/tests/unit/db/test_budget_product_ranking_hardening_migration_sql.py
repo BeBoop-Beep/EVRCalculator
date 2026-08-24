@@ -1,7 +1,7 @@
 from pathlib import Path
 
-BACKEND = Path("backend/db/migrations/20260824004604_strengthen_budget_product_ranking_publication.sql")
-MIRROR = Path("supabase/migrations/20260824004604_strengthen_budget_product_ranking_publication.sql")
+BACKEND = Path("backend/db/migrations/20260824025349_strengthen_budget_product_ranking_publication.sql")
+MIRROR = Path("supabase/migrations/20260824025349_strengthen_budget_product_ranking_publication.sql")
 SQL = BACKEND.read_text(encoding="utf-8").lower()
 
 
