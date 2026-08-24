@@ -3777,6 +3777,29 @@ _MARKET_DASHBOARD_SNAPSHOT_COLUMNS = (
 
 _EMPTY_MARKET_MOVERS: Dict[str, Any] = {"heatingUp": [], "coolingOff": [], "all": []}
 
+_PUBLIC_CARDS_MARKET_FIELDS = {
+    "available",
+    "reason",
+    "contractVersion",
+    "methodologyVersion",
+    "observationCount",
+    "constituentRowCount",
+    "requestedRange",
+    "marketIndex",
+    "marketBreadth",
+    "setValueReconciliation",
+}
+
+
+def _public_cards_market_contract(stored_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Project prepared Cards analytics without exposing constituent inputs."""
+    source = stored_payload.get("cardsMarket")
+    if not isinstance(source, dict):
+        source = stored_payload.get("cards_market")
+    if not isinstance(source, dict):
+        return None
+    return deepcopy({key: source[key] for key in _PUBLIC_CARDS_MARKET_FIELDS if key in source})
+
 
 def _build_market_dashboard_payload_from_row(
     row: Dict[str, Any],
@@ -3816,7 +3839,9 @@ def _build_market_dashboard_payload_from_row(
         # compatibility field so the 30D tab still works until the next rebuild.
         market_movers_by_window = {"30D": market_movers}
 
-    return {
+    cards_market = _public_cards_market_contract(stored_payload)
+
+    payload = {
         "set": set_identity,
         "window": window_key,
         "window_key": window_key,
@@ -3836,6 +3861,12 @@ def _build_market_dashboard_payload_from_row(
         "latest_market_date": latest_market_date,
         "meta": {**stored_meta, "warnings": list(stored_meta.get("warnings") or [])},
     }
+    # Optional for backward compatibility: legacy snapshots remain valid and
+    # simply omit this section, which the frontend renders as unavailable.
+    if cards_market is not None:
+        payload["cardsMarket"] = cards_market
+        payload["cards_market"] = cards_market
+    return payload
 
 
 def _read_market_dashboard_snapshot(

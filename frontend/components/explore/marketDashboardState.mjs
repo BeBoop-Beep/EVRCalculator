@@ -172,9 +172,10 @@ export function buildMarketDashboardStateFromPayload(payload) {
       ? payload.market_dashboard.market_movers_by_window
       : null;
   const meta = payload?.meta || null;
+  const cardsMarket = payload?.cardsMarket || payload?.cards_market || null;
 
   return {
     topCards: { cards, meta, marketMovers, marketMoversByWindow },
-    setValue: { history, historiesByScope, availableScopes, meta, hasAnyHistory },
+    setValue: { history, historiesByScope, availableScopes, meta, hasAnyHistory, cardsMarket },
   };
 }

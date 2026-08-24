@@ -16,8 +16,8 @@ import {
   buildSupportingDetails,
   resolveActiveSegmentKey,
   selectChaseConcentration,
-  selectMarketBreadth,
-  selectSegmentTrend,
+  selectPreparedMarketBreadth,
+  selectPreparedSegmentTrend,
   unavailableSegmentTrend,
 } from "./setMarketOverviewModel.mjs";
 import { formatCompactMoney, formatCount, formatSignedCompactMoney, formatSignedPercent } from "./setMarketMobileModel.mjs";
@@ -105,6 +105,7 @@ function SupportingMicroStats({ trend, segmentKey, breadth, concentration }) {
     if (detail.key === "periodHigh" || detail.key === "periodLow") {
       return { label: detail.label, value: formatCompactMoney(detail.value) };
     }
+    if (detail.key === "marketIndex") return { label: detail.label, value: detail.value == null ? null : Number(detail.value).toFixed(2) };
     if (detail.key === "trackingSince") return { label: detail.label, value: shortDate(detail.date) };
     if (detail.key === "trackedItems") {
       const count = formatCount(detail.count);
@@ -143,6 +144,7 @@ export default function SetMarketMobileSetValue({
   cardsTrackedCount = null,
   top10Value = null,
   moversByWindow = null,
+  cardsMarket = null,
 }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
@@ -151,20 +153,22 @@ export default function SetMarketMobileSetValue({
   const cardsHistory = Array.isArray(historiesByScope?.standard) ? historiesByScope.standard : history;
   const cardsTrend = useMemo(
     () =>
-      selectSegmentTrend({
-        history: cardsHistory,
+      selectPreparedSegmentTrend({
+        valueHistory: cardsHistory,
+        marketIndex: cardsMarket?.marketIndex || cardsMarket?.market_index,
         selectedWindowKey,
         trackedItemCount: cardsTrackedCount,
         trackedItemNoun: "Cards",
       }),
-    [cardsHistory, cardsTrackedCount, selectedWindowKey]
+    [cardsHistory, cardsMarket, cardsTrackedCount, selectedWindowKey]
   );
 
   const sealedTrend = useMemo(() => {
     const setMarket = sealedState.payload?.setMarket || null;
     if (!setMarket?.history?.length) return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
-    return selectSegmentTrend({
-      history: setMarket.history,
+    return selectPreparedSegmentTrend({
+      valueHistory: setMarket.history,
+      marketIndex: setMarket.marketIndex || setMarket.market_index,
       selectedWindowKey,
       trackedItemCount: setMarket.productCount,
       trackedItemNoun: "Sealed Products",
@@ -201,8 +205,8 @@ export default function SetMarketMobileSetValue({
     activeTrend.deltaAmount === null ? "neutral" : activeTrend.deltaAmount < 0 ? "negative" : activeTrend.deltaAmount > 0 ? "positive" : "neutral";
 
   const breadth = useMemo(
-    () => selectMarketBreadth({ moversByWindow, windowKey: effectiveWindowKey }),
-    [effectiveWindowKey, moversByWindow]
+    () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
+    [cardsMarket, effectiveWindowKey]
   );
   const concentration = useMemo(
     () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),

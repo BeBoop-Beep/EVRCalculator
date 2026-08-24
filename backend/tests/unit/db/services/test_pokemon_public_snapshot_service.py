@@ -32,6 +32,7 @@ class _Query:
         self.gt_filters = []
         self.lt_filters = []
         self.limit_value = None
+        self.range_value = None
 
     def select(self, _fields):
         self.select_fields = _fields
@@ -68,8 +69,16 @@ class _Query:
     def order(self, _field, desc=False):
         return self
 
+    def range(self, start, end):
+        self.range_value = (start, end)
+        return self
+
     def execute(self):
-        return _Result(self.handlers[self.table_name](self))
+        rows = self.handlers[self.table_name](self)
+        if self.range_value is not None:
+            start, end = self.range_value
+            rows = rows[start:end + 1]
+        return _Result(rows)
 
 
 class _Client:
@@ -140,7 +149,7 @@ def test_enrich_cards_payload_with_desirability_adds_card_validation_fields(monk
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = {
         "cards": [
@@ -199,7 +208,7 @@ def test_enrich_cards_payload_with_desirability_exposes_canonical_card_appeal_co
             "pokemon_desirability_composite_scores": lambda _query: scores,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     prices_by_card = {
         f"card-{index}": {"market_price": 1.0 + index, "variant_id": f"variant-{index}"}
@@ -251,7 +260,7 @@ def test_market_dashboard_missing_snapshot_relation_uses_live_fallback(monkeypat
             ),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -311,7 +320,7 @@ def test_market_dashboard_snapshot_normalizes_30d_window(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="30D")
 
@@ -355,13 +364,54 @@ def test_market_dashboard_snapshot_normalizes_365d_window(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
 
     assert ("window_key", "365d") in captured_filters[0]
     assert payload["window_key"] == "365d"
     assert payload["meta"]["snapshot"]["window"] == "365d"
+
+
+def test_market_dashboard_row_serializes_prepared_cards_market_without_raw_constituents():
+    stored_cards_market = {
+        "available": True,
+        "contractVersion": "cards-market-v1",
+        "methodologyVersion": "chain-linked-v1",
+        "marketIndex": {
+            "currentValue": 108.75,
+            "history": [{"date": "2026-06-01", "indexValue": 108.75, "chainSegmentId": "segment-1", "isNewSegment": True}],
+            "movements": {"7D": {"available": True, "percent": 3.4}},
+        },
+        "marketBreadth": {"7D": {"available": True, "eligibleCount": 10, "advancingCount": 6}},
+        "setValueReconciliation": {"datesCompared": 1},
+        "constituents": [{"cardVariantId": "must-not-leak"}],
+    }
+    payload = pokemon_public_snapshot_service._build_market_dashboard_payload_from_row({
+        "set_id": "set-1",
+        "window_key": "365d",
+        "latest_market_date": "2026-06-01",
+        "payload_json": {"cardsMarket": stored_cards_market, "setMarket": {"currentValue": 500}},
+    })
+
+    assert payload["cardsMarket"]["marketIndex"]["currentValue"] == 108.75
+    assert payload["cardsMarket"]["marketBreadth"]["7D"]["eligibleCount"] == 10
+    assert payload["cardsMarket"]["marketIndex"]["history"][0]["chainSegmentId"] == "segment-1"
+    assert "constituents" not in payload["cardsMarket"]
+    assert payload["cards_market"] == payload["cardsMarket"]
+
+
+def test_market_dashboard_row_keeps_legacy_snapshot_optional_and_sealed_shape_unaffected():
+    payload = pokemon_public_snapshot_service._build_market_dashboard_payload_from_row({
+        "set_id": "legacy-set",
+        "window_key": "365d",
+        "latest_market_date": "2026-06-01",
+        "payload_json": {"setMarket": {"currentValue": 500}},
+    })
+
+    assert "cardsMarket" not in payload
+    assert "cards_market" not in payload
+    assert payload["meta"]["warnings"] == []
 
 
 def test_market_dashboard_snapshot_hydrates_empty_top_chase_histories_from_raw_observations(monkeypatch):
@@ -423,7 +473,7 @@ def test_market_dashboard_snapshot_hydrates_empty_top_chase_histories_from_raw_o
             "card_variant_price_observations": read_history,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
 
@@ -545,7 +595,7 @@ def test_market_dashboard_snapshot_hydrates_top_chase_history_from_canonical_var
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
     history = payload["topChaseCards"][0]["priceHistory"]
@@ -683,7 +733,7 @@ def test_market_dashboard_snapshot_returns_stored_histories_without_live_queries
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
     history = payload["topChaseCards"][0]["priceHistory"]
@@ -726,7 +776,7 @@ def test_market_dashboard_snapshot_uses_row_histories_when_payload_histories_emp
             "card_variant_price_observations": lambda _query: (observation_queries.append(_query) or _raw_observation_rows(75)),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365D")
     history = payload["topChaseCards"][0]["priceHistory"]
@@ -770,7 +820,7 @@ def test_market_dashboard_top_chase_hydration_uses_365_day_observation_window_fo
             "card_variant_price_observations": read_history,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="30D")
 
@@ -795,7 +845,7 @@ def test_market_dashboard_live_fallback_keeps_set_value_when_top_cards_fail(monk
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -872,7 +922,7 @@ def test_market_dashboard_live_fallback_keeps_top_cards_when_set_value_fails(mon
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -910,7 +960,7 @@ def test_market_dashboard_live_fallback_failure_returns_empty_payload(monkeypatc
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -951,7 +1001,7 @@ def test_cards_snapshot_read_does_not_perform_live_desirability_enrichment(monke
             "pokemon_desirability_composite_scores": lambda _query: (_ for _ in ()).throw(AssertionError("runtime score lookup should not run")),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_snapshot_payload("set-1")
 
@@ -1026,7 +1076,7 @@ def test_set_page_snapshot_read_adds_desirability_validation_when_missing(monkey
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
@@ -1070,10 +1120,10 @@ def test_rankings_snapshot_returns_stored_payload_when_checklist_enrichment_fail
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "create_short_timeout_service_client",
+        "create_public_read_client",
         lambda: (_ for _ in ()).throw(AssertionError("fresh client should not be created")),
     )
     monkeypatch.setattr(
@@ -1135,10 +1185,10 @@ def test_rankings_snapshot_retries_with_fresh_client_and_returns_normal_data(mon
         }
     )
     factories = []
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", initial_client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", initial_client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "create_short_timeout_service_client",
+        "create_public_read_client",
         lambda: factories.append(fresh_client) or fresh_client,
     )
     monkeypatch.setattr(
@@ -1163,12 +1213,12 @@ def test_rankings_snapshot_transient_failure_returns_503_not_generic_500(monkeyp
 
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "service_read_client",
+        "public_read_client",
         _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
     )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "create_short_timeout_service_client",
+        "create_public_read_client",
         lambda: _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
     )
 
@@ -1199,12 +1249,12 @@ def test_rankings_snapshot_transient_failure_can_serve_explicit_stale_fallback(m
 
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "service_read_client",
+        "public_read_client",
         _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
     )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "create_short_timeout_service_client",
+        "create_public_read_client",
         lambda: _Client({"pokemon_explore_rankings_snapshot_latest": rows}),
     )
     monkeypatch.setattr(
@@ -1232,13 +1282,13 @@ def test_rankings_snapshot_non_transient_failure_remains_500(monkeypatch):
 
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "service_read_client",
+        "public_read_client",
         _Client({"pokemon_explore_rankings_snapshot_latest": fail}),
     )
     factories = []
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "create_short_timeout_service_client",
+        "create_public_read_client",
         lambda: factories.append(object()) or object(),
     )
 
@@ -1301,9 +1351,9 @@ def _rankings_row(meta, *, updated_at="2026-08-12T00:00:00+00:00"):
 def _patch_rankings_reader(monkeypatch, rows):
     pokemon_public_snapshot_service._LAST_SUCCESSFUL_RANKINGS_PAYLOADS.clear()
     client = _Client({"pokemon_explore_rankings_snapshot_latest": lambda _query: rows})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
-        pokemon_public_snapshot_service, "create_short_timeout_service_client", lambda: client
+        pokemon_public_snapshot_service, "create_public_read_client", lambda: client
     )
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
@@ -1452,7 +1502,7 @@ def test_set_page_snapshot_with_top_hits_renders_when_rankings_enrichment_fails(
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "_enrich_rankings_payload_with_checklist_set_values",
@@ -1487,7 +1537,7 @@ def test_set_page_missing_snapshot_returns_fallback_without_live_assembly(monkey
             "pokemon_set_page_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
@@ -1523,7 +1573,7 @@ def test_set_page_snapshot_missing_top_hits_skips_live_repair(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
@@ -1559,7 +1609,7 @@ def test_set_page_snapshot_read_warns_when_rankings_snapshot_is_stale(monkeypatc
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("set-1")
 
@@ -1591,7 +1641,7 @@ def test_set_page_snapshot_read_does_not_runtime_build_desirability_validation(m
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     # The runtime desirability-validation rebuild no longer EXISTS - stronger
     # than "should not run". If someone reintroduces it, this fails.
     assert not hasattr(pokemon_public_snapshot_service, "_with_desirability_validation")
@@ -1653,7 +1703,7 @@ def test_live_fallback_performance_history_comes_from_simulation_not_set_value(m
         "simulation_run_summary": lambda _query: summary_rows,
         "card_variant_price_observations": lambda _query: [],
     }
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _Client(handlers))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _Client(handlers))
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -1703,7 +1753,7 @@ def test_live_fallback_performance_history_empty_when_no_simulation_data(monkeyp
         "simulation_run_summary": lambda _query: [],
         "card_variant_price_observations": lambda _query: [],
     }
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _Client(handlers))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _Client(handlers))
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -1782,7 +1832,7 @@ def test_market_dashboard_snapshot_row_returns_stored_payload_without_live_rebui
             "simulation_run_summary": track_live,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -1817,7 +1867,7 @@ def test_cards_snapshot_missing_falls_back_to_canonical_cards(monkeypatch):
             ),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_cards_payload",
@@ -1850,7 +1900,7 @@ def test_uuid_set_id_resolves_with_single_query(monkeypatch):
             "pokemon_set_page_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload("75cd439d-aaa2-41cb-86f3-2fefa5b26e29")
 
@@ -1887,7 +1937,7 @@ def test_uuid_page_snapshot_hit_skips_sets_query(monkeypatch):
             "pokemon_explore_rankings_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_page_snapshot_payload(_TEST_UUID)
 
@@ -1922,7 +1972,7 @@ def test_uuid_cards_snapshot_hit_skips_sets_query(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_cards_snapshot_payload(_TEST_UUID)
 
@@ -1973,7 +2023,7 @@ def test_uuid_market_dashboard_snapshot_hit_skips_sets_and_live_queries(monkeypa
             "simulation_run_summary": lambda _q: (live_calls.append("sim_summary") or []),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -2009,7 +2059,7 @@ def test_uuid_market_dashboard_snapshot_miss_returns_fast_empty(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_pokemon_set_value_history_payload",
@@ -2057,7 +2107,7 @@ def test_market_dashboard_reader_selects_payload_json_for_market_movers(monkeypa
         ]
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID, window="365d")
 
@@ -2102,7 +2152,7 @@ def test_market_dashboard_snapshot_returns_market_movers_from_payload_json(monke
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
 
@@ -2137,7 +2187,7 @@ def test_market_dashboard_snapshot_defaults_market_movers_when_missing_from_payl
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
 
@@ -2185,7 +2235,7 @@ def test_market_dashboard_snapshot_returns_market_movers_by_window_from_payload_
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
 
@@ -2227,7 +2277,7 @@ def test_market_dashboard_snapshot_defaults_market_movers_by_window_to_30d_when_
             "pokemon_set_market_dashboard_snapshot_latest": read_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload("set-1", window="365d")
 
@@ -2258,7 +2308,7 @@ def test_shell_snapshot_reader_does_not_select_whole_payload_json(monkeypatch):
         ]
 
     client = _Client({"pokemon_set_page_snapshot_latest": read_shell})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2302,7 +2352,7 @@ def test_shell_snapshot_prefers_tracked_lens_values_projected_from_payload_summa
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2322,7 +2372,7 @@ def test_shell_snapshot_missing_row_returns_fallback(monkeypatch):
             "sets": lambda _query: [{"id": _TEST_UUID, "name": "Fallback Set", "canonical_key": "fallback-set"}],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2358,7 +2408,7 @@ def test_uuid_shell_snapshot_hit_skips_sets_query(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2396,7 +2446,7 @@ def test_shell_snapshot_exposes_interpretation_from_set_intelligence_json(monkey
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2449,7 +2499,7 @@ def test_shell_snapshot_includes_checklist_set_value_history(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": read_market_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2483,7 +2533,7 @@ def test_shell_snapshot_tolerates_missing_market_dashboard_row(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2550,7 +2600,7 @@ def test_shell_snapshot_excludes_dual_cased_header_column_duplicates(monkeypatch
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2587,7 +2637,7 @@ def test_shell_snapshot_excludes_cards_market_dashboard_and_pull_rates(monkeypat
             "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2633,7 +2683,7 @@ def test_shell_snapshot_history_points_are_slimmed_to_four_camel_case_fields(mon
             "pokemon_set_market_dashboard_snapshot_latest": read_market_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2679,7 +2729,7 @@ def test_shell_snapshot_stays_under_75kb_budget_for_large_fixture(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": read_market_dashboard,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2696,7 +2746,7 @@ def test_shell_snapshot_missing_row_fallback_excludes_dual_cased_duplicates(monk
             "sets": lambda _query: [{"id": _TEST_UUID, "name": "Fallback Set", "canonical_key": "fallback-set"}],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_shell_snapshot_payload(_TEST_UUID)
 
@@ -2714,11 +2764,11 @@ def test_shell_snapshot_missing_row_fallback_excludes_dual_cased_duplicates(monk
 def test_resolve_set_row_delegates_to_shared_resolver_with_its_own_client(monkeypatch):
     """Guards against re-divergence: this module must delegate set-identifier
     resolution to the single shared implementation in pokemon_set_market_service,
-    passing this module's own (patchable) service_read_client explicitly rather
+    passing this module's own (patchable) public_read_client explicitly rather
     than silently falling back to pokemon_set_market_service's client — a bare
     `_resolve_set_row = resolve_pokemon_set_identifier` alias would resolve
     service_read_client from pokemon_set_market_service's globals instead of
-    this module's, so a service_read_client monkeypatch made in this module
+    this module's, so a public_read_client monkeypatch made in this module
     would silently miss every call routed through the shared resolver."""
     calls = []
 
@@ -2728,7 +2778,7 @@ def test_resolve_set_row_delegates_to_shared_resolver_with_its_own_client(monkey
 
     sentinel_client = object()
     monkeypatch.setattr(pokemon_public_snapshot_service, "resolve_pokemon_set_identifier", fake_resolver)
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", sentinel_client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", sentinel_client)
 
     row = pokemon_public_snapshot_service._resolve_set_row("prismatic-evolutions")
 
@@ -2776,7 +2826,7 @@ def test_overview_payload_excludes_top_chase_and_market_movers(monkeypatch):
         return [_overview_dashboard_row()]
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
 
@@ -2825,7 +2875,7 @@ def test_overview_payload_treats_missing_split_columns_as_empty_structures(monke
         available_scopes_json=None,
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
 
@@ -2846,7 +2896,7 @@ def test_overview_payload_returns_performance_history_from_split_column(monkeypa
         },
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
 
@@ -2877,7 +2927,7 @@ def test_overview_payload_resolves_hyphenated_slug(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": lambda _q: [dashboard_row],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload("prismatic-evolutions")
@@ -2908,7 +2958,7 @@ def test_overview_payload_serialized_size_is_under_250kb(monkeypatch):
         performance_vs_cost_history_json=_daily_history(365, "meanValue"),
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
 
@@ -2954,7 +3004,7 @@ def test_top_chase_payload_reads_split_columns_and_does_not_call_full_dashboard_
         return [_top_chase_dashboard_row()]
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     def _fail_if_called(*_args, **_kwargs):
         raise AssertionError("get_pokemon_set_market_dashboard_snapshot_payload must not be called")
@@ -2984,7 +3034,7 @@ def test_top_chase_payload_reads_split_columns_and_does_not_call_full_dashboard_
 
 def test_top_chase_payload_excludes_set_value_performance_and_movers(monkeypatch):
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [_top_chase_dashboard_row()]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID)
 
@@ -3002,7 +3052,7 @@ def test_top_chase_payload_slices_histories_to_requested_window(monkeypatch):
     30D), not the full 365-day source history, and must only include cards
     that are actually in topChaseCards."""
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [_top_chase_dashboard_row()]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="7D")
 
@@ -3031,7 +3081,7 @@ def test_top_chase_payload_resolves_prismatic_evolutions(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": lambda _q: [dashboard_row],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload("prismatic-evolutions")
@@ -3057,7 +3107,7 @@ def test_top_chase_payload_serialized_size_is_under_250kb(monkeypatch):
         },
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID)
 
@@ -3096,7 +3146,7 @@ def test_slim_top_chase_hydrates_empty_histories_from_observations_without_dragg
         latest_market_date="2026-06-20",
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     def fake_observation_histories(**_kwargs):
         return {
@@ -3152,7 +3202,7 @@ def test_slim_top_chase_aligns_current_price_and_skips_observation_scan_when_his
         latest_market_date="2026-06-30",
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service, "_load_top_chase_observation_histories", _fail_observation_scan
     )
@@ -3174,7 +3224,7 @@ def test_slim_top_chase_keeps_histories_separate(monkeypatch):
         ],
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3287,7 +3337,7 @@ def test_market_movers_snapshot_reads_from_read_model(monkeypatch):
     client = _Client(
         {"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}, calls=calls)}
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID)
 
@@ -3308,7 +3358,7 @@ def test_market_movers_snapshot_preserves_heating_cooling_order(monkeypatch):
         "_market_movers_by_window": _market_movers_by_window(heating_30d=heating, cooling_30d=cooling),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D", limit=5)
 
@@ -3328,7 +3378,7 @@ def test_market_movers_snapshot_returns_first_limit_from_complete_ranked_all(mon
         "_market_movers_by_window": movers,
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10
@@ -3352,7 +3402,7 @@ def test_market_movers_snapshot_caps_complete_all_at_requested_limit(monkeypatch
         "_market_movers_by_window": movers,
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="30D", limit=10
@@ -3377,7 +3427,7 @@ def test_market_movers_snapshot_diagnoses_legacy_all_fallback(monkeypatch):
         "_market_movers_by_window": movers,
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
         _TEST_UUID, window="7D", limit=10
@@ -3400,7 +3450,7 @@ def test_market_movers_snapshot_preserves_scores_labels_and_deltas(monkeypatch):
         "_market_movers_by_window": _market_movers_by_window(heating_30d=[card], cooling_30d=[]),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
     served = payload["marketMovers"]["heatingUp"][0]
@@ -3414,7 +3464,7 @@ def test_market_movers_snapshot_preserves_scores_labels_and_deltas(monkeypatch):
 
 def test_market_movers_snapshot_safe_empty_when_snapshot_missing(monkeypatch):
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3436,7 +3486,7 @@ def test_market_movers_snapshot_safe_empty_when_window_absent_from_stored_payloa
         "_market_movers_by_window": {},
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3457,7 +3507,7 @@ def test_market_movers_snapshot_never_calls_live_aggregation(monkeypatch):
         "_market_movers_by_window": _market_movers_by_window(),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     def _fail_if_called(*_args, **_kwargs):
         raise AssertionError("build_pokemon_set_card_movement_payload must not be called")
@@ -3470,7 +3520,7 @@ def test_market_movers_snapshot_never_calls_live_aggregation(monkeypatch):
     pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
     empty_client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", empty_client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", empty_client)
     pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
 
@@ -3483,7 +3533,7 @@ def test_market_movers_snapshot_normalizes_window_case(monkeypatch):
         "_market_movers_by_window": _market_movers_by_window(),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     upper = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
     lower = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30d")
@@ -3502,7 +3552,7 @@ def test_market_movers_snapshot_falls_back_to_30d_row_when_365d_missing(monkeypa
         "_market_movers_by_window": _market_movers_by_window(),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"30d": row_30d})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3527,7 +3577,7 @@ def test_market_movers_snapshot_response_shape_matches_frontend_normalizer_contr
         "_market_movers_by_window": _market_movers_by_window(),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D", limit=5)
 
@@ -3552,7 +3602,7 @@ def test_market_movers_snapshot_never_returns_full_dashboard_fields(monkeypatch)
         "_market_movers_by_window": _market_movers_by_window(),
     }
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row})})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3586,7 +3636,7 @@ def test_full_market_dashboard_still_preserves_all_field(monkeypatch):
         }
     )
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_dashboard_snapshot_payload(_TEST_UUID)
 
@@ -3613,7 +3663,7 @@ def test_market_movers_snapshot_query_selects_only_narrow_json_path(monkeypatch)
     client = _Client(
         {"pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}, calls=calls)}
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(_TEST_UUID, window="7D")
 
@@ -3651,7 +3701,7 @@ def test_market_movers_snapshot_resolves_prismatic_evolutions(monkeypatch):
             "pokemon_set_market_dashboard_snapshot_latest": _make_movers_handler({"365d": row}),
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
     monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload("prismatic-evolutions")
@@ -3669,7 +3719,7 @@ def test_market_movers_snapshot_resolves_prismatic_evolutions(monkeypatch):
 
 def test_overview_payload_has_no_duplicate_snake_case_aliases(monkeypatch):
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [_overview_dashboard_row()]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
 
@@ -3688,7 +3738,7 @@ def test_overview_payload_has_no_duplicate_snake_case_aliases(monkeypatch):
 
 def test_top_chase_payload_has_no_duplicate_snake_case_aliases(monkeypatch):
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [_top_chase_dashboard_row()]})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID)
 
@@ -3735,7 +3785,7 @@ def test_top_chase_payload_falls_back_to_365d_row_when_30d_missing(monkeypatch):
         return [row_365d] if _window_key_from_query(query) == "365d" else []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3779,7 +3829,7 @@ def test_top_chase_payload_prefers_fresh_30d_row_over_365d(monkeypatch):
         return []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3814,7 +3864,7 @@ def test_top_chase_payload_falls_back_to_365d_row_when_30d_row_is_stale(monkeypa
         return []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3894,7 +3944,7 @@ def test_top_chase_ascended_heroes_stale_carried_forward_never_overrides_fresh(m
         return []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3935,7 +3985,7 @@ def test_top_chase_payload_fallback_preserves_card_order_and_histories(monkeypat
         return [row_365d] if _window_key_from_query(query) == "365d" else []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -3953,7 +4003,7 @@ def test_top_chase_payload_raises_snapshot_missing_when_neither_window_row_exist
     row we actually read may establish emptiness.
     """
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     with pytest.raises(PokemonSetMarketError) as excinfo:
         pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
@@ -3982,7 +4032,7 @@ def test_top_chase_payload_fallback_uses_stored_histories_without_live_observati
             "card_variant_price_observations": reject_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4019,7 +4069,7 @@ def test_top_chase_payload_strips_redundant_embedded_card_price_history(monkeypa
         return [row_365d] if _window_key_from_query(query) == "365d" else []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4075,7 +4125,7 @@ def test_top_chase_payload_serialized_size_stays_under_250kb_with_embedded_card_
         return [row_365d] if _window_key_from_query(query) == "365d" else []
 
     client = _Client({"pokemon_set_market_dashboard_snapshot_latest": read_dashboard})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D", limit=10)
 
@@ -4113,7 +4163,7 @@ def test_top_chase_payload_hydrates_histories_from_observations_when_stored_hist
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4140,7 +4190,7 @@ def test_top_chase_payload_observation_hydration_is_scoped_to_variant_ids(monkey
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4166,7 +4216,7 @@ def test_top_chase_payload_observation_hydration_preserves_price_history_orderin
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4194,7 +4244,7 @@ def test_top_chase_payload_observation_hydration_meta_marks_source_clearly(monke
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4226,7 +4276,7 @@ def test_top_chase_payload_raises_when_stored_histories_and_observations_both_em
             "card_variant_price_observations": read_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     with pytest.raises(PokemonSetMarketError) as excinfo:
         pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
@@ -4253,7 +4303,7 @@ def test_top_chase_payload_does_not_query_observations_when_stored_histories_alr
             "card_variant_price_observations": reject_observations,
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_top_chase_snapshot_payload(_TEST_UUID, window="30D")
 
@@ -4375,7 +4425,7 @@ def test_card_validation_payload_excludes_full_cards_array(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload(_TEST_UUID)
 
@@ -4421,7 +4471,7 @@ def test_card_validation_payload_returns_cards_and_correlation(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload(_TEST_UUID)
 
@@ -4449,7 +4499,7 @@ def test_card_validation_payload_is_camel_case_only(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload(_TEST_UUID)
 
@@ -4481,7 +4531,7 @@ def test_card_validation_payload_resolves_hyphenated_slug(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload("prismatic-evolutions")
 
@@ -4492,7 +4542,7 @@ def test_card_validation_payload_resolves_hyphenated_slug(monkeypatch):
 
 def test_card_validation_payload_missing_snapshot_returns_empty_fallback(monkeypatch):
     client = _Client({"pokemon_set_cards_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload(_TEST_UUID)
 
@@ -4520,7 +4570,7 @@ def test_card_validation_payload_serialized_size_is_under_250kb(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_card_validation_snapshot_payload(_TEST_UUID)
 
@@ -4590,7 +4640,7 @@ def test_pull_rates_payload_excludes_cards_and_market_dashboard_and_full_payload
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4617,7 +4667,7 @@ def test_pull_rates_payload_returns_pull_rate_assumptions(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4645,7 +4695,7 @@ def test_pull_rates_payload_is_camel_case_only(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4676,7 +4726,7 @@ def test_pull_rates_payload_resolves_hyphenated_slug(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload("prismatic-evolutions")
 
@@ -4687,7 +4737,7 @@ def test_pull_rates_payload_resolves_hyphenated_slug(monkeypatch):
 
 def test_pull_rates_payload_missing_snapshot_returns_empty_fallback(monkeypatch):
     client = _Client({"pokemon_set_page_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4715,7 +4765,7 @@ def test_pull_rates_payload_serialized_size_is_under_150kb(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4748,7 +4798,7 @@ def test_pull_rates_payload_reads_split_column_when_present(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4773,7 +4823,7 @@ def test_pull_rates_payload_falls_back_to_camel_case_payload_json_when_split_col
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4797,7 +4847,7 @@ def test_pull_rates_payload_falls_back_to_snake_case_payload_json_when_camel_cas
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4822,7 +4872,7 @@ def test_pull_rates_payload_split_column_wins_over_payload_json_when_both_exist(
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4846,7 +4896,7 @@ def test_pull_rates_payload_row_with_no_pull_rate_data_returns_empty_with_warnin
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -4870,7 +4920,7 @@ def test_pull_rates_payload_values_are_not_recalculated(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_pull_rates_snapshot_payload(_TEST_UUID)
 
@@ -5000,7 +5050,7 @@ def test_insights_payload_excludes_cards_and_market_and_pull_rates_and_full_payl
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
 
@@ -5025,7 +5075,7 @@ def test_insights_payload_returns_rip_breakdown_inputs(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
 
@@ -5064,7 +5114,7 @@ def test_insights_payload_is_camel_case_only(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
 
@@ -5091,7 +5141,7 @@ def test_insights_payload_resolves_hyphenated_slug(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload("prismatic-evolutions")
 
@@ -5102,7 +5152,7 @@ def test_insights_payload_resolves_hyphenated_slug(monkeypatch):
 
 def test_insights_payload_missing_snapshot_returns_empty_fallback_with_warning(monkeypatch):
     client = _Client({"pokemon_set_page_snapshot_latest": lambda _q: []})
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
 
@@ -5125,7 +5175,7 @@ def test_insights_payload_serialized_size_is_under_400kb(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
 
@@ -5147,7 +5197,7 @@ def test_insights_payload_selectors_can_derive_rip_breakdown_drivers_and_trend_i
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_snapshot_payload(_TEST_UUID)
     summary = payload["summary"]
@@ -5323,7 +5373,7 @@ def test_insights_critical_payload_serves_the_canonical_contract(monkeypatch):
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
 
@@ -5380,7 +5430,7 @@ def test_insights_critical_payload_warns_when_snapshot_predates_the_contract(mon
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
 
@@ -5409,7 +5459,7 @@ def test_insights_critical_payload_resolves_v10_v4_as_canonical_and_keeps_v9_his
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
 
@@ -5438,7 +5488,7 @@ def test_insights_critical_payload_does_not_fall_back_to_v9_when_v10_is_missing(
             ],
         }
     )
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
 
     payload = pokemon_public_snapshot_service.get_pokemon_set_insights_critical_snapshot_payload(_TEST_UUID)
 
@@ -5484,7 +5534,7 @@ def _checklist_client(rows):
 
 
 def _load_checklist_values(monkeypatch, rows, set_ids):
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _checklist_client(rows))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
     return pokemon_public_snapshot_service._load_latest_checklist_set_values(set_ids)
 
 
@@ -5737,7 +5787,7 @@ def test_checklist_enrichment_publishes_every_alias_from_the_selected_candidate(
             updated_at="2026-07-28T20:00:54+00:00",
         ),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _checklist_client(rows))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
 
     payload = pokemon_public_snapshot_service._enrich_rankings_payload_with_checklist_set_values(
         {"targets": [{"set_id": _SET_A, "name": "Ascended Heroes", "market": {"existing": "kept"}}], "meta": {}}
@@ -5770,7 +5820,7 @@ def test_checklist_enrichment_does_not_overwrite_published_canonical_history(mon
         latest_market_date="2026-07-28",
         updated_at="2026-07-28T20:00:54+00:00",
     )]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _checklist_client(rows))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
     payload = pokemon_public_snapshot_service._enrich_rankings_payload_with_checklist_set_values({
         "targets": [{
             "set_id": _SET_A,
@@ -5806,7 +5856,7 @@ def test_shell_checklist_history_also_follows_freshness(monkeypatch):
             updated_at="2026-07-28T20:00:54+00:00",
         ),
     ]
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", _checklist_client(rows))
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", _checklist_client(rows))
 
     history = pokemon_public_snapshot_service._load_shell_checklist_set_value_history(_SET_A)
 
@@ -5878,8 +5928,8 @@ def _rankings_reader_with_compatibility_probe(monkeypatch, snapshot_meta):
         "pokemon_explore_rankings_snapshot_latest": lambda _query: rows,
         "pokemon_set_market_dashboard_snapshot_latest": lambda _query: [],
     })
-    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
-    monkeypatch.setattr(pokemon_public_snapshot_service, "create_short_timeout_service_client", lambda: client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "create_public_read_client", lambda: client)
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
         "get_rip_statistics_targets_payload",

@@ -23,7 +23,11 @@ import {
   resolveTopCardWindowState,
 } from "../../../explore/topChaseWindowState.mjs";
 import { selectMoversTickerItems } from "../../../explore/moversTickerSelector.mjs";
-import { compactSealedProductLabel } from "../Overview/sealedMarketTrendSelector.mjs";
+import {
+  compactSealedProductLabel,
+  selectSealedWindow,
+  sortSealedProductsByCurrentPrice,
+} from "../Overview/sealedMarketTrendSelector.mjs";
 
 export const MOBILE_MOVERS_MAX_ITEMS = 8;
 export const MOBILE_TOP_CHASE_PREVIEW_LIMIT = 3;
@@ -234,6 +238,34 @@ export function buildTopChaseModel(
     };
   });
 
+  return { featured: rows[0] || null, ranked: rows.slice(1), rows, total: rows.length };
+}
+
+/** Canonical sealed ranking: the ten highest current product snapshot prices. */
+export function buildTopSealedModel(products, { selectedWindowKey = "7D", maxRows = MOBILE_TOP_CHASE_MAX_ROWS } = {}) {
+  const rows = sortSealedProductsByCurrentPrice(products).slice(0, maxRows).map((product, index) => {
+    const window = selectSealedWindow(product, selectedWindowKey);
+    const amount = toFiniteNumber(window?.movement?.amount ?? window?.movement?.amountChange);
+    const percent = toFiniteNumber(window?.movement?.percent ?? window?.movement?.percentChange);
+    const price = toFiniteNumber(product?.currentPrice);
+    const name = String(product?.name || compactSealedProductLabel(product) || "Sealed product");
+    return {
+      key: String(product?.sealedProductId || product?.id || name || index),
+      rank: index + 1,
+      name,
+      rarity: compactSealedProductLabel(product),
+      imageUrl: product?.imageUrl || product?.image_url || null,
+      initials: getCardInitials(name),
+      price,
+      priceText: formatMoney(price),
+      amount,
+      amountText: amount === null ? null : `${amount >= 0 ? "+" : "−"}${currency.format(Math.abs(amount))}`,
+      percent,
+      percentText: formatSignedPercent(percent),
+      direction: directionOf(amount, percent),
+      hasMovement: amount !== null || percent !== null,
+    };
+  });
   return { featured: rows[0] || null, ranked: rows.slice(1), rows, total: rows.length };
 }
 
