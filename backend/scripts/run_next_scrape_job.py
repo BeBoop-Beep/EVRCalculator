@@ -36,6 +36,7 @@ from backend.scripts.run_pokemon_set_scrape import (
     _apply_safe_runtime_defaults,
     _load_backend_env,
     _market_date_iso,
+    extract_reconciliation_metrics,
     run_scraper,
 )
 
@@ -100,22 +101,7 @@ def _request_metrics(report: dict) -> dict:
         "elapsed_seconds",
     )
     metrics = {key: report.get(key) for key in keys if report.get(key) is not None}
-    results = report.get("results") or []
-    if results and isinstance(results[0].get("metadata"), dict):
-        allowed = ("rawRows", "commercialProducts", "sourceVariantGroups",
-                   "acceptedVariantGroups", "rejectedAmbiguousVariantGroups",
-                   "rejectedMissingNmVariantGroups", "droppedNoMarketPrice",
-                   "payloadCards", "priceRowsAttempted", "priceRowsInserted",
-                   "priceRowsUpdated", "priceRowsSkippedDuplicates",
-                   "positiveNmObservationCount", "sourceCoverageRatio")
-        allowed = (*allowed, "identityPrefetchMs", "variantPrefetchMs",
-                   "variantResolutionMs", "identityPersistenceMs", "pricePersistenceMs",
-                   "postconditionMs", "identityReadOperations", "variantReadOperations",
-                   "identityWriteOperations", "variantWriteOperations", "priceReadOperations",
-                   "priceWriteOperations", "transportRetryCount", "payloadVariantCount",
-                   "totalDbOperations")
-        metrics.update({key: results[0]["metadata"].get(key) for key in allowed
-                        if results[0]["metadata"].get(key) is not None})
+    metrics.update(extract_reconciliation_metrics(report))
     return metrics
 
 

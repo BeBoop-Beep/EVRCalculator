@@ -100,19 +100,17 @@ test("ONE timeframe state drives the overview period column and the chart", () =
 });
 
 test("Market Overview is five columns and keeps BOTH published dimensions", () => {
-  // Tracked Market Value: the dollar total and its SINCE-TRACKING movement,
-  // read from basketChanges and pinned to "All" whatever the chart shows.
+  // Tracked Market Value plus canonical index return since the current segment.
   assert.match(overview, /MARKET_OVERVIEW_GROUPS\.trackedValue/);
   assert.match(overview, /const SINCE_TRACKING = "All"/);
-  assert.match(overview, /getTrackedValueChange\(family, SINCE_TRACKING\)/);
+  assert.match(overview, /getPricePerformanceChange\(family, SINCE_TRACKING\)/);
   assert.match(overview, /data-market-overview-metric="trackedValue"/);
   // Price Performance: the index plus ONE dynamic period column, read from
   // changes at the shared selection.
   assert.match(overview, /MARKET_OVERVIEW_GROUPS\.pricePerformance/);
   assert.match(overview, /data-market-overview-metric="index"/);
   assert.match(overview, /data-market-overview-period-heading=\{selectedWindow\}/);
-  // The two dimensions are never fed from one source, and the old
-  // all-windows-at-once table is gone.
+  // The old all-windows-at-once table is gone.
   assert.doesNotMatch(overview, /MARKET_OVERVIEW_SUMMARY_WINDOWS/);
   // No row sparklines — the chart beside it already is the temporal view.
   assert.doesNotMatch(overview, /Sparkline/);
@@ -156,7 +154,9 @@ test("the set list scales to a large catalogue: bounded scroll, no per-row chart
 });
 
 test("selecting a set updates the pane in place and lazily loads only its full detail history", () => {
-  assert.match(setMarket, /onClick=\{\(\) => selectSet\(row\.setId, \{ openDetail: true \}\)\}/);
+  assert.match(setMarket, /onClick=\{\(event\) => activateSetRow\(event, row, isActive\)\}/);
+  assert.match(setMarket, /resolveSetMarketRowAction/);
+  assert.doesNotMatch(setMarket, /setTimeout|doubleClickTimer/i);
   assert.match(setMarket, /setSelectedSetId/);
   // Rankings and movements stay on the compact publication; only the one
   // selected detail history uses the existing value-history client.
@@ -231,6 +231,8 @@ test("Set Market controls use the shared dark form language, never a bright fiel
   assert.match(css, /\.setMarketControl \{[\s\S]*?background-color: var\(--surface-page\);/);
   assert.match(setMarket, /ariaLabel="Filter by era"/);
   assert.match(setMarket, /ariaLabel="Sort sets"/);
+  assert.match(css, /\.setMarketControl:focus-visible \{[\s\S]*?border-color: rgb\(45, 212, 191\);[\s\S]*?box-shadow: 0 0 0 2px rgba\(var\(--ex-teal\), 0\.35\);/);
+  assert.doesNotMatch(css, /\.setMarketControl:focus-visible \{[\s\S]*?border-color: var\(--accent\);/);
 });
 
 test("multi-set comparison is NOT implemented", () => {
@@ -271,7 +273,7 @@ test("metadata describes the page without claiming forecasts or capitalization",
   // the vocabularies the page refuses to use.
   const metadata = page.slice(page.indexOf("buildRouteMetadata({"), page.indexOf("export default"));
   assert.match(metadata, /Pokémon Market Index, Trends & Set Values — inDex/);
-  assert.match(metadata, /Track Pokémon card-market performance, Raw Card and Top Chase indexes, market movers, and current set values\./);
+  assert.match(metadata, /Track Pokémon Raw Card, Top Chase, and Sealed market performance, market movers, and current set values\./);
   assert.doesNotMatch(metadata, /market cap/i);
   assert.doesNotMatch(metadata, /forecast|prediction|investment advice|live trading/i);
 });

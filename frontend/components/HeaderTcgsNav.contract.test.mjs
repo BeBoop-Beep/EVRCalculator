@@ -91,6 +91,16 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   );
 });
 
+test("desktop Search uses the approved interaction teal for its focus border and ring", () => {
+  const desktopSearch = headerSource.slice(
+    headerSource.indexOf('<div className="flex-1 max-w-lg mx-4">'),
+    headerSource.indexOf('</div>', headerSource.indexOf('<div className="flex-1 max-w-lg mx-4">'))
+  );
+  assert.match(desktopSearch, /focus:border-\[rgb\(45,212,191\)\]/);
+  assert.match(desktopSearch, /focus:ring-\[rgba\(45,212,191,0\.35\)\]/);
+  assert.doesNotMatch(desktopSearch, /focus:ring-\[var\(--accent\)\]/);
+});
+
 test("Tools is gone from every header surface", () => {
   assert.ok(!headerSource.includes('href="/tools"'), "no header link may point at /tools");
   assert.ok(!headerSource.includes("isToolsRouteActive"), "the Tools active-route helper must be removed");

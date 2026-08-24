@@ -191,7 +191,10 @@ def read_index_history(
     return [row for row in rows if str(row.get("market_date"))[:10] in accepted]
 
 
-def build_market_overview(history: Sequence[Mapping[str, Any]], *, market_date: str) -> dict[str, Any]:
+def build_market_overview(
+    history: Sequence[Mapping[str, Any]], *, market_date: str,
+    sealed_market: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     by_key = {key: sorted([dict(row) for row in history if row.get("index_key") == key and str(row.get("market_date"))[:10] <= market_date], key=lambda row: str(row["market_date"])) for key in INDEX_KEYS}
     if any(not rows or str(rows[-1]["market_date"])[:10] != market_date for rows in by_key.values()):
         raise PokemonMarketIndexUnavailable("both index families must reach the promoted market date")
@@ -221,7 +224,7 @@ def build_market_overview(history: Sequence[Mapping[str, Any]], *, market_date: 
                 "indexValue": value,
                 "historyStartDate": points[0]["date"], "changes": compute_strict_window_movements(points),
                 "trend": [[row["date"], row["value"]] for row in points]}
-    return {"contractVersion": "pokemon-market-overview-v1", "marketDate": market_date,
+    result = {"contractVersion": "pokemon-market-overview-v1", "marketDate": market_date,
         "coverage": {"eligibleSetCount": int(raw["set_count"]), "rawCardCount": int(raw["card_count"]),
             "chaseCardCount": int(chase["card_count"]), "cohortFingerprint": raw["cohort_fingerprint"]},
         "raw": family(by_key[RAW_INDEX_KEY]), "topChase": family(by_key[CHASE_INDEX_KEY]),
@@ -232,3 +235,15 @@ def build_market_overview(history: Sequence[Mapping[str, Any]], *, market_date: 
             "pricePerformanceDefinition": "chain-linked common-cohort price performance; cohort entry/exit is neutralized at the transition",
             "notMarketCapitalization": True},
         "sourceGenerationFingerprint": deterministic_fingerprint([raw["source_generation_fingerprint"], chase["source_generation_fingerprint"]])}
+    if sealed_market is not None:
+        # Additive extension: Raw/Top10 are built byte-for-byte by the existing
+        # path. Sealed is already prepared from underlying global SKUs.
+        result["sealedMarket"] = dict(sealed_market)
+        result["coverage"]["sealedProductCount"] = int(
+            (sealed_market.get("metadata") or {}).get("eligibleProductCount") or 0
+        )
+        result["sourceGenerationFingerprint"] = deterministic_fingerprint([
+            result["sourceGenerationFingerprint"],
+            sealed_market.get("sourceGenerationFingerprint"),
+        ])
+    return result

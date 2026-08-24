@@ -124,7 +124,12 @@ function buildRankedRows(targets) {
     }));
 }
 
-export default function SetMarketExplorer({ targets = [], loadError = false }) {
+export function resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount }) {
+  return isMasterDetail && (isActive || clickCount >= 2) ? "navigate" : "select";
+}
+
+export default function SetMarketExplorer({ targets = [], loadError = false, navigate = null }) {
+  const navigationStartedRef = useRef(false);
   const [query, setQuery] = useState("");
   const [era, setEra] = useState(ALL_ERAS);
   const [sortKey, setSortKey] = useState("value");
@@ -204,6 +209,25 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
     // clicked, so changing sets must leave it exactly where the user put it.
     if (!isMasterDetail) setDetailWindowKey(DEFAULT_WINDOW);
     if (openDetail) setMobileView("detail");
+  };
+
+  const hrefForSet = (row) => buildTcgSetHrefFromTarget(
+    { target_type: "set", target_id: row.target?.canonicalKey || row.setId, name: row.name },
+    { tab: "market", section: "set-value" }
+  );
+  const navigateToSet = (row) => {
+    const href = hrefForSet(row);
+    if (!href || navigationStartedRef.current) return;
+    navigationStartedRef.current = true;
+    if (navigate) navigate(href);
+    else if (typeof window !== "undefined") window.location.assign(href);
+  };
+  const activateSetRow = (event, row, isActive) => {
+    if (resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount: event?.detail ?? 0 }) === "navigate") {
+      navigateToSet(row);
+      return;
+    }
+    selectSet(row.setId, { openDetail: true });
   };
 
   const detailMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
@@ -291,7 +315,8 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
                       type="button"
                       data-set-market-row={row.setId}
                       aria-current={isActive ? "true" : undefined}
-                      onClick={() => selectSet(row.setId, { openDetail: true })}
+                      onClick={(event) => activateSetRow(event, row, isActive)}
+                      title={isMasterDetail && isActive ? `Open ${row.name}` : undefined}
                       className={`${styles.setListRow} ${isActive ? styles.setListRowActive : ""}`}
                     >
                       <span className="text-[12px] font-semibold tabular-nums text-[var(--text-secondary)]">{`#${row.position}`}</span>

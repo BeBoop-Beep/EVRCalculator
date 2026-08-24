@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
 
-import SetMarketExplorer from "./SetMarketExplorer.jsx";
+import SetMarketExplorer, { resolveSetMarketRowAction } from "./SetMarketExplorer.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -137,6 +137,39 @@ test("the era filter offers only eras the snapshot actually publishes", () => {
   TestRenderer.act(() => { trigger.props.onClick(); });
   const eraOptions = renderer.root.findAll((node) => node.props?.role === "option").map((node) => textOf(node).replace(/\s*✓$/, ""));
   assert.deepEqual(eraOptions, ["All Eras", "Mega Evolution", "Scarlet & Violet"]);
+});
+
+test("desktop row drill-in selects first, then navigates the selected row exactly once", () => {
+  const destinations = [];
+  const renderer = render({ navigate: (href) => destinations.push(href) });
+  const blackBolt = () => rows(renderer).find((node) => node.props["data-set-market-row"] === "set-c");
+
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Black Bolt/);
+  assert.deepEqual(destinations, []);
+
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 1 }); });
+  assert.equal(destinations.length, 1);
+  assert.match(destinations[0], /black-bolt/);
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 2 }); });
+  assert.equal(destinations.length, 1, "a click sequence can start navigation only once");
+});
+
+test("desktop double click on an unselected row selects immediately and navigates on click two", () => {
+  const destinations = [];
+  const renderer = render({ navigate: (href) => destinations.push(href) });
+  const prismatic = () => rows(renderer).find((node) => node.props["data-set-market-row"] === "set-b");
+  TestRenderer.act(() => { prismatic().props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Prismatic Evolutions/);
+  TestRenderer.act(() => { prismatic().props.onClick({ detail: 2 }); });
+  assert.equal(destinations.length, 1);
+  assert.match(destinations[0], /prismatic-evolutions/);
+});
+
+test("mobile taps and repeated taps remain selection actions", () => {
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: false, clickCount: 1 }), "select");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 1 }), "select");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 2 }), "select");
 });
 
 test("the sort control reorders without inventing a metric", () => {

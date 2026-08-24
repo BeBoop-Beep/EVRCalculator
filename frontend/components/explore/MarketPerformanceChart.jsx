@@ -81,6 +81,13 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
   }, [activeIndex]);
 
   const allValues = series.flatMap((entry) => (entry.values || []).filter((value) => value !== null).map((value) => ({ value })));
+  if (series.length === 0) {
+    return (
+      <div data-market-performance-visibility-empty className={["flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 text-xs text-[var(--text-secondary)]", plotClassName, className].filter(Boolean).join(" ")}>
+        Select a market to display.
+      </div>
+    );
+  }
   if (dates.length < 2 || allValues.length < 2) {
     return (
       <div data-market-performance-empty className={["flex items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 text-xs text-[var(--text-secondary)]", plotClassName, className].filter(Boolean).join(" ")}>
@@ -121,6 +128,8 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
       <div
         ref={containerRef}
         data-market-performance-chart
+        data-market-performance-domain-min={domainMin}
+        data-market-performance-domain-max={domainMax}
         data-pointer-mode={pointerMode}
         role="img"
         tabIndex={0}
@@ -165,7 +174,7 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
             <line key={fraction} x1="2" x2={VIEW_WIDTH - 2} y1={PLOT_TOP + fraction * (PLOT_BOTTOM - PLOT_TOP)} y2={PLOT_TOP + fraction * (PLOT_BOTTOM - PLOT_TOP)} stroke="rgba(255,255,255,0.055)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           ))}
           {drawn.map((entry) => (entry.coordinates.length
-            ? <path key={`${entry.key}-area`} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
+            ? <path key={`${entry.key}-area`} data-market-performance-area={entry.key} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
             : null))}
           {drawn.map((entry) => (
             <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} points={entry.polyline} fill="none" stroke={entry.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -180,6 +189,7 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
           return (
             <span
               key={`${entry.key}-marker`}
+              data-market-performance-marker={entry.key}
               aria-hidden="true"
               className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-current bg-[rgba(2,6,23,0.9)]"
               style={{ left: `${xAt(activeIndex)}%`, top: `${(yAt(value) / VIEW_HEIGHT) * 100}%`, color: entry.color }}

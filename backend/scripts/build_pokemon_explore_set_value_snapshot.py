@@ -20,6 +20,10 @@ from backend.db.services.market_publication_gate import (
 )
 from backend.db.services.publication_gate import add_publication_gate_args, enforce_cli_publication_gate
 from backend.db.services.pokemon_market_index_service import build_market_overview, read_index_history
+from backend.db.services.pokemon_global_sealed_market_service import (
+    build_global_sealed_market,
+    read_global_sealed_source_snapshots,
+)
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -89,7 +93,10 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         history = market_index_history
         if history is None:
             history = read_index_history(client, through_date=market_date)
-        overview = build_market_overview(history, market_date=market_date)
+        sealed_rows = read_global_sealed_source_snapshots(client, set_ids)
+        sealed_payloads = [dict(row.get("payload_json") or {}) for row in sealed_rows]
+        sealed_market = build_global_sealed_market(sealed_payloads, market_date=market_date)
+        overview = build_market_overview(history, market_date=market_date, sealed_market=sealed_market)
     row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)

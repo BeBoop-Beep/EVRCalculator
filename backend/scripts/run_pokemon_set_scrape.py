@@ -98,6 +98,34 @@ DIAG_SOURCE_SYSTEM = "tcgplayer"
 DIAG_JOB_TYPE = "price_scrape"
 DIAG_ENTITY_TYPE = "set"
 
+RECONCILIATION_METRIC_KEYS = (
+    "rawRows", "commercialProducts", "sourceVariantGroups",
+    "acceptedVariantGroups", "rejectedAmbiguousVariantGroups",
+    "rejectedMissingNmVariantGroups", "droppedNoMarketPrice",
+    "payloadCards", "priceRowsAttempted", "priceRowsInserted",
+    "priceRowsUpdated", "priceRowsSkippedDuplicates",
+    "positiveNmObservationCount", "sourceCoverageRatio",
+    "identityPrefetchMs", "variantPrefetchMs", "variantResolutionMs",
+    "identityPersistenceMs", "pricePersistenceMs", "postconditionMs",
+    "identityReadOperations", "variantReadOperations",
+    "identityWriteOperations", "variantWriteOperations",
+    "priceReadOperations", "priceWriteOperations", "transportRetryCount",
+    "payloadVariantCount", "totalDbOperations",
+)
+
+
+def extract_reconciliation_metrics(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract the queue/manual shared per-set reconciliation contract."""
+    results = report.get("results") or []
+    if len(results) != 1 or not isinstance(results[0].get("metadata"), dict):
+        return {}
+    metadata = results[0]["metadata"]
+    return {
+        key: metadata.get(key)
+        for key in RECONCILIATION_METRIC_KEYS
+        if metadata.get(key) is not None
+    }
+
 
 def get_config_attr(config: Any, attr: str, default: Any = None) -> Any:
     if isinstance(config, dict):
@@ -1061,8 +1089,27 @@ def run_scraper(
     # ------------------------------------------------------------------
     market_date_iso = _market_date_iso()
     diag_run_id: Optional[str] = None
+    manual_set_id: Optional[str] = None
+    is_exact_manual_target = bool(set_resolution or catalog_target)
+    if (queue_job_id is None and enable_db_ingestion and total == 1
+            and is_exact_manual_target and targets[0].get("id")):
+        # Use the already-resolved DB target UUID, never the operator's key.
+        # Aggregate and no-ingest runs intentionally have no manual identity.
+        manual_set_id = str(targets[0]["id"])
     if not dry_run:
         trigger_source = os.getenv("SCRAPE_TRIGGER_SOURCE", "manual")
+        diagnostic_metadata = {
+            "era_filter": era_filter,
+            "set_filter": set_key_filter,
+            "limit": limit,
+            "shuffle_within_date": shuffle_within_date,
+            "db_ingestion_enabled": enable_db_ingestion,
+            "items_selected": total,
+            "queue_job_id": queue_job_id,
+            "market_date": market_date_iso,
+        }
+        if manual_set_id:
+            diagnostic_metadata["set_id"] = manual_set_id
         run_row = create_scrape_job_run({
             "job_name": DIAG_JOB_NAME,
             "source_system": DIAG_SOURCE_SYSTEM,
@@ -1076,16 +1123,7 @@ def run_scraper(
             # Durable association to the queue job (replaces metadata-only linkage).
             "queue_job_id": queue_job_id,
             "market_date": market_date_iso,
-            "metadata": {
-                "era_filter": era_filter,
-                "set_filter": set_key_filter,
-                "limit": limit,
-                "shuffle_within_date": shuffle_within_date,
-                "db_ingestion_enabled": enable_db_ingestion,
-                "items_selected": total,
-                "queue_job_id": queue_job_id,
-                "market_date": market_date_iso,
-            },
+            "metadata": diagnostic_metadata,
         })
         if run_row:
             diag_run_id = run_row.get("id")
@@ -1391,6 +1429,10 @@ def run_scraper(
         # finalized together by finalize_scrape_job (single transaction) so they
         # cannot silently diverge. Skip the standalone terminal write here.
         if queue_job_id is None:
+            final_metadata = dict(diagnostic_metadata)
+            if (final_status == "success" and enable_db_ingestion
+                    and manual_set_id):
+                final_metadata.update(extract_reconciliation_metrics(report))
             diag_result = finalize_scrape_job_run(diag_run_id, {
                 "status": final_status,
                 "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -1412,6 +1454,7 @@ def run_scraper(
                 "kill_switch_enabled": kill_switch_enabled,
                 "report_path": str(report_path),
                 "error_summary": run_abort_reason if run_aborted_early else None,
+                "metadata": final_metadata,
             })
             if not diag_result.get("ok"):
                 logger.error(

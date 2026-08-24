@@ -31,10 +31,22 @@ function toneOf(direction) {
   return "var(--text-secondary)";
 }
 
-export default function PokemonMarketPerformance({ overview, options = [], selectedWindow, selectedLabel = "", onWindowChange }) {
+export function filterMarketPerformanceModel(model, visibleMarketKeys) {
+  if (!model) return model;
+  return {
+    ...model,
+    series: (model.series || []).filter((series) => visibleMarketKeys?.has(series.key) !== false),
+  };
+}
+
+export default function PokemonMarketPerformance({ overview, options = [], selectedWindow, selectedLabel = "", onWindowChange, visibleMarketKeys, onToggleMarket }) {
   const model = useMemo(
     () => (selectedWindow ? buildMarketPerformanceSeries(overview, selectedWindow) : null),
     [overview, selectedWindow]
+  );
+  const visibleModel = useMemo(
+    () => filterMarketPerformanceModel(model, visibleMarketKeys),
+    [model, visibleMarketKeys]
   );
 
   if (!overview || !overview.families?.length) {
@@ -54,14 +66,23 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
             {overview.families.map((family) => {
               const change = getPricePerformanceChange(family, selectedWindow);
               const direction = changeDirection(change);
+              const isVisible = visibleMarketKeys?.has(family.key) !== false;
               return (
-                <li key={family.key} data-market-performance-legend-item={family.key} className="inline-flex items-center gap-2 text-xs">
-                  <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: family.color }} />
-                  <span className="text-[var(--text-primary)]">{family.label}</span>
-                  <span className="font-semibold tabular-nums" style={{ color: toneOf(direction) }}>
-                    <span aria-hidden="true">{formatChangePercent(change)}</span>
-                    <span className="sr-only">{describeChange(family.label, selectedLabel, change, { dimension: MARKET_DIMENSION_LABELS.pricePerformance })}</span>
-                  </span>
+                <li key={family.key} data-market-performance-legend-item={family.key}>
+                  <button
+                    type="button"
+                    data-market-performance-toggle={family.key}
+                    aria-pressed={isVisible}
+                    onClick={() => onToggleMarket?.(family.key)}
+                    className={`inline-flex items-center gap-2 rounded text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${isVisible ? "opacity-100" : "opacity-45"}`}
+                  >
+                    <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: family.color }} />
+                    <span className="text-[var(--text-primary)]">{family.label}</span>
+                    <span className="font-semibold tabular-nums" style={{ color: toneOf(direction) }}>
+                      <span aria-hidden="true">{formatChangePercent(change)}</span>
+                      <span className="sr-only">{describeChange(family.label, selectedLabel, change, { dimension: MARKET_DIMENSION_LABELS.pricePerformance })}</span>
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -75,8 +96,8 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
         </div>
       </div>
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4">
-        {model?.available
-          ? <MarketPerformanceChart model={model} plotClassName="h-48 desk:h-[13.5rem]" />
+        {visibleModel?.available
+          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-48 desk:h-[13.5rem]" />
           : (
             <p role="status" data-market-performance-unavailable className="py-10 text-center text-sm text-[var(--text-secondary)]">
               {selectedLabel ? describeUnavailableWindow(selectedLabel) : "Market performance history is unavailable."}

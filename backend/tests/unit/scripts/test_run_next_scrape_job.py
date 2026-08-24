@@ -90,6 +90,25 @@ def test_success_finalizes_completed_with_diag_and_metrics(monkeypatch):
     assert kwargs["succeeded"] == 1 and kwargs["failed"] == 0
 
 
+def test_queue_success_metric_finalization_contract_is_unchanged(monkeypatch):
+    report = {
+        "results": [{"metadata": {
+            "sourceCoverageRatio": 1.0,
+            "acceptedVariantGroups": 9,
+            "positiveNmObservationCount": 9,
+            "notAQueueMetric": 123,
+        }}],
+        "http_requests_total": 4,
+    }
+
+    assert dispatcher._request_metrics(report) == {
+        "http_requests_total": 4,
+        "sourceCoverageRatio": 1.0,
+        "acceptedVariantGroups": 9,
+        "positiveNmObservationCount": 9,
+    }
+
+
 def test_scraper_failure_finalizes_failed(monkeypatch):
     monkeypatch.setattr(dispatcher, "claim_next_scrape_job",
                         lambda **k: {"id": 202, "set_id": "set-b", "market_date": "2026-07-18"})
