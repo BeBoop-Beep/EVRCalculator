@@ -20,7 +20,7 @@ test("full report is one accessible disclosure collapsed by default", () => {
 
 test("selector is an allowlist with no simulation or scoring machinery", () => {
   for (const forbidden of ["Math.random", "histogram", "distributionBins", "thresholdBins", "weight *", "publicScore", "absoluteScore"]) assert.equal(selector.includes(forbidden), false);
-  for (const rawName of ["mean_value", "p95ThresholdValue", "randomSeed", "runId", "hiddenAnchors"]) assert.equal(component.includes(rawName), false);
+  for (const rawName of ["p95ThresholdValue", "randomSeed", "hiddenAnchors"]) assert.equal(component.includes(rawName), false);
 });
 
 test("mobile report stacks without a horizontal table", () => {

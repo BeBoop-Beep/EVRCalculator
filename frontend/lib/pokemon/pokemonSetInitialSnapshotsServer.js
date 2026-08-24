@@ -7,6 +7,7 @@ import {
   normalizeOverviewPayload,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { normalizePokemonSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
 const SHELL_SNAPSHOT_REVALIDATE_S = 300;
@@ -123,6 +124,18 @@ export async function getPokemonSetShellInitialSnapshot(setId) {
   return loadInitialSnapshot(url, {
     moduleName: "shell",
     nextCacheOptions: { revalidate: SHELL_SNAPSHOT_REVALIDATE_S, tags: [`pokemon-set-shell:${resolvedSetId}`] },
+  });
+}
+
+export async function getPokemonSetSimulationEvidenceInitialSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/simulation-evidence`);
+  return loadInitialSnapshot(url, {
+    moduleName: "simulation evidence",
+    normalizePayload: normalizePokemonSetSimulationEvidence,
+    nextCacheOptions: { revalidate: 300, tags: [`pokemon-set-simulation-evidence:${resolvedSetId}`] },
+    timeoutMs: getOverviewTimeoutMs(),
   });
 }
 
@@ -265,12 +278,15 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   // seed follows the consumer. resolveSetDetailTab applies the same aliasing
   // and absent-tab default as the route/client. Note the backend endpoint is
   // still named /overview — that is a transport name, not a UI tab name.
-  const wantsMarketSeed = resolveSetDetailTab(tab) === "market";
-  const [shell, cards, marketDashboard, overview] = await Promise.all([
+  const resolvedTab = resolveSetDetailTab(tab);
+  const wantsMarketSeed = resolvedTab === "market";
+  const wantsSimulationEvidence = resolvedTab === "overview";
+  const [shell, cards, marketDashboard, overview, simulationEvidence] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsSimulationEvidence ? getPokemonSetSimulationEvidenceInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
   const totalMs = Date.now() - startedAt;
@@ -287,6 +303,7 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   if (overview.error) {
     errors.overview = overview.error;
   }
+  if (simulationEvidence.error) errors.simulationEvidence = simulationEvidence.error;
 
   console.info("[set-snapshots-server] snapshots_loaded", {
     setId,
@@ -301,6 +318,8 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     marketDashboardError: Boolean(marketDashboard.error),
     overviewError: Boolean(overview.error),
     overviewSeeded: Boolean(overview.payload),
+    simulationEvidenceMs: simulationEvidence.elapsedMs,
+    simulationEvidenceSeeded: Boolean(simulationEvidence.payload),
   });
 
   return {
@@ -308,12 +327,14 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     cardsPayload: cards.payload,
     marketDashboardPayload: marketDashboard.payload,
     overviewPayload: overview.payload,
+    simulationEvidencePayload: simulationEvidence.payload,
     errors,
     timings: {
       shellMs: shell.elapsedMs,
       cardsMs: cards.elapsedMs,
       marketDashboardMs: marketDashboard.elapsedMs,
       overviewMs: overview.elapsedMs,
+      simulationEvidenceMs: simulationEvidence.elapsedMs,
       totalMs,
     },
   };

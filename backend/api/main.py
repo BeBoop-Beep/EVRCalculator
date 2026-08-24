@@ -66,6 +66,7 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_insights_critical_snapshot_payload,
     get_pokemon_set_insights_secondary_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
+    get_pokemon_set_simulation_evidence_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_market_movers_snapshot_payload,
     get_pokemon_set_overview_snapshot_payload,
@@ -805,6 +806,17 @@ def get_pokemon_set_pull_rates(set_id: str):
             content={"message": "Unable to load Pokemon set pull rates", "code": "POKEMON_SET_PULL_RATES_FAILED"},
             status_code=500,
         )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/simulation-evidence")
+def get_pokemon_set_simulation_evidence(set_id: str):
+    try:
+        return get_pokemon_set_simulation_evidence_snapshot_payload(set_id=set_id)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/simulation-evidence unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load simulation evidence", "code": "POKEMON_SET_SIMULATION_EVIDENCE_FAILED"}, status_code=500)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights")
