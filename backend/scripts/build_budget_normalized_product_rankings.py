@@ -75,8 +75,8 @@ FINANCIAL_DOMINANCE_WARN_RATE = 0.01
 #: started to drive rank and the method needs re-validation.
 UTILIZATION_CORRELATION_WARN = 0.25
 
-#: Families the V1 validation actually covered. A new family appearing is not
-#: an error, but it has never been checked for ranking coverage.
+
+
 def build_stage1_distributions_cached(artifact, random_count: int, run_id: str):
     from backend.calculations.evr.sealed_product_distribution import build_stage1_product_distributions
     built = build_stage1_product_distributions(
