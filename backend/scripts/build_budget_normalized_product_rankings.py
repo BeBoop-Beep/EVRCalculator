@@ -56,6 +56,7 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     whole_unit_allocation,
 )
 from backend.db.services.budget_product_ranking_authority import (
+    VALIDATED_PRODUCT_FAMILIES,
     assert_expected_model_versions,
     load_pinned_cohort,
 )
@@ -74,13 +75,6 @@ FINANCIAL_DOMINANCE_WARN_RATE = 0.01
 #: started to drive rank and the method needs re-validation.
 UTILIZATION_CORRELATION_WARN = 0.25
 
-#: Families the V1 validation actually covered. A new family appearing is not
-#: an error, but it has never been checked for ranking coverage.
-VALIDATED_PRODUCT_FAMILIES = frozenset({
-    "booster_box", "booster_bundle", "elite_trainer_box", "enhanced_booster_box",
-    "half_booster_box", "loose_booster_pack", "pokemon_center_elite_trainer_box",
-    "sleeved_booster_pack",
-})
 
 
 def build_stage1_distributions_cached(artifact, random_count: int, run_id: str):
@@ -212,12 +206,15 @@ def rank_one_budget(
     }
 
 
-def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[str, Any]:
+def build_rankings_for_cohort(
+    client: Any,
+    products: Sequence[Dict[str, Any]],
+    authority: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build canonical V1 output for an already-validated coherent cohort."""
     timings: Dict[str, Any] = {}
     t0 = time.time()
-
-    products, authority = load_pinned_cohort(client, price_as_of)
-    timings["cohortLoadSeconds"] = round(time.time() - t0, 3)
+    timings["cohortLoadSeconds"] = 0.0
 
     drift = assert_expected_model_versions(authority)
 
@@ -279,6 +276,15 @@ def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[s
         "health": health,
         "builtAt": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def build_all_rankings(client: Any, price_as_of: Optional[str] = None) -> Dict[str, Any]:
+    """Operator-compatible resolver followed by the canonical cohort builder."""
+    started = time.time()
+    products, authority = load_pinned_cohort(client, price_as_of)
+    result = build_rankings_for_cohort(client, products, authority)
+    result["timings"]["cohortLoadSeconds"] = round(time.time() - started, 3)
+    return result
 
 
 def _health_checks(
@@ -392,6 +398,16 @@ def to_publication_payload(results: Dict[str, Any]) -> tuple:
     return snapshot, rows
 
 
+def publish_rankings(client: Any, results: Dict[str, Any]) -> str:
+    """Publish once through the canonical atomic RPC and return its UUID."""
+    snapshot, rows = to_publication_payload(results)
+    response = client.rpc(
+        "publish_budget_product_ranking_snapshot",
+        {"p_snapshot": snapshot, "p_rows": rows},
+    ).execute()
+    return str(response.data)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -455,11 +471,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     snapshot, rows = to_publication_payload(results)
     print("publishing %d rows under snapshot market_date=%s ..." % (len(rows), snapshot["market_date"]))
-    response = client.rpc(
-        "publish_budget_product_ranking_snapshot",
-        {"p_snapshot": snapshot, "p_rows": rows},
-    ).execute()
-    print("published snapshot id: %s" % response.data)
+    snapshot_id = publish_rankings(client, results)
+    print("published snapshot id: %s" % snapshot_id)
     return 0
 
 
