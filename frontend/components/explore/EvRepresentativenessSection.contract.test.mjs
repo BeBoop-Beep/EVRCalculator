@@ -25,5 +25,7 @@ test("shared comparison scale and milestone progression remain responsive", () =
   assert.ok(report.includes("36 packs"));
   assert.ok(report.includes("Not confirmed"));
   assert.ok(report.includes("Explore other pack counts"));
+  assert.ok(report.includes("80% of modeled openers average at least 80% of EV."));
+  assert.ok(report.includes("80% of modeled openers finish within ±20% of EV."));
   assert.ok(styles.includes(".evMilestones { grid-template-columns: 1fr; }"));
 });

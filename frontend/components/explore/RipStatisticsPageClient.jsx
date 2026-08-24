@@ -9632,7 +9632,7 @@ export default function RipStatisticsPageClient({
     <div className="space-y-1.5 text-left">
       <p className="font-semibold text-[var(--text-primary)]">Outcome Distribution</p>
       <ul className="space-y-1 pl-3 text-[var(--text-secondary)]">
-        <li className="flex gap-2"><span className="flex-none">â€¢</span><span>{getSimulationContextSubtitle(summary.simulation_count ?? summary.packs_simulated)}</span></li>
+        <li className="flex gap-2"><span className="flex-none">•</span><span>{getSimulationContextSubtitle(summary.simulation_count ?? summary.packs_simulated)}</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Bars show how often packs land in each value range.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>The line shows how often a pack reaches at least a given value.</span></li>
         <li className="flex gap-2"><span className="flex-none">•</span><span>Marker chips let you compare pack cost, typical and average outcomes, floor outcomes, and upper-end upside markers against the distribution.</span></li>

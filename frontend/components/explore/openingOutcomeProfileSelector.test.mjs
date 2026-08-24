@@ -19,4 +19,5 @@ test("macro outcome groups preserve the exact eight-bucket probability mass", ()
   const view = buildOutcomeProfileViewModel(selected);
   assert.deepEqual(view.groups.map((row) => row.probability), [.25, .25, .25, .25]);
   assert.equal(view.details.length, 8);
+  assert.deepEqual(view.groups.map((row) => row.label), ["Under half back", "Half to pack cost", "Pack cost to 2×", "2× or more"]);
 });
