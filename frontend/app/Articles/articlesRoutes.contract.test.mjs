@@ -23,16 +23,25 @@ test("the article documents the current canonical methodology without protected 
   assert.ok(!article.includes("90% Financial RIP"));
   assert.ok(!article.includes("10% Collector Appeal"));
 });
-test("the Articles hub lists exactly six real published article routes", () => {
+test("the Articles hub lists exactly seven real published article routes", () => {
   assert.ok(hub.includes('import { ARTICLES }'));
   const listed = [...articleData.matchAll(/\w+: "(\/Articles\/[^"]+)"/g)].map(match => match[1]);
-  assert.equal(listed.length, 6);
+  assert.equal(listed.length, 7);
   for (const href of listed) assert.ok(fs.existsSync(path.join(here, href.replace("/Articles/", ""), "page.js")), href);
+});
+test("the EV representativeness research article is fully registered", () => {
+  const research = read("how-representative-is-pokemon-pack-expected-value/page.js");
+  assert.ok(articleData.includes('evRepresentativeness: "/Articles/how-representative-is-pokemon-pack-expected-value"'));
+  assert.ok(articleData.includes("22 million modeled pack outcomes"));
+  assert.ok(research.includes("<ArticleJsonLd"));
+  assert.ok(research.includes("<H2>References</H2>"));
+  for (const doi of ["10.1080/01621459.1949.10483310", "10.1080/01621459.1927.10502953", "10.1214/aos/1176344552", "10.2307/1412159", "10.1111/j.2517-6161.1995.tb02031.x", "10.1007/978-0-387-21617-1"]) assert.ok(research.includes(doi), doi);
+  for (const key of ['"ev"', '"simulation"', '"validation"', '"financial"']) assert.ok(research.includes(key), key);
 });
 test("methodology links route to the most relevant published article", () => {
   assert.ok(rip.includes(`const METHODOLOGY_ARTICLE_HREF = "${ARTICLE_HREF}"`));
-  assert.ok(rip.includes('methodologyHref: "/Articles/how-financial-rip-works"'));
-  assert.ok(rip.includes('methodologyHref: "/Articles/how-collector-appeal-works"'));
+  assert.ok(rip.includes('href: "/Articles/how-financial-rip-works"'));
+  assert.ok(rip.includes('href: "/Articles/how-collector-appeal-works"'));
 });
 test("the legacy Research route permanently redirects to the canonical RIP article", () => {
   assert.match(nextConfig, new RegExp(`source: "/Research",\\s*\\n\\s*destination: "${ARTICLE_HREF}",\\s*\\n\\s*permanent: true`));

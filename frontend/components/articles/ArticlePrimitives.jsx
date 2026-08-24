@@ -25,6 +25,14 @@ export function ArticleShell({ category, title, deck, children, related = [] }) 
 export function H2({ children }) { return <h2 className="!mt-12 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">{children}</h2>; }
 export function H3({ children }) { return <h3 className="!mt-8 text-xl font-semibold text-[var(--text-primary)]">{children}</h3>; }
 
+export function Citation({ href, children }) {
+  return <a href={href} target="_blank" rel="noreferrer" className="rounded-sm font-medium text-[var(--accent)] underline decoration-[var(--accent)]/45 underline-offset-4 hover:decoration-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">{children}</a>;
+}
+
+export function ReferenceList({ items }) {
+  return <ol className="!mt-6 space-y-4 pl-5 text-sm leading-6">{items.map(item => <li key={item.href} id={item.id} className="pl-1"><Citation href={item.href}>{item.citation}</Citation>{item.note ? <span> {item.note}</span> : null}</li>)}</ol>;
+}
+
 export function DefinitionGrid({ items, columns = "sm:grid-cols-2" }) {
   return <dl className={`!mt-6 grid gap-3 ${columns}`}>{items.map(([name, text]) => <div key={name} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4"><dt className="font-semibold text-[var(--text-primary)]">{name}</dt><dd className="mt-1 text-sm leading-6">{text}</dd></div>)}</dl>;
 }
