@@ -335,13 +335,66 @@ Commit: $(git rev-parse HEAD)
 Script: backend/scripts/audit_public_rip_leaderboard_publication.py
 Exit: $PUBLIC_RIP_AUDIT_EXIT
 Canonical versions expected:
-  Financial RIP  : financial_rip_v3_outcome_profile_25_20_15_25_10_5
+  Financial RIP  : financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5
   Collector Appeal: collector_appeal_v4_h_only_d_baseline_up4_down2
-  Overall RIP    : overall_rip_v8_90_financial_v3_10_collector_appeal_v4
-  Public contract: public_rip_contract_v8
+  Overall RIP    : overall_rip_v10_90_financial_v4_10_collector_appeal_v5
+  Public contract: public_rip_contract_v10
 Details: ${PUBLIC_RIP_AUDIT_LINE:-see log}
 Action: the published leaderboard is not on the canonical contract, or does not cover the full supported cohort. Rebuild and republish; do NOT treat the Explore RIP leaderboard as current.
 Log: logs/public_rip_audit.log"
+fi
+
+# Private Budget Ranking is part of this same daily reconciliation lifecycle,
+# not a second scheduler.  It runs only after the public publication and both
+# independent final audits passed, and before the one success notification.
+BUDGET_RANKING_EXIT=0
+BUDGET_RANKING_STATUS="NOT_RUN"
+BUDGET_RANKING_DETAIL=""
+BUDGET_RANKING_SLACK_LINE=""
+BUDGET_RANKING_REPORT="logs/budget_product_ranking_publication.json"
+if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
+  python -m backend.scripts.publish_budget_product_rankings_if_ready --commit \
+    --json-report "$BUDGET_RANKING_REPORT" >> logs/run_simulations.log 2>&1 || BUDGET_RANKING_EXIT=$?
+  BUDGET_RANKING_STATUS=$(python - "$BUDGET_RANKING_REPORT" <<'PY'
+import json, sys
+try:
+    print(json.load(open(sys.argv[1], encoding="utf-8")).get("status", "REPORT_UNREADABLE"))
+except Exception:
+    print("REPORT_UNREADABLE")
+PY
+)
+  BUDGET_RANKING_DETAIL=$(python - "$BUDGET_RANKING_REPORT" <<'PY'
+import json, sys
+try:
+    r=json.load(open(sys.argv[1], encoding="utf-8"))
+    print("status=%s price_as_of=%s snapshot=%s rows=%s warnings=%s" %
+          (r.get("status"), r.get("selected_price_as_of"), r.get("snapshot_id"),
+           r.get("row_count"), len(r.get("warnings") or [])))
+except Exception as exc:
+    print("report_error=%s" % exc)
+PY
+)
+  echo "[budget-ranking] $BUDGET_RANKING_DETAIL" >> logs/run_simulations.log
+
+  if [ "$BUDGET_RANKING_STATUS" = "PUBLISHED" ]; then
+    BUDGET_RANKING_SLACK_LINE="Private Budget Ranking: $BUDGET_RANKING_DETAIL"
+  fi
+
+  if [ "$BUDGET_RANKING_EXIT" -eq 3 ] && [ "$BUDGET_RANKING_STATUS" = "UPSTREAM_NOT_READY" ]; then
+    # Public publication succeeded; private ranking remains on last-known-good
+    # and naturally reconciles on the next invocation.  STALE is exit 1 and
+    # alerts below, so a genuinely missed second cycle cannot hide here.
+    BUDGET_RANKING_EXIT=0
+  elif [ "$BUDGET_RANKING_EXIT" -ne 0 ]; then
+    notify_slack "❌ Private Budget Ranking blocked after successful public publication
+Host: $HOSTNAME_VALUE
+Branch: ${ACTUAL_PUBLICATION_BRANCH:-detached}
+Commit: $(git rev-parse HEAD)
+Status: $BUDGET_RANKING_STATUS
+Details: $BUDGET_RANKING_DETAIL
+Public publication: succeeded and audited; previous private ranking remains authoritative
+Log: logs/run_simulations.log"
+  fi
 fi
 
 # The ONLY success notification. It requires publication exit 0 AND BOTH final
@@ -355,6 +408,7 @@ fi
 # is how a green Slack message accompanied a leaderboard published under a
 # superseded scoring contract.
 if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
+  if [ "$BUDGET_RANKING_EXIT" -eq 0 ]; then
   AUDIT_END_TIME=$(date '+%Y-%m-%d %H:%M:%S')
   notify_slack "✅ Simulation + publication completed (both final audits passed)
 Host: $HOSTNAME_VALUE
@@ -365,7 +419,9 @@ Started: $PUBLICATION_START_TIME
 Published: $PUBLICATION_END_TIME
 Audited: $AUDIT_END_TIME
 Public RIP audit: passed
+${BUDGET_RANKING_SLACK_LINE}
 Log: logs/run_simulations.log"
+  fi
 fi
 
 # A deferred publication, a hard failure and EITHER failed audit are distinct
@@ -374,5 +430,8 @@ fi
 # operator acts before the next run.
 if [ "$PUBLICATION_FAILED" -ne 0 ] || [ "$PUBLICATION_DEFERRED" -ne 0 ] \
    || [ "$AUDIT_EXIT" -ne 0 ] || [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then
+  exit 1
+fi
+if [ "$BUDGET_RANKING_EXIT" -ne 0 ]; then
   exit 1
 fi
