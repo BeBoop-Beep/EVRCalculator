@@ -279,3 +279,22 @@ def test_final_exit_gate_is_unchanged(script_text):
         '   || [ "$AUDIT_EXIT" -ne 0 ] || [ "$PUBLIC_RIP_AUDIT_EXIT" -ne 0 ]; then\n'
         "  exit 1\nfi" in script_text
     )
+
+
+def test_private_budget_ranking_runs_after_both_audits_before_success_slack(script_text):
+    hook = "publish_budget_product_rankings_if_ready --commit"
+    assert script_text.index("audit_opening_analytics_publication.py") < script_text.index(hook)
+    assert script_text.index("audit_public_rip_leaderboard_publication") < script_text.index(hook)
+    assert script_text.index(hook) < script_text.index("Simulation + publication completed")
+
+
+def test_private_budget_status_handling_preserves_public_success(script_text):
+    assert 'BUDGET_RANKING_STATUS" = "UPSTREAM_NOT_READY"' in script_text
+    assert "Private Budget Ranking blocked after successful public publication" in script_text
+    assert "NO_NEW_AUTHORITY" not in script_text
+
+
+def test_private_budget_ranking_adds_no_poll_loop(script_text):
+    hook = script_text[script_text.index("# Private Budget Ranking"):]
+    assert "sleep " not in hook
+    assert "schtasks" not in hook.lower()
