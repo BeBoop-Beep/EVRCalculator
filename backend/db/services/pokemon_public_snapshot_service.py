@@ -6343,6 +6343,7 @@ def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[st
     allowed_summary = {key: summary.get(key) for key in (
         "calculation_run_id", "mean_value", "median_value", "max_value", "pack_cost",
         "p95_value", "p99_value", "coefficient_of_variation",
+        "big_hit_threshold", "tail_value_p05", "p95_value_to_cost_ratio", "p99_value_to_cost_ratio",
     ) if summary.get(key) is not None}
     return {
         "contractVersion": "pokemon-set-simulation-evidence-v1",

@@ -1,5 +1,6 @@
 import { selectEvRepresentativenessPublicV1 } from "../../components/explore/evRepresentativenessSelector.mjs";
 import { selectOpeningOutcomeProfileV1 } from "../../components/explore/openingOutcomeProfileSelector.mjs";
+import { buildRipDistributionMarkers } from "../../components/explore/ripDistributionMarkers.mjs";
 import { normalizePokemonSetSimulationEvidence } from "../pokemon/pokemonSetSimulationEvidence.mjs";
 
 export function selectPrismaticResearchLiveExample(target, simulationEvidence) {
@@ -17,7 +18,7 @@ export function selectPrismaticResearchLiveExample(target, simulationEvidence) {
     setName: "Prismatic Evolutions",
     summary: evidence.summary,
     percentiles: evidence.percentiles,
-    distribution: { bins: evidence.distributionBins, thresholdBins: evidence.thresholdBins, markers: evidence.summary?.markers },
+    distribution: { bins: evidence.distributionBins, thresholdBins: evidence.thresholdBins, markers: buildRipDistributionMarkers({ summary: evidence.summary, percentiles: evidence.percentiles }) },
     simulationCount: evidence.summary?.simulationCount ?? evidence.summary?.simulation_count ?? 1000000,
     openingOutcomeProfile: target.openingOutcomeProfile,
     evRepresentativeness: target.evRepresentativeness,

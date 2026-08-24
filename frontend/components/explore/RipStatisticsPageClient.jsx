@@ -96,6 +96,7 @@ import RipDecisionPage from "./RipDecisionPage.jsx";
 import { selectPreferredSetRipContract } from "./SetRipFamilyBreakdown.jsx";
 import InsightsSummaryModule from "./InsightsSummaryModule.jsx";
 import { selectSimulationDrivers } from "./simulationDriversSelector.mjs";
+import { buildRipDistributionMarkers } from "./ripDistributionMarkers.mjs";
 import { aggregateNormalStateRows } from "./packStateLabels.mjs";
 import { formatShareFromCounts, formatImpliedOdds, buildPackPathDisplayRows } from "./packPathShare.mjs";
 import { formatAbbreviatedCount, formatAbbreviatedCurrency } from "./rankedBarChartFormatting.mjs";
@@ -985,16 +986,6 @@ const RIP_COPY = {
     packBreakdown: "Pack Breakdown",
     topEvDrivers: "Cards Carrying the Set",
     rarityContribution: "Where the Value Comes From",
-  },
-  chartMarkers: {
-    packCost: "Pack Market Price",
-    typicalPack: "Typical Opening",
-    averagePack: "Average Pack",
-    badFloor: "Bad Floor",
-    bigHit: "Big Hit Threshold",
-    bigHitUpside: "Strong Upside",
-    godPullUpside: "Jackpot Upside",
-    bestPull: "Best Pull",
   },
   chartStats: {
     typicalPack: "Typical Opening",
@@ -10297,30 +10288,7 @@ export default function RipStatisticsPageClient({
     };
   }, [explorePayload, pageError, graphMode]);
 
-  const packCostValue = toNumber(summary.pack_cost);
-  const p95ValueToCostRatio = toNumber(summary.p95_value_to_cost_ratio);
-  const p99ValueToCostRatio = toNumber(summary.p99_value_to_cost_ratio);
-
-  const chartMarkers = [
-    { key: "pack-cost", label: RIP_COPY.chartMarkers.packCost, value: summary.pack_cost },
-    { key: "median", label: RIP_COPY.chartMarkers.typicalPack, value: percentileP50 ?? summary.median_value },
-    { key: "p25", label: "P25", value: selectPercentileValue(percentiles, 25) },
-    { key: "p75", label: "P75", value: selectPercentileValue(percentiles, 75) },
-    { key: "mean", label: RIP_COPY.chartMarkers.averagePack, value: summary.mean_value },
-    { key: "bad-floor", label: RIP_COPY.chartMarkers.badFloor, value: percentileP5 ?? summary.tail_value_p05 },
-    { key: "big-hit", label: RIP_COPY.chartMarkers.bigHit, value: summary.big_hit_threshold },
-    {
-      key: "big-hit-upside",
-      label: RIP_COPY.chartMarkers.bigHitUpside,
-      value: packCostValue !== null && p95ValueToCostRatio !== null ? p95ValueToCostRatio * packCostValue : null,
-    },
-    {
-      key: "god-pull-upside",
-      label: RIP_COPY.chartMarkers.godPullUpside,
-      value: packCostValue !== null && p99ValueToCostRatio !== null ? p99ValueToCostRatio * packCostValue : null,
-    },
-    { key: "max", label: RIP_COPY.chartMarkers.bestPull, value: summary.max_value },
-  ];
+  const chartMarkers = buildRipDistributionMarkers({ summary, percentiles });
 
   // THE canonical RIP resolution for this page. Resolved ONCE, here, and shared
   // by the sticky hero, the Overview RIP Summary, the Insights headline,

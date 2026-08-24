@@ -43,6 +43,10 @@ def test_simulation_evidence_returns_allowlisted_exact_run_payload(monkeypatch):
                     "calculation_run_id": "run-1",
                     "market_date": "2026-08-21",
                     "mean_value": 4.25,
+                    "big_hit_threshold": 25.0,
+                    "tail_value_p05": 0.5,
+                    "p95_value_to_cost_ratio": 4.0,
+                    "p99_value_to_cost_ratio": 12.0,
                     "private_internal_field": "must-not-leak",
                 },
                 "percentiles": [{"percentile": 50, "value": 2.0}],
@@ -63,6 +67,10 @@ def test_simulation_evidence_returns_allowlisted_exact_run_payload(monkeypatch):
     assert payload["summary"] == {
         "calculationRunId": "run-1",
         "meanValue": 4.25,
+        "bigHitThreshold": 25.0,
+        "tailValueP05": 0.5,
+        "p95ValueToCostRatio": 4.0,
+        "p99ValueToCostRatio": 12.0,
     }
     assert payload["distributionBins"] == [{"minimum_value": 0, "maximum_value": 1}]
     assert client.tables == ["pokemon_set_page_snapshot_latest"]
