@@ -9,7 +9,7 @@ import { getPokemonSetSimulationEvidenceInitialSnapshot } from "@/lib/pokemon/po
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import { toSetSlug } from "@/utils/slugify";
 
-const title = "Expected Value Is Correct. But How Well Does It Describe a Pokémon Pack Opening?";
+const title = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
 const description = "We analyzed 22 million modeled Pokémon pack outcomes across 22 sets to measure how closely Expected Value reflects typical openings, how much EV depends on rare outcomes, and how many packs it can take for realized averages to converge.";
 
 export const metadata = buildRouteMetadata({
