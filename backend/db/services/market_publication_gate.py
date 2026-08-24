@@ -244,14 +244,18 @@ def enforce_market_publication_gate(
               f"status={status} allowed={allowed}: {reason}")
         return MarketGateEnforcement(decision=decision, proceed=True, exit_code=0)
 
-    # Commit mode. The quality row is durable diagnostic STATE, explicitly not
-    # Market artifact publication, so it is written even on a blocked date.
+    # Commit mode. Accepted quality is publication authority, so failure to
+    # make it durable must fail closed before index/global artifacts advance.
     if persist:
         try:
             persist_market_date_quality(client, evaluation)
-        except Exception as exc:  # diagnostics must never gate publication
-            logger.warning("%s could not persist quality state for %s: %s",
-                           _GATE_TAG, target, exc)
+            print(f"[market-quality] persisted verdict date={target} status={status}")
+        except Exception as exc:
+            reason = f"Market Date Quality persistence failed for {target} ({exc})"
+            logger.error("%s %s", _GATE_TAG, reason)
+            return _blocked_without_evaluation(
+                reason, REASON_BLOCKED_AUTHORITY_UNAVAILABLE,
+                commit=commit, entry_point=entry_point, market_date=target)
 
     if allowed:
         logger.info("%s publication ALLOWED for %s (status=%s)", _GATE_TAG, target, status)

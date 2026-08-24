@@ -1,9 +1,85 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from backend.scripts import refresh_stale_public_snapshots as refresh
 from backend.scripts.pokemon_snapshot_builders import SIMULATION_DEPENDENT_SECTIONS
+
+
+def _market_enforcement(*, allowed=True, proceed=True, status="READY"):
+    return SimpleNamespace(
+        proceed=proceed,
+        decision=SimpleNamespace(
+            allowed=allowed, status=status, market_date="2026-08-23",
+            reason=f"status={status}",
+            evaluation={"qualifyingSetCount": 22, "cohortSetCount": 22},
+        ),
+    )
+
+
+def test_market_quality_phase_dry_run_carries_computed_date_without_write(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(refresh, "enforce_market_publication_gate",
+                        lambda *_a, **_k: _market_enforcement())
+    monkeypatch.setattr(refresh, "accepted_market_dates",
+                        lambda *_a, **_k: {"2026-08-22"})
+    from backend.db.services import pokemon_market_index_service as index_service
+    def build_index(_client, **kwargs):
+        captured["accepted"] = kwargs["accepted_dates"]
+        return [
+            {"market_date": "2026-08-23", "index_key": "pokemon_raw"},
+            {"market_date": "2026-08-23", "index_key": "pokemon_top10"},
+        ]
+    monkeypatch.setattr(index_service, "build_market_index_history", build_index)
+    monkeypatch.setattr(index_service, "persist_index_rows",
+                        lambda *_a, **_k: pytest.fail("dry-run wrote index"))
+    summary = refresh.RefreshSummary()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=False, summary=summary)
+
+    assert ready is True
+    assert captured["accepted"] == {"2026-08-22", "2026-08-23"}
+    assert rows is not None
+
+
+def test_market_quality_phase_commit_uses_persisted_accepted_authority(monkeypatch):
+    order = []
+    monkeypatch.setattr(refresh, "enforce_market_publication_gate",
+                        lambda *_a, **_k: order.append("quality") or _market_enforcement())
+    monkeypatch.setattr(refresh, "accepted_market_dates",
+                        lambda *_a, **_k: order.append("read-quality") or {"2026-08-23"})
+    from backend.db.services import pokemon_market_index_service as index_service
+    monkeypatch.setattr(
+        index_service, "build_market_index_history",
+        lambda _client, **kwargs: order.append(("build", kwargs["accepted_dates"])) or [
+            {"market_date": "2026-08-23", "index_key": "pokemon_raw"},
+            {"market_date": "2026-08-23", "index_key": "pokemon_top10"},
+        ])
+    monkeypatch.setattr(index_service, "persist_index_rows",
+                        lambda *_a, **_k: order.append("persist-index"))
+    summary = refresh.RefreshSummary()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+
+    assert ready is True and rows is None
+    assert order == ["quality", "read-quality", ("build", {"2026-08-23"}), "persist-index"]
+
+
+@pytest.mark.parametrize("status", ["INCOMPLETE", "DEGRADED"])
+def test_market_quality_phase_blocks_unaccepted_target(monkeypatch, status):
+    monkeypatch.setattr(
+        refresh, "enforce_market_publication_gate",
+        lambda *_a, **_k: _market_enforcement(allowed=False, proceed=False, status=status))
+    summary = refresh.RefreshSummary()
+
+    ready, rows = refresh._run_market_quality_index_phase(
+        object(), market_date="2026-08-23", commit=True, summary=summary)
+
+    assert ready is False and rows is None
+    assert summary.global_failed and status in summary.global_failed[0]
 
 
 def test_rankings_rebuild_uses_canonical_publisher(monkeypatch):

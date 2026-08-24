@@ -18,6 +18,7 @@ class SetExpeditionBaseSetConfig(BaseSetConfig):
     TCGPLAYER_SET_ID = '1375'
     TCGPLAYER_SET_NAME = 'Expedition'
     TCGPLAYER_SET_ABBREVIATION = 'EX'
+    TCGPLAYER_EXPECTED_CARD_DENOMINATORS = {'165'}
     CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=1'
     SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}

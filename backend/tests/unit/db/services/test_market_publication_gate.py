@@ -50,6 +50,19 @@ def test_ready_allows_commit(monkeypatch):
     assert result.decision.status == STATUS_READY
 
 
+def test_ready_persistence_failure_blocks_before_publication(monkeypatch):
+    _stub(monkeypatch, STATUS_READY)
+    monkeypatch.setattr(
+        gate, "persist_market_date_quality",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("write unavailable")),
+    )
+    result = gate.enforce_market_publication_gate(
+        _Recorder(), commit=True, market_date="2026-08-19")
+    assert result.proceed is False
+    assert result.exit_code == gate.MARKET_GATE_DEFERRED_EXIT_CODE
+    assert "persistence failed" in result.decision.reason
+
+
 @pytest.mark.parametrize("status", [STATUS_INCOMPLETE, STATUS_DEGRADED])
 def test_blocked_statuses_defer_with_exit_code_three(monkeypatch, status):
     _stub(monkeypatch, status)

@@ -25,6 +25,12 @@ def _normalized_evidence(values):
     return sorted({str(value).strip() for value in values if value is not None and str(value).strip()})
 
 
+def _normalized_numeric_evidence(values):
+    """Return raw and integer-equivalent numeric evidence for diagnostics."""
+    raw = _normalized_evidence(values)
+    return raw, sorted({str(int(value, 10)) for value in raw}, key=int)
+
+
 def _group_id_from_url(url):
     match = re.search(r"/priceguide/set/([^/?#]+)/", str(url or ""), flags=re.I)
     return match.group(1) if match else None
@@ -39,14 +45,19 @@ def validate_card_response_provenance(config, raw_data, transport_provenance=Non
     expected_abbreviation = str(
         getattr(config, "TCGPLAYER_SET_ABBREVIATION", "") or ""
     ).strip() or None
-    expected_total = getattr(config, "PRINTED_TOTAL", None)
-    expected_total = str(expected_total).strip() if expected_total not in (None, "") else None
+    expected_denominators = getattr(
+        config, "TCGPLAYER_EXPECTED_CARD_DENOMINATORS", None)
+    if isinstance(expected_denominators, (str, int)):
+        expected_denominators = {expected_denominators}
+    expected_denominators = expected_denominators or set()
+    _expected_raw, expected_denominators = _normalized_numeric_evidence(
+        expected_denominators)
     rows = list((raw_data or {}).get("result") or [])
 
     set_ids = _normalized_evidence(row.get("setID") for row in rows)
     set_labels = _normalized_evidence(row.get("set") for row in rows)
     abbreviations = _normalized_evidence(row.get("setAbbrv") for row in rows)
-    denominators = _normalized_evidence(
+    raw_denominators, denominators = _normalized_numeric_evidence(
         match.group(1)
         for row in rows
         for match in [re.search(r"/\s*([0-9]+)\s*$", str(row.get("number") or ""))]
@@ -68,7 +79,9 @@ def validate_card_response_provenance(config, raw_data, transport_provenance=Non
         "response_set_ids": set_ids,
         "response_set_labels": set_labels,
         "response_abbreviations": abbreviations,
+        "response_card_denominators_raw": raw_denominators,
         "response_card_denominators": denominators,
+        "expected_card_denominators": expected_denominators,
         "representative_products": samples,
     }
     contradictions = []
@@ -92,10 +105,14 @@ def validate_card_response_provenance(config, raw_data, transport_provenance=Non
         contradictions.append(
             f"response abbreviations {abbreviations} != expected {expected_abbreviation}"
         )
-    if len(denominators) > 1:
-        contradictions.append(f"mixed card denominators: {denominators}")
-    if expected_total and any(value != expected_total for value in denominators):
-        contradictions.append(f"card denominators {denominators} != expected {expected_total}")
+    # A denominator is weak catalog evidence, not a universal set identity.
+    # Only configs declaring an explicit provider contract may enforce it.
+    if expected_denominators and any(
+        value not in expected_denominators for value in denominators
+    ):
+        contradictions.append(
+            f"card denominators {denominators} != expected {expected_denominators}"
+        )
     if contradictions:
         report["contradictions"] = contradictions
         raise TCGPlayerResponseProvenanceError(

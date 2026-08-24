@@ -20,6 +20,8 @@ from backend.db.services.publication_gate import (
     evaluate_publication_gate,
     gate_decision_report,
 )
+from backend.db.services.market_publication_gate import enforce_market_publication_gate
+from backend.db.services.market_date_quality import accepted_market_dates
 from backend.db.services.set_publication_revalidation import (
     log_revalidation_diagnostics,
     notify_set_publication,
@@ -1688,6 +1690,56 @@ def _maybe_rebuild_explore_set_values(
         summary.global_failed.append(f"explore_set_values: {exc}")
 
 
+def _run_market_quality_index_phase(
+    client: Any, *, market_date: Optional[str], commit: bool,
+    summary: RefreshSummary,
+) -> Tuple[bool, Optional[List[Dict[str, Any]]]]:
+    """Persist one quality authority, then build both Market index families."""
+    enforcement = enforce_market_publication_gate(
+        client, commit=commit, market_date=market_date,
+        entry_point="stale public snapshot refresh")
+    decision = enforcement.decision
+    evaluation = decision.evaluation or {}
+    print(
+        f"[market-quality] date={decision.market_date or 'unknown'} "
+        f"status={decision.status or 'unknown'} "
+        f"qualifying={evaluation.get('qualifyingSetCount', '?')}/"
+        f"{evaluation.get('cohortSetCount', '?')}"
+    )
+    if not decision.allowed or not enforcement.proceed:
+        summary.global_failed.append(
+            f"market_quality: date={decision.market_date or 'unknown'} "
+            f"status={decision.status or 'unknown'} reason={decision.reason}"
+        )
+        return False, None
+
+    target = str(decision.market_date or market_date or "")[:10]
+    try:
+        from backend.db.services.pokemon_market_index_service import (
+            build_market_index_history, persist_index_rows,
+        )
+        # Dry-run cannot persist today's verdict, so carry precisely that
+        # computed authority into candidate construction. Commit deliberately
+        # falls back to the ordinary strict persisted-quality read path.
+        accepted = accepted_market_dates(client, through_date=target)
+        if not commit:
+            accepted.add(target)
+        index_rows = build_market_index_history(
+            client, through_date=target, accepted_dates=accepted)
+        if commit:
+            persist_index_rows(client, index_rows)
+            snapshot_history = None
+        else:
+            summary.stale_snapshot_families.add("pokemon_market_index")
+            snapshot_history = index_rows
+        reached = sorted({str(row.get("market_date"))[:10] for row in index_rows})
+        print(f"[market-index] raw/top10 target={target} latest={reached[-1] if reached else 'none'}")
+        return True, snapshot_history
+    except Exception as exc:
+        summary.global_failed.append(f"pokemon_market_index: {exc}")
+        return False, None
+
+
 def _maybe_rebuild_set_page(
     client: Any,
     plan: SetRefreshPlan,
@@ -2307,14 +2359,9 @@ def main() -> None:
         try:
             if not hasattr(client, "table"):
                 raise LookupError("legacy test client has no PostgREST surface")
-            from backend.db.services.pokemon_market_index_service import build_market_index_history, persist_index_rows
-            index_rows = build_market_index_history(client, through_date=args.market_date or gate.market_date)
-            if commit:
-                persist_index_rows(client, index_rows)
-            else:
-                summary.stale_snapshot_families.add("pokemon_market_index")
-                index_history_for_snapshot = index_rows
-            index_ready = True
+            index_ready, index_history_for_snapshot = _run_market_quality_index_phase(
+                client, market_date=args.market_date or gate.market_date,
+                commit=commit, summary=summary)
         except LookupError:
             # Strict repository fakes used by pre-index orchestration tests do
             # not model PostgREST. Real clients always expose table().
