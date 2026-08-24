@@ -37,7 +37,16 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 #: different scoring model under the same method version.
 EXPECTED_FINANCIAL_RIP_VERSION = "financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5"
 EXPECTED_OVERALL_RIP_VERSION = "overall_rip_v10_90_financial_v4_10_collector_appeal_v5"
+EXPECTED_COLLECTOR_APPEAL_VERSION = "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2"
 EXPECTED_COLLECTOR_APPEAL_VERSION_PREFIX = "collector_appeal_v5_"
+
+#: Families the V1 validation actually covered. A new family appearing is not
+#: an error, but it has never been checked for ranking coverage.
+VALIDATED_PRODUCT_FAMILIES = frozenset({
+    "booster_box", "booster_bundle", "elite_trainer_box", "enhanced_booster_box",
+    "half_booster_box", "loose_booster_pack", "pokemon_center_elite_trainer_box",
+    "sleeved_booster_pack",
+})
 
 AUTHORITY_RESOLVER_VERSION = "budget_ranking_price_as_of_pinned_cohort_v1"
 
