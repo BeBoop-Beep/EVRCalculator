@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.db.clients.supabase_client import create_short_timeout_service_client, create_service_role_client, service_read_client
+from backend.db.clients.supabase_client import create_public_read_client, create_service_role_client, public_read_client
 from backend.db.services.chase_economics_service import read_chase_economics_snapshot
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
@@ -347,7 +347,7 @@ def _latest_composite_scores_for_references(reference_ids: List[int]) -> Dict[in
 
     try:
         response = (
-            service_read_client.table("pokemon_desirability_composite_scores")
+            public_read_client.table("pokemon_desirability_composite_scores")
             .select("pokemon_reference_id,pokedex_number,pokemon_name,desirability_score,created_at")
             .in_("pokemon_reference_id", clean_ids)
             .order("created_at", desc=True)
@@ -790,7 +790,7 @@ def enrich_cards_payload_with_desirability(
     if clean_card_ids:
         try:
             links_result = (
-                service_read_client.table("pokemon_card_desirability_links")
+                public_read_client.table("pokemon_card_desirability_links")
                 .select(
                     "pokemon_canonical_card_id,pokemon_reference_id,pokedex_number,link_position,"
                     "link_count,contribution_weight,match_confidence,is_hit_eligible"
@@ -1087,7 +1087,7 @@ def _load_latest_checklist_set_values(set_ids: List[str]) -> Dict[str, Dict[str,
 
     try:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at")
             .in_("set_id", clean_ids)
             .in_("window_key", [DEFAULT_TOP_CHASE_DASHBOARD_WINDOW, DEFAULT_DASHBOARD_WINDOW])
@@ -1194,7 +1194,7 @@ def _load_shell_checklist_set_value_history(set_id: str) -> Dict[str, Any]:
 
     try:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             # latest_market_date/updated_at are selection inputs for the
             # freshness tie-breaks below; neither reaches the shell payload.
             .select("window_key,set_value_histories_json,latest_market_date,updated_at")
@@ -1302,11 +1302,11 @@ def _enrich_rankings_payload_with_checklist_set_values(payload: Dict[str, Any]) 
 def _resolve_set_row(set_id: str) -> Dict[str, Any]:
     # Shared with page/shell/cards/market-dashboard/value-history/top-cards —
     # see pokemon_set_market_service.resolve_pokemon_set_identifier for the
-    # implementation. Must pass this module's own service_read_client
+    # implementation. Must pass this module's own public_read_client
     # explicitly: resolve_pokemon_set_identifier's default client is looked up
     # from pokemon_set_market_service's globals, not the caller's, so a bare
-    # alias would silently bypass a service_read_client monkeypatch made here.
-    return resolve_pokemon_set_identifier(set_id, client=service_read_client)
+    # alias would silently bypass a public_read_client monkeypatch made here.
+    return resolve_pokemon_set_identifier(set_id, client=public_read_client)
 
 
 def _snapshot_meta(row: Dict[str, Any], source: str) -> Dict[str, Any]:
@@ -1381,7 +1381,7 @@ def _mark_missing_simulation_drivers_without_live_repair(payload: Dict[str, Any]
 def _load_rankings_snapshot_updated_at() -> Optional[str]:
     try:
         result = (
-            service_read_client.table("pokemon_explore_rankings_snapshot_latest")
+            public_read_client.table("pokemon_explore_rankings_snapshot_latest")
             .select("updated_at")
             .eq("tcg", "pokemon")
             .eq("scope", DEFAULT_RANKINGS_SCOPE)
@@ -1511,7 +1511,7 @@ def get_pokemon_set_page_snapshot_payload(set_id: str) -> Dict[str, Any]:
         t_query = time.perf_counter()
         logger.info("[pokemon-snapshot] page snapshot query start set_id=%s", resolved_set_id)
         result = (
-            service_read_client.table("pokemon_set_page_snapshot_latest")
+            public_read_client.table("pokemon_set_page_snapshot_latest")
             .select("set_id,payload_json,as_of,source_updated_at,updated_at")
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -1758,7 +1758,7 @@ def get_pokemon_set_shell_snapshot_payload(set_id: str) -> Dict[str, Any]:
     try:
         t_query = time.perf_counter()
         result = (
-            service_read_client.table("pokemon_set_page_snapshot_latest")
+            public_read_client.table("pokemon_set_page_snapshot_latest")
             .select(_SHELL_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -1945,8 +1945,8 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         row = run_public_read_with_retry(
             _load_pokemon_explore_rankings_snapshot_row,
             operation_name="pokemon_explore_rankings_snapshot",
-            initial_client=service_read_client,
-            client_factory=create_short_timeout_service_client,
+            initial_client=public_read_client,
+            client_factory=create_public_read_client,
         )
     except Exception as exc:
         logger.exception("[pokemon-snapshot] explore rankings snapshot read failed")
@@ -2114,7 +2114,7 @@ def get_pokemon_set_cards_snapshot_payload(set_id: str) -> Dict[str, Any]:
         t_query = time.perf_counter()
         logger.info("[pokemon-snapshot] cards snapshot query start set_id=%s", resolved_set_id)
         result = (
-            service_read_client.table("pokemon_set_cards_snapshot_latest")
+            public_read_client.table("pokemon_set_cards_snapshot_latest")
             .select("set_id,payload_json,card_count,updated_at")
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -2281,13 +2281,13 @@ def _read_peer_movement_snapshot_meta(
     try:
         if surface == "cards":
             query = (
-                service_read_client.table("pokemon_set_cards_snapshot_latest")
+                public_read_client.table("pokemon_set_cards_snapshot_latest")
                 .select("snapshot_meta:payload_json->meta->snapshot")
                 .eq("set_id", set_id)
             )
         else:
             query = (
-                service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+                public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
                 .select("snapshot_meta:payload_json->meta->snapshot")
                 .eq("set_id", set_id)
                 .eq("window_key", DEFAULT_DASHBOARD_WINDOW)
@@ -2799,7 +2799,7 @@ def get_pokemon_set_cards_page_snapshot_payload(
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_cards_snapshot_latest")
+            public_read_client.table("pokemon_set_cards_snapshot_latest")
             .select(_CARDS_PAGE_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -3099,7 +3099,7 @@ def get_pokemon_set_card_validation_snapshot_payload(
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_cards_snapshot_latest")
+            public_read_client.table("pokemon_set_cards_snapshot_latest")
             .select(_CARD_VALIDATION_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -3368,7 +3368,7 @@ def _top_chase_card_match_keys(name: Any, number: Any) -> List[str]:
 
 
 def _query_snapshot_rows(table_name: str, configure_query) -> List[Dict[str, Any]]:
-    result = configure_query(service_read_client.table(table_name)).execute()
+    result = configure_query(public_read_client.table(table_name)).execute()
     return list(result.data or [])
 
 
@@ -3526,7 +3526,7 @@ def _load_top_chase_observation_histories(
     if not resolved_latest_date_key:
         try:
             latest_result = (
-                service_read_client.table("card_variant_price_observations")
+                public_read_client.table("card_variant_price_observations")
                 .select("captured_at")
                 .in_("card_variant_id", variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
@@ -3571,7 +3571,7 @@ def _load_top_chase_observation_histories(
     if canonical_variant_ids:
         try:
             latest_result = (
-                service_read_client.table("card_variant_price_observations")
+                public_read_client.table("card_variant_price_observations")
                 .select("captured_at")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
@@ -3588,7 +3588,7 @@ def _load_top_chase_observation_histories(
                     start_date = latest_date - timedelta(days=max(window_days - 1, 0))
                     end_date = latest_date + timedelta(days=1)
             history_result = (
-                service_read_client.table("card_variant_price_observations")
+                public_read_client.table("card_variant_price_observations")
                 .select("card_variant_id,captured_at,market_price")
                 .in_("card_variant_id", canonical_variant_ids)
                 .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
@@ -3616,7 +3616,7 @@ def _load_top_chase_observation_histories(
 
     try:
         history_result = (
-            service_read_client.table("card_variant_price_observations")
+            public_read_client.table("card_variant_price_observations")
             .select("card_variant_id,captured_at,market_price")
             .in_("card_variant_id", variant_ids)
             .eq("condition_id", TOP_CHASE_NEAR_MINT_CONDITION_ID)
@@ -3850,7 +3850,7 @@ def _read_market_dashboard_snapshot(
     resolved_window = _normalize_market_dashboard_window_key(window)
     try:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select(_MARKET_DASHBOARD_SNAPSHOT_COLUMNS)
             .eq("set_id", set_id)
             .eq("window_key", resolved_window)
@@ -3931,7 +3931,7 @@ def _load_simulation_performance_history_live(set_id: str) -> List[Dict[str, Any
     """Load simulation performance history from calculation_history_trend + simulation_run_summary."""
     try:
         result = (
-            service_read_client.table("calculation_history_trend")
+            public_read_client.table("calculation_history_trend")
             .select(
                 "snapshot_date,calculation_run_id,run_created_at,"
                 "simulated_mean_pack_value_vs_pack_cost,simulated_median_pack_value_vs_pack_cost,"
@@ -3952,7 +3952,7 @@ def _load_simulation_performance_history_live(set_id: str) -> List[Dict[str, Any
     if run_ids:
         try:
             summary_result = (
-                service_read_client.table("simulation_run_summary")
+                public_read_client.table("simulation_run_summary")
                 .select("calculation_run_id,pack_cost,mean_value,median_value")
                 .in_("calculation_run_id", run_ids)
                 .execute()
@@ -4392,14 +4392,14 @@ def get_pokemon_set_overview_snapshot_payload(
     if is_uuid:
         resolved_set_id = resolved
     else:
-        set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
+        set_row = resolve_pokemon_set_identifier(resolved, client=public_read_client)
         resolved_set_id = str(set_row["id"])
 
     t_query = time.perf_counter()
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select(_OVERVIEW_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .eq("window_key", resolved_window)
@@ -4943,12 +4943,12 @@ def get_pokemon_set_top_chase_snapshot_payload(
     if is_uuid:
         resolved_set_id = resolved
     else:
-        set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
+        set_row = resolve_pokemon_set_identifier(resolved, client=public_read_client)
         resolved_set_id = str(set_row["id"])
 
     def _read_top_chase_row(window_key: str) -> Optional[Dict[str, Any]]:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select(_TOP_CHASE_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .eq("window_key", window_key)
@@ -5460,7 +5460,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
     if is_uuid:
         resolved_set_id = resolved
     else:
-        set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
+        set_row = resolve_pokemon_set_identifier(resolved, client=public_read_client)
         resolved_set_id = str(set_row["id"])
 
     # The Cards snapshot only carries 7D/30D movement contracts; 1D requests
@@ -5469,7 +5469,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
     if resolved_window in ("7D", "30D"):
         try:
             result = (
-                service_read_client.table("pokemon_set_cards_snapshot_latest")
+                public_read_client.table("pokemon_set_cards_snapshot_latest")
                 .select(_MOVERS_CARDS_SNAPSHOT_COLUMNS)
                 .eq("set_id", resolved_set_id)
                 .limit(1)
@@ -5631,7 +5631,7 @@ def _legacy_market_movers_snapshot_payload(
 
     def _read_movers_row(window_key: str) -> Optional[Dict[str, Any]]:
         result = (
-            service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+            public_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
             .select(select_fields)
             .eq("set_id", resolved_set_id)
             .eq("window_key", window_key)
@@ -5954,7 +5954,7 @@ def get_pokemon_set_pull_rates_snapshot_payload(set_id: str) -> Dict[str, Any]:
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_page_snapshot_latest")
+            public_read_client.table("pokemon_set_page_snapshot_latest")
             .select(_PULL_RATES_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -6166,7 +6166,7 @@ def get_pokemon_set_insights_snapshot_payload(set_id: str) -> Dict[str, Any]:
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_page_snapshot_latest")
+            public_read_client.table("pokemon_set_page_snapshot_latest")
             .select(_INSIGHTS_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)
@@ -6343,6 +6343,7 @@ def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[st
     allowed_summary = {key: summary.get(key) for key in (
         "calculation_run_id", "mean_value", "median_value", "max_value", "pack_cost",
         "p95_value", "p99_value", "coefficient_of_variation",
+        "big_hit_threshold", "tail_value_p05", "p95_value_to_cost_ratio", "p99_value_to_cost_ratio",
     ) if summary.get(key) is not None}
     return {
         "contractVersion": "pokemon-set-simulation-evidence-v1",
@@ -6386,7 +6387,7 @@ def _fetch_insights_snapshot_row(set_id: str):
     row: Optional[Dict[str, Any]] = None
     try:
         result = (
-            service_read_client.table("pokemon_set_page_snapshot_latest")
+            public_read_client.table("pokemon_set_page_snapshot_latest")
             .select(_INSIGHTS_SNAPSHOT_COLUMNS)
             .eq("set_id", resolved_set_id)
             .limit(1)

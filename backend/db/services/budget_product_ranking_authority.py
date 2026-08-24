@@ -40,6 +40,8 @@ EXPECTED_OVERALL_RIP_VERSION = "overall_rip_v10_90_financial_v4_10_collector_app
 EXPECTED_COLLECTOR_APPEAL_VERSION = "collector_appeal_v5_contextual_roster_h_only_d_baseline_up4_down2"
 EXPECTED_COLLECTOR_APPEAL_VERSION_PREFIX = "collector_appeal_v5_"
 
+#: Families the V1 validation actually covered. A new family appearing is not
+#: an error, but it has never been checked for ranking coverage.
 VALIDATED_PRODUCT_FAMILIES = frozenset({
     "booster_box", "booster_bundle", "elite_trainer_box", "enhanced_booster_box",
     "half_booster_box", "loose_booster_pack", "pokemon_center_elite_trainer_box",
