@@ -23,14 +23,12 @@ test("the article documents the current canonical methodology without protected 
   assert.ok(!article.includes("90% Financial RIP"));
   assert.ok(!article.includes("10% Collector Appeal"));
 });
-test("the Articles hub lists exactly six real published article routes", () => {
+test("the Articles hub lists exactly seven real published article routes", () => {
   assert.ok(hub.includes('import { ARTICLES }'));
   const listed = [...articleData.matchAll(/\w+: "(\/Articles\/[^"]+)"/g)].map(match => match[1]);
-  assert.equal(listed.length, 6);
+  assert.equal(listed.length, 7);
   for (const href of listed) assert.ok(fs.existsSync(path.join(here, href.replace("/Articles/", ""), "page.js")), href);
 });
-<<<<<<< HEAD
-=======
 test("the EV representativeness research article is fully registered", () => {
   const research = read("how-representative-is-pokemon-pack-expected-value/page.js");
   const editorialTitle = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
@@ -55,11 +53,10 @@ test("the research article embeds live evidence through shared product component
   assert.ok(wrapper.includes("LiveDistributionFigure"));
   assert.ok(wrapper.includes("same RipDistributionChart as the set page"));
 });
->>>>>>> 867f66f (docs(articles): refine EV research article title)
 test("methodology links route to the most relevant published article", () => {
   assert.ok(rip.includes(`const METHODOLOGY_ARTICLE_HREF = "${ARTICLE_HREF}"`));
-  assert.ok(rip.includes('methodologyHref: "/Articles/how-financial-rip-works"'));
-  assert.ok(rip.includes('methodologyHref: "/Articles/how-collector-appeal-works"'));
+  assert.ok(rip.includes('href: "/Articles/how-financial-rip-works"'));
+  assert.ok(rip.includes('href: "/Articles/how-collector-appeal-works"'));
 });
 test("the legacy Research route permanently redirects to the canonical RIP article", () => {
   assert.match(nextConfig, new RegExp(`source: "/Research",\\s*\\n\\s*destination: "${ARTICLE_HREF}",\\s*\\n\\s*permanent: true`));
