@@ -98,7 +98,7 @@ def harness(monkeypatch):
 
     def install(rows_by_window, *, observation_histories=None, raise_on_read=None):
         monkeypatch.setattr(
-            svc, "public_read_client", _Client(rows_by_window, raise_on_read)
+            svc, "service_read_client", _Client(rows_by_window, raise_on_read)
         )
         monkeypatch.setattr(
             svc, "_read_peer_movement_snapshot_meta", lambda *a, **k: ({}, False)

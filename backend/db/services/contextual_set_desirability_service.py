@@ -11,7 +11,7 @@ from collections import defaultdict
 import re
 from typing import Any, Dict, List, Mapping, Sequence
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.universal_set_desirability_service import (
     _chunked, _load_authoritative_species_ranks, _load_current_component_rows,
     _paged_select, _to_optional_float,
@@ -24,7 +24,7 @@ from backend.desirability.universal_set_desirability import (
 
 
 def _latest_runs(set_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
-    rows = _paged_select(lambda: public_read_client.table("explore_rip_statistics_latest")
+    rows = _paged_select(lambda: service_read_client.table("explore_rip_statistics_latest")
                          .select("set_id,calculation_run_id,run_at")
                          .in_("set_id", list(set_ids)).order("run_at", desc=True))
     return {str(row["set_id"]): row for row in rows if row.get("set_id") and row.get("calculation_run_id")}
@@ -35,7 +35,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     # Read each run independently. A multi-run unordered range can split a
     # run at a PostgREST page boundary and silently omit another run entirely.
     for run_id in sorted({str(value) for value in run_ids if value}):
-        cards.extend(_paged_select(lambda run_id=run_id: public_read_client.table("simulation_input_cards")
+        cards.extend(_paged_select(lambda run_id=run_id: service_read_client.table("simulation_input_cards")
                                    .select("calculation_run_id,card_id,card_variant_id,card_name,rarity_bucket,price_used,effective_pull_rate,ev_contribution")
                                    .eq("calculation_run_id", run_id)
                                    .order("ev_contribution", desc=True)))
@@ -45,7 +45,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     card_ids = sorted({str(row["card_id"]) for row in cards if row.get("card_id")})
     legacy_rows: List[Dict[str, Any]] = []
     for chunk in _chunked(card_ids, 200):
-        legacy_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("cards")
+        legacy_rows.extend(_paged_select(lambda chunk=list(chunk): service_read_client.table("cards")
                                          .select("id,set_id,name,rarity,pokemon_tcg_api_id").in_("id", chunk)))
     legacy_by_id = {str(row["id"]): row for row in legacy_rows if row.get("id")}
     api_by_legacy = {str(row["id"]): str(row["pokemon_tcg_api_id"])
@@ -53,19 +53,19 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     variant_ids = sorted({str(row["card_variant_id"]) for row in cards if row.get("card_variant_id")})
     variant_rows: List[Dict[str, Any]] = []
     for chunk in _chunked(variant_ids, 200):
-        variant_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("card_variants")
+        variant_rows.extend(_paged_select(lambda chunk=list(chunk): service_read_client.table("card_variants")
                                           .select("id,card_id,pokemon_tcg_api_id").in_("id", chunk)))
     api_by_variant = {str(row["id"]): str(row["pokemon_tcg_api_id"])
                       for row in variant_rows if row.get("id") and row.get("pokemon_tcg_api_id")}
     api_ids = sorted(set(api_by_legacy.values()) | set(api_by_variant.values()))
     canonical_rows: List[Dict[str, Any]] = []
     for chunk in _chunked(api_ids, 200):
-        canonical_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("pokemon_canonical_cards")
+        canonical_rows.extend(_paged_select(lambda chunk=list(chunk): service_read_client.table("pokemon_canonical_cards")
                                             .select("id,pokemon_tcg_api_card_id,rarity,supertype")
                                             .in_("pokemon_tcg_api_card_id", chunk)))
     set_ids = sorted({str(row["set_id"]) for row in legacy_rows if row.get("set_id")})
     for chunk in _chunked(set_ids, 100):
-        canonical_rows.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table("pokemon_canonical_cards")
+        canonical_rows.extend(_paged_select(lambda chunk=list(chunk): service_read_client.table("pokemon_canonical_cards")
                                             .select("id,set_id,name,pokemon_tcg_api_card_id,rarity,supertype")
                                             .in_("set_id", chunk)))
     canonical_by_api = {str(row["pokemon_tcg_api_card_id"]): row for row in canonical_rows
@@ -78,7 +78,7 @@ def _card_evidence(run_ids: Sequence[str]) -> Dict[str, List[Dict[str, Any]]]:
     canonical_ids = sorted({str(row["id"]) for row in canonical_rows if row.get("id")})
     links: List[Dict[str, Any]] = []
     for chunk in _chunked(canonical_ids, 200):
-        links.extend(_paged_select(lambda chunk=list(chunk): public_read_client.table(CARD_DESIRABILITY_LINK_TABLE)
+        links.extend(_paged_select(lambda chunk=list(chunk): service_read_client.table(CARD_DESIRABILITY_LINK_TABLE)
                                    .select("pokemon_canonical_card_id,pokemon_reference_id,contribution_weight,is_hit_eligible,hit_policy_version")
                                    .in_("pokemon_canonical_card_id", chunk)))
     links_by_card: Dict[str, List[Mapping[str, Any]]] = defaultdict(list)

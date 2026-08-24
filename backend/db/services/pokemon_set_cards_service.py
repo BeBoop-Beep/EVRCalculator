@@ -5,7 +5,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
 
     try:
         set_result = (
-            public_read_client.table("sets")
+            service_read_client.table("sets")
             .select("id,name,canonical_key,pokemon_api_set_id")
             .eq("id", resolved_set_id)
             .maybe_single()
@@ -171,7 +171,7 @@ def get_pokemon_set_cards_payload(set_id: str) -> Dict[str, Any]:
     cards_started = time.perf_counter()
     try:
         cards_result = (
-            public_read_client.table("pokemon_canonical_cards")
+            service_read_client.table("pokemon_canonical_cards")
             .select(
                 "id,set_id,pokemon_tcg_api_card_id,name,supertype,subtypes,rarity,"
                 "number,printed_number,national_pokedex_numbers,image_small_url,image_large_url"

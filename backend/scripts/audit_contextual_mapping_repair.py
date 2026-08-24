@@ -5,7 +5,7 @@ import argparse
 import json
 from pathlib import Path
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.contextual_set_desirability_service import (
     _card_evidence, build_contextual_desirability_bundle,
 )
@@ -14,12 +14,12 @@ TARGETS = ("Pitch Black", "Chaos Rising")
 
 
 def _sets():
-    rows = public_read_client.table("sets").select("id,name").in_("name", list(TARGETS)).execute().data or []
+    rows = service_read_client.table("sets").select("id,name").in_("name", list(TARGETS)).execute().data or []
     return {str(row["id"]): row["name"] for row in rows}
 
 
 def _runs(set_ids):
-    rows = (public_read_client.table("explore_rip_statistics_latest")
+    rows = (service_read_client.table("explore_rip_statistics_latest")
             .select("set_id,calculation_run_id,run_at").in_("set_id", list(set_ids))
             .execute()).data or []
     return {str(row["set_id"]): row for row in rows}

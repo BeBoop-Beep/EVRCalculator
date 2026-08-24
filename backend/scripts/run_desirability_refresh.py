@@ -388,8 +388,8 @@ def stage_preflight(context: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     try:
-        from backend.db.clients.supabase_client import public_read_client
-        client = public_read_client
+        from backend.db.clients.supabase_client import service_read_client
+        client = service_read_client
     except Exception as error:  # noqa: BLE001
         raise StageFailure(f"Supabase client init failed: {error}",
                            exit_code=EXIT_PREFLIGHT_FAILED) from error

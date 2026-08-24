@@ -8,7 +8,7 @@ import math
 import time
 from typing import Any, Dict, List, Optional
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.interpretation.rips import build_rip_interpretation
 
 logger = logging.getLogger(__name__)
@@ -172,7 +172,7 @@ def _enrich_top_hits_with_images(top_hits: List[Dict[str, Any]]) -> List[Dict[st
 
     if variant_ids:
         variant_result = (
-            public_read_client.table("card_variants")
+            service_read_client.table("card_variants")
             .select("id,card_id,image_small_url,image_large_url")
             .in_("id", variant_ids)
             .execute()
@@ -191,7 +191,7 @@ def _enrich_top_hits_with_images(top_hits: List[Dict[str, Any]]) -> List[Dict[st
     all_card_ids = sorted(set(card_ids) | derived_card_ids)
     if all_card_ids:
         card_result = (
-            public_read_client.table("cards")
+            service_read_client.table("cards")
             .select("id,image_small_url,image_large_url")
             .in_("id", all_card_ids)
             .execute()
@@ -315,7 +315,7 @@ def _load_history_trend_rows(
             continue
         try:
             history_result = (
-                public_read_client.table("calculation_history_trend")
+                service_read_client.table("calculation_history_trend")
                 .select(select_columns)
                 .eq("target_type", requested_target_type)
                 .eq("target_id", requested_target_id)
@@ -469,7 +469,7 @@ def _fetch_set_metadata_for_target(requested_target_id: str) -> Optional[Dict[st
     for field, value in identity_filters:
         try:
             set_result = (
-                public_read_client.table("sets")
+                service_read_client.table("sets")
                 .select(selected_columns)
                 .eq(field, value)
                 .limit(1)
@@ -485,7 +485,7 @@ def _fetch_set_metadata_for_target(requested_target_id: str) -> Optional[Dict[st
     # Attempt slug match but tolerate schemas where slug is unavailable.
     try:
         slug_result = (
-            public_read_client.table("sets")
+            service_read_client.table("sets")
             .select(selected_columns + ",slug")
             .eq("slug", target_id)
             .limit(1)
@@ -502,7 +502,7 @@ def _fetch_set_metadata_for_target(requested_target_id: str) -> Optional[Dict[st
     if candidate_name:
         try:
             name_result = (
-                public_read_client.table("sets")
+                service_read_client.table("sets")
                 .select(selected_columns)
                 .eq("name", candidate_name)
                 .limit(1)
@@ -1048,7 +1048,7 @@ def _populate_biggest_upside_metrics_for_set(
 
     try:
         peers_result = (
-            public_read_client.table("explore_rip_statistics_latest")
+            service_read_client.table("explore_rip_statistics_latest")
             .select("set_id,p95_value_to_cost_ratio,p99_value_to_cost_ratio")
             .execute()
         )
@@ -1122,7 +1122,7 @@ def _populate_relative_average_return_score_for_set(
 
     try:
         peers_result = (
-            public_read_client.table("explore_rip_statistics_latest")
+            service_read_client.table("explore_rip_statistics_latest")
             .select("set_id,mean_value_to_cost_ratio")
             .execute()
         )
@@ -1289,7 +1289,7 @@ def _populate_opening_desirability_for_set(
             attempted_filters.append((field, lookup_value))
             try:
                 result = (
-                    public_read_client.table("pokemon_set_opening_desirability_latest")
+                    service_read_client.table("pokemon_set_opening_desirability_latest")
                     .select(selected_columns)
                     .eq(field, lookup_value)
                     .order("built_at", desc=True)
@@ -1395,7 +1395,7 @@ def _latest_composite_scores_by_reference(reference_ids: List[int]) -> Dict[int,
         return {}
 
     response = (
-        public_read_client.table("pokemon_desirability_composite_scores")
+        service_read_client.table("pokemon_desirability_composite_scores")
         .select(
             "pokemon_reference_id,fan_popularity_score,current_trend_score,"
             "desirability_score,created_at"
@@ -1676,7 +1676,7 @@ def _populate_desirability_drivers_for_set(
         return
 
     try:
-        base_query = public_read_client.table("pokemon_set_hit_desirability_summaries").select(
+        base_query = service_read_client.table("pokemon_set_hit_desirability_summaries").select(
             "id,set_id,top_desirable_cards_json,top_desirable_pokemon_json,built_at"
         )
         summary_row = None
@@ -1686,7 +1686,7 @@ def _populate_desirability_drivers_for_set(
 
         if not summary_row and target_id:
             fallback_response = (
-                public_read_client.table("pokemon_set_hit_desirability_summaries")
+                service_read_client.table("pokemon_set_hit_desirability_summaries")
                 .select("id,set_id,top_desirable_cards_json,top_desirable_pokemon_json,built_at")
                 .eq("set_id", target_id)
                 .order("built_at", desc=True)
@@ -1739,7 +1739,7 @@ def _populate_desirability_drivers_for_set(
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
     """Fallback latest run lookup when canonical latest view is unavailable."""
     run_result = (
-        public_read_client.table("calculation_runs")
+        service_read_client.table("calculation_runs")
         .select("id,created_at,target_type,target_id")
         .eq("target_type", target_type)
         .eq("target_id", target_id)
@@ -1807,7 +1807,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         try:
             rip_latest_result = (
-                public_read_client.table("explore_rip_statistics_latest")
+                service_read_client.table("explore_rip_statistics_latest")
                 .select("*")
                 .eq("set_id", requested_target_id)
                 .limit(1)
@@ -1827,7 +1827,7 @@ def get_explore_page_payload(
                     # in set_pack_score_rankings_latest without computing anything in service.
                     try:
                         ranking_result = (
-                            public_read_client.table("set_pack_score_rankings_latest")
+                            service_read_client.table("set_pack_score_rankings_latest")
                             .select(
                                 "target_id,calculation_run_id,"
                                 + ",".join(_RIP_SUMMARY_SUPPLEMENT_FIELDS)
@@ -1903,7 +1903,7 @@ def get_explore_page_payload(
     if not summary_from_rip_latest:
         try:
             latest_target_result = (
-                public_read_client.table("simulation_latest_by_target")
+                service_read_client.table("simulation_latest_by_target")
                 .select("*")
                 .eq("target_type", requested_target_type)
                 .eq("target_id", requested_target_id)
@@ -1981,7 +1981,7 @@ def get_explore_page_payload(
     if not summary_from_canonical:
         try:
             summary_result = (
-                public_read_client.table("simulation_run_summary")
+                service_read_client.table("simulation_run_summary")
                 .select(
                     "pack_cost,mean_value,median_value,min_value,max_value,std_dev,"
                     "total_ev,net_value,roi,roi_percent,prob_profit,prob_big_hit,big_hit_threshold,"
@@ -2012,7 +2012,7 @@ def get_explore_page_payload(
 
         try:
             derived_result = (
-                public_read_client.table("simulation_derived_metrics")
+                service_read_client.table("simulation_derived_metrics")
                 .select("*")
                 .eq("calculation_run_id", run_id)
                 .single()
@@ -2044,7 +2044,7 @@ def get_explore_page_payload(
     rankings: List[Dict[str, Any]] = []
     try:
         rankings_result = (
-            public_read_client.table("simulation_pull_summary")
+            service_read_client.table("simulation_pull_summary")
             .select("rarity_bucket,pulled_count,avg_sampled_value,total_sampled_value")
             .eq("calculation_run_id", run_id)
             .order("rarity_bucket", desc=False)
@@ -2063,7 +2063,7 @@ def get_explore_page_payload(
     rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}}
     try:
         rip_result = (
-            public_read_client.table("simulation_state_counts")
+            service_read_client.table("simulation_state_counts")
             .select("state_group,state_name,occurrence_count")
             .eq("calculation_run_id", run_id)
             .execute()
@@ -2088,7 +2088,7 @@ def get_explore_page_payload(
     percentiles: List[Dict[str, Any]] = []
     try:
         percentiles_result = (
-            public_read_client.table("simulation_percentiles")
+            service_read_client.table("simulation_percentiles")
             .select("percentile,value")
             .eq("calculation_run_id", run_id)
             .order("percentile", desc=False)
@@ -2146,7 +2146,7 @@ def get_explore_page_payload(
     distribution_bins: List[Dict[str, Any]] = []
     try:
         distribution_result = (
-            public_read_client.table("simulation_value_distribution_bins")
+            service_read_client.table("simulation_value_distribution_bins")
             .select(
                 "bin_floor,bin_ceiling,occurrence_count,probability,"
                 "cumulative_probability,survival_probability"
@@ -2169,7 +2169,7 @@ def get_explore_page_payload(
     threshold_bins: List[Dict[str, Any]] = []
     try:
         threshold_result = (
-            public_read_client.table("simulation_value_threshold_bins")
+            service_read_client.table("simulation_value_threshold_bins")
             .select(
                 "threshold_floor,threshold_ceiling,occurrence_count,probability,"
                 "cumulative_probability,survival_probability,bucket_label,bucket_order"
@@ -2191,7 +2191,7 @@ def get_explore_page_payload(
     top_hits: List[Dict[str, Any]] = []
     try:
         top_hits_result = (
-            public_read_client.table("simulation_input_cards_with_near_mint_price")
+            service_read_client.table("simulation_input_cards_with_near_mint_price")
             .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution,current_near_mint_price")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)
@@ -2321,7 +2321,7 @@ def _load_pull_rate_card_count_rows(
 ) -> List[Dict[str, Any]]:
     try:
         cards_result = (
-            public_read_client.table("simulation_input_cards_with_near_mint_price")
+            service_read_client.table("simulation_input_cards_with_near_mint_price")
             .select("card_id,card_variant_id,card_name,rarity_bucket")
             .eq("calculation_run_id", run_id)
             .execute()
@@ -2337,7 +2337,7 @@ def _load_pull_rate_card_count_rows(
 
     try:
         cards_result = (
-            public_read_client.table("simulation_input_cards")
+            service_read_client.table("simulation_input_cards")
             .select("card_id,card_variant_id,card_name,rarity_bucket")
             .eq("calculation_run_id", run_id)
             .execute()
@@ -2724,7 +2724,7 @@ def _populate_biggest_upside_metrics_for_set(
 
     try:
         peers_result = (
-            public_read_client.table("explore_rip_statistics_latest")
+            service_read_client.table("explore_rip_statistics_latest")
             .select("set_id,p95_value_to_cost_ratio,p99_value_to_cost_ratio")
             .execute()
         )
@@ -2798,7 +2798,7 @@ def _populate_relative_average_return_score_for_set(
 
     try:
         peers_result = (
-            public_read_client.table("explore_rip_statistics_latest")
+            service_read_client.table("explore_rip_statistics_latest")
             .select("set_id,mean_value_to_cost_ratio")
             .execute()
         )
@@ -2874,7 +2874,7 @@ def _missing_required_fields(row: Dict[str, Any], required_fields: tuple[str, ..
 def _lookup_latest_run_from_calculation_runs(target_type: str, target_id: str) -> str:
     """Fallback latest run lookup when canonical latest view is unavailable."""
     run_result = (
-        public_read_client.table("calculation_runs")
+        service_read_client.table("calculation_runs")
         .select("id,created_at,target_type,target_id")
         .eq("target_type", target_type)
         .eq("target_id", target_id)
@@ -2942,7 +2942,7 @@ def get_explore_page_payload(
     if requested_target_type == "set":
         try:
             rip_latest_result = (
-                public_read_client.table("explore_rip_statistics_latest")
+                service_read_client.table("explore_rip_statistics_latest")
                 .select("*")
                 .eq("set_id", requested_target_id)
                 .limit(1)
@@ -2962,7 +2962,7 @@ def get_explore_page_payload(
                     # in set_pack_score_rankings_latest without computing anything in service.
                     try:
                         ranking_result = (
-                            public_read_client.table("set_pack_score_rankings_latest")
+                            service_read_client.table("set_pack_score_rankings_latest")
                             .select(
                                 "target_id,calculation_run_id,"
                                 + ",".join(_RIP_SUMMARY_SUPPLEMENT_FIELDS)
@@ -3038,7 +3038,7 @@ def get_explore_page_payload(
     if not summary_from_rip_latest:
         try:
             latest_target_result = (
-                public_read_client.table("simulation_latest_by_target")
+                service_read_client.table("simulation_latest_by_target")
                 .select("*")
                 .eq("target_type", requested_target_type)
                 .eq("target_id", requested_target_id)
@@ -3116,7 +3116,7 @@ def get_explore_page_payload(
     if not summary_from_canonical:
         try:
             summary_result = (
-                public_read_client.table("simulation_run_summary")
+                service_read_client.table("simulation_run_summary")
                 .select(
                     "pack_cost,mean_value,median_value,min_value,max_value,std_dev,"
                     "total_ev,net_value,roi,roi_percent,prob_profit,prob_big_hit,big_hit_threshold,"
@@ -3147,7 +3147,7 @@ def get_explore_page_payload(
 
         try:
             derived_result = (
-                public_read_client.table("simulation_derived_metrics")
+                service_read_client.table("simulation_derived_metrics")
                 .select("*")
                 .eq("calculation_run_id", run_id)
                 .single()
@@ -3179,7 +3179,7 @@ def get_explore_page_payload(
     rankings: List[Dict[str, Any]] = []
     try:
         rankings_result = (
-            public_read_client.table("simulation_pull_summary")
+            service_read_client.table("simulation_pull_summary")
             .select("rarity_bucket,pulled_count,avg_sampled_value,total_sampled_value")
             .eq("calculation_run_id", run_id)
             .order("rarity_bucket", desc=False)
@@ -3198,7 +3198,7 @@ def get_explore_page_payload(
     rip_statistics: Dict[str, Any] = {"pack_paths": {}, "normal_pack_states": {}}
     try:
         rip_result = (
-            public_read_client.table("simulation_state_counts")
+            service_read_client.table("simulation_state_counts")
             .select("state_group,state_name,occurrence_count")
             .eq("calculation_run_id", run_id)
             .execute()
@@ -3223,7 +3223,7 @@ def get_explore_page_payload(
     percentiles: List[Dict[str, Any]] = []
     try:
         percentiles_result = (
-            public_read_client.table("simulation_percentiles")
+            service_read_client.table("simulation_percentiles")
             .select("percentile,value")
             .eq("calculation_run_id", run_id)
             .order("percentile", desc=False)
@@ -3281,7 +3281,7 @@ def get_explore_page_payload(
     distribution_bins: List[Dict[str, Any]] = []
     try:
         distribution_result = (
-            public_read_client.table("simulation_value_distribution_bins")
+            service_read_client.table("simulation_value_distribution_bins")
             .select(
                 "bin_floor,bin_ceiling,occurrence_count,probability,"
                 "cumulative_probability,survival_probability"
@@ -3304,7 +3304,7 @@ def get_explore_page_payload(
     threshold_bins: List[Dict[str, Any]] = []
     try:
         threshold_result = (
-            public_read_client.table("simulation_value_threshold_bins")
+            service_read_client.table("simulation_value_threshold_bins")
             .select(
                 "threshold_floor,threshold_ceiling,occurrence_count,probability,"
                 "cumulative_probability,survival_probability,bucket_label,bucket_order"
@@ -3326,7 +3326,7 @@ def get_explore_page_payload(
     top_hits: List[Dict[str, Any]] = []
     try:
         top_hits_result = (
-            public_read_client.table("simulation_input_cards_with_near_mint_price")
+            service_read_client.table("simulation_input_cards_with_near_mint_price")
             .select("card_id,card_variant_id,card_name,rarity_bucket,ev_contribution,current_near_mint_price")
             .eq("calculation_run_id", run_id)
             .order("ev_contribution", desc=True)

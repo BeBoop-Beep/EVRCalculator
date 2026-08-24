@@ -15,6 +15,9 @@ class SetExpeditionBaseSetConfig(BaseSetConfig):
     # previously pointed at group 604, which is Base Set: Expedition therefore
     # ingested Base Set prices for its entire history and claimed the /102
     # external identities that belong to `base`.
+    TCGPLAYER_SET_ID = '1375'
+    TCGPLAYER_SET_NAME = 'Expedition'
+    TCGPLAYER_SET_ABBREVIATION = 'EX'
     CARD_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=1'
     SEALED_DETAILS_URL = 'https://infinite-api.tcgplayer.com/priceguide/set/1375/cards/?rows=5000&productTypeID=25'
     PRICE_ENDPOINTS = {}

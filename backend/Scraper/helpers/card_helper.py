@@ -255,6 +255,7 @@ def process_card(card, pull_rate_mapping):
         'externalCatalogKey': str(card.get('setAbbrv') or card.get('setID') or '') or None,
         'externalVariantKey': build_external_variant_key(edition, printing_type, special_type),
         'externalSourcePayload': {'productName': card.get('productName'), 'number': number,
+            'productID': card.get('productID'), 'setID': card.get('setID'),
             'set': card.get('set'), 'setAbbrv': card.get('setAbbrv'),
             'printing': printing, 'rarity': rarity},
     }

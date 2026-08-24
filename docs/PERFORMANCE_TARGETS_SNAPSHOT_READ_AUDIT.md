@@ -27,8 +27,8 @@ GET /explore/rip-statistics/targets?limit=N
           ├── run_public_read_with_retry(                                                :1873
           │       _load_pokemon_explore_rankings_snapshot_row,                           :1792
           │       operation_name="pokemon_explore_rankings_snapshot",
-          │       initial_client=public_read_client,
-          │       client_factory=create_public_read_client)
+          │       initial_client=service_read_client,
+          │       client_factory=create_short_timeout_service_client)
           │     └── supabase-py → PostgREST
           │           table("pokemon_explore_rankings_snapshot_latest")
           │           .select("tcg,scope,ranking_payload_json,default_target_json,updated_at")

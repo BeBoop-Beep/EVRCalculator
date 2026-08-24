@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Sequence
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.composite import assign_composite_tier
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
@@ -164,7 +164,7 @@ def build_product_family_rankings(
     client: Any = None, *, set_targets: Sequence[Mapping[str, Any]]
 ) -> Dict[str, Any]:
     """Build rankings only from each public target's exact calculation run."""
-    client = client or public_read_client
+    client = client or service_read_client
     run_id_by_set_id, identities = _target_run_authority(set_targets)
     if not identities:
         return {

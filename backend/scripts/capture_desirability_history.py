@@ -178,7 +178,7 @@ def main() -> int:
     if args.commit:
         from backend.db.clients.supabase_client import service_write_client as get_client
     else:
-        from backend.db.clients.supabase_client import public_read_client as get_client
+        from backend.db.clients.supabase_client import service_read_client as get_client
     client = get_client
 
     if args.commit:

@@ -26,7 +26,7 @@ from typing import Any, Mapping, Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.explore_rip_statistics_service import get_rip_statistics_targets_payload
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
 from backend.desirability.scoring_config import (
@@ -786,7 +786,7 @@ def main() -> int:
         targets = list(payload.get("targets") or [])
         projection = build_product_family_rankings(set_targets=targets)
         set_ids = sorted({str(t.get("set_id") or t.get("target_id")) for t in targets if t.get("set_id") or t.get("target_id")})
-        report = build_report(projection, targets, _catalog_by_set(public_read_client, set_ids))
+        report = build_report(projection, targets, _catalog_by_set(service_read_client, set_ids))
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "set_rip_consensus_research.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (args.output_dir / "set_rip_consensus_research.md").write_text(render_markdown(report), encoding="utf-8")

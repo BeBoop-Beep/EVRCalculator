@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ def get_latest_opening_desirability_for_rip_score(
         return _fallback_payload("missing_set_identifier")
 
     try:
-        query = public_read_client.table(OPENING_DESIRABILITY_VIEW).select(
+        query = service_read_client.table(OPENING_DESIRABILITY_VIEW).select(
             "set_id,set_name,set_canonical_key,opening_desirability_score,"
             "opening_desirability_rank,collector_appeal_score,collector_appeal_rank,"
             "chase_appeal_score,chase_appeal_rank,chase_appeal_data_quality,"
@@ -190,7 +190,7 @@ def get_latest_set_hit_desirability_score(
         return _fallback_payload("missing_set_identifier")
 
     try:
-        query = public_read_client.table(SUMMARY_TABLE).select(
+        query = service_read_client.table(SUMMARY_TABLE).select(
             "id,set_id,set_name,set_canonical_key,aggregation_version,hit_policy_version,"
             "composite_scoring_version,fan_popularity_snapshot_id,"
             "weighted_average_hit_desirability_score,built_at,updated_at"

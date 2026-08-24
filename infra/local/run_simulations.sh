@@ -335,10 +335,10 @@ Commit: $(git rev-parse HEAD)
 Script: backend/scripts/audit_public_rip_leaderboard_publication.py
 Exit: $PUBLIC_RIP_AUDIT_EXIT
 Canonical versions expected:
-  Financial RIP  : financial_rip_v3_outcome_profile_25_20_15_25_10_5
+  Financial RIP  : financial_rip_v4_outcome_profile_p95_only_25_20_15_25_10_5
   Collector Appeal: collector_appeal_v4_h_only_d_baseline_up4_down2
-  Overall RIP    : overall_rip_v8_90_financial_v3_10_collector_appeal_v4
-  Public contract: public_rip_contract_v8
+  Overall RIP    : overall_rip_v10_90_financial_v4_10_collector_appeal_v5
+  Public contract: public_rip_contract_v10
 Details: ${PUBLIC_RIP_AUDIT_LINE:-see log}
 Action: the published leaderboard is not on the canonical contract, or does not cover the full supported cohort. Rebuild and republish; do NOT treat the Explore RIP leaderboard as current.
 Log: logs/public_rip_audit.log"

@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import os
 import random
@@ -50,6 +51,8 @@ class TCGPlayerClient:
         self.max_request_cache_entries = int(os.getenv("HTTP_RESPONSE_CACHE_MAX_ENTRIES", "256"))
 
         self._request_cache: "OrderedDict[str, Any]" = OrderedDict()
+        self._request_provenance_cache: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+        self.last_response_provenance: Dict[str, Any] = {}
         self._helper_seen_today: Dict[Tuple[str, str], bool] = {}
         self._today_utc = datetime.now(timezone.utc).date().isoformat()
         self._consecutive_rate_limit_events = 0
@@ -131,11 +134,14 @@ class TCGPlayerClient:
                 "Sustained rate-limit/challenge responses detected; aborting run early"
             )
 
-    def _cache_response(self, request_key: str, parsed: Dict[str, Any]) -> None:
+    def _cache_response(self, request_key: str, parsed: Dict[str, Any], provenance: Dict[str, Any]) -> None:
         self._request_cache[request_key] = parsed
+        self._request_provenance_cache[request_key] = provenance
         self._request_cache.move_to_end(request_key)
+        self._request_provenance_cache.move_to_end(request_key)
         while len(self._request_cache) > self.max_request_cache_entries:
-            self._request_cache.popitem(last=False)
+            evicted_key, _ = self._request_cache.popitem(last=False)
+            self._request_provenance_cache.pop(evicted_key, None)
 
     def _request_json(self, method: str, url: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         request_key = self._request_key(method, url, payload)
@@ -145,6 +151,9 @@ class TCGPlayerClient:
             self._request_cache.move_to_end(request_key)
             self.metrics["http_requests_cache_hits"] += 1
             self.metrics["http_requests_skipped_redundant"] += 1
+            self.last_response_provenance = copy.deepcopy(
+                self._request_provenance_cache.get(request_key, {})
+            )
             if is_helper_request:
                 helper_key = (self._today_utc, request_key)
                 if helper_key not in self._helper_seen_today:
@@ -182,7 +191,24 @@ class TCGPlayerClient:
                     raise requests.HTTPError(f"HTTP {response.status_code}")
 
                 parsed = response.json()
-                self._cache_response(request_key, parsed)
+                canonical_body = json.dumps(
+                    parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+                ).encode("utf-8")
+                provenance = {
+                    "requested_url": url,
+                    "final_url": str(response.url),
+                    "redirect_history": [
+                        {
+                            "status_code": item.status_code,
+                            "url": str(item.url),
+                            "location": item.headers.get("Location"),
+                        }
+                        for item in response.history
+                    ],
+                    "response_body_sha256": hashlib.sha256(canonical_body).hexdigest(),
+                }
+                self.last_response_provenance = provenance
+                self._cache_response(request_key, parsed, provenance)
                 self._consecutive_rate_limit_events = 0
                 if is_helper_request:
                     self._helper_seen_today[(self._today_utc, request_key)] = True

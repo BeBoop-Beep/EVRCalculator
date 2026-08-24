@@ -23,7 +23,7 @@ from backend.db.services.collection_portfolio_service import (
     get_current_user_portfolio_dashboard_data,
     get_public_collection_data_by_username,
 )
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
@@ -291,7 +291,7 @@ def get_public_collection_items(
         username=username,
         include_collection_items=include_items,
         viewer_user_id=viewer_user_id,
-        db_client=public_read_client,
+        db_client=service_read_client,
     )
 
     if error == "Invalid username.":
@@ -1019,13 +1019,13 @@ def get_pokemon_set_sealed_market(set_id: str):
         # run_public_read_with_retry, so sealed now gets the same dead-pooled-socket
         # protection the other routes already had and this one entirely bypassed.
         try:
-            resolved_set_id = str(resolve_pokemon_set_identifier(set_id, client=public_read_client)["id"])
+            resolved_set_id = str(resolve_pokemon_set_identifier(set_id, client=service_read_client)["id"])
         except PokemonSetMarketError as exc:
             return JSONResponse(
                 content={"message": exc.message, "code": exc.code},
                 status_code=exc.status_code,
             )
-        payload = read_sealed_market_snapshot(public_read_client, resolved_set_id)
+        payload = read_sealed_market_snapshot(service_read_client, resolved_set_id)
         if payload is None:
             return JSONResponse(
                 content={"message": "Sealed market history is not available", "code": "POKEMON_SET_SEALED_MARKET_UNAVAILABLE"},

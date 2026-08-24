@@ -122,7 +122,7 @@ def test_sets_catalog_card_count_comes_from_canonical_cards(monkeypatch):
         "eras": lambda _query: [{"id": "era-1", "name": "Test Era"}],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", client)
 
     payload = pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
 
@@ -140,8 +140,8 @@ def test_sets_catalog_transient_tcg_lookup_returns_503_without_variant_fanout(mo
 
     initial_client = _Client({"tcgs": fail})
     fresh_client = _Client({"tcgs": fail})
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", initial_client)
-    monkeypatch.setattr(pokemon_sets_catalog_service, "create_public_read_client", lambda: fresh_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", initial_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "create_short_timeout_service_client", lambda: fresh_client)
 
     with pytest.raises(pokemon_sets_catalog_service.PokemonSetsCatalogError) as raised:
         pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
@@ -165,10 +165,10 @@ def test_sets_catalog_retries_tcg_lookup_with_fresh_client(monkeypatch):
     )
     fresh_client = _Client({"tcgs": lambda _query: [{"id": "pokemon-tcg", "name": "Pokemon"}]})
     factories = []
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", initial_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", initial_client)
     monkeypatch.setattr(
         pokemon_sets_catalog_service,
-        "create_public_read_client",
+        "create_short_timeout_service_client",
         lambda: factories.append(fresh_client) or fresh_client,
     )
 
@@ -197,8 +197,8 @@ def test_sets_catalog_retries_primary_sets_query_with_fresh_client(monkeypatch):
             ]
         }
     )
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", initial_client)
-    monkeypatch.setattr(pokemon_sets_catalog_service, "create_public_read_client", lambda: fresh_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", initial_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "create_short_timeout_service_client", lambda: fresh_client)
 
     payload = pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
 
@@ -218,8 +218,8 @@ def test_sets_catalog_two_transient_primary_sets_failures_return_503(monkeypatch
         }
     )
     fresh_client = _Client({"sets": fail_sets})
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", initial_client)
-    monkeypatch.setattr(pokemon_sets_catalog_service, "create_public_read_client", lambda: fresh_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", initial_client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "create_short_timeout_service_client", lambda: fresh_client)
 
     with pytest.raises(pokemon_sets_catalog_service.PokemonSetsCatalogError) as raised:
         pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
@@ -244,7 +244,7 @@ def test_sets_catalog_optional_enrichment_failures_degrade_to_warnings(monkeypat
             "eras": fail_optional,
         }
     )
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", client)
 
     payload = pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
 
@@ -256,7 +256,7 @@ def test_sets_catalog_optional_enrichment_failures_degrade_to_warnings(monkeypat
 
 def test_sets_catalog_successful_empty_tcg_lookup_remains_404(monkeypatch):
     client = _Client({"tcgs": lambda _query: []})
-    monkeypatch.setattr(pokemon_sets_catalog_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_sets_catalog_service, "service_read_client", client)
 
     with pytest.raises(pokemon_sets_catalog_service.PokemonSetsCatalogError) as raised:
         pokemon_sets_catalog_service.get_pokemon_sets_catalog_payload()
@@ -308,7 +308,7 @@ def test_set_cards_payload_reads_canonical_checklist_rows(monkeypatch):
         ],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_set_cards_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_cards_service, "service_read_client", client)
 
     payload = pokemon_set_cards_service.get_pokemon_set_cards_payload("set-1")
 
@@ -417,7 +417,7 @@ def test_top_market_cards_use_latest_market_prices_not_simulation(monkeypatch):
         ],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10, days=30)
 
@@ -510,7 +510,7 @@ def test_top_market_cards_prefer_latest_simulation_input_prices(monkeypatch):
         ],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_top_market_cards_payload("set-1", limit=10, days=30)
 
@@ -575,7 +575,7 @@ def test_set_value_history_uses_daily_market_history_table(monkeypatch):
         ),
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=4)
 
@@ -653,7 +653,7 @@ def test_set_value_history_returns_empty_when_snapshots_unavailable(monkeypatch)
         "pokemon_set_value_daily_history": lambda _query: [],
     }
     client = _Client(handlers)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("set-1", days=365)
 

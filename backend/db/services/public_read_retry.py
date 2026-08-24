@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, TypeVar
 
-from backend.db.clients.supabase_client import create_public_read_client
+from backend.db.clients.supabase_client import create_short_timeout_service_client
 from backend.db.services.data_service_health import classify_data_service_error
 
 
@@ -117,7 +117,7 @@ def run_public_read_with_retry(
     operation_name: str,
     initial_client: Any = None,
     max_attempts: int = 2,
-    client_factory: Callable[[], Any] = create_public_read_client,
+    client_factory: Callable[[], Any] = create_short_timeout_service_client,
     sleep: Callable[[float], None] = time.sleep,
     jitter: Callable[[float, float], float] = random.uniform,
     monotonic: Callable[[], float] = time.monotonic,

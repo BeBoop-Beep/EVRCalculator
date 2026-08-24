@@ -275,21 +275,16 @@ def _observed_cohort_constituents(basket: List[Dict[str, Any]], end: str) -> Lis
 
 
 def _chain_link_with_cohort_breaks(observations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Chain-link ``observations``, tolerating days that share no constituent
-    with the prior surviving day rather than raising.
+    """Sealed's name for the shared chain-segment wrapper.
 
-    ``build_chain_linked_history`` is the unforked, unmodified global
-    methodology, and its contract is to raise ``MarketIndexError`` when two
-    consecutive observations share no common cohort — a reasonable contract
-    for the global cross-set index, whose 30+ constituents make a zero-overlap
-    day implausible. A single set's sealed basket can be as small as one or
-    two SKUs, where a zero-overlap day (the one priced product on Tuesday is
-    different from the one priced product on Wednesday) is realistic. Rather
-    than fork the domain function's error behavior, a cohort break here simply
-    starts a NEW chain segment at the base value — the index legitimately
-    cannot say anything about the market's movement across a day with no
-    shared constituent, so it says nothing about that one transition instead
-    of fabricating one or crashing the whole history.
+    The implementation that used to live here was PROMOTED VERBATIM into
+    ``backend.domain.pokemon.market_index.build_chain_linked_history_with_segments``
+    so the Cards Market Index consumes the identical segmentation instead of
+    growing a second, silently divergent copy of it. Behaviour is unchanged;
+    this alias is kept so Sealed's call sites and tests read as before. See the
+    domain function for why a cohort break starts a new segment rather than
+    raising, and why the ``chainSegmentId``/``segmentStartDate`` tags must not
+    be stripped upstream.
     """
     return build_chain_linked_history_with_segments(observations)
 
@@ -348,12 +343,25 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
     # have is a day every eligible constituent was genuinely observed.
     index_observations = _observed_cohort_constituents(basket, end)
     index_history = _chain_link_with_cohort_breaks(index_observations) if index_observations else []
+
+    # WINDOW RETURNS MUST NEVER CROSS A CHAIN-SEGMENT BREAK. A chain break means
+    # the index legitimately cannot say anything about the market's movement
+    # across that gap — the two index levels either side of it are not
+    # mathematically linked. compute_strict_window_movements has no concept of
+    # a segment boundary; feeding it the FULL multi-segment history would let a
+    # 7D/30D/etc. window silently span a break and manufacture a return like
+    # "119.40 -> 100.00 = -16.25%" that no real price data supports. Window
+    # returns are therefore computed ONLY over the CURRENT (latest) segment's
+    # points. "All"/SinceTracking under this rule means "since the current
+    # segment began" — not since the first point ever recorded, which may
+    # belong to a disconnected earlier segment.
     current_segment_id = index_history[-1]["chainSegmentId"] if index_history else None
-    index_points = [
+    current_segment_points = [
         {"date": row["marketDate"], "value": row["normalizedIndexValue"]}
         for row in index_history
         if row["chainSegmentId"] == current_segment_id
     ]
+    index_points = current_segment_points
     index_movements = compute_strict_window_movements(index_points) if index_points else {}
 
     # Catalog eligibility (len(basket)) versus CURRENT aggregate eligibility
@@ -380,9 +388,18 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
         "marketIndex": {
             "currentValue": index_points[-1]["value"] if index_points else None,
             "baseValue": MARKET_INDEX_BASE_VALUE,
+            # Scoped to the CURRENT segment only — see the window-returns
+            # comment above. "Since this reading has been continuously
+            # comparable", not "since the very first index point ever".
             "trackingSince": index_points[0]["date"] if index_points else None,
             "currentSegmentId": current_segment_id,
-            "segmentCount": current_segment_id + 1,
+            # The full multi-segment history, WITH segment tags on every row.
+            # A frontend line chart can later use chainSegmentId to render each
+            # segment as its own line with a visible gap between them, rather
+            # than drawing one continuous line through a break that has no
+            # market meaning. isNewSegment marks each segment's first point —
+            # exactly where "no legitimate return exists relative to the
+            # previous segment" applies.
             "history": [
                 {
                     "date": row["marketDate"],
@@ -393,6 +410,10 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
                 }
                 for row in index_history
             ],
+            # Window returns for the CURRENT segment only (see above). "All"/
+            # SinceTracking resolves to "since this segment began" per the
+            # chain-break hardening — a UI exposing "All" for this index reads
+            # movements["SinceTracking"], not a span across every segment.
             "movements": index_movements,
         }
         if index_points

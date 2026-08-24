@@ -323,7 +323,7 @@ def test_1d_mover_with_26_day_old_baseline_is_excluded(monkeypatch):
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=1)
 
@@ -369,7 +369,7 @@ def test_7d_mover_with_26_day_old_baseline_is_excluded(monkeypatch):
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=7)
 
@@ -415,7 +415,7 @@ def test_30d_mover_with_26_day_old_baseline_is_included(monkeypatch):
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=30)
 
@@ -481,7 +481,7 @@ def test_1d_7d_30d_produce_distinct_deltas_when_valid_baselines_exist(monkeypatc
             latest_rows=latest_rows,
             observation_rows=observation_rows,
         )
-        monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+        monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
         payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(
             set_id="set-1", window_days=window_days
         )
@@ -534,7 +534,7 @@ def test_single_raw_observation_at_t_minus_1_day_plus_latest_row_is_a_valid_1d_m
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=1)
 
@@ -576,7 +576,7 @@ def test_single_raw_observation_around_t_minus_5_days_plus_latest_row_is_a_valid
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=7)
 
@@ -618,7 +618,7 @@ def test_single_stale_observation_at_t_minus_26_days_is_still_excluded_from_1d(m
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="set-1", window_days=1)
 
@@ -659,7 +659,7 @@ _PRISMATIC_EVOLUTIONS_UUID = "11111111-1111-1111-1111-111111111111"
 def test_resolve_pokemon_set_identifier_resolves_by_uuid(monkeypatch):
     rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
 
@@ -671,7 +671,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_uuid(monkeypatch):
 def test_resolve_pokemon_set_identifier_uuid_fast_path_skips_normalized_scan(monkeypatch):
     rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
 
@@ -683,7 +683,7 @@ def test_resolve_pokemon_set_identifier_uuid_fast_path_skips_normalized_scan(mon
 def test_resolve_pokemon_set_identifier_resolves_by_canonical_key(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismaticEvolutions")
 
@@ -693,7 +693,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_canonical_key(monkeypatch):
 def test_resolve_pokemon_set_identifier_resolves_by_pokemon_api_set_id(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("sv8pt5")
 
@@ -703,7 +703,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_pokemon_api_set_id(monkeypat
 def test_resolve_pokemon_set_identifier_resolves_hyphenated_slug_via_normalized_fallback(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismatic-evolutions")
 
@@ -717,7 +717,7 @@ def test_resolve_pokemon_set_identifier_resolves_hyphenated_slug_via_normalized_
 def test_resolve_pokemon_set_identifier_raises_not_found_for_unknown_slug(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     with pytest.raises(pokemon_set_market_service.PokemonSetMarketError) as exc_info:
         pokemon_set_market_service.resolve_pokemon_set_identifier("totally-unknown-set")
@@ -738,7 +738,7 @@ def test_get_pokemon_set_value_history_payload_resolves_hyphenated_slug(monkeypa
             "pokemon_set_value_daily_history": lambda _q: [],
         }
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
 
@@ -766,7 +766,7 @@ def test_build_pokemon_set_card_movement_payload_resolves_hyphenated_slug(monkey
             "card_variant_price_observations": lambda _q: [],
         }
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="prismatic-evolutions")
 
@@ -807,7 +807,7 @@ _PRISMATIC_EVOLUTIONS_UUID = "11111111-1111-1111-1111-111111111111"
 def test_resolve_pokemon_set_identifier_resolves_by_uuid(monkeypatch):
     rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
 
@@ -819,7 +819,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_uuid(monkeypatch):
 def test_resolve_pokemon_set_identifier_uuid_fast_path_skips_normalized_scan(monkeypatch):
     rows = [_set_row(_PRISMATIC_EVOLUTIONS_UUID, "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     pokemon_set_market_service.resolve_pokemon_set_identifier(_PRISMATIC_EVOLUTIONS_UUID)
 
@@ -831,7 +831,7 @@ def test_resolve_pokemon_set_identifier_uuid_fast_path_skips_normalized_scan(mon
 def test_resolve_pokemon_set_identifier_resolves_by_canonical_key(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismaticEvolutions")
 
@@ -841,7 +841,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_canonical_key(monkeypatch):
 def test_resolve_pokemon_set_identifier_resolves_by_pokemon_api_set_id(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("sv8pt5")
 
@@ -851,7 +851,7 @@ def test_resolve_pokemon_set_identifier_resolves_by_pokemon_api_set_id(monkeypat
 def test_resolve_pokemon_set_identifier_resolves_hyphenated_slug_via_normalized_fallback(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     row = pokemon_set_market_service.resolve_pokemon_set_identifier("prismatic-evolutions")
 
@@ -865,7 +865,7 @@ def test_resolve_pokemon_set_identifier_resolves_hyphenated_slug_via_normalized_
 def test_resolve_pokemon_set_identifier_raises_not_found_for_unknown_slug(monkeypatch):
     rows = [_set_row("set-uuid-1", "Prismatic Evolutions", "prismaticEvolutions", "sv8pt5")]
     sets_handler = _RecordingSetsHandler(rows)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": sets_handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": sets_handler}))
 
     with pytest.raises(pokemon_set_market_service.PokemonSetMarketError) as exc_info:
         pokemon_set_market_service.resolve_pokemon_set_identifier("totally-unknown-set")
@@ -886,7 +886,7 @@ def test_get_pokemon_set_value_history_payload_resolves_hyphenated_slug(monkeypa
             "pokemon_set_value_daily_history": lambda _q: [],
         }
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_value_history_payload("prismatic-evolutions")
 
@@ -914,7 +914,7 @@ def test_build_pokemon_set_card_movement_payload_resolves_hyphenated_slug(monkey
             "card_variant_price_observations": lambda _q: [],
         }
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.build_pokemon_set_card_movement_payload(set_id="prismatic-evolutions")
 
@@ -986,7 +986,7 @@ def test_market_movers_payload_returns_only_requested_window(monkeypatch):
             latest_rows=latest_rows,
             observation_rows=observation_rows,
         )
-        monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+        monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
         payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("set-1", window=window)
 
         assert payload["window"] == window
@@ -1016,7 +1016,7 @@ def test_market_movers_payload_excludes_top_chase_and_set_value_fields(monkeypat
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("set-1")
 
@@ -1043,7 +1043,7 @@ def test_market_movers_payload_resolves_prismatic_evolutions(monkeypatch):
             "card_variant_price_observations": lambda _q: [],
         }
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("prismatic-evolutions")
 
@@ -1059,7 +1059,7 @@ def test_market_movers_payload_invalid_window_normalizes_to_default(monkeypatch)
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("set-1", window="90D")
 
@@ -1079,7 +1079,7 @@ def test_market_movers_payload_has_no_duplicate_snake_case_aliases(monkeypatch):
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("set-1")
 
@@ -1151,7 +1151,7 @@ def test_market_movers_payload_serialized_size_is_under_150kb(monkeypatch):
         latest_rows=latest_rows,
         observation_rows=observation_rows,
     )
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", client)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", client)
 
     payload = pokemon_set_market_service.get_pokemon_set_market_movers_payload("set-1", limit=25)
 
@@ -1210,8 +1210,8 @@ def test_resolve_pokemon_set_identifier_recovers_from_stale_pooled_connection(mo
         fresh_clients.append(client)
         return client
 
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
-    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client", _client_factory)
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "create_short_timeout_service_client", _client_factory)
     monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
     public_read_retry._reset_public_read_circuit_breaker_for_tests()
 
@@ -1277,10 +1277,10 @@ def _patch_value_history_retry(monkeypatch, sets_handler, history_handler):
 
     monkeypatch.setattr(
         pokemon_set_market_service,
-        "public_read_client",
+        "service_read_client",
         _Client({"sets": sets_handler, "pokemon_set_value_daily_history": history_handler}),
     )
-    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client", _client_factory)
+    monkeypatch.setattr(pokemon_set_market_service, "create_short_timeout_service_client", _client_factory)
     monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
     public_read_retry._reset_public_read_circuit_breaker_for_tests()
     return fresh_clients
@@ -1340,7 +1340,7 @@ def test_value_history_does_not_retry_a_deterministic_empty_result(monkeypatch):
 def test_resolve_pokemon_set_identifier_does_not_retry_a_genuine_miss(monkeypatch):
     """A set that does not exist is deterministic — retrying cannot help."""
     handler = _RecordingSetsHandler([])
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": handler}))
     public_read_retry._reset_public_read_circuit_breaker_for_tests()
 
     with pytest.raises(pokemon_set_market_service.PokemonSetMarketError) as excinfo:
@@ -1353,8 +1353,8 @@ def test_resolve_pokemon_set_identifier_does_not_retry_a_genuine_miss(monkeypatc
 def test_resolve_pokemon_set_identifier_gives_up_after_the_bounded_retry(monkeypatch):
     """Persistent disconnects must still fail — no unbounded retry loop."""
     handler = _DisconnectingSetsHandler([], failures=99)
-    monkeypatch.setattr(pokemon_set_market_service, "public_read_client", _Client({"sets": handler}))
-    monkeypatch.setattr(pokemon_set_market_service, "create_public_read_client",
+    monkeypatch.setattr(pokemon_set_market_service, "service_read_client", _Client({"sets": handler}))
+    monkeypatch.setattr(pokemon_set_market_service, "create_short_timeout_service_client",
                         lambda: _Client({"sets": handler}))
     monkeypatch.setattr(public_read_retry, "time", _ImmediateSleepTime())
     public_read_retry._reset_public_read_circuit_breaker_for_tests()

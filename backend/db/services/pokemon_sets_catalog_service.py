@@ -6,7 +6,7 @@ import time
 from collections import Counter
 from typing import Any, Dict, List, Optional
 
-from backend.db.clients.supabase_client import create_public_read_client, public_read_client
+from backend.db.clients.supabase_client import create_short_timeout_service_client, service_read_client
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
 
@@ -123,7 +123,7 @@ def _load_canonical_card_counts(set_ids: List[str]) -> Dict[str, int]:
         offset = 0
         while True:
             query = (
-                public_read_client.table("pokemon_canonical_cards")
+                service_read_client.table("pokemon_canonical_cards")
                 .select("set_id")
                 .in_("set_id", chunk)
             )
@@ -164,8 +164,8 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
         tcg_id = run_public_read_with_retry(
             _resolve_pokemon_tcg_id,
             operation_name="pokemon_sets_catalog_tcg_lookup",
-            initial_client=public_read_client,
-            client_factory=create_public_read_client,
+            initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
         )
     except PokemonSetsCatalogError:
         raise
@@ -196,8 +196,8 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
         raw_sets = run_public_read_with_retry(
             lambda client: _load_primary_sets(client, tcg_id),
             operation_name="pokemon_sets_catalog_primary_sets",
-            initial_client=public_read_client,
-            client_factory=create_public_read_client,
+            initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
         )
         sources["sets"] = "OK"
     except Exception as exc:
@@ -245,7 +245,7 @@ def get_pokemon_sets_catalog_payload() -> Dict[str, Any]:
     if era_ids:
         try:
             era_result = (
-                public_read_client.table("eras")
+                service_read_client.table("eras")
                 .select("id,name")
                 .in_("id", era_ids)
                 .execute()

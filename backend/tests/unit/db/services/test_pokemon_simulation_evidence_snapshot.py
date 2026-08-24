@@ -55,7 +55,7 @@ def test_simulation_evidence_returns_allowlisted_exact_run_payload(monkeypatch):
             },
         }],
     })
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     monkeypatch.setattr(service, "_resolve_set_row", lambda _value: {"id": "set-1"})
 
     payload = service.get_pokemon_set_simulation_evidence_snapshot_payload("set-slug")
@@ -78,7 +78,7 @@ def test_simulation_evidence_returns_allowlisted_exact_run_payload(monkeypatch):
 
 def test_simulation_evidence_missing_snapshot_returns_standard_empty_payload(monkeypatch):
     client = _Client({"pokemon_set_page_snapshot_latest": []})
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     monkeypatch.setattr(service, "_resolve_set_row", lambda _value: {"id": "set-1"})
 
     payload = service.get_pokemon_set_simulation_evidence_snapshot_payload("set-slug")
@@ -103,7 +103,7 @@ def test_snapshot_run_wins_without_external_latest_run_relabeling(monkeypatch):
         }],
         "explore_rip_statistics_latest": [{"calculation_run_id": "run-new"}],
     })
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     payload = service.get_pokemon_set_simulation_evidence_snapshot_payload("11111111-1111-1111-1111-111111111111")
 
     assert payload["calculationRunId"] == "run-old"
@@ -116,7 +116,7 @@ def test_distribution_without_snapshot_owned_run_fails_closed(monkeypatch):
         "distribution_bins": [{"bin_floor": 0}],
         "threshold_bins": [{"threshold_floor": 0}],
     }}]})
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     payload = service.get_pokemon_set_simulation_evidence_snapshot_payload("11111111-1111-1111-1111-111111111111")
 
     assert payload["calculationRunId"] is None
@@ -132,14 +132,13 @@ def test_conflicting_snapshot_owned_run_ids_fail_closed(monkeypatch):
         "distribution_bins": [{"bin_floor": 0}],
         "threshold_bins": [{"threshold_floor": 0}],
     }}]})
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     payload = service.get_pokemon_set_simulation_evidence_snapshot_payload("11111111-1111-1111-1111-111111111111")
 
     assert payload["calculationRunId"] is None
     assert payload["percentiles"] == []
     assert payload["distributionBins"] == []
     assert payload["thresholdBins"] == []
-
 
 def test_simulation_evidence_rejects_blank_identifier():
     with pytest.raises(PokemonSetMarketError) as excinfo:

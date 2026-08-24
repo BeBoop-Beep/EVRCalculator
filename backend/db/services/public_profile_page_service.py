@@ -6,7 +6,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.collection_portfolio_service import (
     _build_price_lookup,
     _extract_market_price,
@@ -178,7 +178,7 @@ def _query_public_profile_row(public_user_id: str) -> Dict[str, Any]:
     for select_clause in profile_select_candidates:
         try:
             result = (
-                public_read_client.table("users")
+                service_read_client.table("users")
                 .select(select_clause)
                 .eq("id", public_user_id)
                 .limit(1)
@@ -227,7 +227,7 @@ def get_public_profile_page_payload(
     resolve_started = time.perf_counter()
     public_user, trace = resolve_public_user_by_username(
         requested_username,
-        db_client=public_read_client,
+        db_client=service_read_client,
     )
     timings["username_resolution_ms"] = _duration_ms(resolve_started)
 
@@ -251,7 +251,7 @@ def get_public_profile_page_payload(
     if favorite_tcg_id:
         try:
             tcg_result = (
-                public_read_client.table("tcgs")
+                service_read_client.table("tcgs")
                 .select("id,name")
                 .eq("id", favorite_tcg_id)
                 .limit(1)
@@ -304,7 +304,7 @@ def get_public_profile_page_payload(
             fallback_items, fallback_source = _load_lightweight_fallback_items(
                 user_id=str(profile.get("id")),
                 timeout_s=2.5,
-                db_client=public_read_client,
+                db_client=service_read_client,
             )
             collection_items = fallback_items
             items_source = fallback_source
@@ -326,7 +326,7 @@ def get_public_profile_page_payload(
             try:
                 collection_items, price_warnings = _enrich_items_with_prices(
                     collection_items,
-                    db_client=public_read_client,
+                    db_client=service_read_client,
                     timeout_s=1.5,
                 )
                 warnings.extend(price_warnings)

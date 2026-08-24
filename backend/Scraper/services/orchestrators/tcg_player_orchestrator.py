@@ -11,9 +11,101 @@ import copy
 import json
 import sys
 import os
+import re
 
 # Add path to import from db folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
+
+class TCGPlayerResponseProvenanceError(RuntimeError):
+    """The provider response contradicts the configured source identity."""
+
+
+def _normalized_evidence(values):
+    return sorted({str(value).strip() for value in values if value is not None and str(value).strip()})
+
+
+def _group_id_from_url(url):
+    match = re.search(r"/priceguide/set/([^/?#]+)/", str(url or ""), flags=re.I)
+    return match.group(1) if match else None
+
+
+def validate_card_response_provenance(config, raw_data, transport_provenance=None):
+    """Fail closed when present TCGplayer source evidence contradicts config."""
+    requested_url = str(getattr(config, "CARD_DETAILS_URL", "") or "")
+    requested_group_id = _group_id_from_url(requested_url)
+    expected_group_id = str(getattr(config, "TCGPLAYER_SET_ID", "") or "").strip() or None
+    expected_set = str(getattr(config, "TCGPLAYER_SET_NAME", "") or "").strip() or None
+    expected_abbreviation = str(
+        getattr(config, "TCGPLAYER_SET_ABBREVIATION", "") or ""
+    ).strip() or None
+    expected_total = getattr(config, "PRINTED_TOTAL", None)
+    expected_total = str(expected_total).strip() if expected_total not in (None, "") else None
+    rows = list((raw_data or {}).get("result") or [])
+
+    set_ids = _normalized_evidence(row.get("setID") for row in rows)
+    set_labels = _normalized_evidence(row.get("set") for row in rows)
+    abbreviations = _normalized_evidence(row.get("setAbbrv") for row in rows)
+    denominators = _normalized_evidence(
+        match.group(1)
+        for row in rows
+        for match in [re.search(r"/\s*([0-9]+)\s*$", str(row.get("number") or ""))]
+        if match
+    )
+    samples = [
+        {"productID": row.get("productID"), "productName": row.get("productName"),
+         "number": row.get("number")}
+        for row in rows[:10]
+    ]
+    transport = dict(transport_provenance or {})
+    final_url = transport.get("final_url")
+    final_group_id = _group_id_from_url(final_url)
+    report = {
+        **transport,
+        "requested_url": requested_url,
+        "requested_group_id": requested_group_id,
+        "configured_group_id": expected_group_id,
+        "response_set_ids": set_ids,
+        "response_set_labels": set_labels,
+        "response_abbreviations": abbreviations,
+        "response_card_denominators": denominators,
+        "representative_products": samples,
+    }
+    contradictions = []
+    if expected_group_id and requested_group_id and expected_group_id != requested_group_id:
+        contradictions.append(f"configured group {expected_group_id} != requested group {requested_group_id}")
+    if final_group_id and requested_group_id and final_group_id != requested_group_id:
+        contradictions.append(f"final response group {final_group_id} != requested group {requested_group_id}")
+    if len(set_ids) > 1:
+        contradictions.append(f"mixed response set IDs: {set_ids}")
+    if requested_group_id and any(value != requested_group_id for value in set_ids):
+        contradictions.append(f"response set IDs {set_ids} != requested group {requested_group_id}")
+    if len(set_labels) > 1:
+        contradictions.append(f"mixed response set labels: {set_labels}")
+    if expected_set and any(value.casefold() != expected_set.casefold() for value in set_labels):
+        contradictions.append(f"response set labels {set_labels} != expected {expected_set}")
+    if len(abbreviations) > 1:
+        contradictions.append(f"mixed response abbreviations: {abbreviations}")
+    if expected_abbreviation and any(
+        value.casefold() != expected_abbreviation.casefold() for value in abbreviations
+    ):
+        contradictions.append(
+            f"response abbreviations {abbreviations} != expected {expected_abbreviation}"
+        )
+    if len(denominators) > 1:
+        contradictions.append(f"mixed card denominators: {denominators}")
+    if expected_total and any(value != expected_total for value in denominators):
+        contradictions.append(f"card denominators {denominators} != expected {expected_total}")
+    if contradictions:
+        report["contradictions"] = contradictions
+        raise TCGPlayerResponseProvenanceError(
+            "tcgplayer_response_provenance_conflict: "
+            + "; ".join(contradictions)
+            + " diagnostics="
+            + json.dumps(report, sort_keys=True, default=str)
+        )
+    report["contradictions"] = []
+    return report
 
 
 class TCGScraper:
@@ -39,6 +131,9 @@ class TCGScraper:
         
         # Step 1: Fetch raw data
         raw_data = self.client.fetch_price_data(config.CARD_DETAILS_URL)
+        provenance_report = validate_card_response_provenance(
+            config, raw_data, getattr(self.client, "last_response_provenance", {})
+        )
         _raw_count = len(raw_data.get("result", []))
         print(
             f"[DIAG][{config.SET_NAME}] step=fetch "
@@ -100,6 +195,7 @@ class TCGScraper:
                    "priceRowsUpdated": 0, "priceRowsSkippedDuplicates": 0,
                    "ingestionErrors": [], "sourceVariantKeys": source_variant_keys,
                    "marketDate": self.target_market_date,
+                   "responseProvenance": provenance_report,
                    **parse_diagnostics}
 
         _payload_cards = len(payload.get('data', {}).get('cards', []))

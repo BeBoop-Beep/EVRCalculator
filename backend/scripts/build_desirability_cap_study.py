@@ -171,12 +171,12 @@ def load_rows(pillars_json: Optional[str] = None) -> List[Dict[str, Any]]:
     if pillars_json:
         stats_rows = json.loads(Path(pillars_json).read_text(encoding="utf-8"))
     else:
-        from backend.db.clients.supabase_client import public_read_client
+        from backend.db.clients.supabase_client import service_read_client
         from backend.db.services.public_read_retry import run_batch_read_with_retry
 
         stats = run_batch_read_with_retry(
             lambda: (
-                public_read_client.table("explore_rip_statistics_latest")
+                service_read_client.table("explore_rip_statistics_latest")
                 .select("set_id,set_name,profit_score,safety_score,stability_score")
                 .execute()
             ),

@@ -172,7 +172,7 @@ def test_rip_latest_summary_is_preferred_for_set_targets(monkeypatch):
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -350,7 +350,7 @@ def test_desirability_driver_cards_are_publicly_enriched(monkeypatch):
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -541,7 +541,7 @@ def test_opening_desirability_payload_is_public_safe(monkeypatch):
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
     opening = payload["openingDesirability"]
@@ -661,7 +661,7 @@ def test_desirability_driver_lookup_falls_back_to_latest_set_summary(monkeypatch
     handlers["pokemon_desirability_composite_scores"] = lambda _q: []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -678,7 +678,7 @@ def test_desirability_driver_lookup_falls_back_to_latest_set_summary(monkeypatch
 def test_public_explore_payload_strips_interpretation_weight_metadata(monkeypatch):
     handlers = _build_success_handlers(run_id="run-rip")
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     monkeypatch.setattr(
         service,
         "build_rip_interpretation",
@@ -740,7 +740,7 @@ def test_collector_only_opening_desirability_stays_null_not_zero(monkeypatch):
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
     opening = payload["openingDesirability"]
@@ -774,7 +774,7 @@ def test_opening_desirability_falls_back_to_set_canonical_key(monkeypatch):
     ] if ("set_canonical_key", "base-set") in q.eq_filters else []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -855,7 +855,7 @@ def test_opening_desirability_uses_resolved_rip_set_id_before_requested_target_i
     ] if ("set_id", "7f55a0a8-f3d6-4d38-9cb5-046fdf66f9f1") in q.eq_filters else []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "scarlet-and-violet-151")
     opening = payload["openingDesirability"]
@@ -875,7 +875,7 @@ def test_missing_target_returns_404(monkeypatch):
     handlers["simulation_latest_by_target"] = lambda _q: []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     try:
         service.get_explore_page_payload("set", "missing-target")
@@ -901,7 +901,7 @@ def test_required_summary_failure_raises_500(monkeypatch):
     handlers["simulation_run_summary"] = _summary_fail
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     try:
         service.get_explore_page_payload("set", "base-set")
@@ -920,7 +920,7 @@ def test_optional_distribution_failure_returns_warning_and_empty_bins(monkeypatc
     handlers["simulation_value_distribution_bins"] = _distribution_fail
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -932,7 +932,7 @@ def test_optional_distribution_failure_returns_warning_and_empty_bins(monkeypatc
 def test_limit_values_are_safely_clamped(monkeypatch):
     handlers = _build_success_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload(
         "set",
@@ -959,7 +959,7 @@ def test_distribution_bins_are_queried_separately(monkeypatch):
     separate optional query."""
     handlers = _build_success_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     service.get_explore_page_payload("set", "base-set")
 
@@ -975,7 +975,7 @@ def test_distribution_bins_are_queried_separately(monkeypatch):
 def test_threshold_bins_are_queried_separately(monkeypatch):
     handlers = _build_success_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1001,7 +1001,7 @@ def test_canonical_latest_missing_run_id_falls_back_with_warning(monkeypatch):
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1021,7 +1021,7 @@ def test_canonical_path_does_not_query_summary_or_derived(monkeypatch):
     the service must NOT query simulation_run_summary or simulation_derived_metrics."""
     handlers = _build_success_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     service.get_explore_page_payload("set", "base-set")
 
@@ -1037,7 +1037,7 @@ def test_canonical_path_sources_ok(monkeypatch):
     skipped tables as SKIPPED_CANONICAL."""
     handlers = _build_success_handlers()
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1060,7 +1060,7 @@ def test_fallback_path_queries_summary_and_derived(monkeypatch):
     handlers["simulation_latest_by_target"] = _canonical_fail
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1142,7 +1142,7 @@ def test_top_hits_are_enriched_with_variant_and_card_image_fallbacks(monkeypatch
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1238,7 +1238,7 @@ def test_summary_populates_p99_value_to_cost_ratio_from_percentiles(monkeypatch)
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1299,7 +1299,7 @@ def test_rip_summary_keeps_direct_p99_ratio_without_percentile_recompute(monkeyp
     ]
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "base-set")
 
@@ -1437,7 +1437,7 @@ def test_pull_rate_assumptions_are_exposed_from_set_config_and_run_inputs(monkey
         }
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     def _sets_handler(query):
         eq_by_field = {field: value for field, value in query.eq_filters}
@@ -1526,7 +1526,7 @@ def test_pull_rate_assumptions_fall_back_to_simulation_input_cards_for_counts(mo
         SLOTS_PER_RARITY = {"common": 4, "reverse": 2}
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     monkeypatch.setattr(service, "_resolve_set_config", lambda _target_id: (_MockSetConfig, "mockSet"))
 
     payload = service.get_explore_page_payload("set", "base-set")
@@ -1618,7 +1618,7 @@ def test_pull_rate_assumptions_regular_reverse_specific_odds_require_eligible_po
         }
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
     handlers["sets"] = lambda _q: [
         {
             "id": "base-set",
@@ -1701,7 +1701,7 @@ def test_pull_rate_assumptions_resolve_set_config_via_sets_metadata_for_uuid_tar
     handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "set-uuid-1")
 
@@ -1774,7 +1774,7 @@ def test_pull_rate_assumptions_include_god_pack_special_rule_for_151(monkeypatch
     handlers["simulation_input_cards_with_near_mint_price"] = lambda _q: []
 
     client = _Client(handlers)
-    monkeypatch.setattr(service, "public_read_client", client)
+    monkeypatch.setattr(service, "service_read_client", client)
 
     payload = service.get_explore_page_payload("set", "set-uuid-151")
     assumptions = payload.get("pull_rate_assumptions")

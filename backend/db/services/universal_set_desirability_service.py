@@ -20,7 +20,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, TypeVar
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.public_read_retry import run_batch_read_with_retry
 from backend.desirability.component_source import (
     COMPONENT_TABLE,
@@ -142,7 +142,7 @@ def _load_current_component_rows() -> Dict[str, Any]:
     """
     rows = _paged_select(
         lambda: (
-            public_read_client.table(COMPONENT_TABLE)
+            service_read_client.table(COMPONENT_TABLE)
             .select(
                 selector_columns(
                     "set_desirability_score",
@@ -219,7 +219,7 @@ def _hydrate_selected_rows(
         fetched = _read_with_retry(
             lambda ids=ids: list(
                 (
-                    public_read_client.table(COMPONENT_TABLE)
+                    service_read_client.table(COMPONENT_TABLE)
                     .select("id,subject_rollups_json,diagnostics_json")
                     .in_("id", ids)
                     .execute()
@@ -264,7 +264,7 @@ def _load_latest_set_values(set_ids: Sequence[str]) -> Dict[str, float]:
             rows = _read_with_retry(
                 lambda ids=ids: list(
                     (
-                        public_read_client.table("pokemon_set_value_daily_history")
+                        service_read_client.table("pokemon_set_value_daily_history")
                         .select("set_id,snapshot_date,set_value")
                         .in_("set_id", ids)
                         .eq("value_scope", SET_VALUE_SCOPE)
@@ -291,7 +291,7 @@ def _load_authoritative_species_ranks() -> Dict[int, int]:
     """Global Pokemon desirability rank from the canonical composite snapshot."""
     rows = _paged_select(
         lambda: (
-            public_read_client.table(COMPOSITE_SCORE_TABLE)
+            service_read_client.table(COMPOSITE_SCORE_TABLE)
             .select("pokemon_reference_id,desirability_rank")
             .eq("scoring_version", COMPOSITE_SCORING_VERSION)
             .order("pokemon_reference_id", desc=False)

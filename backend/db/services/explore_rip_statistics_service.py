@@ -9,7 +9,7 @@ import time
 from datetime import date, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-from backend.db.clients.supabase_client import public_read_client
+from backend.db.clients.supabase_client import service_read_client
 from backend.db.services.collector_appeal_service import get_collector_appeal_bundle
 from backend.db.services.public_read_retry import run_batch_read_with_retry
 from backend.db.services.rip_desirability_comparison import build_rip_desirability_comparison_payload
@@ -185,7 +185,7 @@ def _load_opening_desirability_lookup(
         return {}
     try:
         result = (
-            public_read_client.table("pokemon_set_opening_desirability_latest")
+            service_read_client.table("pokemon_set_opening_desirability_latest")
             .select(
                 "set_id,set_name,set_canonical_key,opening_desirability_score,opening_desirability_rank,"
                 "collector_appeal_score,collector_appeal_rank,opening_desirability_display_status,"
@@ -227,7 +227,7 @@ def _load_top_10_card_value_lookup(
             start = 0
             while True:
                 result = (
-                    public_read_client.table("pokemon_canonical_card_market_prices_latest")
+                    service_read_client.table("pokemon_canonical_card_market_prices_latest")
                     .select("set_id,canonical_card_id,market_price,captured_at,source,price_selection_reason")
                     .in_("set_id", chunk)
                     .order("set_id", desc=False)
@@ -335,7 +335,7 @@ def _load_complete_published_snapshot_dates(
     """Select the newest two distinct complete, promoted market dates."""
     try:
         result = (
-            public_read_client.table("pokemon_scrape_batches")
+            service_read_client.table("pokemon_scrape_batches")
             .select("market_date,status,promoted_at,missing_set_count,expected_set_count")
             .order("market_date", desc=True)
             .limit(_PUBLISHED_DATE_LOOKBACK)
@@ -391,7 +391,7 @@ def _load_current_checklist_set_value_lookup(
     try:
         for chunk in _chunks(unique_set_ids, _SET_VALUE_HISTORY_CHUNK_SIZE):
             result = (
-                public_read_client.table("pokemon_set_value_daily_history")
+                service_read_client.table("pokemon_set_value_daily_history")
                 .select("set_id,snapshot_date,set_value,priced_card_count,total_card_count,source")
                 .in_("set_id", chunk)
                 .eq("value_scope", _SET_VALUE_HISTORY_SCOPE)
@@ -1624,7 +1624,7 @@ def _load_rankings_top_chase_lookup(
 
     try:
         snapshot_rows = list((
-            public_read_client.table("pokemon_set_page_snapshot_latest")
+            service_read_client.table("pokemon_set_page_snapshot_latest")
             .select("set_id,payload_json")
             .in_("set_id", set_ids)
             .execute()
@@ -1706,7 +1706,7 @@ def get_rip_statistics_targets_payload(
         # retried, because the second attempt runs against a warm cache.
         targets_result = run_batch_read_with_retry(
             lambda: (
-                public_read_client.table("explore_rip_statistics_latest")
+                service_read_client.table("explore_rip_statistics_latest")
                 .select("*")
                 .order("pack_score", desc=True)
                 .order("run_at", desc=True)
@@ -1758,7 +1758,7 @@ def get_rip_statistics_targets_payload(
         set_started = time.perf_counter()
         try:
             set_result = (
-                public_read_client.table("sets")
+                service_read_client.table("sets")
                 .select(
                     "id,name,canonical_key,release_date,pokemon_api_set_id,era_id,logo_image_url,symbol_image_url,hero_image_url"
                 )
@@ -1775,7 +1775,7 @@ def get_rip_statistics_targets_payload(
             ]
             if unresolved_target_ids:
                 canonical_result = (
-                    public_read_client.table("sets")
+                    service_read_client.table("sets")
                     .select(
                         "id,name,canonical_key,release_date,pokemon_api_set_id,era_id,logo_image_url,symbol_image_url,hero_image_url"
                     )
@@ -1849,7 +1849,7 @@ def get_rip_statistics_targets_payload(
         era_started = time.perf_counter()
         try:
             era_result = (
-                public_read_client.table("eras")
+                service_read_client.table("eras")
                 .select("id,name")
                 .in_("id", era_ids)
                 .execute()
@@ -1875,7 +1875,7 @@ def get_rip_statistics_targets_payload(
         ratio_started = time.perf_counter()
         try:
             ratio_result = (
-                public_read_client.table("set_pack_score_rankings_latest")
+                service_read_client.table("set_pack_score_rankings_latest")
                 .select(
                     "target_id,mean_value_to_cost_rank,mean_value_to_cost_tier,"
                     "p95_value_to_cost_rank,p95_value_to_cost_tier"
