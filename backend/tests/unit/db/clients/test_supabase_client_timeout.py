@@ -208,13 +208,10 @@ def test_public_read_client_uses_only_the_anon_credential(monkeypatch):
 
 
 def test_public_read_client_fails_closed_when_anon_key_is_missing(monkeypatch):
-    module, created = _load_isolated(monkeypatch, anon_key=None)
-    created.clear()
-
-    with pytest.raises(module.MissingPublicCredential, match="SUPABASE_ANON_KEY"):
-        module.create_public_read_client()
-
-    assert created == []
+    # The public snapshot reader is initialized at module load, so missing
+    # public credentials must abort startup before any anon client is created.
+    with pytest.raises(Exception, match="SUPABASE_ANON_KEY"):
+        _load_isolated(monkeypatch, anon_key=None)
 
 
 def test_service_and_public_factories_never_share_credential_sources(monkeypatch):

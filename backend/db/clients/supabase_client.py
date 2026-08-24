@@ -192,6 +192,12 @@ def create_public_read_client():
     )
 
 
+# Shared RLS-constrained reader used by public snapshot services. Keep this
+# distinct from the service-role clients above: public response paths must prove
+# they work with the same grants and policies as the Data API.
+public_read_client = create_public_read_client()
+
+
 def reset_service_role_auth():
     auth_header = f"Bearer {SUPABASE_KEY}"
     # If auth is already the service-role key, skip tearing down the PostgREST

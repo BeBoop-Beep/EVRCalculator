@@ -158,6 +158,34 @@ def test_market_dashboard_builder_emits_repaired_hits_in_all_history_contracts(m
     assert dashboard_row["payload_json"]["set_value_histories_by_scope"]["hits"][0]["setValue"] == 968.34
 
 
+def test_market_dashboard_builder_persists_prepared_cards_market_contract(monkeypatch):
+    histories = {
+        "standard": [{"date": "2026-06-16", "setValue": 100.0}],
+        "hits": [{"date": "2026-06-16", "setValue": 80.0}],
+        "top10": [{"date": "2026-06-16", "setValue": 60.0}],
+    }
+    prepared = {
+        "available": True,
+        "marketIndex": {
+            "currentValue": 108.75,
+            "history": [{"date": "2026-06-16", "indexValue": 108.75, "chainSegmentId": "segment-1", "isNewSegment": True}],
+            "movements": {"7D": {"available": True, "percent": 3.4}},
+        },
+        "marketBreadth": {"7D": {"available": True, "eligibleCount": 10, "advancingCount": 6}},
+    }
+    _stub_market_dashboard_dependencies(monkeypatch, histories)
+    monkeypatch.setattr(pokemon_snapshot_builders, "_build_cards_market_analytics_section", lambda *_args: prepared)
+
+    dashboard_row, _ = pokemon_snapshot_builders.build_market_dashboard_snapshot_rows(
+        {"id": "set-1", "name": "Known Set"},
+        client=_Client({"card_variant_price_observations": lambda _query: []}),
+    )
+
+    assert dashboard_row["payload_json"]["cardsMarket"] == prepared
+    assert dashboard_row["payload_json"]["cards_market"] == prepared
+    assert "constituents" not in dashboard_row["payload_json"]["cardsMarket"]
+
+
 def test_refresh_canonical_card_market_prices_for_set_calls_authoritative_rpc():
     calls = []
 
@@ -377,7 +405,7 @@ def test_build_cards_snapshot_row_uses_canonical_price_index_for_card_appeal_cor
 
     monkeypatch.setattr(
         pokemon_public_snapshot_service,
-        "service_read_client",
+        "public_read_client",
         _Client(
             {
                 "pokemon_card_desirability_links": lambda _query: links,
