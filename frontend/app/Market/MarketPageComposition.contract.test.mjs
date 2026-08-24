@@ -155,15 +155,25 @@ test("the set list scales to a large catalogue: bounded scroll, no per-row chart
   assert.match(setMarket, /aria-current=\{isActive \? "true" : undefined\}/);
 });
 
-test("selecting a set updates the pane in place — no navigation, no refetch of set values", () => {
+test("selecting a set updates the pane in place and lazily loads only its full detail history", () => {
   assert.match(setMarket, /onClick=\{\(\) => selectSet\(row\.setId, \{ openDetail: true \}\)\}/);
   assert.match(setMarket, /setSelectedSetId/);
-  // Set values, movements and trends all come from the already-published
-  // snapshot; the component issues no set-value request of its own.
+  // Rankings and movements stay on the compact publication; only the one
+  // selected detail history uses the existing value-history client.
   assert.doesNotMatch(setMarket, /fetch\(/);
   assert.match(setMarket, /target\?\.currentSetValue/);
   assert.match(setMarket, /target\?\.windows\?\.\[listWindowKey\]/);
-  assert.match(setMarket, /target\?\.trend/);
+  assert.match(setMarket, /getPokemonSetValueHistory\(setId/);
+  assert.match(setMarket, /detailHistoryCache\.current/);
+  assert.doesNotMatch(setMarket, /targets\.map\([^)]*getPokemonSetValueHistory/);
+});
+
+test("selected-set history loading is a silent, fixed-height chart skeleton", () => {
+  assert.match(setMarket, /data-set-market-detail-skeleton/);
+  assert.match(setMarket, /aria-hidden="true"/);
+  assert.match(setMarket, /h-44[\s\S]*desk:h-\[15rem\]/);
+  assert.doesNotMatch(setMarket, /Loading daily Set Value history|fetching snapshots/i);
+  assert.match(setMarket, /Set Value history is temporarily unavailable\./);
 });
 
 test("both Set Market timeframes default to 7D", () => {
@@ -216,11 +226,11 @@ test("Top Movers is a fixed-height carousel that cannot move the page", () => {
 
 test("Set Market controls use the shared dark form language, never a bright field", () => {
   assert.match(setMarket, /styles\.setMarketControl/);
-  assert.equal((setMarket.match(/styles\.setMarketControl/g) || []).length, 3, "search, era and sort");
-  assert.doesNotMatch(setMarket, /bg-\[var\(--surface-page\)\]\/42/);
+  assert.equal((setMarket.match(/styles\.setMarketControl/g) || []).length, 1, "search remains the shared form control");
+  assert.equal((setMarket.match(/<DarkSelect/g) || []).length, 2, "era and sort use the accessible dark popup control");
   assert.match(css, /\.setMarketControl \{[\s\S]*?background-color: var\(--surface-page\);/);
-  // color-scheme is what makes the NATIVE select popup dark too.
-  assert.match(css, /\.setMarketControl \{[\s\S]*?color-scheme: dark;/);
+  assert.match(setMarket, /ariaLabel="Filter by era"/);
+  assert.match(setMarket, /ariaLabel="Sort sets"/);
 });
 
 test("multi-set comparison is NOT implemented", () => {

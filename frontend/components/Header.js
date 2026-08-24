@@ -42,8 +42,8 @@ export default function Header() {
 
   const avatarLetter = (accountLabel || "A").charAt(0).toUpperCase();
 
-  const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
-  const navTabActive = "text-[var(--accent)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
+  const navTabBase = "px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium text-center rounded-md transition-[color,background-color,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]";
+  const navTabActive = "text-[rgb(45,212,191)] relative after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[rgb(45,212,191)]";
   const navTabInactive = "text-[var(--text-secondary)] opacity-85 hover:text-[var(--text-primary)] hover:opacity-100";
   // Border, background and shadow all come from the shared dropdown glass so
   // the header menus read as the same material as the set-page dropdowns.
@@ -55,7 +55,7 @@ export default function Header() {
   const navDropItem = "set-dropdown-option block w-full px-4 py-2 text-[15px] leading-5 text-left text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors";
   const navDropTriggerOpen = "text-[var(--text-primary)] bg-[var(--surface-hover)]";
   const navDropTriggerClosed = "text-[var(--text-secondary)] bg-[var(--surface-header)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]";
-  const navDropTriggerActive = "relative text-[var(--accent)] after:content-[''] after:absolute after:left-2 after:right-2 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[var(--accent)]";
+  const navDropTriggerActive = "relative text-[rgb(45,212,191)] after:content-[''] after:absolute after:left-2 after:right-2 after:-bottom-1 after:h-[2px] after:rounded-full after:bg-[rgb(45,212,191)]";
 
   const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);
   const isTcgsRouteActive = isTopNavActive('/TCGs');

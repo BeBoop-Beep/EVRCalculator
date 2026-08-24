@@ -76,7 +76,7 @@ test("TCGs is active anywhere in the /TCGs route family and nowhere else", () =>
   assert.ok(headerSource.includes("const isTopNavActive = (path) => isTopNavRouteActive(pathname, path);"));
   assert.ok(primaryNav.includes('aria-current={isTcgsRouteActive ? "page" : undefined}'));
   assert.ok(primaryNav.includes("isTcgsRouteActive ? navTabActive : navTabInactive"));
-  assert.ok(headerSource.includes("after:h-[2px] after:rounded-full after:bg-[var(--accent)]"), "the accent underline treatment is preserved");
+  assert.ok(headerSource.includes("after:h-[2px] after:rounded-full after:bg-[rgb(45,212,191)]"), "the interaction-teal underline treatment is preserved");
 });
 
 test("TCGs shares the primary nav typography, spacing and visible focus ring", () => {
@@ -86,7 +86,7 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
   assert.equal(tabs.length, 4, "Rankings, Market, TCGs, and Articles must share the primary tab recipe");
   assert.ok(headerSource.includes("px-3 xl:px-4 py-2 text-sm xl:text-[15px] font-medium"), "primary nav typography and spacing are unchanged");
   assert.ok(
-    headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"),
+    headerSource.includes("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"),
     "primary nav items must keep a visible keyboard focus treatment"
   );
 });

@@ -695,7 +695,7 @@
 }
 
 .setListRow:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgb(45, 212, 191);
   outline-offset: -2px;
 }
 
@@ -786,7 +786,7 @@
 }
 
 .setMarketControl:focus-visible {
-  border-color: var(--accent);
+  border-color: rgb(45, 212, 191);
   box-shadow: 0 0 0 2px rgba(var(--ex-teal), 0.35);
 }
 
