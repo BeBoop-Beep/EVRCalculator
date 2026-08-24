@@ -29,6 +29,33 @@ test("the Articles hub lists exactly six real published article routes", () => {
   assert.equal(listed.length, 6);
   for (const href of listed) assert.ok(fs.existsSync(path.join(here, href.replace("/Articles/", ""), "page.js")), href);
 });
+<<<<<<< HEAD
+=======
+test("the EV representativeness research article is fully registered", () => {
+  const research = read("how-representative-is-pokemon-pack-expected-value/page.js");
+  const editorialTitle = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
+  assert.ok(articleData.includes('evRepresentativeness: "/Articles/how-representative-is-pokemon-pack-expected-value"'));
+  assert.ok(articleData.includes(`title: "${editorialTitle}"`));
+  assert.ok(research.includes(`const title = "${editorialTitle}"`));
+  assert.ok(research.includes('title: "Pokémon Pack Expected Value vs Real Outcomes: 22 Million Simulations | inDex"'));
+  assert.ok(articleData.includes("22 million modeled pack outcomes"));
+  assert.ok(research.includes("<ArticleJsonLd"));
+  assert.ok(research.includes("<H2>References</H2>"));
+  for (const doi of ["10.1080/01621459.1949.10483310", "10.1080/01621459.1927.10502953", "10.1214/aos/1176344552", "10.2307/1412159", "10.1111/j.2517-6161.1995.tb02031.x", "10.1007/978-0-387-21617-1"]) assert.ok(research.includes(doi), doi);
+  for (const key of ['"ev"', '"simulation"', '"validation"', '"financial"']) assert.ok(research.includes(key), key);
+});
+test("the research article embeds live evidence through shared product components", () => {
+  const page = read("how-representative-is-pokemon-pack-expected-value/page.js");
+  const wrapper = read("../../components/articles/EvResearchLiveExamples.jsx");
+  assert.ok(page.includes("<LivePrismaticDistribution"));
+  assert.ok(page.includes("<LivePrismaticOutcomeProfile"));
+  assert.ok(page.includes("<LivePrismaticEvRepresentativeness"));
+  assert.ok(wrapper.includes("OpeningOutcomeProfileSection"));
+  assert.ok(wrapper.includes("EvRepresentativenessSection"));
+  assert.ok(wrapper.includes("LiveDistributionFigure"));
+  assert.ok(wrapper.includes("same RipDistributionChart as the set page"));
+});
+>>>>>>> 867f66f (docs(articles): refine EV research article title)
 test("methodology links route to the most relevant published article", () => {
   assert.ok(rip.includes(`const METHODOLOGY_ARTICLE_HREF = "${ARTICLE_HREF}"`));
   assert.ok(rip.includes('methodologyHref: "/Articles/how-financial-rip-works"'));
