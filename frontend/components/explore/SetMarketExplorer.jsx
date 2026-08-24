@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import MarketSparkline from "./MarketSparkline";
 import MarketWindowSelector from "./MarketWindowSelector";
+import DarkSelect from "@/components/ui/DarkSelect";
 import SetMarketTopMovers from "./SetMarketTopMovers";
 import { getStandardDeltaWindowDefinitions, resolveDeltaWindowBaselineValue } from "@/lib/explore/marketDeltaWindows.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { SET_LOGO_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+import { getPokemonSetValueHistory } from "@/lib/pokemon/pokemonSetMarketClient";
+import { clipSetMarketDetailHistory, needsLifetimeSetMarketHistory } from "@/lib/explore/setMarketDetailHistory.mjs";
 import styles from "./explore.module.css";
 
 // ---------------------------------------------------------------------------
@@ -25,11 +28,10 @@ import styles from "./explore.module.css";
 //
 // DATA
 // ----
-// Everything below reads the SAME published global Set Value snapshot the
-// ladder read — `currentSetValue`, `windows[key]` and `trend`, all authored by
-// the backend. Nothing here computes a set value, a movement or a rank, and
-// selecting a set costs no set-value request. The only network call on this
-// surface belongs to SetMarketTopMovers, which is lazy and per-selection.
+// The compact global snapshot remains authoritative for ranking, current Set
+// Value and window movements. The one visible detail chart lazily loads the
+// selected set's normalized daily value-history and clips it with those same
+// canonical window dates. Top movers remains its own per-selection request.
 // ---------------------------------------------------------------------------
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,7 +48,7 @@ const SORT_OPTIONS = [
   { key: "name", label: "Set Name" },
 ];
 
-const windowLabel = (key) => (key === "lifetime" ? "LT" : key);
+const windowLabel = (key) => (key === "lifetime" ? "All" : key);
 
 function directionOf(amount) {
   if (!Number.isFinite(amount)) return "neutral";
@@ -122,14 +124,12 @@ function buildRankedRows(targets) {
     }));
 }
 
-/** The trend points the selected window actually covers, per the backend's own dates. */
-function clipTrend(target, movement) {
-  return (Array.isArray(target?.trend) ? target.trend : [])
-    .map(([date, setValue]) => ({ date, setValue }))
-    .filter((point) => !movement?.startDate || (point.date >= movement.startDate && point.date <= movement.endDate));
+export function resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount }) {
+  return isMasterDetail && (isActive || clickCount >= 2) ? "navigate" : "select";
 }
 
-export default function SetMarketExplorer({ targets = [], loadError = false }) {
+export default function SetMarketExplorer({ targets = [], loadError = false, navigate = null }) {
+  const navigationStartedRef = useRef(false);
   const [query, setQuery] = useState("");
   const [era, setEra] = useState(ALL_ERAS);
   const [sortKey, setSortKey] = useState("value");
@@ -157,6 +157,9 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
   // Below desktop the browser and the analysis are two states of one screen,
   // never a squeezed split. Desktop ignores this entirely.
   const [mobileView, setMobileView] = useState("browse");
+  const detailHistoryCache = useRef(new Map());
+  const [detailHistoryState, setDetailHistoryState] = useState({ setId: null, status: "idle", history: [], days: 0, error: null });
+  const [historyRetryToken, setHistoryRetryToken] = useState(0);
 
   const ranked = useMemo(() => buildRankedRows(targets), [targets]);
 
@@ -208,8 +211,61 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
     if (openDetail) setMobileView("detail");
   };
 
+  const hrefForSet = (row) => buildTcgSetHrefFromTarget(
+    { target_type: "set", target_id: row.target?.canonicalKey || row.setId, name: row.name },
+    { tab: "market", section: "set-value" }
+  );
+  const navigateToSet = (row) => {
+    const href = hrefForSet(row);
+    if (!href || navigationStartedRef.current) return;
+    navigationStartedRef.current = true;
+    if (navigate) navigate(href);
+    else if (typeof window !== "undefined") window.location.assign(href);
+  };
+  const activateSetRow = (event, row, isActive) => {
+    if (resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount: event?.detail ?? 0 }) === "navigate") {
+      navigateToSet(row);
+      return;
+    }
+    selectSet(row.setId, { openDetail: true });
+  };
+
   const detailMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
-  const detailTrend = selected ? clipTrend(selected.target, detailMovement) : [];
+  useEffect(() => {
+    const setId = selected?.setId;
+    if (!setId) return undefined;
+
+    const cached = detailHistoryCache.current.get(setId) || null;
+    const needsAll = cached && needsLifetimeSetMarketHistory({
+      activeWindowKey: activeDetailWindowKey,
+      historyStartDate: selected.target?.historyStartDate,
+      loadedHistory: cached.history,
+      loadedDays: cached.days,
+    });
+    if (cached && !needsAll) {
+      setDetailHistoryState({ setId, status: "success", history: cached.history, days: cached.days, error: null });
+      return undefined;
+    }
+
+    const days = needsAll ? 1825 : 365;
+    let cancelled = false;
+    setDetailHistoryState({ setId, status: "loading", history: [], days, error: null });
+    getPokemonSetValueHistory(setId, { days, scope: "standard" })
+      .then((payload) => {
+        if (cancelled) return;
+        const history = Array.isArray(payload?.history) ? payload.history : [];
+        detailHistoryCache.current.set(setId, { history, days });
+        setDetailHistoryState({ setId, status: "success", history, days, error: null });
+      })
+      .catch((error) => {
+        if (!cancelled) setDetailHistoryState({ setId, status: "error", history: [], days, error });
+      });
+    return () => { cancelled = true; };
+  }, [selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
+
+  const detailTrend = selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
+    ? clipSetMarketDetailHistory(detailHistoryState.history, detailMovement)
+    : [];
   const detailDirection = directionOf(detailMovement?.amount);
   const detailHref = selected
     ? buildTcgSetHrefFromTarget(
@@ -259,7 +315,8 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
                       type="button"
                       data-set-market-row={row.setId}
                       aria-current={isActive ? "true" : undefined}
-                      onClick={() => selectSet(row.setId, { openDetail: true })}
+                      onClick={(event) => activateSetRow(event, row, isActive)}
+                      title={isMasterDetail && isActive ? `Open ${row.name}` : undefined}
                       className={`${styles.setListRow} ${isActive ? styles.setListRowActive : ""}`}
                     >
                       <span className="text-[12px] font-semibold tabular-nums text-[var(--text-secondary)]">{`#${row.position}`}</span>
@@ -292,7 +349,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
         type="button"
         data-set-market-back
         onClick={() => setMobileView("browse")}
-        className="mb-3 inline-flex min-h-11 items-center gap-1.5 self-start rounded-md text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:hidden"
+        className="mb-3 inline-flex min-h-11 items-center gap-1.5 self-start rounded-md text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] desk:hidden"
       >
         <span aria-hidden="true">←</span> All sets
       </button>
@@ -303,7 +360,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
           <div className="flex items-start justify-between gap-3">
             <h3 data-set-market-detail-name className="min-w-0 text-[17px] font-semibold leading-tight text-[var(--text-primary)] desk:text-[16px]">
               {detailHref
-                ? <a href={detailHref} className="rounded hover:text-[rgb(45,212,191)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">{selected.name}</a>
+                ? <a href={detailHref} className="rounded hover:text-[var(--brand-light)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]">{selected.name}</a>
                 : selected.name}
             </h3>
             <span className="flex-none text-[13px] font-semibold tabular-nums text-[var(--text-secondary)]">{`#${selected.position}`}</span>
@@ -336,22 +393,36 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
             value={detailWindowKey}
             onChange={setDetailWindowKey}
             fullWidth
-            ariaDescription="Clips the selected set's chart and its change value to this timeframe. No data is fetched."
+            ariaDescription="Clips the selected set's daily chart and published change value to this timeframe."
           />
         </div>
       )}
 
       <div className="mt-3 min-w-0">
-        <MarketSparkline
-          points={detailTrend}
-          valueKey="setValue"
-          trendDirection={detailDirection}
-          baselineValue={resolveDeltaWindowBaselineValue(detailMovement, selected.value)}
-          label={`${selected.name} Set Value trend`}
-          data-set-market-detail-chart-window={activeDetailWindowKey}
-          className="w-full"
-          plotClassName="h-44 desk:h-[15rem]"
-        />
+        {detailHistoryState.setId !== selected.setId || detailHistoryState.status === "idle" || detailHistoryState.status === "loading" ? (
+          <div
+            data-set-market-detail-skeleton
+            aria-hidden="true"
+            className="h-44 animate-pulse rounded-lg border border-[var(--border-subtle)] bg-[rgba(148,163,184,0.08)] motion-reduce:animate-none desk:h-[15rem]"
+          />
+        ) : detailHistoryState.status === "error" ? (
+          <div role="alert" className="flex h-44 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 text-center text-xs text-[var(--text-secondary)] desk:h-[15rem]">
+            <span>Set Value history is temporarily unavailable.</span>
+            <button type="button" onClick={() => setHistoryRetryToken((token) => token + 1)} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry</button>
+          </div>
+        ) : (
+          <MarketSparkline
+            points={detailTrend}
+            valueKey="setValue"
+            trendDirection={detailDirection}
+            baselineValue={resolveDeltaWindowBaselineValue(detailMovement, selected.value)}
+            label={`${selected.name} Set Value trend`}
+            emptyLabel="No daily Set Value history is available for this timeframe."
+            data-set-market-detail-chart-window={activeDetailWindowKey}
+            className="w-full"
+            plotClassName="h-44 desk:h-[15rem]"
+          />
+        )}
       </div>
 
       <SetMarketTopMovers key={selected.setId} setId={selected.setId} setName={selected.name} viewAllHref={moversHref} />
@@ -387,28 +458,19 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
           </label>
 
           <div className="flex min-w-0 gap-2.5">
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">Filter by era</span>
-              <select
-                value={era}
-                onChange={(event) => setEra(event.target.value)}
-                className={`${styles.setMarketControl} min-h-11 w-full px-2 py-1 text-xs desk:min-h-0 desk:py-1.5`}
-              >
-                <option value={ALL_ERAS}>All Eras</option>
-                {eras.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
-              </select>
-            </label>
+            <DarkSelect
+              ariaLabel="Filter by era"
+              value={era}
+              onChange={setEra}
+              options={[{ value: ALL_ERAS, label: "All Eras" }, ...eras.map((entry) => ({ value: entry, label: entry }))]}
+            />
 
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">Sort sets</span>
-              <select
-                value={sortKey}
-                onChange={(event) => setSortKey(event.target.value)}
-                className={`${styles.setMarketControl} min-h-11 w-full px-2 py-1 text-xs desk:min-h-0 desk:py-1.5`}
-              >
-                {SORT_OPTIONS.map((entry) => <option key={entry.key} value={entry.key}>{`Sort: ${entry.label}`}</option>)}
-              </select>
-            </label>
+            <DarkSelect
+              ariaLabel="Sort sets"
+              value={sortKey}
+              onChange={setSortKey}
+              options={SORT_OPTIONS.map((entry) => ({ value: entry.key, label: `Sort: ${entry.label}` }))}
+            />
           </div>
 
           <div className="min-w-0 desk:ml-auto desk:w-auto">
@@ -417,7 +479,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false }) {
               value={listWindowKey}
               onChange={setListWindowKey}
               ariaDescription={isMasterDetail
-                ? "Sets the timeframe for the whole Set Market: the list's change column, the selected set's change and its chart. No data is fetched."
+                ? "Sets the timeframe for the whole Set Market: the list's change column, the selected set's change and its daily chart."
                 : "Sets the timeframe the set list's change column reports. No data is fetched."}
             />
           </div>

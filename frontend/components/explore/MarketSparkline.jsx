@@ -123,6 +123,7 @@ export default function MarketSparkline({
       <div
         ref={containerRef}
         data-market-sparkline
+        data-market-sparkline-point-count={numericPoints.length}
         data-pointer-mode={pointerMode}
         role="img"
         tabIndex={0}

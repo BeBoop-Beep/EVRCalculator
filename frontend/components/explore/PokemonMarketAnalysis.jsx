@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PokemonMarketOverview from "./PokemonMarketOverview";
 import PokemonMarketPerformance from "./PokemonMarketPerformance";
 import {
@@ -30,6 +30,31 @@ export default function PokemonMarketAnalysis({ overview }) {
   // degrades rather than charting a span that does not exist.
   const defaultWindow = useMemo(() => resolveDefaultMarketWindow(overview, "7D"), [overview]);
   const [requestedWindow, setRequestedWindow] = useState(null);
+  const familyKeys = useMemo(
+    () => (overview?.families || []).map((family) => family.key),
+    [overview]
+  );
+  const [visibleMarketKeys, setVisibleMarketKeys] = useState(() => new Set(familyKeys));
+  const knownMarketKeysRef = useRef(new Set(familyKeys));
+  useEffect(() => {
+    setVisibleMarketKeys((current) => {
+      const published = new Set(familyKeys);
+      const next = new Set([...current].filter((key) => published.has(key)));
+      for (const key of familyKeys) {
+        if (!knownMarketKeysRef.current.has(key)) next.add(key);
+      }
+      knownMarketKeysRef.current = published;
+      return next;
+    });
+  }, [familyKeys]);
+  const toggleMarket = (key) => {
+    setVisibleMarketKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
   // A selection survives only while the backend still reports that window
   // available; otherwise it falls back to the default rather than reading a
   // span the snapshot does not support.
@@ -48,6 +73,8 @@ export default function PokemonMarketAnalysis({ overview }) {
         overview={overview}
         selectedWindow={selectedWindow}
         selectedLabel={selectedLabel}
+        visibleMarketKeys={visibleMarketKeys}
+        onToggleMarket={toggleMarket}
       />
       <PokemonMarketPerformance
         overview={overview}
@@ -55,6 +82,8 @@ export default function PokemonMarketAnalysis({ overview }) {
         selectedWindow={selectedWindow}
         selectedLabel={selectedLabel}
         onWindowChange={setRequestedWindow}
+        visibleMarketKeys={visibleMarketKeys}
+        onToggleMarket={toggleMarket}
       />
     </section>
   );

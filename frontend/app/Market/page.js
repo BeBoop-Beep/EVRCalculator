@@ -9,15 +9,15 @@ import { buildCoverageSummary, resolveMarketOverview } from "@/lib/explore/marke
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
 
-// Describes only what this page actually renders: the published Raw Card and
-// Top 10 Chase market indexes, the global 7-day card-market movers and the
+// Describes only what this page actually renders: the published Raw Card,
+// Top 10 Chase and Sealed market indexes, the global 7-day card-market movers and the
 // Set Market explorer. No forecast, capitalization, alert or watchlist
 // language — none of that exists here.
 export const metadata = buildRouteMetadata({
   path: "/Market",
   title: "Pokémon Market Index, Trends & Set Values — inDex",
   description:
-    "Track Pokémon card-market performance, Raw Card and Top Chase indexes, market movers, and current set values.",
+    "Track Pokémon Raw Card, Top Chase, and Sealed market performance, market movers, and current set values.",
   ogTitle: "Pokémon Market Index, Trends & Set Values",
 });
 

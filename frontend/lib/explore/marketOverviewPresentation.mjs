@@ -27,6 +27,7 @@
 export const MARKET_SERIES_DEFINITIONS = [
   { key: "raw", label: "Raw Card Market", color: "rgba(167,139,250,0.95)", softColor: "rgba(167,139,250,0.16)" },
   { key: "topChase", label: "Top 10 Chase Market", color: "rgba(56,189,248,0.95)", softColor: "rgba(56,189,248,0.16)" },
+  { key: "sealedMarket", label: "Sealed Market", color: "rgba(251,191,36,0.95)", softColor: "rgba(251,191,36,0.16)" },
 ];
 
 /**
@@ -55,7 +56,7 @@ export const MARKET_OVERVIEW_HELP = {
   trackedValue:
     "Current dollar value of all cards in this tracked basket. It can change because card prices move and because sets enter or leave the tracked universe. This is not market capitalization.",
   trackedValueChange:
-    "Change in the full tracked basket's dollar value. Unlike the Market Index, this intentionally includes the effect of sets entering or leaving tracking.",
+    "Market Index performance since the beginning of the current continuous tracking segment.",
   index:
     "Price-performance index, base 100 — not a score. An index of 105 means price performance is 5% above its starting level. Chain-linking prevents newly added or removed sets from creating an artificial jump; after a set enters, its later price movement affects the index.",
 };
@@ -145,6 +146,7 @@ export function resolveMarketOverview(payload) {
       eligibleSetCount: numeric(coverage.eligibleSetCount),
       rawCardCount: numeric(coverage.rawCardCount),
       chaseCardCount: numeric(coverage.chaseCardCount),
+      sealedProductCount: numeric(coverage.sealedProductCount),
     },
     families,
   };

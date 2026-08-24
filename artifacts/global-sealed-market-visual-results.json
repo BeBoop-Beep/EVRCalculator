@@ -1,0 +1,126 @@
+[
+  {
+    "width": 1440,
+    "bodyScrollWidth": 1440,
+    "bodyClientWidth": 1440,
+    "rows": 3,
+    "cards": 3,
+    "legendItems": 3,
+    "chartSeries": 3,
+    "sealedText": true,
+    "selectedWindow": "7D",
+    "overviewBounds": {
+      "x": 113,
+      "y": 284.5,
+      "width": 509.875,
+      "height": 391.5,
+      "top": 284.5,
+      "right": 622.875,
+      "bottom": 676,
+      "left": 113
+    },
+    "performanceBounds": {
+      "x": 622.875,
+      "y": 284.5,
+      "width": 704.125,
+      "height": 391.5,
+      "top": 284.5,
+      "right": 1327,
+      "bottom": 676,
+      "left": 622.875
+    }
+  },
+  {
+    "width": 1280,
+    "bodyScrollWidth": 1280,
+    "bodyClientWidth": 1280,
+    "rows": 3,
+    "cards": 3,
+    "legendItems": 3,
+    "chartSeries": 3,
+    "sealedText": true,
+    "selectedWindow": "7D",
+    "overviewBounds": {
+      "x": 33,
+      "y": 284.5,
+      "width": 509.875,
+      "height": 391.5,
+      "top": 284.5,
+      "right": 542.875,
+      "bottom": 676,
+      "left": 33
+    },
+    "performanceBounds": {
+      "x": 542.875,
+      "y": 284.5,
+      "width": 704.125,
+      "height": 391.5,
+      "top": 284.5,
+      "right": 1247,
+      "bottom": 676,
+      "left": 542.875
+    }
+  },
+  {
+    "width": 430,
+    "bodyScrollWidth": 430,
+    "bodyClientWidth": 430,
+    "rows": 3,
+    "cards": 3,
+    "legendItems": 3,
+    "chartSeries": 3,
+    "sealedText": true,
+    "selectedWindow": "7D",
+    "overviewBounds": {
+      "x": 16,
+      "y": 306.5,
+      "width": 398,
+      "height": 422.25,
+      "top": 306.5,
+      "right": 414,
+      "bottom": 728.75,
+      "left": 16
+    },
+    "performanceBounds": {
+      "x": 16,
+      "y": 740.75,
+      "width": 398,
+      "height": 434,
+      "top": 740.75,
+      "right": 414,
+      "bottom": 1174.75,
+      "left": 16
+    }
+  },
+  {
+    "width": 390,
+    "bodyScrollWidth": 390,
+    "bodyClientWidth": 390,
+    "rows": 3,
+    "cards": 3,
+    "legendItems": 3,
+    "chartSeries": 3,
+    "sealedText": true,
+    "selectedWindow": "7D",
+    "overviewBounds": {
+      "x": 16,
+      "y": 345,
+      "width": 358,
+      "height": 422.25,
+      "top": 345,
+      "right": 374,
+      "bottom": 767.25,
+      "left": 16
+    },
+    "performanceBounds": {
+      "x": 16,
+      "y": 779.25,
+      "width": 358,
+      "height": 456,
+      "top": 779.25,
+      "right": 374,
+      "bottom": 1235.25,
+      "left": 16
+    }
+  }
+]

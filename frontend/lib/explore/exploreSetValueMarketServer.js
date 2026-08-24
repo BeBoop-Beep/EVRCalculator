@@ -4,7 +4,7 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 const processCache = new Map();
 const TTL = 120_000;
 // The snapshot publishes THREE top-level keys: marketOverview (the global Raw /
-// Top 10 Chase index families), sets (the Set Value ladder) and meta. The
+// Top 10 Chase / Sealed index families), sets (the Set Value ladder) and meta. The
 // reconstruction below must carry all three — an earlier version rebuilt only
 // { sets, meta } and silently dropped the published Market Overview, so the
 // page had no way to render it without inventing the numbers itself.

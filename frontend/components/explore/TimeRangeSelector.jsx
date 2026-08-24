@@ -14,11 +14,11 @@ export const TIME_RANGE_OPTIONS = [
   { key: "3M", desktopLabel: "3M", mobileLabel: "3M", ariaLabel: "3M" },
   { key: "6M", desktopLabel: "6M", mobileLabel: "6M", ariaLabel: "6M" },
   { key: "1Y", desktopLabel: "1Y", mobileLabel: "1Y", ariaLabel: "1Y" },
-  { key: "lifetime", desktopLabel: "LT", mobileLabel: "LT", ariaLabel: "Lifetime" },
+  { key: "lifetime", desktopLabel: "All", mobileLabel: "All", ariaLabel: "All available history" },
 ];
 
 const TIME_RANGE_OPTIONS_BY_KEY = new Map(TIME_RANGE_OPTIONS.map((entry) => [entry.key, entry]));
-const VISIBLE_TIME_RANGE_LABELS = new Set(["1D", "7D", "30D", "3M", "6M", "1Y", "LT"]);
+const VISIBLE_TIME_RANGE_LABELS = new Set(["1D", "7D", "30D", "3M", "6M", "1Y", "ALL"]);
 
 function normalizeRangeKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -48,7 +48,7 @@ function resolveVisibleWindowLabel(entry) {
     return normalized;
   }
   if (normalized === "LIFETIME") {
-    return "LT";
+    return "All";
   }
   return String(entry?.label || entry?.key || "").toUpperCase();
 }
@@ -172,7 +172,7 @@ export default function TimeRangeSelector({
                 "min-w-0 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors",
                 fullWidth ? "desk:px-1" : "",
                 "max-desk:inline-flex max-desk:min-h-11 max-desk:items-center max-desk:justify-center max-desk:px-2",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] disabled:cursor-not-allowed disabled:opacity-40",
                 isActive
                   ? "border-[rgba(45,212,191,0.34)] bg-[rgba(45,212,191,0.10)] text-[rgb(45,212,191)]"
                   : "border-[var(--border-subtle)] bg-[var(--surface-page)]/42 text-[var(--text-secondary)] hover:text-[var(--text-primary)]",

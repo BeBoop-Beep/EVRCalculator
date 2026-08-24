@@ -469,6 +469,40 @@
   font-size: 13px;
 }
 
+.marketOverviewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.25rem;
+  color: inherit;
+  cursor: pointer;
+  transition: opacity 150ms ease, color 150ms ease;
+}
+
+.marketOverviewInteractiveRow {
+  cursor: pointer;
+}
+
+.marketOverviewToggle:hover {
+  opacity: 0.8;
+}
+
+.marketOverviewToggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.65);
+}
+
+.marketOverviewRowInactive > th,
+.marketOverviewRowInactive > td {
+  opacity: 0.45;
+  transition: opacity 150ms ease;
+}
+
+.marketOverviewRowInactive:hover > th,
+.marketOverviewRowInactive:hover > td {
+  opacity: 0.65;
+}
+
 .marketOverviewTable tbody tr + tr th,
 .marketOverviewTable tbody tr + tr td {
   border-top: 1px solid var(--ex-line);
@@ -695,7 +729,7 @@
 }
 
 .setListRow:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgb(45, 212, 191);
   outline-offset: -2px;
 }
 
@@ -786,7 +820,7 @@
 }
 
 .setMarketControl:focus-visible {
-  border-color: var(--accent);
+  border-color: rgb(45, 212, 191);
   box-shadow: 0 0 0 2px rgba(var(--ex-teal), 0.35);
 }
 

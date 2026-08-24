@@ -113,9 +113,57 @@ const SNAPSHOT = {
 
 const overview = resolveMarketOverview(SNAPSHOT);
 
+const SEALED_TREND = [
+  ["2024-01-01", 100],
+  ["2024-01-02", 100],
+  ["2024-01-03", 104],
+  ["2024-01-04", 105.5],
+];
+
+const snapshotWithSealed = structuredClone(SNAPSHOT);
+snapshotWithSealed.marketOverview.coverage.sealedProductCount = 42;
+snapshotWithSealed.marketOverview.sealedMarket = {
+  basketValue: 12345.67,
+  indexValue: 105.5,
+  historyStartDate: "2024-01-01",
+  trend: SEALED_TREND,
+  changes: {
+    "1D": change(1.4423, "2024-01-03", "2024-01-04"),
+    "7D": change(5.5, "2024-01-01", "2024-01-04"),
+    "30D": change(5.5, "2024-01-01", "2024-01-04"),
+    "3M": missing("2024-01-04", "2023-10-07"),
+    "6M": missing("2024-01-04", "2023-07-09"),
+    "1Y": missing("2024-01-04", "2023-01-06"),
+    SinceTracking: change(5.5, "2024-01-01", "2024-01-04"),
+  },
+};
+const sealedOverview = resolveMarketOverview(snapshotWithSealed);
+
 test("both published families resolve, in Raw then Top 10 Chase order", () => {
   assert.deepEqual(overview.families.map((family) => family.key), ["raw", "topChase"]);
   assert.deepEqual(overview.families.map((family) => family.label), ["Raw Card Market", "Top 10 Chase Market"]);
+});
+
+test("an additive Sealed Market family is normalized from prepared backend values", () => {
+  assert.deepEqual(sealedOverview.families.map((family) => family.key), ["raw", "topChase", "sealedMarket"]);
+  const sealed = sealedOverview.families[2];
+  assert.equal(sealed.label, "Sealed Market");
+  assert.equal(sealed.basketValue, 12345.67);
+  assert.equal(sealed.indexValue, 105.5);
+  assert.equal(getMarketChange(sealed, "7D").percent, 5.5);
+  assert.equal(sealedOverview.coverage.sealedProductCount, 42);
+});
+
+test("the performance model contains all three prepared index series", () => {
+  const model = buildMarketPerformanceSeries(sealedOverview, "7D");
+  assert.equal(model.available, true);
+  assert.deepEqual(model.series.map((entry) => entry.key), ["raw", "topChase", "sealedMarket"]);
+  assert.deepEqual(model.series[2].values, SEALED_TREND.map(([, value]) => value));
+});
+
+test("Sealed availability participates in the shared timeframe resolution", () => {
+  assert.equal(isMarketWindowAvailable(sealedOverview, "7D"), true);
+  assert.equal(isMarketWindowAvailable(sealedOverview, "1Y"), false);
 });
 
 test("a snapshot with no marketOverview resolves to null rather than an empty market", () => {
@@ -219,7 +267,7 @@ test("help text names the tracked basket honestly and never as market capitaliza
   assert.ok(copy.includes("This is not market capitalization."));
   // Tracked Value must explain that the tracked total moves when sets join.
   assert.match(MARKET_OVERVIEW_HELP.trackedValue, /sets enter or leave the tracked universe/i);
-  assert.match(MARKET_OVERVIEW_HELP.trackedValueChange, /intentionally includes the effect of sets entering or leaving/i);
+  assert.match(MARKET_OVERVIEW_HELP.trackedValueChange, /current continuous tracking segment/i);
   // The index must be disclaimed as a base-100 index, not a rating.
   assert.match(MARKET_OVERVIEW_HELP.index, /not a score/i);
   assert.match(MARKET_OVERVIEW_HELP.index, /base 100/i);

@@ -289,7 +289,9 @@ def _chain_link_with_cohort_breaks(observations: List[Dict[str, Any]]) -> List[D
     return build_chain_linked_history_with_segments(observations)
 
 
-def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def build_sealed_segment_history(
+    products: List[Dict[str, Any]], *, through_date: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """The set-level Sealed segment: Tracked Value and Market Index, kept separate.
 
     TRACKED VALUE answers "what is the eligible sealed basket worth right now".
@@ -319,7 +321,8 @@ def build_sealed_segment_history(products: List[Dict[str, Any]]) -> Optional[Dic
         return None
 
     tracked_start = min(product["history"][0]["date"] for product in basket)
-    end = max(product["history"][-1]["date"] for product in basket)
+    latest_observation_date = max(product["history"][-1]["date"] for product in basket)
+    end = max(latest_observation_date, str(through_date)[:10]) if through_date else latest_observation_date
     if tracked_start > end:
         return None
 

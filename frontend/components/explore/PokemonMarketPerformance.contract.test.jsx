@@ -14,6 +14,7 @@ import TestRenderer from "react-test-renderer";
 // the chart and the Market Overview period column share. Testing the pane in
 // isolation would test a window selection that cannot exist in the product.
 import PokemonMarketAnalysis from "./PokemonMarketAnalysis.jsx";
+import { filterMarketPerformanceModel } from "./PokemonMarketPerformance.jsx";
 import { resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -61,6 +62,8 @@ function textOf(node) {
 
 const windowButtons = (renderer) => renderer.root.findAll((node) => node.props?.["data-market-window-value"] !== undefined);
 const seriesLines = (renderer) => renderer.root.findAll((node) => node.props?.["data-market-performance-series"] !== undefined);
+const tableToggle = (renderer, key) => renderer.root.find((node) => node.props?.["data-market-overview-toggle"] === key);
+const legendToggle = (renderer, key) => renderer.root.find((node) => node.props?.["data-market-performance-toggle"] === key);
 
 test("the section carries the locked heading and its accessible sub-label", () => {
   const renderer = render();
@@ -86,6 +89,59 @@ test("one chart draws both series with stable identity colors", () => {
     assert.doesNotMatch(String(line.props.stroke), /248,\s*113|45,\s*212/);
   }
   assert.equal(renderer.root.findAll((node) => node.props?.["data-market-performance-chart"] !== undefined).length, 1);
+});
+
+test("table and legend share one visibility state and can restore either family", () => {
+  const renderer = render();
+  assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], true);
+  assert.equal(legendToggle(renderer, "raw").props["aria-pressed"], true);
+  assert.equal(legendToggle(renderer, "topChase").props["aria-pressed"], true);
+
+  TestRenderer.act(() => { tableToggle(renderer, "raw").props.onClick(); });
+  assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], false);
+  assert.equal(legendToggle(renderer, "raw").props["aria-pressed"], false);
+  assert.deepEqual(seriesLines(renderer).map((node) => node.props["data-market-performance-series"]), ["topChase"]);
+
+  TestRenderer.act(() => { legendToggle(renderer, "raw").props.onClick(); });
+  assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], true);
+  assert.deepEqual(seriesLines(renderer).map((node) => node.props["data-market-performance-series"]), ["raw", "topChase"]);
+});
+
+test("hidden series are excluded from geometry, markers, readings and domain", () => {
+  const renderer = render();
+  const fullChart = renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined);
+  const fullDomainMax = fullChart.props["data-market-performance-domain-max"];
+  TestRenderer.act(() => { tableToggle(renderer, "raw").props.onClick(); });
+  const chart = renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined);
+  assert.ok(chart.props["data-market-performance-domain-max"] < fullDomainMax, "hidden Raw values no longer influence the Y domain");
+  assert.ok(chart.props["data-market-performance-domain-max"] >= 100);
+  assert.ok(chart.props["data-market-performance-domain-min"] < 96.5);
+  assert.deepEqual(renderer.root.findAll((node) => node.props?.["data-market-performance-area"] !== undefined).map((node) => node.props["data-market-performance-area"]), ["topChase"]);
+
+  TestRenderer.act(() => { chart.props.onFocus({ currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 200 }) } }); });
+  const selectedChart = renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined);
+  assert.doesNotMatch(String(selectedChart.props["aria-label"]), /Raw Card Market/);
+  assert.match(String(selectedChart.props["aria-label"]), /Top 10 Chase Market/);
+  assert.deepEqual(renderer.root.findAll((node) => node.props?.["data-market-performance-marker"] !== undefined).map((node) => node.props["data-market-performance-marker"]), ["topChase"]);
+});
+
+test("all families may be hidden without collapsing or claiming history is missing", () => {
+  const renderer = render();
+  TestRenderer.act(() => { legendToggle(renderer, "raw").props.onClick(); });
+  TestRenderer.act(() => { legendToggle(renderer, "topChase").props.onClick(); });
+  const empty = renderer.root.find((node) => node.props?.["data-market-performance-visibility-empty"] !== undefined);
+  assert.match(textOf(empty), /Select a market to display\./);
+  assert.match(String(empty.props.className), /h-48 desk:h-\[13\.5rem\]/);
+  assert.equal(seriesLines(renderer).length, 0);
+  assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], false);
+  assert.equal(tableToggle(renderer, "topChase").props["aria-pressed"], false);
+});
+
+test("filtering uses stable keys and scales beyond two series", () => {
+  const model = { dates: ["a", "b"], series: ["raw", "topChase", "sealed", "graded"].map((key) => ({ key, values: [1, 2] })) };
+  const filtered = filterMarketPerformanceModel(model, new Set(["topChase", "graded"]));
+  assert.deepEqual(filtered.series.map((series) => series.key), ["topChase", "graded"]);
+  assert.deepEqual(model.series.map((series) => series.key), ["raw", "topChase", "sealed", "graded"], "source model remains unchanged");
 });
 
 test("the plotted values are normalized index values, never basket dollars", () => {
@@ -195,23 +251,22 @@ test("ONE timeframe drives both the chart and the Market Overview period column"
   assert.match(textOf(periodCells()[0]), /0\.49%/);
   assert.doesNotMatch(textOf(periodCells()[0]), /11\.11/);
 
-  // And the fixed Since Tracking column stays on the TRACKED-VALUE series.
+  // And the fixed Since Tracking column stays on the canonical index series.
   const tracked = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined);
   assert.deepEqual(tracked.map((node) => node.props["data-market-overview-tracked-change"]), ["All", "All"]);
-  assert.match(textOf(tracked[0]), /44\.44%/);
+  assert.match(textOf(tracked[0]), /2\.25%/);
 });
 
-test("selecting All keeps the two since-tracking series distinct", () => {
+test("selecting All keeps both Since Tracking readings on the index series", () => {
   const renderer = render();
   const all = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "All");
   TestRenderer.act(() => { all.props.onClick(); });
 
   const periodCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined)[0];
   const trackedCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined)[0];
-  // Price performance since tracking (2.25%) is NOT the tracked-value change
-  // since tracking (44.44%). Collapsing them would be the bug this guards.
+  // Both cells report the canonical index return since the current segment.
   assert.match(textOf(periodCell), /2\.25%/);
-  assert.match(textOf(trackedCell), /44\.44%/);
+  assert.match(textOf(trackedCell), /2\.25%/);
   assert.doesNotMatch(textOf(periodCell), /44\.44/);
 });
 

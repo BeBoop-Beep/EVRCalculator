@@ -12,7 +12,6 @@ import {
   formatChangePercent,
   formatIndexValue,
   getPricePerformanceChange,
-  getTrackedValueChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import styles from "./explore.module.css";
 
@@ -67,7 +66,7 @@ function MarketSwatch({ color }) {
   return <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: color }} />;
 }
 
-export default function PokemonMarketOverview({ overview, selectedWindow, selectedLabel }) {
+export default function PokemonMarketOverview({ overview, selectedWindow, selectedLabel, visibleMarketKeys, onToggleMarket }) {
   if (!overview || !overview.families?.length) {
     return (
       <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
@@ -123,18 +122,37 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
             </tr>
           </thead>
           <tbody>
-            {families.map((family) => (
-              <tr key={family.key} data-market-overview-row={family.key}>
+            {families.map((family) => {
+              const isVisible = visibleMarketKeys?.has(family.key) !== false;
+              return (
+              <tr
+                key={family.key}
+                data-market-overview-row={family.key}
+                data-market-visible={isVisible ? "true" : "false"}
+                className={`${styles.marketOverviewInteractiveRow} ${isVisible ? "" : styles.marketOverviewRowInactive}`}
+                onClick={(event) => {
+                  if (event.target.closest("button")) return;
+                  onToggleMarket?.(family.key);
+                }}
+              >
                 <th scope="row">
-                  <span className="inline-flex items-center gap-2"><MarketSwatch color={family.color} />{family.label}</span>
+                  <button
+                    type="button"
+                    data-market-overview-toggle={family.key}
+                    aria-pressed={isVisible}
+                    onClick={() => onToggleMarket?.(family.key)}
+                    className={styles.marketOverviewToggle}
+                  >
+                    <MarketSwatch color={family.color} />{family.label}
+                  </button>
                 </th>
                 <td data-market-overview-metric="trackedValue" className={styles.marketOverviewGroupStart}>{formatBasketValue(family.basketValue)}</td>
                 <td data-market-overview-tracked-change={SINCE_TRACKING}>
                   <ChangeValue
-                    change={getTrackedValueChange(family, SINCE_TRACKING)}
+                    change={getPricePerformanceChange(family, SINCE_TRACKING)}
                     marketLabel={family.label}
                     windowLabel={SINCE_TRACKING_LABEL}
-                    dimension={MARKET_DIMENSION_LABELS.trackedValue}
+                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
                   />
                 </td>
                 <td data-market-overview-metric="index" className={`${styles.marketOverviewIndex} ${styles.marketOverviewGroupStart}`}>{formatIndexValue(family.indexValue)}</td>
@@ -147,7 +165,8 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                   />
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -170,10 +189,10 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                 <p data-market-overview-metric="trackedValue" className="mt-0.5 text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatBasketValue(family.basketValue)}</p>
                 <p data-market-overview-tracked-change={SINCE_TRACKING} className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
                   <ChangeValue
-                    change={getTrackedValueChange(family, SINCE_TRACKING)}
+                    change={getPricePerformanceChange(family, SINCE_TRACKING)}
                     marketLabel={family.label}
                     windowLabel={SINCE_TRACKING_LABEL}
-                    dimension={MARKET_DIMENSION_LABELS.trackedValue}
+                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
                     className="font-semibold"
                   />
                   <span aria-hidden="true"> since tracking</span>

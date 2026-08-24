@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
 
-import SetMarketExplorer from "./SetMarketExplorer.jsx";
+import SetMarketExplorer, { resolveSetMarketRowAction } from "./SetMarketExplorer.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -81,9 +81,12 @@ test("rank is market-wide and comes from the published Set Value, not from the f
   assert.match(first, /Mega Evolution/);
 });
 
-test("exactly ONE chart is mounted, for the selected set — never one per row", () => {
+test("detail mounts at most one chart while the selected history loads — never one per row", () => {
   const renderer = render();
-  assert.equal(charts(renderer).length, 1, "a 167-set catalogue must not mount 167 charts");
+  assert.ok(charts(renderer).length <= 1, "a 167-set catalogue must not mount 167 charts");
+  const skeletons = renderer.root.findAll((node) => node.props?.["data-set-market-detail-skeleton"] !== undefined);
+  assert.equal(skeletons.length, 1, "the selected-set request reserves one silent chart skeleton");
+  assert.equal(skeletons[0].props["aria-hidden"], "true");
 });
 
 test("the #1 set is selected by default and its analysis is populated", () => {
@@ -100,8 +103,8 @@ test("selecting another row updates the analysis pane in place", () => {
 
   assert.match(detailName(renderer), /Black Bolt/);
   assert.match(detailValue(renderer), /\$3,589\.70/);
-  // Still exactly one chart: the selection moved it, it did not add one.
-  assert.equal(charts(renderer).length, 1);
+  // Still at most one chart: the selection moved it, it did not add one.
+  assert.ok(charts(renderer).length <= 1);
   // And the row reports its own selected state to assistive tech.
   const selected = rows(renderer).filter((node) => node.props["aria-current"] === "true");
   assert.deepEqual(selected.map((node) => node.props["data-set-market-row"]), ["set-c"]);
@@ -130,18 +133,54 @@ test("search narrows the list without repointing the analysis pane", () => {
 
 test("the era filter offers only eras the snapshot actually publishes", () => {
   const renderer = render();
-  const selects = renderer.root.findAll((node) => node.type === "select");
-  const eraOptions = selects[0].findAllByType("option").map((node) => textOf(node));
+  const trigger = renderer.root.find((node) => node.type === "button" && node.props["aria-label"] === "Filter by era");
+  TestRenderer.act(() => { trigger.props.onClick(); });
+  const eraOptions = renderer.root.findAll((node) => node.props?.role === "option").map((node) => textOf(node).replace(/\s*✓$/, ""));
   assert.deepEqual(eraOptions, ["All Eras", "Mega Evolution", "Scarlet & Violet"]);
+});
+
+test("desktop row drill-in selects first, then navigates the selected row exactly once", () => {
+  const destinations = [];
+  const renderer = render({ navigate: (href) => destinations.push(href) });
+  const blackBolt = () => rows(renderer).find((node) => node.props["data-set-market-row"] === "set-c");
+
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Black Bolt/);
+  assert.deepEqual(destinations, []);
+
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 1 }); });
+  assert.equal(destinations.length, 1);
+  assert.match(destinations[0], /black-bolt/);
+  TestRenderer.act(() => { blackBolt().props.onClick({ detail: 2 }); });
+  assert.equal(destinations.length, 1, "a click sequence can start navigation only once");
+});
+
+test("desktop double click on an unselected row selects immediately and navigates on click two", () => {
+  const destinations = [];
+  const renderer = render({ navigate: (href) => destinations.push(href) });
+  const prismatic = () => rows(renderer).find((node) => node.props["data-set-market-row"] === "set-b");
+  TestRenderer.act(() => { prismatic().props.onClick({ detail: 1 }); });
+  assert.match(detailName(renderer), /Prismatic Evolutions/);
+  TestRenderer.act(() => { prismatic().props.onClick({ detail: 2 }); });
+  assert.equal(destinations.length, 1);
+  assert.match(destinations[0], /prismatic-evolutions/);
+});
+
+test("mobile taps and repeated taps remain selection actions", () => {
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: false, clickCount: 1 }), "select");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 1 }), "select");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 2 }), "select");
 });
 
 test("the sort control reorders without inventing a metric", () => {
   const renderer = render();
-  const selects = renderer.root.findAll((node) => node.type === "select");
-  TestRenderer.act(() => { selects[1].props.onChange({ target: { value: "name" } }); });
+  const openSort = () => renderer.root.find((node) => node.type === "button" && node.props["aria-label"] === "Sort sets").props.onClick();
+  TestRenderer.act(openSort);
+  TestRenderer.act(() => { renderer.root.findAll((node) => node.props?.role === "option").find((node) => textOf(node) === "Sort: Set Name").props.onClick(); });
   assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-a", "set-c", "set-b"]);
 
-  TestRenderer.act(() => { selects[1].props.onChange({ target: { value: "change" } }); });
+  TestRenderer.act(openSort);
+  TestRenderer.act(() => { renderer.root.findAll((node) => node.props?.role === "option").find((node) => textOf(node) === "Sort: Change").props.onClick(); });
   // Published 7D percentages: -2.0 (c) > -3.9 (b) > -11.8 (a).
   assert.deepEqual(rows(renderer).map((node) => node.props["data-set-market-row"]), ["set-c", "set-b", "set-a"]);
 });
@@ -211,7 +250,7 @@ test("every window re-reads the published movement, never a derived one", () => 
   TestRenderer.act(() => { renderer.root.find((node) => node.props?.["data-time-range-value"] === "lifetime").props.onClick(); });
   const pane = textOf(detail(renderer));
   assert.match(pane, /\+\$120\.00 \(\+2\.1%\)/, "the lifetime movement is the backend's own amount and percent");
-  assert.match(pane, /Set Value · LT/);
+  assert.match(pane, /Set Value · All/);
 });
 
 test("an empty or failed snapshot says so instead of rendering an empty shell", () => {
