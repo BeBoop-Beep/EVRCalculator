@@ -16,9 +16,17 @@ test("first glance uses out-of-100 language and avoids profit claims", () => {
 });
 test("primary bar is exact probability mass with a labeled break-even boundary", () => {
   assert.ok(component.includes("flexGrow: r.probability"));
+  assert.ok(component.includes("flexBasis: 0"));
   assert.ok(!component.includes("Math.max(r.probability"));
+  assert.ok(!component.includes("minWidth"));
   assert.ok(component.includes(">PACK COST<"));
+  assert.ok(component.includes("index === 1 ? <b>PACK COST</b>"));
+  assert.ok(!component.includes("outcome.groups[0].probability + outcome.groups[1].probability"));
   assert.ok(component.includes('role="img"'));
+  const barRule = css.match(/\.outcomeProfileBar\s*\{([^}]*)\}/)?.[1] || "";
+  const segmentRule = css.match(/\.outcomeProfileBar span\s*\{([^}]*)\}/)?.[1] || "";
+  assert.ok(!/\bgap\s*:/.test(barRule));
+  assert.ok(!/min-width\s*:\s*[1-9]/.test(segmentRule));
 });
 test("exact buckets remain under native progressive disclosure", () => {
   assert.ok(component.includes("<details"));
