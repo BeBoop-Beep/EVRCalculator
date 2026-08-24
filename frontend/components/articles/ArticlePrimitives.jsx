@@ -49,9 +49,9 @@ export function PackArt({ src = "/images/pokemon/booster-packs/perfectOrder.webp
   return <div className={`relative mx-auto ${compact ? "h-56 w-40" : "h-72 w-52"}`}><div className="absolute inset-8 rounded-full bg-[var(--accent)]/15 blur-3xl" aria-hidden="true" /><Image src={src} alt={alt} fill sizes={compact ? "160px" : "208px"} className="object-contain drop-shadow-[0_20px_32px_rgba(0,0,0,0.45)]" /></div>;
 }
 
-export function LiveDistributionFigure({ distribution, setName, simulationCount }) {
+export function LiveDistributionFigure({ distribution, setName, simulationCount, caption }) {
   if (!distribution?.bins?.length && !distribution?.thresholdBins?.length) return null;
-  return <MediaFigure className="lg:relative lg:left-1/2 lg:w-[min(64rem,calc(100vw-3rem))] lg:-translate-x-1/2" caption={`${simulationCount ? Number(simulationCount).toLocaleString("en-US") : "Published"} simulated ${setName} openings, rendered from the same canonical distribution data used by the inDex set experience. The average is one point inside this full outcome profile.`}><div className="min-w-0"><RipDistributionChart bins={distribution.bins} thresholdBins={distribution.thresholdBins} markers={distribution.markers} showTitle={false} flush /></div></MediaFigure>;
+  return <MediaFigure className="lg:relative lg:left-1/2 lg:w-[min(64rem,calc(100vw-3rem))] lg:-translate-x-1/2" caption={caption || `${simulationCount ? Number(simulationCount).toLocaleString("en-US") : "Published"} simulated ${setName} openings, rendered from the same canonical distribution data used by the inDex set experience. The average is one point inside this full outcome profile.`}><div className="min-w-0"><RipDistributionChart bins={distribution.bins} thresholdBins={distribution.thresholdBins} markers={distribution.markers} showTitle={false} flush /></div></MediaFigure>;
 }
 
 export function EvDistributionDiagram() {

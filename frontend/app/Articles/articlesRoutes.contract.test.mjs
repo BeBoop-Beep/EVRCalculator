@@ -38,6 +38,17 @@ test("the EV representativeness research article is fully registered", () => {
   for (const doi of ["10.1080/01621459.1949.10483310", "10.1080/01621459.1927.10502953", "10.1214/aos/1176344552", "10.2307/1412159", "10.1111/j.2517-6161.1995.tb02031.x", "10.1007/978-0-387-21617-1"]) assert.ok(research.includes(doi), doi);
   for (const key of ['"ev"', '"simulation"', '"validation"', '"financial"']) assert.ok(research.includes(key), key);
 });
+test("the research article embeds live evidence through shared product components", () => {
+  const page = read("how-representative-is-pokemon-pack-expected-value/page.js");
+  const wrapper = read("../../components/articles/EvResearchLiveExamples.jsx");
+  assert.ok(page.includes("<LivePrismaticDistribution"));
+  assert.ok(page.includes("<LivePrismaticOutcomeProfile"));
+  assert.ok(page.includes("<LivePrismaticEvRepresentativeness"));
+  assert.ok(wrapper.includes("OpeningOutcomeProfileSection"));
+  assert.ok(wrapper.includes("EvRepresentativenessSection"));
+  assert.ok(wrapper.includes("LiveDistributionFigure"));
+  assert.ok(wrapper.includes("same RipDistributionChart as the set page"));
+});
 test("methodology links route to the most relevant published article", () => {
   assert.ok(rip.includes(`const METHODOLOGY_ARTICLE_HREF = "${ARTICLE_HREF}"`));
   assert.ok(rip.includes('href: "/Articles/how-financial-rip-works"'));

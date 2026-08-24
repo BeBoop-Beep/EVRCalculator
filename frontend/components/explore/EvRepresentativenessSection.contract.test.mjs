@@ -1,31 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-
+const component = fs.readFileSync(new URL("./simulation-evidence/EvRepresentativenessSection.jsx", import.meta.url), "utf8");
 const report = fs.readFileSync(new URL("./SimulationFullReport.jsx", import.meta.url), "utf8");
-const page = fs.readFileSync(new URL("./RipDecisionPage.jsx", import.meta.url), "utf8");
+const article = fs.readFileSync(new URL("../articles/EvResearchLiveExamples.jsx", import.meta.url), "utf8");
 const styles = fs.readFileSync(new URL("./RipDecisionPage.module.css", import.meta.url), "utf8");
-
-test("EV representativeness appears inside the existing full report before technical groups", () => {
-  assert.ok(page.includes("<SimulationFullReport"));
-  assert.ok(report.indexOf("How Closely Does EV Match Real Openings?") < report.indexOf("report.groups.map"));
-  assert.ok(report.includes("Typical pack (P50)"));
-  assert.ok(report.includes("Long-run EV"));
-  assert.ok(report.includes("not opening recommendations"));
-});
-
-test("section retains same-run selector and accessible table/info affordance", () => {
-  assert.ok(report.includes("selectEvRepresentativenessPublicV1(evRepresentativeness, calculationRunId)"));
-  assert.ok(report.includes('role="table"'));
-  assert.ok(report.includes("<InfoPopover"));
-});
-
-test("shared comparison scale and milestone progression remain responsive", () => {
-  assert.ok(report.includes("value / scale * 100"));
-  assert.ok(report.includes("36 packs"));
-  assert.ok(report.includes("Not confirmed"));
-  assert.ok(report.includes("Explore other pack counts"));
-  assert.ok(report.includes("80% of modeled openers average at least 80% of EV."));
-  assert.ok(report.includes("80% of modeled openers finish within ±20% of EV."));
-  assert.ok(styles.includes(".evMilestones { grid-template-columns: 1fr; }"));
-});
+test("one shared EV representativeness implementation serves set report and article", () => { assert.ok(report.includes('import EvRepresentativenessSection from "./simulation-evidence/EvRepresentativenessSection.jsx"')); assert.ok(article.includes('import EvRepresentativenessSection from "@/components/explore/simulation-evidence/EvRepresentativenessSection.jsx"')); assert.ok(component.includes("selectEvRepresentativenessPublicV1(evRepresentativeness, calculationRunId)")); });
+test("section retains comparison, milestones, table and disclosure", () => { for (const phrase of ["How Closely Does EV Match Real Openings?", "Typical pack (P50)", "Long-run EV", "not opening recommendations", "Explore other pack counts"]) assert.ok(component.includes(phrase), phrase); assert.ok(component.includes('role="table"')); assert.ok(component.includes("<InfoPopover")); });
+test("shared scale and milestone progression remain responsive", () => { assert.ok(component.includes("value / scale * 100")); assert.ok(component.includes("36 packs")); assert.ok(component.includes("80% of modeled openers finish within ±20% of EV.")); assert.ok(styles.includes(".evMilestones { grid-template-columns: 1fr; }")); });

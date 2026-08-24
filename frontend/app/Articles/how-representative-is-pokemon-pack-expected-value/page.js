@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { ArticleJsonLd, ArticleShell, Citation, DefinitionGrid, EditorialSplit, H2, H3, MediaFigure, MetricStory, PackArt, ReferenceList } from "@/components/articles/ArticlePrimitives";
 import { OutcomeProbabilityFigure, TailConvergenceFigure, TypicalVsEvFigure } from "@/components/articles/EvRepresentativenessResearchFigures";
+import { LivePrismaticDistribution, LivePrismaticEvRepresentativeness, LivePrismaticOutcomeProfile } from "@/components/articles/EvResearchLiveExamples";
 import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { selectPrismaticResearchLiveExample } from "@/lib/articles/evResearchLiveExample.mjs";
+import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
+import { getPokemonSetSimulationEvidenceInitialSnapshot } from "@/lib/pokemon/pokemonSetInitialSnapshotsServer";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import { toSetSlug } from "@/utils/slugify";
 
@@ -25,7 +29,21 @@ const references = [
   { id: "ref-glasserman", href: "https://doi.org/10.1007/978-0-387-21617-1", citation: "Glasserman, P. (2003). Monte Carlo Methods in Financial Engineering. Springer." },
 ];
 
-export default function Page() {
+async function loadLivePrismaticExample() {
+  try {
+    const targetsPayload = await getRipStatisticsTargets({ limit: 150 });
+    const target = (Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : []).find((row) => row?.target_type === "set" && String(row?.name || "").trim().toLowerCase() === "prismatic evolutions");
+    if (!target?.target_id) return null;
+    const snapshot = await getPokemonSetSimulationEvidenceInitialSnapshot(target.target_id);
+    const model = selectPrismaticResearchLiveExample(target, snapshot?.payload);
+    return model ? { ...model, setHref: setHref("Prismatic Evolutions") } : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Page() {
+  const livePrismatic = await loadLivePrismaticExample();
   return <ArticleShell category="Research" title={title} deck="I simulated one million pack outcomes for each of 22 Pokémon sets, then asked a different question: not whether Expected Value was mathematically correct, but how closely it actually describes what a real opener experiences." related={related("ev", "simulation", "validation", "financial")}>
     <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.evRepresentativeness} />
 
@@ -43,6 +61,7 @@ export default function Page() {
     <MediaFigure caption="The expectation does not change with pack count. The spread of realized sample averages does."><div className="overflow-x-auto py-5 text-center text-lg font-semibold text-[var(--text-primary)]"><span className="whitespace-nowrap">E[X] = μ</span><span className="mx-4 text-[var(--accent)]" aria-hidden="true">and</span><span className="whitespace-nowrap">E[X̄<sub>N</sub>] = μ for every N</span></div></MediaFigure>
     <p>That distinction matters. EV does not “become correct” after enough packs. It is already the expected mean. What changes as <em>N</em> grows is concentration: actual sample averages become more likely to sit near that expectation. The average does not become more correct. Your realized results become more likely to look like the average.</p>
     <p>Why can one opening feel so far away? Pokémon pack values are positively skewed. Many outcomes cluster low, while a small number of expensive pulls stretch the right tail. The mean responds to every dollar in that tail. The median, or P50, tells me where the middle modeled opening lands. A real opener does not receive a tiny fraction of every card; they receive one realized outcome.</p>
+    <LivePrismaticDistribution model={livePrismatic} />
     <p>I introduced that conceptual problem in <Link href={ARTICLE_PATHS.ev}>Why Expected Value Alone Isn’t Enough</Link>. This study goes further: it measures the gap, tests finite opening sessions, and asks which features of a set explain why the gap persists.</p>
 
     <H2>What I measured</H2>
@@ -89,6 +108,8 @@ export default function Page() {
     <p>The confirmed horizons made the difference even harder to ignore. Journey Together reached both the 80% EV realization standard and the ±20% convergence standard at about 150 packs. Prismatic Evolutions needed about 2,812 packs for the first standard and 5,906 for the second.</p>
     <p>Other chase-heavy examples sat between them. Phantasmal Flames required about 1,167 packs to reach the realization standard and 2,438 to converge within ±20%. Paldean Fates required about 833 and 1,750. Ascended Heroes required about 792 and 1,750.</p>
     <p>Paldea Evolved is a useful example of the confirmation rule doing its job. Its 500-pack convergence candidate did not survive independent confirmation, so its frozen public convergence result is <strong>Not confirmed</strong>. Publishing the first crossing instead would turn a failed check into a headline.</p>
+    <p>Those are the frozen cohort results. The panel below shows how the same measurements appear for Prismatic Evolutions using the current published run.</p>
+    <LivePrismaticEvRepresentativeness model={livePrismatic} />
 
     <H2>The biggest clue was the top 1%</H2>
     <p>Prismatic Evolutions concentrated 64.1% of total EV in the highest-value 1% of modeled openings. Its top 10% contributed 80.0%. Journey Together’s top 1% contributed 16.7%. That suggested a simple explanation: when more of the average lives in exceptional outcomes, ordinary sample averages need longer to resemble it.</p>
@@ -104,6 +125,7 @@ export default function Page() {
     <p>Knowing why EV behaves this way is useful. But a person deciding whether to open a pack may ask something more direct: what percentage of openings are actually bad?</p>
     <p>I normalized each one-pack result by opening cost: R = X / C, where X is gross modeled card market value and C is the opening cost attached to the same run. A value of 0.5 means the modeled cards were worth half the opening cost. A value of 2 means twice the cost. This makes differently priced sets comparable without pretending raw dollars mean the same thing everywhere.</p>
     <p>The research tested several candidate bucket systems. V1 kept eight neutral ranges: 0–25%, 25–50%, 50–75%, 75–100%, 1–1.5×, 1.5–2×, 2–5×, and 5×+. That gave enough resolution around half-cost and break-even while preserving meaningful upside bands. A finer scheme created too many sparse cells; a simpler one hid too much of the middle. I also avoided labels like “terrible” or “great.” This is a descriptive distribution, not a verdict.</p>
+    <LivePrismaticOutcomeProfile model={livePrismatic} />
 
     <H3>What the one-pack outcomes looked like</H3>
     <p>Across the frozen 22-set cohort, the mean probability of returning less than 25% of opening cost was 69.3%. The mean probability below half cost was 86.3%. Only 7.1% of openings, on average across sets, returned gross modeled card value equal to at least opening cost. The mean probabilities of returning at least 2× and 5× cost were 3.3% and 0.9%.</p>
@@ -138,6 +160,7 @@ export default function Page() {
     <H2>What users now see on inDex</H2>
     <p>The Full Simulation Report now moves from the complete Outcome Distribution to “What Happens When You Open a Pack?”, then to “How Closely Does EV Match Real Openings?”, and finally to the technical simulation statistics.</p>
     <p>The graph shows the full distribution. Outcome Profile translates it into understandable cost-relative probabilities. EV Representativeness explains whether the average resembles finite opening experience. Financial RIP evaluates the economic attractiveness of the broader profile elsewhere in the product.</p>
+    <p>Those live panels above are the same ones I use on the set page, not screenshots or article-specific recreations. I did that deliberately. If I improve how I explain these distributions later, the article and the product should improve together instead of drifting into two different explanations of the same statistic.</p>
     <p>The set pages for <Link href={setHref("Prismatic Evolutions")}>Prismatic Evolutions</Link>, <Link href={setHref("Journey Together")}>Journey Together</Link>, and <Link href={setHref("Temporal Forces")}>Temporal Forces</Link> show current market-linked results. Those live values can move. Every empirical number in this article remains frozen to the August 22, 2026 study cohort.</p>
 
     <H2>What this does not mean</H2>
