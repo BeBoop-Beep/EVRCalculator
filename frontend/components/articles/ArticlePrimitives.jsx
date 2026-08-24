@@ -25,6 +25,14 @@ export function ArticleShell({ category, title, deck, children, related = [] }) 
 export function H2({ children }) { return <h2 className="!mt-12 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">{children}</h2>; }
 export function H3({ children }) { return <h3 className="!mt-8 text-xl font-semibold text-[var(--text-primary)]">{children}</h3>; }
 
+export function Citation({ href, children }) {
+  return <a href={href} target="_blank" rel="noreferrer" className="rounded-sm font-medium text-[var(--accent)] underline decoration-[var(--accent)]/45 underline-offset-4 hover:decoration-[var(--accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]">{children}</a>;
+}
+
+export function ReferenceList({ items }) {
+  return <ol className="!mt-6 space-y-4 pl-5 text-sm leading-6">{items.map(item => <li key={item.href} id={item.id} className="pl-1"><Citation href={item.href}>{item.citation}</Citation>{item.note ? <span> {item.note}</span> : null}</li>)}</ol>;
+}
+
 export function DefinitionGrid({ items, columns = "sm:grid-cols-2" }) {
   return <dl className={`!mt-6 grid gap-3 ${columns}`}>{items.map(([name, text]) => <div key={name} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 p-4"><dt className="font-semibold text-[var(--text-primary)]">{name}</dt><dd className="mt-1 text-sm leading-6">{text}</dd></div>)}</dl>;
 }
@@ -41,9 +49,9 @@ export function PackArt({ src = "/images/pokemon/booster-packs/perfectOrder.webp
   return <div className={`relative mx-auto ${compact ? "h-56 w-40" : "h-72 w-52"}`}><div className="absolute inset-8 rounded-full bg-[var(--accent)]/15 blur-3xl" aria-hidden="true" /><Image src={src} alt={alt} fill sizes={compact ? "160px" : "208px"} className="object-contain drop-shadow-[0_20px_32px_rgba(0,0,0,0.45)]" /></div>;
 }
 
-export function LiveDistributionFigure({ distribution, setName, simulationCount }) {
+export function LiveDistributionFigure({ distribution, setName, simulationCount, caption }) {
   if (!distribution?.bins?.length && !distribution?.thresholdBins?.length) return null;
-  return <MediaFigure className="lg:relative lg:left-1/2 lg:w-[min(64rem,calc(100vw-3rem))] lg:-translate-x-1/2" caption={`${simulationCount ? Number(simulationCount).toLocaleString("en-US") : "Published"} simulated ${setName} openings, rendered from the same canonical distribution data used by the inDex set experience. The average is one point inside this full outcome profile.`}><div className="min-w-0"><RipDistributionChart bins={distribution.bins} thresholdBins={distribution.thresholdBins} markers={distribution.markers} showTitle={false} flush /></div></MediaFigure>;
+  return <MediaFigure className="lg:relative lg:left-1/2 lg:w-[min(64rem,calc(100vw-3rem))] lg:-translate-x-1/2" caption={caption || `${simulationCount ? Number(simulationCount).toLocaleString("en-US") : "Published"} simulated ${setName} openings, rendered from the same canonical distribution data used by the inDex set experience. The average is one point inside this full outcome profile.`}><div className="min-w-0"><RipDistributionChart bins={distribution.bins} thresholdBins={distribution.thresholdBins} markers={distribution.markers} showTitle={false} flush /></div></MediaFigure>;
 }
 
 export function EvDistributionDiagram() {
