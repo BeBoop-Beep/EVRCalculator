@@ -28,6 +28,15 @@ const CHASE_TREND = [["2024-01-01", 100], ["2024-01-02", 98], ["2024-01-03", 97]
 const SNAPSHOT = {
   marketOverview: {
     marketDate: "2024-01-05",
+    comparisonWindows: {
+      "1D": { targetStartDate: "2024-01-04", displayStartDate: "2024-01-04", displayEndDate: "2024-01-05", available: true },
+      "7D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-05", available: true },
+      "30D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-05", available: true },
+      "3M": { targetStartDate: "2023-10-08", displayStartDate: "2023-10-08", displayEndDate: "2024-01-05", available: false },
+      "6M": { targetStartDate: "2023-07-10", displayStartDate: "2023-07-10", displayEndDate: "2024-01-05", available: false },
+      "1Y": { targetStartDate: "2023-01-06", displayStartDate: "2023-01-06", displayEndDate: "2024-01-05", available: false },
+      SinceTracking: { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-05", available: true },
+    },
     coverage: { eligibleSetCount: 3, rawCardCount: 512, chaseCardCount: 30 },
     raw: {
       basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: RAW_TREND,
@@ -35,11 +44,13 @@ const SNAPSHOT = {
       // chart or its legend, the assertions below fail loudly.
       basketChanges: { "1D": change(11.11, "2024-01-04"), "7D": change(22.22, "2024-01-01"), "30D": change(33.33, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(44.44, "2024-01-01") },
       changes: { "1D": change(0.49, "2024-01-04"), "7D": change(2.25, "2024-01-01"), "30D": change(2.25, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(2.25, "2024-01-01") },
+      familyChanges: { "1D": change(0.49, "2024-01-04"), "7D": change(2.25, "2024-01-01"), "30D": change(2.25, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(6.18, "2024-01-01") },
     },
     topChase: {
       basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: CHASE_TREND,
       basketChanges: { "1D": change(55.55, "2024-01-04"), "7D": change(66.66, "2024-01-01"), "30D": change(77.77, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(88.88, "2024-01-01") },
       changes: { "1D": change(-0.26, "2024-01-04"), "7D": change(-3.5, "2024-01-01"), "30D": change(-3.5, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(-3.5, "2024-01-01") },
+      familyChanges: { "1D": change(-0.26, "2024-01-04"), "7D": change(-3.5, "2024-01-01"), "30D": change(-3.5, "2024-01-01"), "3M": missing(), "6M": missing(), "1Y": missing(), SinceTracking: change(-8.4, "2024-01-01") },
     },
   },
 };
@@ -91,6 +102,17 @@ test("one chart draws both series with stable identity colors", () => {
   assert.equal(renderer.root.findAll((node) => node.props?.["data-market-performance-chart"] !== undefined).length, 1);
 });
 
+test("mobile hides duplicate explanation and legend while retaining info, controls and a compact real chart", () => {
+  const renderer = render();
+  const description = renderer.root.find((node) => node.props?.id === "market-performance-description");
+  assert.match(String(description.props.className), /hidden[\s\S]*desk:block/);
+  const legend = renderer.root.find((node) => node.props?.["data-market-performance-legend"] !== undefined);
+  assert.match(String(legend.props.className), /hidden[\s\S]*desk:flex/);
+  assert.ok(renderer.root.findAll((node) => typeof node.type === "function" && /Chain-linked price performance/.test(String(node.props?.text || ""))).length >= 1);
+  const chart = renderer.root.find((node) => node.props?.["data-market-performance-chart"] !== undefined);
+  assert.match(String(chart.props.className), /h-40 desk:h-\[13\.5rem\]/);
+});
+
 test("table and legend share one visibility state and can restore either family", () => {
   const renderer = render();
   assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], true);
@@ -131,7 +153,7 @@ test("all families may be hidden without collapsing or claiming history is missi
   TestRenderer.act(() => { legendToggle(renderer, "topChase").props.onClick(); });
   const empty = renderer.root.find((node) => node.props?.["data-market-performance-visibility-empty"] !== undefined);
   assert.match(textOf(empty), /Select a market to display\./);
-  assert.match(String(empty.props.className), /h-48 desk:h-\[13\.5rem\]/);
+  assert.match(String(empty.props.className), /h-40 desk:h-\[13\.5rem\]/);
   assert.equal(seriesLines(renderer).length, 0);
   assert.equal(tableToggle(renderer, "raw").props["aria-pressed"], false);
   assert.equal(tableToggle(renderer, "topChase").props["aria-pressed"], false);
@@ -184,6 +206,37 @@ test("an unavailable timeframe cannot be selected, and no partial percentage app
   assert.match(legend, /7D: up 2\.25 percent/);
   assert.match(legend, /7D: down 3\.50 percent/);
   assert.doesNotMatch(legend, /6M/);
+});
+
+test("partial 6M and 1Y are selectable and visibly say since first available", () => {
+  const payload = structuredClone(SNAPSHOT);
+  for (const key of ["6M", "1Y"]) {
+    payload.marketOverview.comparisonWindows[key] = {
+      targetStartDate: key === "6M" ? "2023-07-10" : "2023-01-06",
+      displayStartDate: "2024-01-01",
+      displayEndDate: "2024-01-05",
+      available: true,
+      coverage: "partial",
+      isSinceFirstAvailable: true,
+    };
+    for (const familyKey of ["raw", "topChase"]) {
+      payload.marketOverview[familyKey].changes[key] = {
+        ...payload.marketOverview[familyKey].changes.SinceTracking,
+        coverage: "partial",
+        isSinceFirstAvailable: true,
+      };
+    }
+  }
+  const renderer = render(resolveMarketOverview(payload));
+  for (const key of ["6M", "1Y"]) {
+    const button = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === key);
+    assert.equal(button.props.disabled, false);
+    assert.match(button.props["aria-label"], /shown since first available history/);
+    TestRenderer.act(() => { button.props.onClick(); });
+    assert.match(textOf(renderer.root.find((node) => node.props?.["data-market-performance-coverage-note"] !== undefined)), /Since first available/);
+    assert.match(textOf(renderer.root.find((node) => node.props?.["data-market-overview-period-heading"] === key)), new RegExp(`${key}.*Since first available`));
+    assert.deepEqual(seriesLines(renderer).map((node) => node.props["data-market-performance-series"]), ["raw", "topChase"]);
+  }
 });
 
 test("selecting a window clips the chart to the backend window's dates", () => {
@@ -251,23 +304,29 @@ test("ONE timeframe drives both the chart and the Market Overview period column"
   assert.match(textOf(periodCells()[0]), /0\.49%/);
   assert.doesNotMatch(textOf(periodCells()[0]), /11\.11/);
 
-  // And the fixed Since Tracking column stays on the canonical index series.
+  // And the fixed Since Tracking column stays on the FAMILY series, which does
+  // not follow the timeframe selection at all.
   const tracked = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined);
   assert.deepEqual(tracked.map((node) => node.props["data-market-overview-tracked-change"]), ["All", "All"]);
-  assert.match(textOf(tracked[0]), /2\.25%/);
+  assert.match(textOf(tracked[0]), /6\.18%/);
 });
 
-test("selecting All keeps both Since Tracking readings on the index series", () => {
+test("selecting All separates the shared comparable span from Since Tracking", () => {
   const renderer = render();
   const all = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "All");
   TestRenderer.act(() => { all.props.onClick(); });
 
   const periodCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined)[0];
   const trackedCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined)[0];
-  // Both cells report the canonical index return since the current segment.
+  // "All" is the SHARED comparable span (+2.25%); the Since Tracking column is
+  // the family own start (+6.18%). Both are price performance, both are true,
+  // and they are different spans - so they must not print the same number.
   assert.match(textOf(periodCell), /2\.25%/);
-  assert.match(textOf(trackedCell), /2\.25%/);
+  assert.match(textOf(trackedCell), /6\.18%/);
+  assert.notEqual(textOf(periodCell), textOf(trackedCell));
+  // Never the tracked-value series.
   assert.doesNotMatch(textOf(periodCell), /44\.44/);
+  assert.doesNotMatch(textOf(trackedCell), /44\.44/);
 });
 
 

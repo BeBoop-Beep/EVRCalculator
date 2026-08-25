@@ -5,7 +5,7 @@ import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
 import { getExploreMarketMovers } from "@/lib/explore/exploreMarketMoversServer";
 import { getExploreSetValueMarket } from "@/lib/explore/exploreSetValueMarketServer";
-import { buildCoverageSummary, resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
+import { buildCoverageSummary, projectMarketPageOverview, resolveMarketOverview } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import styles from "@/components/explore/explore.module.css";
 
@@ -35,6 +35,7 @@ export default async function MarketPage() {
   // backend's published authority for every basket value, index value and
   // percentage below; nothing here recomputes one.
   const overview = resolveMarketOverview(setValuePayload);
+  const marketPageOverview = projectMarketPageOverview(overview);
   // The Set Market explorer reads these targets directly; the snapshot is
   // already the compact Market-domain publication (setId, name, era, logo,
   // currentSetValue, windows, trend), not the canonical Rankings document.
@@ -43,15 +44,15 @@ export default async function MarketPage() {
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
-    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-3 desk:pt-5 sm:px-6 lg:px-8`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
-      <header className="mb-4 flex flex-col gap-2 desk:flex-row desk:items-end desk:justify-between">
+      <header className="mb-3 flex flex-col gap-1 desk:mb-4 desk:gap-2 desk:flex-row desk:items-end desk:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-[var(--text-primary)]">Pokémon Market</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Track the value and performance of the Pokémon card market.</p>
+          <h1 className="text-[20px] font-semibold text-[var(--text-primary)] desk:text-2xl">Pokémon Market</h1>
+          <p className="mt-1 hidden text-sm text-[var(--text-secondary)] desk:block">Track the value and performance of the Pokémon card market.</p>
         </div>
         {coverageSummary.length ? (
-          <p data-market-coverage-summary className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] tabular-nums text-[var(--text-secondary)] desk:justify-end desk:text-right">
+          <p data-market-coverage-summary className="flex flex-wrap items-center gap-x-1 gap-y-0 text-[10px] leading-tight tabular-nums text-[var(--text-secondary)] desk:justify-end desk:gap-x-1.5 desk:text-right desk:text-[11px]">
             {coverageSummary.map((part, index) => (
               <span key={part} className="whitespace-nowrap">
                 {index > 0 ? <span aria-hidden="true" className="mr-1.5 opacity-60">·</span> : null}
@@ -64,10 +65,10 @@ export default async function MarketPage() {
       {/* Locked hierarchy: header metadata -> the EXISTING 7D Market Movers,
           unchanged and merely moved -> the unified Market Overview + Market
           Performance surface -> the unified Set Market master-detail surface. */}
-      <div className="space-y-4">
-        <ExploreMarketMovers payload={moversPayload} />
-        <PokemonMarketAnalysis overview={overview} />
-        <SetMarketExplorer targets={targets} loadError={loadError} />
+      <div className="desk:space-y-4">
+        <div className="max-desk:-mx-4 max-desk:px-4 sm:max-desk:-mx-6 sm:max-desk:px-6"><ExploreMarketMovers payload={moversPayload} /></div>
+        <div data-mobile-section className="max-desk:-mx-4 sm:max-desk:-mx-6"><PokemonMarketAnalysis overview={marketPageOverview} /></div>
+        <div data-mobile-section className="max-desk:-mx-4 sm:max-desk:-mx-6"><SetMarketExplorer targets={targets} loadError={loadError} /></div>
       </div>
     </div>
   );

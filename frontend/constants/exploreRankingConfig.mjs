@@ -86,10 +86,10 @@ export const EXPLORE_RANKING_MODES = {
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
     // absolute/model field here: it is not a public number.
-    publicScoreField: "overallRipV9.relativeScore",
-    rankField: "overallRipV9.rank",
-    rankedSetCountField: "overallRipV9.cohortSize",
-    tierField: "overallRipV9.tier",
+    publicScoreField: "overallRipV10.relativeScore",
+    rankField: "overallRipV10.rank",
+    rankedSetCountField: "overallRipV10.cohortSize",
+    tierField: "overallRipV10.tier",
     description: "Overall RIP combines financial opening performance with collector appeal.",
   },
   financial: {
@@ -101,10 +101,10 @@ export const EXPLORE_RANKING_MODES = {
     scoreLabel: "FINANCIAL RIP",
     tierLabel: "TIER",
     scoreKind: SCORE_KIND_PUBLIC,
-    publicScoreField: "financialRipV3.relativeScore",
-    rankField: "financialRipV3.rank",
-    rankedSetCountField: "financialRipV3.cohortSize",
-    tierField: "financialRipV3.tier",
+    publicScoreField: "financialRipV4.relativeScore",
+    rankField: "financialRipV4.rank",
+    rankedSetCountField: "financialRipV4.cohortSize",
+    tierField: "financialRipV4.tier",
     description: "Financial RIP is the financial-only opening quality, built from the simulated pack-value distribution and the pack price.",
   },
   // RETIRED: `profit`, `safety`, `stability`.
@@ -242,7 +242,7 @@ export function getRankField(modeId) {
 }
 
 export function getTierField(modeId) {
-  return getModeConfig(modeId).tierField || "overallRipV9.tier";
+  return getModeConfig(modeId).tierField || "overallRipV10.tier";
 }
 
 export function getScoreForMode(target, modeId) {
@@ -281,6 +281,11 @@ export function getTierForMode(target, modeId) {
  * decimal. The `/100` suffix is NOT added here — it is a separate element in the
  * cell so it can be styled and so only a `publicScore` mode ever receives one.
  */
+export function formatPublicRipScore(value) {
+  const num = toNumber(value);
+  return num === null ? "—" : (num / 10).toFixed(1);
+}
+
 export function formatModeScore(value, scoreKind = SCORE_KIND_INDEX) {
   const num = toNumber(value);
   if (num === null) {
@@ -289,6 +294,10 @@ export function formatModeScore(value, scoreKind = SCORE_KIND_INDEX) {
 
   if (scoreKind === SCORE_KIND_RATIO) {
     return `${num.toFixed(1)}x`;
+  }
+
+  if (scoreKind === SCORE_KIND_PUBLIC) {
+    return formatPublicRipScore(num);
   }
 
   return num.toFixed(1);

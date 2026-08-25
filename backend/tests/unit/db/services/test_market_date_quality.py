@@ -41,6 +41,21 @@ def test_missing_qualifying_run_on_current_date_is_incomplete():
 def test_missing_qualifying_run_with_a_later_accepted_date_is_degraded():
     result = _classify(qualifying_set_ids={"a", "b"}, has_later_accepted_date=True)
     assert result["status"] == STATUS_DEGRADED
+    assert result["evidence"]["marketIndexAccepted"] is True
+
+
+def test_market_index_acceptance_depends_on_valuations_not_simulation_runs():
+    result = _classify(qualifying_set_ids=set(), has_later_accepted_date=True)
+    row = {"market_date": result["marketDate"], "cohort_set_count": result["cohortSetCount"],
+           "evidence_json": result["evidence"]}
+    assert result["status"] == STATUS_DEGRADED
+    assert mdq.is_market_index_quality_accepted(row) is True
+
+
+def test_market_index_acceptance_rejects_missing_valuation():
+    result = _classify(valuation_set_ids={"standard": COHORT, "top10": {"a", "b"}})
+    row = {"cohort_set_count": result["cohortSetCount"], "evidence_json": result["evidence"]}
+    assert mdq.is_market_index_quality_accepted(row) is False
 
 
 def test_missing_valuation_input_blocks_ready():

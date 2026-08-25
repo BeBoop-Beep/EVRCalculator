@@ -1,7 +1,8 @@
 import pytest
 
 from backend.db.services.pokemon_market_index_service import (
-    _paged_source_rows, build_index_rows, build_market_overview, read_index_history)
+    _paged_source_rows, build_index_rows, build_market_overview, read_index_history,
+    resolve_market_entry_dates)
 
 
 SETS = [
@@ -16,12 +17,11 @@ def source(day, set_id, scope, value, count):
             "priced_card_count": count, "source": "canonical", "updated_at": day}
 
 
-def test_release_gate_completeness_and_independent_top10_authority():
+def test_joint_market_entry_keeps_raw_and_top10_cohorts_aligned():
     rows = []
     for scope, values, count in (("standard", {"a": 100, "b": 100}, 20), ("top10", {"a": 60, "b": 60}, 10)):
         rows += [source("2026-01-01", key, scope, value, count) for key, value in values.items()]
-    # C enters on day two. Standard is complete, but top10 intentionally lacks C,
-    # so only raw may publish that date.
+    # C is not jointly ready on day two, so it enters neither index yet.
     for scope, values, count in (("standard", {"a": 110, "b": 110, "c": 500}, 20), ("top10", {"a": 66, "b": 66}, 10)):
         rows += [source("2026-01-02", key, scope, value, count) for key, value in values.items()]
     built = build_index_rows(SETS, rows)
@@ -29,8 +29,40 @@ def test_release_gate_completeness_and_independent_top10_authority():
     chase = [row for row in built if row["index_key"] == "top10"]
     assert [row["market_date"] for row in raw] == ["2026-01-01", "2026-01-02"]
     assert raw[-1]["normalized_index_value"] == pytest.approx(110)
-    assert raw[-1]["basket_value"] == 720
-    assert [row["market_date"] for row in chase] == ["2026-01-01"]
+    assert raw[-1]["basket_value"] == 220
+    assert [row["market_date"] for row in chase] == ["2026-01-01", "2026-01-02"]
+
+
+@pytest.mark.parametrize("release_date,entry_date,blackout_start", [
+    ("2026-05-22", "2026-06-16", "2026-05-22"),
+    ("2026-07-17", "2026-08-01", "2026-07-17"),
+])
+def test_unvalued_released_set_does_not_black_out_existing_market(
+    release_date, entry_date, blackout_start,
+):
+    sets = [{"id": "old", "canonical_key": "old", "release_date": "2020-01-01"},
+            {"id": "new", "canonical_key": "new", "release_date": release_date}]
+    prior = blackout_start
+    rows = []
+    for day, old_value in ((prior, 100), (entry_date, 110)):
+        for scope, multiplier, count in (("standard", 1, 20), ("top10", .6, 10)):
+            rows.append(source(day, "old", scope, old_value * multiplier, count))
+    for scope, multiplier, count in (("standard", 1, 20), ("top10", .6, 10)):
+        rows.append(source(entry_date, "new", scope, 500 * multiplier, count))
+    built = build_index_rows(sets, rows)
+    for key in ("raw", "top10"):
+        family = [row for row in built if row["index_key"] == key]
+        assert [row["market_date"] for row in family] == [prior, entry_date]
+        assert family[-1]["set_count"] == 2
+        assert family[-1]["normalized_index_value"] == pytest.approx(110)
+        assert family[-1]["diagnostics_json"]["commonSetIds"] == ["old"]
+
+
+def test_market_entry_date_requires_both_scopes_and_release():
+    sets = [{"id": "s", "release_date": "2026-05-22"}]
+    rows = [source("2026-05-20", "s", "standard", 100, 20),
+            source("2026-06-16", "s", "top10", 60, 10)]
+    assert resolve_market_entry_dates(sets, rows) == {"s": "2026-06-16"}
 
 
 def test_input_order_does_not_change_source_fingerprints():
@@ -197,18 +229,19 @@ def test_the_two_dimensions_read_disjoint_columns():
     assert tampered["raw"]["changes"] != baseline["raw"]["changes"]
 
 
-def test_basket_changes_publish_the_same_windows_and_never_fake_a_partial_one():
+def test_insufficient_common_history_uses_shared_fallback_for_index_only():
     overview = build_market_overview(cohort_history(), market_date="2026-01-03")
     for family in ("raw", "topChase"):
         basket_changes = overview[family]["basketChanges"]
         assert sorted(basket_changes) == sorted(overview[family]["changes"])
         # Three days of history cannot support 6M or 1Y — in EITHER dimension.
         for window in ("6M", "1Y"):
-            for entry in (basket_changes[window], overview[family]["changes"][window]):
-                assert entry["available"] is False
-                assert entry["percent"] is None
-                assert entry["startDate"] is None
-                assert entry["coverage"] == "unavailable"
+            assert basket_changes[window]["available"] is False
+            assert basket_changes[window]["percent"] is None
+            assert overview[family]["changes"][window]["available"] is True
+            assert overview[family]["changes"][window]["coverage"] == "partial"
+            assert overview[family]["changes"][window]["isSinceFirstAvailable"] is True
+            assert overview[family]["changes"][window]["percent"] == overview[family]["changes"]["SinceTracking"]["percent"]
         for entry in basket_changes.values():
             assert entry["coverage"] in ("full", "unavailable")
 

@@ -8,7 +8,10 @@ import {
   classifyPointerGesture,
   clampTooltipX,
 } from "./compactSparklineInteraction.mjs";
-import { buildMarketSparklineDomain } from "./marketSparklineDomain.mjs";
+import {
+  MARKET_INDEX_REFERENCE_VALUE,
+  buildMarketPerformanceDomain,
+} from "./marketPerformanceDomain.mjs";
 import { formatIndexValue, formatMarketDate, formatShortDate } from "@/lib/explore/marketOverviewPresentation.mjs";
 
 // Purpose-built dual-series index chart.
@@ -25,6 +28,21 @@ const VIEW_WIDTH = 100;
 const VIEW_HEIGHT = 46;
 const PLOT_TOP = 3;
 const PLOT_BOTTOM = 43;
+
+// AREA FILL SCALES WITH SERIES COUNT. At two or three lines the soft gradient
+// under each one reads as depth. At eight — which Market Explorer reaches once
+// Sealed submarkets are overlaid — eight translucent fills stack into one muddy
+// block and the lines stop being separable. The per-series opacity is therefore
+// divided down past three series, so the homepage's three-line chart is
+// byte-identical to before while the dense comparison stays legible.
+const BASE_AREA_OPACITY = 0.16;
+const AREA_OPACITY_FULL_AT = 3;
+
+export function resolveAreaOpacity(seriesCount) {
+  const count = Number.isFinite(seriesCount) ? seriesCount : 0;
+  if (count <= AREA_OPACITY_FULL_AT) return BASE_AREA_OPACITY;
+  return Math.max(0.03, (BASE_AREA_OPACITY * AREA_OPACITY_FULL_AT) / count);
+}
 
 export default function MarketPerformanceChart({ model, className = "", plotClassName = "h-56 desk:h-[19rem]" }) {
   const [activeIndex, setActiveIndex] = useState(null);
@@ -96,11 +114,12 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
     );
   }
 
-  const [domainMin, domainMax] = buildMarketSparklineDomain(allValues, { valueKey: "value" });
+  const [domainMin, domainMax] = buildMarketPerformanceDomain(allValues);
   const yRange = domainMax - domainMin || 1;
   const xRange = Math.max(dates.length - 1, 1);
   const xAt = (index) => 2 + (index / xRange) * (VIEW_WIDTH - 4);
   const yAt = (value) => PLOT_BOTTOM - ((value - domainMin) / yRange) * (PLOT_BOTTOM - PLOT_TOP);
+  const referenceY = yAt(MARKET_INDEX_REFERENCE_VALUE);
 
   const drawn = series.map((entry) => {
     const coordinates = (entry.values || [])
@@ -116,12 +135,19 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
   const activeDate = activeIndex === null ? null : dates[activeIndex] || null;
   const activeReadings = activeIndex === null
     ? []
-    : drawn.map((entry) => ({ key: entry.key, label: entry.label, color: entry.color, value: entry.values?.[activeIndex] ?? null }));
+    : drawn.map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        color: entry.color,
+        value: entry.values?.[activeIndex] ?? null,
+        point: entry.pointMeta?.[activeIndex] || null,
+      }));
   const spokenReading = activeDate
-    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.value === null ? "unavailable" : formatIndexValue(reading.value)}`).join(". ")}.`
+    ? `${formatMarketDate(activeDate)}. ${activeReadings.map((reading) => `${reading.label} index ${reading.value === null ? "unavailable" : formatIndexValue(reading.value)}${reading.point?.isCarriedForward ? `, previous close carried from ${formatMarketDate(reading.point.sourceDate)}` : ""}`).join(". ")}.`
     : null;
 
   const gradientPrefix = `market-performance-${chartId}`;
+  const areaOpacity = resolveAreaOpacity(drawn.length);
 
   return (
     <div className={["min-w-0", className].filter(Boolean).join(" ")}>
@@ -134,8 +160,8 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
         role="img"
         tabIndex={0}
         aria-label={spokenReading
-          ? `Pokémon Market Performance. Selected ${spokenReading}`
-          : `Pokémon Market Performance, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Use left and right arrow keys to inspect daily index values.`}
+          ? `Pokémon Market Performance. Reference line represents Market Index 100. Selected ${spokenReading}`
+          : `Pokémon Market Performance, ${formatMarketDate(dates[0])} to ${formatMarketDate(dates[dates.length - 1])}. Reference line represents Market Index 100. Use left and right arrow keys to inspect daily index values.`}
         className={["group relative z-10 touch-pan-y overflow-visible rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65", plotClassName].join(" ")}
         onPointerDown={(event) => { if (event.pointerType !== "mouse") gestureRef.current = { startX: event.clientX, startY: event.clientY, moved: false }; }}
         onPointerMove={handlePointerMove}
@@ -165,24 +191,30 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
           <defs>
             {drawn.map((entry) => (
               <linearGradient key={entry.key} id={`${gradientPrefix}-${entry.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={entry.color} stopOpacity="0.16" />
+                <stop offset="0%" stopColor={entry.color} stopOpacity={areaOpacity} />
                 <stop offset="100%" stopColor={entry.color} stopOpacity="0" />
               </linearGradient>
             ))}
           </defs>
-          {[0, 0.5, 1].map((fraction) => (
-            <line key={fraction} x1="2" x2={VIEW_WIDTH - 2} y1={PLOT_TOP + fraction * (PLOT_BOTTOM - PLOT_TOP)} y2={PLOT_TOP + fraction * (PLOT_BOTTOM - PLOT_TOP)} stroke="rgba(255,255,255,0.055)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          ))}
           {drawn.map((entry) => (entry.coordinates.length
             ? <path key={`${entry.key}-area`} data-market-performance-area={entry.key} d={`M ${entry.polyline.replaceAll(" ", " L ")} L ${entry.coordinates[entry.coordinates.length - 1].x.toFixed(2)},${PLOT_BOTTOM} L ${entry.coordinates[0].x.toFixed(2)},${PLOT_BOTTOM} Z`} fill={`url(#${gradientPrefix}-${entry.key})`} />
             : null))}
-          {drawn.map((entry) => (
-            <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} points={entry.polyline} fill="none" stroke={entry.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-          ))}
+          <line data-market-performance-reference="100" x1="2" x2={VIEW_WIDTH - 2} y1={referenceY} y2={referenceY} stroke="rgba(255,255,255,0.16)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {drawn.map((entry) => (entry.coordinates.length >= 2
+            ? <polyline key={`${entry.key}-line`} data-market-performance-series={entry.key} points={entry.polyline} fill="none" stroke={entry.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            : null))}
           {activeIndex === null ? null : (
             <line data-market-performance-guide x1={xAt(activeIndex)} x2={xAt(activeIndex)} y1={PLOT_TOP} y2={PLOT_BOTTOM} stroke="rgba(255,255,255,0.2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
+        <span
+          data-market-performance-reference-label
+          aria-hidden="true"
+          className="pointer-events-none absolute left-[2.5%] text-[9px] leading-none text-[var(--text-secondary)]"
+          style={{ top: `${(referenceY / VIEW_HEIGHT) * 100}%`, transform: "translateY(-115%)" }}
+        >
+          100
+        </span>
         {activeIndex === null ? null : drawn.map((entry) => {
           const value = entry.values?.[activeIndex] ?? null;
           if (value === null) return null;
@@ -209,7 +241,14 @@ export default function MarketPerformanceChart({ model, className = "", plotClas
                     <li key={reading.key} className="flex items-center justify-between gap-3 text-[11px]">
                       <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <span aria-hidden="true" className="inline-block h-2 w-2 rounded-[2px]" style={{ backgroundColor: reading.color }} />
-                        {reading.label}
+                        <span>
+                          {reading.label}
+                          {reading.point?.isCarriedForward ? (
+                            <span data-market-performance-carried-source={reading.key} className="block text-[9px]">
+                              Last observed {formatShortDate(reading.point.sourceDate)}
+                            </span>
+                          ) : null}
+                        </span>
                       </span>
                       <span className="font-semibold tabular-nums text-[var(--text-primary)]">{reading.value === null ? "—" : formatIndexValue(reading.value)}</span>
                     </li>

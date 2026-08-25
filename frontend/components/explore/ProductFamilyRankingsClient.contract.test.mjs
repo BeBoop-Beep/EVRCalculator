@@ -8,7 +8,11 @@ const page = fs.readFileSync(path.resolve("app/Explore/page.js"), "utf8");
 
 test("one Rankings page switches between Sets and non-empty product families", () => {
   assert.ok(page.includes("ProductFamilyRankingsClient"));
-  assert.ok(source.includes('setView("sets")'));
+  assert.ok(source.includes('value: "sets", label: "Sets"'));
+  assert.ok(source.includes('value: "products", label: "Products"'));
+  assert.ok(!source.includes('label: "Individual Products"'));
+  assert.ok(source.includes('variant="primary"'));
+  assert.ok(source.includes("SegmentedControl"));
   assert.ok(source.includes("Number(block?.count) > 0"));
   assert.ok(!source.includes('families["all"]'));
 });
@@ -33,8 +37,8 @@ test("product navigation uses the set RIP route and preserves sealed product con
 });
 
 test("a locked Overall tab exists and shows only Coming Soon, with no ranking data or budget controls", () => {
-  assert.ok(source.includes('setView("overall-locked")'), "the Overall tab exists as a distinct view");
-  assert.ok(source.includes(">Overall<"), "the tab is labeled Overall");
+  assert.ok(source.includes('setView("overall-locked")'), "Overall remains a distinct product subview");
+  assert.ok(source.includes('>Overall</button>'), "the product subnav is labeled Overall");
   assert.ok(source.includes("OverallRankingLockedPanel"), "a dedicated locked panel component renders it");
   assert.ok(source.includes("Coming Soon"), "the locked panel says Coming Soon");
 
@@ -47,4 +51,12 @@ test("a locked Overall tab exists and shows only Coming Soon, with no ranking da
   for (const term of forbidden) {
     assert.equal(source.includes(term), false, `locked Overall surface must not reference ${term}`);
   }
+});
+
+test("Products opens locked Overall first and exposes Overall before populated families", () => {
+  assert.ok(source.includes('const openProducts = () => setView("overall-locked")'));
+  assert.ok(source.includes('const productsActive = view !== "sets"'));
+  const nav = source.slice(source.indexOf('<nav aria-label="Product family"'), source.indexOf('</nav>'));
+  assert.ok(nav.indexOf('>Overall</button>') < nav.indexOf('familyEntries.map'));
+  assert.ok(source.includes("pluralFamilyLabel(block.label)"));
 });

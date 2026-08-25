@@ -50,6 +50,7 @@ import SetTabLoadingPanel from "@/components/explore/SetTabLoadingPanel";
 import InDexLogoLoader from "@/components/brand/InDexLogoLoader";
 import SectionBoundary from "@/components/ui/SectionBoundary";
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
+import ReturnToTopButton from "@/components/ui/ReturnToTopButton";
 import {
   CARD_ART_WIDTH,
   CARD_THUMBNAIL_WIDTH,
@@ -1548,7 +1549,7 @@ function formatScore(value) {
 
 function formatRawScore(value) {
   const parsed = toNumber(value);
-  return parsed === null ? "—" : parsed.toFixed(1);
+  return parsed === null ? "—" : (parsed / 10).toFixed(1);
 }
 
 function isTruthyFlag(value) {
@@ -4426,57 +4427,19 @@ function SectionViewTabs({ value, onChange, onOptionIntent, options, className =
   }
 
   if (variant === "primary") {
-    return (
-      <div className={className}>
-        <div
-          className="grid w-full items-center gap-0.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.72)] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(2,6,23,0.18)] backdrop-blur-md"
-          style={{ gridTemplateColumns: `repeat(${tabOptions.length}, minmax(0, 1fr))` }}
-        >
-          {tabOptions.map((option) => {
-            const isActive = value === option.value;
-            // Mobile-only, active-only, and only for the one option the caller
-            // named. Every utility here is `max-desk:`-scoped.
-            const mobileEmphasisClass =
-              isActive && mobileEmphasisValue && option.value === mobileEmphasisValue
-                ? "max-desk:bg-[linear-gradient(135deg,rgba(16,185,129,0.98),rgba(20,184,166,0.9))] max-desk:text-white max-desk:shadow-[0_6px_16px_rgba(20,184,166,0.26),inset_0_1px_0_rgba(255,255,255,0.2)]"
-                : "";
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onChange(option.value)}
-                /* Intent, not navigation. Hover/focus warm the destination's
-                   data; pointerdown covers touch, where there is no hover. All
-                   three are idempotent - the warm is keyed and de-duplicated
-                   inside getPokemonSetCardsPage. */
-                onPointerEnter={() => onOptionIntent?.(option.value)}
-                onFocus={() => onOptionIntent?.(option.value)}
-                onPointerDown={() => onOptionIntent?.(option.value)}
-                aria-pressed={isActive}
-                className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${
-                  isActive
-                    ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]"
-                    : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"
-                } ${mobileEmphasisClass}`}
-              >
-                <span className="flex min-w-0 items-center justify-center gap-1.5">
-                  {option.icon ? <SetPageIcon name={option.icon} className={`h-3.5 w-3.5 flex-none ${option.hideIconOnMobile ? "max-desk:hidden" : ""}`} /> : null}
-                  <span className="whitespace-nowrap">
-                    {option.mobileLabel ? (
-                      <>
-                        <span className="max-desk:hidden">{option.label}</span>
-                        <span className="hidden max-desk:inline">{option.mobileLabel}</span>
-                      </>
-                    ) : option.label}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
+    const sharedOptions = tabOptions.map((option) => ({
+      ...option,
+      onIntent: () => onOptionIntent?.(option.value),
+      label: (
+        <span className="flex min-w-0 items-center justify-center gap-1.5">
+          {option.icon ? <SetPageIcon name={option.icon} className={`h-3.5 w-3.5 flex-none ${option.hideIconOnMobile ? "max-desk:hidden" : ""}`} /> : null}
+          <span className="whitespace-nowrap">
+            {option.mobileLabel ? <><span className="max-desk:hidden">{option.label}</span><span className="hidden max-desk:inline">{option.mobileLabel}</span></> : option.label}
+          </span>
+        </span>
+      ),
+    }));
+    return <SegmentedControl className={className} options={sharedOptions} value={value} onChange={onChange} ariaLabel={ariaLabel} variant="primary" />;
   }
 
   if (variant === "secondary") {
@@ -7082,7 +7045,7 @@ function RipScoreBreakdownModule({
             surfaces share.
 
             ONE SCALE. All three are the canonical cohort-relative 0-100 public
-            score for their metric, on `/100`, to one decimal. This comment used
+            score for their metric, presented on `/10`, to one decimal. This comment used
             to claim the scales differed on purpose while the code already read
             the relative value for all three; the claim was stale and the two
             readings are now identical by construction.
@@ -14245,21 +14208,14 @@ export default function RipStatisticsPageClient({
                   </section>
                 ) : null}
 
-                {setDetailMode && !isDesktopHeroComposition && showReturnToTop ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      revealMobileSetContext();
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom)+0.75rem)] right-4 z-[60] hidden h-12 w-12 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-panel)]/95 text-[var(--text-primary)] shadow-[0_12px_30px_rgba(2,6,23,0.32)] backdrop-blur transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] desk:bottom-6 desk:right-6 desk:inline-flex"
-                    aria-label="Return to top"
-                  >
-                    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
-                      <path d="M10 4.25a.75.75 0 0 1 .53.22l4.5 4.5a.75.75 0 1 1-1.06 1.06L10.75 6.56v8.19a.75.75 0 0 1-1.5 0V6.56L6.03 9.98a.75.75 0 0 1-1.06-1.06l4.5-4.5A.75.75 0 0 1 10 4.25Z" />
-                    </svg>
-                  </button>
-                ) : null}
+                <ReturnToTopButton
+                  visible={setDetailMode && !isDesktopHeroComposition && showReturnToTop}
+                  onActivate={() => {
+                    revealMobileSetContext();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className="hidden desk:bottom-6 desk:left-auto desk:right-6 desk:inline-flex desk:translate-x-0"
+                />
 
                 {setDetailTab === "cards" ? (
                   // Transparency stack (Cards): this section is a transparent
@@ -14637,11 +14593,11 @@ export default function RipStatisticsPageClient({
                           <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
                             {displayedTopScore}
                           </span>
-                          {/* `/100`, the one public suffix. It replaced
+                          {/* `/10`, the one public suffix. It replaced
                               "relative index", which put normalization jargon in
                               a headline metric label. The scale itself is
                               explained in the InfoPopover above. */}
-                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
+                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/10</span>
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">

@@ -93,8 +93,8 @@ test("TCGs shares the primary nav typography, spacing and visible focus ring", (
 
 test("desktop Search uses the approved interaction teal for its focus border and ring", () => {
   const desktopSearch = headerSource.slice(
-    headerSource.indexOf('<div className="flex-1 max-w-lg mx-4">'),
-    headerSource.indexOf('</div>', headerSource.indexOf('<div className="flex-1 max-w-lg mx-4">'))
+    headerSource.indexOf('className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"'),
+    headerSource.indexOf('</div>', headerSource.indexOf('className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 xl:flex items-center"'))
   );
   assert.match(desktopSearch, /focus:border-\[rgb\(45,212,191\)\]/);
   assert.match(desktopSearch, /focus:ring-\[rgba\(45,212,191,0\.35\)\]/);

@@ -67,7 +67,10 @@ class SealedProductsService(BatchProcessor):
                     price_data = {
                         'market_price': market_price,
                         'source': product.get('source') or prices.get('source'),
-                        'captured_at': datetime.utcnow().isoformat(),
+                        # The scraper supplies the immutable Phoenix market
+                        # date. Wall-clock UTC is only a fallback for legacy
+                        # non-daily callers.
+                        'captured_at': product.get('_market_date') or datetime.utcnow().isoformat(),
                     }
                     
                     # Only include currency if provided

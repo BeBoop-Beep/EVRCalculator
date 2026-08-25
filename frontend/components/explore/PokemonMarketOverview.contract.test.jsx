@@ -34,7 +34,12 @@ const SNAPSHOT = {
       // Tracked Value grew far more than price performance — a set joined the
       // tracked universe. Nothing in the UI may treat these as one number.
       basketChanges: { "1D": change(3.5), "7D": change(9.75), "30D": change(9.75), "6M": missing(), "1Y": missing(), SinceTracking: change(9.75) },
+      // THREE series, three different numbers, all true:
+      //   changes       - the SHARED comparison domain (what the chart draws).
+      //   familyChanges - this market's OWN history from its own tracking
+      //                   start, which reaches further back and so differs.
       changes: { "1D": change(0.5), "7D": change(1.5), "30D": change(2.25), "6M": missing(), "1Y": missing(), SinceTracking: change(2.25) },
+      familyChanges: { "1D": change(0.5), "7D": change(1.5), "30D": change(2.25), "6M": missing(), "1Y": missing(), SinceTracking: change(6.18) },
     },
     topChase: {
       basketValue: 4011.1,
@@ -44,6 +49,7 @@ const SNAPSHOT = {
       // The tracked basket grew while price performance fell.
       basketChanges: { "1D": change(1.25), "7D": change(4.5), "30D": change(4.5), "6M": missing(), "1Y": missing(), SinceTracking: change(4.5) },
       changes: { "1D": change(-0.25), "7D": change(-1.75), "30D": change(-3.5), "6M": missing(), "1Y": missing(), SinceTracking: change(-3.5) },
+      familyChanges: { "1D": change(-0.25), "7D": change(-1.75), "30D": change(-3.5), "6M": missing(), "1Y": missing(), SinceTracking: change(-8.4) },
     },
   },
 };
@@ -118,29 +124,36 @@ test("the desktop table groups the two dimensions with real colgroup headers", (
   assert.equal(groups[1].props.colSpan, 2);
 });
 
-test("Since Tracking uses canonical Price Performance in both table positions", () => {
+test("the Since Tracking column reads the family own history, not the shared span", () => {
   const renderer = render(overview);
   const rawRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "raw")[0];
 
-  const trackedCell = rawRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
-  const priceCell = rawRow.findAll((node) => node.props?.["data-market-overview-change"] === "All")[0];
+  const sinceTrackingCell = rawRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
+  const sharedCell = rawRow.findAll((node) => node.props?.["data-market-overview-change"] === "All")[0];
 
-  assert.match(textOf(trackedCell), /\+2\.25%/);
-  assert.match(textOf(priceCell), /\+2\.25%/);
-  assert.equal(textOf(trackedCell), textOf(priceCell));
+  // Since Tracking is +6.18%: the family's own tracking start, which is what
+  // the 102.25 index level is measured against.
+  assert.match(textOf(sinceTrackingCell), /\+6\.18%/);
+  // The dynamic period column follows the chart, which is a cross-market
+  // comparison, so it reports the SHARED +2.25%.
+  assert.match(textOf(sharedCell), /\+2\.25%/);
+  // Their equality was the defect; they must now be different statements.
+  assert.notEqual(textOf(sinceTrackingCell), textOf(sharedCell));
 
   // Screen readers get the dimension spoken, not inferred from position.
-  assert.match(textOf(trackedCell), /Raw Card Market, Price Performance, Since Tracking: up 2\.25 percent\./);
-  assert.match(textOf(priceCell), /Raw Card Market, Price Performance, Since Tracking: up 2\.25 percent\./);
+  assert.match(textOf(sinceTrackingCell), /Raw Card Market, Price Performance, Since Tracking: up 6\.18 percent\./);
 });
 
 test("Since Tracking remains price performance when the tracked basket grew", () => {
   const renderer = render(overview);
   const chaseRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "topChase")[0];
-  const tracked = chaseRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
-  const price = chaseRow.findAll((node) => node.props?.["data-market-overview-change"] === "All")[0];
-  assert.match(textOf(tracked), /3\.50%/);
-  assert.match(textOf(price), /−3\.50%/);
+  const sinceTracking = chaseRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
+  const shared = chaseRow.findAll((node) => node.props?.["data-market-overview-change"] === "All")[0];
+  // The tracked basket grew +4.50%, but neither column may report that number:
+  // both are price performance. Since Tracking is the family own -8.40%.
+  assert.match(textOf(sinceTracking), /−8\.40%/);
+  assert.match(textOf(shared), /−3\.50%/);
+  assert.doesNotMatch(textOf(sinceTracking), /4\.50%/);
 });
 
 test("the dynamic period column reports the backend percentage for the selected window", () => {
@@ -181,6 +194,14 @@ test("mobile gets a stacked-card composition, not a horizontally scrolled table"
   assert.doesNotMatch(String(table.props.className), /overflow-x/);
 });
 
+test("mobile summary rows are accessible controls synchronized by family key", () => {
+  const renderer = render(overview);
+  const toggles = renderer.root.findAll((node) => node.props?.["data-market-overview-mobile-toggle"] !== undefined);
+  assert.deepEqual(toggles.map((node) => node.props["data-market-overview-mobile-toggle"]), ["raw", "topChase"]);
+  assert.ok(toggles.every((node) => node.type === "button"));
+  assert.ok(toggles.every((node) => node.props["aria-pressed"] === true));
+});
+
 test("each mobile card explains BOTH dimensions on its own", () => {
   const renderer = render(overview);
   const rawCard = renderer.root.findAll((node) => node.props?.["data-market-overview-card"] === "raw")[0];
@@ -192,7 +213,8 @@ test("each mobile card explains BOTH dimensions on its own", () => {
   const trackedGroup = textOf(groups[0]);
   assert.match(trackedGroup, /Tracked Value/);
   assert.match(trackedGroup, /\$8,123\.45/);
-  assert.match(trackedGroup, /\+2\.25%/);
+  // The since-tracking line is the FAMILY series (+6.18%), not the shared one.
+  assert.match(trackedGroup, /\+6\.18%/);
   assert.match(trackedGroup, /since tracking/);
 
   const priceGroup = textOf(groups[1]);
@@ -201,8 +223,7 @@ test("each mobile card explains BOTH dimensions on its own", () => {
   assert.match(priceGroup, /\+2\.25%/);
 
   const cardText = textOf(rawCard);
-  assert.match(cardText, /Raw Card Market, Price Performance, Since Tracking: up 2\.25 percent\./);
-  assert.match(cardText, /Raw Card Market, Price Performance, Since Tracking: up 2\.25 percent\./);
+  assert.match(cardText, /Raw Card Market, Price Performance, Since Tracking: up 6\.18 percent\./);
 });
 
 test("the mobile card's period line follows the same shared selection", () => {
@@ -214,9 +235,10 @@ test("the mobile card's period line follows the same shared selection", () => {
   assert.match(textOf(periodLine), /\+1\.50%/);
   assert.match(textOf(periodLine), /7D/);
   assert.match(textOf(periodLine), /Raw Card Market, Price Performance, 7D: up 1\.50 percent\./);
-  // The tracked-value line beside it is still the since-tracking series.
+  // The since-tracking line beside it is fixed to the family series and does
+  // not follow the selection at all.
   const trackedLine = rawCard.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
-  assert.match(textOf(trackedLine), /\+2\.25%/);
+  assert.match(textOf(trackedLine), /\+6\.18%/);
   assert.match(textOf(trackedLine), /since tracking/);
 });
 
@@ -246,11 +268,13 @@ test("the help copy explains the tracked universe and disclaims the index as a s
   assert.match(joined, /current continuous tracking segment/i);
   assert.match(joined, /not a score/i);
   assert.match(joined, /base 100/i);
-  assert.match(joined, /Chain-linking prevents newly added or removed sets from creating an artificial jump/i);
-  assert.match(joined, /after a set enters, its later price movement affects the index/i);
+  assert.match(joined, /Chain-linking prevents newly added or removed constituents from creating an artificial jump/i);
+  assert.match(joined, /after one enters, its later price movement affects the index/i);
+  // The index level must be explained against its OWN base.
+  assert.match(joined, /above its own index base/i);
 });
 
-test("a snapshot without basketChanges still shows canonical Since Tracking index return", () => {
+test("a snapshot without basketChanges still shows the canonical Since Tracking return", () => {
   const legacy = resolveMarketOverview({
     marketOverview: {
       ...SNAPSHOT.marketOverview,
@@ -260,9 +284,25 @@ test("a snapshot without basketChanges still shows canonical Since Tracking inde
   });
   const renderer = render(legacy);
   const rawRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "raw")[0];
-  const trackedCell = rawRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
-  assert.match(textOf(trackedCell), /\+2\.25%/);
+  assert.match(textOf(rawRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0]), /\+6\.18%/);
   assert.match(textOf(rawRow.findAll((node) => node.props?.["data-market-overview-change"] === "All")[0]), /\+2\.25%/);
+});
+
+test("a snapshot published before familyChanges reports unavailable, never the shared number", () => {
+  // The pre-split contract. Silently falling back to `changes` here is exactly
+  // the lie this column was fixed to stop telling, so it shows a dash instead.
+  const legacy = resolveMarketOverview({
+    marketOverview: {
+      ...SNAPSHOT.marketOverview,
+      raw: { ...SNAPSHOT.marketOverview.raw, familyChanges: undefined },
+      topChase: { ...SNAPSHOT.marketOverview.topChase, familyChanges: undefined },
+    },
+  });
+  const renderer = render(legacy);
+  const rawRow = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] === "raw")[0];
+  const cell = rawRow.findAll((node) => node.props?.["data-market-overview-tracked-change"] === "All")[0];
+  assert.doesNotMatch(textOf(cell), /2\.25%/);
+  assert.match(textOf(cell), /—/);
 });
 
 test("a missing overview degrades to a quiet unavailable state, not a crash", () => {

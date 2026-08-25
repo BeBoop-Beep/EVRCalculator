@@ -250,6 +250,14 @@ export function readCanonicalBlock(block) {
   };
 }
 
+/** Strict current headline reader: V10 only, with no older-model fallback. */
+export function readCanonicalOverallRipV10(source) {
+  const safeSource = toObject(source);
+  const contract = toObject(safeSource.publicRipContractV10);
+  const block = hasContent(contract) ? contract.overallRip : safeSource.overallRipV10;
+  return readCanonicalBlock(block);
+}
+
 /**
  * The one sentence that explains the public 0-100 scale wherever it is shown.
  *
@@ -258,7 +266,7 @@ export function readCanonicalBlock(block) {
  * reader so every surface quotes the same wording.
  */
 export const PUBLIC_SCORE_SCALE_NOTE =
-  "Scores are standardized against currently ranked sets; 100 represents the strongest set in the current comparison group.";
+  "Scores are standardized against currently ranked sets on a 0–10 scale; 10.0 represents the strongest set in the current comparison group.";
 
 /**
  * True when the canonical Overall RIP V7 headline can be rendered for a target.

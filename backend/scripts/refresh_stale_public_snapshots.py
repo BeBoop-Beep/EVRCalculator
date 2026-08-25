@@ -21,7 +21,7 @@ from backend.db.services.publication_gate import (
     gate_decision_report,
 )
 from backend.db.services.market_publication_gate import enforce_market_publication_gate
-from backend.db.services.market_date_quality import accepted_market_dates
+from backend.db.services.market_date_quality import market_index_accepted_dates
 from backend.db.services.set_publication_revalidation import (
     log_revalidation_diagnostics,
     notify_set_publication,
@@ -1677,6 +1677,14 @@ def _maybe_rebuild_explore_set_values(
         )
         stale = not current or current.get("source_generation_fingerprint") != candidate.get("source_generation_fingerprint")
         if not stale:
+            if commit:
+                from backend.alerts.pipeline_alerts import alert_global_market
+                payload = candidate.get("payload_json") or {}
+                alert_global_market(
+                    market_date=str(market_date)[:10], row_market_date=candidate.get("market_date"),
+                    payload_market_date=((payload.get("meta") or {}).get("snapshot") or {}).get("marketDate"),
+                    overview_market_date=(payload.get("marketOverview") or {}).get("marketDate"),
+                    set_count=candidate.get("set_count"), fingerprint=candidate.get("source_generation_fingerprint"))
             return
         summary.stale_snapshot_families.add("explore_set_values")
         if not commit:
@@ -1685,9 +1693,23 @@ def _maybe_rebuild_explore_set_values(
         from backend.db.services.pokemon_explore_set_value_service import upsert_explore_set_value_snapshot
         upsert_explore_set_value_snapshot(candidate, client=client)
         summary.global_rebuilt.append("explore_set_values")
+        from backend.alerts.pipeline_alerts import alert_global_market
+        payload = candidate.get("payload_json") or {}
+        alert_global_market(
+            market_date=str(market_date)[:10], row_market_date=candidate.get("market_date"),
+            payload_market_date=((payload.get("meta") or {}).get("snapshot") or {}).get("marketDate"),
+            overview_market_date=(payload.get("marketOverview") or {}).get("marketDate"),
+            set_count=candidate.get("set_count"), fingerprint=candidate.get("source_generation_fingerprint"))
     except Exception as exc:
         logger.exception("failed global Market Set Value snapshot refresh")
         summary.global_failed.append(f"explore_set_values: {exc}")
+        if commit and market_date:
+            try:
+                from backend.alerts.pipeline_alerts import alert_global_market
+                alert_global_market(market_date=str(market_date)[:10], row_market_date=None,
+                                    payload_market_date=None, overview_market_date=None)
+            except Exception:
+                logger.exception("failed to queue global Market failure alert")
 
 
 def _run_market_quality_index_phase(
@@ -1706,6 +1728,21 @@ def _run_market_quality_index_phase(
         f"qualifying={evaluation.get('qualifyingSetCount', '?')}/"
         f"{evaluation.get('cohortSetCount', '?')}"
     )
+    if commit and decision.market_date:
+        try:
+            from backend.alerts.pipeline_alerts import alert_market_quality
+            alert_market_quality(
+                market_date=str(decision.market_date)[:10], status=str(decision.status or "UNKNOWN"),
+                qualifying_set_count=int(evaluation.get("qualifyingSetCount") or 0),
+                cohort_set_count=int(evaluation.get("cohortSetCount") or 0),
+                missing_canonical_keys=list(evaluation.get("missingCanonicalKeys") or
+                                            evaluation.get("missingSetIds") or []),
+                missing_valuation_sets=list(evaluation.get("missingValuationSetIds") or []),
+                missing_run_evidence=list(evaluation.get("missingRunEvidenceSetIds") or []),
+                previous_accepted_market_date=getattr(decision, "previous_accepted_market_date", None),
+            )
+        except Exception:
+            logger.exception("failed to queue Market Quality stage alert")
     if not decision.allowed or not enforcement.proceed:
         summary.global_failed.append(
             f"market_quality: date={decision.market_date or 'unknown'} "
@@ -1721,13 +1758,23 @@ def _run_market_quality_index_phase(
         # Dry-run cannot persist today's verdict, so carry precisely that
         # computed authority into candidate construction. Commit deliberately
         # falls back to the ordinary strict persisted-quality read path.
-        accepted = accepted_market_dates(client, through_date=target)
+        accepted = market_index_accepted_dates(client, through_date=target)
         if not commit:
             accepted.add(target)
         index_rows = build_market_index_history(
             client, through_date=target, accepted_dates=accepted)
         if commit:
             persist_index_rows(client, index_rows)
+            from backend.alerts.pipeline_alerts import alert_market_index
+            latest = {key: max((str(row.get("market_date"))[:10] for row in index_rows
+                                if row.get("index_key") == key), default=None)
+                      for key in ("raw", "top10")}
+            target_rows = [row for row in index_rows if str(row.get("market_date"))[:10] == target]
+            alert_market_index(
+                market_date=target, raw_latest_date=latest["raw"], top10_latest_date=latest["top10"],
+                raw_card_count=next((row.get("card_count") for row in target_rows if row.get("index_key") == "raw"), None),
+                chase_card_count=next((row.get("card_count") for row in target_rows if row.get("index_key") == "top10"), None),
+                eligible_set_count=next((row.get("set_count") for row in target_rows if row.get("index_key") == "raw"), None))
             snapshot_history = None
         else:
             summary.stale_snapshot_families.add("pokemon_market_index")
@@ -1737,6 +1784,13 @@ def _run_market_quality_index_phase(
         return True, snapshot_history
     except Exception as exc:
         summary.global_failed.append(f"pokemon_market_index: {exc}")
+        if commit and market_date:
+            try:
+                from backend.alerts.pipeline_alerts import alert_market_index
+                alert_market_index(market_date=str(market_date)[:10], raw_latest_date=None,
+                                   top10_latest_date=None)
+            except Exception:
+                logger.exception("failed to queue Market Index failure alert")
         return False, None
 
 

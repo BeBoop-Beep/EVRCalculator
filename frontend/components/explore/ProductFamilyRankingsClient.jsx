@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
+import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 
 const METRICS = Object.freeze({
   overallRipScore: ["Overall RIP", false], financialRipScore: ["Financial RIP", false],
@@ -14,12 +16,18 @@ const METRICS = Object.freeze({
 });
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const number = (value) => Number.isFinite(Number(value)) && value !== null && value !== "" ? Number(value) : null;
+const pluralFamilyLabel = (label) => ({
+  "Elite Trainer Box": "Elite Trainer Boxes",
+  "Pokémon Center Elite Trainer Box": "Pokémon Center Elite Trainer Boxes",
+  "Booster Box": "Booster Boxes",
+  "Enhanced Booster Box": "Enhanced Booster Boxes",
+}[label] || `${label}s`);
 const display = (product, metric) => {
   const value = number(product?.[metric]);
   if (value === null) return "Unavailable";
   if (METRICS[metric][1]) return money.format(value);
   if (metric === "chanceToRecoverCost") return `${(100 * (value > 1 ? value / 100 : value)).toFixed(1)}%`;
-  return value.toFixed(1);
+  return `${formatPublicRipScore(value)} / 10`;
 };
 function productHref(product) {
   const base = buildTcgSetHrefFromTarget({ target_type: "set", target_id: product.setId, name: product.setName });
@@ -64,18 +72,22 @@ export default function ProductFamilyRankingsClient({ targets, productFamilyRank
     return bv - av || a.familyRank - b.familyRank;
   }), [selected, metric]);
 
-  const productsActive = view !== "sets" && view !== "overall-locked";
-  const openProducts = () => setView(familyEntries[0]?.[0] || "sets");
+  const productsActive = view !== "sets";
+  const openProducts = () => setView("overall-locked");
+  const rankingView = productsActive ? "products" : "sets";
+  const changeRankingView = (nextView) => nextView === "products" ? openProducts() : setView(nextView);
   return <>
-    <nav aria-label="Ranking view" className="mb-3 inline-flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-1">
-      <button type="button" onClick={() => setView("sets")} aria-pressed={!productsActive && view !== "overall-locked"} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${!productsActive && view !== "overall-locked" ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Sets</button>
-      <button type="button" onClick={openProducts} aria-pressed={productsActive} disabled={!familyEntries.length} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${productsActive ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Individual Products</button>
-      {/* Locked preview of the future budget-normalized cross-format ranking
+    <SegmentedControl className="mb-3 inline-block" ariaLabel="Ranking view" variant="primary" value={rankingView} onChange={changeRankingView} options={[
+      { value: "sets", label: "Sets" },
+      { value: "products", label: "Products" },
+    ]} />
+    {/*
+      Locked preview of the future budget-normalized cross-format ranking
           capability. Deliberately shows no data of any kind — see
-          OverallRankingLockedPanel below. */}
+          OverallRankingLockedPanel below.
       <button type="button" onClick={() => setView("overall-locked")} aria-pressed={view === "overall-locked"} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${view === "overall-locked" ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Overall</button>
-    </nav>
-    {productsActive ? <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1">{familyEntries.map(([family, block]) => <button key={family} type="button" onClick={() => setView(family)} aria-pressed={view === family} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === family ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{block.label}s</button>)}</nav> : null}
+    */}
+    {productsActive ? <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => setView("overall-locked")} aria-pressed={view === "overall-locked"} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === "overall-locked" ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>Overall</button>{familyEntries.map(([family, block]) => <button key={family} type="button" onClick={() => setView(family)} aria-pressed={view === family} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === family ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{pluralFamilyLabel(block.label)}</button>)}</nav> : null}
     {view === "sets" ? <ExploreTableClient targets={targets} loadError={loadError} /> :
      view === "overall-locked" ? <OverallRankingLockedPanel /> :
       <section className={`${styles.surface} set-glass-surface`} aria-label={`${selected?.label} rankings`}>

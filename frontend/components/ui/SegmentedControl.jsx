@@ -9,6 +9,7 @@ export default function SegmentedControl({
   ariaLabel,
   className = "",
   compact = false,
+  variant = "pill",
   equalWidth = false,
   mobileFullWidth = false,
   // Opt-in, below 1200px only. Six options do not fit a phone at a readable
@@ -67,6 +68,35 @@ export default function SegmentedControl({
 
   if (controlOptions.length === 0) {
     return null;
+  }
+
+  if (variant === "primary") {
+    return (
+      <div className={className}>
+        <div className="grid w-full items-center gap-0.5 rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(2,6,23,0.72)] p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_20px_rgba(2,6,23,0.18)] backdrop-blur-md" style={{ gridTemplateColumns: `repeat(${controlOptions.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={ariaLabel} onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+          const enabledOptions = controlOptions.filter((option) => !option?.disabled);
+          if (!enabledOptions.length) return;
+          const selectedIndex = enabledOptions.findIndex((option) => (option?.value ?? option?.key) === value);
+          const currentIndex = selectedIndex >= 0 ? selectedIndex : 0;
+          const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? enabledOptions.length - 1 : (currentIndex + (["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1) + enabledOptions.length) % enabledOptions.length;
+          const nextValue = enabledOptions[nextIndex]?.value ?? enabledOptions[nextIndex]?.key;
+          event.preventDefault();
+          onChange(nextValue);
+          event.currentTarget.querySelector(`[data-segment-value="${String(nextValue)}"]`)?.focus();
+        }}>
+          {controlOptions.map((option) => {
+            const optionValue = option?.value ?? option?.key;
+            const isActive = value === optionValue;
+            return (
+              <button key={optionValue} type="button" onClick={() => onChange(optionValue)} onPointerEnter={() => option?.onIntent?.()} onFocus={() => option?.onIntent?.()} onPointerDown={() => option?.onIntent?.()} role="radio" aria-checked={isActive} disabled={option?.disabled} tabIndex={isActive ? 0 : -1} data-segment-value={optionValue} className={`min-h-12 min-w-0 rounded-md px-1.5 py-1 text-[13px] font-semibold leading-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 disabled:cursor-not-allowed disabled:opacity-40 desk:min-h-0 desk:px-2 desk:py-1 desk:text-xs sm:px-2.5 sm:py-1.5 ${isActive ? "bg-[linear-gradient(135deg,rgba(16,185,129,0.95),rgba(20,184,166,0.78))] text-white shadow-[0_4px_12px_rgba(20,184,166,0.18),inset_0_1px_0_rgba(255,255,255,0.16)]" : "bg-transparent text-[color:color-mix(in_srgb,var(--text-secondary)_82%,transparent)] hover:bg-[rgba(255,255,255,0.045)] hover:text-[var(--text-primary)]"}`}>
+                <span className="block whitespace-nowrap">{option?.label ?? optionValue}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (

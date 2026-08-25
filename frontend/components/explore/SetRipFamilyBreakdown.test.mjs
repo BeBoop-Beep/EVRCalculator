@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
-import { familyEvidenceScores, familyTier, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
-import { FamilyScoreRow, FamilySnapshot, familyLabel } from "./SetRipFamilyBreakdown.jsx";
+import { displayFamilyScores, familyEvidenceScores, familyTier, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { FamilyScoreRow, FamilySnapshot, RankingsFamilyCells, RANKINGS_FAMILY_COLUMNS, familyLabel } from "./SetRipFamilyBreakdown.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -87,7 +87,7 @@ test("Rankings renders every enriched family as a text-first module", () => {
   assert.equal(renderer.root.findAll((node) => node.props["data-family-module"] !== undefined).length, 6);
   assert.equal(renderer.root.findAll((node) => node.props["data-family-media-slot"] !== undefined).length, 0);
   const text = renderedText(renderer);
-  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center ETB", "Sleeved Pack", "100.0", "#3", "A"]) {
+  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center ETB", "Sleeved Pack", "10.0", "#3", "A"]) {
     assert.ok(text.includes(expected), expected);
   }
 });
@@ -117,4 +117,49 @@ test("canonical family labels remain presentation-only", () => {
   assert.equal(familyLabel("loose_booster_pack"), "Booster Pack");
   assert.equal(familyLabel("pokemon_center_elite_trainer_box"), "Pokémon Center Elite Trainer Box");
   assert.equal(familyLabel("special_collection"), "SPC");
+});
+
+test("desktop Rankings family columns have one stable canonical order", () => {
+  assert.deepEqual(RANKINGS_FAMILY_COLUMNS.map((column) => column.families), [
+    ["loose_booster_pack"], ["sleeved_booster_pack"], ["booster_bundle"],
+    ["elite_trainer_box"], ["pokemon_center_elite_trainer_box"],
+    ["half_booster_box"], ["booster_box"], ["enhanced_booster_box"],
+  ]);
+});
+
+test("fixed cells preserve missing positions and canonical score, rank, and tier", () => {
+  const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
+    React.createElement(RankingsFamilyCells, { setRip: { familyScores: [
+      { family: "booster_bundle", score: 92.3, rank: 3, cohortSize: 20 },
+      { family: "booster_box", score: 71.1, rank: 8, cohortSize: 20 },
+    ] } })
+  ))));
+  const cells = renderer.root.findAll((node) => node.props["data-rankings-family-column"] !== undefined);
+  assert.equal(cells.length, 8);
+  assert.deepEqual(cells.map((cell) => cell.props["data-rankings-family-column"]), RANKINGS_FAMILY_COLUMNS.map((column) => column.key));
+  assert.ok(renderedText({ toJSON: () => cells[0].toJSON?.() }).includes("—") || renderedText(renderer).includes("—"));
+  const text = renderedText(renderer);
+  assert.ok(text.includes("9.2"));
+  assert.ok(text.includes("#3"));
+  assert.ok(text.includes(familyTier({ rank: 3, cohortSize: 20 })));
+});
+
+test("display-only Enhanced Box evidence renders without entering Format Strength eligibility", () => {
+  const setRip = {
+    score: 75,
+    familyScores: [{ family: "booster_box", score: 80, rank: 2, cohortSize: 10 }],
+    displayFamilyScores: [
+      { family: "booster_box", score: 80, rank: 2, cohortSize: 10 },
+      { family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2 },
+    ],
+  };
+  assert.equal(participatingFamilyScores(setRip).length, 1);
+  assert.equal(displayFamilyScores(setRip).length, 2);
+  const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
+    React.createElement(RankingsFamilyCells, { setRip })
+  ))));
+  const enhanced = renderer.root.find((node) => node.props["data-rankings-family-column"] === "enhanced-box");
+  const text = renderedText({ toJSON: () => enhanced.toJSON?.() }) || renderedText(renderer);
+  assert.ok(text.includes("10.0"));
+  assert.ok(text.includes("#1"));
 });

@@ -645,6 +645,7 @@
 
 @media (max-width: 1199.98px) {
   .setListScroll {
+    height: auto;
     max-height: none;
     overflow-y: visible;
     overscroll-behavior: auto;
@@ -688,7 +689,27 @@
   text-align: right;
 }
 
+.setListHeaderMobile {
+  display: none;
+}
+
 @media (max-width: 1199.98px) {
+  .setMarketMobileSticky {
+    position: sticky;
+    top: var(--app-header-offset, 64px);
+    z-index: 30;
+    background: var(--surface-page);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 18px rgba(2, 6, 23, 0.16);
+  }
+
+  .setListHeaderDesktop {
+    display: none;
+  }
+
+  .setListHeaderMobile {
+    display: grid;
+  }
+
   .setListHeader {
     padding-left: 4px;
     padding-right: 4px;
@@ -712,10 +733,19 @@
 }
 
 @media (max-width: 1199.98px) {
+  .marketMobileSection {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
   .setListRow {
     /* Comfortable thumb target on the mobile browser list. */
     min-height: 3.5rem;
     padding: 10px 4px;
+    grid-template-columns: 1.5rem 2rem minmax(5.5rem, 1fr) 4.25rem minmax(4.75rem, auto);
+    gap: 0.4rem;
   }
 }
 
@@ -735,13 +765,15 @@
 
 /* The active state has to be obvious without shouting: a teal edge, a slightly
    lifted ground, in the same vocabulary the ladder already used for rank. */
-.setListRowActive {
-  background-color: rgba(var(--ex-teal), 0.075);
-  box-shadow: inset 2px 0 0 rgba(var(--ex-teal), 0.9);
-}
+@media (min-width: 1200px) {
+  .setListRowActive {
+    background-color: rgba(var(--ex-teal), 0.075);
+    box-shadow: inset 2px 0 0 rgba(var(--ex-teal), 0.9);
+  }
 
-.setListRowActive:hover {
-  background-color: rgba(var(--ex-teal), 0.1);
+  .setListRowActive:hover {
+    background-color: rgba(var(--ex-teal), 0.1);
+  }
 }
 
 :global([data-theme="light"]) .setListRow {
@@ -819,7 +851,7 @@
   border-color: rgba(var(--ex-teal), 0.35);
 }
 
-.setMarketControl:focus-visible {
+.setMarketControl:focus {
   border-color: rgb(45, 212, 191);
   box-shadow: 0 0 0 2px rgba(var(--ex-teal), 0.35);
 }
@@ -982,4 +1014,44 @@
   .moverStep {
     display: none;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Market Explorer — comparison chart + segment filters, ONE surface
+ *
+ * The filter rail is the narrow, fixed side; the chart takes the
+ * remainder rather than the leftovers. Chart FIRST in the DOM so the
+ * stacked mobile order puts the primary object above the controls,
+ * and reordered on desktop so the rail reads as a left sidebar.
+ * ------------------------------------------------------------------ */
+.marketExplorerAnalysis {
+  display: block;
+}
+
+@media (min-width: 1200px) {
+  .marketExplorerAnalysis {
+    display: grid;
+    grid-template-columns: minmax(13rem, 20fr) minmax(30rem, 80fr);
+    align-items: stretch;
+  }
+
+  .marketExplorerAnalysis > [data-market-explorer-chart-pane] {
+    order: 2;
+    border-left: 1px solid var(--ex-line);
+  }
+
+  .marketExplorerAnalysis > [data-market-explorer-filters] {
+    order: 1;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .marketExplorerAnalysis > [data-market-explorer-filters] {
+    border-top: 1px solid var(--ex-line);
+  }
+}
+
+:global([data-theme="light"]) .marketExplorerAnalysis > [data-market-explorer-chart-pane],
+:global([data-theme="light"]) .marketExplorerAnalysis > [data-market-explorer-filters] {
+  border-color: rgba(15, 23, 42, 0.09);
 }

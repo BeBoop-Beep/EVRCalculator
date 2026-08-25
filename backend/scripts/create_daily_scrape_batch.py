@@ -239,6 +239,19 @@ def main() -> int:
 
         batch = create_batch(market_date, args.trigger_source)
         provenance = persist_runtime_provenance(batch.get("id"), preflight)
+        if provenance.get("status") == "recorded":
+            try:
+                from backend.alerts.pipeline_alerts import alert_daily_batch_created
+                alert_daily_batch_created(
+                    market_date=market_date, batch_id=batch.get("id"),
+                    expected_set_count=int(batch.get("expected_set_count") or 0),
+                    queued_set_count=int(batch.get("queued_set_count") or 0),
+                    trigger_source=args.trigger_source,
+                    runtime_git_sha=preflight.runtime_git_sha,
+                    runtime_registry_hash=preflight.local_registry_hash,
+                )
+            except Exception:  # pragma: no cover - observability cannot block creation
+                logger.exception("%s failed to queue daily-batch-created alert", BATCH_TAG)
         discovery = (
             {"status": "skipped"}
             if args.skip_new_set_detection

@@ -93,7 +93,10 @@ def _client(*, days=DAYS, index_dates=(), quality_rows=()):
 @pytest.fixture(autouse=True)
 def _service_evidence(monkeypatch):
     """Aug 19/20 fully qualified; Aug 17/18 not (the production shape)."""
-    monkeypatch.setattr(cli, "cohort_set_ids_for_date", lambda _c, _d: list(COHORT))
+    monkeypatch.setattr(cli, "resolve_market_entry_dates_for_client",
+                        lambda _c: {set_id: DAYS[0] for set_id in COHORT})
+    monkeypatch.setattr(cli, "cohort_set_ids_for_date",
+                        lambda _c, _d, **_k: list(COHORT))
     monkeypatch.setattr(cli, "valuation_set_ids_for_date",
                         lambda _c, _d, _s: {"standard": set(COHORT), "top10": set(COHORT)})
     monkeypatch.setattr(cli, "qualifying_set_ids_for_date",

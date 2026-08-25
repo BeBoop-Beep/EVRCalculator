@@ -8,7 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path: sys.path.insert(0, str(REPO_ROOT))
 
-from backend.db.services.market_date_quality import accepted_market_dates
+from backend.db.services.market_date_quality import market_index_accepted_dates
 from backend.db.services.market_publication_gate import (
     MarketForcePublishRejected, add_market_gate_args, enforce_market_publication_gate,
 )
@@ -61,7 +61,7 @@ def main():
     # BLOCKER 1: the accepted-date set is resolved BEFORE the build so that
     # chain-link math never sees a DEGRADED or INCOMPLETE date.
     try:
-        accepted = accepted_market_dates(client, through_date=args.market_date)
+        accepted = market_index_accepted_dates(client, through_date=args.market_date)
     except Exception as exc:
         # Without quality history we cannot know which dates are safe to chain
         # through, and chaining through an unknown date is exactly the defect

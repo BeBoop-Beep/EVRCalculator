@@ -54,7 +54,7 @@ import {
   formatModeScore,
   SCORE_KIND_PUBLIC,
 } from "@/constants/exploreRankingConfig";
-import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
+import { PUBLIC_SCORE_SCALE_NOTE, readCanonicalOverallRipV10 } from "./canonicalRipV7.mjs";
 import {
   RANKINGS_DEFAULT_SORT,
   RANKINGS_SORT_COLUMNS,
@@ -71,7 +71,7 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
-import { FamilySnapshot, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -246,7 +246,7 @@ function buildRipLink(target) {
  * flat `collector_appeal_score` on the same row is a retired CA7-era value
  * ranked against a different population). Routing it through this id lets the
  * existing score cell render it with the same one-field-by-kind contract, the
- * same `/100` treatment and the same Unavailable state as the other two public
+ * same `/10` treatment and the same Unavailable state as the other two public
  * scores, without inventing a mode that could then power a public ranking.
  */
 const COLLECTOR_APPEAL_COLUMN = "collectorAppeal";
@@ -281,7 +281,7 @@ function readModeScore(target, modeId) {
 const RankColumnModeContext = createContext(null);
 
 const RELATIVE_SCORE_TOOLTIP =
-  "Relative scores standardize each set against the current eligible cohort on a 0–100 scale.";
+  "Relative scores standardize each set against the current eligible cohort on a 0–10 scale.";
 
 /**
  * Desktop score cell.
@@ -294,7 +294,7 @@ const RELATIVE_SCORE_TOOLTIP =
  * fixed-anchor or ratio value for every other mode, with nothing on screen
  * distinguishing them. `readModeScore` now returns one value and its `kind`.
  *
- * Only a `publicScore` mode gets the `/100` suffix and the scale tooltip;
+ * Only a `publicScore` mode gets the `/10` suffix and the scale tooltip;
  * a ratio prints `1.4x`; a plain index prints a bare number. A null value
  * renders an explicit Unavailable state, never a fabricated zero and never a
  * substitute from another scale.
@@ -320,7 +320,7 @@ function ScoreCell({ target, modeId }) {
       <span className="text-[14px] font-semibold text-[var(--text-primary)]">
         {formatModeScore(value, kind)}
         {isPublic ? (
-          <span className="pl-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
+          <span className="pl-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/10</span>
         ) : null}
       </span>
       {rankText !== null ? (
@@ -352,7 +352,7 @@ function MobileScoreBlock({ target, modeId, label }) {
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1 text-[10px] text-[var(--text-secondary)]">
           <span className="text-[13px] font-semibold text-[var(--text-primary)]">
             {formatModeScore(value, kind)}
-            {isPublic ? <span className="pl-0.5 text-[9px] font-medium text-[var(--text-secondary)]">/100</span> : null}
+            {isPublic ? <span className="pl-0.5 text-[9px] font-medium text-[var(--text-secondary)]">/10</span> : null}
           </span>
           {rankText !== null ? <span>{rankText}</span> : null}
         </div>
@@ -440,7 +440,7 @@ function RankMarker({ rank, tier, isLead, movement }) {
   );
 }
 
-function SetRipScoreBadge({ setRip, tier, compact = false }) {
+function SetRipScoreBadge({ score, tier, compact = false }) {
   const tone = tier ? getTierTone(tier) : null;
   const accent = tone?.accentColor || "var(--border-subtle)";
   return (
@@ -449,7 +449,8 @@ function SetRipScoreBadge({ setRip, tier, compact = false }) {
       className={`relative inline-flex flex-col items-center justify-center text-center ${compact ? "h-[3.25rem] w-[3.65rem]" : "h-[3.75rem] w-[4.5rem]"}`}
     >
       <svg aria-hidden="true" viewBox="0 0 72 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible"><polygon points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11" fill="rgba(7,14,25,0.72)" stroke={accent} strokeWidth="1.25" vectorEffect="non-scaling-stroke" /></svg>
-      <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{formatModeScore(setRip?.score, SCORE_KIND_PUBLIC)}</strong>
+      <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{score === null ? UNAVAILABLE_LABEL : formatModeScore(score, SCORE_KIND_PUBLIC)}</strong>
+      {score !== null ? <span className="relative text-[9px] text-[var(--text-secondary)]">/ 10</span> : null}
       <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">RIP Score</span>
     </div>
   );
@@ -475,7 +476,7 @@ function RankingInsight({ setRip }) {
  * caret is drawn by the `[aria-sort]` rule in explore.module.css — the same
  * indicator the table already used — so no new visual language is introduced.
  */
-function SortableHeader({ columnId, label, sort, onSort, note, infoText = null }) {
+function SortableHeader({ columnId, label, sort, onSort, note, infoText = null, rowSpan }) {
   const ariaSort = ariaSortFor(sort, columnId);
   const isActive = Boolean(ariaSort);
   return (
@@ -484,6 +485,7 @@ function SortableHeader({ columnId, label, sort, onSort, note, infoText = null }
       className={styles.numeric}
       aria-sort={ariaSort}
       title={isActive ? note : `Sort by ${label}`}
+      rowSpan={rowSpan}
     >
       <button
         type="button"
@@ -520,8 +522,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   // re-reads the network, and a header click only re-runs the memo on the line
   // after this one.
   const canonicalTargets = useMemo(() => [...targets].sort((left, right) => {
-    const leftRank = toNumber(left?.setRipV1?.rank);
-    const rightRank = toNumber(right?.setRipV1?.rank);
+    const leftRank = readCanonicalOverallRipV10(left).rank;
+    const rightRank = readCanonicalOverallRipV10(right).rank;
     if (leftRank !== null && rightRank !== null && leftRank !== rightRank) return leftRank - rightRank;
     if (leftRank !== null) return -1;
     if (rightRank !== null) return 1;
@@ -831,30 +833,32 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 width. Set stays auto and absorbs what is left.
               */}
               <colgroup>
+                <col style={{ width: "3%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "7%" }} />
                 <col style={{ width: "4%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "51%" }} />
+                {RANKINGS_FAMILY_COLUMNS.map((column) => <col key={column.key} style={{ width: "5.7%" }} />)}
                 <col style={{ width: "14%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
-                  <th scope="col" className={styles.numeric}>
+                  <th scope="col" rowSpan={2} className={styles.numeric}>
                     <span aria-hidden="true">#</span>
                     <span className="sr-only">Rank</span>
                   </th>
-                  <th scope="col">Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
-                  <th scope="col">Tier</th>
-                  <th scope="col">Product Family Snapshot</th>
-                  <th scope="col">Why It Ranks</th>
+                  <th scope="col" rowSpan={2}>Set</th>
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <th scope="col" rowSpan={2}>Tier</th>
+                  <th scope="colgroup" colSpan={RANKINGS_FAMILY_COLUMNS.length} className="text-center">Product Family Snapshot</th>
+                  <th scope="col" rowSpan={2}>Format Strength</th>
                 </tr>
+                <tr>{RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight">{column.label}</th>)}</tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
-                  const tier = setRipTier(target?.setRipV1);
-                  const modeRank = target?.setRipV1?.rank ?? (canonicalIndexByTarget.get(target) ?? index) + 1;
+                  const canonicalOverall = readCanonicalOverallRipV10(target);
+                  const tier = canonicalOverall.tier;
+                  const modeRank = canonicalOverall.rank;
                   const isLead = modeRank <= LEAD_RANK_LIMIT;
                   const tone = tier ? getTierTone(tier) : null;
                   const rankMovement = formatRankMovement(null, modeRank, "unavailable");
@@ -866,7 +870,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       style={tone ? { "--ex-rank-accent": tone.accentColor } : undefined}
                     >
                       <td className={styles.numeric}>
-                        <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />
+                        {modeRank === null ? <span className="text-xs text-[var(--text-secondary)]">Unavailable</span> : <RankMarker rank={modeRank} tier={tier} isLead={isLead} movement={rankMovement} />}
                       </td>
                       <td>
                         <Link href={buildRipLink(target)} className={styles.rowLink}>
@@ -874,9 +878,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                           <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">{target?.setRipV1?.participatingFamilyCount ?? 0} scored families</span>
                         </Link>
                       </td>
-                      <td className={styles.numeric}><SetRipScoreBadge setRip={target?.setRipV1} tier={tier} /></td>
+                      <td className={styles.numeric}><SetRipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
                       <td className="text-center"><SetTierMark tier={tier} /></td>
-                      <td><FamilySnapshot setRip={target?.setRipV1} layout="modules" /></td>
+                      <RankingsFamilyCells setRip={target?.setRipV1} />
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
@@ -890,8 +894,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <div className="md:hidden">
             <div className="space-y-2 px-3 py-2 sm:px-4">
             {visibleMobileTargets.map((target, index) => {
-              const activeRank = target?.setRipV1?.rank ?? index + 1;
-              const tier = setRipTier(target?.setRipV1);
+              const canonicalOverall = readCanonicalOverallRipV10(target);
+              const activeRank = canonicalOverall.rank;
+              const tier = canonicalOverall.tier;
               const tierTone = tier ? getTierTone(tier) : null;
               const rowKey = `${target.target_type}:${target.target_id}`;
               const expanded = expandedMobileSet === rowKey;
@@ -904,18 +909,20 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 >
                   <button type="button" className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2.5 text-left" aria-expanded={expanded} onClick={() => setExpandedMobileSet(expanded ? null : rowKey)}>
                     <span className="text-right text-sm font-bold tabular-nums text-[var(--text-primary)]">
-                      #{activeRank}
+                      {activeRank === null ? "—" : `#${activeRank}`}
                     </span>
                     <div className="min-w-0">
                       <SetIdentity variant="mobileRanking" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
-                    <div className="flex flex-none items-center gap-2"><SetRipScoreBadge setRip={target?.setRipV1} tier={tier} compact /><SetTierMark tier={tier} /></div>
+                    <div className="flex flex-none items-center gap-2"><SetRipScoreBadge score={canonicalOverall.publicScore} tier={tier} compact /><SetTierMark tier={tier} /></div>
                     <span aria-hidden="true" className={`text-sm transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
                   </button>
                   {expanded ? (
                     <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
                       <p className="py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Product Family Snapshot</p>
                       <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />
+                      <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
+                      <RankingInsight setRip={target?.setRipV1} />
                       <Link href={buildRipLink(target)} className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-[var(--accent)]">View full Set RIP breakdown →</Link>
                     </div>
                   ) : null}

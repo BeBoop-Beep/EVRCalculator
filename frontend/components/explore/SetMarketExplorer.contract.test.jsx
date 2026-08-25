@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
 
-import SetMarketExplorer, { resolveSetMarketRowAction } from "./SetMarketExplorer.jsx";
+import SetMarketExplorer, { resolveSetMarketRowAction, shouldResetSetMarketResults } from "./SetMarketExplorer.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -166,10 +166,18 @@ test("desktop double click on an unselected row selects immediately and navigate
   assert.match(destinations[0], /prismatic-evolutions/);
 });
 
-test("mobile taps and repeated taps remain selection actions", () => {
-  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: false, clickCount: 1 }), "select");
-  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 1 }), "select");
-  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 2 }), "select");
+test("mobile taps navigate directly to the canonical set page", () => {
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: false, clickCount: 1 }), "navigate");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 1 }), "navigate");
+  assert.equal(resolveSetMarketRowAction({ isMasterDetail: false, isActive: true, clickCount: 2 }), "navigate");
+});
+
+test("membership and ordering controls reset deep mobile results deliberately", () => {
+  assert.equal(shouldResetSetMarketResults({ control: "query", sortKey: "value" }), true);
+  assert.equal(shouldResetSetMarketResults({ control: "era", sortKey: "value" }), true);
+  assert.equal(shouldResetSetMarketResults({ control: "sort", sortKey: "value" }), true);
+  assert.equal(shouldResetSetMarketResults({ control: "timeframe", sortKey: "value" }), false);
+  assert.equal(shouldResetSetMarketResults({ control: "timeframe", sortKey: "change" }), true);
 });
 
 test("the sort control reorders without inventing a metric", () => {

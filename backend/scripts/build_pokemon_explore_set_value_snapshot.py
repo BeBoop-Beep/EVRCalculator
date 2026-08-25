@@ -22,7 +22,14 @@ from backend.db.services.publication_gate import add_publication_gate_args, enfo
 from backend.db.services.pokemon_market_index_service import build_market_overview, read_index_history
 from backend.db.services.pokemon_global_sealed_market_service import (
     build_global_sealed_market,
+    build_global_sealed_segments,
     read_global_sealed_source_snapshots,
+)
+from backend.db.services.pokemon_global_card_market_segments_service import (
+    build_card_segments_payload,
+    build_global_card_segments,
+    load_global_card_constituent_rows,
+    read_canonical_card_rarities,
 )
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 from backend.scripts.pokemon_snapshot_builders import get_client
@@ -96,7 +103,46 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         sealed_rows = read_global_sealed_source_snapshots(client, set_ids)
         sealed_payloads = [dict(row.get("payload_json") or {}) for row in sealed_rows]
         sealed_market = build_global_sealed_market(sealed_payloads, market_date=market_date)
-        overview = build_market_overview(history, market_date=market_date, sealed_market=sealed_market)
+        # Sealed product-family submarkets, built from the SAME constituent
+        # universe the parent used and republishing the parent verbatim.
+        sealed_segments = build_global_sealed_segments(
+            sealed_payloads, market_date=market_date, total=sealed_market
+        )
+        # Card-rarity submarkets of the Raw Card Market, built from canonical
+        # per-card constituents over the window Raw itself already covers. A
+        # failure here must not take the whole Market snapshot down: the
+        # segments are additive, so they degrade to unavailable.
+        card_segments = None
+        try:
+            raw_history_start = min(
+                (str(row.get("market_date"))[:10] for row in history
+                 if str(row.get("index_key")) == "raw"),
+                default=market_date,
+            )
+            rarity_by_card = read_canonical_card_rarities(client, set_ids)
+            constituent_rows = load_global_card_constituent_rows(
+                client, set_ids, start_date=raw_history_start, end_date=market_date,
+            )
+            raw_card_segments = build_global_card_segments(
+                constituent_rows, rarity_by_card, market_date=market_date,
+                parent_basket_value=None,
+            )
+            card_segments = build_card_segments_payload(raw_card_segments)
+        except Exception as exc:  # noqa: BLE001 - additive analytics only
+            print(f"card segments unavailable: {exc}")
+            card_segments = build_card_segments_payload(None)
+        overview = build_market_overview(
+            history, market_date=market_date,
+            sealed_market=sealed_market, sealed_segments=sealed_segments,
+            card_segments=card_segments,
+        )
+        if card_segments and isinstance(card_segments.get("raw"), dict):
+            # The parent's published basket value is the reconciliation anchor,
+            # and it is read from the built overview rather than recomputed.
+            card_segments["raw"].setdefault("reconciliation", {})
+            card_segments["raw"]["reconciliation"]["parentBasketValue"] = (
+                overview.get("raw", {}).get("basketValue")
+            )
     row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)

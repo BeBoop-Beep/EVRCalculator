@@ -22,7 +22,7 @@ def test_market_quality_phase_dry_run_carries_computed_date_without_write(monkey
     captured = {}
     monkeypatch.setattr(refresh, "enforce_market_publication_gate",
                         lambda *_a, **_k: _market_enforcement())
-    monkeypatch.setattr(refresh, "accepted_market_dates",
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
                         lambda *_a, **_k: {"2026-08-22"})
     from backend.db.services import pokemon_market_index_service as index_service
     def build_index(_client, **kwargs):
@@ -48,7 +48,7 @@ def test_market_quality_phase_commit_uses_persisted_accepted_authority(monkeypat
     order = []
     monkeypatch.setattr(refresh, "enforce_market_publication_gate",
                         lambda *_a, **_k: order.append("quality") or _market_enforcement())
-    monkeypatch.setattr(refresh, "accepted_market_dates",
+    monkeypatch.setattr(refresh, "market_index_accepted_dates",
                         lambda *_a, **_k: order.append("read-quality") or {"2026-08-23"})
     from backend.db.services import pokemon_market_index_service as index_service
     monkeypatch.setattr(

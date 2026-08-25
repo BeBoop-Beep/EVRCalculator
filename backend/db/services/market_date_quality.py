@@ -13,7 +13,9 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
 from backend.db.services.market_run_evidence import qualifying_set_ids_for_date
-from backend.db.services.pokemon_market_index_service import resolve_eligible_sets
+from backend.db.services.pokemon_market_index_service import (
+    resolve_eligible_sets, resolve_market_entry_dates_for_client,
+)
 from backend.domain.pokemon.market_index import deterministic_fingerprint
 
 QUALITY_TABLE = "pokemon_market_date_quality"
@@ -76,7 +78,8 @@ def classify_market_date(
         if absent:
             missing_valuation[scope] = absent
 
-    cohort_satisfied = bool(cohort) and not missing_runs and not missing_valuation
+    market_index_satisfied = bool(cohort) and not missing_valuation
+    cohort_satisfied = market_index_satisfied and not missing_runs
 
     if cohort_satisfied:
         status = STATUS_READY
@@ -101,6 +104,7 @@ def classify_market_date(
         "evidence": {
             "missingQualifyingRunSetIds": missing_runs,
             "missingValuationSetIds": missing_valuation,
+            "marketIndexAccepted": market_index_satisfied,
             "enforcementStart": MARKET_QUALITY_ENFORCEMENT_START,
             "preEnforcement": day < MARKET_QUALITY_ENFORCEMENT_START,
             "legacyAllowlisted": day in allowlist,
@@ -121,12 +125,14 @@ def _paged(query_factory) -> list[dict[str, Any]]:
         offset += PAGE_SIZE
 
 
-def cohort_set_ids_for_date(client: Any, market_date: str) -> list[str]:
+def cohort_set_ids_for_date(
+    client: Any, market_date: str, *, market_entry_dates: Mapping[str, str] | None = None,
+) -> list[str]:
     """Canonical Market cohort for a date - the SAME eligibility Market/index uses."""
     day = str(market_date)[:10]
-    return sorted(
-        str(row["id"]) for row in resolve_eligible_sets(client)
-        if not row.get("release_date") or str(row["release_date"])[:10] <= day)
+    entries = (dict(market_entry_dates) if market_entry_dates is not None
+               else resolve_market_entry_dates_for_client(client))
+    return sorted(set_id for set_id, entry_day in entries.items() if entry_day <= day)
 
 
 def valuation_set_ids_for_date(
@@ -232,6 +238,29 @@ def accepted_market_dates(
         str(row["market_date"])[:10]
         for row in read_market_date_quality_history(client, through_date=through_date)
         if str(row.get("status") or "") in ACCEPTED_STATUSES
+    }
+
+
+def is_market_index_quality_accepted(row: Mapping[str, Any]) -> bool:
+    """Market-price acceptance, deliberately independent of RIP runs."""
+    evidence = row.get("evidence_json") or row.get("evidence") or {}
+    explicit = evidence.get("marketIndexAccepted")
+    if explicit is not None:
+        return explicit is True
+    # Backward-compatible interpretation of already persisted v1 rows.
+    if "missingValuationSetIds" not in evidence:
+        return str(row.get("status") or "") in ACCEPTED_STATUSES
+    return (int(row.get("cohort_set_count") or row.get("cohortSetCount") or 0) > 0
+            and not (evidence.get("missingValuationSetIds") or {}))
+
+
+def market_index_accepted_dates(
+    client: Any, *, through_date: str | None = None,
+) -> set[str]:
+    return {
+        str(row["market_date"])[:10]
+        for row in read_market_date_quality_history(client, through_date=through_date)
+        if is_market_index_quality_accepted(row)
     }
 
 

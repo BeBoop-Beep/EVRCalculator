@@ -90,6 +90,24 @@ def _report_error_summary(report: dict) -> str:
     return "Single scrape job did not complete successfully"
 
 
+def _alert_if_retries_exhausted(job: dict, *, canonical_key: Optional[str],
+                                error_code: str, error_summary: str) -> None:
+    attempts = int(job.get("attempts") or 0)
+    max_attempts = int(job.get("max_attempts") or 0)
+    if max_attempts <= 0 or attempts < max_attempts:
+        return
+    try:
+        from backend.alerts.pipeline_alerts import alert_set_scrape_failed
+        alert_set_scrape_failed(
+            market_date=str(job.get("market_date") or ""), batch_id=job.get("batch_id"),
+            queue_job_id=job.get("id"), canonical_key=canonical_key or "unknown",
+            attempts=attempts, max_attempts=max_attempts, error_code=error_code,
+            retryable=False, error_summary=error_summary,
+        )
+    except Exception:  # pragma: no cover - terminal state remains authoritative
+        logger.exception("%s failed to queue terminal scrape alert", DISPATCHER_TAG)
+
+
 def _request_metrics(report: dict) -> dict:
     keys = (
         "http_requests_total",
@@ -280,6 +298,9 @@ def _process_claimed_job(job: dict, worker_market_date: str) -> None:
         _finalize(job_id, None, "failed", succeeded=0, failed=1,
                   error_summary=error_message, canonical_key=canonical_key,
                   error_code=ERROR_TRANSIENT_SCRAPE_FAILURE)
+        _alert_if_retries_exhausted(
+            job, canonical_key=canonical_key, error_code=ERROR_TRANSIENT_SCRAPE_FAILURE,
+            error_summary=error_message)
         return 0
 
     if report.get("sets_succeeded") == 1 and report.get("sets_failed") == 0:
@@ -300,6 +321,10 @@ def _process_claimed_job(job: dict, worker_market_date: str) -> None:
     _finalize(job_id, report, "failed", succeeded=0, failed=1,
               error_summary=error_message, canonical_key=canonical_key,
               error_code=error_code)
+    if not is_deterministic(error_code):
+        _alert_if_retries_exhausted(
+            job, canonical_key=canonical_key, error_code=error_code,
+            error_summary=error_message)
     return 0
 
 

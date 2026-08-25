@@ -89,7 +89,7 @@ export default async function ExplorePage({ searchParams }) {
   return (
     // The root layout already provides the <main> landmark, so this is a plain
     // container — two <main> elements would announce two main regions.
-    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 sm:px-6 lg:px-8`}>
+    <div data-rankings-wide-shell className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-5 md:max-w-[100rem] sm:px-6 lg:px-8`}>
       <PageArtworkAtmosphere
         src={backgroundUrl}
         dataAttribute="data-explore-ambient-artwork"
@@ -101,7 +101,7 @@ export default async function ExplorePage({ searchParams }) {
         canvas. The visible heading answers the page question immediately; the
         one-line context names inputs without putting methodology before data.
       */}
-      <header className="mx-auto mb-5 w-full max-w-5xl">
+      <header className="mb-5 w-full">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">Pokémon RIP Rankings</h1>
         <p className="mt-1.5 text-sm text-[var(--text-secondary)]">Current prices, simulated opening outcomes, and collector appeal — compared in one place.</p>
       </header>
@@ -116,7 +116,7 @@ export default async function ExplorePage({ searchParams }) {
           original mb-5 is the unconditional base and mobile subtracts it — so
           the desktop value can never lose a source-order coin toss to the
           mobile override the way `mb-0 desk:mb-5` did. */}
-      <div data-rankings-data-surface className="mx-auto w-full md:relative md:left-1/2 md:w-[calc(100vw-3rem)] md:max-w-[84rem] md:-translate-x-1/2">
+      <div data-rankings-data-surface className="w-full">
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>

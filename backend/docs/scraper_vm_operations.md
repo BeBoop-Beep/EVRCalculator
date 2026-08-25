@@ -502,6 +502,42 @@ Required env vars:
 
 - `ALERTS_ENABLED=true`
 - `SLACK_ALERT_WEBHOOK_URL=...`
+- `ALERT_BATCH_SIZE=25`
+
+Optional controls:
+
+- `PIPELINE_SUCCESS_ALERTS=true` — disable only major success-stage messages by setting `false`; failures remain queued.
+- `SLACK_ALERT_TIMEOUT_SECONDS=10`
+- `ALERT_BACKLOG_WARNING_COUNT=20`
+- `ALERT_BACKLOG_CRITICAL_AGE_MINUTES=10`
+
+Do not enable delivery until the historical backlog has been reviewed and
+suppressed. Suppression preserves incident history; it does not delete rows or
+pretend they were delivered:
+
+```bash
+# Preview count, oldest/newest timestamps, and alert type/severity breakdown.
+python backend/scripts/suppress_historical_alert_backlog.py \
+  --before 2026-08-25T00:00:00Z --dry-run
+
+# After reviewing the preview, explicitly commit the exact same cutoff.
+python backend/scripts/suppress_historical_alert_backlog.py \
+  --before 2026-08-25T00:00:00Z --commit \
+  --reason "pre-Slack historical backlog reviewed by operator"
+```
+
+Check configuration and the unsent, unsuppressed backlog without revealing the
+webhook URL:
+
+```bash
+python -m backend.alerts.dispatcher --health-check
+```
+
+Only when intentionally validating Slack delivery, send one test message:
+
+```bash
+python -m backend.alerts.dispatcher --health-check --send-test
+```
 
 Manual dispatcher run:
 
@@ -509,10 +545,53 @@ Manual dispatcher run:
 python -m backend.alerts.dispatcher
 ```
 
+The dispatcher must run independently every minute. `flock` prevents overlapping
+processes if a webhook call is slow:
+
+```cron
+* * * * * flock -n /tmp/evr-alert-dispatcher.lock sh -c 'cd /home/ubuntu/repos/EVRCalculator && ./.venv/bin/python -m backend.alerts.dispatcher >> alert_dispatcher.log 2>&1'
+```
+
+Inspect it with `tail -f /home/ubuntu/repos/EVRCalculator/alert_dispatcher.log`.
+
+Pipeline alerts are intentionally stage-level: daily batch created, authoritative
+scrape completion, Market Quality READY/BLOCKED, raw/Top10 index publication,
+global Market publication, post-scrape audit, and daily Market completion. Set
+alerts are emitted only for deterministic or terminal failures—never for every
+successful set or ordinary transient attempts. Simulation/full publication uses
+separate alert types and never implies that morning Market publication included
+fresh simulations.
+
 Why this is safe:
 
 - Failed Slack delivery does not mark rows sent.
 - Alerts are retried in the next run (inline or cron).
+- Suppressed alerts are excluded from delivery but retained for incident review.
+- Deterministic dedupe keys prevent repeated orchestrator invocations from
+  creating duplicate stage messages.
+
+Troubleshooting:
+
+- **Slack receives nothing:** run `--health-check`; verify enabled/configured
+  booleans, then inspect `alert_dispatcher.log`. Never paste the webhook into logs.
+- **Queue grows:** confirm the dispatcher cron and lock owner, then inspect pending
+  count and oldest age. Do not recursively alert Slack about Slack delivery.
+- **Webhook 4xx:** validate or rotate the incoming webhook secret. Rows remain unsent.
+- **Webhook timeout:** check outbound VM networking; increase the finite timeout
+  only if necessary. Rows remain unsent.
+- **Old alerts repeat:** disable dispatch, inspect the backlog with `--dry-run`,
+  explicitly suppress the reviewed historical cutoff, then re-enable dispatch.
+
+Production activation order:
+
+1. Apply the alert suppression/dedupe migration.
+2. Deploy code with `ALERTS_ENABLED=false`.
+3. Run the historical suppression dry-run and review its breakdown.
+4. Commit suppression with the reviewed cutoff and reason.
+5. Run `--health-check`; confirm pending unsuppressed count is expected.
+6. Set the webhook secret and run the explicit `--send-test` command once.
+7. Install the flocked dispatcher cron.
+8. Set `ALERTS_ENABLED=true` and monitor `alert_dispatcher.log`.
 
 ---
 

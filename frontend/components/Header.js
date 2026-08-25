@@ -149,7 +149,7 @@ export default function Header() {
             <SearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0"
-              inputClassName="w-full min-w-0 px-3 py-2 pr-10 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[rgb(45,212,191)] focus:ring-2 focus:ring-[rgba(45,212,191,0.35)] text-sm"
+              inputClassName="w-full min-w-0 px-3 py-2 pr-10 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] text-sm"
               buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
               placeholder="Search"
             />
@@ -240,7 +240,7 @@ export default function Header() {
             <SearchBar
               onSearch={handleHeaderSearch}
               className="relative flex items-center w-full min-w-0 max-w-full lg:w-[360px] xl:w-[420px]"
-              inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              inputClassName="w-full min-w-0 px-4 py-2 pr-12 rounded-lg bg-[var(--surface-panel)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:border-[rgb(45,212,191)] focus:ring-2 focus:ring-[rgba(45,212,191,0.35)]"
               buttonClassName="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors duration-200 ease-in-out flex items-center justify-center"
               placeholder="Search"
             />

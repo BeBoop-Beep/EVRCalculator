@@ -99,6 +99,34 @@ def run_batch_completion_and_repair(
         logger.info(
             "%s batch %s (%s) is COMPLETE and promoted", _SVC_TAG, batch_id, resolved_market_date
         )
+        try:
+            from backend.alerts.pipeline_alerts import alert_scrape_batch_complete
+            alert_scrape_batch_complete(
+                market_date=resolved_market_date, batch_id=batch_id,
+                succeeded_set_count=int(completion.get("succeeded_set_count") or
+                                          completion.get("expected_set_count") or 0),
+                expected_set_count=int(completion.get("expected_set_count") or
+                                       batch.get("expected_set_count") or 0),
+                failed_queue_rows=int(completion.get("failed_set_count") or 0),
+                duration=completion.get("elapsed_time"),
+            )
+        except Exception:  # pragma: no cover - alerts never alter batch authority
+            logger.exception("%s failed to queue batch-complete alert", _SVC_TAG)
+        try:
+            from backend.db.clients.supabase_client import supabase
+            from backend.db.services.sealed_observation_quality import (
+                evaluate_and_alert_sealed_observation_quality,
+            )
+            completion["sealedObservationQuality"] = dict(
+                evaluate_and_alert_sealed_observation_quality(
+                    supabase, resolved_market_date
+                )
+            )
+        except Exception:  # pragma: no cover - Sealed guard cannot block Raw/Chase
+            logger.exception(
+                "%s Sealed observation quality evaluation failed for %s",
+                _SVC_TAG, resolved_market_date,
+            )
     else:
         missing_sets = get_scrape_missing_sets(resolved_market_date)
         logger.error(
@@ -125,4 +153,5 @@ def run_batch_completion_and_repair(
         "unreconciledRunRequeued": unreconciled_run_requeued,
         "deterministicBlocked": deterministic_blocked,
         "promoted": completion.get("promoted", False),
+        "sealedObservationQuality": completion.get("sealedObservationQuality"),
     }

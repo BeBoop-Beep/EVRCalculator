@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from datetime import date
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import Body, Cookie, FastAPI, Header, HTTPException, Query, Request  # type: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
 from fastapi.responses import JSONResponse  # type: ignore[reportMissingImports]
-from pydantic import BaseModel  # type: ignore[reportMissingImports]
+from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
 
 from backend.db.services.waitlist_signup_service import (
     insert_waitlist_signup,
@@ -86,11 +88,24 @@ from backend.db.services.pokemon_explore_set_value_service import (
     read_explore_set_value_snapshot,
 )
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot as read_sealed_market_snapshot
+from backend.db.services.pokemon_market_explorer_query_service import (
+    MarketExplorerQueryUnavailable,
+    build_market_explorer_filter_options,
+    run_market_explorer_query,
+)
+from backend.domain.pokemon.market_explorer_query import (
+    MarketExplorerQueryError,
+    normalize_query_spec,
+    query_fingerprint,
+)
 
 
 app = FastAPI(title="EVR Collection API")
 
 logger = logging.getLogger(__name__)
+
+_MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
+_market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
 
@@ -127,6 +142,15 @@ class WaitlistSignupRequest(BaseModel):
 
 class WaitlistVerifyRequest(BaseModel):
     token: str
+
+
+class MarketExplorerQueryRequest(BaseModel):
+    asset: str = "cards"
+    eraIds: List[str] = Field(default_factory=list)
+    setIds: List[str] = Field(default_factory=list)
+    segmentIds: List[str] = Field(default_factory=list)
+    mode: str = "all"
+    topN: Optional[int] = None
 
 
 def _auth_env_presence() -> Dict[str, bool]:
@@ -501,6 +525,68 @@ def get_explore_set_value_market():
     except Exception:
         logger.exception("/explore/set-value-market unexpected error")
         return JSONResponse(content={"message": "Unable to load global Market Set Values", "code": "POKEMON_EXPLORE_SET_VALUE_FAILED"}, status_code=500)
+
+
+@app.get("/market/explorer/query/options")
+def get_market_explorer_query_options(
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Authenticated, read-only filter metadata for the Explorer builder."""
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    try:
+        return build_market_explorer_filter_options(service_read_client)
+    except MarketExplorerQueryUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/market/explorer/query/options unexpected error")
+        return JSONResponse(content={"message": "Unable to load Market Explorer filters", "code": "MARKET_EXPLORER_OPTIONS_FAILED"}, status_code=500)
+
+
+@app.post("/market/explorer/query")
+def post_market_explorer_query(
+    payload: MarketExplorerQueryRequest,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Execute one normalized card-market query without exposing database RPCs."""
+    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    if payload.asset != "cards":
+        return JSONResponse(content={"message": "Only card queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    if payload.mode == "chase" and payload.topN not in (None, 10):
+        return JSONResponse(content={"message": "Only Top 10 Chase queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    try:
+        today = date.today().isoformat()
+        normalized = normalize_query_spec(
+            asset=payload.asset, mode=payload.mode, era_ids=payload.eraIds,
+            set_ids=payload.setIds, segment_ids=payload.segmentIds, top_n=payload.topN,
+        )
+        cache_key = f"{query_fingerprint(normalized)}:{today}"
+        cached = _market_explorer_query_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return cached[1]
+        result = run_market_explorer_query(
+            service_read_client,
+            mode=payload.mode,
+            era_ids=payload.eraIds,
+            set_ids=payload.setIds,
+            segment_ids=payload.segmentIds,
+            top_n=payload.topN,
+            start_date="1999-01-01",
+            end_date=today,
+        )
+        _market_explorer_query_cache[cache_key] = (
+            time.monotonic() + _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS,
+            result,
+        )
+        return result
+    except MarketExplorerQueryError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    except MarketExplorerQueryUnavailable as exc:
+        return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
+    except Exception:
+        logger.exception("/market/explorer/query unexpected error")
+        return JSONResponse(content={"message": "Unable to execute Market Explorer query", "code": "MARKET_EXPLORER_QUERY_FAILED"}, status_code=500)
 
 
 @app.get("/auth/me")

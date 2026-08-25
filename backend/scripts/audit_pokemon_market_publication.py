@@ -1606,6 +1606,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         supabase, market_date=args.market_date, canonical_keys=args.sets, phase=args.phase
     )
 
+    # Queue only whole-surface audits. Targeted --set diagnostics are operator
+    # probes and must not claim the daily pipeline passed or failed globally.
+    if not args.sets and report.market_date:
+        try:
+            from backend.alerts.pipeline_alerts import (
+                alert_market_audit, alert_market_pipeline_complete_if_ready,
+                alert_simulation_stage,
+            )
+            failing = [row.canonical_key or row.set_id or "unknown" for row in report.failed_rows]
+            alert_market_audit(
+                market_date=report.market_date, passed=report.passed,
+                failing_surfaces=failing, expected_date=report.market_date,
+                error=report.error,
+            )
+            if args.phase == PHASE_FULL:
+                alert_simulation_stage(
+                    market_date=report.market_date,
+                    state="complete" if report.passed else "publication_failed",
+                    set_count=len(report.rows), final_audit_status="PASS" if report.passed else "FAIL",
+                )
+            elif args.phase == PHASE_POST_SCRAPE:
+                alert_market_pipeline_complete_if_ready(
+                    supabase, market_date=report.market_date, audit_passed=report.passed)
+        except Exception:  # pragma: no cover - an audit verdict never depends on alerting
+            logger.exception("%s failed to queue publication audit alert", AUDIT_TAG)
+
     if args.as_json:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
