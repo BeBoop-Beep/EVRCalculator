@@ -530,11 +530,10 @@ export default function ProductFamilyRankingsClient({
   productFamilyRankings,
   initialOverallProductRankings,
   loadError,
-  canViewProductRipIntelligence: accessOverride,
   onUnlockProductRip = null,
 }) {
   const { canViewRankingsIntelligence } = useRankingsAccess();
-  const canViewProductRipIntelligence = accessOverride ?? canViewRankingsIntelligence;
+  const canViewProductRipIntelligence = canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
   const [view, setView] = useState("sets"),

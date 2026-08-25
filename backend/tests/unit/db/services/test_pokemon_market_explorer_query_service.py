@@ -69,18 +69,29 @@ class _Query:
     def in_(self, column, values):
         return _Query(self._rows, self._filters + [(column, "in", list(values))])
 
+    def order(self, column, desc=False):
+        # Real paging depends on a deterministic order, so the double must sort
+        # too: a fake that ignored `order` would let a paging bug pass here and
+        # only surface against the live database.
+        return _Query(self._rows, self._filters + [(column, "order", bool(desc))])
+
     def range(self, start, end):
         self._range = (start, end)
         return self
 
     def execute(self):
         rows = self._rows
+        orderings = []
         for column, op, value in self._filters:
             if op == "eq":
                 rows = [row for row in rows if str(row.get(column)) == str(value)]
+            elif op == "order":
+                orderings.append((column, value))
             else:
                 wanted = {str(item) for item in value}
                 rows = [row for row in rows if str(row.get(column)) in wanted]
+        for column, desc in reversed(orderings):
+            rows = sorted(rows, key=lambda row: str(row.get(column) or ""), reverse=desc)
         start, end = getattr(self, "_range", (0, 999))
         return type("Result", (), {"data": rows[start:end + 1]})()
 

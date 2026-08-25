@@ -1,4 +1,9 @@
 from backend.db.services import frontend_proxy_service as service
+import pytest
+
+
+def test_profile_projection_includes_index_plan():
+    assert "index_plan" in service.PROFILE_SELECT_FIELDS.split(", ")
 
 
 def test_login_user_uses_isolated_auth_client_for_sign_in(monkeypatch):
@@ -190,6 +195,22 @@ def test_get_me_prefers_profile_display_name_for_canonical_name(monkeypatch):
     assert payload["user"]["username"] == "collector-user"
     assert payload["user"]["display_name"] == "Collector Prime"
     assert payload["user"]["name"] == "Collector Prime"
+
+
+@pytest.mark.parametrize("index_plan", ["premium", "plus", None])
+def test_get_me_returns_database_index_plan(monkeypatch, index_plan):
+    monkeypatch.setattr(service, "decode_token", lambda _token: ({
+        "id": "user-123", "email": "collector@example.com", "username": "collector-user",
+    }, None))
+    monkeypatch.setattr(service, "get_profile_by_user_id", lambda *_args, **_kwargs: ({
+        "id": "user-123", "username": "collector-user", "display_name": "Collector",
+        "index_plan": index_plan,
+    }, None))
+
+    payload, status = service.get_me("token")
+
+    assert status == 200
+    assert payload["user"]["index_plan"] == index_plan
 
 
 def test_get_me_falls_back_to_username_when_display_name_missing(monkeypatch):

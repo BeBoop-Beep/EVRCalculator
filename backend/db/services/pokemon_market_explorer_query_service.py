@@ -363,6 +363,39 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 COHORT_CHUNK_DAYS = 30
 
 
+#: Largest UNRANKED universe the cohort authority can serve over full history.
+#:
+#: MEASURED, and narrower chunks do not move it: a 222-card rarity completes at
+#: 30-day chunks, a 492-card one times out at 14 days, survives at 10 only by
+#: taking 57 seconds, and a 1,617-card one times out at every width down to 7.
+#: The cost is a latest-observation-before-boundary lookup per card per day, so
+#: shrinking the window trades one long statement for many — it does not reduce
+#: the work. 250 sits above the largest universe observed to succeed and below
+#: the smallest observed to fail.
+#:
+#: A `top_n` query is exempt: the database ranks it internally and never
+#: materialises the full panel, which is why Global Top 10 is fast at any size.
+COHORT_MAX_UNRANKED_CARDS = 250
+
+
+def _is_statement_timeout(exc: Exception) -> bool:
+    """Postgres 57014, however the PostgREST client happens to wrap it."""
+    code = getattr(exc, "code", None)
+    if str(code) == "57014":
+        return True
+    payload = getattr(exc, "args", None)
+    text = str(payload[0]) if payload else str(exc)
+    return "57014" in text or "statement timeout" in text.lower()
+
+
+def _oversized_unranked_universe_message(card_count: int, set_count: int) -> str:
+    return (
+        "this market is too large to compute over its full history "
+        f"({card_count} cards across {set_count} sets). Narrow the scope to an era "
+        "or a set, or use Top 10, which the database can rank directly."
+    )
+
+
 def load_daily_cohort_rows(
     client: Any,
     set_ids: Sequence[str],
@@ -404,6 +437,15 @@ def load_daily_cohort_rows(
     # read it -- and that duplicated row is then dropped. The stitched series is
     # therefore identical to an unchunked one, gaps included, rather than
     # showing a false chain break at every chunk boundary.
+    # PRE-FLIGHT, so an impossible query is refused in milliseconds instead of
+    # after a 60-second statement timeout (or, for Illustration Rare, 66s of
+    # chunk retries). Only the unranked panel is bounded: `top_n` is ranked
+    # inside the database and never materialises the full card-day panel.
+    if not top_n and card_ids is not None and len(card_ids) > COHORT_MAX_UNRANKED_CARDS:
+        raise MarketExplorerQueryUnavailable(
+            _oversized_unranked_universe_message(len(card_ids), len(set_ids))
+        )
+
     rows: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
@@ -419,7 +461,23 @@ def load_daily_cohort_rows(
             "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
             "p_top_n": int(top_n) if top_n else None,
         }
-        page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
+        try:
+            page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
+        except Exception as exc:  # noqa: BLE001 - classified, then re-raised
+            # A statement timeout here is not a server fault, it is this query
+            # being too large for the current cohort authority: without
+            # `p_top_n` the panel does a latest-observation-before-boundary
+            # lookup per card per day, and past roughly 250 cards that exceeds
+            # the statement budget at ANY chunk size. Surfacing it as a generic
+            # 500 told the user "something broke"; naming it lets the UI say
+            # what to do instead. Anything else propagates unchanged.
+            if not _is_statement_timeout(exc):
+                raise
+            raise MarketExplorerQueryUnavailable(
+                _oversized_unranked_universe_message(
+                    len(card_ids) if card_ids is not None else -1, len(set_ids)
+                )
+            ) from exc
         if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE:
             raise MarketExplorerQueryUnavailable(
                 f"{COHORT_RPC} hit the {_RPC_MAX_ROWS_PER_RESPONSE}-row response cap; "
