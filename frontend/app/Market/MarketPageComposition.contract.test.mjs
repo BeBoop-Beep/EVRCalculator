@@ -100,10 +100,14 @@ test("ONE timeframe state drives the overview period column and the chart", () =
 });
 
 test("Market Overview is five columns and keeps BOTH published dimensions", () => {
-  // Tracked Market Value plus canonical index return since the current segment.
+  // Tracked Market Value plus the market's OWN since-tracking index return.
   assert.match(overview, /MARKET_OVERVIEW_GROUPS\.trackedValue/);
   assert.match(overview, /const SINCE_TRACKING = "All"/);
-  assert.match(overview, /getPricePerformanceChange\(family, SINCE_TRACKING\)/);
+  // The Since Tracking column MUST read the family-specific series. Reading the
+  // shared-comparison `changes` here reported the common comparable start under
+  // a "Since Tracking" label, which is the defect this guards against.
+  assert.match(overview, /getFamilySinceTrackingChange\(family\)/);
+  assert.doesNotMatch(overview, /getPricePerformanceChange\(family, SINCE_TRACKING\)/);
   assert.match(overview, /data-market-overview-metric="trackedValue"/);
   // Price Performance: the index plus ONE dynamic period column, read from
   // changes at the shared selection.
@@ -168,6 +172,27 @@ test("selecting a set updates the pane in place and lazily loads only its full d
   assert.doesNotMatch(setMarket, /targets\.map\([^)]*getPokemonSetValueHistory/);
 });
 
+test("mobile Set Market uses document scroll with a contextual sticky toolbar", () => {
+  assert.match(css, /@media \(max-width: 1199\.98px\) \{[\s\S]*?\.setListScroll \{[\s\S]*?height: auto;[\s\S]*?max-height: none;[\s\S]*?overflow-y: visible;/);
+  assert.match(css, /\.setMarketMobileSticky \{[\s\S]*?position: sticky;[\s\S]*?top: var\(--app-header-offset, 64px\);[\s\S]*?z-index: 30;/);
+  assert.match(setMarket, /data-set-market-toolbar/);
+  assert.match(setMarket, /setListHeaderMobile/);
+  assert.match(setMarket, /data-set-market-results-top/);
+  assert.match(setMarket, /<ReturnToTopButton/);
+  assert.match(setMarket, /new IntersectionObserver/);
+  assert.match(setMarket, /prefers-reduced-motion: reduce/);
+  assert.match(css, /@media \(min-width: 1200px\) \{[\s\S]*?\.setMarketBody/);
+});
+
+test("mobile Set Market is list-only with passive truthful row sparklines", () => {
+  assert.match(setMarket, /<MiniMarketSparkline points=\{miniTrend\}/);
+  assert.match(setMarket, /selectSetMarketMiniTrend\(row\.target, listWindowKey\)/);
+  assert.match(setMarket, /if \(!isMasterDetail \|\| !browserIsDesktop\) return undefined/);
+  assert.match(setMarket, /<div className="hidden desk:block">\{detailPane\}<\/div>/);
+  assert.doesNotMatch(setMarket, /mobileView|detailWindowKey|data-set-market-back/);
+  assert.doesNotMatch(setMarket, /targets\.map\([^)]*getPokemonSetValueHistory/);
+});
+
 test("selected-set history loading is a silent, fixed-height chart skeleton", () => {
   assert.match(setMarket, /data-set-market-detail-skeleton/);
   assert.match(setMarket, /aria-hidden="true"/);
@@ -176,10 +201,10 @@ test("selected-set history loading is a silent, fixed-height chart skeleton", ()
   assert.match(setMarket, /Set Value history is temporarily unavailable\./);
 });
 
-test("both Set Market timeframes default to 7D", () => {
+test("the shared Set Market timeframe defaults to 7D", () => {
   assert.match(setMarket, /const DEFAULT_WINDOW = "7D"/);
   assert.match(setMarket, /useState\(DEFAULT_WINDOW\)/);
-  assert.equal((setMarket.match(/useState\(DEFAULT_WINDOW\)/g) || []).length, 2, "the list column and the detail chart");
+  assert.equal((setMarket.match(/useState\(DEFAULT_WINDOW\)/g) || []).length, 1, "one list window also drives the desktop detail chart");
 });
 
 test("selected-set Top Movers reuses the existing per-set movers data and selector", () => {
@@ -231,8 +256,10 @@ test("Set Market controls use the shared dark form language, never a bright fiel
   assert.match(css, /\.setMarketControl \{[\s\S]*?background-color: var\(--surface-page\);/);
   assert.match(setMarket, /ariaLabel="Filter by era"/);
   assert.match(setMarket, /ariaLabel="Sort sets"/);
-  assert.match(css, /\.setMarketControl:focus-visible \{[\s\S]*?border-color: rgb\(45, 212, 191\);[\s\S]*?box-shadow: 0 0 0 2px rgba\(var\(--ex-teal\), 0\.35\);/);
-  assert.doesNotMatch(css, /\.setMarketControl:focus-visible \{[\s\S]*?border-color: var\(--accent\);/);
+  const setMarketFocus = css.slice(css.indexOf(".setMarketControl:focus {"), css.indexOf("}", css.indexOf(".setMarketControl:focus {")) + 1);
+  assert.match(setMarketFocus, /border-color: rgb\(45, 212, 191\);/);
+  assert.match(setMarketFocus, /box-shadow: 0 0 0 2px rgba\(var\(--ex-teal\), 0\.35\);/);
+  assert.doesNotMatch(setMarketFocus, /var\(--accent\)/);
 });
 
 test("multi-set comparison is NOT implemented", () => {
@@ -248,6 +275,8 @@ test("multi-set comparison is NOT implemented", () => {
 test("Market Overview is read from the snapshot, never computed in the frontend", () => {
   assert.match(page, /resolveMarketOverview\(setValuePayload\)/);
   assert.match(page, /setValuePayload\?\.sets/);
+  assert.match(page, /projectMarketPageOverview\(overview\)/);
+  assert.match(page, /overview=\{marketPageOverview\}/);
   // No local arithmetic on market figures.
   assert.doesNotMatch(page, /basketValue\s*[-+*/]/);
   assert.doesNotMatch(page, /indexValue\s*[-+*/]/);

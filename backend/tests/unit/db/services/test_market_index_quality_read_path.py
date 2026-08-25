@@ -27,13 +27,17 @@ QUALITY_TABLE = "pokemon_market_date_quality"
 # The production incident, frozen as a fixture.
 AUG_FIXTURE_QUALITY = [
     {"market_date": "2026-08-17", "status": STATUS_LEGACY_VERIFIED,
-     "contract_version": MARKET_QUALITY_CONTRACT_VERSION},
+     "contract_version": MARKET_QUALITY_CONTRACT_VERSION, "cohort_set_count": 22,
+     "evidence_json": {"missingValuationSetIds": {}}},
     {"market_date": "2026-08-18", "status": STATUS_DEGRADED,
-     "contract_version": MARKET_QUALITY_CONTRACT_VERSION},
+     "contract_version": MARKET_QUALITY_CONTRACT_VERSION, "cohort_set_count": 22,
+     "evidence_json": {"missingValuationSetIds": {}, "missingQualifyingRunSetIds": ["all"]}},
     {"market_date": "2026-08-19", "status": STATUS_READY,
-     "contract_version": MARKET_QUALITY_CONTRACT_VERSION},
+     "contract_version": MARKET_QUALITY_CONTRACT_VERSION, "cohort_set_count": 22,
+     "evidence_json": {"missingValuationSetIds": {}}},
     {"market_date": "2026-08-20", "status": STATUS_READY,
-     "contract_version": MARKET_QUALITY_CONTRACT_VERSION},
+     "contract_version": MARKET_QUALITY_CONTRACT_VERSION, "cohort_set_count": 22,
+     "evidence_json": {"missingValuationSetIds": {}}},
 ]
 
 AUG_FIXTURE_INDEX = [
@@ -109,14 +113,14 @@ def _dates(rows):
 # The frozen Aug 17-20 scenario
 # --------------------------------------------------------------------------- #
 
-def test_public_read_serves_exactly_the_three_accepted_points():
+def test_public_read_keeps_simulation_degraded_but_valuation_complete_point():
     rows = read_index_history(_aug_client())
-    assert _dates(rows) == ["2026-08-17", "2026-08-19", "2026-08-20"]
+    assert _dates(rows) == ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20"]
 
 
-def test_aug18_never_appears_in_the_public_trend():
+def test_aug18_appears_in_market_history_despite_missing_simulations():
     rows = read_index_history(_aug_client())
-    assert "2026-08-18" not in _dates(rows)
+    assert "2026-08-18" in _dates(rows)
 
 
 def test_degraded_row_remains_physically_stored():
@@ -152,6 +156,7 @@ def test_chain_fields_are_the_persisted_ones_from_the_accepted_rebuild():
 def test_incomplete_dates_are_excluded_too():
     quality = [dict(r) for r in AUG_FIXTURE_QUALITY]
     quality[1]["status"] = STATUS_INCOMPLETE
+    quality[1]["evidence_json"] = {"missingValuationSetIds": {"top10": ["missing"]}}
     assert "2026-08-18" not in _dates(read_index_history(_aug_client(quality=quality)))
 
 

@@ -26,11 +26,11 @@ test("Rankings mobile uses dense expandable rows with canonical Set RIP context"
   assert.ok(rankings.includes("data-set-rip-score-badge"));
 });
 
-test("Set RIP page leads with composition and keeps downstream opening content", () => {
-  const breakdown = setPage.indexOf('data-rip-section="set-rip-breakdown"');
-  assert.ok(breakdown >= 0);
-  assert.ok(setPage.indexOf("What Makes Up", breakdown) > breakdown);
-  assert.ok(setPage.indexOf("<ProductOpeningValue", breakdown) > breakdown);
+test("Set RIP deep dive keeps opening value and composition content", () => {
+  const deepDive = setPage.indexOf('data-rip-section="deep-dive"');
+  assert.ok(deepDive >= 0);
+  assert.ok(setPage.indexOf("<ProductOpeningValue", deepDive) > deepDive);
+  assert.ok(setPage.indexOf("What Makes Up", deepDive) > deepDive);
   assert.ok(!setPage.includes("Booster Pack RIP Rank"));
 });
 
@@ -49,7 +49,7 @@ test("family presentation is text-first while the set-page header remains owned 
   assert.ok(!setPage.includes("PokemonSetMobileHero"), "RipDecisionPage must not replace the existing set identity header");
 });
 
-test("Rankings uses one compact shared snapshot panel and the approved view control", () => {
+test("Rankings keeps the compact mobile snapshot and uses fixed desktop family columns", () => {
   assert.ok(shared.includes("data-family-snapshot"));
   assert.ok(shared.includes("Math.min(families.length, 7)"));
   assert.ok(familyStyles.includes("repeat(2, minmax(0, 1fr))"));
@@ -57,13 +57,17 @@ test("Rankings uses one compact shared snapshot panel and the approved view cont
   assert.ok(familyStyles.includes("repeat(var(--family-columns), minmax(0, 1fr))"));
   assert.ok(rankings.includes("data-set-rip-score-badge"));
   assert.ok(rankings.includes("data-ranking-insight"));
-  assert.ok(cohortControl.includes(">Sets</button>"));
-  assert.ok(cohortControl.includes(">Individual Products</button>"));
+  assert.ok(rankings.includes("RankingsFamilyCells"));
+  assert.ok(rankings.includes('scope="colgroup"'));
+  assert.ok(cohortControl.includes("SegmentedControl"));
+  assert.ok(cohortControl.includes('variant="primary"'));
 });
 
 test("Rankings data surface uses the wider desktop canvas and prioritizes family capacity", () => {
-  assert.ok(rankingsPage.includes("md:max-w-[84rem]"));
-  assert.ok(rankings.includes('<col style={{ width: "51%" }} />'));
+  assert.ok(rankingsPage.includes("data-rankings-wide-shell"));
+  assert.ok(rankingsPage.includes("md:max-w-[100rem]"));
+  assert.ok(!rankingsPage.includes("max-w-5xl"));
+  assert.ok(rankings.includes("RANKINGS_FAMILY_COLUMNS.map"));
   assert.ok(rankings.includes('<col style={{ width: "14%" }} />'));
 });
 

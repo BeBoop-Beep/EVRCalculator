@@ -24,13 +24,13 @@ test("canonical visual language includes frame, gradient, line, guide, marker, a
   }
 });
 
-test("Set Market mounts exactly ONE sparkline — the selected set's, never one per row", () => {
+test("Set Market mounts exactly one full interactive sparkline — the selected desktop set's", () => {
   // The scalability rule the master-detail redesign exists to enforce: a
   // 167-set catalogue must not mount 167 interactive charts.
   assert.equal((setMarket.match(/<MarketSparkline/g) || []).length, 1, "one chart in the whole component");
   const listPane = setMarket.slice(setMarket.indexOf("const listPane ="), setMarket.indexOf("const detailPane ="));
-  assert.ok(!listPane.includes("MarketSparkline"), "the set list renders no chart at all");
-  assert.ok(!listPane.includes("Sparkline"), "not even a wrapper around one");
+  assert.ok(!listPane.includes("<MarketSparkline"), "the set list renders no full interactive chart");
+  assert.ok(listPane.includes("<MiniMarketSparkline"), "mobile rows may render the passive microchart primitive");
 });
 
 test("the selected-set chart is a sibling of the row buttons, never nested in one", () => {

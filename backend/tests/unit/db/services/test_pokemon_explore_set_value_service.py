@@ -64,6 +64,22 @@ def test_compact_contract_is_not_raw_dashboard_history():
     assert len(published["trend"]) <= 48
     assert "setValueHistoriesByScope" not in json.dumps(result["payload_json"])
     assert published["trend"][-1] == [target_date, rows[-1]["set_value"]]
+    assert len(published["recentDailyTrend"]) == 30
+    assert published["recentDailyTrend"] == [[row["snapshot_date"], row["set_value"]] for row in rows[-30:]]
+    assert result["payload_json"]["meta"]["recentDailyTrendPointLimit"] == 30
+
+
+def test_recent_daily_trend_preserves_real_missing_dates_without_fabrication():
+    rows = history(35)
+    missing_date = rows[-5]["snapshot_date"]
+    rows = [row for row in rows if row["snapshot_date"] != missing_date]
+    target_date = rows[-1]["snapshot_date"]
+    result = build_global_set_value_row([pokemon_set()], [{"set_id": "set-1", "window_key": "365d", "latest_market_date": target_date, "set_value_histories_json": {"standard": prepared(rows)}}], {"set-1": rows}, target_market_date=target_date)
+    recent = result["payload_json"]["sets"][0]["recentDailyTrend"]
+    assert len(recent) == 30
+    assert missing_date not in [point[0] for point in recent]
+    assert recent == sorted(recent)
+    assert recent[-1] == [target_date, rows[-1]["set_value"]]
 
 
 def _published_row(days=40):

@@ -125,6 +125,22 @@ def test_scraper_failure_finalizes_failed(monkeypatch):
     assert kwargs["final_status"] == "failed"
 
 
+def test_terminal_retry_exhaustion_alerts_but_transient_attempt_does_not(monkeypatch):
+    calls = []
+    monkeypatch.setattr("backend.alerts.pipeline_alerts.alert_set_scrape_failed",
+                        lambda **kwargs: calls.append(kwargs))
+    base = {"id": 3, "batch_id": 4, "market_date": "2026-08-25", "max_attempts": 3}
+    dispatcher._alert_if_retries_exhausted(
+        {**base, "attempts": 2}, canonical_key="blackBolt",
+        error_code="transient", error_summary="retrying")
+    assert calls == []
+    dispatcher._alert_if_retries_exhausted(
+        {**base, "attempts": 3}, canonical_key="blackBolt",
+        error_code="transient", error_summary="exhausted")
+    assert calls[0]["canonical_key"] == "blackBolt"
+    assert calls[0]["retryable"] is False
+
+
 def test_scraper_exception_finalizes_failed(monkeypatch):
     monkeypatch.setattr(dispatcher, "claim_next_scrape_job",
                         lambda **k: {"id": 303, "set_id": "set-c", "market_date": "2026-07-18"})

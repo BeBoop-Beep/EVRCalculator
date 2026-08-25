@@ -143,15 +143,16 @@ def test_absent_card_is_excluded_not_fabricated_as_zero():
 
 def test_seven_and_thirty_day_windows_use_shared_period_semantics():
     spec = {f"2026-08-{day:02d}": {"a": 10.0} for day in range(1, 31)}
+    spec["2026-07-31"] = {"a": 10.0}
     spec["2026-08-30"] = {"a": 12.0}
     index = build_cards_market_index(observations(spec))
     seven = index["movements"]["7D"]
     thirty = index["movements"]["30D"]
     assert seven["available"] is True
-    assert seven["startDate"] == "2026-08-24"
+    assert seven["startDate"] == "2026-08-23"
     assert seven["percent"] == pytest.approx(20.0)
     assert thirty["available"] is True
-    assert thirty["startDate"] == "2026-08-01"
+    assert thirty["startDate"] == "2026-07-31"
 
 
 def test_window_unavailable_rather_than_fabricated_when_history_is_short():
@@ -255,11 +256,12 @@ def test_breadth_single_point_has_no_baseline():
 
 def test_breadth_windows_track_index_window_endpoints():
     spec = {f"2026-08-{day:02d}": {"a": 10.0, "b": 10.0} for day in range(1, 31)}
+    spec["2026-07-31"] = {"a": 10.0, "b": 10.0}
     spec["2026-08-30"] = {"a": 12.0, "b": 8.0}
     result = compute_market_breadth(observations(spec))
-    assert result["7D"]["startDate"] == "2026-08-24"
-    assert result["30D"]["startDate"] == "2026-08-01"
-    assert result["SinceTracking"]["startDate"] == "2026-08-01"
+    assert result["7D"]["startDate"] == "2026-08-23"
+    assert result["30D"]["startDate"] == "2026-07-31"
+    assert result["SinceTracking"]["startDate"] == "2026-07-31"
     assert result["7D"]["advancingCount"] == 1
     assert result["7D"]["decliningCount"] == 1
 

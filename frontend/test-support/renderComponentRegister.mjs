@@ -68,8 +68,19 @@ const frontendRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+// `next/link` IS UNRENDERABLE UNDER THIS RUNNER.
+//
+// Next's Link reads the App Router context on render and throws outside a real
+// Next tree, so a component that links to another page cannot be rendered here
+// at all — the whole subtree fails, not just the link. It is redirected to a
+// local stub that renders the anchor Link actually produces, so a test can
+// assert where a row navigates to. Scope of effect is the same as the alias
+// below: this process, after this import.
+const nextLinkStub = path.join(frontendRoot, "test-support", "nextLinkStub.cjs");
+
 const resolveFilename = Module._resolveFilename;
 Module._resolveFilename = function resolveWithAlias(request, ...rest) {
+  if (request === "next/link") return nextLinkStub;
   const aliased = request.startsWith("@/")
     ? path.join(frontendRoot, request.slice(2))
     : request;

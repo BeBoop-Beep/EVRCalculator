@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 
 from backend.db.services.pokemon_global_sealed_market_service import (
@@ -91,6 +93,21 @@ def test_insufficient_history_and_promoted_date_forward_fill_safely():
     assert filled["metadata"]["historyPointCount"] == 1
 
 
+def test_global_sealed_windows_use_true_elapsed_day_baselines():
+    end = date(2026, 8, 24)
+    points = [
+        ((end - timedelta(days=offset)).isoformat(), 400 - offset)
+        for offset in reversed(range(91))
+    ]
+    sealed = build_global_sealed_market([snapshot(product("daily", points))], market_date=end.isoformat())
+    assert sealed["changes"]["7D"]["targetStartDate"] == "2026-08-17"
+    assert sealed["changes"]["7D"]["startDate"] == "2026-08-17"
+    assert sealed["changes"]["30D"]["targetStartDate"] == "2026-07-25"
+    assert sealed["changes"]["30D"]["startDate"] == "2026-07-25"
+    assert sealed["changes"]["3M"]["targetStartDate"] == "2026-05-26"
+    assert sealed["changes"]["3M"]["startDate"] == "2026-05-26"
+
+
 def test_market_overview_extension_does_not_change_raw_or_top10():
     # A minimal valid persisted history, already prepared by the unchanged card path.
     history = []
@@ -107,4 +124,7 @@ def test_market_overview_extension_does_not_change_raw_or_top10():
     extended = build_market_overview(history, market_date="2026-01-01", sealed_market=sealed)
     assert extended["raw"] == baseline["raw"]
     assert extended["topChase"] == baseline["topChase"]
-    assert extended["sealedMarket"] == sealed
+    assert extended["sealedMarket"]["indexValue"] == sealed["indexValue"]
+    assert extended["sealedMarket"]["basketValue"] == sealed["basketValue"]
+    assert extended["sealedMarket"]["trend"] == sealed["trend"]
+    assert "comparisonWindows" in extended

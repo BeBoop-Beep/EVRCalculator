@@ -274,7 +274,7 @@ def test_positive_control_ready_actually_reaches_artifact_persistence(monkeypatc
     persisted = []
 
     monkeypatch.setattr(index_history, "get_client", lambda: client)
-    monkeypatch.setattr(index_history, "accepted_market_dates",
+    monkeypatch.setattr(index_history, "market_index_accepted_dates",
                         lambda *a, **k: {"2026-08-17", "2026-08-19"})
     monkeypatch.setattr(index_history, "build_market_index_history",
                         lambda *a, **k: [{"market_date": "2026-08-19",
@@ -322,7 +322,7 @@ def test_missing_quality_history_fails_closed_instead_of_crashing(monkeypatch, c
     built = []
 
     monkeypatch.setattr(index_history, "get_client", lambda: client)
-    monkeypatch.setattr(index_history, "accepted_market_dates",
+    monkeypatch.setattr(index_history, "market_index_accepted_dates",
                         lambda *a, **k: (_ for _ in ()).throw(
                             RuntimeError('relation "pokemon_market_date_quality" does not exist')))
     monkeypatch.setattr(index_history, "build_market_index_history",

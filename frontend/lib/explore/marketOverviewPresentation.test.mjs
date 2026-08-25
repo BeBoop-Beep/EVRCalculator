@@ -29,9 +29,18 @@ import {
   getPricePerformanceChange,
   getTrackedValueChange,
   isMarketWindowAvailable,
+  projectMarketPageOverview,
   resolveDefaultMarketWindow,
   resolveMarketOverview,
 } from "./marketOverviewPresentation.mjs";
+
+test("the /Market projection removes Top Chase without mutating canonical data", () => {
+  const canonical = { families: [{ key: "raw" }, { key: "topChase" }, { key: "sealedMarket" }], coverage: { chaseCardCount: 100 } };
+  const projected = projectMarketPageOverview(canonical);
+  assert.deepEqual(projected.families.map((family) => family.key), ["raw", "sealedMarket"]);
+  assert.deepEqual(canonical.families.map((family) => family.key), ["raw", "topChase", "sealedMarket"]);
+  assert.equal(projected.coverage.chaseCardCount, 100);
+});
 
 const change = (percent, startDate, endDate) => ({ available: true, percent, startDate, endDate, targetStartDate: startDate, coverage: "full" });
 const missing = (endDate, targetStartDate) => ({ available: false, percent: null, startDate: null, endDate, targetStartDate, coverage: "unavailable" });
@@ -55,6 +64,15 @@ const SNAPSHOT = {
   marketOverview: {
     contractVersion: "pokemon-market-overview-v1",
     marketDate: "2024-01-04",
+    comparisonWindows: {
+      "1D": { targetStartDate: "2024-01-03", displayStartDate: "2024-01-03", displayEndDate: "2024-01-04", available: true },
+      "7D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
+      "30D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
+      "3M": { targetStartDate: "2023-10-07", displayStartDate: "2023-10-07", displayEndDate: "2024-01-04", available: false },
+      "6M": { targetStartDate: "2023-07-09", displayStartDate: "2023-07-09", displayEndDate: "2024-01-04", available: false },
+      "1Y": { targetStartDate: "2023-01-05", displayStartDate: "2023-01-05", displayEndDate: "2024-01-04", available: false },
+      SinceTracking: { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
+    },
     coverage: { eligibleSetCount: 3, rawCardCount: 512, chaseCardCount: 30, cohortFingerprint: "fp" },
     raw: {
       basketValue: 8123.45,
@@ -246,6 +264,108 @@ test("the charted span is clipped to the backend window's start and end dates", 
   assert.deepEqual(model.series[1].values, [97, 96.5]);
 });
 
+test("shared domain excludes stale points and preserves missing calendar dates", () => {
+  const payload = structuredClone(snapshotWithSealed);
+  payload.marketOverview.marketDate = "2026-08-24";
+  payload.marketOverview.comparisonWindows["30D"] = {
+    targetStartDate: "2026-07-26", displayStartDate: "2026-07-26", displayEndDate: "2026-08-24", available: true,
+  };
+  payload.marketOverview.sealedMarket.trend = [["2026-07-16", 99], ["2026-07-26", 100], ["2026-07-29", 101], ["2026-08-24", 102]];
+  payload.marketOverview.sealedMarket.changes["30D"] = { available: true, percent: 2, startDate: "2026-07-26", endDate: "2026-08-24", coverage: "full" };
+  const model = buildMarketPerformanceSeries(resolveMarketOverview(payload), "30D");
+  assert.equal(model.startDate, "2026-07-26");
+  assert.equal(model.endDate, "2026-08-24");
+  assert.equal(model.dates.length, 30);
+  assert.equal(model.dates.includes("2026-07-16"), false);
+  const sealed = model.series.find((entry) => entry.key === "sealedMarket");
+  assert.equal(sealed.values[0], 100);
+  assert.equal(sealed.values[3], 101);
+});
+
+test("one unavailable family does not disable a named comparison window", () => {
+  const payload = structuredClone(snapshotWithSealed);
+  payload.marketOverview.sealedMarket.changes["1D"] = missing("2024-01-04", "2024-01-03");
+  const resolved = resolveMarketOverview(payload);
+  assert.equal(isMarketWindowAvailable(resolved, "1D"), true);
+  const model = buildMarketPerformanceSeries(resolved, "1D");
+  assert.equal(model.startDate, "2024-01-03");
+  assert.deepEqual(model.series.find((entry) => entry.key === "sealedMarket").values, [null, null]);
+  assert.deepEqual(model.series.filter((entry) => entry.values.some((value) => value !== null)).map((entry) => entry.key), ["raw", "topChase"]);
+});
+
+test("Sealed 1D uses comparison-only carried provenance without mutating canonical trend", () => {
+  const payload = structuredClone(snapshotWithSealed);
+  payload.marketOverview.marketDate = "2026-08-24";
+  payload.marketOverview.comparisonWindows["1D"] = {
+    targetStartDate: "2026-08-23", displayStartDate: "2026-08-23",
+    displayEndDate: "2026-08-24", available: true, coverage: "full",
+  };
+  payload.marketOverview.sealedMarket.trend = [
+    ["2026-08-22", 106.21882536871614], ["2026-08-24", 106.17849310930887],
+  ];
+  payload.marketOverview.sealedMarket.oneDayComparison = {
+    comparisonTrend: [
+      { date: "2026-08-23", value: 106.21882536871614, isObserved: false, isCarriedForward: true, sourceDate: "2026-08-22" },
+      { date: "2026-08-24", value: 106.17849310930887, isObserved: true, isCarriedForward: false, sourceDate: "2026-08-24" },
+    ],
+  };
+  payload.marketOverview.sealedMarket.changes["1D"] = {
+    available: true, percent: -0.03797091454105228,
+    startDate: "2026-08-23", endDate: "2026-08-24",
+    targetStartDate: "2026-08-23", coverage: "carried_previous_close",
+    isCarriedForwardBaseline: true, baselineSourceDate: "2026-08-22",
+  };
+  for (const key of ["raw", "topChase"]) {
+    payload.marketOverview[key].trend = [["2026-08-23", 100], ["2026-08-24", 101]];
+    payload.marketOverview[key].changes["1D"] = change(1, "2026-08-23", "2026-08-24");
+  }
+  const resolved = resolveMarketOverview(payload);
+  const sealed = resolved.families.find((family) => family.key === "sealedMarket");
+  const model = buildMarketPerformanceSeries(resolved, "1D");
+  assert.deepEqual(model.dates, ["2026-08-23", "2026-08-24"]);
+  assert.deepEqual(model.series.map((entry) => entry.key), ["raw", "topChase", "sealedMarket"]);
+  assert.deepEqual(model.series.find((entry) => entry.key === "sealedMarket").values, [106.21882536871614, 106.17849310930887]);
+  assert.equal(model.series.find((entry) => entry.key === "sealedMarket").pointMeta[0].sourceDate, "2026-08-22");
+  assert.equal(model.series.find((entry) => entry.key === "sealedMarket").pointMeta[0].isCarriedForward, true);
+  assert.deepEqual(sealed.trend.map((point) => point.date), ["2026-08-22", "2026-08-24"]);
+  assert.equal(getMarketChange(sealed, "1D").coverage, "carried_previous_close");
+});
+
+test("partial 6M and 1Y use the shared All domain and remain selectable", () => {
+  const payload = structuredClone(snapshotWithSealed);
+  for (const key of ["6M", "1Y"]) {
+    payload.marketOverview.comparisonWindows[key] = {
+      targetStartDate: key === "6M" ? "2023-07-09" : "2023-01-05",
+      displayStartDate: "2024-01-01",
+      displayEndDate: "2024-01-04",
+      available: true,
+      coverage: "partial",
+      isSinceFirstAvailable: true,
+    };
+    for (const familyKey of ["raw", "topChase", "sealedMarket"]) {
+      payload.marketOverview[familyKey].changes[key] = {
+        ...payload.marketOverview[familyKey].changes.SinceTracking,
+        coverage: "partial",
+        isSinceFirstAvailable: true,
+        targetStartDate: payload.marketOverview.comparisonWindows[key].targetStartDate,
+      };
+    }
+  }
+  const resolved = resolveMarketOverview(payload);
+  const options = buildMarketWindowOptions(resolved);
+  for (const key of ["6M", "1Y"]) {
+    const option = options.find((entry) => entry.key === key);
+    assert.equal(option.available, true);
+    assert.equal(option.isSinceFirstAvailable, true);
+    assert.match(option.ariaLabel, /shown since first available history/);
+    const model = buildMarketPerformanceSeries(resolved, key);
+    assert.equal(model.startDate, buildMarketPerformanceSeries(resolved, "All").startDate);
+    for (const family of resolved.families) {
+      assert.equal(getMarketChange(family, key).percent, getMarketChange(family, "All").percent);
+    }
+  }
+});
+
 test("change direction is described in words, never carried by color alone", () => {
   assert.match(describeChange("Raw Card Market", "1D", getMarketChange(overview.families[0], "1D")), /up 2\.76 percent/);
   assert.match(describeChange("Top 10 Chase Market", "1D", getMarketChange(overview.families[1], "1D")), /down 0\.52 percent/);
@@ -272,7 +392,18 @@ test("help text names the tracked basket honestly and never as market capitaliza
   assert.match(MARKET_OVERVIEW_HELP.index, /not a score/i);
   assert.match(MARKET_OVERVIEW_HELP.index, /base 100/i);
   assert.match(MARKET_OVERVIEW_HELP.index, /chain-link/i);
-  assert.match(MARKET_OVERVIEW_HELP.index, /after a set enters, its later price movement affects the index/i);
+  // Constituents, not "sets": the same index copy now also describes Sealed,
+  // whose constituents are products. The claim being guarded is unchanged —
+  // entry is neutralized, and later movement still counts.
+  assert.match(MARKET_OVERVIEW_HELP.index, /after one enters, its later price movement affects the index/i);
+  // The index level must be explained against its OWN base, and must not be
+  // read as a claim about every constituent.
+  assert.match(MARKET_OVERVIEW_HELP.index, /above its own index base/i);
+  assert.match(MARKET_OVERVIEW_HELP.index, /does not mean every card or product in it rose/i);
+  // "Since Tracking" and the shared "All" window must be described as
+  // different spans, never as the same statement.
+  assert.match(MARKET_OVERVIEW_HELP.sinceTracking, /this market's own tracking start/i);
+  assert.match(MARKET_OVERVIEW_HELP.sharedComparison, /common comparable start/i);
   // "market cap" appears only inside the explicit disclaimer.
   assert.doesNotMatch(copy.replace(/This is not market capitalization\./g, ""), /market cap/i);
 });
