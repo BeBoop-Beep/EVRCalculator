@@ -121,9 +121,17 @@ def resolve_tracked_set_ids(client: Any) -> list[str]:
     The catalogue contains sets the market does not track. Starting from the
     tracked set list rather than the catalogue keeps the engine from issuing
     constituent reads that can only return nothing.
+
+    READ FROM THE COVERAGE ROLLUP, NOT THE HISTORY TABLE. Both answer this
+    question with the identical 167-set universe (verified: zero divergence in
+    either direction), but the history table holds ~21.8k 'standard' rows and
+    PostgREST has no DISTINCT, so deriving the set list from it costs ~22 paged
+    round trips on EVERY query before a single price is read. The coverage
+    rollup is one row per set. This is the same fact, read from the authority
+    that already stores it per set.
     """
-    rows = _page_all(lambda: client.table("pokemon_set_value_daily_history")
-                     .select("set_id").eq("value_scope", "standard"))
+    rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
+                     .select("set_id,has_history").eq("has_history", True))
     return sorted({str(row.get("set_id") or "").strip() for row in rows} - {""})
 
 
@@ -391,7 +399,17 @@ def run_market_explorer_query(
     if not card_universe:
         raise MarketExplorerQueryUnavailable("no eligible card satisfies the selected filters")
 
+    # A set that contributes no eligible card after the segment filter cannot
+    # contribute a constituent either, so its constituent read can only return
+    # rows we would discard. Dropping it here is not an optimisation detail: the
+    # per-set RPC is by far the dominant cost of a query, and a rarity that
+    # exists in 22 of 167 tracked sets would otherwise pay for 145 pointless
+    # round trips. This changes cost, never membership.
+    contributing_set_ids = {meta["setId"] for meta in card_universe.values()}
+    scope_set_ids = [set_id for set_id in scope_set_ids if set_id in contributing_set_ids]
+
     set_names = _load_set_names(client, scope_set_ids)
+    era_names = _load_era_names(client, spec["eraIds"])
     for meta in card_universe.values():
         meta["setName"] = set_names.get(meta["setId"])
 
@@ -411,7 +429,7 @@ def run_market_explorer_query(
                  "segmentIds": list(spec["segmentIds"])},
         "queryKey": query_key(spec),
         "queryFingerprint": query_fingerprint(spec),
-        "displayLabel": describe_query(spec, set_names=set_names),
+        "displayLabel": describe_query(spec, era_names=era_names, set_names=set_names),
         "taxonomyVersion": CARD_RARITY_TAXONOMY_VERSION,
         "chaseModelNote": MARKET_EXPLORER_CHASE_VS_SET_AGGREGATED_NOTE,
         "scope": {
@@ -433,6 +451,71 @@ def _load_set_names(client: Any, set_ids: Sequence[str]) -> dict[str, str]:
     return {str(row.get("id")): str(row.get("name") or "") for row in rows}
 
 
+def _load_era_names(client: Any, era_ids: Sequence[str]) -> dict[str, str]:
+    if not era_ids:
+        return {}
+    rows = _page_all(lambda: client.table("eras").select("id,name").in_("id", list(era_ids)))
+    return {str(row.get("id")): str(row.get("name") or "") for row in rows}
+
+
 def published_segment_options() -> dict[str, Any]:
     """Backend-published segment options. The frontend has no rarity authority."""
     return taxonomy_metadata()
+
+
+def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
+    """Everything the filter panel is allowed to offer.
+
+    THE PANEL HAS NO AUTHORITY OF ITS OWN. Eras, sets and segments all come
+    from here, so a set the market does not track and a rarity the taxonomy
+    does not publish cannot be selected in the first place -- rather than being
+    selectable and then resolving to an empty market.
+
+    Sets carry their era id so the panel can narrow the set list to the
+    selected eras (section 33) without a second request.
+    """
+    tracked_set_ids = resolve_tracked_set_ids(client)
+    if not tracked_set_ids:
+        raise MarketExplorerQueryUnavailable("no tracked sets have market history")
+
+    set_rows = _page_all(lambda: client.table("sets")
+                         .select("id,name,era_id,release_date")
+                         .in_("id", list(tracked_set_ids)))
+    era_ids = sorted({str(row.get("era_id") or "") for row in set_rows} - {""})
+    era_rows = _page_all(lambda: client.table("eras")
+                         .select("id,name,sort_order").in_("id", era_ids)) if era_ids else []
+
+    tracked_by_era: dict[str, int] = {}
+    for row in set_rows:
+        era_id = str(row.get("era_id") or "")
+        if era_id:
+            tracked_by_era[era_id] = tracked_by_era.get(era_id, 0) + 1
+
+    return {
+        "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
+        "asset": {"id": "cards", "label": "Cards"},
+        "eras": [
+            {
+                "id": str(row.get("id")),
+                "label": str(row.get("name") or ""),
+                "sortOrder": row.get("sort_order"),
+                "trackedSetCount": tracked_by_era.get(str(row.get("id")), 0),
+            }
+            for row in sorted(era_rows, key=lambda row: (row.get("sort_order") or 0))
+        ],
+        "sets": [
+            {
+                "id": str(row.get("id")),
+                "label": str(row.get("name") or ""),
+                "eraId": str(row.get("era_id") or ""),
+                "releaseDate": str(row.get("release_date") or "")[:10] or None,
+            }
+            for row in sorted(set_rows, key=lambda row: str(row.get("name") or ""))
+        ],
+        "segments": published_segment_options(),
+        "marketModes": [
+            {"id": MODE_ALL, "label": "All Constituents"},
+            {"id": MODE_CHASE, "label": "Chase", "topNOptions": [10], "defaultTopN": 10},
+        ],
+        "chaseModelNote": MARKET_EXPLORER_CHASE_VS_SET_AGGREGATED_NOTE,
+    }

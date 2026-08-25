@@ -64,7 +64,7 @@ function money(value) {
     : currency.format(Number(value));
 }
 function score(value) {
-  return value === null || value === undefined ? "—" : Number(value).toFixed(1);
+  return value === null || value === undefined ? "—" : (Number(value) / 10).toFixed(1);
 }
 function rank(value, cohort) {
   return value === null || value === undefined
@@ -136,7 +136,7 @@ function ScoreSurface({
             {score(metric.score)}
             {metric.score === null ? null : (
               <span className="ml-1 text-xs text-[var(--text-secondary)]">
-                /100
+                /10
               </span>
             )}
           </p>
@@ -179,7 +179,7 @@ function SectionMeta({ metric }) {
       <strong className="text-lg tabular-nums text-[var(--text-primary)]">
         {score(metric.publicScore)}{" "}
         <small className="text-xs font-medium text-[var(--text-secondary)]">
-          /100
+          /10
         </small>
       </strong>
       <span className="text-xs tabular-nums text-[var(--text-secondary)]">

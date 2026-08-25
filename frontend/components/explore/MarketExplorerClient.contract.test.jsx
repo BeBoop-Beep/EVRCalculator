@@ -227,7 +227,7 @@ test("the workspace renders exactly three parent-market selector cards", () => {
   const cards = findAll(renderer, "data-market-explorer-card");
   assert.deepEqual(cards.map((card) => card.props["data-market-explorer-card"]), ["raw", "topChase", "sealedMarket"]);
   const text = pageText(renderer);
-  for (const label of ["Raw Card Market", "Top 10 Chase Market", "Sealed Market"]) {
+  for (const label of ["Raw Card Market", "Per-Set Chase Market", "Sealed Market"]) {
     assert.ok(text.includes(label), label);
   }
 });

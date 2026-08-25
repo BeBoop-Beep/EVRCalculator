@@ -2,6 +2,7 @@
 
 import React from "react";
 import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.mjs";
+import { formatPublicRipScore } from "../../constants/exploreRankingConfig.mjs";
 
 const FAMILY_LABELS = Object.freeze({
   loose_booster_pack: "Booster Pack",
@@ -90,7 +91,7 @@ export function FamilyScoreRow({ entry, compact = false, showTakeaway = false })
   return (
     <div data-family-score-row className={`grid min-w-0 items-center gap-3 ${compact ? "grid-cols-[minmax(0,1fr)_3.75rem_2.5rem_auto] py-2.5" : "grid-cols-[minmax(13rem,1.35fr)_4.5rem_4rem_4.75rem_minmax(11rem,1fr)] py-3.5"}`}>
       <span className="min-w-0 text-xs font-semibold leading-snug text-[var(--text-primary)]">{familyLabel(entry.family)}</span>
-      <span className="text-right text-sm font-semibold tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</span>
+      <span className="text-right text-sm font-semibold tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)} / 10</span>
       <span className="text-right text-xs font-semibold tabular-nums text-[var(--text-primary)]">#{entry.rank}</span>
       <FamilyTierBadge tier={tier} />
       {!compact && showTakeaway ? <span className="text-xs text-[var(--text-secondary)]">{takeaway}</span> : null}
@@ -113,7 +114,7 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
         {families.map((entry) => {
           const tier = familyTier(entry);
           const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
-          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
+          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
         })}
       </div>
     );
@@ -140,7 +141,7 @@ function FixedFamilyResult({ entry, identifier = null }) {
   return (
     <span data-fixed-family-result={entry.family} className="flex flex-col items-center gap-1 text-center">
       {identifier ? <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{identifier}</span> : null}
-      <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong>
+      <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong>
       <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
     </span>
   );
@@ -168,5 +169,5 @@ export function whySetRanks(setRip) {
   const strong = families.filter((entry) => ["S", "A"].includes(familyTier(entry))).length;
   if (strong === families.length) return "Elite performance across nearly every opening format.";
   if (strong >= Math.ceil(families.length / 2)) return "Strong results across most participating product families.";
-  return "Its strongest product families lift the combined Set RIP result.";
+  return "Standout strength in its best participating product families.";
 }

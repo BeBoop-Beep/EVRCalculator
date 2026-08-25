@@ -190,6 +190,10 @@ export function resolveSealedSegmentReconciliation(payload) {
 export function buildComparableSeries(overview, sealedSegments = [], cardSegments = []) {
   const parents = (overview?.families || []).map((family) => ({
     ...family,
+    label: family.key === "topChase" ? "Per-Set Chase Market" : family.label,
+    definition: family.key === "topChase"
+      ? "Tracks the combined chase-card baskets from each eligible Set. Explorer Top 10 queries rank the entire filtered universe instead."
+      : family.definition,
     group: family.key === SEALED_PARENT_SERIES_ID ? "sealed" : "card",
     isParent: true,
     available: true,

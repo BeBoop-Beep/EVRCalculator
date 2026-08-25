@@ -90,10 +90,15 @@ class FakeClient:
         self.prices = prices if prices is not None else PRICES
 
     def table(self, name):
-        if name == "pokemon_set_value_daily_history":
-            return _Query([{"set_id": row["id"], "value_scope": "standard"} for row in SETS])
+        if name == "pokemon_set_value_daily_history_coverage":
+            return _Query([{"set_id": row["id"], "has_history": True} for row in SETS])
         if name == "sets":
             return _Query(SETS)
+        if name == "eras":
+            return _Query([
+                {"id": SV_ERA, "name": "Scarlet & Violet", "sort_order": 1},
+                {"id": SWSH_ERA, "name": "Sword & Shield", "sort_order": 2},
+            ])
         if name == "pokemon_canonical_cards":
             return _Query(CARDS)
         raise AssertionError(f"unexpected table read: {name}")

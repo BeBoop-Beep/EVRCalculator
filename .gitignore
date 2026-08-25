@@ -25,6 +25,7 @@ logs/
 *_debug.json
 payload_debug.json
 cleaned_cards_debug.json
+/bench_out.json
 debug/
 tmp/
 temp/

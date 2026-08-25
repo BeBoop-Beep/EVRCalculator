@@ -5,6 +5,8 @@ import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
 import MarketExplorerFilters from "./MarketExplorerFilters";
 import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
+import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
+import MarketExplorerDynamicSeries from "./MarketExplorerDynamicSeries";
 import {
   buildAssetUniverseModel,
   buildCardSegmentModel,
@@ -28,6 +30,7 @@ import {
   isSealedSegmentSeriesId,
 } from "@/lib/explore/marketExplorerSeries.mjs";
 import styles from "./explore.module.css";
+import useMarketExplorerQueries from "@/hooks/explore/useMarketExplorerQueries";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -76,6 +79,7 @@ export default function MarketExplorerClient({
   );
   const [eraIds] = useState(() => initialState?.eraIds || []);
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
+  const { querySeries, addQuery, removeQuery } = useMarketExplorerQueries();
 
   // A re-published snapshot can add or drop a market or a submarket. Selection
   // follows it rather than pointing at a series that no longer exists.
@@ -152,13 +156,18 @@ export default function MarketExplorerClient({
   // One entry point for the chart legend, which does not care which axis a
   // series came from.
   const toggleSeries = useCallback((seriesId) => {
-    if (isSealedSegmentSeriesId(seriesId)) toggleSealed(seriesId);
+    if (String(seriesId).startsWith("query:")) removeQuery(seriesId);
+    else if (isSealedSegmentSeriesId(seriesId)) toggleSealed(seriesId);
     else if (isCardSegmentSeriesId(seriesId)) toggleCardSegment(seriesId);
     else toggleMarket(seriesId);
-  }, [toggleSealed, toggleCardSegment, toggleMarket]);
+  }, [toggleSealed, toggleCardSegment, toggleMarket, removeQuery]);
 
   const assetEntries = useMemo(
-    () => buildAssetUniverseModel(overview, assetUniverse),
+    () => buildAssetUniverseModel(overview, assetUniverse).map((entry) => entry.key === "topChase" ? {
+      ...entry,
+      label: "Per-Set Chase Market",
+      definition: "Tracks the combined chase-card baskets from each eligible Set. Explorer Top 10 queries rank the entire filtered universe instead.",
+    } : entry),
     [overview, assetUniverse]
   );
   const sealedEntries = useMemo(
@@ -175,8 +184,8 @@ export default function MarketExplorerClient({
   );
   const selectedSeries = useMemo(() => {
     const byKey = new Map(comparableSeries.map((series) => [series.key, series]));
-    return selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean);
-  }, [comparableSeries, selectedSeriesIds]);
+    return [...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean), ...querySeries];
+  }, [comparableSeries, selectedSeriesIds, querySeries]);
 
   // The filter checkboxes need the same "cannot empty the chart" rule the cards
   // have, counted across BOTH axes.
@@ -249,6 +258,15 @@ export default function MarketExplorerClient({
           selectedSeriesCount={selectedSeriesIds.length}
         />
       </section>
+
+      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Dynamic card market builder">
+        <MarketExplorerQueryBuilder onAddQuery={addQuery} />
+      </section>
+
+      <MarketExplorerDynamicSeries
+        series={querySeries}
+        onRemove={removeQuery}
+      />
 
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Selected market detail">
         <MarketExplorerDetails series={selectedSeries} />

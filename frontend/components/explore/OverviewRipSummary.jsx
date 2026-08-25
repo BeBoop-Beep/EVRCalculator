@@ -24,7 +24,7 @@
 // ONE PUBLIC SCORE SCALE
 // ----------------------
 // RIP Score, Financial RIP and Collector Appeal all show their canonical
-// `publicScore`: the backend cohort-relative 0-100 value, on `/100`, to one
+// `publicScore`: the backend cohort-relative 0-100 value, presented on `/10`, to one
 // decimal. Their fixed-anchor model scores remain in the payload for
 // formula/audit use and are never substituted into a public headline. Rank,
 // tier and cohort remain backend-provided in every case.
@@ -49,6 +49,7 @@ import {
 } from "./canonicalRipV7.mjs";
 import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
+import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 
 const UNAVAILABLE_DASH = "—";
 
@@ -63,7 +64,7 @@ export const RIP_SUMMARY_DESCRIPTIONS = {
 function toDisplayScore(value) {
   return value === null || value === undefined || value === "" || Number.isNaN(Number(value))
     ? null
-    : Number(value).toFixed(1);
+    : formatPublicRipScore(value);
 }
 
 /**
@@ -91,7 +92,7 @@ function SummaryMetric({ id, label, score, meta, description, available }) {
             legacy score, to the other metrics, or to zero. */}
         <span data-rip-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
         {available ? (
-          <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
+          <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/10</span>
         ) : null}
       </p>
       {available && meta ? (

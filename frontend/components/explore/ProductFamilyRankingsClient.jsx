@@ -6,6 +6,7 @@ import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
+import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 
 const METRICS = Object.freeze({
   overallRipScore: ["Overall RIP", false], financialRipScore: ["Financial RIP", false],
@@ -20,7 +21,7 @@ const display = (product, metric) => {
   if (value === null) return "Unavailable";
   if (METRICS[metric][1]) return money.format(value);
   if (metric === "chanceToRecoverCost") return `${(100 * (value > 1 ? value / 100 : value)).toFixed(1)}%`;
-  return value.toFixed(1);
+  return `${formatPublicRipScore(value)} / 10`;
 };
 function productHref(product) {
   const base = buildTcgSetHrefFromTarget({ target_type: "set", target_id: product.setId, name: product.setName });

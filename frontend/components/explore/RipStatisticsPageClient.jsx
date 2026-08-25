@@ -1549,7 +1549,7 @@ function formatScore(value) {
 
 function formatRawScore(value) {
   const parsed = toNumber(value);
-  return parsed === null ? "—" : parsed.toFixed(1);
+  return parsed === null ? "—" : (parsed / 10).toFixed(1);
 }
 
 function isTruthyFlag(value) {
@@ -7045,7 +7045,7 @@ function RipScoreBreakdownModule({
             surfaces share.
 
             ONE SCALE. All three are the canonical cohort-relative 0-100 public
-            score for their metric, on `/100`, to one decimal. This comment used
+            score for their metric, presented on `/10`, to one decimal. This comment used
             to claim the scales differed on purpose while the code already read
             the relative value for all three; the claim was stale and the two
             readings are now identical by construction.
@@ -14593,11 +14593,11 @@ export default function RipStatisticsPageClient({
                           <span className="text-[clamp(3.25rem,10vw,5rem)] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
                             {displayedTopScore}
                           </span>
-                          {/* `/100`, the one public suffix. It replaced
+                          {/* `/10`, the one public suffix. It replaced
                               "relative index", which put normalization jargon in
                               a headline metric label. The scale itself is
                               explained in the InfoPopover above. */}
-                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/100</span>
+                          <span className="pb-2 text-sm font-medium text-[var(--text-secondary)] sm:pb-3">/10</span>
                         </div>
                       </div>
                       <div className="mt-4 w-full max-w-lg">

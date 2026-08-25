@@ -24,7 +24,7 @@
 //
 // NOTHING IS COMPUTED HERE. Every score, tier, rank and denominator is lifted
 // from the single resolved canonical bundle. All three cards show the canonical
-// `publicScore` on `/100` to one decimal — the identical values the Overview
+// `publicScore` on `/10` to one decimal — the identical values the Overview
 // RIP Summary and the "Why It Ranks" drivers show for the same set. Fixed-anchor
 // model outputs never drive the visible number or the rail. A missing value
 // renders an em dash — never a zero, never a legacy score, never the other
@@ -38,6 +38,7 @@ import { PUBLIC_SCORE_SCALE_NOTE } from "./canonicalRipV7.mjs";
 import { resolveCanonicalFinancialRip, selectFinancialRipV3Breakdown } from "./financialRipV3Selector.mjs";
 import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelector.mjs";
 import { RIP_SUMMARY_DESCRIPTIONS } from "./OverviewRipSummary.jsx";
+import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 
 const UNAVAILABLE_DASH = "—";
 
@@ -53,7 +54,7 @@ export const INSIGHTS_SUMMARY_ACCENTS = {
 function toDisplayScore(value) {
   return value === null || value === undefined || value === "" || Number.isNaN(Number(value))
     ? null
-    : Number(value).toFixed(1);
+    : formatPublicRipScore(value);
 }
 
 function toRailPercent(value) {
@@ -139,7 +140,7 @@ function SummaryCard({ id, label, score, meta, description, available, accent, r
               legacy score, to the other metrics, or to zero. */}
           <span data-insights-summary-score>{available ? score : UNAVAILABLE_DASH}</span>
           {available ? (
-            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/100</span>
+            <span className="pb-0.5 text-[10px] font-medium text-[var(--text-secondary)]">/10</span>
           ) : null}
         </p>
         {available && badges ? <span className="min-w-0">{badges}</span> : null}
@@ -201,7 +202,7 @@ export default function InsightsSummaryModule({
           Insights Summary
         </h3>
         {/* Same wording as Overview's, from the canonical reader, so the scale
-            is explained identically wherever a `/100` score appears. */}
+            is explained identically wherever a `/10` score appears. */}
         <InfoPopover text={PUBLIC_SCORE_SCALE_NOTE} />
       </div>
 
