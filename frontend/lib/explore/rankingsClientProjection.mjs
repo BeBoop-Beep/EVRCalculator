@@ -98,7 +98,9 @@ const BLOCK_LEAVES = Object.freeze({
   setRipV1: ["score", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
+  overallRipV10: ["relativeScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
+  financialRipV4: ["relativeScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
   rankingsChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
   topChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
@@ -158,6 +160,8 @@ function projectTarget(target) {
   if (contract !== undefined) out.publicRipContractV8 = contract;
   const contractV9 = projectContract(target.publicRipContractV9);
   if (contractV9 !== undefined) out.publicRipContractV9 = contractV9;
+  const contractV10 = projectContract(target.publicRipContractV10);
+  if (contractV10 !== undefined) out.publicRipContractV10 = contractV10;
 
   return out;
 }
@@ -178,7 +182,9 @@ export function projectRankingsTargets(targets) {
 export const RANKINGS_CLIENT_FIELDS = Object.freeze([
   ...SCALAR_FIELDS,
   ...Object.entries(BLOCK_LEAVES).flatMap(([b, ls]) => ls.map((l) => `${b}.${l}`)),
-  ...CONTRACT_BLOCKS.flatMap((b) => CONTRACT_LEAVES.map((l) => `publicRipContractV8.${b}.${l}`)),
+  ...["publicRipContractV8", "publicRipContractV9", "publicRipContractV10"].flatMap((contract) =>
+    CONTRACT_BLOCKS.flatMap((b) => CONTRACT_LEAVES.map((l) => `${contract}.${b}.${l}`))
+  ),
 ]);
 
 export { SCALAR_FIELDS, BLOCK_LEAVES, CONTRACT_BLOCKS, CONTRACT_LEAVES };
