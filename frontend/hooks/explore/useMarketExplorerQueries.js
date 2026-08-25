@@ -10,8 +10,15 @@ async function executeQuery(spec) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(spec),
   });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.message || "Unable to execute this market query");
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    // FastAPI answers with `detail`, the app's own routes with `message`.
+    // Reading only one of them turned an auth answer into a generic failure.
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("Sign in to build a custom market.");
+    }
+    throw new Error(payload?.message || payload?.detail || "Unable to execute this market query");
+  }
   const series = queryResultToSeries(payload);
   if (!series) throw new Error("The query response did not contain a market series");
   return series;

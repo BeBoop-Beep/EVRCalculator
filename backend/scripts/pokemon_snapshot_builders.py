@@ -22,7 +22,6 @@ from backend.db.services.explore_rip_statistics_service import get_rip_statistic
 from backend.db.services.ev_representativeness_public_service import attach_public_v1_to_targets
 from backend.db.services import rip_decision_service
 from backend.db.services.product_family_rankings_service import build_product_family_rankings
-from backend.db.services.budget_product_ranking_service import build_public_overall_projection
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
 from backend.db.services.pokemon_set_cards_service import get_pokemon_set_cards_payload
 from backend.db.services.pokemon_set_cards_market_analytics_service import (
@@ -4045,10 +4044,6 @@ def build_explore_rankings_snapshot_row(
 
     product_family_rankings = build_product_family_rankings(client=service_client, set_targets=opening_targets)
     payload["productFamilyRankings"] = product_family_rankings
-    payload["overallProductRankings"] = build_public_overall_projection(
-        service_client,
-        product_family_rankings=product_family_rankings,
-    )
     if any((target.get("overallRipV9") or {}).get("rank") is not None for target in opening_targets):
         set_rip = build_set_rip(product_family_rankings, set_targets=opening_targets)
         payload["targets"] = attach_set_rip_to_targets(payload["targets"], set_rip)

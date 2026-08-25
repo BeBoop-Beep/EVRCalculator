@@ -93,6 +93,7 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     build_market_explorer_filter_options,
     run_market_explorer_query,
 )
+from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.domain.pokemon.market_explorer_query import (
     MarketExplorerQueryError,
     normalize_query_spec,
@@ -494,6 +495,19 @@ def get_explore_rip_statistics_targets(
             content={"message": "Unable to load RIP Statistics targets", "code": "RIP_STATISTICS_TARGETS_FAILED"},
             status_code=500,
         )
+
+
+@app.get("/explore/product-rankings/overall")
+def get_overall_product_rankings(budget: str = Query(default="full_market")):
+    """Return one allowlisted budget cohort; analytical tables remain private."""
+    try:
+        rankings = get_pokemon_explore_rankings_snapshot_payload(limit=200)
+        return read_public_overall_product_rankings(
+            budget, product_family_rankings=rankings.get("productFamilyRankings") or {}
+        )
+    except Exception:
+        logger.exception("/explore/product-rankings/overall unexpected error budget=%s", budget)
+        return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
 
 
 @app.get("/explore/card-market-movers")

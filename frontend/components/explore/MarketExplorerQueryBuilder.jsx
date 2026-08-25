@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
@@ -24,6 +25,60 @@ import {
 // authenticated options payload carried. This file only orders them
 // canonically and narrows sets to the selected eras.
 
+/** The distinguishable outcomes of loading the builder's canonical filters. */
+export const OPTIONS_STATUS = {
+  loading: "loading",
+  ready: "ready",
+  signedOut: "signedOut",
+  unavailable: "unavailable",
+  offline: "offline",
+};
+
+/** Map an HTTP status onto the state the user can actually act on. */
+export function resolveOptionsStatus(httpStatus) {
+  if (httpStatus === 401 || httpStatus === 403) return OPTIONS_STATUS.signedOut;
+  return OPTIONS_STATUS.unavailable;
+}
+
+/** FastAPI answers with `detail`; the app's own routes answer with `message`. */
+export function backendMessage(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  const detail = typeof payload.detail === "string" ? payload.detail : "";
+  return String(payload.message || detail || "");
+}
+
+function OptionsState({ status, message }) {
+  if (status === OPTIONS_STATUS.signedOut) {
+    return (
+      <div data-market-query-options-state="signedOut" className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3">
+        <p className="text-xs text-[var(--text-primary)]">Sign in to build a custom market.</p>
+        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+          Prepared segments above stay available to everyone.
+        </p>
+        <Link
+          href="/login"
+          data-market-query-sign-in
+          className="mt-2 inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white desk:min-h-0"
+        >
+          Sign in
+        </Link>
+      </div>
+    );
+  }
+  if (status === OPTIONS_STATUS.offline || status === OPTIONS_STATUS.unavailable) {
+    return (
+      <p role="status" data-market-query-options-state={status} className="mt-3 text-xs text-[var(--text-secondary)]">
+        The market query service is temporarily unavailable.{message ? ` ${message}` : ""}
+      </p>
+    );
+  }
+  return (
+    <p role="status" data-market-query-options-state="loading" className="mt-3 text-xs text-[var(--text-secondary)]">
+      Loading canonical filters…
+    </p>
+  );
+}
+
 export default function MarketExplorerQueryBuilder({ onAddQuery }) {
   const [options, setOptions] = useState(null);
   const [eraIds, setEraIds] = useState([]);
@@ -32,16 +87,31 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
   const [mode, setMode] = useState(QUERY_MODE_ALL);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  // WHY A STATUS AND NOT ONE MESSAGE STRING. Every cause used to collapse into
+  // "Unable to load query filters": FastAPI answers 401 with `detail`, not
+  // `message`, so a signed-out user — the overwhelmingly common case — was told
+  // the filters were broken. The cause is now carried explicitly, because
+  // "sign in" and "the service is down" call for different actions.
+  const [optionsStatus, setOptionsStatus] = useState(OPTIONS_STATUS.loading);
 
   useEffect(() => {
     let live = true;
     fetch("/api/market/explorer/query", { credentials: "include" })
       .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.message || "Unable to load query filters");
-        if (live) setOptions(payload);
+        const payload = await response.json().catch(() => null);
+        if (!live) return;
+        if (response.ok) {
+          setOptions(payload);
+          setOptionsStatus(OPTIONS_STATUS.ready);
+          return;
+        }
+        setOptionsStatus(resolveOptionsStatus(response.status));
+        setMessage(backendMessage(payload));
       })
-      .catch((error) => { if (live) setMessage(error.message); });
+      .catch(() => {
+        // A thrown fetch is a transport failure, never an auth answer.
+        if (live) setOptionsStatus(OPTIONS_STATUS.offline);
+      });
     return () => { live = false; };
   }, []);
 
@@ -100,7 +170,7 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
     <section data-market-query-builder className="border-t border-[var(--border-subtle)] px-3 py-4 sm:px-4" aria-labelledby="market-query-builder-heading">
       <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a card market</h3>
       <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Filter the eligible universe first, then choose All Constituents or a global Top 10.</p>
-      {!options ? <p role="status" className="mt-3 text-xs text-[var(--text-secondary)]">{message || "Loading canonical filters…"}</p> : (
+      {!options ? <OptionsState status={optionsStatus} message={message} /> : (
         <>
           <div className="mt-3 grid grid-cols-1 gap-3 tab:grid-cols-2">
             <div className="min-w-0">

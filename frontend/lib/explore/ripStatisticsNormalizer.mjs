@@ -7,7 +7,6 @@ export function normaliseRipStatisticsPayload(payload) {
     targets: Array.isArray(payload?.targets) ? payload.targets : [],
     default_target: payload?.default_target || null,
     productFamilyRankings: payload?.productFamilyRankings || null,
-    overallProductRankings: payload?.overallProductRankings || null,
     meta: {
       ...sourceMeta,
       stale: Boolean(sourceMeta.stale || snapshotFallback),

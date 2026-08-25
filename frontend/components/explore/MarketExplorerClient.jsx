@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import MarketExplorerChart from "./MarketExplorerChart";
 import MarketExplorerDetails from "./MarketExplorerDetails";
 import MarketExplorerFilters from "./MarketExplorerFilters";
@@ -8,6 +8,7 @@ import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerDynamicSeries from "./MarketExplorerDynamicSeries";
 import {
+  EXPLORER_SELECTION_ACTIONS,
   buildAssetUniverseModel,
   buildCardSegmentModel,
   buildExplorerTimeframeOptions,
@@ -15,14 +16,12 @@ import {
   reconcileAssetUniverse,
   reconcileCardSegmentIds,
   reconcileSealedFamilyIds,
+  reduceExplorerSelection,
   resolveAvailableAssetKeys,
   resolveAvailableCardSegmentIds,
   resolveAvailableSealedFamilyIds,
   resolveExplorerTimeframe,
   resolveSelectedSeriesIds,
-  toggleAssetUniverseKey,
-  toggleCardSegmentId,
-  toggleSealedFamilyId,
 } from "@/lib/explore/marketExplorerState.mjs";
 import {
   buildComparableSeries,
@@ -68,39 +67,33 @@ export default function MarketExplorerClient({
   );
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
 
-  const [assetUniverse, setAssetUniverse] = useState(
-    () => reconcileAssetUniverse(initialState?.assetUniverse, availableKeys)
-  );
-  const [sealedFamilyIds, setSealedFamilyIds] = useState(
-    () => reconcileSealedFamilyIds(initialState?.sealedFamilyIds, availableSealedIds)
-  );
-  const [segmentIds, setSegmentIds] = useState(
-    () => reconcileCardSegmentIds(initialState?.segmentIds, availableCardIds)
-  );
+  // ONE reducer owns the whole selection. A submarket toggle also supplies its
+  // parent benchmark, and both must move in a SINGLE pure step — see
+  // reduceExplorerSelection for why two nested setters silently cancelled.
+  const [selection, dispatchSelection] = useReducer(reduceExplorerSelection, initialState, (initial) => ({
+    assetUniverse: reconcileAssetUniverse(initial?.assetUniverse, availableKeys),
+    sealedFamilyIds: reconcileSealedFamilyIds(initial?.sealedFamilyIds, availableSealedIds),
+    segmentIds: reconcileCardSegmentIds(initial?.segmentIds, availableCardIds),
+  }));
+  const { assetUniverse, sealedFamilyIds, segmentIds } = selection;
   const [eraIds] = useState(() => initialState?.eraIds || []);
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
   const { querySeries, addQuery, removeQuery } = useMarketExplorerQueries();
 
+  // The published ids, packaged once. Every dispatch carries them, so the
+  // reducer never closes over a stale availability list.
+  const availableIds = useMemo(() => ({
+    assetKeys: availableKeys,
+    sealedFamilyIds: availableSealedIds,
+    cardSegmentIds: availableCardIds,
+  }), [availableKeys, availableSealedIds, availableCardIds]);
+
   // A re-published snapshot can add or drop a market or a submarket. Selection
-  // follows it rather than pointing at a series that no longer exists.
+  // follows it rather than pointing at a series that no longer exists. The
+  // reducer makes this idempotent, so re-running it changes nothing.
   useEffect(() => {
-    setAssetUniverse((current) => {
-      const next = reconcileAssetUniverse(current, availableKeys);
-      return next.length === current.length && next.every((key, index) => key === current[index]) ? current : next;
-    });
-  }, [availableKeys]);
-  useEffect(() => {
-    setSealedFamilyIds((current) => {
-      const next = reconcileSealedFamilyIds(current, availableSealedIds);
-      return next.length === current.length && next.every((key, index) => key === current[index]) ? current : next;
-    });
-  }, [availableSealedIds]);
-  useEffect(() => {
-    setSegmentIds((current) => {
-      const next = reconcileCardSegmentIds(current, availableCardIds);
-      return next.length === current.length && next.every((key, index) => key === current[index]) ? current : next;
-    });
-  }, [availableCardIds]);
+    dispatchSelection({ type: EXPLORER_SELECTION_ACTIONS.reconcile, available: availableIds });
+  }, [availableIds]);
 
   const timeframe = resolveExplorerTimeframe(overview, requestedTimeframe);
   const timeframeLabel = timeframeOptions.find((entry) => entry.key === timeframe)?.label || "";
@@ -111,47 +104,16 @@ export default function MarketExplorerClient({
   );
 
   const toggleSealed = useCallback((seriesId) => {
-    // Toggling a submarket can also supply its parent benchmark, so both
-    // pieces of state move together in one commit rather than in two renders
-    // that would briefly disagree.
-    setAssetUniverse((currentAssets) => {
-      let nextAssets = currentAssets;
-      setSealedFamilyIds((currentSealed) => {
-        const result = toggleSealedFamilyId(currentSealed, seriesId, availableSealedIds, {
-          assetUniverse: currentAssets,
-          availableAssetKeys: availableKeys,
-          segmentIds,
-        });
-        nextAssets = result.assetUniverse;
-        return result.sealedFamilyIds;
-      });
-      return nextAssets;
-    });
-  }, [availableSealedIds, availableKeys, segmentIds]);
+    dispatchSelection({ type: EXPLORER_SELECTION_ACTIONS.toggleSealedFamily, seriesId, available: availableIds });
+  }, [availableIds]);
 
   const toggleCardSegment = useCallback((seriesId) => {
-    // Same one-commit rule as Sealed. Which parent gets supplied depends on
-    // whether the rarity index measures the Raw or the Chase universe.
-    setAssetUniverse((currentAssets) => {
-      let nextAssets = currentAssets;
-      setSegmentIds((currentSegments) => {
-        const result = toggleCardSegmentId(currentSegments, seriesId, availableCardIds, {
-          assetUniverse: currentAssets,
-          availableAssetKeys: availableKeys,
-          sealedFamilyIds,
-        });
-        nextAssets = result.assetUniverse;
-        return result.segmentIds;
-      });
-      return nextAssets;
-    });
-  }, [availableCardIds, availableKeys, sealedFamilyIds]);
+    dispatchSelection({ type: EXPLORER_SELECTION_ACTIONS.toggleCardSegment, seriesId, available: availableIds });
+  }, [availableIds]);
 
-  const toggleMarket = useCallback((key) => {
-    setAssetUniverse((current) => toggleAssetUniverseKey(current, key, availableKeys, {
-      sealedFamilyIds, segmentIds,
-    }));
-  }, [availableKeys, sealedFamilyIds, segmentIds]);
+  const toggleMarket = useCallback((seriesId) => {
+    dispatchSelection({ type: EXPLORER_SELECTION_ACTIONS.toggleMarket, seriesId, available: availableIds });
+  }, [availableIds]);
 
   // One entry point for the chart legend, which does not care which axis a
   // series came from.

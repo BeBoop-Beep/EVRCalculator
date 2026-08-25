@@ -303,6 +303,16 @@ export const CARD_SEGMENT_SERIES = [
   { backendKey: "ultraRare", shortLabel: "Ultra Rare", color: "rgba(124,58,237,0.95)", softColor: "rgba(124,58,237,0.16)" },
   { backendKey: "hyperRare", shortLabel: "Hyper Rare", color: "rgba(216,180,254,0.95)", softColor: "rgba(216,180,254,0.16)" },
   { backendKey: "doubleRare", shortLabel: "Double Rare", color: "rgba(168,85,247,0.95)", softColor: "rgba(168,85,247,0.16)" },
+  // LEGACY RARITIES. The backend publishes these alongside the modern five.
+  // Without an identity here they were dropped BEFORE the availability check,
+  // so a published market simply vanished from the panel and no "unavailable"
+  // reason was ever shown. They are listed so the panel reflects what the
+  // snapshot actually published; whether each is selectable stays the
+  // snapshot's decision, not this list's.
+  { backendKey: "rareUltra", shortLabel: "Rare Ultra", color: "rgba(109,40,217,0.95)", softColor: "rgba(109,40,217,0.16)" },
+  { backendKey: "rareSecret", shortLabel: "Rare Secret", color: "rgba(147,112,219,0.95)", softColor: "rgba(147,112,219,0.16)" },
+  { backendKey: "rareRainbow", shortLabel: "Rare Rainbow", color: "rgba(180,130,240,0.95)", softColor: "rgba(180,130,240,0.16)" },
+  { backendKey: "rareHolo", shortLabel: "Rare Holo", color: "rgba(126,96,200,0.95)", softColor: "rgba(126,96,200,0.16)" },
 ];
 
 export const cardSeriesId = (parentMarket, backendKey) =>

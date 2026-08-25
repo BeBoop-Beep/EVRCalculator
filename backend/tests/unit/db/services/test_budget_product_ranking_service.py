@@ -163,4 +163,4 @@ def test_reader_only_enters_public_delivery_through_snapshot_projection():
         source = path.read_text(encoding="utf-8", errors="ignore")
         if "budget_product_ranking_service" in source:
             offenders.append(path.name)
-    assert offenders == ["pokemon_snapshot_builders.py"]
+    assert offenders == ["public_overall_product_rankings_service.py"]

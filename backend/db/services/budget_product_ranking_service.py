@@ -28,6 +28,7 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     CANONICAL_BUDGET_BANDS,
 )
 from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS
+from backend.rankings.public_relative import compute_public_relative_scores, public_product_rank_tier
 
 PUBLIC_ROW_FIELDS = (
     "sealed_product_id,set_id,product_family,target_budget,budget_type,quantity,"
@@ -40,6 +41,29 @@ PUBLIC_ROW_FIELDS = (
 
 def _rows(response: Any) -> List[Dict[str, Any]]:
     return list((response.data if response else []) or [])
+
+
+def public_budget_cohort_presentation(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Presentation-only relative fields for exactly one selected budget cohort."""
+    overall = compute_public_relative_scores(
+        rows, id_getter=lambda row: row.get("sealed_product_id"),
+        score_getter=lambda row: row.get("overall_rip_v10_score"),
+    )
+    financial = compute_public_relative_scores(
+        rows, id_getter=lambda row: row.get("sealed_product_id"),
+        score_getter=lambda row: row.get("financial_rip_v4_score"),
+    )
+    return {
+        str(row.get("sealed_product_id")): {
+            "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
+            "overallRipRelativeScore": overall.get(str(row.get("sealed_product_id"))),
+            "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
+            "financialRipRelativeScore": financial.get(str(row.get("sealed_product_id"))),
+            "budgetModelTier": row.get("budget_tier"),
+            "publicTier": public_product_rank_tier(row.get("budget_rank"), row.get("budget_cohort_size")),
+        }
+        for row in rows
+    }
 
 
 def load_latest_snapshot(

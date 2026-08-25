@@ -41,7 +41,14 @@ function SegmentOption({ entry, onToggle, isLocked }) {
       <span className="min-w-0 truncate">{entry.shortLabel || entry.label}</span>
       {entry.available === true
         ? (entry.definition ? <InfoPopover text={entry.definition} /> : null)
-        : <span className="ml-auto flex-none text-[10px] text-[var(--text-secondary)]">Unavailable</span>}
+        : (
+          // Not a bare "Unavailable": a published market the user can see but
+          // cannot select has to say why, in the snapshot's own words.
+          <span className="ml-auto flex items-center gap-1 flex-none text-[10px] text-[var(--text-secondary)]">
+            Unavailable
+            {entry.unavailableReason ? <InfoPopover text={entry.unavailableReason} /> : null}
+          </span>
+        )}
     </label>
   );
 }

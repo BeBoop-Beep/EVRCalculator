@@ -441,6 +441,102 @@ export function toggleCardSegmentId(
   };
 }
 
+// ---------------------------------------------------------------------------
+// ONE ATOMIC SELECTION REDUCER.
+//
+// WHY A REDUCER AND NOT THREE SETTERS. Toggling a submarket moves TWO pieces of
+// state at once: the submarket itself, and the parent benchmark it drags onto
+// the chart with it. Expressing that as `setSegmentIds` called from inside the
+// `setAssetUniverse` updater looks equivalent and is not: React may invoke an
+// updater more than once (StrictMode double-invocation, and replaying the
+// update queue from a base state on a later render). The nested setter is then
+// QUEUED TWICE, the second application toggles the segment straight back off,
+// and every quick-segment click is a silent no-op.
+//
+// A reducer moves the whole selection in one pure step, so replaying it any
+// number of times from the same base state yields the same result.
+// ---------------------------------------------------------------------------
+
+export const EXPLORER_SELECTION_ACTIONS = {
+  toggleMarket: "toggleMarket",
+  toggleSealedFamily: "toggleSealedFamily",
+  toggleCardSegment: "toggleCardSegment",
+  reconcile: "reconcile",
+};
+
+const sameList = (left, right) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
+/** Preserve identity when nothing moved, so downstream memos do not churn. */
+function settle(previous, next) {
+  const assetUniverse = sameList(previous.assetUniverse, next.assetUniverse)
+    ? previous.assetUniverse : next.assetUniverse;
+  const sealedFamilyIds = sameList(previous.sealedFamilyIds, next.sealedFamilyIds)
+    ? previous.sealedFamilyIds : next.sealedFamilyIds;
+  const segmentIds = sameList(previous.segmentIds, next.segmentIds)
+    ? previous.segmentIds : next.segmentIds;
+  return (assetUniverse === previous.assetUniverse
+    && sealedFamilyIds === previous.sealedFamilyIds
+    && segmentIds === previous.segmentIds)
+    ? previous
+    : { ...previous, assetUniverse, sealedFamilyIds, segmentIds };
+}
+
+/**
+ * The whole Explorer selection, moved atomically.
+ *
+ * `state`   { assetUniverse, sealedFamilyIds, segmentIds }
+ * `action`  { type, seriesId?, available? }
+ * `available` carries the currently published ids:
+ *            { assetKeys, sealedFamilyIds, cardSegmentIds }
+ */
+export function reduceExplorerSelection(state, action) {
+  const available = action?.available || {};
+  const assetKeys = Array.isArray(available.assetKeys) ? available.assetKeys : [];
+  const sealedIds = Array.isArray(available.sealedFamilyIds) ? available.sealedFamilyIds : [];
+  const cardIds = Array.isArray(available.cardSegmentIds) ? available.cardSegmentIds : [];
+
+  switch (action?.type) {
+    case EXPLORER_SELECTION_ACTIONS.toggleMarket: {
+      return settle(state, {
+        ...state,
+        assetUniverse: toggleAssetUniverseKey(state.assetUniverse, action.seriesId, assetKeys, {
+          sealedFamilyIds: state.sealedFamilyIds,
+          segmentIds: state.segmentIds,
+        }),
+      });
+    }
+    case EXPLORER_SELECTION_ACTIONS.toggleSealedFamily: {
+      const result = toggleSealedFamilyId(state.sealedFamilyIds, action.seriesId, sealedIds, {
+        assetUniverse: state.assetUniverse,
+        availableAssetKeys: assetKeys,
+        segmentIds: state.segmentIds,
+      });
+      return settle(state, { ...state, ...result });
+    }
+    case EXPLORER_SELECTION_ACTIONS.toggleCardSegment: {
+      const result = toggleCardSegmentId(state.segmentIds, action.seriesId, cardIds, {
+        assetUniverse: state.assetUniverse,
+        availableAssetKeys: assetKeys,
+        sealedFamilyIds: state.sealedFamilyIds,
+      });
+      return settle(state, { ...state, ...result });
+    }
+    case EXPLORER_SELECTION_ACTIONS.reconcile: {
+      // A re-published snapshot can add or drop a market. Selection follows it
+      // rather than pointing at a series that no longer exists.
+      return settle(state, {
+        ...state,
+        assetUniverse: reconcileAssetUniverse(state.assetUniverse, assetKeys),
+        sealedFamilyIds: reconcileSealedFamilyIds(state.sealedFamilyIds, sealedIds),
+        segmentIds: reconcileCardSegmentIds(state.segmentIds, cardIds),
+      });
+    }
+    default:
+      return state;
+  }
+}
+
 /** Timeframe options, availability decided by the backend upstream. */
 export function buildExplorerTimeframeOptions(overview) {
   return buildMarketWindowOptions(overview);

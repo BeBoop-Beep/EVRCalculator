@@ -478,29 +478,13 @@ def _blend_biggest_upside_score(
 
 
 def _compute_relative_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict[str, Optional[float]]:
-    """Compute 0-100 relative scores for a score field across current rows."""
+    """Compatibility wrapper around the one shared public min-max contract."""
+    from backend.rankings.public_relative import compute_public_relative_scores
 
-    scored_rows = [
-        (str(row.get("target_id")), _to_optional_float(row.get(score_key)))
-        for row in rows
-        if row.get("target_id")
-    ]
-    valid_scores = [score for _, score in scored_rows if score is not None]
-    if not valid_scores:
-        return {target_id: None for target_id, _ in scored_rows}
-
-    score_min = min(valid_scores)
-    score_max = max(valid_scores)
-    if score_max <= score_min:
-        return {
-            target_id: (50.0 if score is not None else None)
-            for target_id, score in scored_rows
-        }
-
-    return {
-        target_id: (100.0 * ((score - score_min) / (score_max - score_min)) if score is not None else None)
-        for target_id, score in scored_rows
-    }
+    eligible = [row for row in rows if row.get("target_id")]
+    return compute_public_relative_scores(
+        eligible, id_getter=lambda row: row.get("target_id"), score_getter=lambda row: row.get(score_key)
+    )
 
 
 def _shorten_canonical_label(value: Optional[str]) -> Optional[str]:
