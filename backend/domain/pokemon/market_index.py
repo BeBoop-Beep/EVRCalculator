@@ -9,6 +9,8 @@ from typing import Any, Iterable, Mapping, Sequence
 MARKET_INDEX_CONTRACT_VERSION = "pokemon-market-index-v1"
 MARKET_INDEX_METHODOLOGY_VERSION = "chain_linked_common_cohort_v1"
 MARKET_INDEX_BASE_VALUE = 100.0
+MARKET_INDEX_TRACKING_START_DATE = "2026-04-23"
+MARKET_COMPARISON_WINDOW_CONTRACT_VERSION = "common_observation_domain_v4"
 RAW_INDEX_KEY = "raw"
 CHASE_INDEX_KEY = "top10"
 INDEX_KEYS = (RAW_INDEX_KEY, CHASE_INDEX_KEY)
@@ -102,6 +104,148 @@ def compute_strict_window_movements(points: Sequence[Mapping[str, Any]]) -> dict
     return result
 
 
+def build_comparison_windows(
+    market_date: str,
+    family_dates: Sequence[Sequence[str]],
+) -> dict[str, dict[str, Any]]:
+    """Build the one calendar domain used by the cross-market comparison.
+
+    Fixed windows are inclusive. 1D remains a strict calendar-day domain but
+    is selectable when any family has both real boundary observations. Long
+    windows that predate common history fall back to the first common date.
+    ``SinceTracking``/All always begins at that first common date.
+    """
+    end = date.fromisoformat(str(market_date)[:10])
+    date_sets = [{str(value)[:10] for value in values if value} for values in family_dates]
+    common_dates = set.intersection(*date_sets) if date_sets and all(date_sets) else set()
+    common_start = min(common_dates) if common_dates else None
+    end_key = end.isoformat()
+    result: dict[str, dict[str, Any]] = {}
+    for key, days in WINDOWS:
+        target = (common_start if days is None else
+                  (end - timedelta(days=1)).isoformat() if key == "1D" else
+                  (end - timedelta(days=days - 1)).isoformat())
+        is_partial_long_window = bool(
+            key in {"6M", "1Y"} and target and common_start and common_start > target
+        )
+        display_start = common_start if is_partial_long_window else target
+        if key == "1D":
+            available = any(target in dates and end_key in dates for dates in date_sets)
+        else:
+            available = bool(display_start and display_start in common_dates and end_key in common_dates)
+        result[key] = {
+            "targetStartDate": target,
+            "displayStartDate": display_start,
+            "displayEndDate": end_key,
+            "available": available,
+            "coverage": "partial" if available and is_partial_long_window else "full" if available else "unavailable",
+            "isSinceFirstAvailable": is_partial_long_window,
+        }
+    return result
+
+
+def compute_comparison_window_movements(
+    points: Sequence[Mapping[str, Any]],
+    comparison_windows: Mapping[str, Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Compute returns solely from real observations inside shared domains."""
+    normalized = sorted(({
+        "date": str(row.get("date") or row.get("marketDate"))[:10],
+        "value": float(row.get("value") if row.get("value") is not None else row.get("normalizedIndexValue")),
+    } for row in points), key=lambda row: row["date"])
+    result: dict[str, dict[str, Any]] = {}
+    for key, window in comparison_windows.items():
+        display_start = str(window.get("displayStartDate") or "")[:10]
+        display_end = str(window.get("displayEndDate") or "")[:10]
+        value_by_date = {row["date"]: row["value"] for row in normalized}
+        available = (window.get("available") is True
+                     and display_start in value_by_date and display_end in value_by_date)
+        actual_start = display_start if available else None
+        actual_end = display_end if available else None
+        coverage = str(window.get("coverage") or "full") if available else "unavailable"
+        percent = ((value_by_date[display_end] / value_by_date[display_start] - 1.0) * 100.0
+                   if available else None)
+        result[key] = {
+            "available": available,
+            "percent": percent,
+            "startDate": actual_start if available else None,
+            "endDate": actual_end if available else display_end,
+            "actualStartDate": actual_start if available else None,
+            "actualEndDate": actual_end if available else None,
+            "targetStartDate": window.get("targetStartDate"),
+            "coverage": coverage,
+            "isSinceFirstAvailable": bool(window.get("isSinceFirstAvailable")) if available else False,
+        }
+    return result
+
+
+def resolve_one_day_comparison_close(
+    points: Sequence[Mapping[str, Any]], *, target_date: str, market_date: str
+) -> dict[str, Any]:
+    """Resolve a truthful previous-close comparison for one calendar day.
+
+    The current close must be a real observation. The previous close may be
+    carried only from exactly one day before ``target_date`` and only inside
+    the current close's chain segment. Nothing returned here is canonical
+    history or suitable for any window other than 1D.
+    """
+    target = date.fromisoformat(str(target_date)[:10])
+    end = date.fromisoformat(str(market_date)[:10])
+    if target != end - timedelta(days=1):
+        raise MarketIndexError("1D comparison target must be market_date - 1 calendar day")
+
+    normalized = sorted(({
+        "date": str(row.get("date") or row.get("marketDate"))[:10],
+        "value": float(row.get("value") if row.get("value") is not None else row.get("indexValue", row.get("normalizedIndexValue"))),
+        "chainSegmentId": row.get("chainSegmentId"),
+    } for row in points), key=lambda row: row["date"])
+    by_date = {row["date"]: row for row in normalized}
+    target_key, end_key = target.isoformat(), end.isoformat()
+    current = by_date.get(end_key)
+    unavailable = {
+        "available": False, "percent": None, "startDate": None,
+        "endDate": end_key, "targetStartDate": target_key,
+        "coverage": "unavailable", "isCarriedForwardBaseline": False,
+        "baselineSourceDate": None, "comparisonTrend": [],
+    }
+    if current is None:
+        return unavailable
+
+    baseline = by_date.get(target_key)
+    carried = False
+    if baseline is None:
+        source_key = (target - timedelta(days=1)).isoformat()
+        baseline = by_date.get(source_key)
+        carried = baseline is not None
+    if baseline is None or baseline["value"] == 0:
+        return unavailable
+    if baseline.get("chainSegmentId") != current.get("chainSegmentId"):
+        return unavailable
+
+    source_date = baseline["date"]
+    comparison = [
+        {"date": target_key, "value": baseline["value"],
+         "isObserved": not carried, "isCarriedForward": carried,
+         "sourceDate": source_date},
+        {"date": end_key, "value": current["value"],
+         "isObserved": True, "isCarriedForward": False,
+         "sourceDate": end_key},
+    ]
+    return {
+        "available": True,
+        "percent": (current["value"] / baseline["value"] - 1.0) * 100.0,
+        "startDate": target_key,
+        "endDate": end_key,
+        "actualStartDate": target_key,
+        "actualEndDate": end_key,
+        "targetStartDate": target_key,
+        "coverage": "carried_previous_close" if carried else "full",
+        "isCarriedForwardBaseline": carried,
+        "baselineSourceDate": source_date,
+        "comparisonTrend": comparison,
+    }
+
+
 def resolve_window_baselines(ordered_dates: Sequence[str]) -> dict[str, dict[str, Any]]:
     """Resolve the baseline date for every ``WINDOWS`` key over ``ordered_dates``.
 
@@ -114,7 +258,10 @@ def resolve_window_baselines(ordered_dates: Sequence[str]) -> dict[str, dict[str
     same span of history whether you ask the index how far it moved or ask
     breadth how many cards participated.
 
-    ``ordered_dates`` must be ascending ISO dates. Returns, per window key:
+    ``ordered_dates`` must be ascending ISO dates. Named multi-day windows use
+    true elapsed-day lookbacks: a 7D window ending on August 24 targets August
+    17. The baseline is the newest actually-present observation on or before
+    that target. Returns, per window key:
     ``targetStartDate`` (the date the window nominally reaches back to),
     ``startDate`` (the newest actually-present date at or before it, or None
     when history does not reach back that far), ``endDate`` and ``available``.
@@ -136,7 +283,7 @@ def resolve_window_baselines(ordered_dates: Sequence[str]) -> dict[str, dict[str
         elif days is None:
             target, start = None, str(ordered_dates[0])[:10]
         else:
-            target = (date.fromisoformat(latest) - timedelta(days=days - 1)).isoformat()
+            target = (date.fromisoformat(latest) - timedelta(days=days)).isoformat()
             start = next((str(value)[:10] for value in reversed(ordered_dates) if str(value)[:10] <= target), None)
             if str(ordered_dates[0])[:10] > target:
                 start = None

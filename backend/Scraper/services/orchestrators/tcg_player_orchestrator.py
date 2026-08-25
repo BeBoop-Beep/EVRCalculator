@@ -190,6 +190,11 @@ class TCGScraper:
             raise RuntimeError("DB-enabled scrape requires an immutable target_market_date")
         for card in payload.get('data', {}).get('cards', []):
             card['_market_date'] = self.target_market_date
+        for sealed_product in payload.get('data', {}).get('sealed_products', []):
+            # Sealed observations use the same immutable Phoenix market date as
+            # card observations. Wall-clock UTC previously mislabeled late
+            # local runs as the following day.
+            sealed_product['_market_date'] = self.target_market_date
         parse_report = dict(getattr(parser, 'last_card_parse_report', {}) or {})
         diagnostic_names = {
             "raw_rows": "rawRows", "commercial_products": "commercialProducts",
@@ -240,6 +245,7 @@ class TCGScraper:
                 result = self.ingest_controller.ingest(payload)
                 if result and result.get('success'):
                     cards_detail = result.get('details', {}).get('cards', {})
+                    sealed_detail = result.get('details', {}).get('sealed_products', {})
                     summary = result.get('summary', {})
                     outcome.update(validate_ingestion_result(payload, result))
                     def _metric_count(value):
@@ -287,6 +293,7 @@ def validate_ingestion_result(payload, result):
     if not result or not result.get('success'):
         raise RuntimeError(f"Database ingestion failed: {(result or {}).get('error', 'Unknown error')}")
     cards_detail = result.get('details', {}).get('cards', {})
+    sealed_detail = result.get('details', {}).get('sealed_products', {})
     errors = list(cards_detail.get('errors') or [])
     error_codes = list(cards_detail.get('error_codes') or [])
     efficiency = cards_detail.get('ingestion_efficiency', {})
@@ -298,10 +305,22 @@ def validate_ingestion_result(payload, result):
         raise RuntimeError(f"Fatal card ingestion errors: {errors[:5]}")
     if priced and int(efficiency.get('attempted_rows', 0)) == 0:
         raise RuntimeError("Priced payload produced zero attempted price rows")
+    sealed_errors = list(sealed_detail.get('errors') or [])
+    sealed_efficiency = sealed_detail.get('ingestion_efficiency', {})
+    sealed_priced = any((product.get('prices') or {}).get('market') is not None
+                        for product in payload.get('data', {}).get('sealed_products', []))
+    if sealed_errors:
+        raise RuntimeError(f"Fatal sealed ingestion errors: {sealed_errors[:5]}")
+    if sealed_priced and int(sealed_efficiency.get('attempted_rows', 0)) == 0:
+        raise RuntimeError("Priced sealed payload produced zero attempted price rows")
     persistence = cards_detail.get('persistence_metrics') or efficiency.get('persistence_metrics') or {}
     return {"setId": result.get('set_id'),
             "priceRowsAttempted": int(efficiency.get('attempted_rows', 0)),
             "priceRowsInserted": int(efficiency.get('inserted_rows', 0)),
             "priceRowsUpdated": int(cards_detail.get('price_rows_updated', 0)),
             "priceRowsSkippedDuplicates": int(efficiency.get('skipped_duplicates', 0)),
+            "sealedRowsAttempted": int(sealed_efficiency.get('attempted_rows', 0)),
+            "sealedRowsInserted": int(sealed_efficiency.get('inserted_rows', 0)),
+            "sealedRowsUpdated": int(sealed_efficiency.get('updated_rows', 0)),
+            "sealedRowsSkippedDuplicates": int(sealed_efficiency.get('skipped_duplicates', 0)),
             **persistence, "ingestionErrors": [], "ingestionSuccess": True}

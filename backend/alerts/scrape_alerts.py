@@ -32,6 +32,24 @@ _ALERT_TAG = "[scrape-alerts]"
 _VALID_SEVERITIES = ("info", "warning", "error", "critical")
 
 
+def alert_sealed_market_observation_gap(quality: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    market_date = str(quality.get("marketDate") or "unknown")
+    return queue_alert(
+        "sealed_market_observation_gap",
+        title=f"SEALED MARKET OBSERVATION GAP — {market_date}",
+        message=(
+            f"Market date: {market_date}. "
+            f"Eligible products: {quality.get('expectedEligibleProductCount')}. "
+            f"Observed today: {quality.get('observedProductCount')}. "
+            f"Last observed date: {quality.get('lastObservedDate')}. "
+            f"Carry-forward eligible: {'yes' if quality.get('carryForwardEligible') else 'no'}."
+        ),
+        severity="error",
+        dedupe_key=f"sealed_market_observation_gap:{market_date}",
+        payload={**quality, "error_category": "sealed_market_observation_gap"},
+    )
+
+
 def queue_alert(
     alert_type: str,
     title: str,
@@ -61,6 +79,13 @@ def queue_alert(
         row["dedupe_key"] = dedupe_key[:300]
 
     try:
+        if dedupe_key:
+            existing = (supabase.table("alert_events")
+                        .select("id,alert_type,severity,title,message,payload,dedupe_key")
+                        .eq("dedupe_key", row["dedupe_key"]).limit(1).execute())
+            if existing and existing.data:
+                logger.info("%s deduplicated alert key=%s", _ALERT_TAG, row["dedupe_key"])
+                return existing.data[0]
         result = supabase.table("alert_events").insert(row).execute()
         if result and result.data:
             logger.warning(
@@ -193,7 +218,7 @@ def alert_deterministic_scrape_failure(
     attempts and this alert carries the actionable detail instead.
     """
     return queue_alert(
-        "deterministic_scrape_failure",
+        "pokemon_set_scrape_failed",
         title=f"Non-retryable scrape failure ({error_code}) for {canonical_key or 'unknown set'}",
         message=(
             f"Scrape job {job_id} for canonical_key={canonical_key} failed with the "
@@ -202,7 +227,7 @@ def alert_deterministic_scrape_failure(
             f"Detail: {(error_summary or '')[:500]}"
         ),
         severity="critical",
-        dedupe_key=f"deterministic_scrape_failure:{market_date}:{canonical_key}:{error_code}",
+        dedupe_key=f"set_scrape_failed:{market_date}:{canonical_key}:{error_code}:terminal",
         payload={
             "market_date": market_date,
             "queue_job_id": job_id,
@@ -210,6 +235,11 @@ def alert_deterministic_scrape_failure(
             "error_code": error_code,
             "error_category": "deterministic_configuration_failure",
             "retryable": False,
+            "status": "failed",
+            "stage": "scrape",
+            "attempts": 1,
+            "max_attempts": 1,
+            "error_summary": (error_summary or "")[:500],
         },
     )
 

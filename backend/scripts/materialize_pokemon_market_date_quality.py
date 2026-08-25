@@ -58,7 +58,9 @@ from backend.db.services.market_date_quality import (
     valuation_set_ids_for_date,
 )
 from backend.db.services.market_run_evidence import qualifying_set_ids_for_date
-from backend.db.services.pokemon_market_index_service import read_raw_index_history_for_audit
+from backend.db.services.pokemon_market_index_service import (
+    read_raw_index_history_for_audit, resolve_market_entry_dates_for_client,
+)
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 logger = logging.getLogger(__name__)
@@ -127,9 +129,10 @@ def evaluate_dates(
     legacy_allowlist: Iterable[str],
 ) -> dict[str, dict[str, Any]]:
     """Two-pass evaluation. Every verdict is produced by the service."""
+    market_entry_dates = resolve_market_entry_dates_for_client(client)
     evidence: dict[str, tuple] = {}
     for day in days:
-        cohort = cohort_set_ids_for_date(client, day)
+        cohort = cohort_set_ids_for_date(client, day, market_entry_dates=market_entry_dates)
         evidence[day] = (cohort,
                          qualifying_set_ids_for_date(client, day),
                          valuation_set_ids_for_date(client, day, cohort))
@@ -181,6 +184,9 @@ def _summarize(results: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     for verdict in results.values():
         counts[verdict["status"]] = counts.get(verdict["status"], 0) + 1
     accepted = sorted(d for d, v in results.items() if v["status"] in ACCEPTED_STATUSES)
+    market_index_accepted = sorted(
+        d for d, v in results.items()
+        if (v.get("evidence") or {}).get("marketIndexAccepted") is True)
     known = {STATUS_READY, STATUS_LEGACY_VERIFIED, STATUS_DEGRADED}
     return {
         "totalDates": len(results),
@@ -191,6 +197,9 @@ def _summarize(results: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
         "acceptedTotal": len(accepted),
         "firstAccepted": accepted[0] if accepted else None,
         "lastAccepted": accepted[-1] if accepted else None,
+        "marketIndexAcceptedTotal": len(market_index_accepted),
+        "firstMarketIndexAccepted": market_index_accepted[0] if market_index_accepted else None,
+        "lastMarketIndexAccepted": market_index_accepted[-1] if market_index_accepted else None,
     }
 
 
@@ -210,6 +219,10 @@ def _row(day: str, verdict: Mapping[str, Any]) -> dict[str, Any]:
         "qualifying_count": verdict["qualifyingSetCount"],
         "expected_count": verdict["cohortSetCount"],
         "accepted": verdict["status"] in ACCEPTED_STATUSES,
+        "market_index_accepted": evidence.get("marketIndexAccepted") is True,
+        "market_index_reason": ("complete tracked-cohort standard/top10 valuations"
+                                if evidence.get("marketIndexAccepted") is True
+                                else "tracked-cohort valuation incomplete"),
         "reason": reason,
         "pre_enforcement": bool(evidence.get("preEnforcement")),
         "has_later_accepted_date": bool(evidence.get("hasLaterAcceptedDate")),
@@ -271,6 +284,21 @@ def run(client: Any, args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     persisted = 0
     for day in selected:
         persisted += persist_market_date_quality(client, results[day])
+        try:
+            from backend.alerts.pipeline_alerts import alert_market_quality
+            verdict = results[day]
+            alert_market_quality(
+                market_date=day, status=str(verdict["status"]),
+                qualifying_set_count=int(verdict["qualifyingSetCount"]),
+                cohort_set_count=int(verdict["cohortSetCount"]),
+                missing_canonical_keys=list(verdict.get("missingCanonicalKeys") or
+                                            verdict.get("missingSetIds") or []),
+                missing_valuation_sets=list(verdict.get("missingValuationSetIds") or []),
+                missing_run_evidence=list(verdict.get("missingRunEvidenceSetIds") or []),
+                previous_accepted_market_date=report["summary"].get("lastAccepted"),
+            )
+        except Exception:  # pragma: no cover - persistence remains authoritative
+            logger.exception("%s failed to queue Market Quality alert for %s", TAG, day)
     report["wrote"] = True
     report["rowsPersisted"] = persisted
     return EXIT_OK, report

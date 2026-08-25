@@ -16,6 +16,8 @@ Usage:
     print(summary)  # {"fetched": 3, "sent": 3, "failed": 0}
 """
 
+import argparse
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -28,6 +30,13 @@ from backend.db.clients.supabase_client import supabase
 logger = logging.getLogger(__name__)
 
 _ALERT_TAG = "[alert-dispatcher]"
+_FIELD_LABELS = {
+    "market_date": "Market Date", "stage": "Stage", "status": "Status",
+    "batch_id": "Batch", "progress": "Progress", "missing_sets": "Missing Sets",
+    "error_code": "Error Code", "previous_accepted_market_date": "Public Date",
+    "runtime_git_sha": "Runtime SHA", "duration": "Duration",
+    "canonical_key": "Set", "queue_job_id": "Queue Job",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +114,7 @@ def fetch_pending_alerts(limit: int) -> List[Dict[str, Any]]:
             supabase.table("alert_events")
             .select("id, alert_type, severity, title, message, payload, created_at")
             .eq("sent", False)
+            .is_("suppressed_at", "null")
             .order("created_at", desc=False)
             .limit(limit)
             .execute()
@@ -158,6 +168,16 @@ def format_slack_message(alert_row: Dict[str, Any]) -> Dict[str, Any]:
     # Build field list from payload
     fields = []
     
+    # Pipeline context first. The allowlist deliberately excludes secrets and
+    # raw provider payloads even if a caller accidentally includes them.
+    for key, label in _FIELD_LABELS.items():
+        value = payload.get(key)
+        if value is None or value == "":
+            continue
+        if isinstance(value, (list, tuple)):
+            value = ", ".join(str(item) for item in value[:20])
+        fields.append({"title": label, "value": str(value)[:500], "short": key not in {"missing_sets"}})
+
     # Priority 1: scrape run context
     if payload.get("run_id"):
         fields.append({
@@ -257,7 +277,7 @@ def send_slack_alert(alert_row: Dict[str, Any], webhook_url: str) -> bool:
         response = requests.post(
             webhook_url,
             json=payload,
-            timeout=10,
+            timeout=max(1.0, float(os.getenv("SLACK_ALERT_TIMEOUT_SECONDS", "10"))),
         )
         
         if response.status_code == 200:
@@ -377,7 +397,16 @@ def send_pending_alerts(limit: Optional[int] = None) -> AlertSummary:
         limit = _get_batch_size()
     
     webhook_url = _get_slack_webhook_url()  # Raises if missing
-    
+    try:
+        backlog = get_dispatcher_health()
+        logger.info(
+            "%s backlog pending=%s oldest_age_minutes=%s",
+            _ALERT_TAG, backlog["pending_unsuppressed_count"],
+            backlog["oldest_pending_age_minutes"],
+        )
+    except Exception as exc:  # delivery may still proceed from the normal fetch
+        logger.error("%s backlog health query failed: %s", _ALERT_TAG, exc)
+
     # Fetch pending alerts
     alerts = fetch_pending_alerts(limit)
     
@@ -421,6 +450,44 @@ def send_pending_alerts(limit: Optional[int] = None) -> AlertSummary:
     return summary
 
 
+def get_dispatcher_health() -> Dict[str, Any]:
+    """Read delivery/configuration health without exposing webhook contents."""
+    result = (supabase.table("alert_events")
+              .select("id,created_at", count="exact")
+              .eq("sent", False).is_("suppressed_at", "null")
+              .order("created_at", desc=False).limit(1).execute())
+    rows = list(result.data or [])
+    oldest = rows[0].get("created_at") if rows else None
+    age_minutes = None
+    if oldest:
+        parsed = datetime.fromisoformat(str(oldest).replace("Z", "+00:00"))
+        age_minutes = max(0, int((datetime.now(timezone.utc) - parsed).total_seconds() / 60))
+    health = {
+        "alerts_enabled": _get_alerts_enabled(),
+        "slack_webhook_configured": bool(os.getenv("SLACK_ALERT_WEBHOOK_URL", "").strip()),
+        "database_connected": True,
+        "pending_unsuppressed_count": int(getattr(result, "count", None) or len(rows)),
+        "oldest_pending_created_at": oldest,
+        "oldest_pending_age_minutes": age_minutes,
+    }
+    warning_count = int(os.getenv("ALERT_BACKLOG_WARNING_COUNT", "20"))
+    critical_age = int(os.getenv("ALERT_BACKLOG_CRITICAL_AGE_MINUTES", "10"))
+    if health["pending_unsuppressed_count"] >= warning_count:
+        logger.warning("%s ALERT BACKLOG pending=%s", _ALERT_TAG, health["pending_unsuppressed_count"])
+    if age_minutes is not None and age_minutes >= critical_age:
+        logger.error("%s ALERT BACKLOG oldest_age_minutes=%s", _ALERT_TAG, age_minutes)
+    return health
+
+
+def send_test_message() -> bool:
+    """Send exactly one explicit test message; never queues or mutates an event."""
+    return send_slack_alert({"id": "health-check", "alert_type": "dispatcher_test",
+                             "severity": "info", "title": "✅ Alert dispatcher test",
+                             "message": "Explicit operator-requested Slack delivery test.",
+                             "payload": {"stage": "dispatcher", "status": "healthy"}},
+                            _get_slack_webhook_url())
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
@@ -435,9 +502,6 @@ def main() -> int:
     Returns:
         0 on success, 1 on error.
     """
-    import sys
-    import argparse
-    
     parser = argparse.ArgumentParser(description="Send pending scrape alerts to Slack")
     parser.add_argument(
         "--limit",
@@ -445,9 +509,22 @@ def main() -> int:
         default=None,
         help="Max alerts to send (default: ALERT_BATCH_SIZE env or 25)",
     )
+    parser.add_argument("--health-check", action="store_true",
+                        help="Check configuration, database connectivity, and pending backlog")
+    parser.add_argument("--send-test", action="store_true",
+                        help="Send one explicit test message (requires --health-check)")
     args = parser.parse_args()
+    if args.send_test and not args.health_check:
+        parser.error("--send-test requires --health-check")
     
     try:
+        if args.health_check:
+            health = get_dispatcher_health()
+            if args.send_test:
+                health["test_message_sent"] = send_test_message()
+            print(json.dumps(health, indent=2, sort_keys=True))
+            return 0 if health["database_connected"] and (
+                not args.send_test or health.get("test_message_sent")) else 1
         logger.info("%s starting alert dispatch (limit=%s)", _ALERT_TAG, args.limit)
         summary = send_pending_alerts(limit=args.limit)
         logger.info("%s dispatch complete: %s", _ALERT_TAG, summary)

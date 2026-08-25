@@ -111,6 +111,8 @@ RECONCILIATION_METRIC_KEYS = (
     "identityWriteOperations", "variantWriteOperations",
     "priceReadOperations", "priceWriteOperations", "transportRetryCount",
     "payloadVariantCount", "totalDbOperations",
+    "sealedRowsAttempted", "sealedRowsInserted", "sealedRowsUpdated",
+    "sealedRowsSkippedDuplicates",
 )
 
 

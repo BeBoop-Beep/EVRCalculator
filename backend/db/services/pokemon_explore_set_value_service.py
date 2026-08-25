@@ -11,6 +11,7 @@ from backend.desirability.public_analytics_policy import is_public_analytics_eli
 TABLE = "pokemon_explore_set_value_snapshot_latest"
 WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("lifetime", None))
 MAX_TREND_POINTS = 48
+MAX_RECENT_DAILY_TREND_POINTS = 30
 
 
 class ExploreSetValueUnavailable(Exception):
@@ -174,6 +175,7 @@ def build_global_set_value_row(
             # rather than advertising two permanently-null fields.
             "windows": windows,
             "trend": compact_trend(canonical, preserve_dates=[window["startDate"] for window in windows.values()] + [current["date"]]),
+            "recentDailyTrend": [[row["date"], row["value"]] for row in canonical[-MAX_RECENT_DAILY_TREND_POINTS:]],
             "historyStartDate": canonical[0]["date"],
             "historyEndDate": current["date"],
             "historyPointCount": len(canonical),
@@ -187,7 +189,7 @@ def build_global_set_value_row(
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
     payload = {"marketOverview": dict(market_overview) if market_overview is not None else None,
-               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "trendPointLimit": MAX_TREND_POINTS, "warnings": []}}
+               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "trendPointLimit": MAX_TREND_POINTS, "recentDailyTrendPointLimit": MAX_RECENT_DAILY_TREND_POINTS, "warnings": []}}
     return {"tcg": "pokemon", "scope": "market", "payload_json": payload, "market_date": target_market_date, "set_count": len(published), "source_generation_fingerprint": fingerprint, "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()), "_diagnostics": diagnostics}
 
 

@@ -17,7 +17,8 @@ from backend.db.services.pokemon_market_index_service import (
 )
 from backend.domain.pokemon.market_index import INDEX_KEYS, deterministic_fingerprint
 from backend.db.services.pokemon_global_sealed_market_service import (
-    build_global_sealed_market, read_global_sealed_source_snapshots,
+    build_global_sealed_market, build_global_sealed_segments,
+    read_global_sealed_source_snapshots,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -82,6 +83,7 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     latest = list(client.table("pokemon_explore_set_value_snapshot_latest").select("market_date,payload_json").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute().data or [])
     public = (latest[0].get("payload_json") or {}).get("marketOverview") if latest else None
     sealed_market = None
+    sealed_segments = None
     if isinstance(public, dict) and isinstance(public.get("sealedMarket"), dict):
         try:
             current_raw = next(
@@ -93,14 +95,24 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
             sealed_market = build_global_sealed_market(
                 [dict(row.get("payload_json") or {}) for row in sealed_rows], market_date=market_date
             )
+            sealed_segments = build_global_sealed_segments(
+                [dict(row.get("payload_json") or {}) for row in sealed_rows],
+                market_date=market_date, total=sealed_market,
+            )
         except Exception as exc:
             failures.append(f"expected sealed overview invalid: {exc}")
     try:
-        expected_overview = build_market_overview(expected_history, market_date=market_date, sealed_market=sealed_market)
+        expected_overview = build_market_overview(
+            expected_history, market_date=market_date,
+            sealed_market=sealed_market, sealed_segments=sealed_segments,
+        )
     except Exception as exc:
         failures.append(f"expected overview invalid: {exc}"); expected_overview = None
     try:
-        persisted_overview = build_market_overview(persisted_history, market_date=market_date, sealed_market=sealed_market)
+        persisted_overview = build_market_overview(
+            persisted_history, market_date=market_date,
+            sealed_market=sealed_market, sealed_segments=sealed_segments,
+        )
     except Exception as exc:
         failures.append(f"persisted overview invalid: {exc}"); persisted_overview = None
     if expected_overview is not None and persisted_overview is not None:
