@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
-import { displayFamilyScores, familyEvidenceScores, familyTier, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { displayFamilyScores, familyEvidenceScores, familyTier, formatFamilyMarketPrice, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { FamilyScoreRow, FamilySnapshot, RankingsFamilyCells, RANKINGS_FAMILY_COLUMNS, familyLabel } from "./SetRipFamilyBreakdown.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -129,7 +129,7 @@ test("desktop Rankings family columns have one stable canonical order", () => {
 
 test("fixed cells preserve missing positions and canonical score, rank, and tier", () => {
   const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
-    React.createElement(RankingsFamilyCells, { setRip: { familyScores: [
+    React.createElement(RankingsFamilyCells, { canViewProductRipIntelligence: true, setRip: { familyScores: [
       { family: "booster_bundle", score: 92.3, tier: "S", rank: 3, cohortSize: 20 },
       { family: "booster_box", score: 71.1, tier: "B", rank: 8, cohortSize: 20 },
     ] } })
@@ -156,7 +156,7 @@ test("display-only Enhanced Box evidence renders without entering Format Strengt
   assert.equal(participatingFamilyScores(setRip).length, 1);
   assert.equal(displayFamilyScores(setRip).length, 2);
   const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
-    React.createElement(RankingsFamilyCells, { setRip })
+    React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: true })
   ))));
   const enhanced = renderer.root.find((node) => node.props["data-rankings-family-column"] === "enhanced-box");
   const text = renderedText({ toJSON: () => enhanced.toJSON?.() }) || renderedText(renderer);
@@ -172,10 +172,27 @@ test("display-only Enhanced Box evidence renders without entering Format Strengt
   assert.equal(participatingFamilyScores(journey).length, 0);
   assert.equal(displayFamilyScores(journey).length, 1);
   const zeroRenderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
-    React.createElement(RankingsFamilyCells, { setRip: journey })
+    React.createElement(RankingsFamilyCells, { setRip: journey, canViewProductRipIntelligence: true })
   ))));
   const zeroText = renderedText(zeroRenderer);
   assert.ok(zeroText.includes("0.0"));
   assert.ok(zeroText.includes("#2"));
   assert.ok(zeroText.includes("F"));
+});
+
+test("family prices format one SKU, multiple SKUs, and reject zero or invalid values", () => {
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: 172.96 }), "$172.96");
+  assert.equal(formatFamilyMarketPrice({ skuCount: 2, minMarketPrice: 167.87 }), "from $167.87");
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: 0 }), null);
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: "bad" }), null);
+});
+
+test("free family cells hide RIP intelligence but keep price; paid cells show both", () => {
+  const setRip = { displayFamilyScores: [{ family: "booster_box", score: 93, tier: "A", rank: 2, cohortSize: 10, skuCount: 1, minMarketPrice: 172.96 }] };
+  const make = (entitled) => render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null, React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: entitled })))))
+  const free = renderedText(make(false));
+  assert.ok(free.includes("RIP") && free.includes("$172.96"));
+  assert.ok(!free.includes("9.3") && !free.includes("#2") && !free.includes("A"));
+  const paid = renderedText(make(true));
+  assert.ok(paid.includes("9.3") && paid.includes("#2") && paid.includes("A") && paid.includes("$172.96"));
 });

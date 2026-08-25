@@ -13,20 +13,20 @@ import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import styles from "./explore.module.css";
 
 const FAMILY_SORT_OPTIONS = [
-  { value: "overallRipRelativeScore", label: "Sort: Overall RIP" },
-  { value: "financialRipRelativeScore", label: "Sort: Financial RIP" },
-  { value: "collectorAppealScore", label: "Sort: Collector Appeal" },
-  { value: "marketPrice", label: "Sort: Market Price" },
-  { value: "expectedValue", label: "Sort: Expected Value" },
-  { value: "chanceToRecoverCost", label: "Sort: Chance to Recover Cost" },
+  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "financialRipLeaderScore", label: "Financial RIP" },
+  { value: "collectorAppealScore", label: "Collector Appeal" },
+  { value: "marketPrice", label: "Market Price" },
+  { value: "expectedValue", label: "Expected Value" },
+  { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
 ];
 const OVERALL_SORT_OPTIONS = [
-  { value: "overallRipRelativeScore", label: "Sort: Overall RIP" },
-  { value: "financialRipRelativeScore", label: "Sort: Financial RIP" },
-  { value: "collectorAppealScore", label: "Sort: Collector Appeal" },
-  { value: "unitPrice", label: "Sort: Unit Price" },
-  { value: "expectedValue", label: "Sort: Expected Value" },
-  { value: "chanceToRecoverCost", label: "Sort: Chance to Recover Cost" },
+  { value: "overallRipLeaderScore", label: "Overall RIP" },
+  { value: "financialRipLeaderScore", label: "Financial RIP" },
+  { value: "collectorAppealScore", label: "Collector Appeal" },
+  { value: "unitPrice", label: "Unit Price" },
+  { value: "expectedValue", label: "Expected Value" },
+  { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
 ];
 export const PRODUCT_FAMILY_NAV_ORDER = [
   "loose_booster_pack",
@@ -94,7 +94,7 @@ const pluralFamilyLabel = (label) =>
     "Enhanced Booster Box": "Enhanced Booster Boxes",
   })[label] || `${label}s`;
 
-export function filterAndSortProducts(products, query, sortKey) {
+export function filterAndSortProducts(products, query, sortKey, sortDirection = "desc") {
   const needle = String(query || "")
       .trim()
       .toLocaleLowerCase(),
@@ -125,7 +125,7 @@ export function filterAndSortProducts(products, query, sortKey) {
           : 1;
       if (bv === null) return -1;
       return (
-        bv - av ||
+        (sortDirection === "asc" ? av - bv : bv - av) ||
         Number(a.budgetRank || a.familyRank) -
           Number(b.budgetRank || b.familyRank)
       );
@@ -216,6 +216,8 @@ function ProductRankingsTable({
   setQuery,
   sortKey,
   setSortKey,
+  sortDirection,
+  setSortDirection,
   title,
   subtitle,
   overall = false,
@@ -238,7 +240,7 @@ function ProductRankingsTable({
       aria-label={`${title} rankings`}
     >
       <div
-        className={`${styles.divider} grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_16rem_minmax(0,1fr)] md:items-center`}
+        className={`${styles.divider} grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_16rem_minmax(18rem,1fr)] md:items-center`}
       >
         <div>
           <div className="flex items-center gap-1.5">
@@ -263,15 +265,22 @@ function ProductRankingsTable({
               value={selectedBudgetKey}
               onChange={setSelectedBudgetKey}
               options={budgetOptions}
-              className="w-full md:min-w-[12rem]"
+              className="w-full md:min-w-[15rem]"
+              triggerVariant="budget"
+              eyebrow="Opening Budget"
             />
           ) : null}
           <DarkSelect
-            ariaLabel="Sort products"
+            ariaLabel={`Sort products: ${(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).find((option) => option.value === sortKey)?.label || "Overall RIP"}, ${sortDirection === "asc" ? "ascending" : "descending"}`}
             value={sortKey}
-            onChange={setSortKey}
+            onChange={(next) => {
+              if (next === sortKey) setSortDirection(sortDirection === "desc" ? "asc" : "desc");
+              else { setSortKey(next); setSortDirection("desc"); }
+            }}
             options={overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS}
-            className="w-full md:min-w-[12rem]"
+            className="flex-none"
+            triggerVariant="sort"
+            triggerIcon={sortDirection === "asc" ? "↑" : "↓"}
           />
         </div>
       </div>
@@ -432,17 +441,19 @@ function OverallProductRankings({
   setQuery,
   sortKey,
   setSortKey,
+  sortDirection,
+  setSortDirection,
   selectedBudgetKey,
   setSelectedBudgetKey,
 }) {
   const overall = result?.data;
   const options = (overall?.availableBudgets || []).map((e) => ({
     value: e.type === "full_market" ? "full_market" : String(e.value),
-    label: `Budget: ${e.label}`,
+    label: e.label,
   }));
   const products = useMemo(
-    () => filterAndSortProducts(overall?.rows || [], query, sortKey),
-    [overall?.rows, query, sortKey],
+    () => filterAndSortProducts(overall?.rows || [], query, sortKey, sortDirection),
+    [overall?.rows, query, sortKey, sortDirection],
   );
   if (result?.status === "loading")
     return (
@@ -464,7 +475,7 @@ function OverallProductRankings({
   const context =
     selected?.type === "full_market"
       ? selected.label
-      : `${wholeMoney.format(selected?.value)} opening budget`;
+      : `${wholeMoney.format(selected?.value)} Opening Budget`;
   return (
     <ProductRankingsTable
       products={products}
@@ -472,8 +483,10 @@ function OverallProductRankings({
       setQuery={setQuery}
       sortKey={sortKey}
       setSortKey={setSortKey}
+      sortDirection={sortDirection}
+      setSortDirection={setSortDirection}
       title="Best Products to Rip"
-      subtitle={`Cross-format rankings at the selected opening budget · ${context} · ${overall.cohortSize} ranked`}
+      subtitle={`${context} · ${overall.cohortSize} products ranked`}
       overall
       budgetOptions={options}
       selectedBudgetKey={selectedBudgetKey}
@@ -487,11 +500,14 @@ export default function ProductFamilyRankingsClient({
   productFamilyRankings,
   initialOverallProductRankings,
   loadError,
+  canViewProductRipIntelligence = false,
+  onUnlockProductRip = null,
 }) {
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
   const [view, setView] = useState("sets"),
-    [sortKey, setSortKey] = useState("overallRipRelativeScore"),
+    [sortKey, setSortKey] = useState("overallRipLeaderScore"),
+    [sortDirection, setSortDirection] = useState("desc"),
     [query, setQuery] = useState(""),
     [selectedBudgetKey, setSelectedBudgetKey] = useState("full_market"),
     [overallResult, setOverallResult] = useState(
@@ -524,13 +540,14 @@ export default function ProductFamilyRankingsClient({
   };
   const selected = families[view],
     products = useMemo(
-      () => filterAndSortProducts(selected?.products, query, sortKey),
-      [selected, query, sortKey],
+      () => filterAndSortProducts(selected?.products, query, sortKey, sortDirection),
+      [selected, query, sortKey, sortDirection],
     ),
     productsActive = view !== "sets";
   const selectView = (next) => {
       setQuery("");
-      setSortKey("overallRipRelativeScore");
+      setSortKey("overallRipLeaderScore");
+      setSortDirection("desc");
       setView(next);
     },
     changeView = (next) => selectView(next === "products" ? "overall" : "sets");
@@ -581,7 +598,7 @@ export default function ProductFamilyRankingsClient({
         </nav>
       ) : null}
       {view === "sets" ? (
-        <ExploreTableClient targets={targets} loadError={loadError} />
+        <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
       ) : view === "overall" ? (
         <OverallProductRankings
           result={overallResult}
@@ -589,6 +606,8 @@ export default function ProductFamilyRankingsClient({
           setQuery={setQuery}
           sortKey={sortKey}
           setSortKey={setSortKey}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
           selectedBudgetKey={selectedBudgetKey}
           setSelectedBudgetKey={selectBudget}
         />
@@ -599,8 +618,10 @@ export default function ProductFamilyRankingsClient({
           setQuery={setQuery}
           sortKey={sortKey}
           setSortKey={setSortKey}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
           title={`Best ${pluralFamilyLabel(selected?.label)} to Rip`}
-          subtitle={`Compared only with ${pluralFamilyLabel(selected?.label)} · ${selected?.count} ranked`}
+          subtitle={`Compared only with ${pluralFamilyLabel(selected?.label)} · ${selected?.count} products ranked`}
         />
       )}
     </>

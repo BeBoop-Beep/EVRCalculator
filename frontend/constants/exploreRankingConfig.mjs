@@ -282,8 +282,13 @@ export function getTierForMode(target, modeId) {
  * cell so it can be styled and so only a `publicScore` mode ever receives one.
  */
 export function formatPublicRipScore(value) {
+  const display = publicRipDisplayScore(value);
+  return display === null ? "—" : display.toFixed(1);
+}
+
+export function publicRipDisplayScore(value) {
   const num = toNumber(value);
-  return num === null ? "—" : (num / 10).toFixed(1);
+  return num === null ? null : Math.floor(num + 0.5) / 10;
 }
 
 export function formatModeScore(value, scoreKind = SCORE_KIND_INDEX) {

@@ -18,15 +18,25 @@ import {
   getVisibleHistoryWindowMetrics,
   STANDARD_DELTA_WINDOW_KEYS,
 } from "./marketDeltaWindows.mjs";
+import {
+  isRetryableTopChaseStatus,
+  validateTopChasePayload,
+} from "../pokemon/topChasePayloadContract.mjs";
 
 function loadPokemonSetMarketClientForTests() {
   const source = readFileSync(new URL("../pokemon/pokemonSetMarketClient.js", import.meta.url), "utf8")
     .replace(/import \{ PRICING_SNAPSHOT_CONTRACT_VERSION \} from "\.\/pricingSnapshotContract\.mjs";\s*/, 'const PRICING_SNAPSHOT_CONTRACT_VERSION = "pricing-v4";\n')
+    // The Top Chase payload contract is handed to the sandbox as the REAL
+    // module rather than a stub: these tests assert on normalization that runs
+    // through it, so a stub would let them pass against fiction.
+    .replace(/import \{[^}]*\} from "\.\/topChasePayloadContract\.mjs";\s*/, "")
     .replace(/export\s+(async\s+function|function)\s+/g, "$1 ");
   const context = {
     console,
     process: { env: { NODE_ENV: "test" } },
     performance: { now: () => 0 },
+    isRetryableTopChaseStatus,
+    validateTopChasePayload,
   };
   vm.runInNewContext(
     `${source}\nglobalThis.__exports = { normalizeMarketDashboardPayload };`,

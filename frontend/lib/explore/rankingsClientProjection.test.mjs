@@ -245,7 +245,7 @@ test("the client field manifest advertises current packaged and top-level models
 });
 
 test("display-only family evidence crosses the lightweight Rankings boundary", () => {
-  const displayFamilyScores = [{ family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2 }];
+  const displayFamilyScores = [{ family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2, skuCount: 2, minMarketPrice: 167.87, maxMarketPrice: 189.42 }];
   const [projected] = projectRankingsTargets([{ target_id: "enhanced", setRipV1: {
     score: 77.5, familyScores: [], displayFamilyScores,
   } }]);

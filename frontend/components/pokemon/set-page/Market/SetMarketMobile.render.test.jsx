@@ -116,15 +116,16 @@ test("top chase is one featured card above a compact ranked list", async () => {
   );
   const featured = renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-featured"]);
   assert.equal(featured.length, 1, "exactly one featured card");
-  // Preview shows #2-#5; the rest stay one tap away rather than being dropped.
-  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-row"]).length, 4);
+  // Mobile previews the Top 3 (one featured card plus #2-#3); the remaining
+  // seven stay one tap away behind "View Top 10" rather than being dropped.
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-mobile-chase-row"]).length, 2);
 
   const text = textOf(renderer);
-  assert.match(text, /Top Chase Cards/);
+  assert.match(text, /Top 10 Cards/);
   assert.match(text, /#1/);
   assert.match(text, /Chase 0/);
   assert.match(text, /\$500\.00/);
-  assert.match(text, /Show 4 more/);
+  assert.match(text, /View Top 10/);
 
   await act(async () => {
     renderer.root

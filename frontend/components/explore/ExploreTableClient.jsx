@@ -486,7 +486,7 @@ function SortableHeader({ columnId, label, sort, onSort, note, infoText = null, 
   );
 }
 
-export default function ExploreTableClient({ targets = [], loadError = false }) {
+export default function ExploreTableClient({ targets = [], loadError = false, canViewProductRipIntelligence = false, onUnlockProductRip = null }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
@@ -869,7 +869,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td className={styles.numeric}><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
                       <td className="text-center"><RipTierMark tier={tier} /></td>
-                      <RankingsFamilyCells setRip={target?.setRipV1} />
+                      <RankingsFamilyCells setRip={target?.setRipV1} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );
@@ -908,7 +908,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   </button>
                   {expanded ? (
                     <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
-                      <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />
+                      <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
                       <RankingInsight setRip={target?.setRipV1} />
                       <Link href={buildRipLink(target)} className="mt-2 inline-flex min-h-10 items-center text-xs font-semibold text-[var(--accent)]">View full Set RIP breakdown →</Link>

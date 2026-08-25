@@ -33,6 +33,16 @@ export function familyTier(entry) {
   return Object.hasOwn(RANK_CONFIG, tier) ? tier : null;
 }
 
+const familyPriceFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
+
+export function formatFamilyMarketPrice(entry) {
+  const price = Number(entry?.minMarketPrice);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  return `${Number(entry?.skuCount) > 1 ? "from " : ""}${familyPriceFormatter.format(price)}`;
+}
+
 export function setRipTier(setRip) {
   const tier = String(setRip?.tier || "").toUpperCase();
   return Object.hasOwn(RANK_CONFIG, tier) ? tier : null;
@@ -100,7 +110,7 @@ export function FamilyScoreRow({ entry, compact = false, showTakeaway = false })
   );
 }
 
-export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
+export function FamilySnapshot({ setRip, compact = false, layout = "rows", canViewProductRipIntelligence = true, onUnlockProductRip = null }) {
   const families = displayFamilyScores(setRip);
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
@@ -115,7 +125,8 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
         {families.map((entry) => {
           const tier = familyTier(entry);
           const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
-          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></div>;
+          const price = formatFamilyMarketPrice(entry);
+          return <div data-family-module key={entry.family} className="set-rip-family-column"><span className="line-clamp-2 min-h-[1.4rem] text-[10px] font-semibold leading-[1.1] text-[var(--text-secondary)]">{snapshotFamilyLabel(entry.family)}</span>{canViewProductRipIntelligence ? <><strong className="text-[15px] font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong><span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span></> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock product RIP score, rank, and tier" className="rounded-md border border-[rgba(45,212,191,0.24)] px-2 py-1 text-[10px] font-bold uppercase text-[var(--text-secondary)]"><span aria-hidden="true">🔒</span> RIP</button>}{price ? <span className="whitespace-nowrap text-[10px] tabular-nums text-[var(--text-secondary)]">{price}</span> : null}</div>;
         })}
       </div>
     );
@@ -134,19 +145,23 @@ export const RANKINGS_FAMILY_COLUMNS = Object.freeze([
   { key: "enhanced-box", label: "Enhanced Box", fullLabel: "Enhanced Booster Box", families: ["enhanced_booster_box"] },
 ]);
 
-function FixedFamilyResult({ entry, identifier = null }) {
+function FixedFamilyResult({ entry, identifier = null, canViewProductRipIntelligence = false, onUnlockProductRip = null }) {
   const tier = familyTier(entry);
   const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
+  const price = formatFamilyMarketPrice(entry);
   return (
     <span data-fixed-family-result={entry.family} className="flex flex-col items-center gap-1 text-center">
       {identifier ? <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{identifier}</span> : null}
-      <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong>
-      <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
+      {canViewProductRipIntelligence ? <>
+        <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{formatPublicRipScore(entry.score)}</strong>
+        <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
+      </> : <button type="button" onClick={onUnlockProductRip || undefined} aria-label="Unlock product RIP score, rank, and tier" className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[rgba(45,212,191,0.24)] bg-[rgba(45,212,191,0.06)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"><span aria-hidden="true">🔒</span> RIP</button>}
+      {price ? <span data-family-market-price className="whitespace-nowrap text-[10px] leading-none tabular-nums text-[var(--text-secondary)]">{price}</span> : null}
     </span>
   );
 }
 
-export function RankingsFamilyCells({ setRip }) {
+export function RankingsFamilyCells({ setRip, canViewProductRipIntelligence = false, onUnlockProductRip = null }) {
   const familyByKey = new Map(displayFamilyScores(setRip).map((entry) => [entry.family, entry]));
   return RANKINGS_FAMILY_COLUMNS.map((column) => {
     const entries = column.families.map((family) => familyByKey.get(family)).filter(Boolean);
@@ -154,7 +169,7 @@ export function RankingsFamilyCells({ setRip }) {
       <td key={column.key} data-rankings-family-column={column.key} className="px-1.5 text-center align-middle">
         {entries.length ? (
           <span className="flex flex-col items-center gap-2">
-            {entries.map((entry) => <FixedFamilyResult key={entry.family} entry={entry} identifier={column.key === "special" ? (entry.family === "special_collection" ? "SPC" : "UPC") : null} />)}
+            {entries.map((entry) => <FixedFamilyResult key={entry.family} entry={entry} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} identifier={column.key === "special" ? (entry.family === "special_collection" ? "SPC" : "UPC") : null} />)}
           </span>
         ) : <span className="text-xs text-[var(--text-secondary)]">—</span>}
       </td>

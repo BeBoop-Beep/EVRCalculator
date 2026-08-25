@@ -59,6 +59,31 @@ def test_frozen_formula_distinct_families_multi_sku_equal_votes_and_missing_omit
     assert result["methodologyVersion"] == service.METHODOLOGY_VERSION
 
 
+def test_display_family_price_enrichment_preserves_scoring_and_uses_lowest_multi_sku_price():
+    targets = [target("a", 1), target("b", 2), target("c", 3)]
+    families = {
+        "loose_booster_pack": [
+            product("a", "loose_booster_pack", 1, 4, "a1", marketPrice=189.42),
+            product("a", "loose_booster_pack", 2, 4, "a2", marketPrice=167.87),
+            product("b", "loose_booster_pack", 3, 4, marketPrice=172.96),
+            product("c", "loose_booster_pack", 4, 4, marketPrice=None),
+        ],
+        "booster_bundle": [
+            product("a", "booster_bundle", 1, 3, marketPrice=40),
+            product("b", "booster_bundle", 2, 3, marketPrice=35),
+            product("c", "booster_bundle", 3, 3, marketPrice=0),
+        ],
+    }
+    result = service.build_set_rip(projection(targets, families), set_targets=targets)
+    a = next(row for row in result["sets"] if row["setId"] == "a")
+    loose = next(item for item in a["displayFamilyScores"] if item["family"] == "loose_booster_pack")
+    assert (loose["skuCount"], loose["minMarketPrice"], loose["maxMarketPrice"]) == (2, 167.87, 189.42)
+    assert len(loose["productIds"]) == 2
+    assert a["score"] == pytest.approx((((5 / 6) + 1) / 2) * 100)
+    c = next(row for row in result["sets"] if row["setId"] == "c")
+    assert all(item["minMarketPrice"] is None for item in c["displayFamilyScores"])
+
+
 def test_family_eligibility_rankability_and_future_family_are_generic():
     targets = [target("a", 1), target("b", 2), target("c", 3)]
     eligible = [product(s, "three_pack_blister", i, 3) for i, s in enumerate(("a", "b", "c"), 1)]

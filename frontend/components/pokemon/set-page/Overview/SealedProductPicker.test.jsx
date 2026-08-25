@@ -18,7 +18,7 @@ const PRODUCTS = [
   { sealedProductId: "pc-etb", productFamily: "pokemon_center_elite_trainer_box", name: "Ascended Heroes Pokemon Center Elite Trainer Box (Exclusive)", currentPrice: 422.6 },
   { sealedProductId: "etb", productFamily: "elite_trainer_box", name: "Ascended Heroes Elite Trainer Box", currentPrice: 169.41 },
   { sealedProductId: "bundle", productFamily: "booster_bundle", name: "Ascended Heroes Booster Bundle", currentPrice: 80.38 },
-  { sealedProductId: "pack", productFamily: "booster_pack", name: "Ascended Heroes Booster Pack", currentPrice: 13.64 },
+  { sealedProductId: "pack", productFamily: "loose_booster_pack", name: "Ascended Heroes Booster Pack", currentPrice: 13.64 },
 ];
 
 function createHarness() {
@@ -164,7 +164,7 @@ test("the menu is a listbox of options in the given price-descending order, each
     "PC ETB$422.60",
     "ETB$169.41",
     "Booster Bundle$80.38",
-    "Booster Pack$13.64",
+    "Loose Booster Pack$13.64",
   ]);
 
   // Concise label only; the full name stays in title/aria-label.

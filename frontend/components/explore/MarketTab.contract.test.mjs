@@ -14,7 +14,10 @@ const marketSection = pageSource.slice(
 );
 
 test("Market is a real canonical set-detail tab", () => {
-  assert.ok(pageSource.includes('new Set(["overview", "market", "cards", "pull-rates", "insights"])'));
+  // Four canonical tabs. Insights is no longer one of them — its content was
+  // folded into Overview — so the canonical set must NOT still admit it, or a
+  // `?tab=insights` deep link would resolve to a tab nothing renders.
+  assert.ok(pageSource.includes('new Set(["overview", "market", "cards", "pull-rates"])'));
   const aliases = pageSource.slice(
     pageSource.indexOf("const SET_DETAIL_TAB_ALIASES = {"),
     pageSource.indexOf("};", pageSource.indexOf("const SET_DETAIL_TAB_ALIASES = {"))
@@ -139,11 +142,13 @@ test("market-owned deep links resolve to nodes Market actually renders", () => {
     );
     assert.ok(marketSection.includes(`id="${targetId}"`), `${targetId} must exist on Market`);
   }
-  // The retired Overview OPvC chart is gone; its legacy link goes to the
-  // surviving Analysis historical-trend sub-view instead of resurrecting it.
+  // The retired Overview OPvC chart is gone, and so is the Insights tab that
+  // once hosted its replacement. The legacy link now lands on Overview's
+  // outcome-distribution section, which must actually exist on the page.
   assert.ok(
-    targets.includes('"performance-vs-cost": { tab: "insights", targetId: ANALYSIS_SECTION_ID, graphMode: "historical-trend" }')
+    targets.includes('"performance-vs-cost": { tab: "overview", targetId: "set-detail-outcome-distribution" }')
   );
+  assert.ok(pageSource.includes('id="set-detail-outcome-distribution"'));
 });
 
 test("the persistent set header is identity/context only", () => {

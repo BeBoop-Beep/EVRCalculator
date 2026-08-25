@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+// React is imported explicitly (not just its hooks) because the repo has no
+// `jsx` compilerOption, so JSX compiles to the classic `React.createElement`
+// runtime under the test transform and needs the binding in scope.
+import React, { useEffect, useRef } from "react";
 
 export default function SegmentedControl({
   options,

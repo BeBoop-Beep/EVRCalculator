@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import math
 
 
@@ -32,20 +33,31 @@ def public_relative_rip_tier(relative_score: Any) -> Optional[str]:
     return "F"
 
 
-def public_leader_rip_tier(leader_score: Any) -> Optional[str]:
-    """Locked public tier bands over a leader-curved 0-100 RIP score."""
+def public_rip_display_score(leader_score: Any) -> Optional[float]:
+    """Return the exact one-decimal 0-10 score shown publicly, using half-up rounding."""
     score = _optional_number(leader_score)
     if score is None:
         return None
-    if score >= 95:
+    try:
+        return float((Decimal(str(score)) / Decimal("10")).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def public_leader_rip_tier(leader_score: Any) -> Optional[str]:
+    """Grade the exact one-decimal leader-curved score displayed to users."""
+    score = public_rip_display_score(leader_score)
+    if score is None:
+        return None
+    if score >= 9.6:
         return "S"
-    if score >= 90:
+    if score >= 9.0:
         return "A"
-    if score >= 80:
+    if score >= 8.0:
         return "B"
-    if score >= 70:
+    if score >= 7.0:
         return "C"
-    if score >= 55:
+    if score >= 5.5:
         return "D"
     return "F"
 

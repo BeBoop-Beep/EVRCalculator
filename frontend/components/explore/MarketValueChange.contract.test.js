@@ -110,7 +110,17 @@ test("Cards tiles render one Price to Delta to Window market block", () => {
   assert.ok(tile.includes("[cardMetaKey, hasPriceData]"));
   assert.ok(!tile.includes("getDeltaBadgeStyle"));
   assert.ok(!tile.includes('content="value"\n                  showWindowLabel={false}'), "the value-only price must not carry visual movement configuration");
-  assert.ok(source.includes('movementWindow={effectiveCardSortMode === "7d-movers" ? "7D" : "30D"}'));
+  // Timeframe is its own control now, independent of sort mode, so the tile
+  // reports the window the user picked. CARD_TIMEFRAMES is exactly 7D/30D,
+  // which is what keeps the tile's `movementWindow === "7D"` branch total —
+  // a third option would silently label 30D deltas with another window.
+  assert.ok(source.includes("movementWindow={selectedTimeframe}"));
+  assert.deepEqual(
+    read(new URL("../pokemon/set-page/Cards/cardsControls.mjs", import.meta.url).pathname.replace(/^\//, ""))
+      .match(/CARD_TIMEFRAMES = \[([^\]]*)\]/)[1]
+      .match(/"[^"]+"/g),
+    ['"7D"', '"30D"']
+  );
   assert.ok(source.includes("displayedChecklistCards.map((card)"), "all visible and appended rows must reuse ChecklistCardTile");
   assert.ok(source.includes("dedupeChecklistCards([...previous.cards, ...payload.cards])"));
 });

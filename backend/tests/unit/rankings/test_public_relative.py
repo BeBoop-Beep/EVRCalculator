@@ -1,6 +1,6 @@
 from backend.rankings.public_relative import (
     compute_leader_normalized_scores, compute_public_relative_scores, public_rank_tier,
-    public_leader_rip_tier, public_relative_rip_tier,
+    public_leader_rip_tier, public_relative_rip_tier, public_rip_display_score,
 )
 
 
@@ -42,12 +42,14 @@ def test_locked_public_relative_rip_tier_boundaries_and_invalid_values():
 
 
 def test_locked_public_leader_rip_tier_boundaries_and_regressions():
-    cases = [(100, "S"), (95, "S"), (94.999, "A"), (90, "A"),
-             (89.999, "B"), (80, "B"), (79.999, "C"), (70, "C"),
-             (69.999, "D"), (55, "D"), (54.999, "F"), (0, "F")]
+    cases = [(100, "S"), (95.50, "S"), (95.49, "A"), (94.99, "A"),
+             (89.50, "A"), (89.49, "B"), (79.50, "B"), (79.49, "C"),
+             (69.50, "C"), (69.49, "D"), (54.50, "D"), (54.49, "F"), (0, "F")]
     assert [(score, public_leader_rip_tier(score)) for score, _ in cases] == cases
     assert public_leader_rip_tier(98.36) == "S"
     assert public_leader_rip_tier(62) == "D"
+    assert public_rip_display_score(95.49) == public_rip_display_score(94.99) == 9.5
+    assert public_leader_rip_tier(95.49) == public_leader_rip_tier(94.99) == "A"
     assert all(public_leader_rip_tier(value) is None for value in (None, "", float("nan"), float("inf")))
 
 

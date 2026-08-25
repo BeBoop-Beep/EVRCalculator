@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
-export default function DarkSelect({ ariaLabel, value, onChange, options = [], className = "" }) {
+export default function DarkSelect({ ariaLabel, value, onChange, options = [], className = "", triggerVariant = "default", eyebrow = null, triggerIcon = null }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
@@ -66,13 +66,14 @@ export default function DarkSelect({ ariaLabel, value, onChange, options = [], c
             setOpen(true);
           }
         }}
-        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-left text-xs text-[var(--text-primary)] transition-colors hover:border-[rgba(45,212,191,0.40)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] desk:min-h-0 desk:py-1.5"
+        data-trigger-variant={triggerVariant}
+        className={`flex items-center justify-between gap-2 rounded-lg text-left text-xs text-[var(--text-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] ${triggerVariant === "budget" ? "min-h-14 w-full border border-[rgba(45,212,191,0.38)] bg-[linear-gradient(135deg,rgba(45,212,191,0.12),rgba(15,23,42,0.72))] px-3 py-1.5 shadow-[inset_0_0_18px_rgba(45,212,191,0.05)] hover:border-[rgba(45,212,191,0.62)]" : triggerVariant === "sort" ? "h-11 w-11 flex-none justify-center border border-[var(--border-subtle)] bg-[var(--surface-page)] p-0 hover:border-[rgba(45,212,191,0.40)]" : "min-h-11 w-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 hover:border-[rgba(45,212,191,0.40)] desk:min-h-0 desk:py-1.5"}`}
       >
-        <span className="truncate">{selected?.label || "Select"}</span>
-        <span aria-hidden="true" className={`text-[var(--text-secondary)] transition-transform ${open ? "rotate-180" : ""}`}>⌄</span>
+        {triggerVariant === "sort" ? <span aria-hidden="true" className="text-lg leading-none">{triggerIcon || "⇅"}</span> : <span className="min-w-0"><span className="block truncate">{eyebrow ? <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-[rgb(94,234,212)]">{eyebrow}</span> : null}{selected?.label || "Select"}</span></span>}
+        {triggerVariant !== "sort" ? <span aria-hidden="true" className={`text-[var(--text-secondary)] transition-transform ${open ? "rotate-180" : ""}`}>⌄</span> : null}
       </button>
       {open ? (
-        <ul id={listboxId} role="listbox" aria-label={ariaLabel} className="set-dropdown-glass absolute left-0 top-full z-[1200] mt-1 max-h-72 min-w-full overflow-y-auto rounded-lg py-1 text-xs shadow-xl">
+        <ul id={listboxId} role="listbox" aria-label={ariaLabel} className={`set-dropdown-glass absolute top-full z-[1200] mt-1 max-h-72 overflow-y-auto rounded-lg py-1 text-xs shadow-xl ${triggerVariant === "sort" ? "right-0 min-w-56" : "left-0 min-w-full"}`}>
           {options.map((option, index) => {
             const active = option.value === value;
             return (

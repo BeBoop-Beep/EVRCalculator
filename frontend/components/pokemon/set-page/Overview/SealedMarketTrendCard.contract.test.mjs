@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const card = readFileSync(new URL("./SealedMarketTrendCard.jsx", import.meta.url), "utf8");
-const tooltip = readFileSync(new URL("../../../explore/MarketTrendTooltipCard.jsx", import.meta.url), "utf8");
-const css = readFileSync(new URL("../../../../app/styles/globals.css", import.meta.url), "utf8");
-const picker = readFileSync(new URL("./SealedProductPicker.jsx", import.meta.url), "utf8");
+// Sources are read with line endings NORMALIZED to LF. These files are stored
+// CRLF, and the multi-line layout regexes below anchor on a newline immediately
+// after a tag, so an un-normalized read fails them for a line-ending reason
+// rather than a real markup change.
+const read = (specifier) =>
+  readFileSync(new URL(specifier, import.meta.url), "utf8").split("\r\n").join("\n");
+
+const card = read("./SealedMarketTrendCard.jsx");
+const tooltip = read("../../../explore/MarketTrendTooltipCard.jsx");
+const css = read("../../../../app/styles/globals.css");
+const picker = read("./SealedProductPicker.jsx");
 
 test("sealed presentation uses one title and selector product label", () => {
   assert.match(card, /<h2 className="text-lg font-semibold leading-normal text-\[var\(--text-primary\)\]">Sealed Market<\/h2>/);
@@ -111,5 +118,7 @@ test("mobile divider keeps its restrained three-pixel footprint after the lumino
   // decorative box (and so the section separation) is unchanged.
   assert.match(css, /--mobile-section-divider-core: rgba\(226, 232, 240, 0\.28\)/);
   assert.match(css, /--mobile-section-divider-core: rgba\(71, 85, 105, 0\.22\)/);
-  assert.match(css, /\[data-mobile-section\]::before\s*\{[^}]*height: 3px;/s);
+  // The rule is now a comma-grouped selector shared with the RIP decision
+  // sections, so the block does not open immediately after this selector.
+  assert.match(css, /\[data-mobile-section\]::before\s*,[^{]*\{[^}]*height: 3px;/s);
 });
