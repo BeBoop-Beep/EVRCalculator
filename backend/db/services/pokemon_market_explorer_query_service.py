@@ -187,6 +187,57 @@ def resolve_scope_set_ids(
     return sorted(scoped - {""})
 
 
+#: Sets per canonical-card metadata request. Bounded rather than unlimited so a
+#: 167-set scope cannot build a URL-length-defeating `in_` list; 40 keeps the
+#: global 22-set cohort to a single batch with headroom to spare.
+CARD_UNIVERSE_SET_BATCH = 40
+
+#: Scope -> {canonical rarity key: raw spellings present in that scope}.
+#:
+#: WHY MEMOISE. A segment-filtered query only wants the cards of one rarity, and
+#: asking the database for them directly (`rarity IN (...)`) takes 0.10s where
+#: reading every card in scope and filtering in Python takes 5.6s. But the
+#: taxonomy deliberately refuses to hardcode spellings — "Rare" and "rare" and
+#: "MEGA_ATTACK_RARE" all occur — so the raw spellings have to be DISCOVERED
+#: from the data before they can be pushed down.
+#:
+#: That discovery is a property of the scope, not of the query: every rarity
+#: query over the same sets needs the same map. Caching it per scope means the
+#: first query of a scope pays for it once and every later query — including a
+#: different rarity, a different mode, a different top_n — skips straight to the
+#: narrow read. Read-only derived data with a TTL, so a newly catalogued rarity
+#: spelling appears without a restart.
+_RARITY_SPELLINGS_TTL_SECONDS = 15 * 60
+_rarity_spellings_cache: dict[tuple[str, ...], tuple[float, dict[str, set[str]]]] = {}
+
+
+def _resolve_rarity_spellings(client: Any, set_ids: Sequence[str]) -> dict[str, set[str]]:
+    """Canonical rarity key -> the raw spellings actually present in this scope.
+
+    Discovered, never assumed: the folding rules live in the taxonomy and are
+    applied here to real values, so a spelling nobody anticipated is still
+    classified exactly as `resolve_segment_card_universe` would classify it.
+    """
+    key = tuple(sorted(str(value) for value in set_ids))
+    cached = _rarity_spellings_cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+
+    spellings: dict[str, set[str]] = {}
+    ids = list(key)
+    for offset in range(0, len(ids), CARD_UNIVERSE_SET_BATCH):
+        batch = ids[offset:offset + CARD_UNIVERSE_SET_BATCH]
+        rows = _page_all(lambda batch=batch: client.table("pokemon_canonical_cards")
+                         .select("rarity").in_("set_id", batch).order("rarity"))
+        for row in rows:
+            raw = row.get("rarity")
+            segment = segment_key_for_rarity(raw)
+            if segment and raw is not None:
+                spellings.setdefault(segment, set()).add(raw)
+    _rarity_spellings_cache[key] = (time.monotonic() + _RARITY_SPELLINGS_TTL_SECONDS, spellings)
+    return spellings
+
+
 def resolve_segment_card_universe(
     client: Any, set_ids: Sequence[str], segment_ids: Sequence[str],
 ) -> dict[str, dict[str, Any]]:
@@ -202,11 +253,49 @@ def resolve_segment_card_universe(
     if unknown:
         raise MarketExplorerQueryError(f"unknown card segment(s): {sorted(unknown)}")
 
+    # BATCHED, NOT PER-SET. This is a plain metadata read — "which canonical
+    # cards are in these sets, and what rarity is each" — and issuing it once
+    # per set made it 22 sequential round trips and roughly half the wall clock
+    # of an unscoped global query. Batching changes only how the same rows are
+    # fetched: the rarity filter, the keying and the emitted fields below are
+    # untouched, so the resolved universe is identical set-for-set.
+    #
+    # `.order("id")` is required, not cosmetic: paging with `range()` over an
+    # unordered scan can repeat or skip rows once the result exceeds one page,
+    # and this batched read is several pages where the per-set read was often
+    # one. The returned mapping is keyed by card id, so ordering never leaks
+    # into the result.
     universe: dict[str, dict[str, Any]] = {}
-    for set_id in set_ids:
-        rows = _page_all(lambda set_id=set_id: client.table("pokemon_canonical_cards")
-                         .select("id,set_id,name,rarity,number,image_small_url")
-                         .eq("set_id", str(set_id)))
+    ids = [str(value) for value in set_ids]
+
+    # PUSH THE RARITY FILTER DOWN when the query actually names segments. The
+    # spellings come from the scope's own data, so `wanted_spellings` is exactly
+    # the set of raw values that `segment_key_for_rarity` would have accepted —
+    # the Python-side check below still runs and still decides, this only avoids
+    # transporting the ~20k cards it would have rejected. A segment with no
+    # spelling in scope yields an empty universe, which is the same answer the
+    # unfiltered path gives.
+    wanted_spellings: list[str] | None = None
+    if wanted:
+        discovered = _resolve_rarity_spellings(client, ids)
+        wanted_spellings = sorted(
+            {spelling for key in wanted for spelling in discovered.get(key, ())}
+        )
+        if not wanted_spellings:
+            return {}
+
+    for offset in range(0, len(ids), CARD_UNIVERSE_SET_BATCH):
+        batch = ids[offset:offset + CARD_UNIVERSE_SET_BATCH]
+
+        def _query(batch=batch, spellings=wanted_spellings):
+            request = (client.table("pokemon_canonical_cards")
+                       .select("id,set_id,name,rarity,number,image_small_url")
+                       .in_("set_id", batch))
+            if spellings is not None:
+                request = request.in_("rarity", spellings)
+            return request.order("id")
+
+        rows = _page_all(_query)
         for row in rows:
             card_id = str(row.get("id") or "").strip()
             if not card_id:

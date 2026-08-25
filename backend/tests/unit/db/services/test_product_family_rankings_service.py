@@ -10,17 +10,17 @@ class Query:
     def __init__(self, rows): self.rows = rows
     def select(self, *_a): return self
     def in_(self, _field, values):
-        self.rows = [r for r in self.rows if r["calculation_run_id"] in values]
+        self.rows = [r for r in self.rows if r[_field] in values]
         return self
     def execute(self):
         return type("Result", (), {"data": self.rows})()
 
 
 class Client:
-    def __init__(self, rows): self.rows = rows
+    def __init__(self, rows, products=None): self.rows = rows; self.products = products or []
     def table(self, name):
-        assert name == "simulation_sealed_product_results"
-        return Query(list(self.rows))
+        assert name in {"simulation_sealed_product_results", "sealed_products"}
+        return Query(list(self.products if name == "sealed_products" else self.rows))
 
 
 def row(product, family="booster_box", run="current", overall=80, financial=70, chance=.4, price=100, **changes):
@@ -98,6 +98,19 @@ def test_new_score_automatically_appears_on_next_build(monkeypatch):
     products = build(monkeypatch, rows)["families"]["booster_box"]["products"]
     assert [p["sealedProductId"] for p in products] == ["newly-scored", "existing"]
     assert "all" not in build(monkeypatch, rows)["families"]
+
+
+def test_loose_pack_uses_canonical_product_art_and_other_families_do_not():
+    client = Client(
+        [row("pack", family="loose_booster_pack"), row("box")],
+        products=[{"id": "pack", "image_small_url": "https://img/pack.png", "image_large_url": None}],
+    )
+    payload = service.build_product_family_rankings(
+        client,
+        set_targets=[{"set_id": "set-1", "canonical_key": "alpha", "calculation_run_id": "current"}],
+    )
+    assert payload["families"]["loose_booster_pack"]["products"][0]["productImageUrl"] == "https://img/pack.png"
+    assert payload["families"]["booster_box"]["products"][0]["productImageUrl"] is None
 
 
 def test_public_scores_follow_the_family_leader_curve_and_preserve_relative_fields(monkeypatch):

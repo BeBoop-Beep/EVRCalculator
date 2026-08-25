@@ -51,6 +51,7 @@ def read_public_overall_product_rankings(
             "sealedProductId": raw.get("sealed_product_id"), "setId": raw.get("set_id"),
             "productName": identity.get("productName"), "setName": identity.get("setName"),
             "productFamily": raw.get("product_family"), "productFamilyLabel": identity.get("productFamilyLabel"),
+            "productImageUrl": identity.get("productImageUrl"),
             "budgetRank": raw.get("budget_rank"), "budgetCohortSize": raw.get("budget_cohort_size"),
             "budgetTier": raw.get("budget_tier"), "budgetModelTier": public.get("budgetModelTier"),
             "publicTier": public.get("publicTier"),
@@ -72,8 +73,10 @@ def read_public_overall_product_rankings(
 
     target = float(snapshot["full_market_budget"]) if budget == "full_market" else float(budget)
     budget_type = BUDGET_TYPE_FULL_MARKET if budget == "full_market" else "standard_band"
-    available = [{"value": float(value), "type": "standard_band", "label": f"${value:g}"} for value in CANONICAL_BUDGET_BANDS]
-    available.append({"value": float(snapshot["full_market_budget"]), "type": BUDGET_TYPE_FULL_MARKET, "label": f"Full Market (${float(snapshot['full_market_budget']):,.0f})"})
+    full_market_value = float(snapshot["full_market_budget"])
+    available = [{"value": float(value), "type": "standard_band", "label": f"${value:,.0f}"}
+                 for value in CANONICAL_BUDGET_BANDS if float(value) != full_market_value]
+    available.append({"value": full_market_value, "type": BUDGET_TYPE_FULL_MARKET, "label": f"${full_market_value:,.0f}"})
     authority = result.get("authority") or {}
     authority = {key: authority.get(key) for key in (
         "snapshotId", "marketDate", "fullMarketBudget", "rankingMethodVersion", "allocationMethodVersion",

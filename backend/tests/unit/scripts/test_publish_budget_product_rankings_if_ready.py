@@ -32,7 +32,7 @@ def _payload(n=2):
     return snapshot, rows
 
 
-def test_payload_hard_gates_accept_dynamic_n_and_seven_cohorts():
+def test_payload_hard_gates_accept_dynamic_n_and_all_canonical_cohorts():
     snapshot, rows = _payload(3)
     assert wrapper.validate_publication_payload(snapshot, rows) == []
 

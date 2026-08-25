@@ -15,6 +15,10 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
 )
 
 
+def test_canonical_budget_band_set_is_the_validated_public_progression():
+    assert CANONICAL_BUDGET_BANDS == (25.0, 50.0, 100.0, 150.0, 250.0, 500.0, 750.0, 1000.0, 1250.0)
+
+
 # --- whole_unit_allocation ---------------------------------------------------
 
 def test_arbitrary_positive_budget_is_supported_without_a_predefined_band():

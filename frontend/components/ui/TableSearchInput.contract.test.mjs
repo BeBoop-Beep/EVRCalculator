@@ -28,7 +28,7 @@ test("all table-ranking surfaces use the shared search without local dimensions"
 });
 
 test("the product toolbar reserves the canonical desktop width", () => {
-  assert.ok(products.includes("md:grid-cols-[minmax(0,1fr)_16rem_minmax(0,1fr)]"));
+  assert.ok(products.includes("md:grid-cols-[minmax(0,1fr)_16rem_minmax(18rem,1fr)]"));
   assert.ok(!products.includes("minmax(14rem,17rem)"));
 });
 

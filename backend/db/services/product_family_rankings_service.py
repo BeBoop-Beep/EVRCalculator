@@ -116,7 +116,8 @@ def _target_run_authority(
 
 def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int,
              overall_relative: Any = None, financial_relative: Any = None,
-             overall_leader: Any = None, financial_leader: Any = None) -> Dict[str, Any]:
+             overall_leader: Any = None, financial_leader: Any = None,
+             product_image_url: Any = None) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
@@ -130,6 +131,7 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "setImage": identity.get("logo_image_url") or identity.get("logoImageUrl") or identity.get("symbol_image_url"),
         "productFamily": family,
         "productFamilyLabel": FAMILY_LABELS.get(family, family.replace("_", " ").title()),
+        "productImageUrl": product_image_url if family == "loose_booster_pack" else None,
         "familyRank": rank,
         "familySize": size,
         # Reuses the ONE canonical absolute-score tier bucketer already in the
@@ -209,6 +211,23 @@ def build_product_family_rankings(
         if _canonical(row):
             rankable_by_family.setdefault(family, []).append(row)
 
+    loose_ids = sorted({
+        str(row.get("sealed_product_id")) for row in rankable_by_family.get("loose_booster_pack", [])
+        if row.get("sealed_product_id")
+    })
+    product_images: Dict[str, Any] = {}
+    if loose_ids:
+        image_rows = list(
+            client.table("sealed_products")
+            .select("id,image_small_url,image_large_url")
+            .in_("id", loose_ids)
+            .execute().data or []
+        )
+        product_images = {
+            str(product.get("id")): product.get("image_small_url") or product.get("image_large_url")
+            for product in image_rows
+        }
+
     families: Dict[str, Any] = {}
     for family in sorted(rankable_by_family):
         ordered = sorted(rankable_by_family[family], key=_rank_key)
@@ -234,7 +253,8 @@ def build_product_family_rankings(
                      overall_relative.get(str(row.get("sealed_product_id"))),
                      financial_relative.get(str(row.get("sealed_product_id"))),
                      overall_leader.get(str(row.get("sealed_product_id"))),
-                     financial_leader.get(str(row.get("sealed_product_id"))))
+                     financial_leader.get(str(row.get("sealed_product_id"))),
+                     product_images.get(str(row.get("sealed_product_id"))))
             for index, row in enumerate(ordered, 1)
         ]
         families[family] = {

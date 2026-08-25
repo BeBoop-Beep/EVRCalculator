@@ -861,6 +861,18 @@
   color: var(--text-primary);
 }
 
+.productRankColumn {
+  width: 3.5rem;
+}
+
+.productIdentityColumn {
+  width: 22%;
+}
+
+.productIdentityCell {
+  min-width: 13rem;
+}
+
 .productFamilyTab {
   min-height: 2.5rem;
   white-space: nowrap;

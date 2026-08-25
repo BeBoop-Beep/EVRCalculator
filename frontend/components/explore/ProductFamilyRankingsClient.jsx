@@ -4,15 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import DarkSelect from "@/components/ui/DarkSelect";
+import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
+import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import styles from "./explore.module.css";
 
 const FAMILY_SORT_OPTIONS = [
+  { value: "alphabetical", label: "Alphabetical A–Z" },
   { value: "overallRipLeaderScore", label: "Overall RIP" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -21,6 +24,7 @@ const FAMILY_SORT_OPTIONS = [
   { value: "chanceToRecoverCost", label: "Chance to Recover Cost" },
 ];
 const OVERALL_SORT_OPTIONS = [
+  { value: "alphabetical", label: "Alphabetical A–Z" },
   { value: "overallRipLeaderScore", label: "Overall RIP" },
   { value: "financialRipLeaderScore", label: "Financial RIP" },
   { value: "collectorAppealScore", label: "Collector Appeal" },
@@ -84,6 +88,7 @@ const HELP = {
 };
 const BUDGET_HELP =
   "Ranks whole-product opening strategies that fit within the selected spending limit. inDex compares the maximum number of whole units of each eligible product that can be opened within that budget. Unused money is not included in the RIP score. Full Market uses the current dynamic budget required to include every eligible modeled product.";
+
 const number = (v) =>
   Number.isFinite(Number(v)) && v !== null && v !== "" ? Number(v) : null;
 const pluralFamilyLabel = (label) =>
@@ -116,6 +121,14 @@ export function filterAndSortProducts(products, query, sortKey, sortDirection = 
     )
     .slice()
     .sort((a, b) => {
+      if (key === "alphabetical") {
+        const direction = sortDirection === "desc" ? -1 : 1;
+        return direction * (
+          String(a?.productName || "").localeCompare(String(b?.productName || ""), "en", { sensitivity: "base" }) ||
+          String(a?.setName || "").localeCompare(String(b?.setName || ""), "en", { sensitivity: "base" }) ||
+          String(a?.sealedProductId || "").localeCompare(String(b?.sealedProductId || ""))
+        );
+      }
       const av = number(a?.[key]),
         bv = number(b?.[key]);
       if (av === null)
@@ -210,6 +223,24 @@ function Strategy({ p }) {
   );
 }
 
+function PremiumMetricLock() {
+  return <span aria-label="Index Plus metric locked" className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.05)] text-xs text-[var(--text-secondary)]">🔒</span>;
+}
+
+function ProductIdentity({ product: p, overall, canViewProductRipIntelligence }) {
+  const image = p.productFamily === "loose_booster_pack" ? p.productImageUrl : null;
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      {image ? <img src={image} alt="" className="h-8 w-8 flex-none object-contain md:h-10 md:w-10" loading="lazy" /> : null}
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-[var(--text-primary)]">{p.productName}</span>
+        <span className="block truncate text-xs text-[var(--text-secondary)]">{p.setName} · {p.productFamilyLabel}</span>
+        {overall && canViewProductRipIntelligence ? <Strategy p={p} /> : null}
+      </span>
+    </span>
+  );
+}
+
 function ProductRankingsTable({
   products: sourceProducts,
   query,
@@ -224,6 +255,8 @@ function ProductRankingsTable({
   budgetOptions = [],
   selectedBudgetKey = "",
   setSelectedBudgetKey,
+  canViewProductRipIntelligence = false,
+  onUnlockProductRip = null,
 }) {
   const products = (sourceProducts || []).map((p) => ({
     ...p,
@@ -258,7 +291,7 @@ function ProductRankingsTable({
           ariaLabel="Search products or sets"
           containerClassName="md:justify-self-center"
         />
-        <div className="flex min-w-0 flex-col gap-2 sm:flex-row md:justify-self-end">
+        <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row md:justify-self-end">
           {overall ? (
             <DarkSelect
               ariaLabel="Opening Budget"
@@ -270,17 +303,18 @@ function ProductRankingsTable({
               eyebrow="Opening Budget"
             />
           ) : null}
-          <DarkSelect
-            ariaLabel={`Sort products: ${(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).find((option) => option.value === sortKey)?.label || "Overall RIP"}, ${sortDirection === "asc" ? "ascending" : "descending"}`}
+          <SortMenuButton
+            ariaLabel={canViewProductRipIntelligence
+              ? `Sort products. Current sort: ${(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).find((option) => option.value === sortKey)?.label || "Overall RIP"}, ${sortDirection === "asc" ? "ascending" : "descending"}.`
+              : "Sort products. Alphabetical sorting available; additional sorts require Index Plus."}
             value={sortKey}
             onChange={(next) => {
+              if (!canViewProductRipIntelligence) return;
               if (next === sortKey) setSortDirection(sortDirection === "desc" ? "asc" : "desc");
               else { setSortKey(next); setSortDirection("desc"); }
             }}
-            options={overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS}
-            className="flex-none"
-            triggerVariant="sort"
-            triggerIcon={sortDirection === "asc" ? "↑" : "↓"}
+            options={(overall ? OVERALL_SORT_OPTIONS : FAMILY_SORT_OPTIONS).map((option) => ({ ...option, disabled: !canViewProductRipIntelligence && option.value !== "alphabetical" }))}
+            onLockedOption={onUnlockProductRip}
           />
         </div>
       </div>
@@ -288,6 +322,7 @@ function ProductRankingsTable({
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className={styles.table}>
+              <colgroup><col className={styles.productRankColumn} /><col className={styles.productIdentityColumn} /><col span="8" /></colgroup>
               <caption className="sr-only">
                 {title}. Sorting preserves official{" "}
                 {overall ? "budget" : "family"} rank.
@@ -357,29 +392,23 @@ function ProductRankingsTable({
               <tbody>
                 {products.map((p) => (
                   <tr key={p.sealedProductId} className={styles.row}>
-                    <td className={styles.numeric}>#{rank(p)}</td>
-                    <td>
+                    <td className={styles.numeric}>{canViewProductRipIntelligence ? `#${rank(p)}` : <PremiumMetricLock />}</td>
+                    <td className={styles.productIdentityCell}>
                       <Link href={productHref(p)} className={styles.rowLink}>
-                        <span className="block font-semibold text-[var(--text-primary)]">
-                          {p.productName}
-                        </span>
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          {p.setName} · {p.productFamilyLabel}
-                        </span>
-                        {overall ? <Strategy p={p} /> : null}
+                        <ProductIdentity product={p} overall={overall} canViewProductRipIntelligence={canViewProductRipIntelligence} />
                       </Link>
                     </td>
                     <td className={styles.numeric}>
-                      <RipScoreBadge score={p.overallRipScore} tier={tier(p)} />
+                      {canViewProductRipIntelligence ? <RipScoreBadge score={p.overallRipScore} tier={tier(p)} /> : <PremiumMetricLock />}
                     </td>
                     <td className="text-center">
-                      <RipTierMark tier={tier(p)} />
+                      {canViewProductRipIntelligence ? <RipTierMark tier={tier(p)} /> : <PremiumMetricLock />}
                     </td>
                     <td className={styles.numeric}>
-                      {score(p.financialRipScore)}
+                      {canViewProductRipIntelligence ? score(p.financialRipScore) : <PremiumMetricLock />}
                     </td>
                     <td className={styles.numeric}>
-                      {score(p.collectorAppealScore)}
+                      {canViewProductRipIntelligence ? score(p.collectorAppealScore) : <PremiumMetricLock />}
                     </td>
                     <td className={styles.numeric}>
                       {number(p[price]) === null
@@ -387,13 +416,13 @@ function ProductRankingsTable({
                         : money.format(p[price])}
                     </td>
                     <td className={styles.numeric}>
-                      {number(p.expectedValue) === null
+                      {canViewProductRipIntelligence ? (number(p.expectedValue) === null
                         ? "Unavailable"
-                        : money.format(p.expectedValue)}
+                        : money.format(p.expectedValue)) : <PremiumMetricLock />}
                     </td>
-                    <td className={styles.numeric}>{recovery(p[recover])}</td>
+                    <td className={styles.numeric}>{canViewProductRipIntelligence ? recovery(p[recover]) : <PremiumMetricLock />}</td>
                     <td>
-                      <FormatStrength product={p} />
+                      {canViewProductRipIntelligence ? <FormatStrength product={p} /> : <PremiumMetricLock />}
                     </td>
                   </tr>
                 ))}
@@ -407,20 +436,17 @@ function ProductRankingsTable({
                 href={productHref(p)}
                 className={`${styles.mobileRow} grid grid-cols-[2rem_minmax(0,1fr)_auto_auto] items-center gap-2.5`}
               >
-                <b className="text-right">#{rank(p)}</b>
+                <b className="text-right">{canViewProductRipIntelligence ? `#${rank(p)}` : <PremiumMetricLock />}</b>
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{p.productName}</p>
-                  <p className="truncate text-xs text-[var(--text-secondary)]">
-                    {p.setName}
-                  </p>
-                  {overall ? <Strategy p={p} /> : null}
+                  <ProductIdentity product={p} overall={overall} canViewProductRipIntelligence={canViewProductRipIntelligence} />
+                  <span className="mt-1 block text-xs tabular-nums text-[var(--text-secondary)]">{number(p[price]) === null ? "Unavailable" : money.format(p[price])}</span>
                 </div>
-                <RipScoreBadge
+                {canViewProductRipIntelligence ? <RipScoreBadge
                   score={p.overallRipScore}
                   tier={tier(p)}
                   compact
-                />
-                <RipTierMark tier={tier(p)} />
+                /> : <PremiumMetricLock />}
+                {canViewProductRipIntelligence ? <RipTierMark tier={tier(p)} /> : <PremiumMetricLock />}
               </Link>
             ))}
           </div>
@@ -445,6 +471,8 @@ function OverallProductRankings({
   setSortDirection,
   selectedBudgetKey,
   setSelectedBudgetKey,
+  canViewProductRipIntelligence,
+  onUnlockProductRip,
 }) {
   const overall = result?.data;
   const options = (overall?.availableBudgets || []).map((e) => ({
@@ -474,7 +502,7 @@ function OverallProductRankings({
   const selected = overall.selectedBudget;
   const context =
     selected?.type === "full_market"
-      ? selected.label
+      ? `Full Market · ${selected.label}`
       : `${wholeMoney.format(selected?.value)} Opening Budget`;
   return (
     <ProductRankingsTable
@@ -491,6 +519,8 @@ function OverallProductRankings({
       budgetOptions={options}
       selectedBudgetKey={selectedBudgetKey}
       setSelectedBudgetKey={setSelectedBudgetKey}
+      canViewProductRipIntelligence={canViewProductRipIntelligence}
+      onUnlockProductRip={onUnlockProductRip}
     />
   );
 }
@@ -500,14 +530,16 @@ export default function ProductFamilyRankingsClient({
   productFamilyRankings,
   initialOverallProductRankings,
   loadError,
-  canViewProductRipIntelligence = false,
+  canViewProductRipIntelligence: accessOverride,
   onUnlockProductRip = null,
 }) {
+  const { canViewRankingsIntelligence } = useRankingsAccess();
+  const canViewProductRipIntelligence = accessOverride ?? canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
   const [view, setView] = useState("sets"),
-    [sortKey, setSortKey] = useState("overallRipLeaderScore"),
-    [sortDirection, setSortDirection] = useState("desc"),
+    [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
+    [sortDirection, setSortDirection] = useState(canViewProductRipIntelligence ? "desc" : "asc"),
     [query, setQuery] = useState(""),
     [selectedBudgetKey, setSelectedBudgetKey] = useState("full_market"),
     [overallResult, setOverallResult] = useState(
@@ -546,8 +578,8 @@ export default function ProductFamilyRankingsClient({
     productsActive = view !== "sets";
   const selectView = (next) => {
       setQuery("");
-      setSortKey("overallRipLeaderScore");
-      setSortDirection("desc");
+      setSortKey(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical");
+      setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
     },
     changeView = (next) => selectView(next === "products" ? "overall" : "sets");
@@ -610,6 +642,8 @@ export default function ProductFamilyRankingsClient({
           setSortDirection={setSortDirection}
           selectedBudgetKey={selectedBudgetKey}
           setSelectedBudgetKey={selectBudget}
+          canViewProductRipIntelligence={canViewProductRipIntelligence}
+          onUnlockProductRip={onUnlockProductRip}
         />
       ) : (
         <ProductRankingsTable
@@ -622,6 +656,8 @@ export default function ProductFamilyRankingsClient({
           setSortDirection={setSortDirection}
           title={`Best ${pluralFamilyLabel(selected?.label)} to Rip`}
           subtitle={`Compared only with ${pluralFamilyLabel(selected?.label)} · ${selected?.count} products ranked`}
+          canViewProductRipIntelligence={canViewProductRipIntelligence}
+          onUnlockProductRip={onUnlockProductRip}
         />
       )}
     </>

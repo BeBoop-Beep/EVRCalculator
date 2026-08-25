@@ -2,7 +2,9 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizeOverallProductRankings } from "./overallProductRankingsNormalizer.mjs";
 
 const BACKEND_URL = getBackendApiBaseUrl();
-const ALLOWED_BUDGETS = new Set(["full_market", "25", "50", "100", "150", "250", "500"]);
+const ALLOWED_BUDGETS = new Set([
+  "full_market", "25", "50", "100", "150", "250", "500", "750", "1000", "1250",
+]);
 
 export async function getOverallProductRankings(budget = "full_market") {
   const selected = ALLOWED_BUDGETS.has(String(budget)) ? String(budget) : "full_market";
