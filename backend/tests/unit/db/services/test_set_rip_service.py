@@ -83,6 +83,8 @@ def test_family_eligibility_rankability_and_future_family_are_generic():
     }
     assert (enhanced_by_set["a"]["rank"], enhanced_by_set["a"]["cohortSize"]) == (1, 2)
     assert (enhanced_by_set["b"]["rank"], enhanced_by_set["b"]["cohortSize"]) == (2, 2)
+    assert (enhanced_by_set["a"]["score"], enhanced_by_set["a"]["tier"]) == (100, "S")
+    assert (enhanced_by_set["b"]["score"], enhanced_by_set["b"]["tier"]) == (0, "F")
     assert [row["rankable"] for row in result["sets"] if row["setId"] in {"a", "b"}] == [True, True]
     c = next(row for row in result["sets"] if row["setId"] == "c")
     assert c["rankable"] and c["rank"] is not None
@@ -166,7 +168,7 @@ def test_family_scores_publish_canonical_set_family_rank_and_cohort():
     assert by_set["a"]["loose_booster_pack"]["score"] == pytest.approx(5 / 6 * 100)
     assert isinstance(next(row for row in result["sets"] if row["setId"] == "a")["familyScores"], list)
     assert all(
-        {"family", "skuCount", "score", "rank", "cohortSize"} <= family.keys()
+        {"family", "skuCount", "score", "tier", "rank", "cohortSize"} <= family.keys()
         for row in result["sets"] for family in row["familyScores"]
     )
 

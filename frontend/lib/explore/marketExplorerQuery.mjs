@@ -26,8 +26,52 @@
 export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1";
 
 export const QUERY_ASSET_CARDS = "cards";
+export const QUERY_ASSET_SEALED = "sealed";
+export const QUERY_ASSETS = [QUERY_ASSET_CARDS, QUERY_ASSET_SEALED];
+
 export const QUERY_MODE_ALL = "all";
 export const QUERY_MODE_CHASE = "chase";
+
+/**
+ * Display vocabulary per asset. The MODE keys are shared — filter, then rank —
+ * because forking them would fork the engine; only the words change. Calling an
+ * expensive sealed SKU a "chase" reads wrong, so Sealed names the same two
+ * modes "All Products" and "Top 10 by Price".
+ *
+ * This mirrors ASSET_MODE_LABELS in the backend spec module. A test holds the
+ * two in agreement.
+ */
+export const ASSET_PRESENTATION = {
+  [QUERY_ASSET_CARDS]: {
+    label: "Cards",
+    segmentLabel: "Card Segment / Rarity",
+    allSegmentsLabel: "All Rarities",
+    segmentSummaryNoun: "segments",
+    modeLabels: { [QUERY_MODE_ALL]: "All Constituents", [QUERY_MODE_CHASE]: "Chase" },
+  },
+  [QUERY_ASSET_SEALED]: {
+    label: "Sealed Products",
+    segmentLabel: "Sealed Product Family",
+    allSegmentsLabel: "All Sealed Products",
+    segmentSummaryNoun: "families",
+    modeLabels: { [QUERY_MODE_ALL]: "All Products", [QUERY_MODE_CHASE]: "Top 10 by Price" },
+  },
+};
+
+/** The asset an unknown or absent value resolves to. */
+export const normalizeAsset = (value) =>
+  QUERY_ASSETS.includes(String(value)) ? String(value) : QUERY_ASSET_CARDS;
+
+export const presentationFor = (asset) => ASSET_PRESENTATION[normalizeAsset(asset)];
+
+/** Mode options named in the asset's own terms. */
+export function marketModeOptions(asset) {
+  const { modeLabels } = presentationFor(asset);
+  return [
+    { id: QUERY_MODE_ALL, label: modeLabels[QUERY_MODE_ALL] },
+    { id: QUERY_MODE_CHASE, label: modeLabels[QUERY_MODE_CHASE] },
+  ];
+}
 
 /**
  * The only chase cutoff published today. Additional cutoffs are a product
@@ -54,6 +98,7 @@ function cleanIds(values) {
 /** Canonical form of a card query. Mirrors normalize_query_spec exactly. */
 export function normalizeQuerySpec({
   mode = QUERY_MODE_ALL,
+  asset = QUERY_ASSET_CARDS,
   eraIds = [],
   setIds = [],
   segmentIds = [],
@@ -62,7 +107,7 @@ export function normalizeQuerySpec({
   const resolvedMode = mode === QUERY_MODE_CHASE ? QUERY_MODE_CHASE : QUERY_MODE_ALL;
   return {
     contractVersion: MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
-    asset: QUERY_ASSET_CARDS,
+    asset: normalizeAsset(asset),
     eraIds: cleanIds(eraIds),
     setIds: cleanIds(setIds),
     segmentIds: cleanIds(segmentIds),
@@ -152,9 +197,12 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {})
   } else if (normalized.eraIds.length) {
     scope = normalized.eraIds.map((id) => nameFor(eraNames, id)).join(", ");
   }
+  // The unset-segment wording belongs to the asset: "All rarities" is
+  // meaningless for a sealed market, and "All Sealed Products" for a card one.
+  const allSegments = normalized.asset === QUERY_ASSET_SEALED ? "All Sealed Products" : "All rarities";
   const segment = normalized.segmentIds.length
     ? normalized.segmentIds.map((id) => nameFor(segmentNames, id)).join(", ")
-    : "All rarities";
+    : allSegments;
   const mode = normalized.mode === QUERY_MODE_CHASE ? `Top ${normalized.topN}` : "All";
   return `${scope} · ${segment} · ${mode}`;
 }
@@ -175,6 +223,8 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {})
 export function resolveBenchmarkSpec(spec) {
   const normalized = normalizeQuerySpec(spec);
   if (normalized.mode !== QUERY_MODE_CHASE) return null;
+  // The asset travels with it: a sealed Top 10 is benchmarked against the same
+  // filtered SEALED universe in All mode, never against a card market.
   return normalizeQuerySpec({ ...normalized, mode: QUERY_MODE_ALL, topN: null });
 }
 
@@ -214,14 +264,30 @@ export function removeQuerySeries(existing, queryKey) {
   return list.filter((entry) => entry.queryKey !== queryKey);
 }
 
-/** Stable non-semantic series color derived from the backend fingerprint. */
-export function colorForQueryFingerprint(fingerprint) {
+/**
+ * Stable non-semantic series color derived from the backend fingerprint.
+ *
+ * ASSET IDENTITY IS VISIBLE. Card queries land in the violet band the card
+ * markets already own; sealed queries land in the amber band the sealed markets
+ * own. Within a band the hue is a pure hash of the fingerprint, so the same
+ * market is always the same color and hydration cannot repaint a line.
+ *
+ * Neither band touches the green/red performance vocabulary — identity and
+ * performance must never be confusable.
+ */
+const ASSET_HUE_BANDS = {
+  [QUERY_ASSET_CARDS]: { start: 250, span: 60 },
+  [QUERY_ASSET_SEALED]: { start: 20, span: 40 },
+};
+
+export function colorForQueryFingerprint(fingerprint, asset = QUERY_ASSET_CARDS) {
   let hash = 2166136261;
   for (const character of String(fingerprint || "query")) {
     hash ^= character.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
-  const hue = ((hash >>> 0) % 260) + 20;
+  const band = ASSET_HUE_BANDS[normalizeAsset(asset)];
+  const hue = band.start + ((hash >>> 0) % band.span);
   return `hsl(${hue} 72% 58%)`;
 }
 
@@ -236,7 +302,8 @@ function normalizeChangeMap(source) {
 /** Adapt prepared backend output to the existing chart/detail series shape. */
 export function queryResultToSeries(result) {
   if (!result?.queryFingerprint || !Array.isArray(result?.trend)) return null;
-  const color = colorForQueryFingerprint(result.queryFingerprint);
+  const asset = normalizeAsset(result?.spec?.asset);
+  const color = colorForQueryFingerprint(result.queryFingerprint, asset);
   const changes = normalizeChangeMap(result.familyChanges);
   return {
     key: `query:${result.queryFingerprint}`,
@@ -246,6 +313,7 @@ export function queryResultToSeries(result) {
     shortLabel: result.displayLabel,
     color,
     softColor: color,
+    asset,
     group: "query",
     isParent: false,
     available: true,
@@ -259,6 +327,7 @@ export function queryResultToSeries(result) {
     spec: result.spec,
     scope: result.scope,
     currentConstituents: Array.isArray(result.currentConstituents) ? result.currentConstituents : [],
+    scopeSetCount: result?.scope?.resolvedSetCount ?? null,
     membershipByDate: Array.isArray(result.membershipByDate) ? result.membershipByDate : [],
     reconciliation: result.reconciliation || {},
     metadata: result.metadata || {},

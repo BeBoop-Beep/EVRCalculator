@@ -13,6 +13,7 @@ const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
 const BUILDER = "./MarketExplorerQueryBuilder.jsx";
 const DYNAMIC = "./MarketExplorerDynamicSeries.jsx";
+const CONSTITUENTS = "./MarketExplorerConstituents.jsx";
 const CLIENT = "./MarketExplorerClient.jsx";
 
 test("the builder exposes every Phase-3 filter axis", async () => {
@@ -27,8 +28,14 @@ test("the builder exposes every Phase-3 filter axis", async () => {
 
 test("empty selections are labelled as ALL, never as nothing", async () => {
   const source = await read(BUILDER);
-  for (const label of ["All Eras", "All Sets", "All Rarities"]) {
+  for (const label of ["All Eras", "All Sets"]) {
     assert.ok(source.includes(label), `an unset axis must read "${label}"`);
+  }
+  // The segment axis is named by the ASSET, so its wording lives in the shared
+  // presentation table rather than in the builder.
+  const query = await read("../../lib/explore/marketExplorerQuery.mjs");
+  for (const label of ["All Rarities", "All Sealed Products"]) {
+    assert.ok(query.includes(label), `an unset segment axis must read "${label}"`);
   }
 });
 
@@ -97,15 +104,20 @@ test("the client merges query series into the comparison set", async () => {
 });
 
 test("chase constituents are shown, never hidden behind a count", async () => {
-  const source = await read(DYNAMIC);
-  assert.ok(source.includes("currentConstituents"),
+  // Composition moved out of the chip strip into the shared panel, which shows
+  // one market at a time and handles both assets.
+  const source = await read(CONSTITUENTS);
+  assert.ok(source.includes("resolveSeriesConstituents"),
     "a Top 10 the user cannot enumerate is exactly what section 24 forbids");
+  const chips = await read(DYNAMIC);
+  assert.ok(chips.includes("data-market-explorer-inspect"),
+    "a chip must be able to point the panel at its market");
 });
 
 test("fewer than the requested Top N is surfaced rather than padded", async () => {
-  const source = await read(DYNAMIC);
+  const source = await read(CONSTITUENTS);
   assert.ok(
-    source.includes("belowRequestedTopN") || source.includes("actualConstituentCount"),
+    source.includes("belowRequestedTopN") || source.includes("requestedTopN"),
     "a short basket must be reported, not silently filled",
   );
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { RANK_CONFIG, topPercentToTier } from "../../constants/rankConfig.mjs";
+import { RANK_CONFIG } from "../../constants/rankConfig.mjs";
 import { formatPublicRipScore } from "../../constants/exploreRankingConfig.mjs";
 
 const FAMILY_LABELS = Object.freeze({
@@ -29,19 +29,13 @@ function snapshotFamilyLabel(family) {
 }
 
 export function familyTier(entry) {
-  const rank = Number(entry?.rank);
-  const cohortSize = Number(entry?.cohortSize);
-  return Number.isFinite(rank) && cohortSize > 0
-    ? topPercentToTier((rank / cohortSize) * 100)
-    : null;
+  const tier = String(entry?.tier || "").toUpperCase();
+  return Object.hasOwn(RANK_CONFIG, tier) ? tier : null;
 }
 
 export function setRipTier(setRip) {
-  const rank = Number(setRip?.rank);
-  const cohortSize = Number(setRip?.cohortSize);
-  return Number.isFinite(rank) && cohortSize > 0
-    ? topPercentToTier((rank / cohortSize) * 100)
-    : null;
+  const tier = String(setRip?.tier || "").toUpperCase();
+  return Object.hasOwn(RANK_CONFIG, tier) ? tier : null;
 }
 
 export function participatingFamilyScores(setRip) {

@@ -6,7 +6,7 @@ from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.composite import assign_composite_tier
-from backend.rankings.public_relative import compute_public_relative_scores, public_product_rank_tier
+from backend.rankings.public_relative import compute_public_relative_scores, public_relative_rip_tier
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -135,8 +135,8 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         # context. Derived server-side from the same overall_rip_v10_score
         # that produced this row's rank, so rank and tier always describe the
         # identical cohort/score.
-        "familyTier": public_product_rank_tier(rank, size),
-        "publicTier": public_product_rank_tier(rank, size),
+        "familyTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
+        "publicTier": public_relative_rip_tier(overall_relative),
         "modelTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
         "marketPrice": row.get("product_market_cost"),
         "overallRipScore": row.get("overall_rip_v10_score"),

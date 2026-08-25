@@ -63,7 +63,7 @@ import math
 import random
 import time
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.calculations.utils.rarity_classification import normalize_rarity_key
 from backend.db.services.data_service_health import classify_data_service_error
@@ -112,7 +112,7 @@ COMPOSITE_SCORE_COLUMNS = "pokemon_reference_id,pokemon_name,desirability_score"
 PULL_MODEL_READ_PAGE_SIZE = 1
 
 
-def _paged_select(query: Any, *, page_size: int = 1000, attempts: int = 4) -> List[Dict[str, Any]]:
+def _paged_select(query_factory: Callable[[], Any], *, page_size: int = 1000, attempts: int = 4) -> List[Dict[str, Any]]:
     """Read every page, retrying TRANSIENT failures with backoff + jitter.
 
     Transience is decided by the shared classifier rather than by retrying every
@@ -128,7 +128,9 @@ def _paged_select(query: Any, *, page_size: int = 1000, attempts: int = 4) -> Li
         last_error: Optional[Exception] = None
         for attempt in range(1, attempts + 1):
             try:
-                response = query.range(start, start + page_size - 1).execute()
+                # PostgREST builders are mutable. A fresh base query prevents
+                # ranges from accumulating across pages and retries.
+                response = query_factory().range(start, start + page_size - 1).execute()
                 page = list(response.data or [])
                 break
             except Exception as exc:  # pragma: no cover - network shape
@@ -184,7 +186,7 @@ def load_pull_rate_model(client: Any) -> Dict[str, Dict[str, Dict[str, Any]]]:
     that no retry can clear, and the reason CA7 was unavailable for every set.
     """
     rows = _paged_select(
-        client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS),
+        lambda: client.table(PULL_MODEL_SOURCE_TABLE).select(PULL_MODEL_SOURCE_COLUMNS),
         page_size=PULL_MODEL_READ_PAGE_SIZE,
     )
     by_set: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -296,9 +298,11 @@ def load_cards(client: Any, set_ids: Sequence[str]) -> List[Dict[str, Any]]:
     for chunk in _chunked(sorted(set_ids), 5):
         cards.extend(
             _paged_select(
-                client.table(CANONICAL_CARD_TABLE)
-                .select(CANONICAL_CARD_COLUMNS)
-                .in_("set_id", list(chunk))
+                lambda chunk=chunk: (
+                    client.table(CANONICAL_CARD_TABLE)
+                    .select(CANONICAL_CARD_COLUMNS)
+                    .in_("set_id", list(chunk))
+                )
             )
         )
     return cards
@@ -313,18 +317,22 @@ def load_appeal_by_card(client: Any, card_ids: Sequence[str]) -> Dict[str, Dict[
     scores = {
         int(row["pokemon_reference_id"]): row
         for row in _paged_select(
-            client.table(COMPOSITE_SCORE_TABLE)
-            .select(COMPOSITE_SCORE_COLUMNS)
-            .eq("scoring_version", COMPOSITE_SCORING_VERSION)
+            lambda: (
+                client.table(COMPOSITE_SCORE_TABLE)
+                .select(COMPOSITE_SCORE_COLUMNS)
+                .eq("scoring_version", COMPOSITE_SCORING_VERSION)
+            )
         )
         if row.get("pokemon_reference_id") is not None
     }
     links_by_card: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for chunk in _chunked(sorted(card_ids), 200):
         for link in _paged_select(
-            client.table(CARD_DESIRABILITY_LINK_TABLE)
-            .select(CARD_DESIRABILITY_LINK_COLUMNS)
-            .in_("pokemon_canonical_card_id", list(chunk))
+            lambda chunk=chunk: (
+                client.table(CARD_DESIRABILITY_LINK_TABLE)
+                .select(CARD_DESIRABILITY_LINK_COLUMNS)
+                .in_("pokemon_canonical_card_id", list(chunk))
+            )
         ):
             links_by_card[str(link.get("pokemon_canonical_card_id"))].append(link)
 

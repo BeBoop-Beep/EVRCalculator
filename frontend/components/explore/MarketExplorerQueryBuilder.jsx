@@ -5,25 +5,33 @@ import { useEffect, useMemo, useState } from "react";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
 import {
-  MARKET_MODE_OPTIONS,
+  QUERY_ASSET_CARDS,
+  QUERY_ASSET_SEALED,
   QUERY_MODE_ALL,
   QUERY_MODE_CHASE,
   buildQueryLabel,
+  marketModeOptions,
   normalizeQuerySpec,
+  presentationFor,
   sortEraOptions,
   sortSetOptions,
 } from "@/lib/explore/marketExplorerQuery.mjs";
 
-// The dynamic card-market builder.
+// The dynamic market builder — Cards AND Sealed Products.
+//
+// ONE BUILDER, ONE STATE MODEL. The asset selects which segment vocabulary and
+// which mode wording apply; it does NOT select a different component. Era, Set,
+// Market Mode and the preview are literally the same controls for both assets,
+// so the two workflows cannot drift apart. Changing asset resets only the
+// segment selection, because a card rarity is not a sealed family and carrying
+// one across would describe no market at all.
 //
 // EVERY CONTROL IS AN inDex CONTROL. There is no `<select multiple>` here: the
-// three filter axes are one shared MultiSelectFilter configured three ways, so
-// the workspace never falls back to an OS-painted light dropdown, and Era, Set
-// and Card Segment cannot drift apart visually or behaviourally.
+// filter axes are one shared MultiSelectFilter configured per axis.
 //
-// NO OPTION AUTHORITY LIVES HERE. Eras, sets and segments are whatever the
-// authenticated options payload carried. This file only orders them
-// canonically and narrows sets to the selected eras.
+// NO OPTION AUTHORITY LIVES HERE. Eras, sets, rarities and product families are
+// whatever the authenticated options payload carried. This file only orders
+// them canonically and narrows sets to the selected eras and asset.
 
 /** The distinguishable outcomes of loading the builder's canonical filters. */
 export const OPTIONS_STATUS = {
@@ -81,6 +89,7 @@ function OptionsState({ status, message }) {
 
 export default function MarketExplorerQueryBuilder({ onAddQuery }) {
   const [options, setOptions] = useState(null);
+  const [asset, setAsset] = useState(QUERY_ASSET_CARDS);
   const [eraIds, setEraIds] = useState([]);
   const [setIds, setSetIds] = useState([]);
   const [segmentIds, setSegmentIds] = useState([]);
@@ -115,25 +124,38 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
     return () => { live = false; };
   }, []);
 
+  const presentation = presentationFor(asset);
+
   // Canonical order, applied once. Rendering order is then a pure function of
   // the payload rather than of the order rows happened to arrive in.
   const eraOptions = useMemo(() => sortEraOptions(options?.eras), [options]);
-  const allSetOptions = useMemo(() => sortSetOptions(options?.sets), [options]);
+  // A set with no prepared sealed snapshot has no sealed market to offer. The
+  // backend states which assets each set supports; a set that predates the flag
+  // is assumed to support cards, which is the historical contract.
+  const allSetOptions = useMemo(() => sortSetOptions(options?.sets).filter(
+    (entry) => (Array.isArray(entry.assets) ? entry.assets.includes(asset) : asset === QUERY_ASSET_CARDS)
+  ), [options, asset]);
   const availableSets = useMemo(
     () => (eraIds.length ? allSetOptions.filter((entry) => eraIds.includes(entry.eraId)) : allSetOptions),
     [allSetOptions, eraIds]
   );
-  // An era change can strand a set the user can no longer see. Reconciliation
-  // drops it rather than leaving an impossible hidden selection in the spec.
+  // An era or asset change can strand a set the user can no longer see.
+  // Reconciliation drops it rather than leaving an impossible hidden selection.
   useEffect(() => setSetIds((current) => {
     const next = current.filter((id) => availableSets.some((entry) => entry.id === id));
     return next.length === current.length ? current : next;
   }), [availableSets]);
 
-  const segments = useMemo(
-    () => (Array.isArray(options?.segments?.segments) ? options.segments.segments : []),
-    [options]
-  );
+  // Each asset reads its OWN vocabulary. `segments` remains the card taxonomy's
+  // published key for backward compatibility with the existing contract.
+  const segments = useMemo(() => {
+    if (asset === QUERY_ASSET_SEALED) {
+      return Array.isArray(options?.sealedProductFamilies?.segments)
+        ? options.sealedProductFamilies.segments : [];
+    }
+    const cards = options?.cardSegments?.segments || options?.segments?.segments;
+    return Array.isArray(cards) ? cards : [];
+  }, [options, asset]);
   const segmentOptions = useMemo(
     () => segments.map((entry) => ({
       id: entry.key,
@@ -144,8 +166,12 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
     })),
     [segments]
   );
+  // A card rarity is not a sealed family. Switching asset must clear the
+  // segment selection rather than carry a key the new asset would reject.
+  useEffect(() => setSegmentIds([]), [asset]);
 
-  const spec = normalizeQuerySpec({ eraIds, setIds, segmentIds, mode, topN: mode === QUERY_MODE_CHASE ? 10 : null });
+  const modeOptions = useMemo(() => marketModeOptions(asset), [asset]);
+  const spec = normalizeQuerySpec({ asset, eraIds, setIds, segmentIds, mode, topN: mode === QUERY_MODE_CHASE ? 10 : null });
   const labels = {
     eraNames: Object.fromEntries(eraOptions.map((entry) => [entry.id, entry.label])),
     setNames: Object.fromEntries(allSetOptions.map((entry) => [entry.id, entry.label])),
@@ -168,14 +194,26 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
 
   return (
     <section data-market-query-builder className="border-t border-[var(--border-subtle)] px-3 py-4 sm:px-4" aria-labelledby="market-query-builder-heading">
-      <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a card market</h3>
-      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Filter the eligible universe first, then choose All Constituents or a global Top 10.</p>
+      <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a market</h3>
+      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Choose an asset, narrow the eligible universe, then compare the resulting market.</p>
       {!options ? <OptionsState status={optionsStatus} message={message} /> : (
         <>
           <div className="mt-3 grid grid-cols-1 gap-3 tab:grid-cols-2">
+            {/* Asset first: it decides the segment vocabulary and the mode
+                wording for every control below it. */}
             <div className="min-w-0">
               <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Asset</span>
-              <p className="mt-1 flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5 text-xs text-[var(--text-primary)] desk:min-h-0">Cards</p>
+              <div className="mt-1 flex" data-market-query-control="asset" data-market-query-asset={asset}>
+                <DarkSelect
+                  ariaLabel="Asset"
+                  value={asset}
+                  onChange={setAsset}
+                  options={[
+                    { value: QUERY_ASSET_CARDS, label: "Cards" },
+                    { value: QUERY_ASSET_SEALED, label: "Sealed Products" },
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Era: a short, ordered list. Search would be pure furniture. */}
@@ -206,16 +244,21 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
               emptyMessage="No tracked sets in the selected eras."
             />
 
+            {/* ONE control, named by the asset. `key` forces a fresh control
+                per asset so no popover state survives a vocabulary change. */}
             <MultiSelectFilter
-              label="Card Segment / Rarity"
+              key={`segment-${asset}`}
+              label={presentation.segmentLabel}
               name="segment"
               options={segmentOptions}
               selectedIds={segmentIds}
               onChange={setSegmentIds}
-              allLabel="All Rarities"
-              summaryNoun="segments"
+              allLabel={presentation.allSegmentsLabel}
+              summaryNoun={presentation.segmentSummaryNoun}
               searchable={false}
-              emptyMessage="No published card segments."
+              emptyMessage={asset === QUERY_ASSET_SEALED
+                ? "No published sealed product families."
+                : "No published card segments."}
             />
 
             <div className="min-w-0">
@@ -225,14 +268,16 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
                   ariaLabel="Market Mode"
                   value={mode}
                   onChange={setMode}
-                  options={MARKET_MODE_OPTIONS.map((entry) => ({ value: entry.id, label: entry.label }))}
+                  options={modeOptions.map((entry) => ({ value: entry.id, label: entry.label }))}
                 />
               </div>
             </div>
 
             {mode === QUERY_MODE_CHASE ? (
               <div data-market-query-top-n className="min-w-0">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Chase Size</span>
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+                  {asset === QUERY_ASSET_SEALED ? "Basket Size" : "Chase Size"}
+                </span>
                 <p className="mt-1 flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2.5 py-1.5 text-xs text-[var(--text-primary)] desk:min-h-0">Top 10</p>
               </div>
             ) : null}

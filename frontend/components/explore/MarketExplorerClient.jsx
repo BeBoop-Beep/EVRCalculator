@@ -7,6 +7,7 @@ import MarketExplorerFilters from "./MarketExplorerFilters";
 import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
 import MarketExplorerDynamicSeries from "./MarketExplorerDynamicSeries";
+import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import {
   EXPLORER_SELECTION_ACTIONS,
   buildAssetUniverseModel,
@@ -23,6 +24,7 @@ import {
   resolveExplorerTimeframe,
   resolveSelectedSeriesIds,
 } from "@/lib/explore/marketExplorerState.mjs";
+import { resolveActiveDetailSeriesId } from "@/lib/explore/marketExplorerConstituents.mjs";
 import {
   buildComparableSeries,
   isCardSegmentSeriesId,
@@ -78,6 +80,9 @@ export default function MarketExplorerClient({
   const { assetUniverse, sealedFamilyIds, segmentIds } = selection;
   const [eraIds] = useState(() => initialState?.eraIds || []);
   const [requestedTimeframe, setRequestedTimeframe] = useState(() => initialState?.timeframe || null);
+  // ONE detail target at a time. Four selected markets must not produce four
+  // constituent tables; the user names the one they are inspecting.
+  const [requestedDetailSeriesId, setRequestedDetailSeriesId] = useState(null);
   const { querySeries, addQuery, removeQuery } = useMarketExplorerQueries();
 
   // The published ids, packaged once. Every dispatch carries them, so the
@@ -149,6 +154,14 @@ export default function MarketExplorerClient({
     return [...selectedSeriesIds.map((id) => byKey.get(id)).filter(Boolean), ...querySeries];
   }, [comparableSeries, selectedSeriesIds, querySeries]);
 
+  // Derived, never stored: the requested target is kept while it is still on
+  // the chart, so adding a market cannot yank the panel away from what the user
+  // was reading, and removing one cannot leave it pointing at nothing.
+  const activeDetailSeriesId = useMemo(
+    () => resolveActiveDetailSeriesId(selectedSeries, requestedDetailSeriesId),
+    [selectedSeries, requestedDetailSeriesId]
+  );
+
   // The filter checkboxes need the same "cannot empty the chart" rule the cards
   // have, counted across BOTH axes.
   const filterAssetEntries = useMemo(
@@ -175,6 +188,7 @@ export default function MarketExplorerClient({
       data-market-explorer-series={selectedSeriesIds.join(",")}
       data-market-explorer-timeframe={timeframe || ""}
       data-market-explorer-era-ids={eraIds.join(",")}
+      data-market-explorer-detail-series={activeDetailSeriesId || ""}
       className="space-y-3 desk:space-y-4"
     >
       {/* 1 — the three PARENT market selector cards. Submarkets deliberately do
@@ -228,10 +242,24 @@ export default function MarketExplorerClient({
       <MarketExplorerDynamicSeries
         series={querySeries}
         onRemove={removeQuery}
+        activeSeriesId={activeDetailSeriesId}
+        onInspect={setRequestedDetailSeriesId}
       />
 
+      <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Current market constituents">
+        <MarketExplorerConstituents
+          selectedSeries={selectedSeries}
+          activeSeriesId={activeDetailSeriesId}
+          onSelectSeries={setRequestedDetailSeriesId}
+        />
+      </section>
+
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Selected market detail">
-        <MarketExplorerDetails series={selectedSeries} />
+        <MarketExplorerDetails
+          series={selectedSeries}
+          activeSeriesId={activeDetailSeriesId}
+          onInspect={setRequestedDetailSeriesId}
+        />
       </section>
 
       <div data-market-explorer-methodology className="grid grid-cols-1 gap-2.5 desk:grid-cols-3 desk:gap-3">

@@ -581,21 +581,10 @@ def _calculate_score_ranks_and_tiers(
     scored_rows_with_valid_scores.sort(key=lambda item: (-item[1], item[0]))
     total = len(scored_rows_with_valid_scores)
     
-    # Assign ranks and calculate rank-bucket tiers (mirrors DB view semantics)
+    # Assign ranks and use the one shared public rank-tier authority.
+    from backend.rankings.public_relative import public_rank_tier
     for rank, (target_id, score) in enumerate(scored_rows_with_valid_scores, start=1):
-        if rank <= max(1, math.ceil(total * 0.05)):
-            tier = "S"
-        elif rank <= max(1, math.ceil(total * 0.15)):
-            tier = "A"
-        elif rank <= max(1, math.ceil(total * 0.30)):
-            tier = "B"
-        elif rank <= max(1, math.ceil(total * 0.50)):
-            tier = "C"
-        elif rank <= max(1, math.ceil(total * 0.75)):
-            tier = "D"
-        else:
-            tier = "F"
-        
+        tier = public_rank_tier(rank, total)
         result[target_id] = {"rank": rank, "tier": tier, "cohortSize": total}
     
     # Rows without scores get None
@@ -1607,12 +1596,17 @@ def _load_rankings_top_chase_lookup(
         return {}
 
     try:
-        snapshot_rows = list((
-            service_read_client.table("pokemon_set_page_snapshot_latest")
-            .select("set_id,payload_json")
-            .in_("set_id", set_ids)
-            .execute()
-        ).data or [])
+        snapshot_rows = []
+        # payload_json is a large TOASTed document. Keep each authority read
+        # below the hosted statement timeout instead of requesting the whole
+        # ranked cohort in one cold query.
+        for chunk in _chunks(set_ids, 8):
+            snapshot_rows.extend(list((
+                service_read_client.table("pokemon_set_page_snapshot_latest")
+                .select("set_id,payload_json")
+                .in_("set_id", chunk)
+                .execute()
+            ).data or []))
     except Exception as exc:
         logger.warning("[rip-statistics-targets] Rankings chase snapshot read failed: %s", exc)
         warnings.append("Failed to load canonical set-page Top Chase data for ranked targets")

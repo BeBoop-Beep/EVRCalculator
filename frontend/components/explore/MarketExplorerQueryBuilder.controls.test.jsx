@@ -226,3 +226,172 @@ test("Add to Comparison still travels as the normalized spec", async () => {
   assert.equal(specs[0].mode, "all");
   assert.equal(specs[0].topN, null);
 });
+
+// ---------------------------------------------------------------------------
+// Asset selector — Cards AND Sealed Products (Phase 3F)
+//
+// One builder, one state model. The asset selects the segment vocabulary and
+// the mode wording; Era, Set and the preview are literally the same controls.
+// ---------------------------------------------------------------------------
+
+const SEALED_FAMILIES = [
+  ["boosterBox", "Booster Boxes", "Standard sealed Booster Boxes."],
+  ["eliteTrainerBox", "Elite Trainer Boxes", "Standard Elite Trainer Boxes."],
+  ["pokemonCenterEliteTrainerBox", "Pokémon Center ETBs", "Pokémon Center exclusive ETBs only."],
+  ["boosterBundle", "Booster Bundles", "Sealed Booster Bundles."],
+  ["packs", "Packs", "Loose and sleeved booster packs combined."],
+].map(([key, label, definition]) => ({ key, label, definition }));
+
+const DUAL_ASSET_PAYLOAD = {
+  ...OPTIONS_PAYLOAD,
+  sets: OPTIONS_PAYLOAD.sets.map((entry) => ({
+    ...entry,
+    // set-bur has cards but no prepared sealed snapshot.
+    assets: entry.id === "set-bur" ? ["cards"] : ["cards", "sealed"],
+  })),
+  cardSegments: OPTIONS_PAYLOAD.segments,
+  sealedProductFamilies: { segments: SEALED_FAMILIES },
+  supportedAssets: [{ id: "cards", label: "Cards" }, { id: "sealed", label: "Sealed Products" }],
+};
+
+const assetTrigger = (renderer) =>
+  renderer.root.find((node) => node.props?.["data-market-query-control"] === "asset");
+
+/** Visible text of a rendered node. JSON.stringify cannot be used: a test
+ *  instance's children carry fibers, which are circular. */
+const textOf = (node) => {
+  if (typeof node === "string") return node;
+  if (!node || typeof node !== "object" || !Array.isArray(node.children)) return "";
+  return node.children.map(textOf).join(" ");
+};
+
+/** Open a DarkSelect and choose the option whose visible text matches. */
+const chooseFrom = async (renderer, controlName, label) => {
+  const host = renderer.root.find((node) => node.props?.["data-market-query-control"] === controlName);
+  await act(async () => { host.findAll((node) => node.type === "button")[0].props.onClick(); });
+  await act(async () => {
+    renderer.root
+      .findAll((node) => node.props?.role === "option")
+      .find((node) => textOf(node).includes(label))
+      .props.onClick();
+  });
+};
+const chooseAsset = (renderer, label) => chooseFrom(renderer, "asset", label);
+
+test("the builder is no longer card-only in name or in copy", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  const rendered = textOf(renderer.root);
+  assert.match(rendered, /Build a market/);
+  assert.ok(!rendered.includes("Build a card market"));
+  assert.match(rendered, /Choose an asset/);
+});
+
+test("Cards is the default asset and shows rarity controls", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  assert.equal(assetTrigger(renderer).props["data-market-query-asset"], "cards");
+  assert.equal(summaryOf(renderer, "segment"), "All Rarities");
+  open(renderer, "segment");
+  assert.ok(optionIds(renderer).includes("special_illustration_rare"));
+  assert.ok(!optionIds(renderer).includes("eliteTrainerBox"), "no sealed family under Cards");
+});
+
+test("choosing Sealed Products swaps the segment vocabulary", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  await chooseAsset(renderer, "Sealed Products");
+  assert.equal(assetTrigger(renderer).props["data-market-query-asset"], "sealed");
+  assert.equal(summaryOf(renderer, "segment"), "All Sealed Products");
+  open(renderer, "segment");
+  assert.deepEqual(optionIds(renderer), [
+    "boosterBox", "eliteTrainerBox", "pokemonCenterEliteTrainerBox", "boosterBundle", "packs",
+  ]);
+  assert.ok(!optionIds(renderer).includes("special_illustration_rare"), "no card rarity under Sealed");
+});
+
+test("Era and Set remain the same shared controls for both assets", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  assert.equal(control(renderer, "era") !== null, true);
+  await chooseAsset(renderer, "Sealed Products");
+  assert.equal(control(renderer, "era") !== null, true);
+  assert.equal(control(renderer, "set") !== null, true);
+  assert.equal(summaryOf(renderer, "era"), "All Eras");
+});
+
+test("a set with no prepared sealed snapshot is not offered under Sealed", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  open(renderer, "set");
+  assert.ok(optionIds(renderer).includes("set-bur"));
+  close(renderer, "set");
+  await chooseAsset(renderer, "Sealed Products");
+  open(renderer, "set");
+  assert.ok(!optionIds(renderer).includes("set-bur"),
+    "a set with no sealed market must not offer a choice that resolves to nothing");
+});
+
+test("switching asset clears a segment selection the new asset would reject", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  open(renderer, "segment");
+  pick(renderer, "special_illustration_rare");
+  close(renderer, "segment");
+  assert.equal(summaryOf(renderer, "segment"), "Special Illustration Rare");
+  await chooseAsset(renderer, "Sealed Products");
+  assert.equal(summaryOf(renderer, "segment"), "All Sealed Products");
+  assert.ok(!String(preview(renderer)).includes("Special Illustration Rare"));
+});
+
+test("each asset names the market modes in its own terms", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  // The offered options, which means opening the control rather than reading
+  // the collapsed trigger.
+  const modeOptionLabels = async () => {
+    const host = renderer.root.find((node) => node.props?.["data-market-query-control"] === "mode");
+    await act(async () => { host.findAll((node) => node.type === "button")[0].props.onClick(); });
+    const labels = renderer.root.findAll((node) => node.props?.role === "option").map(textOf).join(" | ");
+    await act(async () => { host.findAll((node) => node.type === "button")[0].props.onClick(); });
+    return labels;
+  };
+  const cardModes = await modeOptionLabels();
+  assert.match(cardModes, /All Constituents/);
+  assert.match(cardModes, /Chase/);
+
+  await chooseAsset(renderer, "Sealed Products");
+  const sealedModes = await modeOptionLabels();
+  assert.match(sealedModes, /All Products/);
+  assert.match(sealedModes, /Top 10 by Price/);
+  assert.ok(!sealedModes.includes("Chase"), "an expensive sealed SKU is not a chase");
+});
+
+test("the sealed preview reads in sealed vocabulary", async () => {
+  const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
+  await chooseAsset(renderer, "Sealed Products");
+  assert.equal(preview(renderer), "Global · All Sealed Products · All");
+  open(renderer, "segment");
+  pick(renderer, "eliteTrainerBox");
+  close(renderer, "segment");
+  assert.equal(preview(renderer), "Global · Elite Trainer Boxes · All");
+  open(renderer, "era");
+  pick(renderer, "era-sv");
+  close(renderer, "era");
+  assert.equal(preview(renderer), "Scarlet & Violet · Elite Trainer Boxes · All");
+});
+
+test("a sealed Top 10 travels as a sealed spec", async () => {
+  const specs = [];
+  const renderer = await mountBuilder({
+    payload: DUAL_ASSET_PAYLOAD,
+    onAddQuery: async (spec) => { specs.push(spec); return "added"; },
+  });
+  await chooseAsset(renderer, "Sealed Products");
+  open(renderer, "segment");
+  pick(renderer, "boosterBox");
+  close(renderer, "segment");
+  await chooseFrom(renderer, "mode", "Top 10 by Price");
+  assert.equal(preview(renderer), "Global · Booster Boxes · Top 10");
+  await act(async () => {
+    await renderer.root.find((node) => node.props?.["data-market-query-add"] !== undefined).props.onClick();
+  });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0].asset, "sealed");
+  assert.deepEqual(specs[0].segmentIds, ["boosterBox"]);
+  assert.equal(specs[0].mode, "chase");
+  assert.equal(specs[0].topN, 10);
+});

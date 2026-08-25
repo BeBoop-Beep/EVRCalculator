@@ -1,4 +1,6 @@
-from backend.rankings.public_relative import compute_public_relative_scores, public_product_rank_tier
+from backend.rankings.public_relative import (
+    compute_public_relative_scores, public_rank_tier, public_relative_rip_tier,
+)
 
 
 def test_min_max_equal_and_null_contract():
@@ -9,8 +11,16 @@ def test_min_max_equal_and_null_contract():
     assert equal == {"a": 50.0, "b": 50.0}
 
 
-def test_product_public_rank_tiers_for_fifteen_item_cohort():
-    assert [public_product_rank_tier(rank, 15) for rank in range(1, 5)] == ["S", "A", "A", "B"]
+def test_public_rank_tier_is_the_canonical_sets_authority():
+    assert [public_rank_tier(rank, 22) for rank in range(1, 7)] == ["S", "S", "A", "A", "B", "B"]
+
+
+def test_locked_public_relative_rip_tier_boundaries_and_invalid_values():
+    cases = [(100, "S"), (90, "S"), (89.999, "A"), (80, "A"),
+             (79.999, "B"), (70, "B"), (69.999, "C"), (45, "C"),
+             (44.999, "D"), (15, "D"), (14.999, "F"), (0, "F")]
+    assert [(score, public_relative_rip_tier(score)) for score, _ in cases] == cases
+    assert all(public_relative_rip_tier(value) is None for value in (None, "", float("nan"), float("inf")))
 
 
 def test_overall_and_financial_are_independently_standardized():

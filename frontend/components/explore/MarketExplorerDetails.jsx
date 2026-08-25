@@ -50,7 +50,7 @@ function ChangeValue({ change, marketLabel, windowLabel }) {
   );
 }
 
-export default function MarketExplorerDetails({ series = [] }) {
+export default function MarketExplorerDetails({ series = [], activeSeriesId = null, onInspect }) {
   const active = series.filter((entry) => entry.available !== false);
 
   return (
@@ -115,6 +115,26 @@ export default function MarketExplorerDetails({ series = [] }) {
                         {entry.isParent === false ? <span aria-hidden="true" className="opacity-50">↳</span> : null}
                         {entry.label}
                         {entry.definition ? <InfoPopover text={entry.definition} /> : null}
+                        {/* Inspecting is a SEPARATE action from show/hide: the
+                            checkbox controls what is drawn, this controls what
+                            the constituent panel is describing. */}
+                        {onInspect && entry.isParent !== true ? (
+                          <button
+                            type="button"
+                            data-market-explorer-inspect={entry.key}
+                            aria-pressed={entry.key === activeSeriesId}
+                            onClick={() => onInspect(entry.key)}
+                            className={[
+                              "ml-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] transition-colors",
+                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
+                              entry.key === activeSeriesId
+                                ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]"
+                                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+                            ].join(" ")}
+                          >
+                            {entry.key === activeSeriesId ? "Inspecting" : "Inspect"}
+                          </button>
+                        ) : null}
                       </span>
                     </th>
                     <td data-market-explorer-detail-metric="trackedValue">{formatBasketValue(entry.basketValue)}</td>

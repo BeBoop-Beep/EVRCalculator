@@ -64,6 +64,9 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     taxonomy_metadata,
 )
 from backend.domain.pokemon.market_explorer_query import (
+    ASSET_CARDS,
+    ASSET_MODE_LABELS,
+    ASSET_SEALED,
     MODE_ALL,
     MODE_CHASE,
     MarketExplorerQueryError,
@@ -773,9 +776,44 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         if era_id:
             tracked_by_era[era_id] = tracked_by_era.get(era_id, 0) + 1
 
+    # Sealed sets are resolved separately: a set can have card history without a
+    # prepared sealed snapshot and vice versa, so the builder must know which
+    # sets each asset can actually offer rather than assuming one list.
+    from backend.db.services.pokemon_sealed_market_explorer_query_service import (
+        published_sealed_family_options,
+        resolve_sealed_tracked_set_ids,
+    )
+
+    sealed_set_ids = set(resolve_sealed_tracked_set_ids(client))
+
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
-        "asset": {"id": "cards", "label": "Cards"},
+        # Retained for the existing card-only consumer contract.
+        "asset": {"id": ASSET_CARDS, "label": "Cards"},
+        "supportedAssets": [
+            {
+                "id": ASSET_CARDS,
+                "label": "Cards",
+                "segmentLabel": "Card Segment / Rarity",
+                "allSegmentsLabel": "All Rarities",
+                "modes": [
+                    {"id": MODE_ALL, "label": ASSET_MODE_LABELS[ASSET_CARDS][MODE_ALL]},
+                    {"id": MODE_CHASE, "label": ASSET_MODE_LABELS[ASSET_CARDS][MODE_CHASE],
+                     "topNOptions": [10], "defaultTopN": 10},
+                ],
+            },
+            {
+                "id": ASSET_SEALED,
+                "label": "Sealed Products",
+                "segmentLabel": "Sealed Product Family",
+                "allSegmentsLabel": "All Sealed Products",
+                "modes": [
+                    {"id": MODE_ALL, "label": ASSET_MODE_LABELS[ASSET_SEALED][MODE_ALL]},
+                    {"id": MODE_CHASE, "label": ASSET_MODE_LABELS[ASSET_SEALED][MODE_CHASE],
+                     "topNOptions": [10], "defaultTopN": 10},
+                ],
+            },
+        ],
         "eras": [
             {
                 "id": str(row.get("id")),
@@ -791,10 +829,20 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
                 "label": str(row.get("name") or ""),
                 "eraId": str(row.get("era_id") or ""),
                 "releaseDate": str(row.get("release_date") or "")[:10] or None,
+                # A set with no prepared sealed snapshot has no sealed market to
+                # offer, so the builder can narrow the Set list per asset rather
+                # than presenting a choice that resolves to nothing.
+                "assets": [ASSET_CARDS] + (
+                    [ASSET_SEALED] if str(row.get("id")) in sealed_set_ids else []
+                ),
             }
             for row in sorted(set_rows, key=lambda row: str(row.get("name") or ""))
         ],
+        # Card rarity taxonomy. Kept under its existing key so no consumer
+        # breaks; `cardSegments` is the asset-explicit alias.
         "segments": published_segment_options(),
+        "cardSegments": published_segment_options(),
+        "sealedProductFamilies": published_sealed_family_options(),
         "marketModes": [
             {"id": MODE_ALL, "label": "All Constituents"},
             {"id": MODE_CHASE, "label": "Chase", "topNOptions": [10], "defaultTopN": 10},

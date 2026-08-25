@@ -178,21 +178,22 @@ def test_rank_key_and_project_read_the_v4_v10_fields_not_v3_v9():
     assert projected["financialRipVersion"] == CANONICAL_FINANCIAL_RIP_VERSION
 
 
-def test_family_tier_is_public_rank_tier_while_model_tier_is_preserved():
+def test_public_tier_uses_relative_score_while_absolute_model_tiers_are_preserved():
     from backend.desirability.composite import assign_composite_tier
 
     for overall_score in (95, 80, 60, 40, 20, 5):
-        projected = service._project(row("x", overall=overall_score), {}, 1, 1)
-        assert projected["familyTier"] == "S"
-        assert projected["publicTier"] == "S"
+        projected = service._project(row("x", overall=overall_score), {}, 1, 1, 63, 20)
+        assert projected["familyTier"] == assign_composite_tier(overall_score)
+        assert projected["publicTier"] == "C"
         assert projected["modelTier"] == assign_composite_tier(overall_score)
 
     # Tier is derived from the SAME overall_rip_v10_score that produced the
     # rank -- never the legacy v9 column, even when they disagree.
     diverging_row = row("y", overall=90)
     diverging_row["overall_rip_score"] = 5
-    projected = service._project(diverging_row, {}, 1, 1)
-    assert projected["familyTier"] == "S"
+    projected = service._project(diverging_row, {}, 1, 1, 90, 10)
+    assert projected["familyTier"] == assign_composite_tier(90)
+    assert projected["publicTier"] == "S"
 
 
 def test_missing_target_run_authority_fails_closed():

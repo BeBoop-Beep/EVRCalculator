@@ -26,6 +26,27 @@ from backend.desirability.pull_model import (
     pull_model_policy,
 )
 
+
+def test_paginator_uses_a_fresh_query_for_each_page():
+    ranges = []
+
+    class Query:
+        def __init__(self):
+            self.calls = []
+
+        def range(self, start, end):
+            self.calls.append((start, end))
+            ranges.append((start, end))
+            return self
+
+        def execute(self):
+            assert len(self.calls) == 1
+            start = self.calls[0][0]
+            return type("Response", (), {"data": ([{"id": start}] if start < 2 else [])})()
+
+    assert inputs._paged_select(Query, page_size=1) == [{"id": 0}, {"id": 1}]
+    assert ranges == [(0, 0), (1, 1), (2, 2)]
+
 # Pitch Black's real pull-rate rows, as persisted in the set-page snapshot.
 PITCH_BLACK_ROWS = [
     {"rarity": "common", "group": "pack_structure", "slot_label": "Base pack composition",

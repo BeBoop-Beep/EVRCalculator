@@ -159,6 +159,19 @@ def test_public_contract_v10_declares_the_v10_and_v4_identities():
     assert OVERALL_RIP_V10_VERSION in blob
 
 
+def test_public_contract_v10_tiers_follow_relative_scores_not_rank_buckets():
+    from backend.desirability.public_rip_contract_v10 import build_public_rip_contract_v10
+
+    rows = _ranked([_target("a", 100, 100), _target("b", 89, 89), _target("c", 0, 0)])
+    contracts = [build_public_rip_contract_v10(row) for row in rows]
+    assert [(c["overallRip"]["relativeScore"], c["overallRip"]["tier"]) for c in contracts] == [
+        (100.0, "S"), (89.0, "A"), (0.0, "F"),
+    ]
+    assert [(c["financialRip"]["relativeScore"], c["financialRip"]["tier"]) for c in contracts] == [
+        (100.0, "S"), (89.0, "A"), (0.0, "F"),
+    ]
+
+
 def test_contract_v10_key_is_attached_in_the_same_pass_as_v9():
     source = Path(svc.__file__).read_text(encoding="utf-8")
     assert "target[PUBLIC_RIP_CONTRACT_V10_KEY] = build_public_rip_contract_v10(target)" in source

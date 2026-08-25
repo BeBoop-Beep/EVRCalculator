@@ -154,6 +154,9 @@ export function resolveSealedSegmentSeries(payload) {
     return {
       ...base,
       available: true,
+      // The published current roster, carried through verbatim (see the card
+      // segment builder below for why it may legitimately be absent).
+      currentConstituents: raw.currentConstituents || null,
       basketValue: numeric(raw.basketValue),
       indexValue,
       historyStartDate: dateKey(raw.historyStartDate),
@@ -355,6 +358,10 @@ function normalizeCardSegment(identity, raw, definition, parentMarket) {
   return {
     ...base,
     available: true,
+    // The published current roster, carried through verbatim. A snapshot built
+    // before this contract simply has none, and the constituent panel reports
+    // that rather than inventing composition.
+    currentConstituents: raw.currentConstituents || null,
     basketValue: numeric(raw.basketValue),
     indexValue,
     historyStartDate: dateKey(raw.historyStartDate),

@@ -46,21 +46,25 @@ def test_chase_defaults_to_top_10():
 
 
 def test_multi_select_ids_are_sorted_and_deduplicated():
-    spec = normalize_query_spec(mode=MODE_ALL, era_ids=["b", "a", "b"], segment_ids=["z", "a"])
+    spec = normalize_query_spec(
+        mode=MODE_ALL,
+        era_ids=["b", "a", "b"],
+        segment_ids=["ultraRare", "illustrationRare", "ultraRare"],
+    )
     assert spec["eraIds"] == ("a", "b")
-    assert spec["segmentIds"] == ("a", "z")
+    assert spec["segmentIds"] == ("illustrationRare", "ultraRare")
 
 
 def test_equivalent_selections_share_one_fingerprint():
-    a = normalize_query_spec(mode=MODE_CHASE, era_ids=["sv", "swsh"], segment_ids=["sir"])
-    b = normalize_query_spec(mode=MODE_CHASE, era_ids=["swsh", "sv"], segment_ids=["sir"])
+    a = normalize_query_spec(mode=MODE_CHASE, era_ids=["sv", "swsh"], segment_ids=["specialIllustrationRare"])
+    b = normalize_query_spec(mode=MODE_CHASE, era_ids=["swsh", "sv"], segment_ids=["specialIllustrationRare"])
     assert query_fingerprint(a) == query_fingerprint(b)
     assert query_key(a) == query_key(b)
 
 
 def test_differing_selections_do_not_collide():
-    a = normalize_query_spec(mode=MODE_CHASE, segment_ids=["sir"])
-    b = normalize_query_spec(mode=MODE_ALL, segment_ids=["sir"])
+    a = normalize_query_spec(mode=MODE_CHASE, segment_ids=["specialIllustrationRare"])
+    b = normalize_query_spec(mode=MODE_ALL, segment_ids=["specialIllustrationRare"])
     assert query_fingerprint(a) != query_fingerprint(b)
 
 
@@ -253,3 +257,126 @@ def test_a_cohort_break_starts_a_new_chain_segment():
     # The break must NOT manufacture a return out of the level difference.
     assert history[1]["normalizedIndexValue"] == pytest.approx(100.0)
     assert history[1]["dailyReturn"] is None
+
+
+# ---------------------------------------------------------------------------
+# Asset awareness (Phase 3F)
+#
+# The spec became generic over the asset. These tests pin the properties that
+# make one engine safe to share: an asset cannot borrow another's segment
+# vocabulary, two assets cannot collide on one identity, and ranking behaves
+# identically whatever a constituent happens to be called.
+# ---------------------------------------------------------------------------
+
+from backend.domain.pokemon.market_explorer_query import (  # noqa: E402
+    ASSET_CARDS,
+    ASSET_MODE_LABELS,
+    ASSET_SEALED,
+    build_query_observations,
+    rank_constituents,
+    segment_vocabulary,
+)
+
+
+def test_sealed_is_a_supported_asset():
+    spec = normalize_query_spec(mode=MODE_ALL, asset=ASSET_SEALED, segment_ids=["eliteTrainerBox"])
+    assert spec["asset"] == ASSET_SEALED
+    assert spec["segmentIds"] == ("eliteTrainerBox",)
+
+
+def test_a_card_rarity_is_not_a_valid_sealed_segment():
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(
+            mode=MODE_ALL, asset=ASSET_SEALED, segment_ids=["specialIllustrationRare"],
+        )
+
+
+def test_a_sealed_family_is_not_a_valid_card_segment():
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(mode=MODE_ALL, asset=ASSET_CARDS, segment_ids=["eliteTrainerBox"])
+
+
+def test_an_unknown_product_family_is_rejected():
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(mode=MODE_ALL, asset=ASSET_SEALED, segment_ids=["jumboBox"])
+
+
+def test_the_residual_is_not_a_selectable_sealed_segment():
+    # otherSealed is a reconciliation bucket, not a market anyone can request.
+    with pytest.raises(MarketExplorerQueryError):
+        normalize_query_spec(mode=MODE_ALL, asset=ASSET_SEALED, segment_ids=["otherSealed"])
+
+
+def test_segment_vocabularies_are_disjoint_between_assets():
+    cards = segment_vocabulary(ASSET_CARDS)
+    sealed = segment_vocabulary(ASSET_SEALED)
+    assert cards and sealed
+    assert not (cards & sealed), "a shared key would make one spec describe two markets"
+
+
+def test_the_same_filters_on_two_assets_never_collide():
+    # Identical scope, identical mode, different asset. If these fingerprinted
+    # together, one asset's result would be served from the other's cache entry.
+    card = normalize_query_spec(mode=MODE_ALL, asset=ASSET_CARDS)
+    sealed = normalize_query_spec(mode=MODE_ALL, asset=ASSET_SEALED)
+    assert query_fingerprint(card) != query_fingerprint(sealed)
+    assert query_key(card) != query_key(sealed)
+    assert query_key(sealed).startswith("sealed|")
+
+
+def test_each_asset_names_the_modes_in_its_own_terms():
+    assert ASSET_MODE_LABELS[ASSET_CARDS][MODE_CHASE] == "Chase"
+    assert ASSET_MODE_LABELS[ASSET_SEALED][MODE_CHASE] == "Top 10 by Price"
+    assert ASSET_MODE_LABELS[ASSET_SEALED][MODE_ALL] == "All Products"
+    # The internal keys stay shared: display vocabulary must not fork the engine.
+    assert set(ASSET_MODE_LABELS[ASSET_CARDS]) == set(ASSET_MODE_LABELS[ASSET_SEALED])
+
+
+def test_ranking_is_identical_whatever_the_constituent_is_called():
+    products = [
+        {"sealedProductId": "p-cheap", "marketPrice": 10.0},
+        {"sealedProductId": "p-rich", "marketPrice": 900.0},
+        {"sealedProductId": "p-mid", "marketPrice": 100.0},
+    ]
+    ranked = rank_constituents(products, 2, id_field="sealedProductId")
+    assert [row["sealedProductId"] for row in ranked] == ["p-rich", "p-mid"]
+    assert [row["rank"] for row in ranked] == [1, 2]
+
+
+def test_a_sealed_tie_breaks_on_product_id_not_row_order():
+    tied = [
+        {"sealedProductId": "bbb", "marketPrice": 50.0},
+        {"sealedProductId": "aaa", "marketPrice": 50.0},
+    ]
+    forward = rank_constituents(tied, 1, id_field="sealedProductId")
+    backward = rank_constituents(list(reversed(tied)), 1, id_field="sealedProductId")
+    assert forward[0]["sealedProductId"] == "aaa"
+    assert forward == backward, "membership must not depend on the order rows arrived in"
+
+
+def test_sealed_membership_is_recomputed_for_every_date():
+    # Product B overtakes product A on day two. The history must record exactly
+    # that, never today's winner projected backward (section 52).
+    rows = [
+        {"marketDate": "2026-01-01", "sealedProductId": "a", "marketPrice": 100.0},
+        {"marketDate": "2026-01-01", "sealedProductId": "b", "marketPrice": 50.0},
+        {"marketDate": "2026-01-02", "sealedProductId": "a", "marketPrice": 100.0},
+        {"marketDate": "2026-01-02", "sealedProductId": "b", "marketPrice": 200.0},
+    ]
+    observations = build_query_observations(
+        rows, mode=MODE_CHASE, top_n=1, id_field="sealedProductId",
+    )
+    assert [row["constituents"][0]["setId"] for row in observations] == ["a", "b"]
+
+
+def test_a_sealed_top_request_larger_than_the_universe_is_reported_not_padded():
+    rows = [
+        {"marketDate": "2026-01-01", "sealedProductId": f"p{index}", "marketPrice": 10.0 * index}
+        for index in range(1, 8)
+    ]
+    observation = build_query_observations(
+        rows, mode=MODE_CHASE, top_n=10, id_field="sealedProductId",
+    )[0]
+    assert observation["requestedTopN"] == 10
+    assert observation["actualConstituentCount"] == 7
+    assert len(observation["constituents"]) == 7

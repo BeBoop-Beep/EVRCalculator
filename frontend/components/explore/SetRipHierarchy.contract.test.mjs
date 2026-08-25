@@ -39,7 +39,8 @@ test("Set RIP deep dive keeps opening value and composition content", () => {
 
 test("one shared array contract and canonical tier function drive both surfaces", () => {
   assert.ok(shared.includes("Array.isArray(setRip?.familyScores)"));
-  assert.ok(shared.includes("topPercentToTier((rank / cohortSize) * 100)"));
+  assert.ok(shared.includes('String(entry?.tier || "").toUpperCase()'));
+  assert.ok(!shared.includes("topPercentToTier"));
   assert.ok(rankings.includes("FamilySnapshot"));
   assert.ok(setPage.includes("FamilyScoreRow"));
 });

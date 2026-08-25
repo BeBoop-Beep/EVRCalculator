@@ -70,7 +70,7 @@ const wholeMoney = new Intl.NumberFormat("en-US", {
 const HELP = {
   overall:
     "Overall RIP is standardized within the currently selected product cohort.",
-  tier: "Tier reflects this product's rank percentile within the selected cohort.",
+  tier: "Tier summarizes the public relative RIP score: S is 9.0–10.0, A is 8.0–8.9, B is 7.0–7.9, C is 4.5–6.9, D is 1.5–4.4, and F is below 1.5.",
   financial:
     "Financial RIP is independently standardized within the currently selected product cohort.",
   collector:

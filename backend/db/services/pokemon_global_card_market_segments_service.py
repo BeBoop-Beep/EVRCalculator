@@ -45,6 +45,9 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     segment_key_for_rarity,
     taxonomy_metadata,
 )
+from backend.domain.pokemon.prepared_constituent_summary import (
+    summarize_card_segment_constituents,
+)
 from backend.domain.pokemon.market_index import (
     build_chain_linked_history_with_segments,
     compute_strict_window_movements,
@@ -202,6 +205,28 @@ def _segment_series(
             {"date": row["marketDate"], "value": round(float(row["basketValue"]), 2)}
             for row in current
         ],
+        # WHAT IS IN THIS INDEX. The CURRENT roster only, bounded to the most
+        # valuable few — a broad rarity holds thousands of cards and publishing
+        # all of them would inflate every consumer's snapshot for a table nobody
+        # reads to the end. `totalCount` states the true size and `isComplete`
+        # says plainly that this is a preview, so a bounded list can never be
+        # mistaken for the whole universe.
+        "currentConstituents": summarize_card_segment_constituents(
+            [
+                {
+                    "canonicalCardId": str(entry["setId"]),
+                    "cardName": (rarity_by_card.get(str(entry["setId"])) or {}).get("cardName"),
+                    "cardNumber": (rarity_by_card.get(str(entry["setId"])) or {}).get("cardNumber"),
+                    "setId": (rarity_by_card.get(str(entry["setId"])) or {}).get("setId"),
+                    "setName": (rarity_by_card.get(str(entry["setId"])) or {}).get("setName"),
+                    "rarity": (rarity_by_card.get(str(entry["setId"])) or {}).get("rarity"),
+                    "imageUrl": (rarity_by_card.get(str(entry["setId"])) or {}).get("imageUrl"),
+                    "marketPrice": entry.get("setValue"),
+                }
+                for entry in latest["constituents"]
+            ],
+            as_of=str(latest["marketDate"])[:10],
+        ),
         "metadata": {
             "cardCount": len(today_cards),
             "setCount": len(today_sets),

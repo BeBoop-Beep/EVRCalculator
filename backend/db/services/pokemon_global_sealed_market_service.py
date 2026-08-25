@@ -18,6 +18,9 @@ from backend.domain.pokemon.market_index import (
     deterministic_fingerprint,
     resolve_one_day_comparison_close,
 )
+from backend.domain.pokemon.prepared_constituent_summary import (
+    summarize_sealed_segment_constituents,
+)
 from backend.domain.pokemon.sealed_market_segments import (
     RESIDUAL_SEGMENT_KEY,
     RESIDUAL_SEGMENT_LABEL,
@@ -63,10 +66,18 @@ def collect_global_sealed_products(
     source_sets = 0
     for payload in snapshot_payloads:
         source_sets += 1
+        # The owning set is on the SNAPSHOT, not on the product. Stamping it
+        # here is what lets any downstream consumer name a product's set
+        # without re-reading the snapshot it came from. Additive only.
+        owning_set = payload.get("set") or {}
+        owning_set_id = str(owning_set.get("id") or "")
+        owning_set_name = str(owning_set.get("name") or "")
         for raw_product in payload.get("products") or []:
             product = _product_through(raw_product, market_date)
             if product is None:
                 continue
+            product.setdefault("setId", owning_set_id)
+            product.setdefault("setName", owning_set_name)
             product_id = str(product.get("sealedProductId") or "").strip()
             if not product_id or product_id in seen_ids:
                 raise GlobalSealedMarketUnavailable("sealed product ids must be present and globally unique")
@@ -181,6 +192,27 @@ def _segment_series(
         "trend": [[point["date"], point["indexValue"]] for point in current_history],
         "history": full_history,
         "valueAsOf": aggregate.get("valueAsOf"),
+        # WHAT IS IN THIS INDEX. The current roster only — no historical
+        # observations. Published so a user can inspect a prepared segment's
+        # composition without running the dynamic query engine, which is the
+        # expensive path quick segments exist to avoid.
+        "currentConstituents": summarize_sealed_segment_constituents(
+            [
+                {
+                    "sealedProductId": product.get("sealedProductId"),
+                    "productName": product.get("name"),
+                    "variantLabel": product.get("variantLabel"),
+                    "setId": product.get("setId"),
+                    "setName": product.get("setName"),
+                    "productFamily": product.get("productFamily"),
+                    "productFamilyLabel": product.get("productFamilyLabel"),
+                    "marketPrice": product.get("currentPrice"),
+                    "imageUrl": product.get("imageUrl"),
+                }
+                for product in products
+            ],
+            as_of=aggregate.get("valueAsOf"),
+        ),
         "metadata": {
             "eligibleProductCount": aggregate.get("productCount"),
             "contributingProductCount": aggregate.get("contributingProductCount"),
