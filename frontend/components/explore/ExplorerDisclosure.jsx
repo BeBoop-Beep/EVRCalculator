@@ -63,11 +63,16 @@ export default function ExplorerDisclosure({
           >
             ▶
           </span>
-          <span className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+          {/* WRAPS, never truncates. These are the rail's only navigation, and
+              a group headed "Sealed Product Fa…" is a worse outcome than a
+              two-line header — the user cannot tell what they are opening. */}
+          <span className="min-w-0 flex-1 text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-[var(--text-secondary)]">
             {title}
           </span>
           {summary ? (
-            <span className="ml-auto flex-none truncate text-[10px] text-[var(--text-secondary)]">{summary}</span>
+            <span className="ml-auto max-w-[45%] flex-none truncate text-[10px] normal-case tracking-normal text-[var(--text-secondary)]">
+              {summary}
+            </span>
           ) : null}
           {badge ? (
             <span
