@@ -39,3 +39,8 @@ temp/
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+
+# next ignore
+/.next/
+/.next-perf*/

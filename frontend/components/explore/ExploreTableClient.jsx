@@ -72,6 +72,7 @@ import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
 import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -440,26 +441,6 @@ function RankMarker({ rank, tier, isLead, movement }) {
   );
 }
 
-function SetRipScoreBadge({ score, tier, compact = false }) {
-  const tone = tier ? getTierTone(tier) : null;
-  const accent = tone?.accentColor || "var(--border-subtle)";
-  return (
-    <div
-      data-set-rip-score-badge
-      className={`relative inline-flex flex-col items-center justify-center text-center ${compact ? "h-[3.25rem] w-[3.65rem]" : "h-[3.75rem] w-[4.5rem]"}`}
-    >
-      <svg aria-hidden="true" viewBox="0 0 72 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible"><polygon points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11" fill="rgba(7,14,25,0.72)" stroke={accent} strokeWidth="1.25" vectorEffect="non-scaling-stroke" /></svg>
-      <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{score === null ? UNAVAILABLE_LABEL : formatModeScore(score, SCORE_KIND_PUBLIC)}</strong>
-      {score !== null ? <span className="relative text-[9px] text-[var(--text-secondary)]">/ 10</span> : null}
-      <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">RIP Score</span>
-    </div>
-  );
-}
-
-function SetTierMark({ tier }) {
-  const tone = tier ? getTierTone(tier) : null;
-  return tier ? <span data-set-tier-mark className="inline-flex flex-col items-center leading-none"><strong className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-[var(--surface-page)]/55 text-lg" style={tone ? { color: tone.textColor, borderColor: tone.accentColor } : undefined}>{tier}</strong><span className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Tier</span></span> : null;
-}
 
 function RankingInsight({ setRip }) {
   const explanation = whySetRanks(setRip);
@@ -509,6 +490,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
   const [expandedMobileSet, setExpandedMobileSet] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   // Presentation-only column sort. `RANKINGS_DEFAULT_SORT` is Overall RIP
   // descending, which sortRankingsRows resolves to the canonical order itself,
   // so the first paint is byte-for-byte the leaderboard it has always been.
@@ -530,6 +512,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
     return String(left?.name || "").localeCompare(String(right?.name || ""));
   }), [targets]);
   const sortedTargets = useMemo(() => sortRankingsRows(canonicalTargets, sort), [canonicalTargets, sort]);
+  const displayedTargets = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    return query ? sortedTargets.filter((target) => String(target?.name || "").toLocaleLowerCase().includes(query)) : sortedTargets;
+  }, [sortedTargets, searchQuery]);
   // The row's position in the CANONICAL order, used only as the "#" fallback for
   // a target the backend gave no rank. Taking it from the canonical array rather
   // than from the rendered index keeps that fallback meaning "where this set
@@ -549,7 +535,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   }, [mobilePreviewResetKey]);
   // Only the row lists that actually overflow get the bottom fade, so a short
   // list never looks like it has been cut off.
-  const isScrollable = sortedTargets.length > 6;
+  const isScrollable = displayedTargets.length > 6;
   const leaderboardScrollClass = "index-scrollbar";
   // The relative-vs-model explanation lives here as well as on the cell
   // titles: the stretched row link sits above the cells, so the module
@@ -635,10 +621,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
   const sortDirectionNote = sort.direction === SORT_ASC ? "lowest first" : "highest first";
   const sortNote = `Ordered by ${activeSortLabel}, ${sortDirectionNote}. Select any metric column heading to sort by it; select it again to reverse the direction.`;
   const visibleMobileTargets =
-    showAllMobileRows || sortedTargets.length <= MOBILE_PREVIEW_LIMIT
-      ? sortedTargets
-      : sortedTargets.slice(0, MOBILE_PREVIEW_LIMIT);
-  const hiddenMobileCount = Math.max(0, sortedTargets.length - visibleMobileTargets.length);
+    showAllMobileRows || displayedTargets.length <= MOBILE_PREVIEW_LIMIT
+      ? displayedTargets
+      : displayedTargets.slice(0, MOBILE_PREVIEW_LIMIT);
+  const hiddenMobileCount = Math.max(0, displayedTargets.length - visibleMobileTargets.length);
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
@@ -671,10 +657,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             ) : null}
           </div>
         </div>
-        <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{sortedTargets.length}</span> ranked sets</p>
+        <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
+        <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." aria-label="Search sets" className={`${styles.setMarketControl} mt-3 w-full px-2.5 text-xs`} />
       </div>
       {/* One compact control row: title menu, definition, hint, cohort size. */}
-      <div className={`${styles.divider} hidden flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 desk:py-2.5 sm:px-4 md:flex`}>
+      <div className={`${styles.divider} hidden gap-3 px-3 py-3 desk:py-2.5 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_minmax(14rem,17rem)_minmax(0,1fr)] md:items-center`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative min-w-0" ref={dropdownContainerRef}>
             <h2
@@ -743,7 +730,9 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <InfoPopover text={modeInfoText} />
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." aria-label="Search sets" className={`${styles.setMarketControl} w-full px-2.5 text-xs`} />
+
+        <div className="flex items-center justify-end gap-3 text-right">
           {/*
             The desktop sort control IS the column heading. Mobile has no header
             row to click, so the same sort state gets the module's existing
@@ -811,13 +800,13 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
             Select a set for the full rip breakdown.
           </span>
           <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
-            <span className="tabular-nums text-[var(--text-primary)]">{sortedTargets.length}</span> ranked sets
+            <span className="tabular-nums text-[var(--text-primary)]">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked
           </span>
         </div>
       </div>
 
       {/* Table/Grid */}
-      {sortedTargets.length > 0 ? (
+      {displayedTargets.length > 0 ? (
         <>
           {/* Desktop table */}
           <div className={`hidden md:block ${isScrollable ? styles.scrollShell : ""}`}>
@@ -842,20 +831,19 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
               </colgroup>
               <thead className={styles.head}>
                 <tr>
-                  <th scope="col" rowSpan={2} className={styles.numeric}>
+                  <th scope="col" className={styles.numeric}>
                     <span aria-hidden="true">#</span>
                     <span className="sr-only">Rank</span>
                   </th>
-                  <th scope="col" rowSpan={2}>Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
-                  <th scope="col" rowSpan={2}>Tier</th>
-                  <th scope="colgroup" colSpan={RANKINGS_FAMILY_COLUMNS.length} className="text-center">Product Family Snapshot</th>
-                  <th scope="col" rowSpan={2}>Format Strength</th>
+                  <th scope="col">Set</th>
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
+                  <th scope="col">Tier</th>
+                  {RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight"><span className="inline-flex items-center justify-center gap-1">{column.label}{column.info ? <InfoPopover text={column.info} /> : null}</span></th>)}
+                  <th scope="col">Format Strength</th>
                 </tr>
-                <tr>{RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight">{column.label}</th>)}</tr>
               </thead>
               <tbody>
-                {sortedTargets.map((target, index) => {
+                {displayedTargets.map((target, index) => {
                   const canonicalOverall = readCanonicalOverallRipV10(target);
                   const tier = canonicalOverall.tier;
                   const modeRank = canonicalOverall.rank;
@@ -878,8 +866,8 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                           <span className="mt-0.5 block text-[10px] text-[var(--text-secondary)]">{target?.setRipV1?.participatingFamilyCount ?? 0} scored families</span>
                         </Link>
                       </td>
-                      <td className={styles.numeric}><SetRipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
-                      <td className="text-center"><SetTierMark tier={tier} /></td>
+                      <td className={styles.numeric}><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} /></td>
+                      <td className="text-center"><RipTierMark tier={tier} /></td>
                       <RankingsFamilyCells setRip={target?.setRipV1} />
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
@@ -914,12 +902,11 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                     <div className="min-w-0">
                       <SetIdentity variant="mobileRanking" target={target} eager={index < EAGER_LOGO_ROW_LIMIT} />
                     </div>
-                    <div className="flex flex-none items-center gap-2"><SetRipScoreBadge score={canonicalOverall.publicScore} tier={tier} compact /><SetTierMark tier={tier} /></div>
+                    <div className="flex flex-none items-center gap-2"><RipScoreBadge score={canonicalOverall.publicScore} tier={tier} compact /><RipTierMark tier={tier} /></div>
                     <span aria-hidden="true" className={`text-sm transition-transform ${expanded ? "rotate-180" : ""}`}>⌄</span>
                   </button>
                   {expanded ? (
                     <div className="mt-2 border-t border-[var(--border-subtle)] pt-1">
-                      <p className="py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Product Family Snapshot</p>
                       <FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />
                       <p className="pt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">Format Strength</p>
                       <RankingInsight setRip={target?.setRipV1} />

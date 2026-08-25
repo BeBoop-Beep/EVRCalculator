@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const rankings = fs.readFileSync(new URL("./ExploreTableClient.jsx", import.meta.url), "utf8");
+const scoreBadgeSource = fs.readFileSync(new URL("./RipScoreBadge.jsx", import.meta.url), "utf8");
 const setPage = fs.readFileSync(new URL("./RipDecisionPage.jsx", import.meta.url), "utf8");
 const shared = fs.readFileSync(new URL("./SetRipFamilyBreakdown.jsx", import.meta.url), "utf8");
 const cohortControl = fs.readFileSync(new URL("./ProductFamilyRankingsClient.jsx", import.meta.url), "utf8");
@@ -10,10 +11,12 @@ const rankingsPage = fs.readFileSync(new URL("../../app/Explore/page.js", import
 const familyStyles = fs.readFileSync(new URL("./explore.module.css", import.meta.url), "utf8");
 
 test("Rankings desktop exposes the approved Set RIP hierarchy and no economics columns", () => {
-  for (const heading of ["Set RIP Score", "Tier", "Product Family Snapshot", "Why It Ranks"]) {
+  for (const heading of ["Set RIP Score", "Tier", "Format Strength"]) {
     assert.ok(rankings.includes(heading), heading);
   }
   const head = rankings.slice(rankings.indexOf("<thead"), rankings.indexOf("</thead>"));
+  assert.ok(!head.includes("Product Family Snapshot"));
+  assert.ok(!head.includes('scope="colgroup"'));
   for (const retired of ["Market Price", "Typical Opening", "Model Break-Even", "Chance to Beat Cost", "Top Chase"]) {
     assert.ok(!head.includes(retired), retired);
   }
@@ -23,7 +26,7 @@ test("Rankings mobile uses dense expandable rows with canonical Set RIP context"
   assert.ok(rankings.includes("expandedMobileSet"));
   assert.ok(rankings.includes('aria-expanded={expanded}'));
   assert.ok(rankings.includes('<FamilySnapshot setRip={target?.setRipV1} layout="modules" compact />'));
-  assert.ok(rankings.includes("data-set-rip-score-badge"));
+  assert.ok(scoreBadgeSource.includes("data-rip-score-badge"));
 });
 
 test("Set RIP deep dive keeps opening value and composition content", () => {
@@ -55,10 +58,10 @@ test("Rankings keeps the compact mobile snapshot and uses fixed desktop family c
   assert.ok(familyStyles.includes("repeat(2, minmax(0, 1fr))"));
   assert.ok(familyStyles.includes("repeat(3, minmax(0, 1fr))"));
   assert.ok(familyStyles.includes("repeat(var(--family-columns), minmax(0, 1fr))"));
-  assert.ok(rankings.includes("data-set-rip-score-badge"));
+  assert.ok(scoreBadgeSource.includes("data-rip-score-badge"));
   assert.ok(rankings.includes("data-ranking-insight"));
   assert.ok(rankings.includes("RankingsFamilyCells"));
-  assert.ok(rankings.includes('scope="colgroup"'));
+  assert.ok(!rankings.includes('scope="colgroup"'));
   assert.ok(cohortControl.includes("SegmentedControl"));
   assert.ok(cohortControl.includes('variant="primary"'));
 });
@@ -72,14 +75,13 @@ test("Rankings data surface uses the wider desktop canvas and prioritizes family
 });
 
 test("Set RIP score uses an accessible shared SVG outline and Tier remains separate", () => {
-  const scoreBadge = rankings.slice(rankings.indexOf("function SetRipScoreBadge"), rankings.indexOf("function SetTierMark"));
-  assert.ok(scoreBadge.includes("<svg"));
-  assert.ok(scoreBadge.includes("<polygon"));
-  assert.ok(scoreBadge.includes('aria-hidden="true"'));
-  assert.ok(scoreBadge.includes("formatModeScore"), "score remains real DOM text");
-  assert.ok(!scoreBadge.includes("clip-path"));
-  assert.ok(rankings.includes("data-set-tier-mark"));
-  assert.ok(rankings.includes("<SetRipScoreBadge setRip={target?.setRipV1} tier={tier} compact />"), "mobile reuses the score component");
+  assert.ok(scoreBadgeSource.includes("<svg"));
+  assert.ok(scoreBadgeSource.includes("<polygon"));
+  assert.ok(scoreBadgeSource.includes('aria-hidden="true"'));
+  assert.ok(scoreBadgeSource.includes("formatModeScore"), "score remains real DOM text");
+  assert.ok(!scoreBadgeSource.includes("clip-path"));
+  assert.ok(scoreBadgeSource.includes("data-rip-tier-mark"));
+  assert.ok(rankings.includes("<RipScoreBadge score={canonicalOverall.publicScore} tier={tier} compact"), "mobile reuses the shared score component");
 });
 
 test("family panel relies on spacing rather than spreadsheet cell borders", () => {

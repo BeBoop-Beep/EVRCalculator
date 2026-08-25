@@ -134,8 +134,8 @@ export const RANKINGS_FAMILY_COLUMNS = Object.freeze([
   { key: "sleeved", label: "Sleeved Pack", fullLabel: "Sleeved Booster Pack", families: ["sleeved_booster_pack"] },
   { key: "bundle", label: "Bundle", fullLabel: "Booster Bundle", families: ["booster_bundle"] },
   { key: "etb", label: "ETB", fullLabel: "Elite Trainer Box", families: ["elite_trainer_box"] },
-  { key: "pc-etb", label: "PC ETB", fullLabel: "Pokémon Center Elite Trainer Box", families: ["pokemon_center_elite_trainer_box"] },
-  { key: "half-box", label: "Half Box", fullLabel: "Half Booster Box", families: ["half_booster_box"] },
+  { key: "pc-etb", label: "PC ETB", fullLabel: "Pokémon Center Elite Trainer Box", info: "Pokémon Center Elite Trainer Box — an Elite Trainer Box edition sold through Pokémon Center, often with exclusive packaging or promo treatment depending on the release.", families: ["pokemon_center_elite_trainer_box"] },
+  { key: "half-box", label: "Half Box", fullLabel: "Half Booster Box", info: "Half Booster Box — a smaller sealed booster-box format containing about half the booster packs of the standard Booster Box for that release.", families: ["half_booster_box"] },
   { key: "booster-box", label: "Booster Box", fullLabel: "Booster Box", families: ["booster_box"] },
   { key: "enhanced-box", label: "Enhanced Box", fullLabel: "Enhanced Booster Box", families: ["enhanced_booster_box"] },
 ]);
