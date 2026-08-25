@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import InfoPopover from "@/components/ui/InfoPopover";
 import MarketOverviewWindowSelector from "./MarketOverviewWindowSelector";
 import MarketPerformanceChart from "./MarketPerformanceChart";
 import {
@@ -9,6 +10,7 @@ import {
   describeChange,
   describeUnavailableWindow,
   formatChangePercent,
+  formatShortDate,
   getPricePerformanceChange,
   MARKET_DIMENSION_LABELS,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
@@ -39,7 +41,7 @@ export function filterMarketPerformanceModel(model, visibleMarketKeys) {
   };
 }
 
-export default function PokemonMarketPerformance({ overview, options = [], selectedWindow, selectedLabel = "", onWindowChange, visibleMarketKeys, onToggleMarket }) {
+export default function PokemonMarketPerformance({ overview, options = [], selectedWindow, selectedLabel = "", onWindowChange, visibleMarketKeys, onToggleMarket, isSinceFirstAvailable = false, displayStartDate = null }) {
   const model = useMemo(
     () => (selectedWindow ? buildMarketPerformanceSeries(overview, selectedWindow) : null),
     [overview, selectedWindow]
@@ -56,13 +58,16 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
   return (
     <section data-market-performance-pane className="flex min-w-0 flex-col" aria-labelledby="market-performance-heading">
       <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
-        <h2 id="market-performance-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Pokémon Market Performance</h2>
-        <p id="market-performance-description" className="mt-1 text-xs text-[var(--text-secondary)]">{SUB_LABEL}</p>
+        <div className="flex items-center gap-2">
+          <h2 id="market-performance-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Pokémon Market Performance</h2>
+          <span className="desk:hidden"><InfoPopover text={SUB_LABEL} /></span>
+        </div>
+        <p id="market-performance-description" className="mt-1 hidden text-xs text-[var(--text-secondary)] desk:block">{SUB_LABEL}</p>
         {/* Legend above, timeframes below. On this pane's ~58% the two do not
             fit on one line, and a selector that wraps mid-row reads as a
             layout accident rather than a design. */}
         <div className="mt-3 flex flex-col gap-2.5">
-          <ul data-market-performance-legend className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <ul data-market-performance-legend className="hidden flex-wrap items-center gap-x-4 gap-y-1.5 desk:flex">
             {overview.families.map((family) => {
               const change = getPricePerformanceChange(family, selectedWindow);
               const direction = changeDirection(change);
@@ -93,11 +98,16 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
             onChange={onWindowChange}
             ariaDescription="Sets the window for both this chart and the Market Overview period column beside it."
           />
+          {isSinceFirstAvailable ? (
+            <p data-market-performance-coverage-note className="text-[10px] font-medium uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+              Since first available{displayStartDate ? ` · ${formatShortDate(displayStartDate)}` : ""}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4">
         {visibleModel?.available
-          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-48 desk:h-[13.5rem]" />
+          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-40 desk:h-[13.5rem]" />
           : (
             <p role="status" data-market-performance-unavailable className="py-10 text-center text-sm text-[var(--text-secondary)]">
               {selectedLabel ? describeUnavailableWindow(selectedLabel) : "Market performance history is unavailable."}

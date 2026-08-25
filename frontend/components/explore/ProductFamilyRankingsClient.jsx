@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";
+import SegmentedControl from "@/components/ui/SegmentedControl";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 
@@ -66,15 +67,20 @@ export default function ProductFamilyRankingsClient({ targets, productFamilyRank
 
   const productsActive = view !== "sets" && view !== "overall-locked";
   const openProducts = () => setView(familyEntries[0]?.[0] || "sets");
+  const rankingView = productsActive ? "products" : view;
+  const changeRankingView = (nextView) => nextView === "products" ? openProducts() : setView(nextView);
   return <>
-    <nav aria-label="Ranking view" className="mb-3 inline-flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 p-1">
-      <button type="button" onClick={() => setView("sets")} aria-pressed={!productsActive && view !== "overall-locked"} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${!productsActive && view !== "overall-locked" ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Sets</button>
-      <button type="button" onClick={openProducts} aria-pressed={productsActive} disabled={!familyEntries.length} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${productsActive ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Individual Products</button>
-      {/* Locked preview of the future budget-normalized cross-format ranking
+    <SegmentedControl className="mb-3 inline-block" ariaLabel="Ranking view" variant="primary" value={rankingView} onChange={changeRankingView} options={[
+      { value: "sets", label: "Sets" },
+      { value: "products", label: "Individual Products", disabled: !familyEntries.length },
+      { value: "overall-locked", label: "Overall" },
+    ]} />
+    {/*
+      Locked preview of the future budget-normalized cross-format ranking
           capability. Deliberately shows no data of any kind — see
-          OverallRankingLockedPanel below. */}
+          OverallRankingLockedPanel below.
       <button type="button" onClick={() => setView("overall-locked")} aria-pressed={view === "overall-locked"} className={`whitespace-nowrap rounded-md px-4 py-2 text-xs font-semibold transition-colors ${view === "overall-locked" ? "bg-[var(--accent)] text-black" : "text-[var(--text-secondary)]"}`}>Overall</button>
-    </nav>
+    */}
     {productsActive ? <nav aria-label="Product family" className="mb-3 flex gap-2 overflow-x-auto pb-1">{familyEntries.map(([family, block]) => <button key={family} type="button" onClick={() => setView(family)} aria-pressed={view === family} className={`whitespace-nowrap rounded-full border px-3 py-2 text-xs font-semibold ${view === family ? "border-[var(--accent)] text-[var(--text-primary)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>{block.label}s</button>)}</nav> : null}
     {view === "sets" ? <ExploreTableClient targets={targets} loadError={loadError} /> :
      view === "overall-locked" ? <OverallRankingLockedPanel /> :

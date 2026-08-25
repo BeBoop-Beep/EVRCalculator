@@ -62,11 +62,12 @@ export default function PokemonMarketAnalysis({ overview }) {
     ? requestedWindow
     : defaultWindow;
   const selectedLabel = options.find((entry) => entry.key === selectedWindow)?.label || "";
+  const selectedOption = options.find((entry) => entry.key === selectedWindow) || null;
 
   return (
     <section
       data-market-analysis
-      className={`${styles.surfaceQuiet} ${styles.marketAnalysis} set-glass-surface`}
+      className={`${styles.surfaceQuiet} ${styles.marketAnalysis} ${styles.marketMobileSection} set-glass-surface`}
       aria-label="Pokémon market summary and performance"
     >
       <PokemonMarketOverview
@@ -75,6 +76,7 @@ export default function PokemonMarketAnalysis({ overview }) {
         selectedLabel={selectedLabel}
         visibleMarketKeys={visibleMarketKeys}
         onToggleMarket={toggleMarket}
+        isSinceFirstAvailable={selectedOption?.isSinceFirstAvailable === true}
       />
       <PokemonMarketPerformance
         overview={overview}
@@ -84,6 +86,8 @@ export default function PokemonMarketAnalysis({ overview }) {
         onWindowChange={setRequestedWindow}
         visibleMarketKeys={visibleMarketKeys}
         onToggleMarket={toggleMarket}
+        isSinceFirstAvailable={selectedOption?.isSinceFirstAvailable === true}
+        displayStartDate={selectedOption?.displayStartDate || null}
       />
     </section>
   );

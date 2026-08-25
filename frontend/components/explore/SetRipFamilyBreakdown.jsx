@@ -121,6 +121,47 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
   return <div className="divide-y divide-[var(--border-subtle)]">{families.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} compact={compact} />)}</div>;
 }
 
+export const RANKINGS_FAMILY_COLUMNS = Object.freeze([
+  { key: "loose", label: "Loose Pack", fullLabel: "Loose Booster Pack", families: ["loose_booster_pack"] },
+  { key: "sleeved", label: "Sleeved Pack", fullLabel: "Sleeved Booster Pack", families: ["sleeved_booster_pack"] },
+  { key: "three-pack", label: "3-Pack", fullLabel: "3-Pack Blister", families: ["three_pack_blister"] },
+  { key: "bundle", label: "Bundle", fullLabel: "Booster Bundle", families: ["booster_bundle"] },
+  { key: "etb", label: "ETB", fullLabel: "Elite Trainer Box", families: ["elite_trainer_box"] },
+  { key: "pc-etb", label: "PC ETB", fullLabel: "Pokémon Center Elite Trainer Box", families: ["pokemon_center_elite_trainer_box"] },
+  { key: "half-box", label: "Half Box", fullLabel: "Half Booster Box", families: ["half_booster_box"] },
+  { key: "booster-box", label: "Booster Box", fullLabel: "Booster Box", families: ["booster_box"] },
+  { key: "enhanced-box", label: "Enhanced Box", fullLabel: "Enhanced Booster Box", families: ["enhanced_booster_box"] },
+  { key: "special", label: "SPC / UPC", fullLabel: "Special Collection or Ultra Premium Collection", families: ["special_collection", "ultra_premium_collection"] },
+]);
+
+function FixedFamilyResult({ entry, identifier = null }) {
+  const tier = familyTier(entry);
+  const tierColor = tier ? RANK_CONFIG[tier]?.color : null;
+  return (
+    <span data-fixed-family-result={entry.family} className="flex flex-col items-center gap-1 text-center">
+      {identifier ? <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{identifier}</span> : null}
+      <strong className="text-sm font-bold leading-none tabular-nums text-[var(--text-primary)]">{Number(entry.score).toFixed(1)}</strong>
+      <span className="whitespace-nowrap text-[10px] leading-none text-[var(--text-secondary)]">#{entry.rank} <span aria-hidden="true">·</span> <span style={tierColor ? { color: tierColor } : undefined}>{tier || "—"}</span></span>
+    </span>
+  );
+}
+
+export function RankingsFamilyCells({ setRip }) {
+  const familyByKey = new Map(participatingFamilyScores(setRip).map((entry) => [entry.family, entry]));
+  return RANKINGS_FAMILY_COLUMNS.map((column) => {
+    const entries = column.families.map((family) => familyByKey.get(family)).filter(Boolean);
+    return (
+      <td key={column.key} data-rankings-family-column={column.key} className="px-1.5 text-center align-middle">
+        {entries.length ? (
+          <span className="flex flex-col items-center gap-2">
+            {entries.map((entry) => <FixedFamilyResult key={entry.family} entry={entry} identifier={column.key === "special" ? (entry.family === "special_collection" ? "SPC" : "UPC") : null} />)}
+          </span>
+        ) : <span className="text-xs text-[var(--text-secondary)]">—</span>}
+      </td>
+    );
+  });
+}
+
 export function whySetRanks(setRip) {
   const families = participatingFamilyScores(setRip);
   if (!families.length) return "Product-family evidence is not available yet.";

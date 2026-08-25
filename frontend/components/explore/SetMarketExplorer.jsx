@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import MarketSparkline from "./MarketSparkline";
 import MarketWindowSelector from "./MarketWindowSelector";
+import MiniMarketSparkline from "./MiniMarketSparkline";
 import DarkSelect from "@/components/ui/DarkSelect";
+import ReturnToTopButton from "@/components/ui/ReturnToTopButton";
 import SetMarketTopMovers from "./SetMarketTopMovers";
 import { getStandardDeltaWindowDefinitions, resolveDeltaWindowBaselineValue } from "@/lib/explore/marketDeltaWindows.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -12,6 +14,7 @@ import { SET_LOGO_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remote
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import { getPokemonSetValueHistory } from "@/lib/pokemon/pokemonSetMarketClient";
 import { clipSetMarketDetailHistory, needsLifetimeSetMarketHistory } from "@/lib/explore/setMarketDetailHistory.mjs";
+import { selectSetMarketMiniTrend } from "@/lib/explore/setMarketMiniTrend.mjs";
 import styles from "./explore.module.css";
 
 // ---------------------------------------------------------------------------
@@ -125,41 +128,49 @@ function buildRankedRows(targets) {
 }
 
 export function resolveSetMarketRowAction({ isMasterDetail, isActive, clickCount }) {
-  return isMasterDetail && (isActive || clickCount >= 2) ? "navigate" : "select";
+  if (!isMasterDetail) return "navigate";
+  return isActive || clickCount >= 2 ? "navigate" : "select";
+}
+
+export function shouldResetSetMarketResults({ control, sortKey }) {
+  return control === "query" || control === "era" || control === "sort" || (control === "timeframe" && sortKey === "change");
 }
 
 export default function SetMarketExplorer({ targets = [], loadError = false, navigate = null }) {
   const navigationStartedRef = useRef(false);
+  const sectionTopRef = useRef(null);
+  const resultsTopRef = useRef(null);
+  const mobileToolbarRef = useRef(null);
+  const returnThresholdRef = useRef(null);
+  const [showReturnToSetMarketTop, setShowReturnToSetMarketTop] = useState(false);
   const [query, setQuery] = useState("");
   const [era, setEra] = useState(ALL_ERAS);
   const [sortKey, setSortKey] = useState("value");
-  // TIMEFRAME, AND WHY THERE ARE TWO STATES FOR ONE CONCEPT
-  // -------------------------------------------------------
-  // At desktop the list and the analysis are one workspace on one screen, so
-  // they read ONE window: the toolbar's. Two selectors for the same concept,
-  // visible at the same time, is an ambiguity rather than a feature — so the
-  // detail pane's selector is not rendered at all up here, and every
-  // timeframe-dependent figure on both sides derives from `listWindowKey`.
-  //
-  // Below `desk` the two panes are separate SCREENS (browse, then detail), so
-  // a local control per screen is the right model: the list keeps the window
-  // you were scanning at, and inspecting one set at 30D does not silently
-  // rewrite it. `detailWindowKey` exists only for that composition.
-  //
-  // The breakpoint is deliberately the same 1200px at which the master-detail
-  // split itself collapses — one idea, one boundary.
+  // One timeframe drives the mobile scanner and both desktop master/detail
+  // panes. Mobile has no internal detail screen; rows drill into set pages.
   const [listWindowKey, setListWindowKey] = useState(DEFAULT_WINDOW);
-  const [detailWindowKey, setDetailWindowKey] = useState(DEFAULT_WINDOW);
   const isMasterDetail = useMediaQuery("(min-width: 1200px)", true);
-  // The one window the detail pane actually reads.
-  const activeDetailWindowKey = isMasterDetail ? listWindowKey : detailWindowKey;
+  const activeDetailWindowKey = listWindowKey;
   const [selectedSetId, setSelectedSetId] = useState(null);
   // Below desktop the browser and the analysis are two states of one screen,
   // never a squeezed split. Desktop ignores this entirely.
-  const [mobileView, setMobileView] = useState("browse");
   const detailHistoryCache = useRef(new Map());
   const [detailHistoryState, setDetailHistoryState] = useState({ setId: null, status: "idle", history: [], days: 0, error: null });
   const [historyRetryToken, setHistoryRetryToken] = useState(0);
+
+  const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const scrollToTarget = (target, includeToolbar = false) => {
+    if (!target || typeof window === "undefined" || isMasterDetail) return;
+    const headerOffset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-header-offset")) || 64;
+    const toolbarOffset = includeToolbar ? mobileToolbarRef.current?.getBoundingClientRect().height || 0 : 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - headerOffset - toolbarOffset;
+    window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion() ? "auto" : "smooth" });
+  };
+  const resetResultsIfDeep = (control) => {
+    if (!shouldResetSetMarketResults({ control, sortKey }) || !resultsTopRef.current || typeof window === "undefined") return;
+    const headerOffset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-header-offset")) || 64;
+    if (resultsTopRef.current.getBoundingClientRect().top < headerOffset) scrollToTarget(resultsTopRef.current, true);
+  };
 
   const ranked = useMemo(() => buildRankedRows(targets), [targets]);
 
@@ -194,6 +205,18 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
     return filtered;
   }, [ranked, query, era, sortKey, listWindowKey]);
 
+  useEffect(() => {
+    if (isMasterDetail || !returnThresholdRef.current || typeof IntersectionObserver === "undefined") {
+      setShowReturnToSetMarketTop(false);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      setShowReturnToSetMarketTop(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    observer.observe(returnThresholdRef.current);
+    return () => observer.disconnect();
+  }, [isMasterDetail, visible.length]);
+
   // The selection is sticky and defaults to the #1 set by canonical Set Value.
   // Deliberately NOT derived from the filtered list: typing in the search box
   // must not silently repoint the analysis pane at whatever floated to the top.
@@ -207,8 +230,6 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
     // Only the LOCAL mobile window resets with the selection. The shared
     // desktop window is a property of the workspace, not of the row you
     // clicked, so changing sets must leave it exactly where the user put it.
-    if (!isMasterDetail) setDetailWindowKey(DEFAULT_WINDOW);
-    if (openDetail) setMobileView("detail");
   };
 
   const hrefForSet = (row) => buildTcgSetHrefFromTarget(
@@ -232,6 +253,10 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
 
   const detailMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
   useEffect(() => {
+    const browserIsDesktop = typeof window === "undefined" || typeof window.matchMedia !== "function"
+      ? isMasterDetail
+      : window.matchMedia("(min-width: 1200px)").matches;
+    if (!isMasterDetail || !browserIsDesktop) return undefined;
     const setId = selected?.setId;
     if (!setId) return undefined;
 
@@ -261,7 +286,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
         if (!cancelled) setDetailHistoryState({ setId, status: "error", history: [], days, error });
       });
     return () => { cancelled = true; };
-  }, [selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
+  }, [isMasterDetail, selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
   const detailTrend = selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
     ? clipSetMarketDetailHistory(detailHistoryState.history, detailMovement)
@@ -295,7 +320,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
 
   const listPane = (
     <div data-set-market-list className="flex min-w-0 flex-col">
-      <div className={styles.setListHeader} aria-hidden="true">
+      <div className={`${styles.setListHeader} ${styles.setListHeaderDesktop}`} aria-hidden="true">
         <span>#</span>
         <span>Set</span>
         <span>{`Set value / ${windowLabel(listWindowKey)}`}</span>
@@ -306,11 +331,12 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
             <p role="status" className="px-3 py-6 text-sm text-[var(--text-secondary)]">No tracked set matches those filters.</p>
           ) : (
             <ul aria-label="Tracked Pokémon sets, ranked by canonical current Set Value">
-              {visible.map((row) => {
+              {visible.map((row, index) => {
                 const movement = row.target?.windows?.[listWindowKey] || null;
+                const miniTrend = selectSetMarketMiniTrend(row.target, listWindowKey);
                 const isActive = selected?.setId === row.setId;
                 return (
-                  <li key={row.setId}>
+                  <li key={row.setId} ref={index === Math.min(5, visible.length - 1) ? returnThresholdRef : undefined} data-set-market-return-threshold={index === Math.min(5, visible.length - 1) ? "true" : undefined}>
                     <button
                       type="button"
                       data-set-market-row={row.setId}
@@ -324,6 +350,9 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
                       <span className="min-w-0">
                         <span className="block truncate text-[13px] font-medium text-[var(--text-primary)]">{row.name}</span>
                         <span className="block truncate text-[10px] text-[var(--text-secondary)]">{row.era}</span>
+                      </span>
+                      <span className="hidden justify-self-center max-desk:block">
+                        <MiniMarketSparkline points={miniTrend} color={toneOf(directionOf(movement?.amount))} />
                       </span>
                       <span className="min-w-0 text-right">
                         <span className="block text-[13px] font-semibold tabular-nums text-[var(--text-primary)]">{compactCurrency.format(row.value)}</span>
@@ -345,15 +374,6 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
 
   const detailPane = selected ? (
     <div data-set-market-detail className={`${styles.setMarketDetail} flex min-w-0 flex-col px-3 py-3 sm:px-4`}>
-      <button
-        type="button"
-        data-set-market-back
-        onClick={() => setMobileView("browse")}
-        className="mb-3 inline-flex min-h-11 items-center gap-1.5 self-start rounded-md text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] desk:hidden"
-      >
-        <span aria-hidden="true">←</span> All sets
-      </button>
-
       <div className="flex items-start gap-3">
         <SetLogo target={selected.target} name={selected.name} className="h-11 w-11" />
         <div className="min-w-0 flex-1">
@@ -381,22 +401,6 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
           {detailMovement?.coverage === "partial" ? <span> · since first available</span> : null}
         </p>
       </div>
-
-      {/* Not rendered at all in the master-detail composition — the toolbar's
-          selector is the one control up there. Hiding a second copy with CSS
-          would leave two radiogroups in the accessibility tree announcing the
-          same setting. */}
-      {isMasterDetail ? null : (
-        <div className="mt-3">
-          <MarketWindowSelector
-            windows={WINDOWS}
-            value={detailWindowKey}
-            onChange={setDetailWindowKey}
-            fullWidth
-            ariaDescription="Clips the selected set's daily chart and published change value to this timeframe."
-          />
-        </div>
-      )}
 
       <div className="mt-3 min-w-0">
         {detailHistoryState.setId !== selected.setId || detailHistoryState.status === "idle" || detailHistoryState.status === "loading" ? (
@@ -430,7 +434,8 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
   ) : null;
 
   return (
-    <section className={`${styles.surfaceQuiet} set-glass-surface flex min-w-0 flex-col`} aria-labelledby="set-market-heading">
+    <section ref={sectionTopRef} data-set-market-top className={`${styles.surfaceQuiet} ${styles.marketMobileSection} set-glass-surface flex min-w-0 flex-col`} aria-labelledby="set-market-heading">
+      <div ref={mobileToolbarRef} className={styles.setMarketMobileSticky}>
       <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
         <div className="flex items-center gap-2">
           <h2 id="set-market-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Set Market</h2>
@@ -444,14 +449,17 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
             the selected set's own timeframe row, read as two competing pickers. */}
         <div
           data-set-market-toolbar
-          className={`mt-3 flex-col gap-2.5 desk:flex desk:flex-row desk:flex-wrap desk:items-center ${mobileView === "detail" ? "hidden" : "flex"}`}
+          className="mt-3 flex flex-col gap-2.5 desk:flex-row desk:flex-wrap desk:items-center"
         >
           <label className="min-w-0 flex-1 desk:max-w-[16rem]">
             <span className="sr-only">Search sets</span>
             <input
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                resetResultsIfDeep("query");
+                setQuery(event.target.value);
+              }}
               placeholder="Search sets..."
               className={`${styles.setMarketControl} min-h-11 w-full px-2.5 py-1 text-xs desk:min-h-0 desk:py-1.5`}
             />
@@ -461,14 +469,20 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
             <DarkSelect
               ariaLabel="Filter by era"
               value={era}
-              onChange={setEra}
+              onChange={(nextEra) => {
+                resetResultsIfDeep("era");
+                setEra(nextEra);
+              }}
               options={[{ value: ALL_ERAS, label: "All Eras" }, ...eras.map((entry) => ({ value: entry, label: entry }))]}
             />
 
             <DarkSelect
               ariaLabel="Sort sets"
               value={sortKey}
-              onChange={setSortKey}
+              onChange={(nextSort) => {
+                resetResultsIfDeep("sort");
+                setSortKey(nextSort);
+              }}
               options={SORT_OPTIONS.map((entry) => ({ value: entry.key, label: `Sort: ${entry.label}` }))}
             />
           </div>
@@ -477,7 +491,10 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
             <MarketWindowSelector
               windows={WINDOWS}
               value={listWindowKey}
-              onChange={setListWindowKey}
+              onChange={(nextWindow) => {
+                resetResultsIfDeep("timeframe");
+                setListWindowKey(nextWindow);
+              }}
               ariaDescription={isMasterDetail
                 ? "Sets the timeframe for the whole Set Market: the list's change column, the selected set's change and its daily chart."
                 : "Sets the timeframe the set list's change column reports. No data is fetched."}
@@ -485,14 +502,25 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
           </div>
         </div>
       </div>
-
-      {/* ONE body. Desktop is a two-pane grid divided by a hairline; below
-          desktop the same two panes are the browse and detail STATES of one
-          screen, so neither is ever squeezed into half a phone. */}
-      <div className={styles.setMarketBody}>
-        <div className={mobileView === "detail" ? "hidden desk:block" : "block"}>{listPane}</div>
-        <div className={mobileView === "detail" ? "block" : "hidden desk:block"}>{detailPane}</div>
+      <div className={`${styles.setListHeader} ${styles.setListHeaderMobile}`} aria-hidden="true">
+        <span>#</span>
+        <span>Set</span>
+        <span>{`Set value / ${windowLabel(listWindowKey)}`}</span>
       </div>
+      </div>
+
+      {/* Mobile renders only the scanner list. Desktop adds the selected detail
+          pane beside it, separated by the existing hairline. */}
+      <div ref={resultsTopRef} data-set-market-results-top className={styles.setMarketBody}>
+        <div>{listPane}</div>
+        <div className="hidden desk:block">{detailPane}</div>
+      </div>
+      <ReturnToTopButton
+        visible={showReturnToSetMarketTop}
+        onActivate={() => scrollToTarget(sectionTopRef.current)}
+        ariaLabel="Return to top of Set Market"
+        className="flex desk:hidden"
+      />
     </section>
   );
 }

@@ -71,7 +71,7 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import styles from "./explore.module.css";
 import { formatRankMovement } from "./rankingMovement.mjs";
 import { readOptionalRankingsChase } from "./rankingsPresentation.mjs";
-import { FamilySnapshot, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { FamilySnapshot, RANKINGS_FAMILY_COLUMNS, RankingsFamilyCells, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -475,7 +475,7 @@ function RankingInsight({ setRip }) {
  * caret is drawn by the `[aria-sort]` rule in explore.module.css — the same
  * indicator the table already used — so no new visual language is introduced.
  */
-function SortableHeader({ columnId, label, sort, onSort, note, infoText = null }) {
+function SortableHeader({ columnId, label, sort, onSort, note, infoText = null, rowSpan }) {
   const ariaSort = ariaSortFor(sort, columnId);
   const isActive = Boolean(ariaSort);
   return (
@@ -484,6 +484,7 @@ function SortableHeader({ columnId, label, sort, onSort, note, infoText = null }
       className={styles.numeric}
       aria-sort={ariaSort}
       title={isActive ? note : `Sort by ${label}`}
+      rowSpan={rowSpan}
     >
       <button
         type="button"
@@ -831,25 +832,26 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                 width. Set stays auto and absorbs what is left.
               */}
               <colgroup>
+                <col style={{ width: "3%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "7%" }} />
                 <col style={{ width: "4%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "8%" }} />
-                <col style={{ width: "5%" }} />
-                <col style={{ width: "51%" }} />
+                {RANKINGS_FAMILY_COLUMNS.map((column) => <col key={column.key} style={{ width: "5.7%" }} />)}
                 <col style={{ width: "14%" }} />
               </colgroup>
               <thead className={styles.head}>
                 <tr>
-                  <th scope="col" className={styles.numeric}>
+                  <th scope="col" rowSpan={2} className={styles.numeric}>
                     <span aria-hidden="true">#</span>
                     <span className="sr-only">Rank</span>
                   </th>
-                  <th scope="col">Set</th>
-                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
-                  <th scope="col">Tier</th>
-                  <th scope="col">Product Family Snapshot</th>
-                  <th scope="col">Why It Ranks</th>
+                  <th scope="col" rowSpan={2}>Set</th>
+                  <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} rowSpan={2} />
+                  <th scope="col" rowSpan={2}>Tier</th>
+                  <th scope="colgroup" colSpan={RANKINGS_FAMILY_COLUMNS.length} className="text-center">Product Family Snapshot</th>
+                  <th scope="col" rowSpan={2}>Why It Ranks</th>
                 </tr>
+                <tr>{RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight">{column.label}</th>)}</tr>
               </thead>
               <tbody>
                 {sortedTargets.map((target, index) => {
@@ -876,7 +878,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                       </td>
                       <td className={styles.numeric}><SetRipScoreBadge setRip={target?.setRipV1} tier={tier} /></td>
                       <td className="text-center"><SetTierMark tier={tier} /></td>
-                      <td><FamilySnapshot setRip={target?.setRipV1} layout="modules" /></td>
+                      <RankingsFamilyCells setRip={target?.setRipV1} />
                       <td className="align-middle"><RankingInsight setRip={target?.setRipV1} /></td>
                     </tr>
                   );

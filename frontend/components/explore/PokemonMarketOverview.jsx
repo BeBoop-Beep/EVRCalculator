@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import {
@@ -11,6 +12,7 @@ import {
   formatBasketValue,
   formatChangePercent,
   formatIndexValue,
+  getFamilySinceTrackingChange,
   getPricePerformanceChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import styles from "./explore.module.css";
@@ -25,10 +27,18 @@ import styles from "./explore.module.css";
 //                          over the CURRENTLY SELECTED window. That column is
 //                          dynamic and follows the chart beside it.
 //
-// The two are never collapsed into one. When the selected window is "All" the
-// dynamic column reports price performance since tracking, which is a
-// DIFFERENT published series from the tracked-value change two columns to its
-// left — they legitimately disagree, and that is the point of showing both.
+// The two are never collapsed into one.
+//
+// THE "SINCE TRACKING" COLUMN IS FAMILY-SPECIFIC. It reads `familyChanges` —
+// this market's movement from ITS OWN tracking start — via
+// getFamilySinceTrackingChange. It must NEVER read the shared-comparison
+// `changes`: that series' longest window is the common comparable start shared
+// by the compared markets, which usually begins later, and reporting it under
+// this label is what made a Sealed index of 106.18 sit beside a
+// "Since Tracking" of +4.06% and look self-contradictory.
+//
+// The dynamic period column beside it DOES read the shared series, because it
+// follows the chart's timeframe and the chart is a cross-market comparison.
 //
 // Both come straight from the published payload — `basketChanges` and
 // `changes` respectively. Nothing here divides one basket value by another.
@@ -66,7 +76,16 @@ function MarketSwatch({ color }) {
   return <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: color }} />;
 }
 
-export default function PokemonMarketOverview({ overview, selectedWindow, selectedLabel, visibleMarketKeys, onToggleMarket }) {
+// Drill-down into Market Explorer. Restrained on purpose: this table stays the
+// concise market pulse, so the affordance is one quiet header action plus one
+// per-row link — no new column, and no change to the row toggle it sits beside.
+export const MARKET_EXPLORER_HREF = "/Market/Explorer";
+
+export function marketExplorerHref(marketKey) {
+  return marketKey ? `${MARKET_EXPLORER_HREF}?market=${encodeURIComponent(marketKey)}` : MARKET_EXPLORER_HREF;
+}
+
+export default function PokemonMarketOverview({ overview, selectedWindow, selectedLabel, visibleMarketKeys, onToggleMarket, isSinceFirstAvailable = false }) {
   if (!overview || !overview.families?.length) {
     return (
       <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
@@ -89,6 +108,13 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
     <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
       <div className={`${styles.divider} flex items-center gap-2 px-3 py-3 sm:px-4`}>
         <h2 id="market-overview-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Market Overview</h2>
+        <Link
+          href={MARKET_EXPLORER_HREF}
+          data-market-explore-link="all"
+          className="ml-auto flex-none whitespace-nowrap rounded text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+        >
+          Explore Market <span aria-hidden="true">&rarr;</span>
+        </Link>
       </div>
 
       {/* Desktop: one compact finance-first table with two real column groups. */}
@@ -118,7 +144,10 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
               <th scope="col" className={styles.marketOverviewGroupStart}>
                 <div className="flex flex-wrap items-center justify-end gap-x-1.5">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
               </th>
-              <th scope="col" data-market-overview-period-heading={selectedWindow}>{periodLabel}</th>
+              <th scope="col" data-market-overview-period-heading={selectedWindow}>
+                <span>{periodLabel}</span>
+                {isSinceFirstAvailable ? <span data-market-overview-period-coverage className="mt-0.5 block text-[8px] font-medium text-[var(--text-secondary)]">Since first available</span> : null}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -129,9 +158,9 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                 key={family.key}
                 data-market-overview-row={family.key}
                 data-market-visible={isVisible ? "true" : "false"}
-                className={`${styles.marketOverviewInteractiveRow} ${isVisible ? "" : styles.marketOverviewRowInactive}`}
+                className={`group/market-row ${styles.marketOverviewInteractiveRow} ${isVisible ? "" : styles.marketOverviewRowInactive}`}
                 onClick={(event) => {
-                  if (event.target.closest("button")) return;
+                  if (event.target.closest("button, a")) return;
                   onToggleMarket?.(family.key);
                 }}
               >
@@ -145,11 +174,19 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                   >
                     <MarketSwatch color={family.color} />{family.label}
                   </button>
+                  <Link
+                    href={marketExplorerHref(family.key)}
+                    data-market-explore-link={family.key}
+                    aria-label={`Explore ${family.label} in Market Explorer`}
+                    className="ml-1.5 align-middle text-[11px] font-semibold text-[var(--text-secondary)] opacity-0 transition-opacity hover:text-[var(--text-primary)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 group-hover/market-row:opacity-100"
+                  >
+                    <span aria-hidden="true">Explore &rarr;</span>
+                  </Link>
                 </th>
                 <td data-market-overview-metric="trackedValue" className={styles.marketOverviewGroupStart}>{formatBasketValue(family.basketValue)}</td>
                 <td data-market-overview-tracked-change={SINCE_TRACKING}>
                   <ChangeValue
-                    change={getPricePerformanceChange(family, SINCE_TRACKING)}
+                    change={getFamilySinceTrackingChange(family)}
                     marketLabel={family.label}
                     windowLabel={SINCE_TRACKING_LABEL}
                     dimension={MARKET_DIMENSION_LABELS.pricePerformance}
@@ -171,25 +208,26 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
         </table>
       </div>
 
-      {/* Mobile: stacked cards, never a horizontally scrolling table. Each card
-          tells both stories, in the order the desktop groups do, and its price
-          performance line follows the same shared selection. */}
+      {/* Mobile: compact scan rows. */}
       <ul data-market-overview-cards className="divide-y divide-[var(--border-subtle)] desk:hidden">
-        {families.map((family) => (
-          <li key={family.key} data-market-overview-card={family.key} className="px-3 py-3.5 sm:px-4">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
+        {families.map((family) => {
+          const isVisible = visibleMarketKeys?.has(family.key) !== false;
+          return (
+          <li key={family.key} data-market-overview-card={family.key}>
+            <button type="button" data-market-overview-mobile-toggle={family.key} aria-pressed={isVisible} onClick={() => onToggleMarket?.(family.key)} className={`w-full px-3 py-1.5 text-left transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[rgba(45,212,191,0.65)] sm:px-4 ${isVisible ? "opacity-100" : "opacity-45"}`}>
+            <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
               <MarketSwatch color={family.color} />{family.label}
-            </p>
+            </span>
 
-            <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-3">
+            <div className="mt-1 grid grid-cols-2 gap-x-3">
               <div data-market-overview-group="trackedValue">
-                <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} />
+                <div className="text-[9px] font-medium uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+                  Tracked Value
                 </div>
-                <p data-market-overview-metric="trackedValue" className="mt-0.5 text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatBasketValue(family.basketValue)}</p>
-                <p data-market-overview-tracked-change={SINCE_TRACKING} className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                <p data-market-overview-metric="trackedValue" className="text-[15px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatBasketValue(family.basketValue)}</p>
+                <p data-market-overview-tracked-change={SINCE_TRACKING} className="text-[10px] text-[var(--text-secondary)]">
                   <ChangeValue
-                    change={getPricePerformanceChange(family, SINCE_TRACKING)}
+                    change={getFamilySinceTrackingChange(family)}
                     marketLabel={family.label}
                     windowLabel={SINCE_TRACKING_LABEL}
                     dimension={MARKET_DIMENSION_LABELS.pricePerformance}
@@ -200,11 +238,11 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
               </div>
 
               <div data-market-overview-group="pricePerformance">
-                <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-                  Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} />
+                <div className="text-[9px] font-medium uppercase tracking-[0.07em] text-[var(--text-secondary)]">
+                  Market Index
                 </div>
-                <p data-market-overview-metric="index" className="mt-0.5 text-[19px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatIndexValue(family.indexValue)}</p>
-                <p data-market-overview-change={selectedWindow} className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+                <p data-market-overview-metric="index" className="text-[15px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatIndexValue(family.indexValue)}</p>
+                <p data-market-overview-change={selectedWindow} className="text-[10px] text-[var(--text-secondary)]">
                   <ChangeValue
                     change={getPricePerformanceChange(family, selectedWindow)}
                     marketLabel={family.label}
@@ -213,11 +251,24 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                     className="font-semibold"
                   />
                   <span aria-hidden="true"> {periodLabel}</span>
+                  {isSinceFirstAvailable ? <span data-market-overview-mobile-period-coverage aria-hidden="true"> · since first available</span> : null}
                 </p>
               </div>
             </div>
+            </button>
+            <div className="px-3 pb-1.5 sm:px-4">
+              <Link
+                href={marketExplorerHref(family.key)}
+                data-market-explore-link={family.key}
+                aria-label={`Explore ${family.label} in Market Explorer`}
+                className="inline-flex items-center rounded text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+              >
+                Explore <span aria-hidden="true" className="ml-1">&rarr;</span>
+              </Link>
+            </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );
