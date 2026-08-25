@@ -44,3 +44,4 @@ supabase/.branches/
 # Custom Next.js build/dist directories created by validation runs
 /.next/
 /.next-perf*/
+/.next-*/
