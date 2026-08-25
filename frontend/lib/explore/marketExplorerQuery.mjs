@@ -75,6 +75,43 @@ export function normalizeQuerySpec({
   };
 }
 
+// ---------------------------------------------------------------------------
+// CANONICAL OPTION ORDER.
+//
+// The filter controls must render the same list in the same order every time,
+// on the server and on the client. The backend already sorts, but its ordering
+// keys can tie (two eras sharing a sortOrder, two sets sharing a name), and a
+// tie resolved by database iteration order is not an order at all. These
+// comparators break every tie on the id, which is unique, so the rendered list
+// is a pure function of the payload contents rather than of how the rows
+// happened to arrive.
+//
+// Segment options are deliberately NOT re-sorted: the backend publishes them in
+// taxonomy order, which separates the modern market from the legacy one. Sorting
+// them alphabetically here would interleave "Rare Holo" with "Rare Ultra" and
+// destroy that separation.
+// ---------------------------------------------------------------------------
+const byId = (left, right) => String(left.id).localeCompare(String(right.id));
+
+/** Eras in publication order: sortOrder, then name, then id. */
+export function sortEraOptions(eras) {
+  return [...(Array.isArray(eras) ? eras : [])].sort((left, right) => {
+    const leftOrder = Number.isFinite(Number(left.sortOrder)) ? Number(left.sortOrder) : Number.MAX_SAFE_INTEGER;
+    const rightOrder = Number.isFinite(Number(right.sortOrder)) ? Number(right.sortOrder) : Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    const byLabel = String(left.label || "").localeCompare(String(right.label || ""));
+    return byLabel !== 0 ? byLabel : byId(left, right);
+  });
+}
+
+/** Sets alphabetically, which is how a user scans for one by name. */
+export function sortSetOptions(sets) {
+  return [...(Array.isArray(sets) ? sets : [])].sort((left, right) => {
+    const byLabel = String(left.label || "").localeCompare(String(right.label || ""));
+    return byLabel !== 0 ? byLabel : byId(left, right);
+  });
+}
+
 function keyPart(label, values) {
   return `${label}=${values.length ? values.join("+") : "all"}`;
 }

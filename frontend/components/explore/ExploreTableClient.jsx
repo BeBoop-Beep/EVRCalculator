@@ -40,6 +40,7 @@
 import Link from "next/link";
 import { useState, useMemo, useEffect, useRef, createContext, useContext } from "react";
 import RankBadge from "@/components/ui/RankBadge";
+import TableSearchInput from "@/components/ui/TableSearchInput";
 import SetIdentity from "@/components/explore/SetIdentity";
 import InfoPopover from "@/components/ui/InfoPopover";
 import {
@@ -658,10 +659,10 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           </div>
         </div>
         <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
-        <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." aria-label="Search sets" className={`${styles.setMarketControl} mt-3 w-full px-2.5 text-xs`} />
+        <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="mt-3" />
       </div>
       {/* One compact control row: title menu, definition, hint, cohort size. */}
-      <div className={`${styles.divider} hidden gap-3 px-3 py-3 desk:py-2.5 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_minmax(14rem,17rem)_minmax(0,1fr)] md:items-center`}>
+      <div className={`${styles.divider} hidden gap-3 px-3 py-3 desk:py-2.5 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_16rem_minmax(0,1fr)] md:items-center`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative min-w-0" ref={dropdownContainerRef}>
             <h2
@@ -730,7 +731,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
           <InfoPopover text={modeInfoText} />
         </div>
 
-        <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." aria-label="Search sets" className={`${styles.setMarketControl} w-full px-2.5 text-xs`} />
+        <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="md:justify-self-center" />
 
         <div className="flex items-center justify-end gap-3 text-right">
           {/*

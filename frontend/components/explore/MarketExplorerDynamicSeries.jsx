@@ -12,7 +12,7 @@ export default function MarketExplorerDynamicSeries({ series = [], onRemove }) {
             <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: entry.color }} />
             <span className="font-semibold text-[var(--text-primary)]">{entry.label}</span>
             <span className="tabular-nums text-[var(--text-secondary)]">Index {formatIndexValue(entry.indexValue)}</span>
-            <button type="button" aria-label={`Remove ${entry.label}`} onClick={() => onRemove?.(entry.key)} className="ml-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">×</button>
+            <button type="button" aria-label={`Remove ${entry.label}`} onClick={() => onRemove?.(entry.key)} className="ml-1 flex h-8 w-8 flex-none items-center justify-center rounded text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] desk:h-5 desk:w-5">×</button>
           </li>
         ))}
       </ul>
@@ -27,7 +27,7 @@ export default function MarketExplorerDynamicSeries({ series = [], onRemove }) {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] text-left text-xs">
-                <thead className="border-y border-[var(--border-subtle)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]"><tr><th className="px-3 py-2">Rank</th><th className="px-3 py-2">Card</th><th className="px-3 py-2">Set</th><th className="px-3 py-2">Rarity</th><th className="px-3 py-2 text-right">Price</th></tr></thead>
+                <thead className="border-y border-[var(--border-subtle)] text-[10px] uppercase tracking-[0.07em] text-[var(--text-secondary)]"><tr><th scope="col" className="px-3 py-2">Rank</th><th scope="col" className="px-3 py-2">Card</th><th scope="col" className="px-3 py-2">Set</th><th scope="col" className="px-3 py-2">Rarity</th><th scope="col" className="px-3 py-2 text-right">Price</th></tr></thead>
                 <tbody>{roster.map((card) => <tr key={card.canonicalCardId} data-market-constituent={card.canonicalCardId} className="border-b border-[var(--border-subtle)] last:border-0"><td className="px-3 py-2 tabular-nums">{card.rank}</td><td className="px-3 py-2"><span className="flex items-center gap-2">{card.imageUrl ? <img src={card.imageUrl} alt="" loading="lazy" className="h-10 w-7 rounded object-cover" /> : null}<span className="font-medium text-[var(--text-primary)]">{card.cardName}</span></span></td><td className="px-3 py-2">{card.setName}</td><td className="px-3 py-2">{card.rarity}</td><td className="px-3 py-2 text-right font-semibold tabular-nums">{formatBasketValue(card.marketPrice)}</td></tr>)}</tbody>
               </table>
             </div>

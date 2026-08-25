@@ -8,3 +8,9 @@ test("productFamilyRankings survives RIP statistics normalization unchanged", ()
   assert.equal(normalized.productFamilyRankings, rankings);
   assert.equal(normalized.productFamilyRankings.families.booster_box.products.length, 1);
 });
+
+test("overallProductRankings survives RIP statistics normalization unchanged", () => {
+  const rankings = { defaultBudgetKey: "full_market:1400", cohorts: {} };
+  const normalized = normalisePayload({ targets: [], overallProductRankings: rankings });
+  assert.equal(normalized.overallProductRankings, rankings);
+});

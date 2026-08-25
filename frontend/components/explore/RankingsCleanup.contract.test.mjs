@@ -16,7 +16,7 @@ test("main Set RIP badge keeps its canonical score and uses the larger /10 suffi
 
 test("Sets search uses Market styling and filters names without deriving rank", () => {
   assert.ok(source.includes('placeholder="Search sets..."'));
-  assert.ok(source.includes("styles.setMarketControl"));
+  assert.ok(source.includes("<TableSearchInput"));
   assert.ok(source.includes("target?.name"));
   assert.ok(source.includes("const modeRank = canonicalOverall.rank"));
 });

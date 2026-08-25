@@ -7,6 +7,7 @@ import MarketWindowSelector from "./MarketWindowSelector";
 import MiniMarketSparkline from "./MiniMarketSparkline";
 import DarkSelect from "@/components/ui/DarkSelect";
 import ReturnToTopButton from "@/components/ui/ReturnToTopButton";
+import TableSearchInput from "@/components/ui/TableSearchInput";
 import SetMarketTopMovers from "./SetMarketTopMovers";
 import { getStandardDeltaWindowDefinitions, resolveDeltaWindowBaselineValue } from "@/lib/explore/marketDeltaWindows.mjs";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
@@ -451,19 +452,15 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
           data-set-market-toolbar
           className="mt-3 flex flex-col gap-2.5 desk:flex-row desk:flex-wrap desk:items-center"
         >
-          <label className="min-w-0 flex-1 desk:max-w-[16rem]">
-            <span className="sr-only">Search sets</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => {
-                resetResultsIfDeep("query");
-                setQuery(event.target.value);
-              }}
-              placeholder="Search sets..."
-              className={`${styles.setMarketControl} min-h-11 w-full px-2.5 py-1 text-xs desk:min-h-0 desk:py-1.5`}
-            />
-          </label>
+          <TableSearchInput
+            value={query}
+            onChange={(event) => {
+              resetResultsIfDeep("query");
+              setQuery(event.target.value);
+            }}
+            placeholder="Search sets..."
+            ariaLabel="Search sets"
+          />
 
           <div className="flex min-w-0 gap-2.5">
             <DarkSelect

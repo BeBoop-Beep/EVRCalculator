@@ -120,7 +120,7 @@ export default async function ExplorePage({ searchParams }) {
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>
-          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} loadError={rankingsLoadError} />
+          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} overallProductRankings={payload?.overallProductRankings} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>

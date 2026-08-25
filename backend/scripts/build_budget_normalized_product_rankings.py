@@ -386,6 +386,7 @@ def to_publication_payload(results: Dict[str, Any]) -> tuple:
                 "overall_rip_v10_score": row["overallRipV10Score"],
                 "collector_appeal_score": row["collectorAppealScore"],
                 "chance_to_recover_capital": row.get("chanceToRecoverCapital"),
+                "expected_value": row["expectedValue"],
                 "product_market_price": row["productMarketPrice"],
                 "price_as_of": row.get("priceAsOf"),
                 "full_market_anchor": row.get("fullMarketAnchor"),

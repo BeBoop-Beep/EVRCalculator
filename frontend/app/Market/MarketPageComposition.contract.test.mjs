@@ -25,6 +25,7 @@ const analysis = read("../../components/explore/PokemonMarketAnalysis.jsx");
 const overview = read("../../components/explore/PokemonMarketOverview.jsx");
 const performance = read("../../components/explore/PokemonMarketPerformance.jsx");
 const setMarket = read("../../components/explore/SetMarketExplorer.jsx");
+const tableSearch = read("../../components/ui/TableSearchInput.jsx");
 const css = read("../../components/explore/explore.module.css");
 
 // A source view with comments removed. Several assertions below are of the
@@ -250,8 +251,9 @@ test("Top Movers is a fixed-height carousel that cannot move the page", () => {
 });
 
 test("Set Market controls use the shared dark form language, never a bright field", () => {
-  assert.match(setMarket, /styles\.setMarketControl/);
-  assert.equal((setMarket.match(/styles\.setMarketControl/g) || []).length, 1, "search remains the shared form control");
+  assert.match(setMarket, /<TableSearchInput/);
+  assert.match(tableSearch, /styles\.setMarketControl/);
+  assert.equal((tableSearch.match(/styles\.setMarketControl/g) || []).length, 1, "search remains the shared form control");
   assert.equal((setMarket.match(/<DarkSelect/g) || []).length, 2, "era and sort use the accessible dark popup control");
   assert.match(css, /\.setMarketControl \{[\s\S]*?background-color: var\(--surface-page\);/);
   assert.match(setMarket, /ariaLabel="Filter by era"/);
