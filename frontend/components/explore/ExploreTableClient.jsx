@@ -42,7 +42,7 @@ import { useState, useMemo, useEffect, useRef, createContext, useContext } from 
 import RankBadge from "@/components/ui/RankBadge";
 import TableSearchInput from "@/components/ui/TableSearchInput";
 import SetIdentity from "@/components/explore/SetIdentity";
-import InfoPopover from "@/components/ui/InfoPopover";
+import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import {
   EXPLORE_RANKING_MODES,
   getModeConfig,
@@ -838,7 +838,7 @@ export default function ExploreTableClient({ targets = [], loadError = false }) 
                   </th>
                   <th scope="col">Set</th>
                   <SortableHeader columnId="setRip" label="Set RIP Score" sort={sort} onSort={handleSort} note={sortNote} />
-                  <th scope="col">Tier</th>
+                  <th scope="col"><span className="inline-flex items-center gap-1">Tier<InfoPopover><PublicRipTierInfo /></InfoPopover></span></th>
                   {RANKINGS_FAMILY_COLUMNS.map((column) => <th key={column.key} scope="col" aria-label={column.fullLabel} title={column.fullLabel} className="px-1.5 text-center leading-tight"><span className="inline-flex items-center justify-center gap-1">{column.label}{column.info ? <InfoPopover text={column.info} /> : null}</span></th>)}
                   <th scope="col">Format Strength</th>
                 </tr>

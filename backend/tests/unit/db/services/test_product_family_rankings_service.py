@@ -100,6 +100,14 @@ def test_new_score_automatically_appears_on_next_build(monkeypatch):
     assert "all" not in build(monkeypatch, rows)["families"]
 
 
+def test_public_scores_follow_the_family_leader_curve_and_preserve_relative_fields(monkeypatch):
+    products = build(monkeypatch, [row("leader", overall=42.8172), row("next", overall=42.2344)])["families"]["booster_box"]["products"]
+    assert products[0]["overallRipLeaderScore"] == 100.0
+    assert products[1]["overallRipLeaderScore"] == 98.64
+    assert products[0]["overallRipRelativeScore"] == 100.0
+    assert products[1]["overallRipRelativeScore"] == 0.0
+
+
 def test_mixed_date_target_runs_are_exact_authority_and_old_run_is_excluded():
     rows = [
         row("a-old", run="run-A-old", set_id="set-a"),
@@ -178,20 +186,20 @@ def test_rank_key_and_project_read_the_v4_v10_fields_not_v3_v9():
     assert projected["financialRipVersion"] == CANONICAL_FINANCIAL_RIP_VERSION
 
 
-def test_public_tier_uses_relative_score_while_absolute_model_tiers_are_preserved():
+def test_public_tier_uses_leader_score_while_absolute_model_tiers_are_preserved():
     from backend.desirability.composite import assign_composite_tier
 
     for overall_score in (95, 80, 60, 40, 20, 5):
-        projected = service._project(row("x", overall=overall_score), {}, 1, 1, 63, 20)
+        projected = service._project(row("x", overall=overall_score), {}, 1, 1, 5, 20, 63, 25)
         assert projected["familyTier"] == assign_composite_tier(overall_score)
-        assert projected["publicTier"] == "C"
+        assert projected["publicTier"] == "D"
         assert projected["modelTier"] == assign_composite_tier(overall_score)
 
     # Tier is derived from the SAME overall_rip_v10_score that produced the
     # rank -- never the legacy v9 column, even when they disagree.
     diverging_row = row("y", overall=90)
     diverging_row["overall_rip_score"] = 5
-    projected = service._project(diverging_row, {}, 1, 1, 90, 10)
+    projected = service._project(diverging_row, {}, 1, 1, 5, 10, 98.36, 25)
     assert projected["familyTier"] == assign_composite_tier(90)
     assert projected["publicTier"] == "S"
 

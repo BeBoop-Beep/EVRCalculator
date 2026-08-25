@@ -5,7 +5,7 @@ import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import DarkSelect from "@/components/ui/DarkSelect";
 import TableSearchInput from "@/components/ui/TableSearchInput";
-import InfoPopover from "@/components/ui/InfoPopover";
+import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { getTierTone } from "@/lib/explore/interpretationTone";
@@ -69,10 +69,9 @@ const wholeMoney = new Intl.NumberFormat("en-US", {
 });
 const HELP = {
   overall:
-    "Overall RIP is standardized within the currently selected product cohort.",
-  tier: "Tier summarizes the public relative RIP score: S is 9.0–10.0, A is 8.0–8.9, B is 7.0–7.9, C is 4.5–6.9, D is 1.5–4.4, and F is below 1.5.",
+    "Overall RIP follows a leader-anchored curve: the cohort leader is 10.0 and every other product shows its absolute score as a share of that leader.",
   financial:
-    "Financial RIP is independently standardized within the currently selected product cohort.",
+    "Financial RIP uses its own leader-anchored curve: the financial leader is 10.0 and every other product is measured against it.",
   collector:
     "Collector Appeal is the set's canonical collector-facing appeal score. Unlike Overall RIP and Financial RIP here, it is not standardized against the selected product cohort.",
   market:
@@ -101,9 +100,9 @@ export function filterAndSortProducts(products, query, sortKey) {
       .toLocaleLowerCase(),
     key =
       sortKey === "overallRipScore"
-        ? "overallRipRelativeScore"
+        ? "overallRipLeaderScore"
         : sortKey === "financialRipScore"
-          ? "financialRipRelativeScore"
+          ? "financialRipLeaderScore"
           : sortKey;
   return (Array.isArray(products) ? products : [])
     .filter(
@@ -194,11 +193,11 @@ function FormatStrength({ product: p }) {
     </div>
   );
 }
-function HeaderWithInfo({ children, text }) {
+function HeaderWithInfo({ children, text = null, info = null }) {
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       {children}
-      <InfoPopover text={text} />
+      <InfoPopover text={text}>{info}</InfoPopover>
     </span>
   );
 }
@@ -226,8 +225,8 @@ function ProductRankingsTable({
 }) {
   const products = (sourceProducts || []).map((p) => ({
     ...p,
-    overallRipScore: p.overallRipRelativeScore,
-    financialRipScore: p.financialRipRelativeScore,
+    overallRipScore: p.overallRipLeaderScore,
+    financialRipScore: p.financialRipLeaderScore,
   }));
   const rank = (p) => (overall ? p.budgetRank : p.familyRank),
     tier = (p) => p.publicTier,
@@ -294,7 +293,7 @@ function ProductRankingsTable({
                     </HeaderWithInfo>
                   </th>
                   <th>
-                    <HeaderWithInfo text={HELP.tier}>Tier</HeaderWithInfo>
+                    <HeaderWithInfo info={<PublicRipTierInfo />}>Tier</HeaderWithInfo>
                   </th>
                   <th>
                     <HeaderWithInfo text={HELP.financial}>

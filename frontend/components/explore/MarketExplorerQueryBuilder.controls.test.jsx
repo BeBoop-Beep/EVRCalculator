@@ -15,6 +15,7 @@ import React from "react";
 import TestRenderer, { act } from "react-test-renderer";
 
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder.jsx";
+import { __resetMarketExplorerFilterOptionsCache } from "@/hooks/explore/useMarketExplorerFilterOptions";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -49,6 +50,9 @@ const OPTIONS_PAYLOAD = {
 };
 
 async function mountBuilder({ onAddQuery = async () => "added", payload = OPTIONS_PAYLOAD } = {}) {
+  // The canonical options payload is cached per page load, so each test must
+  // start from a cold cache or it would assert against the previous fixture.
+  __resetMarketExplorerFilterOptionsCache();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => payload });
   let renderer;
@@ -138,6 +142,9 @@ test("Set: an era change reconciles away a set that is no longer possible", asyn
 test("Set: search filters the loaded list without a request per keystroke", async () => {
   const renderer = await mountBuilder();
   open(renderer, "set");
+  // The canonical options payload is cached per page load, so each test must
+  // start from a cold cache or it would assert against the previous fixture.
+  __resetMarketExplorerFilterOptionsCache();
   const originalFetch = globalThis.fetch;
   let requests = 0;
   globalThis.fetch = async () => { requests += 1; return { ok: true, json: async () => OPTIONS_PAYLOAD }; };
@@ -281,7 +288,7 @@ const chooseAsset = (renderer, label) => chooseFrom(renderer, "asset", label);
 test("the builder is no longer card-only in name or in copy", async () => {
   const renderer = await mountBuilder({ payload: DUAL_ASSET_PAYLOAD });
   const rendered = textOf(renderer.root);
-  assert.match(rendered, /Build a market/);
+  assert.match(rendered, /Build a Market/);
   assert.ok(!rendered.includes("Build a card market"));
   assert.match(rendered, /Choose an asset/);
 });

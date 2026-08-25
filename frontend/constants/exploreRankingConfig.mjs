@@ -28,7 +28,7 @@
  * `scoreKind` is required on every mode and is the thing that stops one generic
  * "score" column from silently changing meaning between modes:
  *
- *   "publicScore" — the canonical cohort-relative 0-100 public score of a
+ *   "publicScore" — the canonical leader-anchored 0-100 public score of a
  *                   canonical RIP-family metric. Rendered as `NN.N` with a
  *                   `/100` suffix. Only RIP Score and Financial RIP use this.
  *   "index"       — some other backend 0-100 index that is NOT one of the three
@@ -86,7 +86,7 @@ export const EXPLORE_RANKING_MODES = {
     scoreKind: SCORE_KIND_PUBLIC,
     // The ONE canonical public RIP Score field. There is deliberately no
     // absolute/model field here: it is not a public number.
-    publicScoreField: "overallRipV10.relativeScore",
+    publicScoreField: "overallRipV10.leaderNormalizedScore",
     rankField: "overallRipV10.rank",
     rankedSetCountField: "overallRipV10.cohortSize",
     tierField: "overallRipV10.tier",
@@ -101,7 +101,7 @@ export const EXPLORE_RANKING_MODES = {
     scoreLabel: "FINANCIAL RIP",
     tierLabel: "TIER",
     scoreKind: SCORE_KIND_PUBLIC,
-    publicScoreField: "financialRipV4.relativeScore",
+    publicScoreField: "financialRipV4.leaderNormalizedScore",
     rankField: "financialRipV4.rank",
     rankedSetCountField: "financialRipV4.cohortSize",
     tierField: "financialRipV4.tier",

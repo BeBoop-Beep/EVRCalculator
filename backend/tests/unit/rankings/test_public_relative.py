@@ -1,6 +1,24 @@
 from backend.rankings.public_relative import (
-    compute_public_relative_scores, public_rank_tier, public_relative_rip_tier,
+    compute_leader_normalized_scores, compute_public_relative_scores, public_rank_tier,
+    public_leader_rip_tier, public_relative_rip_tier,
 )
+
+
+def test_leader_normalized_scores_are_additive_and_fail_closed():
+    rows = [{"id": "leader", "score": 42.8172}, {"id": "next", "score": 42.2344},
+            {"id": "missing", "score": None}]
+    result = compute_leader_normalized_scores(
+        rows, id_getter=lambda row: row["id"], score_getter=lambda row: row["score"]
+    )
+    assert result == {"leader": 100.0, "next": 98.64, "missing": None}
+    assert compute_leader_normalized_scores(
+        [{"id": "a", "score": 7}, {"id": "b", "score": 7}],
+        id_getter=lambda row: row["id"], score_getter=lambda row: row["score"],
+    ) == {"a": 100.0, "b": 100.0}
+    assert compute_leader_normalized_scores(
+        [{"id": "a", "score": 0}, {"id": "b", "score": -1}],
+        id_getter=lambda row: row["id"], score_getter=lambda row: row["score"],
+    ) == {"a": None, "b": None}
 
 
 def test_min_max_equal_and_null_contract():
@@ -21,6 +39,16 @@ def test_locked_public_relative_rip_tier_boundaries_and_invalid_values():
              (44.999, "D"), (15, "D"), (14.999, "F"), (0, "F")]
     assert [(score, public_relative_rip_tier(score)) for score, _ in cases] == cases
     assert all(public_relative_rip_tier(value) is None for value in (None, "", float("nan"), float("inf")))
+
+
+def test_locked_public_leader_rip_tier_boundaries_and_regressions():
+    cases = [(100, "S"), (95, "S"), (94.999, "A"), (90, "A"),
+             (89.999, "B"), (80, "B"), (79.999, "C"), (70, "C"),
+             (69.999, "D"), (55, "D"), (54.999, "F"), (0, "F")]
+    assert [(score, public_leader_rip_tier(score)) for score, _ in cases] == cases
+    assert public_leader_rip_tier(98.36) == "S"
+    assert public_leader_rip_tier(62) == "D"
+    assert all(public_leader_rip_tier(value) is None for value in (None, "", float("nan"), float("inf")))
 
 
 def test_overall_and_financial_are_independently_standardized():

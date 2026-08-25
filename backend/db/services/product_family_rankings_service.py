@@ -6,7 +6,9 @@ from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.composite import assign_composite_tier
-from backend.rankings.public_relative import compute_public_relative_scores, public_relative_rip_tier
+from backend.rankings.public_relative import (
+    compute_leader_normalized_scores, compute_public_relative_scores, public_leader_rip_tier,
+)
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -113,7 +115,8 @@ def _target_run_authority(
 
 
 def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int,
-             overall_relative: Any = None, financial_relative: Any = None) -> Dict[str, Any]:
+             overall_relative: Any = None, financial_relative: Any = None,
+             overall_leader: Any = None, financial_leader: Any = None) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
@@ -136,16 +139,18 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         # that produced this row's rank, so rank and tier always describe the
         # identical cohort/score.
         "familyTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
-        "publicTier": public_relative_rip_tier(overall_relative),
+        "publicTier": public_leader_rip_tier(overall_leader),
         "modelTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
         "marketPrice": row.get("product_market_cost"),
         "overallRipScore": row.get("overall_rip_v10_score"),
         "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
         "overallRipRelativeScore": overall_relative,
+        "overallRipLeaderScore": overall_leader,
         "overallRipVersion": row.get("overall_rip_v10_version"),
         "financialRipScore": row.get("financial_rip_v4_score"),
         "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
         "financialRipRelativeScore": financial_relative,
+        "financialRipLeaderScore": financial_leader,
         "financialRipVersion": row.get("financial_rip_v4_version"),
         "collectorAppealScore": row.get("collector_appeal_score"),
         "collectorAppealVersion": row.get("collector_appeal_version"),
@@ -216,10 +221,20 @@ def build_product_family_rankings(
             ordered, id_getter=lambda row: row.get("sealed_product_id"),
             score_getter=lambda row: row.get("financial_rip_v4_score"),
         )
+        overall_leader = compute_leader_normalized_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("overall_rip_v10_score"),
+        )
+        financial_leader = compute_leader_normalized_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("financial_rip_v4_score"),
+        )
         products = [
             _project(row, identities.get(str(row.get("set_id")), {}), index, size,
                      overall_relative.get(str(row.get("sealed_product_id"))),
-                     financial_relative.get(str(row.get("sealed_product_id"))))
+                     financial_relative.get(str(row.get("sealed_product_id"))),
+                     overall_leader.get(str(row.get("sealed_product_id"))),
+                     financial_leader.get(str(row.get("sealed_product_id"))))
             for index, row in enumerate(ordered, 1)
         ]
         families[family] = {

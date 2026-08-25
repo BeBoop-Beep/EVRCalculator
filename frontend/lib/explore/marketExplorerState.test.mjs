@@ -11,6 +11,11 @@ import assert from "node:assert/strict";
 
 import {
   MARKET_EXPLORER_ASSET_KEYS,
+  MARKET_EXPLORER_ASSET_MARKET_KEYS,
+  MARKET_EXPLORER_BENCHMARK_KEYS,
+  PER_SET_CHASE_LABEL,
+  buildAssetMarketModel,
+  buildBenchmarkModel,
   MARKET_EXPLORER_DEFAULT_TIMEFRAME,
   MARKET_EXPLORER_DETAIL_WINDOWS,
   MARKET_EXPLORER_FILTER_AXES,
@@ -103,12 +108,46 @@ test("a missing Sealed family degrades safely rather than crashing or disappeari
   assert.equal(sealed.selected, false);
   assert.equal(sealed.family, null);
   const state = resolveInitialExplorerState(overviewNoSealed, {});
-  assert.deepEqual(state.assetUniverse, ["raw", "topChase"]);
+  // Only the published ASSET CLASSES open selected. Top Chase is a benchmark
+  // now and lives in a collapsed group, so it is not selected by default.
+  assert.deepEqual(state.assetUniverse, ["raw"]);
 });
 
-test("the default selection is every published market", () => {
-  assert.deepEqual(resolveInitialExplorerState(overview, {}).assetUniverse, ["raw", "topChase", "sealedMarket"]);
-  assert.deepEqual(resolveInitialExplorerState(overview, undefined).assetUniverse, ["raw", "topChase", "sealedMarket"]);
+test("the default selection is the published asset classes, not every market", () => {
+  // Per-Set Chase is a BENCHMARK, not an asset class, and its control lives in
+  // a collapsed group. Selecting it by default would put a line on the chart
+  // whose checkbox the user cannot see.
+  assert.deepEqual(resolveInitialExplorerState(overview, {}).assetUniverse, ["raw", "sealedMarket"]);
+  assert.deepEqual(resolveInitialExplorerState(overview, undefined).assetUniverse, ["raw", "sealedMarket"]);
+  assert.deepEqual(MARKET_EXPLORER_ASSET_MARKET_KEYS, ["raw", "sealedMarket"]);
+  assert.deepEqual(MARKET_EXPLORER_BENCHMARK_KEYS, ["topChase"]);
+});
+
+test("Asset Market offers exactly three top-level markets, one of them disabled", () => {
+  const entries = buildAssetMarketModel(overview, ["raw", "sealedMarket"]);
+  assert.deepEqual(entries.map((entry) => entry.key), ["raw", "sealedMarket", "gradedMarket"]);
+  assert.deepEqual(entries.map((entry) => entry.label), ["Raw Card Market", "Sealed Market", "Graded Market"]);
+  // Per-Set Chase is NOT an asset class and must not appear here.
+  assert.ok(!entries.some((entry) => entry.key === "topChase"));
+  const graded = entries.at(-1);
+  assert.equal(graded.available, false);
+  assert.equal(graded.selected, false);
+  // Visible, but carrying no fabricated market: no basket, no index, no trend,
+  // and a stated reason rather than a bare disabled checkbox.
+  assert.equal(graded.family, null);
+  assert.ok(graded.unavailableReason.length > 0);
+});
+
+test("Per-Set Chase is published as a Benchmark, under that exact name", () => {
+  const benchmarks = buildBenchmarkModel(overview, ["raw"]);
+  assert.deepEqual(benchmarks.map((entry) => entry.key), ["topChase"]);
+  assert.equal(benchmarks[0].label, PER_SET_CHASE_LABEL);
+  assert.equal(benchmarks[0].label, "Per-Set Chase Market");
+  assert.equal(benchmarks[0].available, true);
+  assert.equal(benchmarks[0].selected, false);
+  // The definition separates it from a custom Top 10 query, which ranks the
+  // whole filtered universe rather than combining per-set baskets.
+  assert.match(benchmarks[0].definition, /combined chase-card baskets from each eligible Set/);
 });
 
 test("?market= preselects exactly that market", () => {
@@ -129,8 +168,8 @@ test("a URLSearchParams instance is read through the same one parser", () => {
 });
 
 test("an unknown or unpublished market request falls back rather than emptying the chart", () => {
-  assert.deepEqual(resolveInitialExplorerState(overview, { market: "sirIndex" }).assetUniverse, ["raw", "topChase", "sealedMarket"]);
-  assert.deepEqual(resolveInitialExplorerState(overviewNoSealed, { market: "sealedMarket" }).assetUniverse, ["raw", "topChase"]);
+  assert.deepEqual(resolveInitialExplorerState(overview, { market: "sirIndex" }).assetUniverse, ["raw", "sealedMarket"]);
+  assert.deepEqual(resolveInitialExplorerState(overviewNoSealed, { market: "sealedMarket" }).assetUniverse, ["raw"]);
 });
 
 test("toggling adds and removes markets, but the final one cannot be deselected", () => {
@@ -144,9 +183,15 @@ test("toggling adds and removes markets, but the final one cannot be deselected"
   assert.deepEqual(toggleAssetUniverseKey(["raw"], "sealedMarket", ["raw", "topChase"]), ["raw"]);
 });
 
-test("reconciling against a re-published snapshot never yields an empty selection", () => {
+test("reconciling against a re-published snapshot never empties the chart", () => {
   assert.deepEqual(reconcileAssetUniverse(["raw", "sealedMarket"], ["raw", "topChase"]), ["raw"]);
-  assert.deepEqual(reconcileAssetUniverse(["sealedMarket"], ["raw", "topChase"]), ["raw", "topChase"]);
+  // Nothing survives and nothing else is on the chart: fall back to the asset
+  // classes rather than rendering a blank workspace.
+  assert.deepEqual(reconcileAssetUniverse(["sealedMarket"], ["raw", "topChase"]), ["raw"]);
+  // But an EMPTY parent selection is legitimate when a submarket is charted —
+  // a user looking at SIR alone asked for exactly one line, and reconciliation
+  // must not resurrect Raw underneath them.
+  assert.deepEqual(reconcileAssetUniverse([], ["raw", "topChase", "sealedMarket"], { hasOtherSeries: true }), []);
 });
 
 test("timeframes are the canonical backend windows and default to 7D", () => {
@@ -187,9 +232,13 @@ test("the state model carries the future filter axes without claiming their data
   assert.deepEqual(state.sealedFamilyIds, []);
 
   const byId = new Map(MARKET_EXPLORER_FILTER_AXES.map((axis) => [axis.id, axis]));
-  assert.deepEqual([...byId.keys()], ["assetMarket", "sealedFamily", "era", "cardSegment"]);
+  assert.deepEqual([...byId.keys()], ["assetMarket", "benchmark", "sealedFamily", "era", "cardSegment"]);
   assert.equal(byId.get("assetMarket").available, true);
-  assert.equal(byId.get("assetMarket").options.length, 3);
+  // The two published ASSET CLASSES. Graded is a placeholder descriptor, not a
+  // selectable option, and Per-Set Chase moved to its own benchmark axis.
+  assert.deepEqual(byId.get("assetMarket").options.map((entry) => entry.id), ["raw", "sealedMarket"]);
+  assert.deepEqual(byId.get("benchmark").options.map((entry) => entry.id), ["topChase"]);
+  assert.equal(byId.get("benchmark").options[0].label, "Per-Set Chase Market");
   // Both submarket axes are live but DYNAMIC: they carry no compile-time
   // options at all, so they can only ever offer what the payload published.
   for (const id of ["sealedFamily", "cardSegment"]) {
@@ -197,9 +246,12 @@ test("the state model carries the future filter axes without claiming their data
     assert.equal(byId.get(id).dynamic, true, id);
     assert.deepEqual(byId.get(id).options, [], id);
   }
-  // Era stays unavailable AND carries zero options. A populated option list
-  // there would be a fabricated index.
-  assert.equal(byId.get("era").available, false);
+  // Era & Sets is live as a NAVIGATION axis, and is dynamic: its eras and sets
+  // come from the canonical filter-options service. It carries zero
+  // compile-time options — a hardcoded era list here would be a claim.
+  assert.equal(byId.get("era").label, "Era & Sets");
+  assert.equal(byId.get("era").available, true);
+  assert.equal(byId.get("era").dynamic, true);
   assert.deepEqual(byId.get("era").options, []);
 });
 
@@ -341,23 +393,32 @@ test("card submarket colors are a violet family, distinct from the sealed amber"
   }
 });
 
-test("selecting a raw rarity brings the Raw Card Market benchmark", () => {
+test("selecting a raw rarity adds ONLY that rarity — no automatic parent", () => {
   const availableCards = resolveAvailableCardSegmentIds(cardSeries);
   const result = toggleCardSegmentId([], "card:raw:specialIllustrationRare", availableCards, {
     assetUniverse: ["sealedMarket"],
     availableAssetKeys: ["raw", "topChase", "sealedMarket"],
   });
   assert.deepEqual(result.segmentIds, ["card:raw:specialIllustrationRare"]);
-  assert.deepEqual(result.assetUniverse, ["raw", "sealedMarket"]);
+  // Raw Card Market is NOT dragged onto the chart. SIR-vs-Raw is two clicks.
+  assert.deepEqual(result.assetUniverse, ["sealedMarket"]);
 });
 
-test("a chase rarity would bring the Top Chase benchmark instead", () => {
+test("SIR alone is exactly one line", () => {
+  const availableCards = resolveAvailableCardSegmentIds(cardSeries);
+  const result = toggleCardSegmentId([], "card:raw:specialIllustrationRare", availableCards, {
+    assetUniverse: [], availableAssetKeys: ["raw", "topChase", "sealedMarket"],
+  });
+  assert.deepEqual(resolveSelectedSeriesIds(result), ["card:raw:specialIllustrationRare"]);
+});
+
+test("a chase rarity does not drag Per-Set Chase on either", () => {
   const result = toggleCardSegmentId([], "card:topChase:specialIllustrationRare",
     ["card:topChase:specialIllustrationRare"], {
       assetUniverse: ["raw"],
       availableAssetKeys: ["raw", "topChase", "sealedMarket"],
     });
-  assert.deepEqual(result.assetUniverse, ["raw", "topChase"]);
+  assert.deepEqual(result.assetUniverse, ["raw"]);
 });
 
 test("a card segment the snapshot never published cannot be toggled on", () => {
@@ -395,8 +456,9 @@ test("?segments= carries both submarket axes through one parameter", () => {
   );
   assert.deepEqual(state.segmentIds, ["card:raw:specialIllustrationRare"]);
   assert.deepEqual(state.sealedFamilyIds, ["sealed:boosterBox"]);
-  // Both parents arrive as benchmarks, and nothing else.
-  assert.deepEqual(state.assetUniverse, ["raw", "sealedMarket"]);
+  // A shared link reproduces what the sharer was looking at. It does NOT add
+  // parents they had not selected — the same rule the toggles now follow.
+  assert.deepEqual(state.assetUniverse, []);
 });
 
 test("the combined query round-trips through one serializer", () => {
@@ -422,7 +484,9 @@ test("an unknown or unpublished segment id is dropped rather than charted", () =
   );
   assert.deepEqual(state.segmentIds, []);
   assert.deepEqual(state.sealedFamilyIds, []);
-  assert.deepEqual(state.assetUniverse, ["raw", "topChase", "sealedMarket"]);
+  // Nothing survived the drop, so the workspace opens on its default rather
+  // than on an empty chart.
+  assert.deepEqual(state.assetUniverse, ["raw", "sealedMarket"]);
 });
 
 test("raw-card reconciliation is surfaced so the residual can be stated", () => {
@@ -602,7 +666,7 @@ test("submarket colors are a sealed family and never gain/loss colors", () => {
   }
 });
 
-test("selecting a submarket brings its parent benchmark onto the chart", () => {
+test("selecting a submarket adds ONLY that submarket — no automatic parent", () => {
   const availableSealed = resolveAvailableSealedFamilyIds(sealedSeries);
   // Start with only Raw selected — Total Sealed is not on the chart.
   const result = toggleSealedFamilyId([], "sealed:boosterBox", availableSealed, {
@@ -610,16 +674,28 @@ test("selecting a submarket brings its parent benchmark onto the chart", () => {
     availableAssetKeys: ["raw", "topChase", "sealedMarket"],
   });
   assert.deepEqual(result.sealedFamilyIds, ["sealed:boosterBox"]);
-  assert.deepEqual(result.assetUniverse, ["raw", "sealedMarket"]);
+  // Total Sealed stays off. It used to be supplied here, and in use that meant
+  // a line the user never asked for reappearing every time they removed it.
+  assert.deepEqual(result.assetUniverse, ["raw"]);
 
-  // It supplies the parent, it does not re-force it: with the parent already
-  // deliberately off, adding a second child leaves the user's choice alone
-  // only after they remove it — here the parent is present, so nothing changes.
   const second = toggleSealedFamilyId(result.sealedFamilyIds, "sealed:packs", availableSealed, {
     assetUniverse: result.assetUniverse,
     availableAssetKeys: ["raw", "topChase", "sealedMarket"],
   });
-  assert.deepEqual(second.assetUniverse, ["raw", "sealedMarket"]);
+  assert.deepEqual(second.assetUniverse, ["raw"]);
+});
+
+test("a family alone is exactly one line, and family-vs-Sealed is two deliberate clicks", () => {
+  const availableSealed = resolveAvailableSealedFamilyIds(sealedSeries);
+  const etbOnly = toggleSealedFamilyId([], availableSealed[0], availableSealed, {
+    assetUniverse: [], availableAssetKeys: ["raw", "topChase", "sealedMarket"],
+  });
+  assert.deepEqual(resolveSelectedSeriesIds(etbOnly), [availableSealed[0]]);
+  const withParent = toggleAssetUniverseKey(etbOnly.assetUniverse, "sealedMarket",
+    ["raw", "topChase", "sealedMarket"], { sealedFamilyIds: etbOnly.sealedFamilyIds });
+  assert.deepEqual(resolveSelectedSeriesIds({ ...etbOnly, assetUniverse: withParent }), [
+    "sealedMarket", availableSealed[0],
+  ]);
 });
 
 test("the parent can be switched off explicitly while children stay", () => {
@@ -654,13 +730,13 @@ test("a submarket the snapshot never published cannot be toggled on", () => {
   assert.deepEqual(result.assetUniverse, ["raw"]);
 });
 
-test("?segments= preselects submarkets against their parent benchmark", () => {
+test("?segments= preselects exactly the submarkets it names", () => {
   const state = resolveInitialExplorerState(
     overview, { segments: "sealed:boosterBox,sealed:packs" }, sealedSeries
   );
   assert.deepEqual(state.sealedFamilyIds, ["sealed:boosterBox", "sealed:packs"]);
-  // A submarket-only link lands on the parent benchmark, not all three markets.
-  assert.deepEqual(state.assetUniverse, ["sealedMarket"]);
+  // A submarket-only link charts those submarkets and nothing else.
+  assert.deepEqual(state.assetUniverse, []);
 });
 
 test("?market= and ?segments= combine, and unknown segments are dropped", () => {

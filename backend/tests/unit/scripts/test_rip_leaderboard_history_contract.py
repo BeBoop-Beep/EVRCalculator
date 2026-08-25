@@ -82,6 +82,7 @@ def _score_block(index, *, fingerprint=True):
         "score": 80 - index,
         "absoluteScore": 80 - index,
         "relativeScore": 90 - index,
+        "leaderNormalizedScore": 95 - index,
         "rank": index + 1,
         "tier": "A",
         "rankedSetCount": 1,

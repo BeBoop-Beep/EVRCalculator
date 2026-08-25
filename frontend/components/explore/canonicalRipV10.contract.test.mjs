@@ -26,6 +26,7 @@ function overallBlock() {
   return {
     absoluteScore: 70.25,
     relativeScore: 81.4,
+    leaderNormalizedScore: 96.4,
     rank: 3,
     cohortSize: 21,
     tier: "strong",
@@ -37,6 +38,7 @@ function financialBlock() {
   return {
     absoluteScore: 71.0,
     relativeScore: 82.9,
+    leaderNormalizedScore: 97.1,
     rank: 2,
     cohortSize: 21,
     tier: "strong",
@@ -109,9 +111,7 @@ test("a V10 blend served beside a V3 financial object still resolves the financi
 test("V10 renders through the SAME public reader as every other version", () => {
   const bundle = resolveCanonicalRipV7(v10Contract());
   const overall = readCanonicalBlock(bundle.overall);
-  // `publicScore` is the cohort-relative number, exactly as for V8/V9. No new
-  // public field, no renamed one, and the absolute is still not promoted.
-  assert.equal(overall.publicScore, 81.4);
+  assert.equal(overall.publicScore, 96.4);
   assert.equal(overall.modelScore, 70.25);
   assert.equal(overall.rank, 3);
   assert.ok(!("score" in overall));

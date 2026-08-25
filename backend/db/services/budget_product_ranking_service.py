@@ -28,7 +28,9 @@ from backend.calculations.evr.budget_normalized_product_ranking import (
     CANONICAL_BUDGET_BANDS,
 )
 from backend.domain.pokemon.sealed_product_classifier import FAMILY_LABELS
-from backend.rankings.public_relative import compute_public_relative_scores, public_relative_rip_tier
+from backend.rankings.public_relative import (
+    compute_leader_normalized_scores, compute_public_relative_scores, public_leader_rip_tier,
+)
 
 PUBLIC_ROW_FIELDS = (
     "sealed_product_id,set_id,product_family,target_budget,budget_type,quantity,"
@@ -53,14 +55,24 @@ def public_budget_cohort_presentation(rows: List[Dict[str, Any]]) -> Dict[str, D
         rows, id_getter=lambda row: row.get("sealed_product_id"),
         score_getter=lambda row: row.get("financial_rip_v4_score"),
     )
+    overall_leader = compute_leader_normalized_scores(
+        rows, id_getter=lambda row: row.get("sealed_product_id"),
+        score_getter=lambda row: row.get("overall_rip_v10_score"),
+    )
+    financial_leader = compute_leader_normalized_scores(
+        rows, id_getter=lambda row: row.get("sealed_product_id"),
+        score_getter=lambda row: row.get("financial_rip_v4_score"),
+    )
     return {
         str(row.get("sealed_product_id")): {
             "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
             "overallRipRelativeScore": overall.get(str(row.get("sealed_product_id"))),
+            "overallRipLeaderScore": overall_leader.get(str(row.get("sealed_product_id"))),
             "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
             "financialRipRelativeScore": financial.get(str(row.get("sealed_product_id"))),
+            "financialRipLeaderScore": financial_leader.get(str(row.get("sealed_product_id"))),
             "budgetModelTier": row.get("budget_tier"),
-            "publicTier": public_relative_rip_tier(overall.get(str(row.get("sealed_product_id")))),
+            "publicTier": public_leader_rip_tier(overall_leader.get(str(row.get("sealed_product_id")))),
         }
         for row in rows
     }

@@ -201,6 +201,8 @@ def _score_contract_problems(target: Dict[str, Any]) -> list:
         for field in REQUIRED_PILLAR_FIELDS:
             if block.get(field) is None:
                 problems.append(f"{label}: {pillar}.{field} is missing")
+        if pillar in {"overallRip", "financialRip"} and block.get("leaderNormalizedScore") is None:
+            problems.append(f"{label}: {pillar}.leaderNormalizedScore is missing")
     components = (contract.get("financialRip") or {}).get("components") or {}
     for name, component in sorted(components.items()):
         if not isinstance(component, dict):
@@ -441,6 +443,19 @@ def validate_publication_payload(
     targets = payload.get("targets") if isinstance(payload, dict) else None
     if not isinstance(targets, list):
         raise RuntimeError("Refusing to publish Explore RIP leaderboard: latest targets must be an array")
+    families = ((payload.get("productFamilyRankings") or {}).get("families") or {})
+    for family_key, family in families.items():
+        for product in (family or {}).get("products") or []:
+            missing = [
+                field for field in ("overallRipLeaderScore", "financialRipLeaderScore")
+                if product.get(field) is None
+            ]
+            if missing:
+                raise RuntimeError(
+                    "Refusing to publish Explore RIP leaderboard: product leader score is missing "
+                    f"family={family_key} sealed_product_id={product.get('sealedProductId')} "
+                    f"missing={','.join(missing)}"
+                )
     expected = int(snapshot.get("eligible_cohort_count") or 0)
     ranked_targets = [
         target for target in targets

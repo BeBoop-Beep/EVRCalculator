@@ -21,6 +21,7 @@ import MarketExplorerQueryBuilder, {
   backendMessage,
   resolveOptionsStatus,
 } from "./MarketExplorerQueryBuilder.jsx";
+import { __resetMarketExplorerFilterOptionsCache } from "@/hooks/explore/useMarketExplorerFilterOptions";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -32,6 +33,9 @@ const OPTIONS_PAYLOAD = {
 };
 
 async function mountWith(responder) {
+  // The canonical options payload is cached per page load, so each test must
+  // start from a cold cache or it would assert against the previous fixture.
+  __resetMarketExplorerFilterOptionsCache();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = responder;
   let renderer;

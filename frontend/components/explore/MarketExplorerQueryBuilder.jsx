@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import useMarketExplorerFilterOptions, {
+  OPTIONS_STATUS,
+  backendMessage,
+  resolveOptionsStatus,
+} from "@/hooks/explore/useMarketExplorerFilterOptions";
 import MultiSelectFilter from "@/components/ui/MultiSelectFilter";
 import DarkSelect from "@/components/ui/DarkSelect";
 import {
@@ -33,27 +38,11 @@ import {
 // whatever the authenticated options payload carried. This file only orders
 // them canonically and narrows sets to the selected eras and asset.
 
-/** The distinguishable outcomes of loading the builder's canonical filters. */
-export const OPTIONS_STATUS = {
-  loading: "loading",
-  ready: "ready",
-  signedOut: "signedOut",
-  unavailable: "unavailable",
-  offline: "offline",
-};
-
-/** Map an HTTP status onto the state the user can actually act on. */
-export function resolveOptionsStatus(httpStatus) {
-  if (httpStatus === 401 || httpStatus === 403) return OPTIONS_STATUS.signedOut;
-  return OPTIONS_STATUS.unavailable;
-}
-
-/** FastAPI answers with `detail`; the app's own routes answer with `message`. */
-export function backendMessage(payload) {
-  if (!payload || typeof payload !== "object") return "";
-  const detail = typeof payload.detail === "string" ? payload.detail : "";
-  return String(payload.message || detail || "");
-}
+// The option-loading vocabulary now lives with the shared hook, because Era &
+// Sets loads the SAME payload and both surfaces must classify a 401 the same
+// way. Re-exported here so the existing contract tests and any other importer
+// keep their import site.
+export { OPTIONS_STATUS, backendMessage, resolveOptionsStatus };
 
 function OptionsState({ status, message }) {
   if (status === OPTIONS_STATUS.signedOut) {
@@ -87,8 +76,11 @@ function OptionsState({ status, message }) {
   );
 }
 
-export default function MarketExplorerQueryBuilder({ onAddQuery }) {
-  const [options, setOptions] = useState(null);
+export default function MarketExplorerQueryBuilder({ onAddQuery, scopeHandoff = null }) {
+  // ONE canonical options request for the page: Era & Sets reads the same
+  // payload through the same hook, so the two surfaces can never disagree
+  // about which eras and sets exist.
+  const { status: optionsStatus, options, message: optionsMessage } = useMarketExplorerFilterOptions();
   const [asset, setAsset] = useState(QUERY_ASSET_CARDS);
   const [eraIds, setEraIds] = useState([]);
   const [setIds, setSetIds] = useState([]);
@@ -99,30 +91,19 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
   // WHY A STATUS AND NOT ONE MESSAGE STRING. Every cause used to collapse into
   // "Unable to load query filters": FastAPI answers 401 with `detail`, not
   // `message`, so a signed-out user — the overwhelmingly common case — was told
-  // the filters were broken. The cause is now carried explicitly, because
-  // "sign in" and "the service is down" call for different actions.
-  const [optionsStatus, setOptionsStatus] = useState(OPTIONS_STATUS.loading);
+  // the filters were broken. The cause is carried explicitly, because "sign in"
+  // and "the service is down" call for different actions.
 
+  // The Era & Sets hand-off. It fires ONLY when the user pressed "Use in Build
+  // a Market"; the two controls are otherwise independent, and neither rewrites
+  // the other's state on its own. `token` changes per press, so asking twice
+  // re-applies rather than being swallowed as an unchanged value.
   useEffect(() => {
-    let live = true;
-    fetch("/api/market/explorer/query", { credentials: "include" })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null);
-        if (!live) return;
-        if (response.ok) {
-          setOptions(payload);
-          setOptionsStatus(OPTIONS_STATUS.ready);
-          return;
-        }
-        setOptionsStatus(resolveOptionsStatus(response.status));
-        setMessage(backendMessage(payload));
-      })
-      .catch(() => {
-        // A thrown fetch is a transport failure, never an auth answer.
-        if (live) setOptionsStatus(OPTIONS_STATUS.offline);
-      });
-    return () => { live = false; };
-  }, []);
+    if (!scopeHandoff) return;
+    setEraIds(scopeHandoff.eraIds || []);
+    setSetIds(scopeHandoff.setIds || []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeHandoff?.token]);
 
   const presentation = presentationFor(asset);
 
@@ -193,10 +174,16 @@ export default function MarketExplorerQueryBuilder({ onAddQuery }) {
   };
 
   return (
-    <section data-market-query-builder className="border-t border-[var(--border-subtle)] px-3 py-4 sm:px-4" aria-labelledby="market-query-builder-heading">
-      <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a market</h3>
-      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Choose an asset, narrow the eligible universe, then compare the resulting market.</p>
-      {!options ? <OptionsState status={optionsStatus} message={message} /> : (
+    <section data-market-query-builder className="pt-1" aria-labelledby="market-query-builder-heading">
+      {/* The heading names the ADVANCED LANE, and the copy states how it
+          differs from Explore Segments: prepared vs custom. */}
+      <h3 id="market-query-builder-heading" className="text-sm font-semibold text-[var(--text-primary)]">Build a Market</h3>
+      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+        Create a custom filtered market. Choose an asset, narrow the eligible universe by era, set and segment, then
+        rank it. A Top 10 market is charted alongside the same filtered universe in All mode, because that is the only
+        benchmark that can interpret it.
+      </p>
+      {!options ? <OptionsState status={optionsStatus} message={optionsMessage} /> : (
         <>
           <div className="mt-3 grid grid-cols-1 gap-3 tab:grid-cols-2">
             {/* Asset first: it decides the segment vocabulary and the mode

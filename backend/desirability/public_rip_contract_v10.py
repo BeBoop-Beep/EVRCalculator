@@ -26,7 +26,7 @@ from backend.calculations.evr.financial_rip_v4_config import FINANCIAL_RIP_V4_VE
 from backend.desirability.collector_appeal import COLLECTOR_APPEAL_V5_VERSION
 from backend.desirability.public_rip_contract_v9 import build_public_rip_contract_v9
 from backend.desirability.scoring_config import OVERALL_RIP_V10_VERSION
-from backend.rankings.public_relative import public_relative_rip_tier
+from backend.rankings.public_relative import public_leader_rip_tier
 
 PUBLIC_RIP_CONTRACT_V10_KEY = "publicRipContractV10"
 PUBLIC_RIP_CONTRACT_V10_VERSION = "public_rip_contract_v10"
@@ -75,7 +75,8 @@ def build_public_rip_contract_v10(target: Mapping[str, Any]) -> Dict[str, Any]:
     # metric names do not move with a model version.
     overall = contract.get("overallRip")
     if isinstance(overall, dict):
-        overall["publicTier"] = public_relative_rip_tier(overall.get("relativeScore"))
+        overall["leaderNormalizedScore"] = overall_v10.get("leaderNormalizedScore")
+        overall["publicTier"] = public_leader_rip_tier(overall.get("leaderNormalizedScore"))
         # ``tier`` is the stable public V9-shaped slot. Its V10 public meaning
         # is deliberately cut over here without changing the model/rank blocks.
         overall["tier"] = overall["publicTier"]
@@ -88,7 +89,10 @@ def build_public_rip_contract_v10(target: Mapping[str, Any]) -> Dict[str, Any]:
 
     financial = contract.get("financialRip")
     if isinstance(financial, dict):
-        financial["publicTier"] = public_relative_rip_tier(financial.get("relativeScore"))
+        financial["leaderNormalizedScore"] = (target.get("financialRipV4") or {}).get(
+            "leaderNormalizedScore"
+        )
+        financial["publicTier"] = public_leader_rip_tier(financial.get("leaderNormalizedScore"))
         financial["tier"] = financial["publicTier"]
 
     return contract

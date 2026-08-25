@@ -32,6 +32,24 @@ def public_relative_rip_tier(relative_score: Any) -> Optional[str]:
     return "F"
 
 
+def public_leader_rip_tier(leader_score: Any) -> Optional[str]:
+    """Locked public tier bands over a leader-curved 0-100 RIP score."""
+    score = _optional_number(leader_score)
+    if score is None:
+        return None
+    if score >= 95:
+        return "S"
+    if score >= 90:
+        return "A"
+    if score >= 80:
+        return "B"
+    if score >= 70:
+        return "C"
+    if score >= 55:
+        return "D"
+    return "F"
+
+
 def compute_public_relative_scores(
     rows: Iterable[Mapping[str, Any]], *, id_getter: Callable[[Mapping[str, Any]], Any],
     score_getter: Callable[[Mapping[str, Any]], Any],
@@ -46,6 +64,27 @@ def compute_public_relative_scores(
         return {identity: (50.0 if score is not None else None) for identity, score in scored}
     return {
         identity: (round(100.0 * (score - low) / (high - low), 2) if score is not None else None)
+        for identity, score in scored
+    }
+
+
+def compute_leader_normalized_scores(
+    rows: Iterable[Mapping[str, Any]], *, id_getter: Callable[[Mapping[str, Any]], Any],
+    score_getter: Callable[[Mapping[str, Any]], Any],
+) -> Dict[str, Optional[float]]:
+    """Additive public scores anchored to the cohort leader at exactly 100.
+
+    Null and non-finite observations remain unavailable. A cohort whose best
+    valid absolute score is non-positive cannot define a meaningful positive
+    leader curve, so every observation fails closed to ``None``.
+    """
+    scored = [(str(id_getter(row)), _optional_number(score_getter(row))) for row in rows]
+    valid = [score for _, score in scored if score is not None]
+    if not valid or max(valid) <= 0:
+        return {identity: None for identity, _ in scored}
+    leader = max(valid)
+    return {
+        identity: (round(100.0 * score / leader, 2) if score is not None else None)
         for identity, score in scored
     }
 

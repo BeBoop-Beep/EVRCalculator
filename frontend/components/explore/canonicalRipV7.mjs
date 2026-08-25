@@ -56,7 +56,7 @@
 //
 // ONE PUBLIC SCORE, ONE NAME
 // --------------------------
-// `readCanonicalBlock` returns `publicScore` (the backend cohort-relative 0-100
+// `readCanonicalBlock` returns `publicScore` (the backend leader-anchored 0-100
 // value) and `modelScore` (the fixed-anchor formula output). It deliberately
 // does NOT return a generic `score`: that key used to mean the relative value
 // here and the absolute value in the Financial RIP / Collector Appeal
@@ -67,18 +67,25 @@
 // raw inputs. A resolved bundle is accepted anywhere a source is, and resolving
 // it again returns it unchanged — see the idempotence note on the resolver.
 const CANONICAL_BUNDLE = Symbol.for("evr.canonicalRipV7.bundle");
+const LEADER_PUBLIC_SCORE = Symbol.for("evr.canonicalRipV7.leaderPublicScore");
 
 export function isCanonicalRipBundle(value) {
   return Boolean(value && typeof value === "object" && value[CANONICAL_BUNDLE] === true);
 }
 
 function bundle(shape, overall, financialRip, collectorAppeal) {
+  const leaderShape = shape === "publicRipContractV10" || shape === "topLevelV10";
+  const mark = (value, useLeader) => {
+    const result = { ...toObject(value) };
+    Object.defineProperty(result, LEADER_PUBLIC_SCORE, { value: useLeader, enumerable: false });
+    return result;
+  };
   return {
     [CANONICAL_BUNDLE]: true,
     shape,
-    overall,
-    financialRip,
-    collectorAppeal,
+    overall: mark(overall, leaderShape),
+    financialRip: mark(financialRip, leaderShape),
+    collectorAppeal: mark(collectorAppeal, false),
   };
 }
 
@@ -209,7 +216,8 @@ export function resolveCanonicalRipV7(...sources) {
  *
  * ONE PUBLIC NUMBER, NAMED FOR WHAT IT IS
  * ---------------------------------------
- * `publicScore` is the cohort-relative 0-100 score and is the ONLY value a
+ * `publicScore` is the leader-anchored 0-100 score for current Overall and
+ * Financial RIP blocks and is the ONLY value a
  * normal product surface may render for RIP Score, Financial RIP or Collector
  * Appeal. It is deliberately not called `score`.
  *
@@ -230,11 +238,14 @@ export function resolveCanonicalRipV7(...sources) {
  */
 export function readCanonicalBlock(block) {
   const safeBlock = toObject(block);
+  const leader = toNumber(safeBlock.leaderNormalizedScore);
   const relative = toNumber(safeBlock.relativeScore);
+  const publicScore = safeBlock[LEADER_PUBLIC_SCORE] ? leader : relative;
   return {
-    available: relative !== null,
+    available: publicScore !== null,
     // THE public value. Cohort-relative 0-100, backend-computed.
-    publicScore: relative,
+    publicScore,
+    leaderNormalizedScore: leader,
     relativeScore: relative,
     // INTERNAL. Fixed-anchor model output; never rendered on a normal surface.
     modelScore: toNumber(safeBlock.absoluteScore ?? safeBlock.score),
@@ -252,10 +263,7 @@ export function readCanonicalBlock(block) {
 
 /** Strict current headline reader: V10 only, with no older-model fallback. */
 export function readCanonicalOverallRipV10(source) {
-  const safeSource = toObject(source);
-  const contract = toObject(safeSource.publicRipContractV10);
-  const block = hasContent(contract) ? contract.overallRip : safeSource.overallRipV10;
-  return readCanonicalBlock(block);
+  return readCanonicalBlock(resolveCanonicalRipV7(source).overall);
 }
 
 /**
@@ -266,7 +274,7 @@ export function readCanonicalOverallRipV10(source) {
  * reader so every surface quotes the same wording.
  */
 export const PUBLIC_SCORE_SCALE_NOTE =
-  "Scores are standardized against currently ranked sets on a 0–10 scale; 10.0 represents the strongest set in the current comparison group.";
+  "Scores follow the current leader's curve on a 0–10 scale; 10.0 is the leader and every other score shows how closely it tracks that result.";
 
 /**
  * True when the canonical Overall RIP V7 headline can be rendered for a target.

@@ -3,7 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export default function InfoPopover({ text, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
+export function PublicRipTierInfo() {
+  const thresholds = [["S", "≥ 95"], ["A", "≥ 90"], ["B", "≥ 80"], ["C", "≥ 70"], ["D", "≥ 55"], ["F", "< 55"]];
+  return (
+    <div>
+      <p>Tier grades the leader-curved Overall RIP score.</p>
+      <ul className="mt-1 list-disc space-y-0 pl-4 tabular-nums">
+        {thresholds.map(([tier, threshold]) => <li key={tier}><strong>{tier}</strong> {threshold}</li>)}
+      </ul>
+      <p className="mt-1 tabular-nums">Equivalent to: S 9.5+, A 9.0+, B 8.0+, C 7.0+, D 5.5+, F below 5.5.</p>
+    </div>
+  );
+}
+
+export default function InfoPopover({ text, children = null, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
   const [open, setOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 36, left: 16, mobile: true });
   const triggerRef = useRef(null);
@@ -80,7 +93,7 @@ export default function InfoPopover({ text, learnMoreHref = null, learnMoreLabel
             }
       }
     >
-      <p>{text}</p>
+      {children ?? <p>{text}</p>}
       {learnMoreHref ? (
         <a href={learnMoreHref} className="mt-2 inline-flex rounded font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
           {learnMoreLabel} <span aria-hidden="true">→</span>

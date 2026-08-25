@@ -10,6 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
+import { readFileSync } from "node:fs";
 
 import MarketExplorerClient from "./MarketExplorerClient.jsx";
 import { resolveInitialExplorerState } from "@/lib/explore/marketExplorerState.mjs";
@@ -176,7 +177,7 @@ const CARD_SERIES = resolveCardSegmentSeries(snapshot());
 const CARD_RECONCILIATION = resolveCardSegmentReconciliation(snapshot());
 const CHASE_STATUS = resolveTopChaseSegmentStatus(snapshot());
 
-function render(
+function renderCollapsed(
   value = overview, searchParams = {}, sealedSegments = SEALED_SERIES, cardSegments = CARD_SERIES,
 ) {
   let renderer;
@@ -196,6 +197,33 @@ function render(
   return renderer;
 }
 
+/** Every rail group EXCEPT the builder, which owns an async options request. */
+const RAIL_GROUPS = ["cardRarities", "sealedFamilies", "eraSets", "benchmarks"];
+
+function expandGroup(renderer, id) {
+  const toggle = renderer.root.findAll(
+    (entry) => entry.props?.["data-explorer-disclosure-toggle"] === id, { deep: true }
+  )[0];
+  if (!toggle) return false;
+  const panel = renderer.root.findAll(
+    (entry) => entry.props?.["data-explorer-disclosure"] === id, { deep: true }
+  )[0];
+  if (panel?.props?.["data-explorer-disclosure-open"] === "true") return false;
+  TestRenderer.act(() => { toggle.props.onClick?.(); });
+  return true;
+}
+
+/**
+ * The rail opens COLLAPSED by design, so a test about what a group offers has
+ * to open it first — exactly as the user does. `renderCollapsed` is the
+ * first-load state; `render` is the state after the user opened the groups.
+ */
+function render(...args) {
+  const renderer = renderCollapsed(...args);
+  for (const id of RAIL_GROUPS) expandGroup(renderer, id);
+  return renderer;
+}
+
 const findAll = (renderer, prop) => renderer.root.findAll((node) => node.props?.[prop] !== undefined, { deep: true });
 
 function textOf(node) {
@@ -205,6 +233,17 @@ function textOf(node) {
 }
 
 const pageText = (renderer) => textOf(renderer.toJSON());
+
+/**
+ * Every InfoPopover's copy. The residual/coverage methodology now lives in the
+ * group headers' ⓘ rather than as standing paragraphs in the rail, and a
+ * popover renders its text only once opened — so the contract is asserted on
+ * the text the trigger carries.
+ */
+const infoText = (renderer) => renderer.root
+  .findAll((node) => typeof node.props?.text === "string", { deep: true })
+  .map((node) => node.props.text)
+  .join(" | ");
 
 function click(renderer, prop, value) {
   const node = renderer.root.findAll((entry) => entry.props?.[prop] === value, { deep: true })[0];
@@ -222,20 +261,27 @@ function toggleFilterOption(renderer, key) {
 
 // --- selectors ------------------------------------------------------------
 
-test("the workspace renders exactly three parent-market selector cards", () => {
+test("the workspace renders one selector card per published asset class", () => {
   const renderer = render();
   const cards = findAll(renderer, "data-market-explorer-card");
-  assert.deepEqual(cards.map((card) => card.props["data-market-explorer-card"]), ["raw", "topChase", "sealedMarket"]);
+  // ASSET CLASSES only. Per-Set Chase is a benchmark, not an asset class, so
+  // it no longer gets a top-level card.
+  assert.deepEqual(cards.map((card) => card.props["data-market-explorer-card"]), ["raw", "sealedMarket"]);
   const text = pageText(renderer);
-  for (const label of ["Raw Card Market", "Per-Set Chase Market", "Sealed Market"]) {
+  for (const label of ["Raw Card Market", "Sealed Market"]) {
     assert.ok(text.includes(label), label);
   }
+  // It is still reachable — under Benchmarks, by its Explorer name.
+  assert.ok(text.includes("Benchmarks"));
+  assert.ok(text.includes("Per-Set Chase Market"));
 });
 
-test("all three markets are selected by default", () => {
+test("the published asset classes are selected by default, and nothing else", () => {
   const renderer = render();
   const workspace = findAll(renderer, "data-market-explorer-workspace")[0];
-  assert.equal(workspace.props["data-market-explorer-selection"], "raw,topChase,sealedMarket");
+  // Per-Set Chase lives in a collapsed group; charting it by default would put
+  // a line on screen whose control the user cannot see.
+  assert.equal(workspace.props["data-market-explorer-selection"], "raw,sealedMarket");
   for (const card of findAll(renderer, "data-market-explorer-card")) {
     assert.equal(card.props["data-market-explorer-card-selected"], "true", card.props["data-market-explorer-card"]);
   }
@@ -244,30 +290,106 @@ test("all three markets are selected by default", () => {
 test("the chart carries one line per selected market", () => {
   const renderer = render();
   const series = findAll(renderer, "data-market-performance-series");
-  assert.deepEqual(series.map((node) => node.props["data-market-performance-series"]), ["raw", "topChase", "sealedMarket"]);
+  assert.deepEqual(series.map((node) => node.props["data-market-performance-series"]), ["raw", "sealedMarket"]);
 });
 
 test("toggling a card removes and restores that series everywhere at once", () => {
   const renderer = render();
-  click(renderer, "data-market-explorer-card", "topChase");
+  click(renderer, "data-market-explorer-card", "sealedMarket");
 
   const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
-  assert.equal(workspace().props["data-market-explorer-selection"], "raw,sealedMarket");
-  assert.deepEqual(
-    findAll(renderer, "data-market-performance-series").map((node) => node.props["data-market-performance-series"]),
-    ["raw", "sealedMarket"]
-  );
-  assert.deepEqual(
-    findAll(renderer, "data-market-explorer-legend-item").map((node) => node.props["data-market-explorer-legend-item"]),
-    ["raw", "sealedMarket"]
-  );
-  assert.deepEqual(
-    findAll(renderer, "data-market-explorer-detail-row").map((node) => node.props["data-market-explorer-detail-row"]),
-    ["raw", "sealedMarket"]
-  );
+  assert.equal(workspace().props["data-market-explorer-selection"], "raw");
+  for (const prop of [
+    "data-market-performance-series",
+    "data-market-explorer-legend-item",
+    "data-market-explorer-detail-row",
+  ]) {
+    assert.deepEqual(findAll(renderer, prop).map((node) => node.props[prop]), ["raw"], prop);
+  }
 
-  click(renderer, "data-market-explorer-card", "topChase");
-  assert.equal(workspace().props["data-market-explorer-selection"], "raw,topChase,sealedMarket");
+  click(renderer, "data-market-explorer-card", "sealedMarket");
+  assert.equal(workspace().props["data-market-explorer-selection"], "raw,sealedMarket");
+});
+
+// --- information architecture ---------------------------------------------
+
+test("the rail opens with one visible group and four collapsed ones", () => {
+  const renderer = renderCollapsed();
+  const groups = findAll(renderer, "data-explorer-disclosure");
+  assert.deepEqual(groups.map((node) => node.props["data-explorer-disclosure"]), [
+    "cardRarities", "sealedFamilies", "eraSets", "benchmarks", "buildAMarket",
+  ]);
+  // EVERY one of them starts closed. The opening rail is the asset classes
+  // plus five headers, not twenty-five checkboxes and two paragraphs.
+  for (const group of groups) {
+    assert.equal(group.props["data-explorer-disclosure-open"], "false",
+      group.props["data-explorer-disclosure"]);
+  }
+  // Asset Market is not a disclosure at all: it is the page's premise.
+  const axes = findAll(renderer, "data-market-explorer-filter-axis")
+    .map((node) => node.props["data-market-explorer-filter-axis"]);
+  assert.deepEqual(axes, ["assetMarket"]);
+  // And no collapsed group's options are rendered underneath it.
+  const options = findAll(renderer, "data-market-explorer-filter-option")
+    .map((node) => node.props["data-market-explorer-filter-option"]);
+  assert.deepEqual(options, ["raw", "sealedMarket", "gradedMarket"]);
+});
+
+test("every group header is a real, accessible disclosure button", () => {
+  const renderer = renderCollapsed();
+  for (const id of [...RAIL_GROUPS, "buildAMarket"]) {
+    const toggle = renderer.root.findAll(
+      (node) => node.props?.["data-explorer-disclosure-toggle"] === id, { deep: true }
+    )[0];
+    assert.equal(toggle.type, "button", id);
+    assert.equal(toggle.props["aria-expanded"], false, id);
+    assert.ok(String(toggle.props["aria-controls"] || "").length > 0, id);
+  }
+});
+
+test("expanding a group is client-only — no market request is issued", () => {
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (...args) => { calls.push(args[0]); return Promise.reject(new Error("no network in test")); };
+  try {
+    const renderer = renderCollapsed();
+    for (const id of RAIL_GROUPS) expandGroup(renderer, id);
+    // Era & Sets reads the shared canonical OPTIONS payload, which the page
+    // requests once regardless; expanding never queries a market.
+    assert.ok(!calls.some((url) => String(url).includes("POST")));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("Active Markets lists every charted series as a removable chip", () => {
+  const renderer = render();
+  const chips = findAll(renderer, "data-market-explorer-active-chip")
+    .map((node) => node.props["data-market-explorer-active-chip"]);
+  assert.deepEqual(chips, ["raw", "sealedMarket"]);
+
+  click(renderer, "data-market-explorer-active-remove", "sealedMarket");
+  assert.equal(
+    findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-selection"], "raw");
+  // Nothing re-adds it: there is no automatic parent series any more.
+  assert.deepEqual(
+    findAll(renderer, "data-market-explorer-active-chip").map((n) => n.props["data-market-explorer-active-chip"]),
+    ["raw"]);
+});
+
+test("exactly ONE market at a time is the constituents target", () => {
+  const renderer = render();
+  // Two markets are charted, and the workspace still names at most one detail
+  // target — four selected markets must not produce four constituent tables.
+  assert.equal(findAll(renderer, "data-market-explorer-active-chip").length, 2);
+  const target = findAll(renderer, "data-market-explorer-workspace")[0]
+    .props["data-market-explorer-detail-series"];
+  assert.ok(!target.includes(","));
+  // Each chip offers the control that names it, and its pressed state mirrors
+  // the single active target rather than per-chip local state.
+  const pressed = findAll(renderer, "data-market-explorer-active-inspect")
+    .filter((node) => node.props["aria-pressed"] === true);
+  assert.ok(pressed.length <= 1);
 });
 
 test("the final selected market cannot be deselected — the chart is never emptied by selection", () => {
@@ -312,7 +434,7 @@ test("All selects the Since Tracking window; a window the snapshot lacks stays d
 
   TestRenderer.act(() => { button("All").props.onClick(); });
   assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-timeframe"], "All");
-  assert.equal(findAll(renderer, "data-market-performance-series").length, 3);
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 2);
 
   // 6M is published unavailable and must not be selectable.
   assert.equal(button("6M").props["data-market-window-available"], "false");
@@ -333,7 +455,11 @@ test("the reported return follows the selected timeframe, not a neighbouring win
 // --- values ---------------------------------------------------------------
 
 test("cards and detail rows print the published values, never a recomputed one", () => {
-  const text = pageText(render());
+  const renderer = render();
+  // Per-Set Chase is a benchmark and is off by default; select it so all three
+  // published markets are on the page.
+  toggleFilterOption(renderer, "topChase");
+  const text = pageText(renderer);
   // Published basket values and index values, verbatim.
   assert.ok(text.includes("$8,123.45"), "raw tracked value");
   assert.ok(text.includes("$4,011.10"), "top chase tracked value");
@@ -357,24 +483,50 @@ test("the detail strip reports every published window for each selected market",
 
 // --- future filters -------------------------------------------------------
 
-test("three filter axes are live and Era claims no analytics", () => {
+test("every rail axis is live once opened, in the documented order", () => {
   const renderer = render();
   const axes = findAll(renderer, "data-market-explorer-filter-axis");
   assert.deepEqual(axes.map((node) => node.props["data-market-explorer-filter-axis"]),
-    ["assetMarket", "cardSegment", "sealedFamily", "era"]);
-  for (const axis of axes.slice(0, 3)) {
+    ["assetMarket", "cardSegment", "sealedFamily", "era", "benchmark"]);
+  for (const axis of axes) {
     assert.equal(axis.props["data-market-explorer-filter-available"], "true",
       axis.props["data-market-explorer-filter-axis"]);
   }
-  assert.equal(axes[3].props["data-market-explorer-filter-available"], "false");
 
   const text = pageText(renderer);
   assert.ok(text.includes("Explore Segments"));
-  assert.ok(text.includes("All Eras"));
-  // Era is still a fabrication if named as selectable.
-  for (const forbidden of ["Scarlet & Violet", "Sword & Shield", "Sun & Moon"]) {
-    assert.ok(!text.includes(forbidden), `${forbidden} must not be offered yet`);
+  assert.ok(text.includes("Add prepared market segments to the chart."));
+  assert.ok(text.includes("Card Rarities"));
+  assert.ok(text.includes("Sealed Product Families"));
+  assert.ok(text.includes("Era & Sets"));
+  assert.ok(text.includes("Benchmarks"));
+  assert.ok(text.includes("Build a Market"));
+  assert.ok(text.includes("Create a custom filtered market."));
+});
+
+test("no era name is invented by the frontend, and no Legacy bucket exists", () => {
+  const renderer = render();
+  const everything = `${pageText(renderer)} ${infoText(renderer)}`;
+  // Eras come from the canonical filter-options service. With no payload
+  // loaded, the tree is empty and names nothing.
+  assert.ok(!everything.includes("Legacy"), "no Legacy label anywhere");
+  assert.ok(!everything.includes("Legacy / Sword & Shield"));
+  const source = readFileSync(new URL("./MarketExplorerEraSets.jsx", import.meta.url), "utf8");
+  const scope = readFileSync(new URL("../../lib/explore/marketExplorerScope.mjs", import.meta.url), "utf8");
+  for (const file of [source, scope]) {
+    assert.ok(!/["\x27`]Legacy/.test(file), "no hardcoded Legacy era label");
+    // And no hardcoded era roster either: the labels are the payload's.
+    assert.ok(!file.includes("Sun & Moon"));
   }
+  // The one era name that may appear in prose is the canonical spelling.
+  assert.ok(!/Legacy\s*\/\s*Sword/.test(`${source} ${scope}`));
+});
+
+test("Era & Sets says plainly that a scope is not a chartable line", () => {
+  const renderer = render();
+  const everything = `${pageText(renderer)} ${infoText(renderer)}`;
+  assert.ok(everything.includes("scope"));
+  assert.ok(everything.includes("no standalone era or set index is published"));
 });
 
 // --- card-rarity submarkets (Phase 3) -------------------------------------
@@ -386,9 +538,10 @@ test("the Card Segment axis offers exactly the published rarities, grouped by pa
   const options = findAll(renderer, "data-market-explorer-filter-option")
     .map((node) => node.props["data-market-explorer-filter-option"]);
   assert.deepEqual(options, [
-    "raw", "topChase", "sealedMarket",
+    "raw", "sealedMarket", "gradedMarket",
     "card:raw:specialIllustrationRare", "card:raw:illustrationRare", "card:raw:ultraRare",
     "sealed:boosterBox", "sealed:eliteTrainerBox", "sealed:packs",
+    "topChase",
   ]);
   const text = pageText(renderer);
   assert.ok(text.includes("Raw Card Segments"), "the parent universe is named");
@@ -406,28 +559,41 @@ test("a rarity below the quality gate is shown but cannot be selected", () => {
   assert.equal(input.props.disabled, true);
 });
 
-test("selecting a raw rarity overlays it and brings the Raw Card Market benchmark", () => {
+test("selecting a raw rarity adds ONLY that rarity — no automatic parent", () => {
   const renderer = render(overview, { market: "sealedMarket" });
   const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
   assert.equal(workspace().props["data-market-explorer-series"], "sealedMarket");
 
   toggleFilterOption(renderer, "card:raw:specialIllustrationRare");
+  // Raw Card Market is NOT dragged along. This is the fast lane: the selection
+  // means exactly what was clicked.
   assert.equal(workspace().props["data-market-explorer-series"],
-    "raw,sealedMarket,card:raw:specialIllustrationRare");
+    "sealedMarket,card:raw:specialIllustrationRare");
   assert.deepEqual(
     findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]),
-    ["raw", "sealedMarket", "card:raw:specialIllustrationRare"]
+    ["sealedMarket", "card:raw:specialIllustrationRare"]
   );
 });
 
-test("multiple rarities overlay together against their parent", () => {
+test("SIR alone charts one line; SIR vs Raw is a second deliberate click", () => {
+  const renderer = render(overview, { segments: "card:raw:specialIllustrationRare" });
+  const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
+  assert.equal(workspace().props["data-market-explorer-series"], "card:raw:specialIllustrationRare");
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 1);
+
+  toggleFilterOption(renderer, "raw");
+  assert.equal(workspace().props["data-market-explorer-series"], "raw,card:raw:specialIllustrationRare");
+  assert.equal(findAll(renderer, "data-market-performance-series").length, 2);
+});
+
+test("multiple rarities overlay together, and only those rarities", () => {
   const renderer = render(overview, {
     segments: "card:raw:specialIllustrationRare,card:raw:illustrationRare",
   });
   const workspace = findAll(renderer, "data-market-explorer-workspace")[0];
   assert.equal(workspace.props["data-market-explorer-series"],
-    "raw,card:raw:specialIllustrationRare,card:raw:illustrationRare");
-  assert.equal(findAll(renderer, "data-market-explorer-legend-item").length, 3);
+    "card:raw:specialIllustrationRare,card:raw:illustrationRare");
+  assert.equal(findAll(renderer, "data-market-explorer-legend-item").length, 2);
 });
 
 test("card and sealed submarkets compare on one chart", () => {
@@ -436,7 +602,7 @@ test("card and sealed submarkets compare on one chart", () => {
   });
   assert.deepEqual(
     findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]),
-    ["raw", "sealedMarket", "sealed:boosterBox", "card:raw:specialIllustrationRare"]
+    ["sealed:boosterBox", "card:raw:specialIllustrationRare"]
   );
 });
 
@@ -444,39 +610,42 @@ test("rarity submarkets appear in the detail table like any other market", () =>
   const renderer = render(overview, { segments: "card:raw:illustrationRare" });
   const rows = findAll(renderer, "data-market-explorer-detail-row");
   assert.deepEqual(rows.map((n) => n.props["data-market-explorer-detail-row"]),
-    ["raw", "card:raw:illustrationRare"]);
+    ["card:raw:illustrationRare"]);
   const text = pageText(renderer);
   assert.ok(text.includes("$2,221.12"), "rarity tracked value");
   assert.ok(text.includes("118.15"), "rarity index");
   // Its OWN Since Tracking (+18.15%), not the shared-comparison -0.57%.
-  const sinceTracking = rows[1].findAll(
+  const sinceTracking = rows[0].findAll(
     (node) => node.props?.["data-market-explorer-detail-change"] === "All", { deep: true }
   )[0];
   assert.match(textOf(sinceTracking.toJSON ? sinceTracking.toJSON() : sinceTracking), /18\.15%/);
 });
 
-test("the raw-card residual is stated rather than hidden", () => {
-  const text = pageText(render());
-  assert.ok(text.includes("Other Cards"));
-  assert.ok(text.includes("$1,334.44"));
+test("the raw-card residual is stated in the group's info, not as a wall of copy", () => {
+  const renderer = render();
+  const info = infoText(renderer);
+  assert.ok(info.includes("Other Cards"));
+  assert.ok(info.includes("$1,334.44"));
+  assert.ok(info.includes("taxonomy is backend-defined"));
+  // It is no longer a standing paragraph between the checkboxes.
+  assert.equal(findAll(renderer, "data-market-explorer-card-residual").length, 0);
+  assert.ok(!pageText(renderer).includes("$1,334.44"));
 });
 
 test("Chase rarity segments are stated as unpublished, not silently missing", () => {
   const renderer = render();
-  assert.equal(findAll(renderer, "data-market-explorer-chase-segments-unavailable").length, 1);
-  assert.ok(pageText(renderer).includes("Chase rarity segments are not published yet"));
+  // The reason moved into the Card Rarities ⓘ, with the rest of that group's
+  // methodology, instead of standing under the checkbox list.
+  assert.ok(infoText(renderer).includes("Chase rarity segments are not published"));
   // And no Chase group appears in the filter.
   assert.ok(!pageText(renderer).includes("Chase Segments"));
 });
 
-test("the parent can be switched off while a rarity child stays charted", () => {
+test("a lone rarity child is the last series and is locked", () => {
   const renderer = render(overview, { segments: "card:raw:specialIllustrationRare" });
   const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
-  assert.equal(workspace().props["data-market-explorer-series"], "raw,card:raw:specialIllustrationRare");
-  click(renderer, "data-market-explorer-card", "raw");
   assert.equal(workspace().props["data-market-explorer-series"], "card:raw:specialIllustrationRare");
   assert.equal(findAll(renderer, "data-market-performance-series").length, 1);
-  // Now the child is the last series and is locked.
   toggleFilterOption(renderer, "card:raw:specialIllustrationRare");
   assert.equal(workspace().props["data-market-explorer-series"], "card:raw:specialIllustrationRare");
 });
@@ -487,17 +656,17 @@ test("a snapshot without cardSegments hides the axis instead of inventing one", 
     (node) => node.props?.["data-market-explorer-filter-axis"] === "cardSegment", { deep: true }
   )[0];
   assert.equal(axis.props["data-market-explorer-filter-available"], "false");
-  assert.ok(pageText(renderer).includes("All Card Segments"));
+  assert.ok(pageText(renderer).includes("No card rarity submarkets are published"));
   assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-series"],
-    "raw,topChase,sealedMarket");
+    "raw,sealedMarket");
 });
 
 test("the existing Sealed axis is unchanged by the card axis", () => {
   const renderer = render(overview, { segments: "sealed:boosterBox" });
   const workspace = findAll(renderer, "data-market-explorer-workspace")[0];
-  assert.equal(workspace.props["data-market-explorer-series"], "sealedMarket,sealed:boosterBox");
+  assert.equal(workspace.props["data-market-explorer-series"], "sealed:boosterBox");
   assert.equal(workspace.props["data-market-explorer-segment-ids"], "");
-  assert.ok(pageText(renderer).includes("Other Sealed"));
+  assert.ok(infoText(renderer).includes("Other Sealed"));
 });
 
 // --- Sealed product-family submarkets -------------------------------------
@@ -510,9 +679,10 @@ test("the Sealed Product Family axis offers exactly the published segments", () 
   // order as the parent cards above. Booster Bundles is absent from the payload
   // and therefore absent here.
   assert.deepEqual(options, [
-    "raw", "topChase", "sealedMarket",
+    "raw", "sealedMarket", "gradedMarket",
     "card:raw:specialIllustrationRare", "card:raw:illustrationRare", "card:raw:ultraRare",
     "sealed:boosterBox", "sealed:eliteTrainerBox", "sealed:packs",
+    "topChase",
   ]);
   const text = pageText(renderer);
   assert.ok(text.includes("Booster Boxes"));
@@ -530,60 +700,60 @@ test("a published-but-unavailable segment cannot be selected", () => {
   assert.equal(input.props.disabled, true);
 });
 
-test("selecting a submarket overlays it and brings Total Sealed with it", () => {
+test("selecting a submarket adds ONLY that submarket", () => {
   const renderer = render(overview, { market: "raw" });
   const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
   assert.equal(workspace().props["data-market-explorer-series"], "raw");
 
   toggleFilterOption(renderer, "sealed:boosterBox");
-  // The parent benchmark arrives with the child.
+  // Total Sealed does NOT arrive uninvited.
+  assert.equal(workspace().props["data-market-explorer-series"], "raw,sealed:boosterBox");
+  for (const prop of ["data-market-performance-series", "data-market-explorer-legend-item"]) {
+    assert.deepEqual(findAll(renderer, prop).map((n) => n.props[prop]), ["raw", "sealed:boosterBox"], prop);
+  }
+
+  // And the benchmark comparison remains available as a second click.
+  toggleFilterOption(renderer, "sealedMarket");
   assert.equal(workspace().props["data-market-explorer-series"], "raw,sealedMarket,sealed:boosterBox");
-  assert.deepEqual(
-    findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]),
-    ["raw", "sealedMarket", "sealed:boosterBox"]
-  );
-  assert.deepEqual(
-    findAll(renderer, "data-market-explorer-legend-item").map((n) => n.props["data-market-explorer-legend-item"]),
-    ["raw", "sealedMarket", "sealed:boosterBox"]
-  );
 });
 
-test("multiple submarkets overlay together with their parent", () => {
+test("multiple submarkets overlay together, and only those submarkets", () => {
   const renderer = render(overview, { segments: "sealed:boosterBox,sealed:packs" });
   const workspace = findAll(renderer, "data-market-explorer-workspace")[0];
-  assert.equal(workspace.props["data-market-explorer-series"], "sealedMarket,sealed:boosterBox,sealed:packs");
+  assert.equal(workspace.props["data-market-explorer-series"], "sealed:boosterBox,sealed:packs");
   assert.deepEqual(
     findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]),
-    ["sealedMarket", "sealed:boosterBox", "sealed:packs"]
+    ["sealed:boosterBox", "sealed:packs"]
   );
 });
 
 test("submarkets appear in the detail table exactly like parent markets", () => {
   const renderer = render(overview, { segments: "sealed:boosterBox" });
   const rows = findAll(renderer, "data-market-explorer-detail-row");
-  assert.deepEqual(rows.map((n) => n.props["data-market-explorer-detail-row"]), ["sealedMarket", "sealed:boosterBox"]);
+  assert.deepEqual(rows.map((n) => n.props["data-market-explorer-detail-row"]), ["sealed:boosterBox"]);
   const text = pageText(renderer);
   assert.ok(text.includes("$4,665.70"), "submarket tracked value");
   assert.ok(text.includes("99.01"), "submarket index");
   // Its OWN Since Tracking (-0.99%), not the shared-comparison -2.02%.
-  const child = rows[1];
+  const child = rows[0];
   const sinceTracking = child.findAll((node) => node.props?.["data-market-explorer-detail-change"] === "All", { deep: true })[0];
   assert.match(textOf(sinceTracking.toJSON ? sinceTracking.toJSON() : sinceTracking), /0\.99%/);
 });
 
-test("the residual is stated rather than folded into a published submarket", () => {
-  const text = pageText(render());
-  assert.ok(text.includes("Other Sealed"));
-  assert.ok(text.includes("$2,506.78"));
+test("the sealed residual is stated in the group's info, not as a wall of copy", () => {
+  const renderer = render();
+  const info = infoText(renderer);
+  assert.ok(info.includes("Other Sealed"));
+  assert.ok(info.includes("$2,506.78"));
+  assert.equal(findAll(renderer, "data-market-explorer-sealed-residual").length, 0);
+  assert.ok(!pageText(renderer).includes("$2,506.78"));
 });
 
 test("the last remaining series cannot be deselected from the submarket axis either", () => {
   const renderer = render(overview, { segments: "sealed:boosterBox" });
   const workspace = () => findAll(renderer, "data-market-explorer-workspace")[0];
-  // Turn the parent off, leaving only the child on the chart.
-  click(renderer, "data-market-explorer-card", "sealedMarket");
   assert.equal(workspace().props["data-market-explorer-series"], "sealed:boosterBox");
-  // Now the child is locked.
+  // The child is the only series, so it is locked.
   toggleFilterOption(renderer, "sealed:boosterBox");
   assert.equal(workspace().props["data-market-explorer-series"], "sealed:boosterBox");
   assert.equal(findAll(renderer, "data-market-performance-series").length, 1);
@@ -595,8 +765,8 @@ test("a snapshot without sealedSegments hides the axis instead of inventing one"
     (node) => node.props?.["data-market-explorer-filter-axis"] === "sealedFamily", { deep: true }
   )[0];
   assert.equal(axis.props["data-market-explorer-filter-available"], "false");
-  assert.ok(pageText(renderer).includes("All Sealed Products"));
-  assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-series"], "raw,topChase,sealedMarket");
+  assert.ok(pageText(renderer).includes("No sealed product-family submarkets are published"));
+  assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-series"], "raw,sealedMarket");
 });
 
 // --- window semantics ------------------------------------------------------
@@ -623,19 +793,39 @@ test("selecting All names the shared comparable span, never Since Tracking", () 
 
 // --- degradation ----------------------------------------------------------
 
-test("a snapshot without Sealed still renders Raw and Top Chase and does not crash", () => {
+test("a snapshot without Sealed still renders Raw and does not crash", () => {
   const renderer = render(overviewNoSealed);
-  assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-selection"], "raw,topChase");
-  assert.deepEqual(findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]), ["raw", "topChase"]);
+  assert.equal(findAll(renderer, "data-market-explorer-workspace")[0].props["data-market-explorer-selection"], "raw");
+  assert.deepEqual(findAll(renderer, "data-market-performance-series").map((n) => n.props["data-market-performance-series"]), ["raw"]);
 
-  const sealedCard = renderer.root.findAll((node) => node.props?.["data-market-explorer-card"] === "sealedMarket", { deep: true })[0];
-  assert.equal(sealedCard.props["data-market-explorer-card-available"], "false");
-  assert.ok(pageText(renderer).includes("Not published in the current market snapshot."));
+  // An unpublished asset class is an explicitly unavailable OPTION — a
+  // different statement from silently omitting the market.
+  const sealedOption = renderer.root.findAll(
+    (node) => node.props?.["data-market-explorer-filter-option"] === "sealedMarket", { deep: true })[0];
+  assert.equal(sealedOption.props["data-market-explorer-filter-option-available"], "false");
   // And it never appears in the detail strip as a market with values.
   assert.deepEqual(
     findAll(renderer, "data-market-explorer-detail-row").map((n) => n.props["data-market-explorer-detail-row"]),
-    ["raw", "topChase"]
+    ["raw"]
   );
+});
+
+test("Graded Market is visible, disabled, and fabricates nothing", () => {
+  const renderer = render();
+  const graded = renderer.root.findAll(
+    (node) => node.props?.["data-market-explorer-filter-option"] === "gradedMarket", { deep: true })[0];
+  assert.equal(graded.props["data-market-explorer-filter-option-available"], "false");
+  assert.equal(graded.findAll((node) => node.type === "input", { deep: true })[0].props.disabled, true);
+  assert.ok(pageText(renderer).includes("Graded Market"));
+  // No fabricated $0 basket, no fake index, and no PSA/CGC/BGS sub-hierarchy
+  // built ahead of the analytics.
+  const text = pageText(renderer);
+  assert.ok(!text.includes("$0.00"));
+  for (const forbidden of ["PSA", "CGC", "BGS"]) assert.ok(!text.includes(forbidden), forbidden);
+  assert.ok(infoText(renderer).includes("No canonical graded analytics are published yet"));
+  // It is never charted.
+  assert.ok(!findAll(renderer, "data-market-performance-series")
+    .some((node) => node.props["data-market-performance-series"] === "gradedMarket"));
 });
 
 test("no published market snapshot degrades to a stated message rather than a crash", () => {

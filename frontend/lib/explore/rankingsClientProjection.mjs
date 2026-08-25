@@ -98,9 +98,9 @@ const BLOCK_LEAVES = Object.freeze({
   setRipV1: ["score", "tier", "rank", "cohortSize", "rankable", "methodologyVersion", "participatingFamilyCount", "participatingFamilies", "skuEvidenceCount", "familyScores", "displayFamilyScores"],
   overallRipV8: ["relativeScore", "rank", "cohortSize", "tier"],
   overallRipV9: ["relativeScore", "rank", "cohortSize", "tier"],
-  overallRipV10: ["relativeScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
+  overallRipV10: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   financialRipV3: ["relativeScore", "rank", "cohortSize", "tier"],
-  financialRipV4: ["relativeScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
+  financialRipV4: ["relativeScore", "leaderNormalizedScore", "rank", "cohortSize", "rankedSetCount", "tier", "status", "statusReason"],
   universalSetDesirability: ["score", "rank", "rankedSetCount"],
   rankingsChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
   topChase: ["cardName", "currentMarketPrice", "impliedOddsOneInN", "packsFor50PercentChance"],
@@ -112,7 +112,7 @@ const BLOCK_LEAVES = Object.freeze({
 /** The canonical-contract blocks `readCanonicalBlock` consumes, leaf by leaf. */
 const CONTRACT_BLOCKS = Object.freeze(["overallRip", "financialRip", "collectorAppeal"]);
 const CONTRACT_LEAVES = Object.freeze([
-  "relativeScore", "absoluteScore", "score", "rank", "tier", "publicTier",
+  "relativeScore", "leaderNormalizedScore", "absoluteScore", "score", "rank", "tier", "publicTier",
   "rankedSetCount", "cohortSize", "status", "statusReason",
 ]);
 

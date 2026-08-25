@@ -2,22 +2,38 @@
 
 import { useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
+import ExplorerDisclosure from "./ExplorerDisclosure";
+import MarketExplorerEraSets from "./MarketExplorerEraSets";
 import { MARKET_EXPLORER_FILTER_AXES } from "@/lib/explore/marketExplorerState.mjs";
-import { formatBasketValue } from "@/lib/explore/marketOverviewPresentation.mjs";
+import {
+  ASSET_MARKET_INFO,
+  BENCHMARKS_INFO,
+  ERA_SETS_INFO,
+  buildCardRaritiesInfo,
+  buildSealedFamiliesInfo,
+} from "@/lib/explore/marketExplorerDisclosureCopy.mjs";
+import { describeScope } from "@/lib/explore/marketExplorerScope.mjs";
 
-// Explore Segments — the filter workspace.
+// ---------------------------------------------------------------------------
+// EXPLORE SEGMENTS — the fast lane.
 //
-// THREE LIVE AXES. Asset Market selects the parent markets; Sealed Product
-// Family and Card Segment select the published submarkets. Era occupies its
-// real architectural position but stays explicitly unavailable, because no
-// backend publishes an era index — it is a disabled control that says so, never
-// a populated dropdown implying analytics exist.
+// One purpose: put an already-prepared market on the chart, immediately. Click
+// SIR and SIR appears; click it again and it is gone. No builder step, no "Add
+// to comparison", and — deliberately — NO automatic parent line. A selection
+// means exactly what was clicked. (Build a Market, the advanced lane, is
+// different and still supplies a same-filter benchmark; that distinction is
+// documented at toggleSealedFamilyId.)
 //
-// NO SEGMENT IS HARDCODED HERE. Every option is whatever the published payload
-// carried, so a segment the backend cannot build simply never appears. Card
-// segments are grouped by the parent market they measure, because a Special
-// Illustration Rare index over all tracked cards and one over the Top Chase
-// cohort are different markets and the user must not have to guess which.
+// INFORMATION DENSITY IS THE OTHER HALF OF THE JOB. Everything except the three
+// asset classes is collapsed on first load, so the opening rail is one short
+// list plus four headers rather than twenty-five checkboxes and two paragraphs
+// of methodology. The methodology did not go away — it moved into each group's
+// ⓘ, where it is one click from the control it describes instead of standing
+// between the controls.
+//
+// NO OPTION IS HARDCODED HERE. Every rarity, family, era and set is whatever
+// the backend published; a segment the backend cannot build never appears.
+// ---------------------------------------------------------------------------
 function SegmentOption({ entry, onToggle, isLocked }) {
   const disabled = entry.available !== true || isLocked;
   return (
@@ -42,7 +58,7 @@ function SegmentOption({ entry, onToggle, isLocked }) {
       {entry.available === true
         ? (entry.definition ? <InfoPopover text={entry.definition} /> : null)
         : (
-          // Not a bare "Unavailable": a published market the user can see but
+          // Never a bare disabled checkbox: an option the user can see but
           // cannot select has to say why, in the snapshot's own words.
           <span className="ml-auto flex items-center gap-1 flex-none text-[10px] text-[var(--text-secondary)]">
             Unavailable
@@ -53,31 +69,36 @@ function SegmentOption({ entry, onToggle, isLocked }) {
   );
 }
 
-function UnavailableAxis({ axis, note }) {
+function OptionList({ entries, onToggle, isLocked }) {
   return (
-    <div className="mt-2">
-      <div
-        data-market-explorer-filter-placeholder={axis.id}
-        aria-disabled="true"
-        className="flex items-center justify-between gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/25 px-2.5 py-1.5 text-xs text-[var(--text-secondary)]"
-      >
-        <span className="min-w-0 truncate">{axis.placeholderLabel}</span>
-        <span className="flex-none text-[10px] uppercase tracking-[0.07em] opacity-80">{note}</span>
-      </div>
-    </div>
+    <ul className="mt-1 space-y-1.5">
+      {entries.map((entry) => (
+        <li key={entry.key}>
+          <SegmentOption entry={entry} onToggle={onToggle} isLocked={isLocked(entry)} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
 export default function MarketExplorerFilters({
   assetEntries = [],
+  benchmarkEntries = [],
   sealedEntries = [],
   cardGroups = [],
   reconciliation = null,
   cardReconciliation = null,
   topChaseSegmentStatus = null,
+  eraTree = [],
+  eraScope = { eraIds: [], setIds: [] },
+  eraOptionsStatus = "loading",
   onToggleMarket,
   onToggleSealedFamily,
   onToggleCardSegment,
+  onToggleScopeEra,
+  onToggleScopeSet,
+  onClearScope,
+  onUseScopeInBuilder,
   selectedSeriesCount = 0,
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -85,109 +106,100 @@ export default function MarketExplorerFilters({
   const hasSealed = sealedEntries.length > 0;
   const hasCards = cardGroups.some((group) => group.entries.length > 0);
   // The chart may never be emptied by selection, so the final remaining series
-  // is locked wherever it appears — card, or checkbox.
+  // is locked wherever it appears.
   const isLocked = (entry) => entry.selected === true && selectedSeriesCount <= 1;
+  const selectedCount = (entries) => entries.filter((entry) => entry.selected === true).length;
+  const countSummary = (count) => (count > 0 ? `${count} selected` : null);
+  const cardSelected = cardGroups.reduce((total, group) => total + selectedCount(group.entries), 0);
+  const scopeSummary = describeScope(eraScope, eraTree);
 
   const body = (
-    <div className="space-y-4 px-3 pb-4 sm:px-4">
+    <div className="space-y-2 px-3 pb-4 sm:px-4">
+      {/* ALWAYS VISIBLE. The three asset classes are the page's premise. */}
       <fieldset data-market-explorer-filter-axis="assetMarket" data-market-explorer-filter-available="true" className="min-w-0">
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {axisById.get("assetMarket").label}
-        </legend>
-        <ul className="mt-2 space-y-1.5">
-          {assetEntries.map((entry) => (
-            <li key={entry.key}>
-              <SegmentOption entry={entry} onToggle={onToggleMarket} isLocked={isLocked(entry)} />
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-center gap-1.5">
+          <legend className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            {axisById.get("assetMarket").label}
+          </legend>
+          <InfoPopover text={ASSET_MARKET_INFO} />
+        </div>
+        <OptionList entries={assetEntries} onToggle={onToggleMarket} isLocked={isLocked} />
       </fieldset>
 
-      <fieldset
-        data-market-explorer-filter-axis="cardSegment"
-        data-market-explorer-filter-available={hasCards ? "true" : "false"}
-        className={hasCards ? "min-w-0" : "min-w-0 opacity-60"}
+      <ExplorerDisclosure
+        id="cardRarities"
+        title="Card Rarities"
+        info={buildCardRaritiesInfo(cardReconciliation, topChaseSegmentStatus)}
+        badge={hasCards ? null : "Unavailable"}
+        summary={countSummary(cardSelected)}
       >
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {axisById.get("cardSegment").label}
-        </legend>
         {hasCards ? (
-          <>
+          <div data-market-explorer-filter-axis="cardSegment" data-market-explorer-filter-available="true">
             {cardGroups.map((group) => (
-              <div key={group.parentMarket} data-market-explorer-filter-group={group.parentMarket} className="mt-2">
+              <div key={group.parentMarket} data-market-explorer-filter-group={group.parentMarket} className="mt-1.5">
                 <p className="text-[10px] font-medium text-[var(--text-secondary)]">{group.label}</p>
-                <ul className="mt-1 space-y-1.5">
-                  {group.entries.map((entry) => (
-                    <li key={entry.key}>
-                      <SegmentOption entry={entry} onToggle={onToggleCardSegment} isLocked={isLocked(entry)} />
-                    </li>
-                  ))}
-                </ul>
+                <OptionList entries={group.entries} onToggle={onToggleCardSegment} isLocked={isLocked} />
               </div>
             ))}
-            {cardReconciliation?.residualBasketValue ? (
-              <p data-market-explorer-card-residual className="mt-2 text-[10px] leading-relaxed text-[var(--text-secondary)]">
-                {formatBasketValue(cardReconciliation.residualBasketValue)} of the Raw Card Market sits in{" "}
-                {cardReconciliation.residualLabel} and is not published as its own submarket.
-              </p>
-            ) : null}
-            {topChaseSegmentStatus && topChaseSegmentStatus.available !== true ? (
-              // Stated rather than silently missing: the reason names the exact
-              // authority that does not exist yet.
-              // A div, not a p: InfoPopover renders a div, and a div nested in
-              // a p is invalid HTML that React reports as a hydration error.
-              <div data-market-explorer-chase-segments-unavailable className="mt-2 flex items-start gap-1 text-[10px] leading-relaxed text-[var(--text-secondary)]">
-                <span>Chase rarity segments are not published yet.</span>
-                <InfoPopover text={topChaseSegmentStatus.reason} />
-              </div>
-            ) : null}
-          </>
+          </div>
         ) : (
-          <UnavailableAxis axis={axisById.get("cardSegment")} note="Unavailable" />
+          <p data-market-explorer-filter-axis="cardSegment" data-market-explorer-filter-available="false" className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            No card rarity submarkets are published in this snapshot.
+          </p>
         )}
-      </fieldset>
+      </ExplorerDisclosure>
 
-      <fieldset
-        data-market-explorer-filter-axis="sealedFamily"
-        data-market-explorer-filter-available={hasSealed ? "true" : "false"}
-        className={hasSealed ? "min-w-0" : "min-w-0 opacity-60"}
+      <ExplorerDisclosure
+        id="sealedFamilies"
+        title="Sealed Product Families"
+        info={buildSealedFamiliesInfo(reconciliation)}
+        badge={hasSealed ? null : "Unavailable"}
+        summary={countSummary(selectedCount(sealedEntries))}
       >
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {axisById.get("sealedFamily").label}
-        </legend>
         {hasSealed ? (
-          <>
-            <ul className="mt-2 space-y-1.5">
-              {sealedEntries.map((entry) => (
-                <li key={entry.key}>
-                  <SegmentOption entry={entry} onToggle={onToggleSealedFamily} isLocked={isLocked(entry)} />
-                </li>
-              ))}
-            </ul>
-            {reconciliation?.residualBasketValue ? (
-              <p data-market-explorer-sealed-residual className="mt-2 text-[10px] leading-relaxed text-[var(--text-secondary)]">
-                {formatBasketValue(reconciliation.residualBasketValue)} of Total Sealed sits in{" "}
-                {reconciliation.residualLabel} and is not published as its own submarket.
-              </p>
-            ) : null}
-          </>
+          <div data-market-explorer-filter-axis="sealedFamily" data-market-explorer-filter-available="true">
+            <OptionList entries={sealedEntries} onToggle={onToggleSealedFamily} isLocked={isLocked} />
+          </div>
         ) : (
-          <UnavailableAxis axis={axisById.get("sealedFamily")} note="Unavailable" />
+          <p data-market-explorer-filter-axis="sealedFamily" data-market-explorer-filter-available="false" className="mt-1 text-[11px] text-[var(--text-secondary)]">
+            No sealed product-family submarkets are published in this snapshot.
+          </p>
         )}
-      </fieldset>
+      </ExplorerDisclosure>
 
-      {/* Architectural position only. The option list is empty by design — a
-          populated dropdown here would claim an index nothing computes. */}
-      <fieldset
-        data-market-explorer-filter-axis="era"
-        data-market-explorer-filter-available="false"
-        className="min-w-0 opacity-60"
+      <ExplorerDisclosure
+        id="eraSets"
+        title={axisById.get("era").label}
+        info={ERA_SETS_INFO}
+        summary={scopeSummary || null}
       >
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {axisById.get("era").label}
-        </legend>
-        <UnavailableAxis axis={axisById.get("era")} note="Coming soon" />
-      </fieldset>
+        <div data-market-explorer-filter-axis="era" data-market-explorer-filter-available="true">
+          <MarketExplorerEraSets
+            tree={eraTree}
+            scope={eraScope}
+            status={eraOptionsStatus}
+            onToggleEra={onToggleScopeEra}
+            onToggleSet={onToggleScopeSet}
+            onClear={onClearScope}
+            onUseInBuilder={onUseScopeInBuilder}
+          />
+        </div>
+      </ExplorerDisclosure>
+
+      <ExplorerDisclosure
+        id="benchmarks"
+        title="Benchmarks"
+        info={BENCHMARKS_INFO}
+        summary={countSummary(selectedCount(benchmarkEntries))}
+      >
+        <div data-market-explorer-filter-axis="benchmark" data-market-explorer-filter-available="true">
+          {benchmarkEntries.length ? (
+            <OptionList entries={benchmarkEntries} onToggle={onToggleMarket} isLocked={isLocked} />
+          ) : (
+            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">No benchmark markets are published in this snapshot.</p>
+          )}
+        </div>
+      </ExplorerDisclosure>
     </div>
   );
 
@@ -198,8 +210,8 @@ export default function MarketExplorerFilters({
           <h2 id="market-explorer-filters-heading" className="text-[16px] font-semibold text-[var(--text-primary)]">
             Explore Segments
           </h2>
-          {/* Mobile keeps the workspace compact: the filter list collapses so
-              the chart above it is not pushed off-screen by a long checklist. */}
+          {/* Mobile keeps the workspace compact: the rail collapses so the
+              chart above it is not pushed off-screen. */}
           <button
             type="button"
             data-market-explorer-filters-toggle
@@ -208,11 +220,11 @@ export default function MarketExplorerFilters({
             onClick={() => setIsMobileOpen((current) => !current)}
             className="ml-auto rounded-md border border-[var(--border-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 desk:hidden"
           >
-            {isMobileOpen ? "Hide" : "Filters"}
+            {isMobileOpen ? "Hide" : "Segments"}
           </button>
         </div>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
-          Choose which market segments appear on the comparison chart.
+          Add prepared market segments to the chart.
         </p>
       </div>
       <div id="market-explorer-filters-body" className={isMobileOpen ? "" : "hidden desk:block"}>

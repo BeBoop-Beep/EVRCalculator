@@ -114,6 +114,14 @@ function mountClient() {
       </React.StrictMode>
     );
   });
+  // The rail opens COLLAPSED. A quick segment is one click away, not zero, so
+  // every test here opens its group first — exactly as the user does.
+  for (const id of ["cardRarities", "sealedFamilies", "benchmarks"]) {
+    const toggle = renderer.root.findAll(
+      (node) => node.props?.["data-explorer-disclosure-toggle"] === id, { deep: true }
+    )[0];
+    if (toggle) act(() => { toggle.props.onClick?.(); });
+  }
   return { renderer, cardSegments, sealedSegments };
 }
 
@@ -149,11 +157,22 @@ for (const { seriesId, attr } of QUICK_SEGMENTS) {
   });
 }
 
-test("selecting a submarket brings its parent benchmark in the same commit", () => {
+test("a quick segment adds ONLY itself — no parent tags along", () => {
   const { renderer } = mountClient();
+  // Start from the default asset classes and take Sealed Market off, so the
+  // test can see whether the toggle puts it back.
+  act(() => { checkboxFor(renderer, "sealedMarket").props.onChange(); });
+  const before = workspace(renderer)["data-market-explorer-selection"].split(",");
+  assert.ok(!before.includes("sealedMarket"));
+
   act(() => { checkboxFor(renderer, "sealed:eliteTrainerBox").props.onChange(); });
   const parents = workspace(renderer)["data-market-explorer-selection"].split(",");
-  assert.ok(parents.includes("sealedMarket"), "a sealed submarket is read against Sealed Market");
+  // It stays off. A line the user deliberately removed must not reappear
+  // because they clicked something else.
+  assert.ok(!parents.includes("sealedMarket"),
+    "the fast lane is literal: a child never drags its parent onto the chart");
+  assert.ok(workspace(renderer)["data-market-explorer-sealed-family-ids"]
+    .split(",").includes("sealed:eliteTrainerBox"));
 });
 
 test("a published-but-unbuildable segment is visible, disabled and explains itself", () => {
@@ -204,14 +223,18 @@ test("the reducer is replay-safe: applying one action twice from the same base i
   }
 });
 
-test("the reducer moves submarket and parent in ONE state object", () => {
+test("the reducer still moves the whole selection in ONE state object", () => {
+  // The parent is no longer supplied, but the reason the reducer exists is
+  // unchanged: the selection is one value that moves in one pure step, so a
+  // replayed update can never apply half of it.
   const next = reduceExplorerSelection(EMPTY, {
     type: EXPLORER_SELECTION_ACTIONS.toggleCardSegment,
     seriesId: "card:raw:ultraRare",
     available: AVAILABLE,
   });
   assert.deepEqual(next.segmentIds, ["card:raw:ultraRare"]);
-  assert.deepEqual(next.assetUniverse, ["raw"], "no intermediate render may see one without the other");
+  assert.deepEqual(next.assetUniverse, [], "a rarity click adds a rarity and nothing else");
+  assert.deepEqual(next.sealedFamilyIds, []);
 });
 
 test("reconciliation is idempotent and preserves identity when nothing moved", () => {

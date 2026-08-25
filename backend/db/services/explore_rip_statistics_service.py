@@ -81,6 +81,7 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V4_VERSION,
     COLLECTOR_APPEAL_V5_VERSION,
 )
+from backend.rankings.public_relative import public_leader_rip_tier
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
     FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
@@ -483,6 +484,15 @@ def _compute_relative_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict
 
     eligible = [row for row in rows if row.get("target_id")]
     return compute_public_relative_scores(
+        eligible, id_getter=lambda row: row.get("target_id"), score_getter=lambda row: row.get(score_key)
+    )
+
+
+def _compute_leader_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict[str, Optional[float]]:
+    from backend.rankings.public_relative import compute_leader_normalized_scores
+
+    eligible = [row for row in rows if row.get("target_id")]
+    return compute_leader_normalized_scores(
         eligible, id_getter=lambda row: row.get("target_id"), score_getter=lambda row: row.get(score_key)
     )
 
@@ -1275,12 +1285,18 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
             for row in cohort_rows
         ]
         relatives = _compute_relative_scores(scratch, "_score")
+        leaders = _compute_leader_scores(scratch, "_score")
         for row in cohort_rows:
             obj = row.get(obj_key)
             if not isinstance(obj, dict):
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
+            if obj_key in {"overallRipV10", "financialRipV4"}:
+                leader = leaders.get(str(row.get("target_id")))
+                obj["leaderNormalizedScore"] = round(leader, 2) if leader is not None else None
+                obj["tier"] = public_leader_rip_tier(leader)
+                obj["publicTier"] = obj["tier"]
 
     # Collector Appeal V3 is a canonical published pillar in its own right, so it
     # gets the same absolute/relative pair. Its ABSOLUTE score is what the 90/10

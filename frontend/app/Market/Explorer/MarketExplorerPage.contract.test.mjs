@@ -120,9 +120,20 @@ test("card segments are grouped by the parent market they measure", () => {
   assert.match(series, /export function parseCardSeriesId/);
 });
 
+const eraSets = codeOf(read("../../../components/explore/MarketExplorerEraSets.jsx"));
+const scope = codeOf(read("../../../lib/explore/marketExplorerScope.mjs"));
+const disclosure = codeOf(read("../../../components/explore/ExplorerDisclosure.jsx"));
+const disclosureCopy = codeOf(read("../../../lib/explore/marketExplorerDisclosureCopy.mjs"));
+const query = codeOf(read("../../../lib/explore/marketExplorerQuery.mjs"));
+
 test("Top Chase rarity segments are stated as unpublished rather than faked", () => {
   assert.match(series, /export function resolveTopChaseSegmentStatus/);
-  assert.match(filters, /data-market-explorer-chase-segments-unavailable/);
+  // The reason is stated in the Card Rarities ⓘ rather than as a standing
+  // paragraph under the checkbox list. It is still the SNAPSHOT'S words: the
+  // copy builder interpolates the published reason and never writes its own.
+  assert.match(disclosureCopy, /topChaseStatus\.reason/);
+  assert.match(disclosureCopy, /Chase rarity segments are not published/);
+  assert.match(filters, /buildCardRaritiesInfo\(cardReconciliation, topChaseSegmentStatus\)/);
   // No component invents Top Chase membership by re-ranking cards.
   const code = [client, chart, filters, details, card, state, series].map(codeOf).join("\n");
   assert.ok(!/\.sort\([^)]*price/i.test(code), "must not rank cards to reconstruct Top Chase");
@@ -142,15 +153,62 @@ test("Sealed submarket options come from the payload, never from a hardcoded lis
   assert.ok(!filters.includes("Booster Box"), "the filter must not hardcode a segment label");
 });
 
-test("era remains declared but explicitly unavailable", () => {
-  assert.match(state, /id: "era",[\s\S]*?available: false/);
+test("Era & Sets is a live NAVIGATION axis that still claims no era index", () => {
+  // It is available and dynamic — its eras and sets come from the canonical
+  // filter-options service — but it publishes no series of its own.
+  assert.match(state, /id: "era",[\s\S]*?available: true/);
+  assert.match(state, /id: "era",[\s\S]*?dynamic: true/);
+  assert.match(state, /id: "era",[\s\S]*?label: "Era & Sets"/);
+  // No era roster is hardcoded anywhere in the surface.
+  for (const [name, source] of Object.entries({ state, filters, eraSets, scope })) {
+    for (const forbidden of ["Scarlet & Violet", "Sword & Shield", "Sun & Moon", "Legacy"]) {
+      assert.ok(!source.includes(forbidden), `${name} must not hardcode ${forbidden}`);
+    }
+  }
+  // And an era selection is explicitly NOT a chartable line.
+  assert.match(eraSets, /no standalone era index is published|scope/i);
   // Sealed Product Family and Card Segment are LIVE, and dynamic rather than
   // hardcoded.
   assert.match(state, /id: "sealedFamily",[\s\S]*?available: true/);
   assert.match(state, /id: "sealedFamily",[\s\S]*?dynamic: true/);
   assert.match(state, /id: "cardSegment",[\s\S]*?available: true/);
   assert.match(state, /id: "cardSegment",[\s\S]*?dynamic: true/);
-  assert.match(filters, /Coming soon/);
+});
+
+test("Asset Market holds three top-level markets and Chase is not one of them", () => {
+  assert.match(state, /MARKET_EXPLORER_ASSET_MARKET_KEYS = \["raw", "sealedMarket"\]/);
+  assert.match(state, /MARKET_EXPLORER_BENCHMARK_KEYS = \["topChase"\]/);
+  assert.match(state, /GRADED_MARKET_KEY/);
+  // Graded is declared with no numbers attached — family: null, available:
+  // false, and a stated reason.
+  assert.match(state, /GRADED_MARKET_PLACEHOLDER[\s\S]*?available: false/);
+  assert.match(state, /GRADED_MARKET_PLACEHOLDER[\s\S]*?family: null/);
+  // The rail renders Benchmarks as its own group, not a fourth asset class.
+  assert.match(filters, /title="Benchmarks"/);
+  assert.match(filters, /benchmarkEntries/);
+});
+
+test("one reusable disclosure serves every collapsible group", () => {
+  // Five groups, one implementation — so accessibility is fixed once and the
+  // groups cannot drift into five different expand/collapse behaviours.
+  for (const id of ["cardRarities", "sealedFamilies", "eraSets", "benchmarks"]) {
+    assert.ok(filters.includes(`id="${id}"`) || client.includes(`id="${id}"`), id);
+  }
+  assert.ok(client.includes('id="buildAMarket"'), "the builder is a disclosure too");
+  assert.match(disclosure, /aria-expanded=\{isOpen\}/);
+  assert.match(disclosure, /aria-controls=\{panelId\}/);
+  assert.match(disclosure, /type="button"/);
+  // Collapsed is the DEFAULT; only an explicit prop opens a group.
+  assert.match(disclosure, /defaultOpen = false/);
+  assert.ok(!/defaultOpen(?!\s*=\s*false)/.test(filters), "no rail group opts itself open");
+});
+
+test("no quick-segment toggle supplies a parent benchmark", () => {
+  // The fast lane is literal. The advanced lane is where a same-filter
+  // benchmark is still added, and that lives in the query module.
+  assert.ok(!/parents\.add\(/.test(state), "no toggle may add a parent market");
+  assert.match(state, /NO AUTOMATIC PARENT/);
+  assert.match(query, /export function resolveBenchmarkSpec/);
 });
 
 test("the Since Tracking column is locked to the family-specific series", () => {
