@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import math
 import time
+from datetime import date, timedelta
 from typing import Any, Iterable, Mapping, Sequence
 
 from backend.db.services.pokemon_set_cards_market_analytics_service import (
@@ -66,7 +67,9 @@ from backend.domain.pokemon.market_explorer_query import (
     MODE_ALL,
     MODE_CHASE,
     MarketExplorerQueryError,
+    build_chain_linked_history_from_cohorts,
     build_query_observations,
+    rank_chase_constituents,
     normalize_query_spec,
     query_fingerprint,
     query_key,
@@ -133,6 +136,28 @@ def resolve_tracked_set_ids(client: Any) -> list[str]:
     rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
                      .select("set_id,has_history").eq("has_history", True))
     return sorted({str(row.get("set_id") or "").strip() for row in rows} - {""})
+
+
+def resolve_scope_history_bounds(
+    client: Any, set_ids: Sequence[str],
+) -> tuple[str | None, str | None]:
+    """Earliest and latest market dates any set in scope actually has.
+
+    CALLERS MAY ASK FOR AN OPEN-ENDED RANGE. The API deliberately requests "all
+    of history" rather than hardcoding a start, which is the right contract --
+    but the cohort reader walks the range in fixed-size chunks, so an unclamped
+    1999 start would issue hundreds of statements against years that hold no
+    rows at all. Clamping to the dates the coverage rollup reports turns "all of
+    history" into the real history without the caller needing to know it.
+    """
+    rows = _page_all(lambda: client.table("pokemon_set_value_daily_history_coverage")
+                     .select("set_id,first_snapshot_date,latest_snapshot_date")
+                     .in_("set_id", list(set_ids)))
+    firsts = sorted({str(row.get("first_snapshot_date"))[:10] for row in rows
+                     if row.get("first_snapshot_date")})
+    latests = sorted({str(row.get("latest_snapshot_date"))[:10] for row in rows
+                      if row.get("latest_snapshot_date")})
+    return (firsts[0] if firsts else None, latests[-1] if latests else None)
 
 
 def resolve_scope_set_ids(
@@ -229,6 +254,135 @@ def load_scope_constituent_rows(
 # ---------------------------------------------------------------------------
 # Series construction (filter steps 5-6, then index math)
 # ---------------------------------------------------------------------------
+
+#: One row per market date, so a full-history query is a handful of round trips
+#: rather than one per 900 card-dates.
+COHORT_RPC = "get_pokemon_market_explorer_daily_cohort"
+#: The batched multi-set card-date panel. Used only for the CURRENT day, where
+#: the actual constituent identities are needed for the published basket.
+BATCHED_CONSTITUENT_RPC = "get_pokemon_cards_daily_constituents"
+
+_RPC_MAX_ROWS_PER_RESPONSE = 1000
+
+#: Days of history per cohort statement. Sized from measurement: a 222-card
+#: universe covers 140 days in ~14s, and a 492-card one exceeds the statement
+#: timeout over the same span, so the bound has to come from days-per-statement
+#: rather than from the caller's date range.
+COHORT_CHUNK_DAYS = 30
+
+
+def load_daily_cohort_rows(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    start_date: str,
+    end_date: str,
+    card_ids: Sequence[str] | None = None,
+    top_n: int | None = None,
+    chunk_days: int = COHORT_CHUNK_DAYS,
+) -> list[dict[str, Any]]:
+    """Per-date cohort aggregates for the filtered universe.
+
+    THIS IS WHY EXPLORER QUERIES ARE FAST. The card-date panel behind a global
+    rarity query is 29k-64k rows and cannot cross the 1000-row response cap in
+    fewer than dozens of round trips -- which measured as ~200-300 seconds per
+    query and was essentially the entire cost. The database already computes
+    those rows internally; this asks it for one row per DATE instead, so a
+    140-day history is a single response.
+    """
+    first = date.fromisoformat(str(start_date)[:10])
+    last = date.fromisoformat(str(end_date)[:10])
+    if first > last:
+        raise MarketExplorerQueryUnavailable(
+            f"start_date {first} must not be after end_date {last}"
+        )
+
+    # WHY THE RANGE IS CHUNKED. The cohort aggregate is cheap to TRANSPORT (one
+    # row per date) but not cheap to COMPUTE: the underlying panel does a
+    # latest-observation-before-boundary lookup per card per day, so cost scales
+    # with universe size times history length. A 222-card rarity over 140 days
+    # completes in ~14s; a 492-card one over the same span exceeds the statement
+    # timeout outright. Chunking keeps every individual statement small.
+    #
+    # THE OVERLAP IS NOT AN APPROXIMATION. Each chunk's first date needs its
+    # common cohort measured against the previous OBSERVED date, which may be
+    # several calendar days back when the market has gaps. Rather than guess an
+    # overlap wide enough, each chunk after the first starts exactly at the
+    # previous chunk's last observed date -- a value we know, because we just
+    # read it -- and that duplicated row is then dropped. The stitched series is
+    # therefore identical to an unchunked one, gaps included, rather than
+    # showing a false chain break at every chunk boundary.
+    rows: list[dict[str, Any]] = []
+    cursor = first
+    previous_observed: str | None = None
+    while cursor <= last:
+        chunk_end = min(last, cursor + timedelta(days=max(1, int(chunk_days)) - 1))
+        request_start = (
+            date.fromisoformat(previous_observed) if previous_observed else cursor
+        )
+        payload = {
+            "p_set_ids": [str(value) for value in set_ids],
+            "p_start_date": request_start.isoformat(),
+            "p_end_date": chunk_end.isoformat(),
+            "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
+            "p_top_n": int(top_n) if top_n else None,
+        }
+        page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
+        if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE:
+            raise MarketExplorerQueryUnavailable(
+                f"{COHORT_RPC} hit the {_RPC_MAX_ROWS_PER_RESPONSE}-row response cap; "
+                "reduce the chunk size for this reader"
+            )
+        if previous_observed is not None:
+            page = [row for row in page if str(row.get("market_date"))[:10] != previous_observed]
+        if page:
+            rows.extend(page)
+            previous_observed = str(page[-1].get("market_date"))[:10]
+        cursor = chunk_end + timedelta(days=1)
+
+    return [
+        {
+            "marketDate": str(row.get("market_date"))[:10],
+            "constituentCount": row.get("constituent_count"),
+            "eligibleUniverseCount": row.get("eligible_universe_count"),
+            "basketValue": _numeric(row.get("basket_value")) or 0.0,
+            "commonCount": row.get("common_count"),
+            "commonCurrentValue": _numeric(row.get("common_current_value")),
+            "commonPreviousValue": _numeric(row.get("common_previous_value")),
+        }
+        for row in rows
+    ]
+
+
+def load_basket_for_date(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    market_date: str,
+    card_ids: Sequence[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Every eligible constituent and its price on ONE date.
+
+    Only today's basket needs card identities (section 24 publishes who is in
+    it), so exactly one date's panel is fetched rather than the whole history.
+    """
+    payload = {
+        "p_set_ids": [str(value) for value in set_ids],
+        "p_start_date": str(market_date)[:10],
+        "p_end_date": str(market_date)[:10],
+        "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
+    }
+    rows = list(getattr(client.rpc(BATCHED_CONSTITUENT_RPC, payload).execute(), "data", None) or [])
+    return [
+        {
+            "canonicalCardId": str(row.get("canonical_card_id")),
+            "marketPrice": _numeric(row.get("market_price")),
+            "marketDate": str(row.get("market_date"))[:10],
+        }
+        for row in rows
+        if _numeric(row.get("market_price")) is not None
+    ]
+
 
 def _numeric(value: Any) -> float | None:
     try:
@@ -350,6 +504,109 @@ def build_query_series(
 # Public entry point
 # ---------------------------------------------------------------------------
 
+def build_query_series_from_cohorts(
+    cohort_rows: Sequence[Mapping[str, Any]],
+    basket_rows: Sequence[Mapping[str, Any]],
+    card_metadata: Mapping[str, Mapping[str, Any]],
+    *,
+    mode: str,
+    top_n: int | None,
+) -> dict[str, Any] | None:
+    """The published series, built from per-date aggregates plus today's basket.
+
+    Identical output contract to `build_query_series`, which builds the same
+    thing from the full card-date panel. That function remains the reference
+    implementation and the two are held to agreement by a parity test; this one
+    exists because the reference path cannot be served interactively.
+
+    THE ONE THING LOST is per-date constituent IDENTITIES for historical dates,
+    so `membershipByDate` covers today only. Historical membership is still
+    computed correctly -- the day's top N is selected inside the database before
+    aggregation, which is what keeps the index free of survivorship bias -- it is
+    simply not transported. Section 27's future membership view will need the
+    cohort RPC extended to return ids, not a different index.
+    """
+    history = build_chain_linked_history_from_cohorts(cohort_rows)
+    if not history:
+        return None
+    current_segment_id = history[-1]["chainSegmentId"]
+    current = [row for row in history if row["chainSegmentId"] == current_segment_id]
+    if not current:
+        return None
+    latest_row = current[-1]
+
+    universe = [row for row in basket_rows if row.get("marketPrice") is not None]
+    selected = rank_chase_constituents(
+        universe, int(top_n) if mode == MODE_CHASE and top_n else len(universe),
+    )
+
+    index_points = [{"date": row["marketDate"], "value": row["normalizedIndexValue"]}
+                    for row in current]
+    tracked_points = [{"date": row["marketDate"], "value": row["basketValue"]}
+                      for row in current]
+
+    constituents = []
+    for entry in selected:
+        card_id = str(entry["canonicalCardId"])
+        meta = dict(card_metadata.get(card_id) or {})
+        constituents.append({
+            "rank": entry["rank"],
+            "canonicalCardId": card_id,
+            "cardName": meta.get("cardName"),
+            "cardNumber": meta.get("cardNumber"),
+            "setId": meta.get("setId"),
+            "setName": meta.get("setName"),
+            "rarity": meta.get("rarity"),
+            "segmentKey": meta.get("segmentKey"),
+            "marketPrice": round(float(entry["marketPrice"]), 2),
+            "imageUrl": meta.get("imageUrl"),
+            "asOf": latest_row["marketDate"],
+            "queryMembershipReason": (
+                f"rank {entry['rank']} by market price within the filtered universe"
+                if mode == MODE_CHASE else "eligible constituent of the filtered universe"
+            ),
+        })
+
+    represented_sets = {row["setId"] for row in constituents if row.get("setId")}
+    requested_top_n = int(top_n) if mode == MODE_CHASE and top_n else None
+    actual_count = latest_row["constituentCount"] or len(constituents)
+
+    return {
+        "asOf": latest_row["marketDate"],
+        "historyStartDate": current[0]["marketDate"],
+        "indexValue": float(latest_row["normalizedIndexValue"]),
+        "trackedValue": round(float(latest_row["basketValue"]), 2),
+        "familyChanges": compute_strict_window_movements(index_points),
+        "trackedValueChanges": compute_strict_window_movements(tracked_points),
+        "trend": [[row["marketDate"], row["normalizedIndexValue"]] for row in current],
+        "trackedValueHistory": [
+            {"date": row["marketDate"], "value": round(float(row["basketValue"]), 2)}
+            for row in current
+        ],
+        "currentConstituents": constituents,
+        "membershipByDate": [
+            {"marketDate": latest_row["marketDate"],
+             "constituentIds": [row["canonicalCardId"] for row in constituents]},
+        ],
+        "reconciliation": {
+            "requestedTopN": requested_top_n,
+            "actualConstituentCount": actual_count,
+            "eligibleUniverseCount": latest_row["eligibleUniverseCount"],
+            "currentBasketValue": round(float(latest_row["basketValue"]), 2),
+            "belowRequestedTopN": bool(requested_top_n and actual_count < requested_top_n),
+        },
+        "metadata": {
+            "constituentCount": actual_count,
+            "representedSetCount": len(represented_sets),
+            "observationCount": len(history),
+            "historyPointCount": len(history),
+            "currentSegmentId": current_segment_id,
+            "chainSegmentCount": len({row["chainSegmentId"] for row in history}),
+            "seriesPath": "cohortAggregate",
+        },
+    }
+
+
 def describe_query(spec: Mapping[str, Any], *, era_names: Mapping[str, str] | None = None,
                    set_names: Mapping[str, str] | None = None) -> str:
     """Human display label, e.g. "Scarlet & Violet - SIR - Top 10"."""
@@ -413,12 +670,34 @@ def run_market_explorer_query(
     for meta in card_universe.values():
         meta["setName"] = set_names.get(meta["setId"])
 
-    rows = load_scope_constituent_rows(
-        client, scope_set_ids, start_date=start_date, end_date=end_date,
-        eligible_card_ids=card_universe.keys(),
+    # Only pass a card filter when the segment filter actually narrowed the
+    # universe. For an "all rarities" query every card in scope is eligible, and
+    # shipping tens of thousands of ids as an array parameter would cost more
+    # than it saves.
+    card_ids = list(card_universe.keys()) if spec["segmentIds"] else None
+
+    # Narrow an open-ended request to the history that exists, so "everything"
+    # does not become hundreds of statements over empty years.
+    available_start, available_end = resolve_scope_history_bounds(client, scope_set_ids)
+    effective_start = max(str(start_date)[:10], available_start or str(start_date)[:10])
+    effective_end = min(str(end_date)[:10], available_end or str(end_date)[:10])
+    if effective_start > effective_end:
+        raise MarketExplorerQueryUnavailable(
+            "the requested date range does not overlap this scope's tracked history"
+        )
+
+    cohort_rows = load_daily_cohort_rows(
+        client, scope_set_ids, start_date=effective_start, end_date=effective_end,
+        card_ids=card_ids, top_n=spec["topN"],
     )
-    series = build_query_series(
-        rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
+    if not cohort_rows:
+        raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
+
+    basket_rows = load_basket_for_date(
+        client, scope_set_ids, market_date=cohort_rows[-1]["marketDate"], card_ids=card_ids,
+    )
+    series = build_query_series_from_cohorts(
+        cohort_rows, basket_rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
     )
     if series is None:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
@@ -435,11 +714,14 @@ def run_market_explorer_query(
         "scope": {
             "resolvedSetCount": len(scope_set_ids),
             "eligibleCardCount": len(card_universe),
-            "startDate": str(start_date)[:10],
-            "endDate": str(end_date)[:10],
+            "requestedStartDate": str(start_date)[:10],
+            "requestedEndDate": str(end_date)[:10],
+            "startDate": effective_start,
+            "endDate": effective_end,
         },
         "diagnostics": {
-            "constituentRowCount": len(rows),
+            "cohortRowCount": len(cohort_rows),
+            "currentBasketRowCount": len(basket_rows),
             "elapsedSeconds": round(time.perf_counter() - started, 3),
         },
         **series,

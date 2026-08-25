@@ -241,3 +241,12 @@ test("the client field manifest advertises current packaged and top-level models
     "financialRipV4.relativeScore",
   ]) assert.ok(RANKINGS_CLIENT_FIELDS.includes(path), path);
 });
+
+test("display-only family evidence crosses the lightweight Rankings boundary", () => {
+  const displayFamilyScores = [{ family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2 }];
+  const [projected] = projectRankingsTargets([{ target_id: "enhanced", setRipV1: {
+    score: 77.5, familyScores: [], displayFamilyScores,
+  } }]);
+  assert.deepEqual(projected.setRipV1.displayFamilyScores, displayFamilyScores);
+  assert.deepEqual(projected.setRipV1.familyScores, []);
+});

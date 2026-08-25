@@ -50,6 +50,13 @@ export function participatingFamilyScores(setRip) {
     : [];
 }
 
+export function displayFamilyScores(setRip) {
+  const source = Array.isArray(setRip?.displayFamilyScores) ? setRip.displayFamilyScores : setRip?.familyScores;
+  return Array.isArray(source)
+    ? source.filter((entry) => entry && Number.isFinite(Number(entry.score)) && Number(entry.rank) > 0 && Number(entry.cohortSize) > 0)
+    : [];
+}
+
 export function familyEvidenceScores(setRip) {
   return Array.isArray(setRip?.familyScores)
     ? setRip.familyScores.filter((entry) => entry && typeof entry.family === "string" && entry.family.trim())
@@ -100,7 +107,7 @@ export function FamilyScoreRow({ entry, compact = false, showTakeaway = false })
 }
 
 export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
-  const families = participatingFamilyScores(setRip);
+  const families = displayFamilyScores(setRip);
   if (!families.length) return <span className="text-xs text-[var(--text-secondary)]">Family scores unavailable</span>;
   if (layout === "modules") {
     const wideColumnCount = Math.min(families.length, 7);
@@ -125,14 +132,12 @@ export function FamilySnapshot({ setRip, compact = false, layout = "rows" }) {
 export const RANKINGS_FAMILY_COLUMNS = Object.freeze([
   { key: "loose", label: "Loose Pack", fullLabel: "Loose Booster Pack", families: ["loose_booster_pack"] },
   { key: "sleeved", label: "Sleeved Pack", fullLabel: "Sleeved Booster Pack", families: ["sleeved_booster_pack"] },
-  { key: "three-pack", label: "3-Pack", fullLabel: "3-Pack Blister", families: ["three_pack_blister"] },
   { key: "bundle", label: "Bundle", fullLabel: "Booster Bundle", families: ["booster_bundle"] },
   { key: "etb", label: "ETB", fullLabel: "Elite Trainer Box", families: ["elite_trainer_box"] },
   { key: "pc-etb", label: "PC ETB", fullLabel: "Pokémon Center Elite Trainer Box", families: ["pokemon_center_elite_trainer_box"] },
   { key: "half-box", label: "Half Box", fullLabel: "Half Booster Box", families: ["half_booster_box"] },
   { key: "booster-box", label: "Booster Box", fullLabel: "Booster Box", families: ["booster_box"] },
   { key: "enhanced-box", label: "Enhanced Box", fullLabel: "Enhanced Booster Box", families: ["enhanced_booster_box"] },
-  { key: "special", label: "SPC / UPC", fullLabel: "Special Collection or Ultra Premium Collection", families: ["special_collection", "ultra_premium_collection"] },
 ]);
 
 function FixedFamilyResult({ entry, identifier = null }) {
@@ -148,7 +153,7 @@ function FixedFamilyResult({ entry, identifier = null }) {
 }
 
 export function RankingsFamilyCells({ setRip }) {
-  const familyByKey = new Map(participatingFamilyScores(setRip).map((entry) => [entry.family, entry]));
+  const familyByKey = new Map(displayFamilyScores(setRip).map((entry) => [entry.family, entry]));
   return RANKINGS_FAMILY_COLUMNS.map((column) => {
     const entries = column.families.map((family) => familyByKey.get(family)).filter(Boolean);
     return (

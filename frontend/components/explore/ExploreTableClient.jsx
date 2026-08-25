@@ -450,7 +450,7 @@ function SetRipScoreBadge({ score, tier, compact = false }) {
     >
       <svg aria-hidden="true" viewBox="0 0 72 60" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible"><polygon points="10,1 62,1 71,11 71,49 62,59 10,59 1,49 1,11" fill="rgba(7,14,25,0.72)" stroke={accent} strokeWidth="1.25" vectorEffect="non-scaling-stroke" /></svg>
       <strong className={`relative ${compact ? "text-xl" : "text-[23px]"} font-bold leading-none tabular-nums text-[var(--text-primary)]`}>{score === null ? UNAVAILABLE_LABEL : formatModeScore(score, SCORE_KIND_PUBLIC)}</strong>
-      {score !== null ? <span className="relative text-[8px] text-[var(--text-secondary)]">/ 10</span> : null}
+      {score !== null ? <span className="relative text-[9px] text-[var(--text-secondary)]">/ 10</span> : null}
       <span className="mt-1 text-[7px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">RIP Score</span>
     </div>
   );
@@ -464,8 +464,7 @@ function SetTierMark({ tier }) {
 function RankingInsight({ setRip }) {
   const explanation = whySetRanks(setRip);
   const heading = explanation.startsWith("Elite") ? "Elite across formats" : explanation.startsWith("Strong") ? "Strong family depth" : "Standout family strength";
-  const score = setRip?.score == null ? null : formatModeScore(setRip.score, SCORE_KIND_PUBLIC);
-  return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span>{score ? <span className="mb-1 block text-sm font-bold tabular-nums text-[var(--text-primary)]">{score} / 10</span> : null}<strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
+  return <div data-ranking-insight className="flex max-w-[15rem] items-start gap-2.5"><span aria-hidden="true" className="mt-1 h-2.5 w-2.5 flex-none rotate-45 border border-[var(--ex-rank-accent,var(--accent))]" /><span><strong className="block text-xs leading-tight text-[var(--text-primary)]">{heading}</strong><span className="mt-1 block text-[10.5px] leading-[1.35] text-[var(--text-secondary)]">{explanation}</span></span></div>;
 }
 
 /**

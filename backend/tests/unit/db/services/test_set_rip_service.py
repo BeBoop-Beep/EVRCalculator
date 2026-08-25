@@ -69,6 +69,20 @@ def test_family_eligibility_rankability_and_future_family_are_generic():
     }), set_targets=targets)
     assert set(result["eligibleFamilyRepresentedSetCounts"]) == {"half_booster_box", "three_pack_blister"}
     assert "enhanced_booster_box" not in result["eligibleFamilyRepresentedSetCounts"]
+    by_id = {row["setId"]: row for row in result["sets"]}
+    assert all("enhanced_booster_box" not in {item["family"] for item in by_id[set_id]["familyScores"]}
+               for set_id in ("a", "b"))
+    assert all("enhanced_booster_box" in {item["family"] for item in by_id[set_id]["displayFamilyScores"]}
+               for set_id in ("a", "b"))
+    assert by_id["a"]["score"] == pytest.approx(100)
+    assert by_id["b"]["score"] == pytest.approx(50)
+    enhanced_by_set = {
+        set_id: next(item for item in by_id[set_id]["displayFamilyScores"]
+                     if item["family"] == "enhanced_booster_box")
+        for set_id in ("a", "b")
+    }
+    assert (enhanced_by_set["a"]["rank"], enhanced_by_set["a"]["cohortSize"]) == (1, 2)
+    assert (enhanced_by_set["b"]["rank"], enhanced_by_set["b"]["cohortSize"]) == (2, 2)
     assert [row["rankable"] for row in result["sets"] if row["setId"] in {"a", "b"}] == [True, True]
     c = next(row for row in result["sets"] if row["setId"] == "c")
     assert c["rankable"] and c["rank"] is not None

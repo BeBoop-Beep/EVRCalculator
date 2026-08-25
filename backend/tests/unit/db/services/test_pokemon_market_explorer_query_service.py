@@ -85,13 +85,83 @@ class _Query:
         return type("Result", (), {"data": rows[start:end + 1]})()
 
 
+def _panel(prices, set_ids, card_ids):
+    """The card-date panel the batched constituent RPC would return."""
+    allowed_sets = {str(value) for value in set_ids}
+    allowed_cards = None if card_ids is None else {str(value) for value in card_ids}
+    rows = []
+    for card in CARDS:
+        if card["set_id"] not in allowed_sets:
+            continue
+        if allowed_cards is not None and card["id"] not in allowed_cards:
+            continue
+        for market_date in DATES:
+            price = prices.get(card["id"])
+            if isinstance(price, dict):
+                price = price.get(market_date)
+            if price is None:
+                continue
+            rows.append({"canonical_card_id": card["id"], "set_id": card["set_id"],
+                         "market_date": market_date, "market_price": price})
+    return rows
+
+
+class _RpcResult:
+    def __init__(self, data):
+        self.data = data
+
+    def execute(self):
+        return self
+
+
 class FakeClient:
     def __init__(self, prices=None):
         self.prices = prices if prices is not None else PRICES
 
+    def rpc(self, name, payload):
+        """Reproduce the two server-side RPCs against the fixture panel.
+
+        The cohort aggregation mirrors the SQL: rank within each date, apply the
+        chase cutoff PER DATE, then sum the day's basket and the cohort common
+        with the previous observed day.
+        """
+        rows = _panel(self.prices, payload["p_set_ids"], payload.get("p_card_ids"))
+        start, end = payload["p_start_date"], payload["p_end_date"]
+        rows = [row for row in rows if start <= row["market_date"] <= end]
+
+        if name == "get_pokemon_cards_daily_constituents":
+            return _RpcResult(rows)
+
+        assert name == "get_pokemon_market_explorer_daily_cohort", name
+        top_n = payload.get("p_top_n")
+        by_date = {}
+        for row in rows:
+            by_date.setdefault(row["market_date"], []).append(row)
+
+        output, previous = [], None
+        for market_date in sorted(by_date):
+            universe = sorted(by_date[market_date],
+                              key=lambda row: (-float(row["market_price"]), row["canonical_card_id"]))
+            selected = universe[:top_n] if top_n else universe
+            current = {row["canonical_card_id"]: float(row["market_price"]) for row in selected}
+            common = set() if previous is None else previous.keys() & current.keys()
+            output.append({
+                "market_date": market_date,
+                "constituent_count": len(current),
+                "eligible_universe_count": len(universe),
+                "basket_value": round(sum(current.values()), 2),
+                "common_count": len(common),
+                "common_current_value": round(sum(current[key] for key in common), 2),
+                "common_previous_value": round(sum(previous[key] for key in common), 2) if previous else 0.0,
+            })
+            previous = current
+        return _RpcResult(output)
+
     def table(self, name):
         if name == "pokemon_set_value_daily_history_coverage":
-            return _Query([{"set_id": row["id"], "has_history": True} for row in SETS])
+            return _Query([{"set_id": row["id"], "has_history": True,
+                            "first_snapshot_date": DATES[0],
+                            "latest_snapshot_date": DATES[-1]} for row in SETS])
         if name == "sets":
             return _Query(SETS)
         if name == "eras":
@@ -217,49 +287,90 @@ def test_fewer_than_requested_returns_what_exists_and_reports_it():
 # Sections 14/15/43/44 -- dynamic membership and entry/exit neutrality
 # ---------------------------------------------------------------------------
 
+def _reference_series(prices, *, set_ids, card_ids, mode, top_n):
+    """Build the series through the REFERENCE row-based path.
+
+    The served path aggregates per date inside the database and therefore
+    transports only today's constituent identities. Per-date membership is still
+    computed correctly there -- the cutoff is applied per date before
+    aggregation -- but the ids do not travel, so the two guarantees below are
+    asserted where the identities exist. `build_query_series` and
+    `build_query_series_from_cohorts` are held to the same numbers by
+    test_served_and_reference_paths_agree.
+    """
+    rows = [
+        {"canonical_card_id": row["canonical_card_id"], "market_date": row["market_date"],
+         "market_price": row["market_price"]}
+        for row in _panel(prices, set_ids, card_ids)
+    ]
+    metadata = {card["id"]: {"setId": card["set_id"], "cardName": card["name"],
+                             "rarity": card["rarity"]} for card in CARDS}
+    return svc.build_query_series(rows, metadata, mode=mode, top_n=top_n)
+
+
+SV_SIR_CARD_IDS = [card["id"] for card in CARDS
+                   if card["set_id"] in {"set-ah", "set-pe"}
+                   and card["rarity"] == "Special Illustration Rare"]
+SV_SET_IDS = ["set-ah", "set-pe"]
+
+
 def test_membership_changes_between_days_without_rewriting_history():
-    """Section 43. pe-sir-0 overtakes ah-sir-4 on day two only."""
+    """Section 43. pe-sir-0 overtakes ah-sir-0 on day two only."""
     prices = dict(PRICES)
     prices["pe-sir-0"] = {DATES[0]: 500.0, DATES[1]: 5000.0}
-    client = FakeClient(prices)
-    result = _run(client=client, mode=MODE_CHASE, era_ids=[SV_ERA],
-                  segment_ids=["specialIllustrationRare"], top_n=1)
-    # The published basket is day two's winner.
-    assert _ids(result) == ["pe-sir-0"]
-    # Day one's basket is day one's winner. Today's champion is NOT projected
-    # backward: on day one pe-sir-0 was worth 500 and ah-sir-0 was the top SIR,
-    # and the recorded history says exactly that.
-    day_one, day_two = _ids_by_day(result)
+    series = _reference_series(prices, set_ids=SV_SET_IDS, card_ids=SV_SIR_CARD_IDS,
+                               mode=MODE_CHASE, top_n=1)
+    day_one, day_two = [entry["constituentIds"] for entry in series["membershipByDate"]]
+    # Today's champion is NOT projected backward: on day one pe-sir-0 was worth
+    # 500 and ah-sir-0 was the top SIR, and the history says exactly that.
     assert day_one == ["ah-sir-0"]
     assert day_two == ["pe-sir-0"]
 
 
 def test_a_pure_roster_swap_does_not_move_the_index():
-    """Section 44. Card B replaces Card A at an identical price.
+    """Section 44. Card B replaces Card A, entering far above the leaver.
 
-    Every surviving constituent is flat, so the ONLY change between the two
-    days is the swap itself. A construction that measured basket-to-basket
-    would still read 0% here, so the test also pins a case where the entrant's
-    price differs from the leaver's: the index must ignore the difference.
+    The four surviving constituents are all flat, so the ONLY thing that changed
+    between the two days is the swap. A construction that measured basket against
+    basket would report a large gain here; the chain-linked index must report none.
     """
     prices = dict(PRICES)
-    # ah-sir-4 (899-4 = 895) leaves; pe-sir-0 enters far above it on day two.
     prices["ah-sir-4"] = {DATES[0]: 896.0}          # priced day one only
     prices["pe-sir-0"] = {DATES[1]: 4000.0}         # priced day two only
-    client = FakeClient(prices)
-    result = _run(client=client, mode=MODE_CHASE, era_ids=[SV_ERA],
-                  segment_ids=["specialIllustrationRare"], top_n=5)
+    series = _reference_series(prices, set_ids=SV_SET_IDS, card_ids=SV_SIR_CARD_IDS,
+                               mode=MODE_CHASE, top_n=5)
 
-    day_one, day_two = _ids_by_day(result)
+    day_one, day_two = [entry["constituentIds"] for entry in series["membershipByDate"]]
     assert "ah-sir-4" in day_one and "ah-sir-4" not in day_two
     assert "pe-sir-0" in day_two and "pe-sir-0" not in day_one
 
-    # Common constituents were all flat, so the chain-linked index is unchanged
-    # even though Tracked Value jumped on the swap.
-    index_day_one, index_day_two = (point[1] for point in result["trend"])
+    index_day_one, index_day_two = (point[1] for point in series["trend"])
     assert index_day_two == pytest.approx(index_day_one)
-    tracked = [row["value"] for row in result["trackedValueHistory"]]
+    tracked = [row["value"] for row in series["trackedValueHistory"]]
     assert tracked[1] > tracked[0], "Tracked Value is expected to move on a swap"
+
+
+def test_served_and_reference_paths_agree():
+    """The fast served path must not be a second, subtly different index.
+
+    Same query, same fixtures, two independent implementations: the database
+    cohort aggregation feeding build_query_series_from_cohorts, and the full
+    card-date panel feeding build_query_series.
+    """
+    served = _run(mode=MODE_CHASE, era_ids=[SV_ERA],
+                  segment_ids=["specialIllustrationRare"], top_n=5)
+    reference = _reference_series(PRICES, set_ids=SV_SET_IDS, card_ids=SV_SIR_CARD_IDS,
+                                  mode=MODE_CHASE, top_n=5)
+
+    assert served["asOf"] == reference["asOf"]
+    assert served["trackedValue"] == pytest.approx(reference["trackedValue"])
+    assert served["indexValue"] == pytest.approx(reference["indexValue"])
+    assert [point[1] for point in served["trend"]] == pytest.approx(
+        [point[1] for point in reference["trend"]]
+    )
+    assert _ids(served) == [row["canonicalCardId"] for row in reference["currentConstituents"]]
+    assert (served["reconciliation"]["actualConstituentCount"]
+            == reference["reconciliation"]["actualConstituentCount"])
 
 
 def _ids_by_day(result):

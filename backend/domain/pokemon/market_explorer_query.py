@@ -39,7 +39,10 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping, Sequence
 
-from backend.domain.pokemon.market_index import deterministic_fingerprint
+from backend.domain.pokemon.market_index import (
+    MARKET_INDEX_BASE_VALUE,
+    deterministic_fingerprint,
+)
 
 MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1"
 
@@ -191,6 +194,81 @@ def rank_chase_constituents(
     for position, row in enumerate(selected, start=1):
         row["rank"] = position
     return selected
+
+
+def build_chain_linked_history_from_cohorts(
+    rows: Iterable[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Chain-link a series from PRE-AGGREGATED per-date cohort sums.
+
+    WHY THIS EXISTS. `build_chain_linked_history_with_segments` needs the full
+    per-card constituent list for every date to work out each day's common
+    cohort. For one query that panel is 29k-64k card-date rows, which cannot
+    cross the 1000-row response cap in fewer than dozens of round trips -- and
+    those round trips, not the arithmetic, are essentially the entire cost of a
+    query. The database can compute the common-cohort sums itself and return one
+    row per DATE, so this function performs the identical chain-link arithmetic
+    against sums it did not have to fetch the constituents to obtain.
+
+    IDENTICAL MATH, NOT SIMILAR MATH. The daily return is
+    ``commonCurrentValue / commonPreviousValue - 1`` over exactly the cards
+    present on both days -- the same quantity the row-based function computes
+    from `commonSetIds`. A roster change still cannot move the index, because a
+    card present on only one of the two days is in neither sum. The two paths
+    are held to byte-equality by a parity test rather than by inspection.
+
+    COHORT BREAKS. A date sharing no constituent with the previous one starts a
+    NEW chain segment at the base value, matching the row-based function: the
+    index cannot describe a movement across a day with no shared constituent, so
+    it declines to describe that one transition instead of fabricating it.
+    """
+    ordered = sorted((dict(row) for row in rows), key=lambda row: str(row["marketDate"])[:10])
+    output: list[dict[str, Any]] = []
+    previous_index = MARKET_INDEX_BASE_VALUE
+    previous_date: str | None = None
+    segment_id = 0
+    segment_start: str | None = None
+    seen: set[str] = set()
+
+    for row in ordered:
+        market_date = str(row["marketDate"])[:10]
+        if market_date in seen:
+            raise MarketExplorerQueryError(f"duplicate market date: {market_date}")
+        seen.add(market_date)
+
+        common_count = int(row.get("commonCount") or 0)
+        common_previous = _price(row.get("commonPreviousValue"))
+        common_current = _price(row.get("commonCurrentValue"))
+
+        if previous_date is None:
+            daily_return = None
+            index_value = MARKET_INDEX_BASE_VALUE
+            segment_start = market_date
+        elif common_count <= 0 or common_previous is None or common_current is None:
+            # No shared constituent with the previous day: start a fresh chain.
+            daily_return = None
+            index_value = MARKET_INDEX_BASE_VALUE
+            segment_id += 1
+            segment_start = market_date
+        else:
+            daily_return = common_current / common_previous - 1.0
+            index_value = previous_index * (1.0 + daily_return)
+
+        output.append({
+            "marketDate": market_date,
+            "basketValue": float(row.get("basketValue") or 0.0),
+            "normalizedIndexValue": index_value,
+            "dailyReturn": daily_return,
+            "previousMarketDate": previous_date,
+            "commonCount": common_count,
+            "constituentCount": int(row.get("constituentCount") or 0),
+            "eligibleUniverseCount": int(row.get("eligibleUniverseCount") or 0),
+            "chainSegmentId": segment_id,
+            "segmentStartDate": segment_start,
+        })
+        previous_index, previous_date = index_value, market_date
+
+    return output
 
 
 def build_query_observations(

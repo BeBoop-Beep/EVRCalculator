@@ -16,6 +16,7 @@ from backend.domain.pokemon.market_explorer_query import (
     MODE_ALL,
     MODE_CHASE,
     MarketExplorerQueryError,
+    build_chain_linked_history_from_cohorts,
     build_query_observations,
     normalize_query_spec,
     query_fingerprint,
@@ -160,3 +161,95 @@ def test_observations_carry_requested_and_actual_counts():
     day = build_query_observations(rows, mode=MODE_CHASE, top_n=10)[0]
     assert day["requestedTopN"] == 10
     assert day["actualConstituentCount"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Fast-path parity (cohort-aggregate chain-link vs row-based chain-link)
+# ---------------------------------------------------------------------------
+
+def _cohorts_from_rows(rows, *, mode, top_n):
+    """Compute what the SQL cohort RPC would return, from raw card-date rows.
+
+    This mirrors the RPC's aggregation in Python so the two chain-linkers can be
+    compared on identical input without a database.
+    """
+    observations = build_query_observations(rows, mode=mode, top_n=top_n)
+    cohorts = []
+    previous = None
+    for observation in observations:
+        current = {row["setId"]: float(row["setValue"]) for row in observation["constituents"]}
+        if previous is None:
+            common_ids = set()
+        else:
+            common_ids = previous.keys() & current.keys()
+        cohorts.append({
+            "marketDate": observation["marketDate"],
+            "constituentCount": observation["actualConstituentCount"],
+            "eligibleUniverseCount": observation["eligibleUniverseCount"],
+            "basketValue": round(sum(current.values()), 2),
+            "commonCount": len(common_ids),
+            "commonCurrentValue": round(sum(current[key] for key in common_ids), 2),
+            "commonPreviousValue": round(sum(previous[key] for key in common_ids), 2) if previous else 0.0,
+        })
+        previous = current
+    return cohorts
+
+
+def _row(date_, card, price):
+    return {"marketDate": date_, "canonicalCardId": card, "marketPrice": price}
+
+
+def test_cohort_chain_link_matches_the_row_based_chain_link():
+    """The fast path must not be a second, subtly different index."""
+    from backend.domain.pokemon.market_index import build_chain_linked_history_with_segments
+
+    rows = [
+        _row("2026-01-01", "A", 100.0), _row("2026-01-01", "B", 50.0),
+        _row("2026-01-02", "A", 110.0), _row("2026-01-02", "B", 55.0),
+        # C enters and B leaves -- a roster change mid-series.
+        _row("2026-01-03", "A", 121.0), _row("2026-01-03", "C", 900.0),
+        _row("2026-01-04", "A", 121.0), _row("2026-01-04", "C", 990.0),
+    ]
+    observations = build_query_observations(rows, mode=MODE_ALL, top_n=None)
+    row_based = build_chain_linked_history_with_segments(observations)
+    cohort_based = build_chain_linked_history_from_cohorts(
+        _cohorts_from_rows(rows, mode=MODE_ALL, top_n=None)
+    )
+
+    assert len(row_based) == len(cohort_based)
+    for expected, actual in zip(row_based, cohort_based):
+        assert expected["marketDate"] == actual["marketDate"]
+        assert actual["normalizedIndexValue"] == pytest.approx(expected["normalizedIndexValue"])
+        assert actual["basketValue"] == pytest.approx(expected["basketValue"])
+        assert actual["chainSegmentId"] == expected["chainSegmentId"]
+
+
+def test_cohort_chain_link_ignores_a_roster_swap():
+    """Entry/exit neutrality holds on the fast path too (section 44)."""
+    history = build_chain_linked_history_from_cohorts([
+        {"marketDate": "2026-01-01", "constituentCount": 2, "eligibleUniverseCount": 2,
+         "basketValue": 150.0, "commonCount": 0,
+         "commonCurrentValue": 0.0, "commonPreviousValue": 0.0},
+        # B leaves at 50, C enters at 900 -- the surviving card A is flat.
+        {"marketDate": "2026-01-02", "constituentCount": 2, "eligibleUniverseCount": 2,
+         "basketValue": 1000.0, "commonCount": 1,
+         "commonCurrentValue": 100.0, "commonPreviousValue": 100.0},
+    ])
+    assert history[1]["normalizedIndexValue"] == pytest.approx(history[0]["normalizedIndexValue"])
+    # Tracked Value, by contrast, is expected to jump.
+    assert history[1]["basketValue"] > history[0]["basketValue"]
+
+
+def test_a_cohort_break_starts_a_new_chain_segment():
+    history = build_chain_linked_history_from_cohorts([
+        {"marketDate": "2026-01-01", "constituentCount": 1, "eligibleUniverseCount": 1,
+         "basketValue": 100.0, "commonCount": 0,
+         "commonCurrentValue": 0.0, "commonPreviousValue": 0.0},
+        {"marketDate": "2026-01-02", "constituentCount": 1, "eligibleUniverseCount": 1,
+         "basketValue": 900.0, "commonCount": 0,
+         "commonCurrentValue": 0.0, "commonPreviousValue": 0.0},
+    ])
+    assert [row["chainSegmentId"] for row in history] == [0, 1]
+    # The break must NOT manufacture a return out of the level difference.
+    assert history[1]["normalizedIndexValue"] == pytest.approx(100.0)
+    assert history[1]["dailyReturn"] is None
