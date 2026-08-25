@@ -12,6 +12,7 @@ import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
+import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import styles from "./explore.module.css";
 
 const FAMILY_SORT_OPTIONS = [
@@ -228,10 +229,12 @@ function PremiumMetricLock() {
 }
 
 function ProductIdentity({ product: p, overall, canViewProductRipIntelligence }) {
-  const image = p.productFamily === "loose_booster_pack" ? p.productImageUrl : null;
+  const artwork = p.productFamily === "loose_booster_pack"
+    ? resolveLooseBoosterPackArtwork({ productImageUrl: p.productImageUrl, setCanonicalKey: p.setCanonicalKey })
+    : null;
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      {image ? <img src={image} alt="" className="h-8 w-8 flex-none object-contain md:h-10 md:w-10" loading="lazy" /> : null}
+      {artwork ? <span className="flex h-9 w-7 flex-none items-center justify-center md:h-10 md:w-8"><img src={artwork.src} alt="" className="max-h-full max-w-full object-contain" loading="lazy" /></span> : null}
       <span className="min-w-0">
         <span className="block truncate font-semibold text-[var(--text-primary)]">{p.productName}</span>
         <span className="block truncate text-xs text-[var(--text-secondary)]">{p.setName} · {p.productFamilyLabel}</span>

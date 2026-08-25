@@ -29,3 +29,10 @@ test("Rankings unlock for Plus and Premium plans only", () => {
   assert.equal(resolveRankingsPlanAccess({ index_plan: null }).canViewRankingsIntelligence, false);
   assert.equal(resolveRankingsPlanAccess(null).canViewRankingsIntelligence, false);
 });
+
+test("a subsequently resolved Premium user replaces an initially locked auth state", () => {
+  const initialAccess = resolveRankingsPlanAccess(null);
+  const hydratedAccess = resolveRankingsPlanAccess({ index_plan: "premium" });
+  assert.equal(initialAccess.canViewRankingsIntelligence, false);
+  assert.equal(hydratedAccess.canViewRankingsIntelligence, true);
+});

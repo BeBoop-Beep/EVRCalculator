@@ -3,7 +3,7 @@ import GlobalMobileBottomNav from "@/components/GlobalMobileBottomNav";
 import { CartContextProvider } from "@/components/Cart/CartContext";
 import { AuthProvider } from "@/components/AuthContext";
 import RouteTransitionFeedback from "@/components/navigation/RouteTransitionFeedback";
-import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
+import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
 import { getCanonicalSiteOrigin } from "@/lib/seo/siteUrl.mjs";
 import { SITE_NAME } from "@/lib/seo/routeMetadata.mjs";
 import { Manrope } from "next/font/google";
@@ -76,7 +76,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const authResult = await getAuthenticatedUserFromCookiesWithTimeout(150);
+  const authResult = await getAuthenticatedUserFromCookies();
   const initialUser = authResult?.user || null;
 
   return (

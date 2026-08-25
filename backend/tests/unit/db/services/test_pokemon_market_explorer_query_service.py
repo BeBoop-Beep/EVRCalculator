@@ -411,3 +411,94 @@ def test_constituents_publish_the_section_24_contract():
                   "rarity", "marketPrice", "imageUrl", "asOf", "queryMembershipReason"):
         assert field in row, f"missing published constituent field: {field}"
     assert row["setName"] == "Ascended Heroes"
+
+
+def test_an_unranked_universe_beyond_the_cohort_limit_is_refused_not_attempted():
+    """A too-large "All Constituents" query must say so, not time out.
+
+    Global Illustration Rare (492 cards) used to reach the database, spend 60
+    seconds hitting the statement timeout, and surface as a generic 500. The
+    limit is a property of the unranked cohort panel, so the refusal happens
+    before any round trip and names what to do instead.
+    """
+    calls = []
+
+    class Client:
+        def rpc(self, *args, **kwargs):
+            calls.append(args)
+            raise AssertionError("an oversized unranked query must not reach the database")
+
+    oversized = [f"card-{index}" for index in range(svc.COHORT_MAX_UNRANKED_CARDS + 1)]
+    try:
+        svc.load_daily_cohort_rows(
+            Client(), ["set-a"], start_date="2026-01-01", end_date="2026-06-01",
+            card_ids=oversized, top_n=None,
+        )
+    except svc.MarketExplorerQueryUnavailable as exc:
+        message = str(exc)
+    else:  # pragma: no cover - the call above must raise
+        raise AssertionError("expected svc.MarketExplorerQueryUnavailable")
+
+    assert calls == []
+    assert str(len(oversized)) in message
+    assert "Top 10" in message
+
+
+def test_the_same_universe_ranked_is_not_refused():
+    """`top_n` is ranked inside the database, so the cap must not apply to it."""
+    seen = {}
+
+    class Client:
+        def rpc(self, name, payload):
+            seen["payload"] = payload
+            return _RpcResult([])
+
+    oversized = [f"card-{index}" for index in range(svc.COHORT_MAX_UNRANKED_CARDS + 1)]
+    rows = svc.load_daily_cohort_rows(
+        Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
+        card_ids=oversized, top_n=10,
+    )
+    assert rows == []
+    assert seen["payload"]["p_top_n"] == 10
+
+
+def test_a_statement_timeout_is_reported_as_unavailable_not_as_a_crash():
+    """The backstop for a universe under the cap that still exceeds the budget."""
+
+    class Timeout(Exception):
+        code = "57014"
+
+    class Client:
+        def rpc(self, *_args, **_kwargs):
+            raise Timeout("canceling statement due to statement timeout")
+
+    try:
+        svc.load_daily_cohort_rows(
+            Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
+            card_ids=["card-1"], top_n=None,
+        )
+    except svc.MarketExplorerQueryUnavailable as exc:
+        assert "too large" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("expected svc.MarketExplorerQueryUnavailable")
+
+
+def test_an_unrelated_database_error_still_propagates():
+    """Only 57014 is reclassified; a real fault must not be mistaken for size."""
+
+    class Boom(Exception):
+        code = "42P01"
+
+    class Client:
+        def rpc(self, *_args, **_kwargs):
+            raise Boom("relation does not exist")
+
+    try:
+        svc.load_daily_cohort_rows(
+            Client(), ["set-a"], start_date="2026-01-01", end_date="2026-01-05",
+            card_ids=["card-1"], top_n=None,
+        )
+    except Boom:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("expected the original error to propagate")

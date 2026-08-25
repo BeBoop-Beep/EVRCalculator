@@ -28,3 +28,13 @@ export function resolvePokemonBoosterPackAsset(canonicalSetKey) {
     ? BOOSTER_PACK_ASSETS[key]
     : null;
 }
+
+/** DB artwork remains authoritative; curated local art fills only known loose-pack gaps. */
+export function resolveLooseBoosterPackArtwork({ productImageUrl, setCanonicalKey } = {}) {
+  const canonicalProductImage = typeof productImageUrl === "string" ? productImageUrl.trim() : "";
+  if (canonicalProductImage) {
+    return { src: canonicalProductImage, source: "product" };
+  }
+  const localAsset = resolvePokemonBoosterPackAsset(setCanonicalKey);
+  return localAsset ? { ...localAsset, source: "local" } : null;
+}
