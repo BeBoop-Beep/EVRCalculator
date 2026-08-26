@@ -319,8 +319,15 @@ export function selectMarketBreadth({ moversByWindow, windowKey } = {}) {
 export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
   const normalized = String(windowKey || "").trim().toUpperCase();
   const entry = marketBreadth?.[normalized] || marketBreadth?.[normalized.toLowerCase()] || null;
-  if (!entry || entry.available === false) {
-    return { available: false, reason: entry?.status || SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
+  if (!entry) {
+    return {
+      available: false,
+      reason: "Market breadth is not published for this timeframe.",
+      windowKey: normalized || null,
+    };
+  }
+  if (entry.available === false) {
+    return { available: false, reason: entry.status || SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
   }
   const advancing = toFiniteNumber(entry.advancingCount ?? entry.advancing_count);
   const declining = toFiniteNumber(entry.decliningCount ?? entry.declining_count);
@@ -328,10 +335,21 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
   const total = toFiniteNumber(entry.eligibleCount ?? entry.eligible_count);
   const advancingPercent = toFiniteNumber(entry.advancingPercent ?? entry.advancing_percent);
   const decliningPercent = toFiniteNumber(entry.decliningPercent ?? entry.declining_percent);
+  const unchangedPercent = toFiniteNumber(entry.unchangedPercent ?? entry.unchanged_percent);
   if (total === null || advancingPercent === null || decliningPercent === null) {
     return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
   }
-  return { available: true, windowKey: normalized, advancing, declining, flat, total, advancingPercent, decliningPercent };
+  return {
+    available: true,
+    windowKey: normalized,
+    advancing,
+    declining,
+    flat,
+    total,
+    advancingPercent,
+    decliningPercent,
+    unchangedPercent: unchangedPercent ?? Math.max(0, Math.round((100 - advancingPercent - decliningPercent) * 10) / 10),
+  };
 }
 
 // --- Chase Concentration ----------------------------------------------------

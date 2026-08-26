@@ -3784,12 +3784,18 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
                 <span className="text-sm font-semibold text-[var(--positive)]">{breadth.advancingPercent}% Advancing</span>
                 <span className="text-sm font-semibold text-[var(--negative)]">{breadth.decliningPercent}% Declining</span>
               </div>
+              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                {breadth.unchangedPercent}% Unchanged
+              </p>
               <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
                 <div className="h-full bg-[var(--positive)]" style={{ width: `${breadth.advancingPercent}%` }} />
                 <div className="h-full bg-[var(--negative)]" style={{ width: `${breadth.decliningPercent}%` }} />
                 {breadth.flat > 0 ? <div className="h-full bg-slate-500/60" style={{ width: `${Math.max(0, 100 - breadth.advancingPercent - breadth.decliningPercent)}%` }} /> : null}
               </div>
               <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
+                {breadth.advancing.toLocaleString("en-US")} advancing · {breadth.declining.toLocaleString("en-US")} declining · {breadth.flat.toLocaleString("en-US")} unchanged
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
                 {breadth.total.toLocaleString("en-US")} mover-eligible cards · {windowLabel}
               </p>
             </>

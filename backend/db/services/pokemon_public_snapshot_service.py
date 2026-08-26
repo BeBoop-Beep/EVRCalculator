@@ -26,6 +26,7 @@ from backend.desirability.card_appeal import (
 )
 from backend.desirability.set_components import build_card_appeal_correlation_dataset
 from backend.desirability.set_validation import build_opening_set_audit, is_opening_set_row
+from backend.domain.pokemon.rip_decision_metrics import packs_for_cumulative_probability
 from backend.db.services.explore_page_service import ExplorePageError
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
@@ -6688,6 +6689,32 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
                 block = dict(block)
                 block["leaderNormalizedScore"] = source.get("leaderNormalizedScore")
                 public_rip_contract_v10[contract_key] = block
+        # Older stored V10 snapshots already publish each subject path's exact
+        # per-pack probability but predate the acquisition-count fields. Enrich
+        # that same canonical path at read time with the established Top Chase
+        # helper so current snapshots and newly built snapshots share one math
+        # authority. The frontend never approximates these counts.
+        collector_block = public_rip_contract_v10.get("collectorAppeal")
+        if isinstance(collector_block, dict) and isinstance(collector_block.get("topSubjects"), list):
+            collector_block = dict(collector_block)
+            enriched_subjects = []
+            for subject in collector_block["topSubjects"]:
+                if not isinstance(subject, dict):
+                    enriched_subjects.append(subject)
+                    continue
+                enriched_subject = dict(subject)
+                for path_key in ("accessiblePath", "elitePath"):
+                    path = enriched_subject.get(path_key)
+                    if not isinstance(path, dict):
+                        continue
+                    enriched_path = dict(path)
+                    probability = enriched_path.get("modeledProbability")
+                    enriched_path.setdefault("packsFor50PercentChance", packs_for_cumulative_probability(probability, 0.50))
+                    enriched_path.setdefault("packsFor90PercentChance", packs_for_cumulative_probability(probability, 0.90))
+                    enriched_subject[path_key] = enriched_path
+                enriched_subjects.append(enriched_subject)
+            collector_block["topSubjects"] = enriched_subjects
+            public_rip_contract_v10["collectorAppeal"] = collector_block
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)

@@ -118,15 +118,18 @@
 .evRepTableRow { border-top: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: .75rem; font-variant-numeric: tabular-nums; }
 .evRepTableHead > :last-child,.evRepTableRow > :last-child { text-align: right; }
 .evRepTableRow strong { color: var(--text-primary); }
-.evComparison { display: grid; gap: .55rem; margin-top: .85rem; }
-.evComparison > div { display: grid; grid-template-columns: 8rem minmax(0,1fr) 5rem; align-items: center; gap: .6rem; color: var(--text-secondary); font-size: .7rem; }
-.evComparison > div > div { height: .65rem; overflow: hidden; border-radius: 999px; background: var(--border-subtle); }
-.evComparison i { display: block; height: 100%; border-radius: inherit; background: rgba(45,212,191,.52); }
-.evComparison > div:nth-child(2) i { background: rgb(45,212,191); }
-.evComparison strong { text-align: right; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.evGapSection { border-top: 1px solid var(--border-subtle); padding: 1rem; }
+.evGapSection h3 { color: var(--text-primary); font-size: .9rem; font-weight: 750; }
+.evGapSection > p { margin-top: .3rem; color: var(--text-secondary); font-size: .72rem; line-height: 1.5; }
+.evConceptCards { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .7rem; margin-top: .85rem; }
+.evConceptCards > div { min-width: 0; border: 1px solid var(--border-subtle); border-radius: .65rem; padding: .7rem .8rem; background: rgba(2,8,23,.28); }
+.evConceptCards span,.evConceptCards strong,.evConceptCards small { display: block; }
+.evConceptCards span { color: var(--text-secondary); font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .045em; }
+.evConceptCards strong { margin-top: .2rem; color: var(--text-primary); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.evConceptCards small { margin-top: .2rem; color: var(--text-secondary); font-size: .66rem; line-height: 1.4; }
 .evCapture { margin-top: .75rem; color: var(--text-primary); font-size: .82rem; }
-.evGapTitle { margin-top: .8rem; color: var(--text-primary); font-size: .72rem; font-weight: 750; }
 .evSkew { margin-top: .35rem; color: var(--text-secondary); font-size: .7rem; }
+.evTailNote { margin-top: .35rem; color: var(--text-secondary); font-size: .7rem; }
 .evMilestones { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .65rem; margin-top: .85rem; border-top: 1px solid var(--border-subtle); padding-top: .75rem; }
 .evMilestones span,.evMilestones strong,.evMilestones small { display: block; }
 .evMilestones span,.evMilestones small { color: var(--text-secondary); font-size: .62rem; }
@@ -152,6 +155,13 @@
 .attainableDisclosure summary:focus-visible { border-radius: .25rem; outline: 2px solid var(--accent); outline-offset: 3px; }
 .attainableDisclosure .subjectPath { margin-top: .55rem; }
 .subjectCardImage { display: flex; width: 4rem; height: 5.6rem; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: .4rem; background: rgba(0,0,0,.18); }
+.subjectAcquisition { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: .7rem; border: 1px solid var(--border-subtle); border-radius: .55rem; background: rgba(2,8,23,.3); }
+.subjectAcquisition > div { min-width: 0; padding: .5rem .6rem; }
+.subjectAcquisition > div + div { border-left: 1px solid var(--border-subtle); }
+.subjectAcquisition dt { color: var(--text-secondary); font-size: .58rem; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+.subjectAcquisition dd { margin-top: .16rem; color: var(--text-primary); font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.subjectAcquisition[data-subject-acquisition="locked"] dd { color: #d4af37; font-size: .68rem; font-weight: 650; }
+.subjectAcquisition[data-subject-acquisition="locked"] dd span { margin-right: .2rem; font-size: .62rem; }
 .pullRatesCta { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; margin-top: 1rem; border-radius: .5rem; color: var(--accent); font-size: .875rem; font-weight: 650; }
 .subjectMobileList { display: none; }
 
@@ -388,7 +398,7 @@
   .outcomeProfileRows,.outcomeProfileCallouts { grid-template-columns: 1fr; }
   .outcomeLegend { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .evMilestones { grid-template-columns: 1fr; }
-  .evComparison > div { grid-template-columns: 6.5rem minmax(0,1fr) 4.5rem; }
+  .evConceptCards { grid-template-columns: 1fr; }
   .outcomeProfileSection { padding: .8rem; }
   .evRepSection { padding: .8rem; }
   .fullReportGroup,.fullReportGroup:nth-child(even) { border-right: 0; }

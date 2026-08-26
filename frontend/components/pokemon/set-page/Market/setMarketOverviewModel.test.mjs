@@ -67,7 +67,14 @@ test("prepared breadth is displayed verbatim and All maps centrally to SinceTrac
   assert.deepEqual(selectPreparedMarketBreadth({
     windowKey: "7D",
     marketBreadth: { "7D": { available: true, eligibleCount: 10, advancingCount: 6, decliningCount: 3, unchangedCount: 1, advancingPercent: 60, decliningPercent: 30 } },
-  }), { available: true, windowKey: "7D", advancing: 6, declining: 3, flat: 1, total: 10, advancingPercent: 60, decliningPercent: 30 });
+  }), { available: true, windowKey: "7D", advancing: 6, declining: 3, flat: 1, total: 10, advancingPercent: 60, decliningPercent: 30, unchangedPercent: 10 });
+});
+
+test("prepared breadth identifies an unpublished timeframe explicitly", () => {
+  assert.equal(
+    selectPreparedMarketBreadth({ marketBreadth: {}, windowKey: "6M" }).reason,
+    "Market breadth is not published for this timeframe."
+  );
 });
 
 test("a segment trend reports value, delta, return, high and low for the selected window", () => {

@@ -5,12 +5,18 @@ function numberOrNull(value) {
 }
 
 function objectOrEmpty(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
 }
 
 export function selectFinancialRankDrivers(rows = []) {
   const ranked = (Array.isArray(rows) ? rows : [])
-    .filter((row) => numberOrNull(row?.rankValue) !== null && numberOrNull(row?.cohortSize) !== null)
+    .filter(
+      (row) =>
+        numberOrNull(row?.rankValue) !== null &&
+        numberOrNull(row?.cohortSize) !== null,
+    )
     .map((row) => ({
       key: row.key,
       title: row.title,
@@ -30,13 +36,26 @@ export function selectFinancialRankDrivers(rows = []) {
 
 export function selectCollectorRankDrivers(rows = []) {
   const ranked = (Array.isArray(rows) ? rows : [])
-    .filter((row) => numberOrNull(row?.rank) !== null && numberOrNull(row?.cohortSize) !== null)
-    .map((row) => ({ key: row.key, title: row.title, rank: numberOrNull(row.rank), cohortSize: numberOrNull(row.cohortSize), tier: row.tier ?? null }));
-  if (ranked.length !== 2) return { strengths: [], drags: [], available: false };
+    .filter(
+      (row) =>
+        numberOrNull(row?.rank) !== null &&
+        numberOrNull(row?.cohortSize) !== null,
+    )
+    .map((row) => ({
+      key: row.key,
+      title: row.title,
+      rank: numberOrNull(row.rank),
+      cohortSize: numberOrNull(row.cohortSize),
+      tier: row.tier ?? null,
+    }));
+  if (ranked.length !== 2)
+    return { strengths: [], drags: [], available: false };
   const sorted = [...ranked].sort((a, b) => a.rank - b.rank);
   const topHalf = (item) => item.rank <= Math.ceil(item.cohortSize / 2);
-  if (sorted.every(topHalf)) return { strengths: sorted, drags: [], available: true };
-  if (sorted.every((item) => !topHalf(item))) return { strengths: [], drags: sorted.reverse(), available: true };
+  if (sorted.every(topHalf))
+    return { strengths: sorted, drags: [], available: true };
+  if (sorted.every((item) => !topHalf(item)))
+    return { strengths: [], drags: sorted.reverse(), available: true };
   return { strengths: [sorted[0]], drags: [sorted[1]], available: true };
 }
 
@@ -51,10 +70,23 @@ function selectSubjectPath(value) {
     cardName: name,
     cardNumber: path.cardNumber ?? path.card_number ?? null,
     rarity: path.rarity ?? null,
-    currentMarketPrice: numberOrNull(path.currentMarketPrice ?? path.current_market_price ?? path.marketPrice ?? path.market_price),
+    currentMarketPrice: numberOrNull(
+      path.currentMarketPrice ??
+        path.current_market_price ??
+        path.marketPrice ??
+        path.market_price,
+    ),
     imageUrl: path.imageUrl ?? path.image_url ?? null,
-    modeledProbability: numberOrNull(path.modeledProbability ?? path.modeled_probability),
+    modeledProbability: numberOrNull(
+      path.modeledProbability ?? path.modeled_probability,
+    ),
     impliedOdds: odds !== null && odds > 0 ? odds : null,
+    packsFor50PercentChance: numberOrNull(
+      path.packsFor50PercentChance ?? path.packs_for_50_percent_chance,
+    ),
+    packsFor90PercentChance: numberOrNull(
+      path.packsFor90PercentChance ?? path.packs_for_90_percent_chance,
+    ),
   };
 }
 
@@ -63,14 +95,25 @@ export function selectCollectorDriverSubjects(canonical = {}) {
   return (Array.isArray(appeal.topSubjects) ? appeal.topSubjects : [])
     .map((value) => {
       const subject = objectOrEmpty(value);
-      const accessiblePath = selectSubjectPath(subject.accessiblePath ?? subject.accessible_path);
-      const elitePath = selectSubjectPath(subject.elitePath ?? subject.elite_path);
+      const accessiblePath = selectSubjectPath(
+        subject.accessiblePath ?? subject.accessible_path,
+      );
+      const elitePath = selectSubjectPath(
+        subject.elitePath ?? subject.elite_path,
+      );
       if (!subject.subjectName || (!accessiblePath && !elitePath)) return null;
-      const demandShare = numberOrNull(subject.demandShare ?? subject.demand_share);
+      const demandShare = numberOrNull(
+        subject.demandShare ?? subject.demand_share,
+      );
       return {
         subjectName: subject.subjectName,
         demandShare,
-        demandShareLabel: demandShare === null ? null : demandShare > 0 && demandShare < 0.01 ? "<1%" : `${Math.round(demandShare * 100)}%`,
+        demandShareLabel:
+          demandShare === null
+            ? null
+            : demandShare > 0 && demandShare < 0.01
+              ? "<1%"
+              : `${Math.round(demandShare * 100)}%`,
         cardCount: numberOrNull(subject.cardCount),
         bestRarityBucket: subject.bestRarityBucket ?? null,
         accessiblePath,
@@ -82,7 +125,9 @@ export function selectCollectorDriverSubjects(canonical = {}) {
 }
 
 export function selectCollectorDiagnostic(canonical = {}) {
-  const diagnostic = objectOrEmpty(objectOrEmpty(canonical.collectorAppeal).diagnostics).dualPathDepth;
+  const diagnostic = objectOrEmpty(
+    objectOrEmpty(canonical.collectorAppeal).diagnostics,
+  ).dualPathDepth;
   const safe = objectOrEmpty(diagnostic);
   const rawValue = numberOrNull(safe.rawValue);
   return {

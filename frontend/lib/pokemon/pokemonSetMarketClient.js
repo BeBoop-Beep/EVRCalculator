@@ -1307,6 +1307,7 @@ export function normalizeOverviewPayload(payload) {
   const performanceVsCostHistory = normalizeSimulationPerformanceHistory(
     payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
   );
+  const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
 
   return {
     set: {
@@ -1319,6 +1320,8 @@ export function normalizeOverviewPayload(payload) {
     set_value_histories_by_scope: normalizedHistoriesByScope,
     performanceVsCostHistory,
     performance_vs_cost_history: performanceVsCostHistory,
+    cardsMarket,
+    cards_market: cardsMarket,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),

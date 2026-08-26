@@ -9,9 +9,10 @@ const comparison = source.slice(source.indexOf('data-rip-section="compare-produc
 
 test("Set Product Comparison locks the approved nine-column contract", () => {
   const head = comparison.slice(comparison.indexOf("<thead"), comparison.indexOf("</thead>"));
-  const labels = ["Product Rank", ">Product</th>", "RIP Score", ">Tier</RankedProductHeader>", "Market Price", "$ / Pack", "Typical Back", "Entertainment Cost", "Recover Cost"];
+  const compactHead = head.replace(/\s+/g, " ");
+  const labels = ["Product Rank", ">Product</th>", "RIP Score", "Tier", "Market Price", "$ / Pack", "Typical Back", "Entertainment Cost", "Recover Cost"];
   let previous = -1;
-  for (const label of labels) { const current = head.indexOf(label); assert.ok(current > previous, label); previous = current; }
+  for (const label of labels) { const current = compactHead.indexOf(label); assert.ok(current > previous, label); previous = current; }
   assert.equal((head.match(/<th scope="col"/g) || []).length, 9);
   assert.ok(!comparison.includes("Family Rank"));
   assert.ok(!comparison.includes("Overall Rank"));

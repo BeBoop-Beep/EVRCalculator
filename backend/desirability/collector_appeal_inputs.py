@@ -83,6 +83,7 @@ from backend.desirability.pull_model import (
     probability_from_denominator,
     slot_group_of,
 )
+from backend.domain.pokemon.rip_decision_metrics import packs_for_cumulative_probability
 from backend.desirability.rarity_buckets import HIT_BUCKETS, classify_rarity
 
 logger = logging.getLogger(__name__)
@@ -454,6 +455,8 @@ def _path_payload(card: Mapping[str, Any]) -> Dict[str, Any]:
         "imageUrl": card.get("image_url"),
         "modeledProbability": probability,
         "impliedOdds": implied_odds,
+        "packsFor50PercentChance": packs_for_cumulative_probability(probability, 0.50),
+        "packsFor90PercentChance": packs_for_cumulative_probability(probability, 0.90),
     }
 
 
