@@ -23,11 +23,57 @@
 // a segment the backend does not publish must not be selectable.
 // ---------------------------------------------------------------------------
 
+import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+
 export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1";
 
 export const QUERY_ASSET_CARDS = "cards";
+export const QUERY_ASSET_SEALED = "sealed";
+export const QUERY_ASSETS = [QUERY_ASSET_CARDS, QUERY_ASSET_SEALED];
+
 export const QUERY_MODE_ALL = "all";
 export const QUERY_MODE_CHASE = "chase";
+
+/**
+ * Display vocabulary per asset. The MODE keys are shared — filter, then rank —
+ * because forking them would fork the engine; only the words change. Calling an
+ * expensive sealed SKU a "chase" reads wrong, so Sealed names the same two
+ * modes "All Products" and "Top 10 by Price".
+ *
+ * This mirrors ASSET_MODE_LABELS in the backend spec module. A test holds the
+ * two in agreement.
+ */
+export const ASSET_PRESENTATION = {
+  [QUERY_ASSET_CARDS]: {
+    label: "Cards",
+    segmentLabel: "Card Segment / Rarity",
+    allSegmentsLabel: "All Rarities",
+    segmentSummaryNoun: "segments",
+    modeLabels: { [QUERY_MODE_ALL]: "All Constituents", [QUERY_MODE_CHASE]: "Chase" },
+  },
+  [QUERY_ASSET_SEALED]: {
+    label: "Sealed Products",
+    segmentLabel: "Sealed Product Family",
+    allSegmentsLabel: "All Sealed Products",
+    segmentSummaryNoun: "families",
+    modeLabels: { [QUERY_MODE_ALL]: "All Products", [QUERY_MODE_CHASE]: "Top 10 by Price" },
+  },
+};
+
+/** The asset an unknown or absent value resolves to. */
+export const normalizeAsset = (value) =>
+  QUERY_ASSETS.includes(String(value)) ? String(value) : QUERY_ASSET_CARDS;
+
+export const presentationFor = (asset) => ASSET_PRESENTATION[normalizeAsset(asset)];
+
+/** Mode options named in the asset's own terms. */
+export function marketModeOptions(asset) {
+  const { modeLabels } = presentationFor(asset);
+  return [
+    { id: QUERY_MODE_ALL, label: modeLabels[QUERY_MODE_ALL] },
+    { id: QUERY_MODE_CHASE, label: modeLabels[QUERY_MODE_CHASE] },
+  ];
+}
 
 /**
  * The only chase cutoff published today. Additional cutoffs are a product
@@ -54,6 +100,7 @@ function cleanIds(values) {
 /** Canonical form of a card query. Mirrors normalize_query_spec exactly. */
 export function normalizeQuerySpec({
   mode = QUERY_MODE_ALL,
+  asset = QUERY_ASSET_CARDS,
   eraIds = [],
   setIds = [],
   segmentIds = [],
@@ -62,7 +109,7 @@ export function normalizeQuerySpec({
   const resolvedMode = mode === QUERY_MODE_CHASE ? QUERY_MODE_CHASE : QUERY_MODE_ALL;
   return {
     contractVersion: MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
-    asset: QUERY_ASSET_CARDS,
+    asset: normalizeAsset(asset),
     eraIds: cleanIds(eraIds),
     setIds: cleanIds(setIds),
     segmentIds: cleanIds(segmentIds),
@@ -73,6 +120,43 @@ export function normalizeQuerySpec({
       ? (Number.isFinite(Number(topN)) && Number(topN) > 0 ? Number(topN) : DEFAULT_CHASE_TOP_N)
       : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// CANONICAL OPTION ORDER.
+//
+// The filter controls must render the same list in the same order every time,
+// on the server and on the client. The backend already sorts, but its ordering
+// keys can tie (two eras sharing a sortOrder, two sets sharing a name), and a
+// tie resolved by database iteration order is not an order at all. These
+// comparators break every tie on the id, which is unique, so the rendered list
+// is a pure function of the payload contents rather than of how the rows
+// happened to arrive.
+//
+// Segment options are deliberately NOT re-sorted: the backend publishes them in
+// taxonomy order, which separates the modern market from the legacy one. Sorting
+// them alphabetically here would interleave "Rare Holo" with "Rare Ultra" and
+// destroy that separation.
+// ---------------------------------------------------------------------------
+const byId = (left, right) => String(left.id).localeCompare(String(right.id));
+
+/** Eras in publication order: sortOrder, then name, then id. */
+export function sortEraOptions(eras) {
+  return [...(Array.isArray(eras) ? eras : [])].sort((left, right) => {
+    const leftOrder = Number.isFinite(Number(left.sortOrder)) ? Number(left.sortOrder) : Number.MAX_SAFE_INTEGER;
+    const rightOrder = Number.isFinite(Number(right.sortOrder)) ? Number(right.sortOrder) : Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    const byLabel = String(left.label || "").localeCompare(String(right.label || ""));
+    return byLabel !== 0 ? byLabel : byId(left, right);
+  });
+}
+
+/** Sets alphabetically, which is how a user scans for one by name. */
+export function sortSetOptions(sets) {
+  return [...(Array.isArray(sets) ? sets : [])].sort((left, right) => {
+    const byLabel = String(left.label || "").localeCompare(String(right.label || ""));
+    return byLabel !== 0 ? byLabel : byId(left, right);
+  });
 }
 
 function keyPart(label, values) {
@@ -115,9 +199,12 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {})
   } else if (normalized.eraIds.length) {
     scope = normalized.eraIds.map((id) => nameFor(eraNames, id)).join(", ");
   }
+  // The unset-segment wording belongs to the asset: "All rarities" is
+  // meaningless for a sealed market, and "All Sealed Products" for a card one.
+  const allSegments = normalized.asset === QUERY_ASSET_SEALED ? "All Sealed Products" : "All rarities";
   const segment = normalized.segmentIds.length
     ? normalized.segmentIds.map((id) => nameFor(segmentNames, id)).join(", ")
-    : "All rarities";
+    : allSegments;
   const mode = normalized.mode === QUERY_MODE_CHASE ? `Top ${normalized.topN}` : "All";
   return `${scope} · ${segment} · ${mode}`;
 }
@@ -138,6 +225,8 @@ export function buildQueryLabel(spec, { eraNames, setNames, segmentNames } = {})
 export function resolveBenchmarkSpec(spec) {
   const normalized = normalizeQuerySpec(spec);
   if (normalized.mode !== QUERY_MODE_CHASE) return null;
+  // The asset travels with it: a sealed Top 10 is benchmarked against the same
+  // filtered SEALED universe in All mode, never against a card market.
   return normalizeQuerySpec({ ...normalized, mode: QUERY_MODE_ALL, topN: null });
 }
 
@@ -177,15 +266,27 @@ export function removeQuerySeries(existing, queryKey) {
   return list.filter((entry) => entry.queryKey !== queryKey);
 }
 
-/** Stable non-semantic series color derived from the backend fingerprint. */
-export function colorForQueryFingerprint(fingerprint) {
-  let hash = 2166136261;
-  for (const character of String(fingerprint || "query")) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  const hue = ((hash >>> 0) % 260) + 20;
-  return `hsl(${hue} 72% 58%)`;
+/**
+ * Stable non-semantic series color derived from the backend fingerprint.
+ *
+ * DELEGATED TO THE ONE REGISTRY. An earlier revision confined card queries to a
+ * narrow violet band and sealed queries to a narrow amber band so the asset was
+ * visible in the hue. That made the asset legible and the MARKET illegible: a
+ * custom card market landed on top of Raw, SIR and IR, which occupy exactly
+ * that band. Custom markets now draw from the full non-reserved wheel; the
+ * asset is stated on the chip and in the detail table, which is where a reader
+ * actually looks for it.
+ *
+ * The fingerprint is still the ONLY input, so the same market is always the
+ * same color, hydration cannot repaint a line, and the order queries were added
+ * in is irrelevant. The registry keeps generated hues clear of the green/red
+ * performance vocabulary and of the interaction green.
+ *
+ * `asset` stays in the hashed input: two different assets sharing one spec are
+ * two different markets and should not collide.
+ */
+export function colorForQueryFingerprint(fingerprint, asset = QUERY_ASSET_CARDS) {
+  return colorForSeriesFingerprint(`${normalizeAsset(asset)}:${fingerprint || "query"}`);
 }
 
 function normalizeChangeMap(source) {
@@ -199,7 +300,8 @@ function normalizeChangeMap(source) {
 /** Adapt prepared backend output to the existing chart/detail series shape. */
 export function queryResultToSeries(result) {
   if (!result?.queryFingerprint || !Array.isArray(result?.trend)) return null;
-  const color = colorForQueryFingerprint(result.queryFingerprint);
+  const asset = normalizeAsset(result?.spec?.asset);
+  const color = colorForQueryFingerprint(result.queryFingerprint, asset);
   const changes = normalizeChangeMap(result.familyChanges);
   return {
     key: `query:${result.queryFingerprint}`,
@@ -208,7 +310,9 @@ export function queryResultToSeries(result) {
     label: result.displayLabel,
     shortLabel: result.displayLabel,
     color,
-    softColor: color,
+    // The tinted fill under the line, not the line color again.
+    softColor: softSeriesColor(color),
+    asset,
     group: "query",
     isParent: false,
     available: true,
@@ -222,6 +326,7 @@ export function queryResultToSeries(result) {
     spec: result.spec,
     scope: result.scope,
     currentConstituents: Array.isArray(result.currentConstituents) ? result.currentConstituents : [],
+    scopeSetCount: result?.scope?.resolvedSetCount ?? null,
     membershipByDate: Array.isArray(result.membershipByDate) ? result.membershipByDate : [],
     reconciliation: result.reconciliation || {},
     metadata: result.metadata || {},

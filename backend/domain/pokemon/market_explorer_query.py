@@ -47,11 +47,29 @@ from backend.domain.pokemon.market_index import (
 MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1"
 
 ASSET_CARDS = "cards"
-SUPPORTED_ASSETS = (ASSET_CARDS,)
+ASSET_SEALED = "sealed"
+SUPPORTED_ASSETS = (ASSET_CARDS, ASSET_SEALED)
 
 MODE_ALL = "all"
 MODE_CHASE = "chase"
 SUPPORTED_MODES = (MODE_ALL, MODE_CHASE)
+
+#: The identifier field each asset's constituents are keyed by. The spec layer
+#: stays asset-neutral; only this table knows the difference, which is what
+#: keeps "rank the survivors" from being written twice.
+ASSET_CONSTITUENT_ID_FIELD = {
+    ASSET_CARDS: "canonicalCardId",
+    ASSET_SEALED: "sealedProductId",
+}
+
+#: Display vocabulary. The MODE is generic — filter, then rank — but calling an
+#: expensive sealed SKU a "chase" reads wrong, so each asset names the same two
+#: modes in its own terms. Internal mode keys are deliberately unchanged, so a
+#: rename here can never fork the engine.
+ASSET_MODE_LABELS = {
+    ASSET_CARDS: {MODE_ALL: "All Constituents", MODE_CHASE: "Chase"},
+    ASSET_SEALED: {MODE_ALL: "All Products", MODE_CHASE: "Top 10 by Price"},
+}
 
 #: The only cutoff exposed to users today. The engine is written against a
 #: parameter rather than a constant so a future cutoff is a value change, but
@@ -110,15 +128,44 @@ def normalize_query_spec(
         # cannot fingerprint apart and split one cache entry into two.
         resolved_top_n = None
 
+    # SEGMENTS BELONG TO AN ASSET. A card rarity key and a sealed product-family
+    # key are different vocabularies over different universes, and a spec that
+    # mixed them would describe no market at all. Rejecting here means the
+    # engines below never have to ask whether their segment list is theirs.
+    cleaned_segments = _clean_ids(segment_ids)
+    unknown = [value for value in cleaned_segments if value not in segment_vocabulary(asset_key)]
+    if unknown:
+        raise MarketExplorerQueryError(
+            f"segment(s) {unknown!r} are not valid for asset {asset_key!r}"
+        )
+
     return {
         "contractVersion": MARKET_EXPLORER_QUERY_CONTRACT_VERSION,
         "asset": asset_key,
         "eraIds": _clean_ids(era_ids),
         "setIds": _clean_ids(set_ids),
-        "segmentIds": _clean_ids(segment_ids),
+        "segmentIds": cleaned_segments,
         "mode": mode_key,
         "topN": resolved_top_n,
     }
+
+
+def segment_vocabulary(asset: str) -> frozenset[str]:
+    """The segment keys an asset is allowed to be filtered by.
+
+    Imported lazily so this pure spec module keeps no import-time dependency on
+    either taxonomy; the vocabularies remain owned by the modules that publish
+    them, and are never restated here.
+    """
+    if asset == ASSET_CARDS:
+        from backend.domain.pokemon.card_rarity_taxonomy import RAW_CARD_SEGMENT_DEFINITIONS
+
+        return frozenset(str(definition["key"]) for definition in RAW_CARD_SEGMENT_DEFINITIONS)
+    if asset == ASSET_SEALED:
+        from backend.domain.pokemon.sealed_market_segments import SEALED_SEGMENT_DEFINITIONS
+
+        return frozenset(str(definition["key"]) for definition in SEALED_SEGMENT_DEFINITIONS)
+    raise MarketExplorerQueryError(f"unsupported asset: {asset!r}")
 
 
 def _key_part(label: str, values: Sequence[str]) -> str:
@@ -172,28 +219,43 @@ def _price(value: Any) -> float | None:
     return price
 
 
-def rank_chase_constituents(
-    constituents: Iterable[Mapping[str, Any]], top_n: int,
+def rank_constituents(
+    constituents: Iterable[Mapping[str, Any]],
+    top_n: int,
+    *,
+    id_field: str = "canonicalCardId",
 ) -> list[dict[str, Any]]:
     """The top_n most valuable constituents, ranked and rank-stamped.
 
-    Ties break on canonical card id. That tie-break is not cosmetic: without a
+    ASSET-NEUTRAL BY DESIGN. Ranking a filtered universe by that date's price
+    is the same operation for a card and for a sealed product; only the name of
+    the identifier differs. Writing it twice would be two places for the
+    tie-break rule to drift apart.
+
+    Ties break on the constituent id. That tie-break is not cosmetic: without a
     total ordering the basket's membership could depend on database row order,
     and an index whose constituents change because a query planner changed is
     not reproducible.
 
     A universe smaller than top_n yields everything it has. Fewer than ten
-    Chase cards is a true statement about a small filtered market, so it is
+    constituents is a true statement about a small filtered market, so it is
     reported rather than padded.
     """
     ordered = sorted(
         (dict(row) for row in constituents),
-        key=lambda row: (-float(row["marketPrice"]), str(row["canonicalCardId"])),
+        key=lambda row: (-float(row["marketPrice"]), str(row[id_field])),
     )
     selected = ordered[: max(0, int(top_n))]
     for position, row in enumerate(selected, start=1):
         row["rank"] = position
     return selected
+
+
+def rank_chase_constituents(
+    constituents: Iterable[Mapping[str, Any]], top_n: int,
+) -> list[dict[str, Any]]:
+    """Card-shaped alias of :func:`rank_constituents`, kept for its callers."""
+    return rank_constituents(constituents, top_n, id_field="canonicalCardId")
 
 
 def build_chain_linked_history_from_cohorts(
@@ -276,6 +338,7 @@ def build_query_observations(
     *,
     mode: str,
     top_n: int | None,
+    id_field: str = "canonicalCardId",
 ) -> list[dict[str, Any]]:
     """One index observation per market date, with per-date chase membership.
 
@@ -292,15 +355,18 @@ def build_query_observations(
     if mode not in SUPPORTED_MODES:
         raise MarketExplorerQueryError(f"unsupported market mode: {mode!r}")
 
+    snake_id_field = "".join(
+        f"_{character.lower()}" if character.isupper() else character for character in id_field
+    )
     by_date: dict[str, dict[str, dict[str, Any]]] = {}
     for row in rows:
         market_date = str(row.get("marketDate") or row.get("market_date") or "")[:10]
-        card_id = str(row.get("canonicalCardId") or row.get("canonical_card_id") or "").strip()
+        entity_id = str(row.get(id_field) or row.get(snake_id_field) or "").strip()
         price = _price(row.get("marketPrice", row.get("market_price")))
-        if not market_date or not card_id or price is None:
+        if not market_date or not entity_id or price is None:
             continue
-        by_date.setdefault(market_date, {})[card_id] = {
-            "canonicalCardId": card_id,
+        by_date.setdefault(market_date, {})[entity_id] = {
+            id_field: entity_id,
             "marketPrice": price,
         }
 
@@ -308,9 +374,9 @@ def build_query_observations(
     for market_date in sorted(by_date):
         universe = list(by_date[market_date].values())
         if mode == MODE_CHASE:
-            selected = rank_chase_constituents(universe, int(top_n or DEFAULT_CHASE_TOP_N))
+            selected = rank_constituents(universe, int(top_n or DEFAULT_CHASE_TOP_N), id_field=id_field)
         else:
-            selected = rank_chase_constituents(universe, len(universe))
+            selected = rank_constituents(universe, len(universe), id_field=id_field)
         if not selected:
             continue
         observations.append({
@@ -320,7 +386,7 @@ def build_query_observations(
             "actualConstituentCount": len(selected),
             "constituents": [
                 {
-                    "setId": row["canonicalCardId"],
+                    "setId": row[id_field],
                     "setValue": row["marketPrice"],
                     "rank": row["rank"],
                 }

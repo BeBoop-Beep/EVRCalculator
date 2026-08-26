@@ -19,6 +19,7 @@
 // module resolves identity, color and availability.
 // ---------------------------------------------------------------------------
 
+import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
 import {
   MARKET_OVERVIEW_WINDOWS,
   MARKET_SERIES_DEFINITIONS,
@@ -32,28 +33,40 @@ export const SEALED_SEGMENT_PREFIX = "sealed:";
 /** The parent Sealed series id, which the backend also publishes as segment `total`. */
 export const SEALED_PARENT_SERIES_ID = "sealedMarket";
 
+/**
+ * Attach the ONE registry's identity color to a series definition.
+ *
+ * Keyed by the full series id, so this file never holds a color literal and a
+ * palette change is a one-line edit in the registry rather than a hunt through
+ * every model that builds a series.
+ */
+function withRegistryColor(entry, seriesId) {
+  const color = resolveSeriesIdentityColor(seriesId);
+  return { ...entry, color, softColor: softSeriesColor(color) };
+}
+
 export const PARENT_SERIES_IDS = MARKET_SERIES_DEFINITIONS.map((entry) => entry.key);
 
 /**
  * Sealed submarket identity.
  *
- * COLORS ARE A FAMILY, NOT A RANDOM SET. Total Sealed keeps its established
- * amber identity; every child is a hue-adjacent amber/orange variant, so the
- * chart reads as "the sealed group plus two card markets" at a glance while
- * still separating the children from each other.
- *
- * Green and red are never used here — those stay reserved for gain/loss.
+ * COLORS COME FROM THE REGISTRY, NOT FROM THIS LIST. An earlier revision gave
+ * every sealed child a hue-adjacent amber/orange variant so the group read as
+ * one family; in practice selecting Sealed, ETBs, Booster Boxes and Bundles
+ * together produced four lines a reader could not separate. Identity now comes
+ * from `marketExplorerSeriesColors.mjs`, which spreads the children apart on
+ * purpose and keeps green/red reserved for gain/loss.
  *
  * `backendKey` is the segment key the backend publishes. A segment the backend
  * does not publish simply never becomes a series.
  */
 export const SEALED_SEGMENT_SERIES = [
-  { backendKey: "boosterBox", shortLabel: "Booster Boxes", color: "rgba(249,115,22,0.95)", softColor: "rgba(249,115,22,0.16)" },
-  { backendKey: "eliteTrainerBox", shortLabel: "ETBs", color: "rgba(253,186,116,0.95)", softColor: "rgba(253,186,116,0.16)" },
-  { backendKey: "pokemonCenterEliteTrainerBox", shortLabel: "Pokémon Center ETBs", color: "rgba(217,119,6,0.95)", softColor: "rgba(217,119,6,0.16)" },
-  { backendKey: "boosterBundle", shortLabel: "Booster Bundles", color: "rgba(250,204,21,0.95)", softColor: "rgba(250,204,21,0.16)" },
-  { backendKey: "packs", shortLabel: "Packs", color: "rgba(234,88,12,0.95)", softColor: "rgba(234,88,12,0.16)" },
-];
+  { backendKey: "boosterBox", shortLabel: "Booster Boxes" },
+  { backendKey: "eliteTrainerBox", shortLabel: "ETBs" },
+  { backendKey: "pokemonCenterEliteTrainerBox", shortLabel: "Pokémon Center ETBs" },
+  { backendKey: "boosterBundle", shortLabel: "Booster Bundles" },
+  { backendKey: "packs", shortLabel: "Packs" },
+].map((entry) => withRegistryColor(entry, `${SEALED_SEGMENT_PREFIX}${entry.backendKey}`));
 
 export const sealedSeriesId = (backendKey) => `${SEALED_SEGMENT_PREFIX}${backendKey}`;
 
@@ -154,6 +167,9 @@ export function resolveSealedSegmentSeries(payload) {
     return {
       ...base,
       available: true,
+      // The published current roster, carried through verbatim (see the card
+      // segment builder below for why it may legitimately be absent).
+      currentConstituents: raw.currentConstituents || null,
       basketValue: numeric(raw.basketValue),
       indexValue,
       historyStartDate: dateKey(raw.historyStartDate),
@@ -292,17 +308,30 @@ export const TOP_CHASE_PARENT_SERIES_ID = "topChase";
 /**
  * Card submarket identity.
  *
- * COLORS ARE A FAMILY. Raw Cards keeps its established violet identity and
- * every rarity child is a hue-adjacent violet/purple variant, so the chart
- * reads as "the card group" against the amber sealed group at a glance. Green
- * and red stay reserved for gain/loss.
+ * COLORS COME FROM THE REGISTRY, keyed by the FULL series id — which includes
+ * the parent market, because a SIR index over all tracked cards and a SIR index
+ * over only the Top Chase cohort are different markets and must not share a
+ * line color. Rarity children are deliberately spread across the wheel rather
+ * than clustered in their parent's violet: four adjacent purples on one chart
+ * is the readability failure the registry exists to prevent. Green and red stay
+ * reserved for gain/loss.
  */
 export const CARD_SEGMENT_SERIES = [
-  { backendKey: "specialIllustrationRare", shortLabel: "SIR", color: "rgba(139,92,246,0.95)", softColor: "rgba(139,92,246,0.16)" },
-  { backendKey: "illustrationRare", shortLabel: "IR", color: "rgba(196,181,253,0.95)", softColor: "rgba(196,181,253,0.16)" },
-  { backendKey: "ultraRare", shortLabel: "Ultra Rare", color: "rgba(124,58,237,0.95)", softColor: "rgba(124,58,237,0.16)" },
-  { backendKey: "hyperRare", shortLabel: "Hyper Rare", color: "rgba(216,180,254,0.95)", softColor: "rgba(216,180,254,0.16)" },
-  { backendKey: "doubleRare", shortLabel: "Double Rare", color: "rgba(168,85,247,0.95)", softColor: "rgba(168,85,247,0.16)" },
+  { backendKey: "specialIllustrationRare", shortLabel: "SIR" },
+  { backendKey: "illustrationRare", shortLabel: "IR" },
+  { backendKey: "ultraRare", shortLabel: "Ultra Rare" },
+  { backendKey: "hyperRare", shortLabel: "Hyper Rare" },
+  { backendKey: "doubleRare", shortLabel: "Double Rare" },
+  // LEGACY RARITIES. The backend publishes these alongside the modern five.
+  // Without an identity here they were dropped BEFORE the availability check,
+  // so a published market simply vanished from the panel and no "unavailable"
+  // reason was ever shown. They are listed so the panel reflects what the
+  // snapshot actually published; whether each is selectable stays the
+  // snapshot's decision, not this list's.
+  { backendKey: "rareUltra", shortLabel: "Rare Ultra" },
+  { backendKey: "rareSecret", shortLabel: "Rare Secret" },
+  { backendKey: "rareRainbow", shortLabel: "Rare Rainbow" },
+  { backendKey: "rareHolo", shortLabel: "Rare Holo" },
 ];
 
 export const cardSeriesId = (parentMarket, backendKey) =>
@@ -321,15 +350,19 @@ export function parseCardSeriesId(seriesId) {
 }
 
 function normalizeCardSegment(identity, raw, definition, parentMarket) {
+  // Resolved from the FULL id, so `card:raw:sir` and `card:topChase:sir` are
+  // separate identities rather than one color worn by two different markets.
+  const seriesKey = cardSeriesId(parentMarket, identity.backendKey);
+  const seriesColor = resolveSeriesIdentityColor(seriesKey);
   const base = {
-    key: cardSeriesId(parentMarket, identity.backendKey),
+    key: seriesKey,
     backendKey: identity.backendKey,
     parentMarket,
     parentSeriesId: parentMarket === "raw" ? RAW_PARENT_SERIES_ID : TOP_CHASE_PARENT_SERIES_ID,
     label: String(raw.label || definition.label || identity.shortLabel),
     shortLabel: identity.shortLabel,
-    color: identity.color,
-    softColor: identity.softColor,
+    color: seriesColor,
+    softColor: softSeriesColor(seriesColor),
     group: "card",
     definition: String(raw.definition || definition.definition || ""),
     taxonomyVersion: String(raw.taxonomyVersion || ""),
@@ -345,6 +378,10 @@ function normalizeCardSegment(identity, raw, definition, parentMarket) {
   return {
     ...base,
     available: true,
+    // The published current roster, carried through verbatim. A snapshot built
+    // before this contract simply has none, and the constituent panel reports
+    // that rather than inventing composition.
+    currentConstituents: raw.currentConstituents || null,
     basketValue: numeric(raw.basketValue),
     indexValue,
     historyStartDate: dateKey(raw.historyStartDate),

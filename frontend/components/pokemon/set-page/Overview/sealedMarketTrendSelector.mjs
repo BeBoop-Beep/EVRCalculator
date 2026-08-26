@@ -2,8 +2,14 @@ import { getStandardDeltaWindowDefinitions } from "../../../../lib/explore/marke
 
 export const SEALED_MARKET_WINDOWS = Object.freeze(getStandardDeltaWindowDefinitions());
 
+// One entry per canonical classifier family (backend
+// domain/pokemon/sealed_market_segments.py OVERVIEW_FAMILIES). A family with no
+// entry here falls through to the generic "Sealed Product", which is a real
+// user-visible regression rather than a graceful default — half_booster_box
+// reached production unlabeled that way.
 const FAMILY_LABELS = {
   booster_box: "Booster Box",
+  half_booster_box: "Half Booster Box",
   enhanced_booster_box: "Enhanced Booster Box",
   elite_trainer_box: "ETB",
   pokemon_center_elite_trainer_box: "PC ETB",

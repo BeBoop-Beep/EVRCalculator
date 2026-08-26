@@ -259,3 +259,29 @@ test("standard and Pokemon Center ETBs stay separate products through sorting", 
   assert.deepEqual(etbs.map((item) => compactSealedProductLabel(item)), ["PC ETB", "ETB"]);
   assert.equal(ordered.length, payload.products.length, "no product is dropped or merged");
 });
+
+test("every canonical sealed family has a concise label", () => {
+  // The canonical list is the backend classifier's OVERVIEW_FAMILIES. A family
+  // missing from FAMILY_LABELS silently degrades to "Sealed Product" on the set
+  // page and in the mobile Top Sealed list, which is how half_booster_box
+  // (9 live products) shipped unlabeled.
+  const CANONICAL_FAMILIES = [
+    "booster_box",
+    "half_booster_box",
+    "enhanced_booster_box",
+    "elite_trainer_box",
+    "pokemon_center_elite_trainer_box",
+    "booster_bundle",
+    "loose_booster_pack",
+    "sleeved_booster_pack",
+  ];
+  for (const productFamily of CANONICAL_FAMILIES) {
+    assert.notEqual(
+      compactSealedProductLabel({ productFamily }),
+      "Sealed Product",
+      `${productFamily} must have a concise label`
+    );
+  }
+  // The generic fallback still applies to a family this build does not know.
+  assert.equal(compactSealedProductLabel({ productFamily: "future_family" }), "Sealed Product");
+});

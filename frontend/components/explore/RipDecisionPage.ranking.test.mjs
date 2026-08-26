@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import "../../test-support/renderComponentRegister.mjs";
-import { buildFamilyRankLookup, groupProductsByFamily } from "./RipDecisionPage.jsx";
+import { buildFamilyRankLookup, groupProductsByFamily } from "./setProductComparison.mjs";
 
 // These fixtures mirror the shape `build_product_family_rankings` (backend)
 // actually publishes and `selectRipDecisionContract` actually normalizes —
@@ -16,7 +15,7 @@ function productFamilyRankingsFixture() {
         label: "Elite Trainer Box",
         count: 22,
         products: [
-          { sealedProductId: "etb-a", familyRank: 3, familySize: 22, familyTier: "A" },
+          { sealedProductId: "etb-a", familyRank: 3, familySize: 22, familyTier: "A", overallRipLeaderScore: 91.24, publicTier: "A", productImageUrl: "https://example.test/etb.png", setCanonicalKey: "alphaSet" },
           { sealedProductId: "etb-b", familyRank: 11, familySize: 22, familyTier: "B" },
         ],
       },
@@ -74,6 +73,9 @@ test("multiple local SKUs preserve canonical display order and consume global fa
   assert.equal(lookup.get("etb-b").familyRank, 11);
   assert.equal(lookup.get("etb-b").familySize, 22);
   assert.equal(lookup.get("etb-a").familyTier, "A");
+  assert.equal(lookup.get("etb-a").overallRipLeaderScore, 91.24);
+  assert.equal(lookup.get("etb-a").publicTier, "A");
+  assert.equal(lookup.get("etb-a").setCanonicalKey, "alphaSet");
   assert.equal(lookup.get("etb-b").familyTier, "B");
 });
 

@@ -39,3 +39,9 @@ temp/
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+
+# Custom Next.js build/dist directories created by validation runs
+/.next/
+/.next-perf*/
+/.next-*/

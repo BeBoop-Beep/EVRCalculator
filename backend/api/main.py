@@ -40,6 +40,10 @@ from backend.db.services.frontend_proxy_service import (
     update_customer_profile,
     update_profile,
 )
+from backend.domain.access.index_plan_access import (
+    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    has_index_premium_access,
+)
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 from backend.db.services.explore_rip_statistics_service import (
@@ -88,12 +92,20 @@ from backend.db.services.pokemon_explore_set_value_service import (
     read_explore_set_value_snapshot,
 )
 from backend.db.services.pokemon_set_sealed_market_snapshot_service import read_snapshot as read_sealed_market_snapshot
+from backend.db.services.pokemon_sealed_market_explorer_query_service import (
+    SealedMarketExplorerQueryUnavailable,
+    published_sealed_family_options,
+    run_sealed_market_explorer_query,
+)
 from backend.db.services.pokemon_market_explorer_query_service import (
     MarketExplorerQueryUnavailable,
     build_market_explorer_filter_options,
     run_market_explorer_query,
 )
+from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
 from backend.domain.pokemon.market_explorer_query import (
+    ASSET_SEALED,
+    SUPPORTED_ASSETS,
     MarketExplorerQueryError,
     normalize_query_spec,
     query_fingerprint,
@@ -181,6 +193,45 @@ def _extract_token(authorization: Optional[str], token_cookie: Optional[str]) ->
     if authorization and authorization.lower().startswith("bearer "):
         return authorization.split(" ", 1)[1].strip() or None
     return None
+
+
+def _resolve_index_plan(authorization: Optional[str], token_cookie: Optional[str]) -> Optional[str]:
+    """The CANONICAL server-side plan for the caller, or None.
+
+    Read from the profile row through the same projection `/auth/me` uses, so
+    the API and the browser can never disagree about what someone is entitled
+    to. A client-supplied plan claim is never trusted, and is not even accepted
+    as an argument here.
+    """
+    payload, status = get_me(_extract_token(authorization, token_cookie))
+    if status != 200:
+        return None
+    return ((payload or {}).get("user") or {}).get("index_plan")
+
+
+def _require_market_explorer_custom_markets(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Authenticate, then require the Index Premium custom-markets entitlement.
+
+    ENFORCED BEFORE ANY WORK. This runs ahead of spec normalization, the shared
+    result cache and the query engine, so an Index Plus user cannot reach a
+    cached Premium result by calling the endpoint directly, and an unentitled
+    caller cannot make the database do work on their behalf.
+    """
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Building custom markets requires Index Premium.",
+                "code": "MARKET_EXPLORER_PREMIUM_REQUIRED",
+                "requiredFeature": FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+            },
+        )
+    return user_id
 
 
 def _require_authenticated_user_id(
@@ -496,6 +547,19 @@ def get_explore_rip_statistics_targets(
         )
 
 
+@app.get("/explore/product-rankings/overall")
+def get_overall_product_rankings(budget: str = Query(default="full_market")):
+    """Return one allowlisted budget cohort; analytical tables remain private."""
+    try:
+        rankings = get_pokemon_explore_rankings_snapshot_payload(limit=200)
+        return read_public_overall_product_rankings(
+            budget, product_family_rankings=rankings.get("productFamilyRankings") or {}
+        )
+    except Exception:
+        logger.exception("/explore/product-rankings/overall unexpected error budget=%s", budget)
+        return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
+
+
 @app.get("/explore/card-market-movers")
 def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
     """Serve the prepared, fixed-window global Explore card-movers snapshot."""
@@ -532,8 +596,15 @@ def get_market_explorer_query_options(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Authenticated, read-only filter metadata for the Explorer builder."""
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    """Read-only filter metadata for the Explorer builder — Index Premium.
+
+    The options ARE the custom-market builder's surface: era and set ids exist
+    on this endpoint for no other purpose, so it carries the same gate as the
+    query itself rather than a weaker one.
+    """
+    _require_market_explorer_custom_markets(
+        authorization=authorization, token_cookie=token_cookie
+    )
     try:
         return build_market_explorer_filter_options(service_read_client)
     except MarketExplorerQueryUnavailable as exc:
@@ -549,14 +620,24 @@ def post_market_explorer_query(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Execute one normalized card-market query without exposing database RPCs."""
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
-    if payload.asset != "cards":
-        return JSONResponse(content={"message": "Only card queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+    """Execute one normalized market query without exposing database RPCs.
+
+    ONE ENDPOINT, TWO ASSETS. The spec layer normalizes and validates both, and
+    the asset selects which engine runs. Cards and sealed products fingerprint
+    apart because the asset is part of the spec, so the shared cache cannot
+    serve one asset's result for the other.
+    """
+    _require_market_explorer_custom_markets(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if payload.asset not in SUPPORTED_ASSETS:
+        return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):
-        return JSONResponse(content={"message": "Only Top 10 Chase queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
+        return JSONResponse(content={"message": "Only Top 10 queries are supported", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     try:
         today = date.today().isoformat()
+        # Normalized BEFORE the cache is consulted, so an invalid spec is
+        # rejected rather than keyed, and equivalent selections share one entry.
         normalized = normalize_query_spec(
             asset=payload.asset, mode=payload.mode, era_ids=payload.eraIds,
             set_ids=payload.setIds, segment_ids=payload.segmentIds, top_n=payload.topN,
@@ -565,7 +646,11 @@ def post_market_explorer_query(
         cached = _market_explorer_query_cache.get(cache_key)
         if cached and cached[0] > time.monotonic():
             return cached[1]
-        result = run_market_explorer_query(
+        runner = (
+            run_sealed_market_explorer_query if payload.asset == ASSET_SEALED
+            else run_market_explorer_query
+        )
+        result = runner(
             service_read_client,
             mode=payload.mode,
             era_ids=payload.eraIds,
@@ -582,7 +667,7 @@ def post_market_explorer_query(
         return result
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
-    except MarketExplorerQueryUnavailable as exc:
+    except (MarketExplorerQueryUnavailable, SealedMarketExplorerQueryUnavailable) as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_UNAVAILABLE"}, status_code=404)
     except Exception:
         logger.exception("/market/explorer/query unexpected error")

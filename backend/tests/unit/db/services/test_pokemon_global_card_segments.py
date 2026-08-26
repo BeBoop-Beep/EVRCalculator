@@ -387,3 +387,137 @@ def test_each_card_segment_is_measured_against_the_parents_shared_domain():
 
 def test_the_overview_omits_card_segments_entirely_when_none_are_supplied():
     assert "cardSegments" not in build_market_overview(HISTORY, market_date="2026-01-04")
+
+
+def test_the_catalogue_read_emits_the_keys_the_constituent_summary_consumes():
+    """Both naming conventions, or prepared card constituents publish nulls.
+
+    `read_canonical_card_rarities` keys the partitioning on `rawRarity`, while
+    the published `currentConstituents` rows read `cardName`, `cardNumber`,
+    `rarity`, `imageUrl` and `setName`. Only the first set existed, so every
+    prepared card segment built 25 rows carrying an id, a price and nothing a
+    reader could recognise. This pins both halves.
+    """
+    from backend.db.services.pokemon_global_card_market_segments_service import (
+        read_canonical_card_rarities,
+    )
+
+    class Result:
+        def __init__(self, data):
+            self.data = data
+
+    class Query:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def select(self, *_a, **_k):
+            return self
+
+        def in_(self, *_a, **_k):
+            return self
+
+        def order(self, *_a, **_k):
+            return self
+
+        def range(self, start, end):
+            self._range = (start, end)
+            return self
+
+        def execute(self):
+            start, end = getattr(self, "_range", (0, 999))
+            return Result(self._rows[start:end + 1])
+
+    class Client:
+        def table(self, name):
+            if name == "sets":
+                return Query([{"id": "set-a", "name": "Ascended Heroes"}])
+            return Query([{
+                "id": "card-1", "set_id": "set-a", "name": "Umbreon ex",
+                "number": "161", "rarity": "Special Illustration Rare",
+                "image_small_url": "http://img/161.png",
+            }])
+
+    card = read_canonical_card_rarities(Client(), ["set-a"])["card-1"]
+
+    # What the published summary reads.
+    assert card["cardName"] == "Umbreon ex"
+    assert card["cardNumber"] == "161"
+    assert card["rarity"] == "Special Illustration Rare"
+    assert card["imageUrl"] == "http://img/161.png"
+    assert card["setName"] == "Ascended Heroes"
+    # What the segment partitioning reads — unchanged.
+    assert card["rawRarity"] == "Special Illustration Rare"
+    assert card["rarityKey"] == "specialIllustrationRare"
+    assert card["setId"] == "set-a"
+
+
+# --- constituent movement (Market UI/UX phase 2) --------------------------
+#
+# The point of the movement contract is that a reader can see how the CARDS in
+# a market are moving, not just how the market is. These guard the two ways
+# that could be faked: repeating the segment's own return on every row, and
+# printing a zero where there is simply no comparable observation.
+
+def _sir_summary(payload=None):
+    payload = payload or build()
+    return payload["segments"]["specialIllustrationRare"]["currentConstituents"]
+
+
+def _sir_constituents(payload=None):
+    return _sir_summary(payload)["topConstituents"]
+
+
+def test_published_constituents_carry_their_own_movement():
+    rows_out = _sir_constituents()
+    assert rows_out, "the SIR segment must publish a roster"
+    for row in rows_out:
+        assert "changes" in row, "every published constituent needs the movement contract"
+        assert set(row["changes"]) == {"1D", "7D", "30D", "3M"}
+
+
+def test_movement_is_the_constituents_own_price_change_not_the_index_return():
+    # Every SIR in the fixture went 10 -> 20 and then held, so 1D is flat at
+    # the market date while the SEGMENT's own since-tracking return is +100%.
+    # A row that printed the segment's number would read +100% here.
+    payload = build()
+    segment = payload["segments"]["specialIllustrationRare"]
+    assert segment["familyChanges"]["SinceTracking"]["percent"] == pytest.approx(100.0)
+    for row in _sir_constituents(payload):
+        assert row["changes"]["1D"] == pytest.approx(0.0)
+
+
+def test_two_constituents_moving_differently_report_different_numbers():
+    constituent_rows, rarity_by_card = universe()
+    # Make ONE SIR jump while the rest hold, which no aggregate can express.
+    # A rise rather than a fall so the card stays inside the price-ranked
+    # roster and the assertion is about movement, not about the preview bound.
+    constituent_rows = [row for row in constituent_rows if row["canonical_card_id"] != "sir-0"]
+    constituent_rows.extend(rows("sir-0", [10.0, 20.0, 20.0, 30.0]))
+    rows_out = _sir_constituents(build(constituent_rows, rarity_by_card))
+    by_id = {row["canonicalCardId"]: row for row in rows_out}
+    assert by_id["sir-0"]["changes"]["1D"] == pytest.approx(50.0)
+    assert by_id["sir-1"]["changes"]["1D"] == pytest.approx(0.0)
+
+
+def test_a_window_with_no_comparable_observation_is_unavailable_not_zero():
+    # The fixture holds four days, so a 30D window cannot reach its baseline.
+    # The MARKET says so once...
+    summary = _sir_summary()
+    assert summary["movementWindows"]["30D"]["available"] is False
+    assert summary["movementWindows"]["30D"]["startDate"] is None
+    # ...and every row is None rather than a fabricated 0.00%.
+    for row in _sir_constituents():
+        assert row["changes"]["30D"] is None
+
+
+def test_movement_adds_no_history_array_and_no_per_row_date_duplication():
+    # The compact contract exists so the table can show movement WITHOUT the
+    # snapshot carrying a price history per constituent — and without repeating
+    # the market's boundary dates on every row, which is where the size went.
+    summary = _sir_summary()
+    assert set(summary["movementWindows"]) == {"1D", "7D", "30D", "3M"}
+    for row in _sir_constituents():
+        for value in row["changes"].values():
+            assert value is None or isinstance(value, float)
+        assert not any(isinstance(value, list) for value in row.values())
+        assert "startDate" not in row and "endDate" not in row

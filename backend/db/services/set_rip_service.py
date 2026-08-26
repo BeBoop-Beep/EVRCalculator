@@ -11,6 +11,7 @@ from backend.desirability.scoring_config import (
     CANONICAL_OVERALL_RIP_VERSION,
     canonical_collector_appeal_version,
 )
+from backend.rankings.public_relative import public_relative_rip_tier
 
 METHODOLOGY_VERSION = "set_rip_v1_mean_sku_mean_family_unshrunk_cov2_cohort3_missing_omit"
 MINIMUM_PARTICIPATING_FAMILIES = 2
@@ -47,7 +48,7 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
         raise ValueError("Set RIP product-family projection is incomplete for the ranked target cohort")
 
     evidence: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    display_evidence: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    display_evidence: dict[str, dict[str, list[Dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
     eligible_family_counts: dict[str, int] = {}
     for family, block in sorted((product_family_rankings.get("families") or {}).items()):
         products = list(block.get("products") or [])
@@ -67,7 +68,11 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
             if versions != canonical:
                 raise ValueError(f"Set RIP canonical score version mismatch for set_id={set_id}, family={family}")
             standing = sku_relative_standing(int(product.get("familyRank")), family_size)
-            display_evidence[set_id][family].append(standing)
+            display_evidence[set_id][family].append({
+                "standing": standing,
+                "marketPrice": product.get("marketPrice"),
+                "sealedProductId": product.get("sealedProductId"),
+            })
             if len(represented_sets) >= MINIMUM_REPRESENTED_SETS_PER_FAMILY:
                 evidence[set_id][family].append(standing)
         if len(represented_sets) >= MINIMUM_REPRESENTED_SETS_PER_FAMILY:
@@ -80,17 +85,21 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
 
     display_standings: dict[str, dict[str, float]] = defaultdict(dict)
     for set_id, families in display_evidence.items():
-        for family, values in families.items():
-            display_standings[family][set_id] = round(statistics.fmean(values), 6)
+        for family, products in families.items():
+            display_standings[family][set_id] = round(
+                statistics.fmean(product["standing"] for product in products), 6
+            )
 
     family_standing: dict[str, dict[str, Dict[str, Any]]] = defaultdict(dict)
     for family, by_set in standings.items():
         ordered = sorted(by_set.items(), key=lambda item: (-item[1], item[0]))
         cohort_size = len(ordered)
         for rank, (set_id, mean_standing) in enumerate(ordered, 1):
+            score = round(mean_standing * 100, 6)
             family_standing[set_id][family] = {
                 "meanStanding": mean_standing,
-                "score": round(mean_standing * 100, 6),
+                "score": score,
+                "tier": public_relative_rip_tier(score),
                 "rank": rank,
                 "cohortSize": cohort_size,
             }
@@ -100,9 +109,11 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
         ordered = sorted(by_set.items(), key=lambda item: (-item[1], item[0]))
         cohort_size = len(ordered)
         for rank, (set_id, mean_standing) in enumerate(ordered, 1):
+            score = round(mean_standing * 100, 6)
             display_family_standing[set_id][family] = {
                 "meanStanding": mean_standing,
-                "score": round(mean_standing * 100, 6),
+                "score": score,
+                "tier": public_relative_rip_tier(score),
                 "rank": rank,
                 "cohortSize": cohort_size,
             }
@@ -112,12 +123,24 @@ def build_set_rip(product_family_rankings: Mapping[str, Any], *,
         family_scores = [{"family": family, "skuCount": len(values),
                           **family_standing[set_id][family]}
                          for family, values in sorted(evidence.get(set_id, {}).items())]
-        display_family_scores = [{"family": family, "skuCount": len(values),
-                                  **display_family_standing[set_id][family]}
-                                 for family, values in sorted(display_evidence.get(set_id, {}).items())]
+        display_family_scores = []
+        for family, products in sorted(display_evidence.get(set_id, {}).items()):
+            prices = [float(product["marketPrice"]) for product in products
+                      if isinstance(product.get("marketPrice"), (int, float))
+                      and float(product["marketPrice"]) > 0]
+            display_family_scores.append({
+                "family": family,
+                "skuCount": len(products),
+                "minMarketPrice": min(prices) if prices else None,
+                "maxMarketPrice": max(prices) if prices else None,
+                "productIds": [product["sealedProductId"] for product in products
+                               if product.get("sealedProductId")],
+                **display_family_standing[set_id][family],
+            })
         rankable = len(family_scores) >= MINIMUM_PARTICIPATING_FAMILIES
         score = round(statistics.fmean(item["meanStanding"] for item in family_scores) * 100, 6) if rankable else None
-        rows.append({"setId": set_id, "setName": target.get("name"), "score": score, "rank": None,
+        rows.append({"setId": set_id, "setName": target.get("name"), "score": score,
+                     "tier": public_relative_rip_tier(score), "rank": None,
                      "rankable": rankable, "methodologyVersion": METHODOLOGY_VERSION,
                      "participatingFamilyCount": len(family_scores),
                      "participatingFamilies": [item["family"] for item in family_scores],

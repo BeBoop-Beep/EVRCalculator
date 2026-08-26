@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { formatModeScore, formatPublicRipScore, SCORE_KIND_PUBLIC } from "../../constants/exploreRankingConfig.mjs";
+import { formatModeScore, formatPublicRipScore, publicRipDisplayScore, SCORE_KIND_PUBLIC } from "../../constants/exploreRankingConfig.mjs";
 import { readCanonicalOverallRipV10 } from "./canonicalRipV7.mjs";
 import { readSortValue, sortRankingsRows, RANKINGS_DEFAULT_SORT } from "./rankingsSort.mjs";
 
@@ -9,7 +9,7 @@ function target(name, rank, relativeScore, tier, formatRank, formatScore) {
   return {
     name,
     publicRipContractV10: {
-      overallRip: { rank, relativeScore, tier, rankedSetCount: 20 },
+      overallRip: { rank, relativeScore, leaderNormalizedScore: relativeScore, tier, rankedSetCount: 20 },
       financialRip: {},
       collectorAppeal: {},
     },
@@ -25,6 +25,13 @@ test("public RIP presentation converts authoritative 0-100 values exactly once",
   assert.equal(formatPublicRipScore(0), "0.0");
   assert.equal(formatPublicRipScore(null), "—");
   assert.equal(formatModeScore(9.7, SCORE_KIND_PUBLIC), "1.0", "values are never magnitude-guessed as already scaled");
+});
+
+test("public score formatting uses deterministic half-up boundaries", () => {
+  assert.deepEqual(
+    [95.49, 95.50, 94.99, 89.49, 89.50, 79.49, 79.50, 69.49, 69.50, 54.49, 54.50].map(publicRipDisplayScore),
+    [9.5, 9.6, 9.5, 8.9, 9.0, 7.9, 8.0, 6.9, 7.0, 5.4, 5.5],
+  );
 });
 
 test("canonical V10 owns the headline while Set RIP V1 remains distinct", () => {

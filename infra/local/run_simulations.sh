@@ -352,7 +352,10 @@ BUDGET_RANKING_STATUS="NOT_RUN"
 BUDGET_RANKING_DETAIL=""
 BUDGET_RANKING_SLACK_LINE=""
 BUDGET_RANKING_REPORT="logs/budget_product_ranking_publication.json"
-if [ "$PUBLICATION_EXIT" -eq 0 ] && [ "$AUDIT_EXIT" -eq 0 ] && [ "$PUBLIC_RIP_AUDIT_EXIT" -eq 0 ]; then
+# Budget Ranking owns its readiness gates. Attempt it after the opening workflow
+# regardless of unrelated Market/leaderboard audit outcomes; report each result
+# independently and preserve the last-known-good ranking on a failed gate.
+if [ "$PUBLICATION_EXIT" -ne 3 ]; then
   python -m backend.scripts.publish_budget_product_rankings_if_ready --commit \
     --json-report "$BUDGET_RANKING_REPORT" >> logs/run_simulations.log 2>&1 || BUDGET_RANKING_EXIT=$?
   BUDGET_RANKING_STATUS=$(python - "$BUDGET_RANKING_REPORT" <<'PY'

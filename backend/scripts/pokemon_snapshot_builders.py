@@ -4013,7 +4013,8 @@ def build_explore_rankings_snapshot_row(
     payload = get_rip_statistics_targets_payload(limit=limit)
     targets = list(payload.get("targets") or [])
     opening_targets = [target for target in targets if is_opening_set_row(target)]
-    opening_targets = attach_public_v1_to_targets(get_client(), opening_targets)
+    service_client = get_client()
+    opening_targets = attach_public_v1_to_targets(service_client, opening_targets)
     meta = dict(payload.get("meta") or {})
     opening_set_audit = build_opening_set_audit(targets)
     meta["snapshot"] = {
@@ -4041,7 +4042,7 @@ def build_explore_rankings_snapshot_row(
             "Re-run once the source reads succeed."
         )
 
-    product_family_rankings = build_product_family_rankings(set_targets=opening_targets)
+    product_family_rankings = build_product_family_rankings(client=service_client, set_targets=opening_targets)
     payload["productFamilyRankings"] = product_family_rankings
     if any((target.get("overallRipV9") or {}).get("rank") is not None for target in opening_targets):
         set_rip = build_set_rip(product_family_rankings, set_targets=opening_targets)

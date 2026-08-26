@@ -87,8 +87,8 @@ def validate_publication_payload(snapshot: Mapping[str, Any], rows: Sequence[Map
         cohorts[(float(row["target_budget"]), str(row["budget_type"]))].append(row)
     expected = {(float(b), BUDGET_TYPE_STANDARD) for b in CANONICAL_BUDGET_BANDS}
     expected.add((float(snapshot["full_market_budget"]), BUDGET_TYPE_FULL_MARKET))
-    if set(cohorts) != expected or len(cohorts) != 7:
-        failures.append(_gate("canonical_cohorts", False, "expected exactly six standard bands and Full Market"))
+    if set(cohorts) != expected or len(cohorts) != len(expected):
+        failures.append(_gate("canonical_cohorts", False, "expected exactly %d standard bands and Full Market" % len(CANONICAL_BUDGET_BANDS)))
     identities = [(r["sealed_product_id"], r["target_budget"], r["budget_type"]) for r in rows]
     if len(identities) != len(set(identities)):
         failures.append(_gate("unique_identity", False, "duplicate product/budget/type"))

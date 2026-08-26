@@ -14,7 +14,7 @@ from backend.db.services.public_identity_service import normalize_profile_userna
 
 PROFILE_SELECT_FIELDS = (
     "id, email, username, display_name, bio, avatar_url, location, "
-    "favorite_tcg_id, is_profile_public, show_portfolio_value, show_activity, created_at, updated_at"
+    "favorite_tcg_id, is_profile_public, show_portfolio_value, show_activity, index_plan, created_at, updated_at"
 )
 
 EDITABLE_PROFILE_FIELDS = {
@@ -382,12 +382,14 @@ def get_me(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
 
     username = token_user.get("username")
     display_name = None
+    index_plan = None
 
     try:
         profile, _ = get_profile_by_user_id(user_id, token_email)
         if profile:
             username = profile.get("username") or username
             display_name = profile.get("display_name")
+            index_plan = profile.get("index_plan")
     except Exception:
         pass
 
@@ -395,6 +397,7 @@ def get_me(token: Optional[str]) -> Tuple[Dict[str, Any], int]:
         **token_user,
         "username": username,
         "display_name": display_name,
+        "index_plan": index_plan,
     }
 
     return {"user": user}, 200

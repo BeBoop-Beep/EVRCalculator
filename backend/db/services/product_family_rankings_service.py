@@ -6,6 +6,9 @@ from typing import Any, Dict, Mapping, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
 from backend.desirability.composite import assign_composite_tier
+from backend.rankings.public_relative import (
+    compute_leader_normalized_scores, compute_public_relative_scores, public_leader_rip_tier,
+)
 from backend.desirability.scoring_config import (
     CANONICAL_FINANCIAL_RIP_VERSION,
     CANONICAL_OVERALL_RIP_VERSION,
@@ -111,7 +114,10 @@ def _target_run_authority(
     return run_by_set, identities
 
 
-def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int) -> Dict[str, Any]:
+def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, size: int,
+             overall_relative: Any = None, financial_relative: Any = None,
+             overall_leader: Any = None, financial_leader: Any = None,
+             product_image_url: Any = None) -> Dict[str, Any]:
     market = _number(row.get("product_market_cost"), 0.0)
     expected = _number(row.get("expected_value"), 0.0)
     ratio = expected / market if market > 0 else None
@@ -125,6 +131,7 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "setImage": identity.get("logo_image_url") or identity.get("logoImageUrl") or identity.get("symbol_image_url"),
         "productFamily": family,
         "productFamilyLabel": FAMILY_LABELS.get(family, family.replace("_", " ").title()),
+        "productImageUrl": product_image_url if family == "loose_booster_pack" else None,
         "familyRank": rank,
         "familySize": size,
         # Reuses the ONE canonical absolute-score tier bucketer already in the
@@ -134,10 +141,18 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         # that produced this row's rank, so rank and tier always describe the
         # identical cohort/score.
         "familyTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
+        "publicTier": public_leader_rip_tier(overall_leader),
+        "modelTier": assign_composite_tier(_number(row.get("overall_rip_v10_score"), 0.0)),
         "marketPrice": row.get("product_market_cost"),
         "overallRipScore": row.get("overall_rip_v10_score"),
+        "overallRipAbsoluteScore": row.get("overall_rip_v10_score"),
+        "overallRipRelativeScore": overall_relative,
+        "overallRipLeaderScore": overall_leader,
         "overallRipVersion": row.get("overall_rip_v10_version"),
         "financialRipScore": row.get("financial_rip_v4_score"),
+        "financialRipAbsoluteScore": row.get("financial_rip_v4_score"),
+        "financialRipRelativeScore": financial_relative,
+        "financialRipLeaderScore": financial_leader,
         "financialRipVersion": row.get("financial_rip_v4_version"),
         "collectorAppealScore": row.get("collector_appeal_score"),
         "collectorAppealVersion": row.get("collector_appeal_version"),
@@ -196,12 +211,50 @@ def build_product_family_rankings(
         if _canonical(row):
             rankable_by_family.setdefault(family, []).append(row)
 
+    loose_ids = sorted({
+        str(row.get("sealed_product_id")) for row in rankable_by_family.get("loose_booster_pack", [])
+        if row.get("sealed_product_id")
+    })
+    product_images: Dict[str, Any] = {}
+    if loose_ids:
+        image_rows = list(
+            client.table("sealed_products")
+            .select("id,image_small_url,image_large_url")
+            .in_("id", loose_ids)
+            .execute().data or []
+        )
+        product_images = {
+            str(product.get("id")): product.get("image_small_url") or product.get("image_large_url")
+            for product in image_rows
+        }
+
     families: Dict[str, Any] = {}
     for family in sorted(rankable_by_family):
         ordered = sorted(rankable_by_family[family], key=_rank_key)
         size = len(ordered)
+        overall_relative = compute_public_relative_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("overall_rip_v10_score"),
+        )
+        financial_relative = compute_public_relative_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("financial_rip_v4_score"),
+        )
+        overall_leader = compute_leader_normalized_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("overall_rip_v10_score"),
+        )
+        financial_leader = compute_leader_normalized_scores(
+            ordered, id_getter=lambda row: row.get("sealed_product_id"),
+            score_getter=lambda row: row.get("financial_rip_v4_score"),
+        )
         products = [
-            _project(row, identities.get(str(row.get("set_id")), {}), index, size)
+            _project(row, identities.get(str(row.get("set_id")), {}), index, size,
+                     overall_relative.get(str(row.get("sealed_product_id"))),
+                     financial_relative.get(str(row.get("sealed_product_id"))),
+                     overall_leader.get(str(row.get("sealed_product_id"))),
+                     financial_leader.get(str(row.get("sealed_product_id"))),
+                     product_images.get(str(row.get("sealed_product_id"))))
             for index, row in enumerate(ordered, 1)
         ]
         families[family] = {

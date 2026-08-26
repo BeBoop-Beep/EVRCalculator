@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import TestRenderer from "react-test-renderer";
-import { displayFamilyScores, familyEvidenceScores, familyTier, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
+import { displayFamilyScores, familyEvidenceScores, familyTier, formatFamilyMarketPrice, participatingFamilyCount, participatingFamilyScores, selectPreferredSetRipContract, setRipTier, whySetRanks } from "./SetRipFamilyBreakdown.jsx";
 import { FamilyScoreRow, FamilySnapshot, RankingsFamilyCells, RANKINGS_FAMILY_COLUMNS, familyLabel } from "./SetRipFamilyBreakdown.jsx";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const sets = [
-  { name: "Alpha", setRipV1: { score: 92, rank: 1, cohortSize: 20, familyScores: [{ family: "booster_box", score: 95, rank: 1, cohortSize: 20, skuCount: 2 }] } },
-  { name: "Beta", setRipV1: { score: 84, rank: 4, cohortSize: 20, familyScores: [{ family: "booster_bundle", score: 82, rank: 4, cohortSize: 20, skuCount: 1 }] } },
-  { name: "Gamma", setRipV1: { score: 76, rank: 9, cohortSize: 20, familyScores: [{ family: "elite_trainer_box", score: 75, rank: 9, cohortSize: 18, skuCount: 1 }] } },
+  { name: "Alpha", setRipV1: { score: 92, tier: "S", rank: 1, cohortSize: 20, familyScores: [{ family: "booster_box", score: 95, tier: "S", rank: 1, cohortSize: 20, skuCount: 2 }] } },
+  { name: "Beta", setRipV1: { score: 84, tier: "A", rank: 4, cohortSize: 20, familyScores: [{ family: "booster_bundle", score: 82, tier: "A", rank: 4, cohortSize: 20, skuCount: 1 }] } },
+  { name: "Gamma", setRipV1: { score: 76, tier: "B", rank: 9, cohortSize: 20, familyScores: [{ family: "elite_trainer_box", score: 75, tier: "B", rank: 9, cohortSize: 18, skuCount: 1 }] } },
 ];
 
 test("three representative sets retain identical canonical values for every consumer", () => {
@@ -56,12 +56,12 @@ test("the set page prefers an enriched selected target over a legacy explore pay
 
 const enrichedFamilies = {
   familyScores: [
-    { family: "booster_box", skuCount: 1, score: 100, rank: 1, cohortSize: 15 },
-    { family: "booster_bundle", skuCount: 1, score: 90.9, rank: 3, cohortSize: 22 },
-    { family: "elite_trainer_box", skuCount: 1, score: 92.3, rank: 2, cohortSize: 22 },
-    { family: "loose_booster_pack", skuCount: 1, score: 100, rank: 1, cohortSize: 22 },
-    { family: "pokemon_center_elite_trainer_box", skuCount: 1, score: 100, rank: 1, cohortSize: 22 },
-    { family: "sleeved_booster_pack", skuCount: 1, score: 92.9, rank: 2, cohortSize: 15 },
+    { family: "booster_box", skuCount: 1, score: 100, tier: "S", rank: 1, cohortSize: 15 },
+    { family: "booster_bundle", skuCount: 1, score: 90.9, tier: "S", rank: 3, cohortSize: 22 },
+    { family: "elite_trainer_box", skuCount: 1, score: 92.3, tier: "S", rank: 2, cohortSize: 22 },
+    { family: "loose_booster_pack", skuCount: 1, score: 100, tier: "S", rank: 1, cohortSize: 22 },
+    { family: "pokemon_center_elite_trainer_box", skuCount: 1, score: 100, tier: "S", rank: 1, cohortSize: 22 },
+    { family: "sleeved_booster_pack", skuCount: 1, score: 92.9, tier: "S", rank: 2, cohortSize: 15 },
   ],
 };
 
@@ -87,7 +87,7 @@ test("Rankings renders every enriched family as a text-first module", () => {
   assert.equal(renderer.root.findAll((node) => node.props["data-family-module"] !== undefined).length, 6);
   assert.equal(renderer.root.findAll((node) => node.props["data-family-media-slot"] !== undefined).length, 0);
   const text = renderedText(renderer);
-  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center ETB", "Sleeved Pack", "10.0", "#3", "A"]) {
+  for (const expected of ["Booster Box", "Booster Bundle", "ETB", "Booster Pack", "Pokémon Center ETB", "Sleeved Pack", "10.0", "#3", "S"]) {
     assert.ok(text.includes(expected), expected);
   }
 });
@@ -129,9 +129,9 @@ test("desktop Rankings family columns have one stable canonical order", () => {
 
 test("fixed cells preserve missing positions and canonical score, rank, and tier", () => {
   const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
-    React.createElement(RankingsFamilyCells, { setRip: { familyScores: [
-      { family: "booster_bundle", score: 92.3, rank: 3, cohortSize: 20 },
-      { family: "booster_box", score: 71.1, rank: 8, cohortSize: 20 },
+    React.createElement(RankingsFamilyCells, { canViewProductRipIntelligence: true, setRip: { familyScores: [
+      { family: "booster_bundle", score: 92.3, tier: "S", rank: 3, cohortSize: 20 },
+      { family: "booster_box", score: 71.1, tier: "B", rank: 8, cohortSize: 20 },
     ] } })
   ))));
   const cells = renderer.root.findAll((node) => node.props["data-rankings-family-column"] !== undefined);
@@ -141,7 +141,7 @@ test("fixed cells preserve missing positions and canonical score, rank, and tier
   const text = renderedText(renderer);
   assert.ok(text.includes("9.2"));
   assert.ok(text.includes("#3"));
-  assert.ok(text.includes(familyTier({ rank: 3, cohortSize: 20 })));
+  assert.ok(text.includes(familyTier({ tier: "S" })));
 });
 
 test("display-only Enhanced Box evidence renders without entering Format Strength eligibility", () => {
@@ -149,17 +149,50 @@ test("display-only Enhanced Box evidence renders without entering Format Strengt
     score: 75,
     familyScores: [{ family: "booster_box", score: 80, rank: 2, cohortSize: 10 }],
     displayFamilyScores: [
-      { family: "booster_box", score: 80, rank: 2, cohortSize: 10 },
-      { family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2 },
+      { family: "booster_box", score: 80, tier: "A", rank: 2, cohortSize: 10 },
+      { family: "enhanced_booster_box", score: 100, tier: "S", rank: 1, cohortSize: 2 },
     ],
   };
   assert.equal(participatingFamilyScores(setRip).length, 1);
   assert.equal(displayFamilyScores(setRip).length, 2);
   const renderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
-    React.createElement(RankingsFamilyCells, { setRip })
+    React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: true })
   ))));
   const enhanced = renderer.root.find((node) => node.props["data-rankings-family-column"] === "enhanced-box");
   const text = renderedText({ toJSON: () => enhanced.toJSON?.() }) || renderedText(renderer);
   assert.ok(text.includes("10.0"));
   assert.ok(text.includes("#1"));
+
+  const journey = {
+    familyScores: [],
+    displayFamilyScores: [
+      { family: "enhanced_booster_box", score: 0, tier: "F", rank: 2, cohortSize: 2 },
+    ],
+  };
+  assert.equal(participatingFamilyScores(journey).length, 0);
+  assert.equal(displayFamilyScores(journey).length, 1);
+  const zeroRenderer = render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null,
+    React.createElement(RankingsFamilyCells, { setRip: journey, canViewProductRipIntelligence: true })
+  ))));
+  const zeroText = renderedText(zeroRenderer);
+  assert.ok(zeroText.includes("0.0"));
+  assert.ok(zeroText.includes("#2"));
+  assert.ok(zeroText.includes("F"));
+});
+
+test("family prices format one SKU, multiple SKUs, and reject zero or invalid values", () => {
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: 172.96 }), "$172.96");
+  assert.equal(formatFamilyMarketPrice({ skuCount: 2, minMarketPrice: 167.87 }), "from $167.87");
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: 0 }), null);
+  assert.equal(formatFamilyMarketPrice({ skuCount: 1, minMarketPrice: "bad" }), null);
+});
+
+test("free family cells hide RIP intelligence but keep price; paid cells show both", () => {
+  const setRip = { displayFamilyScores: [{ family: "booster_box", score: 93, tier: "A", rank: 2, cohortSize: 10, skuCount: 1, minMarketPrice: 172.96 }] };
+  const make = (entitled) => render(React.createElement("table", null, React.createElement("tbody", null, React.createElement("tr", null, React.createElement(RankingsFamilyCells, { setRip, canViewProductRipIntelligence: entitled })))))
+  const free = renderedText(make(false));
+  assert.ok(free.includes("RIP") && free.includes("$172.96"));
+  assert.ok(!free.includes("9.3") && !free.includes("#2") && !free.includes("A"));
+  const paid = renderedText(make(true));
+  assert.ok(paid.includes("9.3") && paid.includes("#2") && paid.includes("A") && paid.includes("$172.96"));
 });

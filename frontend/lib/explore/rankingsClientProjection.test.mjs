@@ -49,9 +49,9 @@ function target(i, overrides = {}) {
     p99_value_to_cost_ratio: 3 + i / 10, p99_value_to_cost_rank: i, p99_value_to_cost_tier: "A",
 
     overallRipV8: { relativeScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
-    overallRipV10: { relativeScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
+    overallRipV10: { relativeScore: 90 - i, leaderNormalizedScore: 90 - i, rank: i, cohortSize: 22, tier: "S", absoluteScore: 70 - i },
     financialRipV3: { relativeScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
-    financialRipV4: { relativeScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
+    financialRipV4: { relativeScore: 80 - i, leaderNormalizedScore: 80 - i, rank: i, cohortSize: 22, tier: "A", absoluteScore: 60 - i },
     universalSetDesirability: { score: 70 - i, rank: i, rankedSetCount: 135 },
 
     publicRipContractV8: {
@@ -61,8 +61,8 @@ function target(i, overrides = {}) {
       audit: { huge: "x".repeat(5000) },
     },
     publicRipContractV10: {
-      overallRip: { relativeScore: 90 - i, rank: i, tier: "S", rankedSetCount: 22, status: "ok" },
-      financialRip: { relativeScore: 80 - i, rank: i, tier: "A", rankedSetCount: 22 },
+      overallRip: { relativeScore: 90 - i, leaderNormalizedScore: 90 - i, rank: i, tier: "S", rankedSetCount: 22, status: "ok" },
+      financialRip: { relativeScore: 80 - i, leaderNormalizedScore: 80 - i, rank: i, tier: "A", rankedSetCount: 22 },
       collectorAppeal: { relativeScore: 55 - i, absoluteScore: 40 - i, rank: i, tier: "B", rankedSetCount: 22 },
       audit: { huge: "v10-audit-must-not-cross".repeat(500) },
     },
@@ -188,7 +188,7 @@ test("packaged V10 survives projection and resolves through the strict headline 
   const source = {
     target_id: "v10-contract",
     publicRipContractV10: {
-      overallRip: { relativeScore: 88.77, absoluteScore: 42.1, rank: 2, tier: "S", rankedSetCount: 22, status: "ok" },
+      overallRip: { relativeScore: 8.77, leaderNormalizedScore: 88.77, absoluteScore: 42.1, rank: 2, tier: "S", rankedSetCount: 22, status: "ok" },
       financialRip: { relativeScore: 84.53, rank: 3, tier: "A", rankedSetCount: 22 },
       collectorAppeal: { relativeScore: 74.89, rank: 7, rankedSetCount: 22 },
       audit: { heavy: "must be dropped" },
@@ -208,10 +208,10 @@ test("packaged V10 survives projection and resolves through the strict headline 
 test("top-level V10/V4 fallback survives projection", () => {
   const [projected] = projectRankingsTargets([{
     target_id: "v10-top-level",
-    overallRipV10: { relativeScore: 86.42, rank: 3, tier: "A", cohortSize: 22, status: "ok" },
-    financialRipV4: { relativeScore: 82.1, rank: 4, tier: "A", rankedSetCount: 22, status: "ok" },
+    overallRipV10: { relativeScore: 6.42, leaderNormalizedScore: 86.42, rank: 3, tier: "A", cohortSize: 22, status: "ok" },
+    financialRipV4: { relativeScore: 2.1, leaderNormalizedScore: 82.1, rank: 4, tier: "A", rankedSetCount: 22, status: "ok" },
   }]);
-  assert.equal(projected.financialRipV4.relativeScore, 82.1);
+  assert.equal(projected.financialRipV4.leaderNormalizedScore, 82.1);
   const headline = readCanonicalOverallRipV10(projected);
   assert.deepEqual(
     { publicScore: headline.publicScore, rank: headline.rank, tier: headline.tier, cohortSize: headline.cohortSize },
@@ -222,7 +222,7 @@ test("top-level V10/V4 fallback survives projection", () => {
 test("conflicting V10 and Set RIP V1 remain semantically separated after projection", () => {
   const [projected] = projectRankingsTargets([{
     target_id: "conflict",
-    publicRipContractV10: { overallRip: { relativeScore: 52.77, rank: 14, tier: "D", rankedSetCount: 22 } },
+    publicRipContractV10: { overallRip: { relativeScore: 2.77, leaderNormalizedScore: 52.77, rank: 14, tier: "D", rankedSetCount: 22 } },
     setRipV1: { score: 77.5, rank: 3, cohortSize: 22, familyScores: [] },
   }]);
   const headline = readCanonicalOverallRipV10(projected);
@@ -233,17 +233,19 @@ test("conflicting V10 and Set RIP V1 remain semantically separated after project
 test("the client field manifest advertises current packaged and top-level models", () => {
   for (const path of [
     "publicRipContractV10.overallRip.relativeScore",
+    "publicRipContractV10.overallRip.leaderNormalizedScore",
     "publicRipContractV10.overallRip.rank",
     "publicRipContractV10.overallRip.tier",
     "publicRipContractV10.financialRip.relativeScore",
     "publicRipContractV10.collectorAppeal.relativeScore",
     "overallRipV10.relativeScore",
+    "overallRipV10.leaderNormalizedScore",
     "financialRipV4.relativeScore",
   ]) assert.ok(RANKINGS_CLIENT_FIELDS.includes(path), path);
 });
 
 test("display-only family evidence crosses the lightweight Rankings boundary", () => {
-  const displayFamilyScores = [{ family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2 }];
+  const displayFamilyScores = [{ family: "enhanced_booster_box", score: 100, rank: 1, cohortSize: 2, skuCount: 2, minMarketPrice: 167.87, maxMarketPrice: 189.42 }];
   const [projected] = projectRankingsTargets([{ target_id: "enhanced", setRipV1: {
     score: 77.5, familyScores: [], displayFamilyScores,
   } }]);

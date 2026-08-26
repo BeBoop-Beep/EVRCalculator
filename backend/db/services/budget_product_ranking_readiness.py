@@ -156,6 +156,23 @@ def resolve_budget_ranking_readiness(
             str(promotion.reason or promotion.reason_code or "publication authority denied"), **common,
         )
     freshness = evaluate_opening_simulation_freshness(client, market_date=str(promoted_market_date))
+    # Budget publication follows its own newest COMPLETE opening authority. A
+    # newer promoted scrape may exist before that day's simulations finish; it
+    # must not prevent yesterday's fully coordinated authority from advancing.
+    if not freshness.ok:
+        latest_complete_candidate = _latest_raw_price_as_of(client)
+        latest_published = str((latest_snapshot or {}).get("pinned_price_as_of") or "")
+        if latest_complete_candidate and latest_complete_candidate > latest_published:
+            candidate_gate = evaluate_publication_gate(
+                client, market_date=latest_complete_candidate, mode=MODE_REQUIRED
+            )
+            candidate_freshness = evaluate_opening_simulation_freshness(
+                client, market_date=latest_complete_candidate
+            )
+            if candidate_gate.allowed and candidate_freshness.ok:
+                promoted_market_date = latest_complete_candidate
+                common["promoted_market_date"] = latest_complete_candidate
+                freshness = candidate_freshness
     if not freshness.ok:
         return _fail(
             BudgetRankingStatus.UPSTREAM_NOT_READY, "opening_freshness",

@@ -5,16 +5,19 @@
 // part of the market is driving performance", by putting several canonical
 // market series on one comparison chart at once.
 //
-// SCOPE. Three live axes:
-//   Asset Market          - the three published parent markets.
-//   Sealed Product Family - the published Sealed submarkets (Phase 2).
-//   Card Segment          - the published card-rarity submarkets (Phase 3),
-//                           grouped by the parent market each one measures.
-// Era remains a declared-but-unavailable descriptor, because no backend
-// publishes an era index. Its option list stays EMPTY: hardcoding
-// "Scarlet & Violet" here would claim an analytic that does not exist. The two
-// live submarket axes are `dynamic` - they carry no compile-time options at all
-// and can only ever offer what the payload published.
+// SCOPE. The Explore Segments rail is organised as one always-visible group
+// plus four collapsed ones:
+//   Asset Market          - the published ASSET CLASSES (Raw, Sealed) plus the
+//                           declared-unavailable Graded placeholder.
+//   Card Rarities         - the published card-rarity submarkets, grouped by
+//                           the parent market each one measures.
+//   Sealed Product Families - the published Sealed submarkets.
+//   Era & Sets            - canonical era -> set navigation, which sets a SCOPE
+//                           rather than charting a line, because no backend
+//                           publishes an era index.
+//   Benchmarks            - canonical reference markets (Per-Set Chase today).
+// Every option in every group is whatever the backend published; nothing here
+// invents a segment, a rarity, an era or a set.
 //
 // SERIES IDS. Selection is expressed in the namespaced ids from
 // marketExplorerSeries.mjs (`raw`, `sealed:boosterBox`, `card:raw:ultraRare`).
@@ -37,15 +40,77 @@ import {
 } from "./marketOverviewPresentation.mjs";
 import {
   RAW_PARENT_SERIES_ID,
-  SEALED_PARENT_SERIES_ID,
   TOP_CHASE_PARENT_SERIES_ID,
   isCardSegmentSeriesId,
   isSealedSegmentSeriesId,
-  parseCardSeriesId,
 } from "./marketExplorerSeries.mjs";
 
 /** The parent markets. Order is the display order. */
 export const MARKET_EXPLORER_ASSET_KEYS = MARKET_SERIES_DEFINITIONS.map((entry) => entry.key);
+
+// ---------------------------------------------------------------------------
+// ASSET MARKET vs BENCHMARK.
+//
+// An asset market is an ASSET CLASS: the thing itself, held in a particular
+// form. Raw cards, sealed product, graded slabs. "Per-Set Chase" is none of
+// those — it is a MODE (rank a filtered universe, keep the top of it) applied
+// to the card asset class, so it sits under Benchmarks with the other
+// canonical reference markets rather than pretending to be a fourth asset.
+//
+// Chase deliberately does NOT get a top-level card either: the Explorer's
+// general expression of "chase" is Build a Market's Top N mode over whatever
+// universe the user filtered, and the published per-set basket is one specific
+// benchmark rather than the concept.
+// ---------------------------------------------------------------------------
+
+/** Published parent markets that are genuinely asset classes. */
+export const MARKET_EXPLORER_ASSET_MARKET_KEYS = ["raw", "sealedMarket"];
+
+/** Published parent markets that are reference benchmarks, not asset classes. */
+export const MARKET_EXPLORER_BENCHMARK_KEYS = ["topChase"];
+
+/** Explorer-facing label + definition for the relocated per-set chase basket. */
+export const PER_SET_CHASE_LABEL = "Per-Set Chase Market";
+export const PER_SET_CHASE_DEFINITION =
+  "Tracks the combined chase-card baskets from each eligible Set. This differs from custom Top 10 queries, which rank the entire filtered universe after applying your filters.";
+
+/**
+ * Graded is declared, visible and explicitly unavailable.
+ *
+ * A third asset class the product intends to publish must occupy its real
+ * architectural position rather than appearing later as a surprise. It carries
+ * NO basket value, NO index and NO trend: a fabricated $0 line would be a
+ * claim, and the whole point of showing it disabled is that no such claim
+ * exists yet.
+ */
+export const GRADED_MARKET_KEY = "gradedMarket";
+export const GRADED_MARKET_PLACEHOLDER = {
+  key: GRADED_MARKET_KEY,
+  label: "Graded Market",
+  color: "rgba(148,163,184,0.95)",
+  softColor: "rgba(148,163,184,0.16)",
+  family: null,
+  available: false,
+  selected: false,
+  unavailableReason:
+    "No canonical graded analytics are published yet. Graded market history requires per-grade population and price authority that the tracked universe does not yet carry, so no index is computed and none is shown.",
+};
+
+/** The Asset Market group: published asset classes, plus the graded placeholder. */
+export function buildAssetMarketModel(overview, selectedKeys) {
+  const published = buildAssetUniverseModel(overview, selectedKeys)
+    .filter((entry) => MARKET_EXPLORER_ASSET_MARKET_KEYS.includes(entry.key));
+  return [...published, { ...GRADED_MARKET_PLACEHOLDER }];
+}
+
+/** The Benchmarks group: canonical reference markets. Extensible by design. */
+export function buildBenchmarkModel(overview, selectedKeys) {
+  return buildAssetUniverseModel(overview, selectedKeys)
+    .filter((entry) => MARKET_EXPLORER_BENCHMARK_KEYS.includes(entry.key))
+    .map((entry) => (entry.key === "topChase"
+      ? { ...entry, label: PER_SET_CHASE_LABEL, definition: PER_SET_CHASE_DEFINITION }
+      : entry));
+}
 
 /** Page-wide default window, per the Market Explorer product spec. */
 export const MARKET_EXPLORER_DEFAULT_TIMEFRAME = "7D";
@@ -82,7 +147,21 @@ export const MARKET_EXPLORER_FILTER_AXES = [
     label: "Asset Market",
     available: true,
     dynamic: false,
-    options: MARKET_SERIES_DEFINITIONS.map(({ key, label, color }) => ({ id: key, label, color })),
+    options: MARKET_SERIES_DEFINITIONS
+      .filter(({ key }) => MARKET_EXPLORER_ASSET_MARKET_KEYS.includes(key))
+      .map(({ key, label, color }) => ({ id: key, label, color })),
+  },
+  {
+    // Canonical reference markets. Extensible: a future benchmark is a new
+    // entry here, never a fourth asset class.
+    id: "benchmark",
+    stateKey: "assetUniverse",
+    label: "Benchmarks",
+    available: true,
+    dynamic: false,
+    options: MARKET_SERIES_DEFINITIONS
+      .filter(({ key }) => MARKET_EXPLORER_BENCHMARK_KEYS.includes(key))
+      .map(({ key, color }) => ({ id: key, label: PER_SET_CHASE_LABEL, color })),
   },
   {
     id: "sealedFamily",
@@ -94,11 +173,16 @@ export const MARKET_EXPLORER_FILTER_AXES = [
     options: [],
   },
   {
+    // LIVE as a NAVIGATION axis. Its options — eras and their sets — come from
+    // the canonical filter-options service, never from a list written here.
+    // It does not by itself produce a series: no backend publishes an era
+    // index, so selecting an era sets a SCOPE the advanced builder can resolve
+    // into a real queried market. See MarketExplorerEraSets.
     id: "era",
     stateKey: "eraIds",
-    label: "Era",
-    available: false,
-    dynamic: false,
+    label: "Era & Sets",
+    available: true,
+    dynamic: true,
     placeholderLabel: "All Eras",
     options: [],
   },
@@ -288,18 +372,17 @@ export function resolveInitialExplorerState(
   if (parsed.hasAssetRequest && requestedAvailable.length > 0) {
     assetUniverse = requestedAvailable;
   } else if (sealedFamilyIds.length > 0 || segmentIds.length > 0) {
-    // A link that asks only for submarkets lands on those submarkets against
-    // their OWN parent benchmarks, not against all three top-level markets.
-    const parents = new Set();
-    if (sealedFamilyIds.length) parents.add(SEALED_PARENT_SERIES_ID);
-    for (const id of segmentIds) {
-      const parsedId = parseCardSeriesId(id);
-      if (parsedId?.parentMarket === "raw") parents.add(RAW_PARENT_SERIES_ID);
-      if (parsedId?.parentMarket === "topChase") parents.add(TOP_CHASE_PARENT_SERIES_ID);
-    }
-    assetUniverse = availableKeys.filter((key) => parents.has(key));
+    // A link that asks only for submarkets charts EXACTLY those submarkets.
+    // It used to also resolve each one's parent onto the chart; that is the
+    // same automatic-parent behaviour the toggles dropped, and a shared link
+    // must reproduce what the sharer was looking at, not add to it.
+    assetUniverse = [];
   } else {
-    assetUniverse = availableKeys;
+    // The opening view is the ASSET CLASSES — the cross-asset comparison a
+    // researcher starts from. Per-Set Chase is a benchmark now and lives in a
+    // collapsed group, so selecting it by default would put a line on the
+    // chart whose control the user cannot see.
+    assetUniverse = availableKeys.filter((key) => MARKET_EXPLORER_ASSET_MARKET_KEYS.includes(key));
   }
 
   return {
@@ -345,11 +428,21 @@ export function toggleAssetUniverseKey(
 /**
  * Toggle one Sealed submarket.
  *
- * PARENT BENCHMARK. Turning on a submarket while Total Sealed is not on the
- * chart also turns Total Sealed on: a child index is close to meaningless
- * without the parent line to read it against, and that benchmark comparison is
- * the point of the segmentation. The user can then switch the parent off
- * explicitly — this only supplies it, it never re-forces it.
+ * NO AUTOMATIC PARENT. A quick-segment click means exactly what was clicked.
+ * This used to also switch Total Sealed on, reasoning that a child index needs
+ * its parent to be read against — but in use that produced a line the user
+ * never asked for, in a near-identical colour, that reappeared every time they
+ * removed it. Comparison is the USER'S statement to make: clicking ETBs charts
+ * ETBs, and ETBs-vs-Sealed is two deliberate clicks.
+ *
+ * The advanced builder is different and still supplies a same-filter benchmark
+ * (see resolveBenchmarkSpec) — there the user has explicitly composed a narrow
+ * custom universe, and its own All-mode counterpart is the only thing that can
+ * interpret it. The distinction is deliberate: fast lane is literal, advanced
+ * lane is analytic.
+ *
+ * The return shape keeps `assetUniverse` so the reducer stays one atomic step;
+ * it is now always returned unchanged.
  */
 export function toggleSealedFamilyId(
   sealedFamilyIds,
@@ -370,9 +463,6 @@ export function toggleSealedFamilyId(
     current.delete(seriesId);
   } else {
     current.add(seriesId);
-    if (!parents.has(SEALED_PARENT_SERIES_ID) && availableAssetKeys.includes(SEALED_PARENT_SERIES_ID)) {
-      parents.add(SEALED_PARENT_SERIES_ID);
-    }
   }
   return {
     sealedFamilyIds: allowed.filter((id) => current.has(id)),
@@ -384,10 +474,15 @@ export function toggleSealedFamilyId(
  * Reconcile a selection against a (re-published) snapshot: drop series that
  * vanished, and never end up with nothing selected.
  */
-export function reconcileAssetUniverse(assetUniverse, availableKeys) {
+export function reconcileAssetUniverse(assetUniverse, availableKeys, { hasOtherSeries = false } = {}) {
   const allowed = Array.isArray(availableKeys) ? availableKeys : [];
   const kept = (assetUniverse || []).filter((key) => allowed.includes(key));
-  return kept.length > 0 ? kept : allowed;
+  // An EMPTY parent selection is now legitimate — a user charting SIR alone
+  // asked for exactly one line. Only fall back to the asset classes when there
+  // is nothing else on the chart at all, so reconciliation can never leave the
+  // workspace blank.
+  if (kept.length > 0 || hasOtherSeries) return kept;
+  return allowed.filter((key) => MARKET_EXPLORER_ASSET_MARKET_KEYS.includes(key));
 }
 
 export function reconcileSealedFamilyIds(sealedFamilyIds, availableSealedFamilyIds) {
@@ -403,10 +498,8 @@ export function reconcileCardSegmentIds(segmentIds, availableCardSegmentIds) {
 /**
  * Toggle one card-rarity submarket.
  *
- * Same parent-benchmark rule as Sealed, but the parent depends on WHICH
- * universe the rarity index describes: a Raw rarity brings Raw Card Market, a
- * Chase rarity brings Top 10 Chase Market. A rarity index read without its
- * parent line is close to meaningless, and that comparison is the point.
+ * Same rule as Sealed: NO automatic parent. Clicking SIR charts SIR. Reading
+ * it against Raw Card Market is a second, deliberate click.
  */
 export function toggleCardSegmentId(
   segmentIds,
@@ -427,18 +520,110 @@ export function toggleCardSegmentId(
     current.delete(seriesId);
   } else {
     current.add(seriesId);
-    const parsed = parseCardSeriesId(seriesId);
-    const parentKey = parsed?.parentMarket === "topChase"
-      ? TOP_CHASE_PARENT_SERIES_ID
-      : RAW_PARENT_SERIES_ID;
-    if (!parents.has(parentKey) && availableAssetKeys.includes(parentKey)) {
-      parents.add(parentKey);
-    }
   }
   return {
     segmentIds: allowed.filter((id) => current.has(id)),
     assetUniverse: MARKET_EXPLORER_ASSET_KEYS.filter((key) => parents.has(key)),
   };
+}
+
+// ---------------------------------------------------------------------------
+// ONE ATOMIC SELECTION REDUCER.
+//
+// WHY A REDUCER AND NOT THREE SETTERS. Toggling a submarket moves TWO pieces of
+// state at once: the submarket itself, and the parent benchmark it drags onto
+// the chart with it. Expressing that as `setSegmentIds` called from inside the
+// `setAssetUniverse` updater looks equivalent and is not: React may invoke an
+// updater more than once (StrictMode double-invocation, and replaying the
+// update queue from a base state on a later render). The nested setter is then
+// QUEUED TWICE, the second application toggles the segment straight back off,
+// and every quick-segment click is a silent no-op.
+//
+// A reducer moves the whole selection in one pure step, so replaying it any
+// number of times from the same base state yields the same result.
+// ---------------------------------------------------------------------------
+
+export const EXPLORER_SELECTION_ACTIONS = {
+  toggleMarket: "toggleMarket",
+  toggleSealedFamily: "toggleSealedFamily",
+  toggleCardSegment: "toggleCardSegment",
+  reconcile: "reconcile",
+};
+
+const sameList = (left, right) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
+
+/** Preserve identity when nothing moved, so downstream memos do not churn. */
+function settle(previous, next) {
+  const assetUniverse = sameList(previous.assetUniverse, next.assetUniverse)
+    ? previous.assetUniverse : next.assetUniverse;
+  const sealedFamilyIds = sameList(previous.sealedFamilyIds, next.sealedFamilyIds)
+    ? previous.sealedFamilyIds : next.sealedFamilyIds;
+  const segmentIds = sameList(previous.segmentIds, next.segmentIds)
+    ? previous.segmentIds : next.segmentIds;
+  return (assetUniverse === previous.assetUniverse
+    && sealedFamilyIds === previous.sealedFamilyIds
+    && segmentIds === previous.segmentIds)
+    ? previous
+    : { ...previous, assetUniverse, sealedFamilyIds, segmentIds };
+}
+
+/**
+ * The whole Explorer selection, moved atomically.
+ *
+ * `state`   { assetUniverse, sealedFamilyIds, segmentIds }
+ * `action`  { type, seriesId?, available? }
+ * `available` carries the currently published ids:
+ *            { assetKeys, sealedFamilyIds, cardSegmentIds }
+ */
+export function reduceExplorerSelection(state, action) {
+  const available = action?.available || {};
+  const assetKeys = Array.isArray(available.assetKeys) ? available.assetKeys : [];
+  const sealedIds = Array.isArray(available.sealedFamilyIds) ? available.sealedFamilyIds : [];
+  const cardIds = Array.isArray(available.cardSegmentIds) ? available.cardSegmentIds : [];
+
+  switch (action?.type) {
+    case EXPLORER_SELECTION_ACTIONS.toggleMarket: {
+      return settle(state, {
+        ...state,
+        assetUniverse: toggleAssetUniverseKey(state.assetUniverse, action.seriesId, assetKeys, {
+          sealedFamilyIds: state.sealedFamilyIds,
+          segmentIds: state.segmentIds,
+        }),
+      });
+    }
+    case EXPLORER_SELECTION_ACTIONS.toggleSealedFamily: {
+      const result = toggleSealedFamilyId(state.sealedFamilyIds, action.seriesId, sealedIds, {
+        assetUniverse: state.assetUniverse,
+        availableAssetKeys: assetKeys,
+        segmentIds: state.segmentIds,
+      });
+      return settle(state, { ...state, ...result });
+    }
+    case EXPLORER_SELECTION_ACTIONS.toggleCardSegment: {
+      const result = toggleCardSegmentId(state.segmentIds, action.seriesId, cardIds, {
+        assetUniverse: state.assetUniverse,
+        availableAssetKeys: assetKeys,
+        sealedFamilyIds: state.sealedFamilyIds,
+      });
+      return settle(state, { ...state, ...result });
+    }
+    case EXPLORER_SELECTION_ACTIONS.reconcile: {
+      // A re-published snapshot can add or drop a market. Selection follows it
+      // rather than pointing at a series that no longer exists.
+      return settle(state, {
+        ...state,
+        assetUniverse: reconcileAssetUniverse(state.assetUniverse, assetKeys, {
+          hasOtherSeries: reconcileSealedFamilyIds(state.sealedFamilyIds, sealedIds).length > 0
+            || reconcileCardSegmentIds(state.segmentIds, cardIds).length > 0,
+        }),
+        sealedFamilyIds: reconcileSealedFamilyIds(state.sealedFamilyIds, sealedIds),
+        segmentIds: reconcileCardSegmentIds(state.segmentIds, cardIds),
+      });
+    }
+    default:
+      return state;
+  }
 }
 
 /** Timeframe options, availability decided by the backend upstream. */

@@ -13,7 +13,7 @@ import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import RipDistributionChart from "./RipDistributionChart";
 import SimulationFullReport from "./SimulationFullReport.jsx";
-import InfoPopover from "@/components/ui/InfoPopover";
+import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import { getRipPageIconPresentation } from "./ripPageIconPresentation.mjs";
@@ -28,7 +28,13 @@ import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 import styles from "./RipDecisionPage.module.css";
 import ProductOpeningValue, {
   ENTERTAINMENT_COST_PER_PACK_HELP,
+  ENTERTAINMENT_COST_HELP,
 } from "./ProductOpeningValue.jsx";
+import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
+import { PremiumMetricLock, RankedProductHeader, RankedProductIdentity } from "./RankedProductTablePrimitives.jsx";
+import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
+import rankingStyles from "./explore.module.css";
+import { buildFamilyRankLookup, groupProductsByFamily } from "./setProductComparison.mjs";
 import {
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
@@ -517,113 +523,58 @@ function DeepDiveRow({ id, title, subtitle, defaultOpen = false, children }) {
  * The backend's comparison-scope contract (`crossFormatComparable: false`) is
  * still load-bearing: nothing here ever compares across families.
  */
-export function buildFamilyRankLookup(productFamilyRankings) {
-  const lookup = new Map();
-  const families = productFamilyRankings?.families;
-  if (!families || typeof families !== "object") return lookup;
-  for (const block of Object.values(families)) {
-    const size = Number(block?.count ?? block?.currentlyRankableCount);
-    for (const row of Array.isArray(block?.products) ? block.products : []) {
-      const id = row?.sealedProductId;
-      const rank = Number(row?.familyRank);
-      if (!id || !Number.isFinite(rank) || !Number.isFinite(size) || size <= 0) continue;
-      lookup.set(String(id), {
-        familyRank: rank,
-        familySize: Number(row?.familyCohortSize ?? row?.familySize ?? size),
-        familyTier: row?.familyTier ?? null,
-        overallProductRank: Number.isFinite(Number(row?.overallProductRank)) ? Number(row.overallProductRank) : null,
-        overallProductCohortSize: Number.isFinite(Number(row?.overallProductCohortSize)) ? Number(row.overallProductCohortSize) : null,
-        overallProductTier: row?.overallProductTier ?? null,
-      });
-    }
-  }
-  return lookup;
-}
-
-export function groupProductsByFamily(products, familyRankLookup) {
-  const order = [];
-  const groups = new Map();
-  for (const product of products) {
-    const key = product.family || "unknown";
-    if (!groups.has(key)) {
-      groups.set(key, []);
-      order.push(key);
-    }
-    groups.get(key).push(product);
-  }
-  return order.map((key) => ({ family: key, products: groups.get(key) }));
-}
-
-function ProductMetricCells({ product, familyRankInfo, showOverallRank }) {
+function productComparisonMetrics(product) {
   const perPack = product.entertainmentCost?.available ? product.entertainmentCost.perPack : null;
-  const pricePerPack =
-    product.marketPrice !== null && product.packCount ? product.marketPrice / product.packCount : null;
-  const valueBackPct = pctOfPrice(product.typicalOpening, product.marketPrice);
+  const pricePerPack = product.marketPrice !== null && product.packCount ? product.marketPrice / product.packCount : null;
+  return { perPack, pricePerPack, valueBackPct: pctOfPrice(product.typicalOpening, product.marketPrice) };
+}
+
+function ProductIdentity({ product, familyRankInfo, setName, isBest }) {
+  const identity = { ...product, productFamily: product.family, productImageUrl: familyRankInfo?.productImageUrl, setCanonicalKey: familyRankInfo?.setCanonicalKey };
+  return <RankedProductIdentity product={identity} secondary={`${setName || "This set"} · ${familyRankInfo?.productFamilyLabel || familyLabel(product.family)}`}>{isBest ? <small className={styles.comparisonBestTag}>Featured</small> : null}</RankedProductIdentity>;
+}
+
+function LockedValue({ canView, children }) {
+  return canView ? children : <PremiumMetricLock />;
+}
+
+function ComparisonMobileRow({ product, familyRankInfo, setName, canView, isBest = false }) {
+  const { perPack, pricePerPack, valueBackPct } = productComparisonMetrics(product);
+  const rows = [
+    ["Product Rank", familyRankInfo ? `#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}` : "—"],
+    ["$ / Pack", pricePerPack === null ? "—" : money(pricePerPack)],
+    ["Typical Back", valueBackPct === null ? money(product.typicalOpening) : `${valueBackPct}% · ${money(product.typicalOpening)} typical`],
+    ["Entertainment Cost", perPack === null ? "—" : money(perPack)],
+    ["Recover Cost", product.chanceToRecoverCost === null ? "—" : probability(product.chanceToRecoverCost)],
+  ];
   return (
-    <>
-      <span className={styles.comparisonRank}>
-        {familyRankInfo ? (
-          <>
-            #{familyRankInfo.familyRank}/{familyRankInfo.familySize}
-            {familyRankInfo.familyTier ? <small>{familyRankInfo.familyTier} Tier</small> : null}
-          </>
-        ) : (
-          <>
-            —
-            <small className="block text-[var(--text-secondary)]">rank unavailable</small>
-          </>
-        )}
-      </span>
-      {showOverallRank ? (
-        <span className={styles.comparisonRank}>
-          {familyRankInfo?.overallProductRank !== null
-            ? `#${familyRankInfo.overallProductRank}/${familyRankInfo.overallProductCohortSize}`
-            : "—"}
-          {familyRankInfo?.overallProductTier ? <small>{familyRankInfo.overallProductTier} Tier</small> : null}
-        </span>
-      ) : null}
-      <span className={styles.comparisonCell}>{money(product.marketPrice)}</span>
-      <span className={styles.comparisonCell}>
-        {pricePerPack === null ? "—" : money(pricePerPack)}
-      </span>
-      <span className={styles.comparisonCell}>
-        {valueBackPct === null ? money(product.typicalOpening) : `${valueBackPct}%`}
-        <small className="block text-[var(--text-secondary)]">
-          {valueBackPct === null ? "typical" : `${money(product.typicalOpening)} typical`}
-        </small>
-      </span>
-      <span className={styles.comparisonCell}>{perPack === null ? "—" : money(perPack)}</span>
-      <span className={styles.comparisonCell}>
-        {product.chanceToRecoverCost === null ? "—" : probability(product.chanceToRecoverCost)}
-      </span>
-      <span className={styles.comparisonRip}>
-        {product.overallRipScore === null ? "—" : score(product.overallRipScore)}
-      </span>
-    </>
+    <article className={`${rankingStyles.surfaceQuiet} min-w-0 w-full overflow-hidden p-3`} data-product-key={product.key} data-best-in-family={isBest ? "true" : undefined}>
+      <ProductIdentity product={product} familyRankInfo={familyRankInfo} setName={setName} isBest={isBest} />
+      <div className="mt-3 flex items-center justify-between border-y border-[var(--border-subtle)] py-2">
+        <LockedValue canView={canView}><RipScoreBadge score={familyRankInfo?.overallRipLeaderScore} tier={familyRankInfo?.publicTier} compact /></LockedValue>
+        <LockedValue canView={canView}><RipTierMark tier={familyRankInfo?.publicTier} /></LockedValue>
+      </div>
+      <dl className="mt-2 grid gap-2 text-xs">
+        <div className="flex items-center justify-between gap-4"><dt className="text-[var(--text-secondary)]">Market Price</dt><dd className="font-semibold tabular-nums">{money(product.marketPrice)}</dd></div>
+        {rows.map(([label, value]) => <div key={label} className="flex items-center justify-between gap-4"><dt className="text-[var(--text-secondary)]">{label}</dt><dd className="font-semibold tabular-nums"><LockedValue canView={canView}>{value}</LockedValue></dd></div>)}
+      </dl>
+    </article>
   );
 }
 
-function ComparisonRow({ product, familyRankInfo, showOverallRank, isBest = false }) {
+function ComparisonTableRow({ product, familyRankInfo, setName, canView, isBest = false }) {
+  const { perPack, pricePerPack, valueBackPct } = productComparisonMetrics(product);
   return (
-    <li className={styles.comparisonRow} data-product-key={product.key} data-best-in-family={isBest ? "true" : undefined}>
-      <span className={styles.comparisonProduct}>
-        {product.label}
-        {isBest ? <small className={styles.comparisonBestTag}>Featured</small> : null}
-      </span>
-      <ProductMetricCells product={product} familyRankInfo={familyRankInfo} showOverallRank={showOverallRank} />
-    </li>
-  );
-}
-
-function ComparisonTableRow({ product, familyRankInfo, showOverallRank, isBest = false }) {
-  const cells = ProductMetricCells({ product, familyRankInfo, showOverallRank }).props.children;
-  return (
-    <tr data-product-key={product.key} data-best-in-family={isBest ? "true" : undefined}>
-      <th scope="row" className={styles.comparisonProduct}>
-        {product.label}
-        {isBest ? <small className={styles.comparisonBestTag}>Featured</small> : null}
-      </th>
-      {cells.filter(Boolean).map((cell, index) => <td key={index} className={cell.props.className}>{cell.props.children}</td>)}
+    <tr className={rankingStyles.row} data-product-key={product.key} data-sealed-product-id={product.sealedProductId} data-best-in-family={isBest ? "true" : undefined}>
+      <td className={`${rankingStyles.numeric} whitespace-nowrap`}><LockedValue canView={canView}>{familyRankInfo ? `#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}` : "—"}</LockedValue></td>
+      <td className={rankingStyles.productIdentityCell}><ProductIdentity product={product} familyRankInfo={familyRankInfo} setName={setName} isBest={isBest} /></td>
+      <td className="text-center"><LockedValue canView={canView}><RipScoreBadge score={familyRankInfo?.overallRipLeaderScore} tier={familyRankInfo?.publicTier} compact /></LockedValue></td>
+      <td className="text-center"><LockedValue canView={canView}><RipTierMark tier={familyRankInfo?.publicTier} /></LockedValue></td>
+      <td className={rankingStyles.numeric}>{money(product.marketPrice)}</td>
+      <td className={rankingStyles.numeric}><LockedValue canView={canView}>{pricePerPack === null ? "—" : money(pricePerPack)}</LockedValue></td>
+      <td className={rankingStyles.numeric}><LockedValue canView={canView}><span>{valueBackPct === null ? money(product.typicalOpening) : `${valueBackPct}%`}<small className="block text-[10px] font-normal text-[var(--text-secondary)]">{valueBackPct === null ? "typical" : `${money(product.typicalOpening)} typical`}</small></span></LockedValue></td>
+      <td className={rankingStyles.numeric}><LockedValue canView={canView}>{perPack === null ? "—" : money(perPack)}</LockedValue></td>
+      <td className={rankingStyles.numeric}><LockedValue canView={canView}>{product.chanceToRecoverCost === null ? "—" : probability(product.chanceToRecoverCost)}</LockedValue></td>
     </tr>
   );
 }
@@ -659,6 +610,7 @@ export default function RipDecisionPage({
   openingOutcomeProfile = null,
   calculationRunId = null,
 }) {
+  const { canViewRankingsIntelligence: canViewProductRipIntelligence } = useRankingsAccess();
   const [overallOpen, setOverallOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
@@ -709,7 +661,7 @@ export default function RipDecisionPage({
   // comparison is deliberately never computed: decision.crossFormatComparable
   // is published false, and product order here must never imply otherwise.
   //
-  // `familyRankLookup` is the ONLY source of the primary Family Rank shown in
+  // `familyRankLookup` is the ONLY source of the primary Product Rank shown in
   // the hero and the comparison table — a lookup into the canonical global
   // per-family cohort the backend already publishes, never a local sort of
   // this set's own products. Local set-only sorting still exists (Set SKU
@@ -720,14 +672,6 @@ export default function RipDecisionPage({
     () => groupProductsByFamily(decision.products, familyRankLookup),
     [decision.products, familyRankLookup]
   );
-  const showOverallProductRank = useMemo(() => {
-    const ranked = decision.products
-      .map((product) => familyRankLookup.get(product.sealedProductId))
-      .filter(Boolean);
-    return ranked.length > 0 && ranked.every((entry) =>
-      entry.overallProductRank !== null && entry.overallProductCohortSize !== null
-    );
-  }, [decision.products, familyRankLookup]);
   const heroPick = useMemo(() => {
     // The hero recommends the product with the BEST (lowest-numbered) global
     // family rank among products this set actually publishes — never a
@@ -957,54 +901,52 @@ export default function RipDecisionPage({
           <p className={styles.eyebrow}>2. Compare ways to open {setName || "this set"}</p>
           <h2 className={styles.sectionTitle}>Product Comparison</h2>
           <p className={styles.sectionLede}>
-            Family Rank compares each product against every currently eligible modeled product in the
-            same canonical family, across every modeled set. Formats are never ranked against each
-            other unless the canonical ranking contract explicitly publishes an Overall Product Rank.
+            Compare each way to open this set. Product Rank and RIP Score compare each product only
+            with products of the same type; opening economics below describe the specific product at
+            its current market price.
           </p>
           {/* ONE shared header for the entire table. Family groups below are a
               thin divider row, never a second full header — repeating column
               labels per product was the exact complaint this rebuild fixes. */}
-          <div className={styles.comparisonTableWrap}>
-            <table className={styles.comparisonTable}>
+          <div className="mt-3 hidden overflow-x-auto rounded-xl border border-[var(--border-subtle)] lg:block">
+            <table className={`${rankingStyles.table} min-w-[960px]`} data-set-product-comparison-table>
+              <colgroup><col className="w-[5.5rem]" /><col className="w-[17rem]" /><col className="w-[5rem]" /><col className="w-[4rem]" /><col span="2" className="w-[6.25rem]" /><col className="w-[8rem]" /><col className="w-[8rem]" /><col className="w-[6.25rem]" /></colgroup>
               <caption className="sr-only">Sealed-product opening economics for {setName || "this set"}</caption>
-              <thead><tr>
+              <thead className={rankingStyles.head}><tr>
+                <th scope="col"><RankedProductHeader text="Ranks this product against other products of the same type. Booster Packs are compared with Booster Packs, ETBs with ETBs, Booster Boxes with Booster Boxes, and so on.">Product Rank</RankedProductHeader></th>
                 <th scope="col">Product</th>
-                <th scope="col">Family Rank <InfoPopover text="Ranks this product against all currently eligible products in the same sealed-product family. Tier, when published, reflects its position within that same family cohort." /></th>
-                {showOverallProductRank ? <th scope="col">Overall Rank <InfoPopover text="Compares eligible sealed products using the canonical cross-product method published by the ranking contract; it is not a raw natural-unit RIP ranking." /></th> : null}
-                <th scope="col">Market Price</th><th scope="col">$ / Pack</th><th scope="col">Typical Back</th>
-                <th scope="col">Entertainment Cost</th><th scope="col">Recover Cost</th><th scope="col">RIP</th>
+                <th scope="col"><RankedProductHeader text="How close this product's Overall RIP performance is to the strongest eligible product of the same type.">RIP Score</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader info={<PublicRipTierInfo />}>Tier</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader text="The current tracked market price used for this product's RIP calculations.">Market Price</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader text="Current product market price divided by its included pack count.">$ / Pack</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader text="The modeled typical opening value, shown with the share of current product price typically returned.">Typical Back</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader text={ENTERTAINMENT_COST_HELP}>Entertainment Cost</RankedProductHeader></th>
+                <th scope="col"><RankedProductHeader text="The modeled probability that an opening returns at least the product's current market price.">Recover Cost</RankedProductHeader></th>
               </tr></thead>
-              {familyGroups.map((group) => (
-                <tbody key={group.family}>
-                  <tr className={styles.comparisonFamilyRow}><th colSpan={showOverallProductRank ? 9 : 8}>{familyLabel(group.family)}</th></tr>
-                  {group.products.map((product) => {
+              <tbody>{familyGroups.flatMap((group) =>
+                  group.products.map((product) => {
                     const familyRankInfo = familyRankLookup.get(product.sealedProductId) || null;
-                    return <ComparisonTableRow key={product.key} product={product} familyRankInfo={familyRankInfo} showOverallRank={showOverallProductRank} isBest={heroProduct?.key === product.key} />;
-                  })}
-                </tbody>
-              ))}
+                    return <ComparisonTableRow key={product.key} product={product} familyRankInfo={familyRankInfo} setName={setName} canView={canViewProductRipIntelligence} isBest={heroProduct?.key === product.key} />;
+                  })
+                )}</tbody>
             </table>
           </div>
-          <div className={styles.comparisonMobile}>
-          {familyGroups.map((group) => (
-            <div key={group.family} className={styles.comparisonGroup}>
-              <p className={styles.comparisonGroupLabel}>{familyLabel(group.family)}</p>
-              <ul className={styles.comparisonList}>
-                {group.products.map((product) => {
+          <div className="mt-3 grid gap-2 lg:hidden" data-set-product-comparison-mobile>
+            {familyGroups.flatMap((group) =>
+                group.products.map((product) => {
                   const familyRankInfo = familyRankLookup.get(product.sealedProductId) || null;
                   return (
-                    <ComparisonRow
+                    <ComparisonMobileRow
                       key={product.key}
                       product={product}
                       familyRankInfo={familyRankInfo}
-                      showOverallRank={showOverallProductRank}
+                      setName={setName}
+                      canView={canViewProductRipIntelligence}
                       isBest={heroProduct?.key === product.key}
                     />
                   );
-                })}
-              </ul>
-            </div>
-          ))}
+                })
+              )}
           </div>
         </article>
       )}

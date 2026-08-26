@@ -3,7 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export default function InfoPopover({ text, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
+export function PublicRipTierInfo() {
+  const thresholds = [["S", "≥ 9.6"], ["A", "≥ 9.0"], ["B", "≥ 8.0"], ["C", "≥ 6.5"], ["D", "≥ 5.0"], ["F", "< 5.0"]];
+  return (
+    <div>
+      <p>Tier grades the leader-curved Overall RIP score.</p>
+      <ul className="mt-1 list-disc space-y-0 pl-4 tabular-nums">
+        {thresholds.map(([tier, threshold]) => <li key={tier}><strong>{tier}</strong> {threshold}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+export default function InfoPopover({ text, children = null, learnMoreHref = null, learnMoreLabel = "Learn more" }) {
   const [open, setOpen] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ top: 36, left: 16, mobile: true });
   const triggerRef = useRef(null);
@@ -80,7 +92,7 @@ export default function InfoPopover({ text, learnMoreHref = null, learnMoreLabel
             }
       }
     >
-      <p>{text}</p>
+      {children ?? <p>{text}</p>}
       {learnMoreHref ? (
         <a href={learnMoreHref} className="mt-2 inline-flex rounded font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
           {learnMoreLabel} <span aria-hidden="true">→</span>

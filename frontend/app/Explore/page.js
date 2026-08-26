@@ -1,4 +1,5 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
+import { getOverallProductRankings } from "@/lib/explore/overallProductRankingsServer";
 import ProductFamilyRankingsClient from "@/components/explore/ProductFamilyRankingsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
@@ -61,7 +62,10 @@ function rankTargets(targets) {
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
   const backgroundUrl = getExploreBackground("pokemon");
-  const payload = await getRipStatisticsTargets({ limit: 60 }).catch(() => null);
+  const [payload, initialOverallProductRankings] = await Promise.all([
+    getRipStatisticsTargets({ limit: 60 }).catch(() => null),
+    getOverallProductRankings("full_market"),
+  ]);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   // Sword & Shield's simulator-era data is not yet validated for public
   // analytics (incomplete pull/hit-rate model, unblended subsets) — see
@@ -120,7 +124,7 @@ export default async function ExplorePage({ searchParams }) {
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>
-          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} loadError={rankingsLoadError} />
+          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} initialOverallProductRankings={initialOverallProductRankings} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>

@@ -2,61 +2,26 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-
-const source = fs.readFileSync(path.resolve("components/explore/ProductFamilyRankingsClient.jsx"), "utf8");
-const page = fs.readFileSync(path.resolve("app/Explore/page.js"), "utf8");
-
-test("one Rankings page switches between Sets and non-empty product families", () => {
-  assert.ok(page.includes("ProductFamilyRankingsClient"));
-  assert.ok(source.includes('value: "sets", label: "Sets"'));
-  assert.ok(source.includes('value: "products", label: "Products"'));
-  assert.ok(!source.includes('label: "Individual Products"'));
-  assert.ok(source.includes('variant="primary"'));
-  assert.ok(source.includes("SegmentedControl"));
-  assert.ok(source.includes("Number(block?.count) > 0"));
-  assert.ok(!source.includes('families["all"]'));
-});
-
-test("desktop and mobile preserve canonical family identity and official rank", () => {
-  assert.ok(source.includes("product.familyRank"));
-  assert.ok(source.includes("product.productFamilyLabel"));
-  assert.ok(source.includes('className="hidden overflow-x-auto md:block"'));
-  assert.ok(source.includes('className="space-y-2 p-3 md:hidden"'));
-});
-
-test("all required product metrics are presentation-sort choices", () => {
-  for (const metric of ["overallRipScore", "financialRipScore", "collectorAppealScore", "marketPrice", "expectedValue", "medianValue", "chanceToRecoverCost"]) {
-    assert.ok(source.includes(metric), metric);
-  }
-  assert.ok(source.includes("a.familyRank - b.familyRank"));
-});
-
-test("product navigation uses the set RIP route and preserves sealed product context", () => {
-  assert.ok(source.includes("buildTcgSetHrefFromTarget"));
-  assert.ok(source.includes("sealedProduct="));
-});
-
-test("a locked Overall tab exists and shows only Coming Soon, with no ranking data or budget controls", () => {
-  assert.ok(source.includes('setView("overall-locked")'), "Overall remains a distinct product subview");
-  assert.ok(source.includes('>Overall</button>'), "the product subnav is labeled Overall");
-  assert.ok(source.includes("OverallRankingLockedPanel"), "a dedicated locked panel component renders it");
-  assert.ok(source.includes("Coming Soon"), "the locked panel says Coming Soon");
-
-  // No real ranking data, no budget selector, no entitlement/tier disclosure.
-  const forbidden = [
-    "budgetRank", "budgetTier", "overallRipV10Score", "financialRipV4Score",
-    "$25", "$50", "$100", "$150", "$250", "$500",
-    "Index Plus", "Index Premium", "Premium",
-  ];
-  for (const term of forbidden) {
-    assert.equal(source.includes(term), false, `locked Overall surface must not reference ${term}`);
-  }
-});
-
-test("Products opens locked Overall first and exposes Overall before populated families", () => {
-  assert.ok(source.includes('const openProducts = () => setView("overall-locked")'));
-  assert.ok(source.includes('const productsActive = view !== "sets"'));
-  const nav = source.slice(source.indexOf('<nav aria-label="Product family"'), source.indexOf('</nav>'));
-  assert.ok(nav.indexOf('>Overall</button>') < nav.indexOf('familyEntries.map'));
-  assert.ok(source.includes("pluralFamilyLabel(block.label)"));
-});
+const source=fs.readFileSync(path.resolve("components/explore/ProductFamilyRankingsClient.jsx"),"utf8");
+const page=fs.readFileSync(path.resolve("app/Explore/page.js"),"utf8");
+const sortButton=fs.readFileSync(path.resolve("components/ui/SortMenuButton.jsx"),"utf8");
+const darkSelect=fs.readFileSync(path.resolve("components/ui/DarkSelect.jsx"),"utf8");
+const primitives=fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"),"utf8");
+const access=fs.readFileSync(path.resolve("lib/rankings/useRankingsAccess.js"),"utf8");
+test("Products defaults to Overall through the dedicated reader",()=>{assert.match(source,/next === "products" \? "overall" : "sets"/);assert.ok(page.includes("initialOverallProductRankings={initialOverallProductRankings}"));assert.ok(source.includes("/api/explore/product-rankings/overall?budget="));assert.ok(!page.includes("payload?.overallProductRankings"));});
+test("Overall retains dynamic budgets and loading",()=>{assert.ok(source.includes('useState("full_market")'));assert.ok(source.includes('selected?.type === "full_market"'));assert.ok(source.includes('result?.status === "loading"'));assert.ok(!source.includes("1350"));assert.equal((source.match(/ariaLabel="Opening Budget"/g)||[]).length,1);});
+test("leader scores drive rendering and public tiers remain transported",()=>{assert.ok(source.includes("overallRipLeaderScore"));assert.ok(source.includes("financialRipLeaderScore"));assert.match(source,/tier = \(p\) => p\.publicTier/);assert.ok(source.includes("collectorAppealScore"));});
+test("every Products tier header uses the shared structured threshold help",()=>{assert.ok(source.includes("PublicRipTierInfo"));assert.ok(source.includes("info={<PublicRipTierInfo />}"));assert.ok(!source.includes("Tier summarizes the public relative RIP score"));});
+test("visible product sort state names leader scores directly",()=>{assert.ok(source.includes('{ value: "overallRipLeaderScore"'));assert.ok(source.includes('{ value: "financialRipLeaderScore"'));assert.ok(!source.includes('{ value: "overallRipRelativeScore"'));assert.ok(!source.includes('{ value: "financialRipRelativeScore"'));});
+test("search and sort preserve stored rank",()=>{assert.ok(source.includes("filterAndSortProducts"));assert.match(source,/a\.budgetRank \|\| a\.familyRank/);assert.ok(source.includes("`#${rank(p)}`"));});
+test("desktop and mobile share one product table",()=>{assert.equal((source.match(/function ProductRankingsTable/g)||[]).length,1);assert.equal((source.match(/<table className=/g)||[]).length,1);assert.ok(source.includes("<Strategy p={p}"));assert.ok(source.includes("compact"));});
+test("navigation declares the exact stable family progression",()=>{const expected=["loose_booster_pack","sleeved_booster_pack","booster_bundle","elite_trainer_box","half_booster_box","pokemon_center_elite_trainer_box","booster_box","enhanced_booster_box"];let cursor=-1;for(const family of expected){const next=source.indexOf(`"${family}"`,cursor+1);assert.ok(next>cursor,family);cursor=next;}assert.ok(source.includes("orderProductFamilyEntries(families)"));});
+test("Overall has dedicated style and icon hooks",()=>{assert.ok(source.includes("data-overall-product-tab"));assert.ok(source.includes("productFamilyTabOverall"));assert.ok(source.includes("productFamilyTabOverallIcon"));});
+test("unknown populated families append with a warning",()=>{assert.match(source,/unknown = populated\.filter/);assert.match(source,/return \[\.\.\.known, \.\.\.unknown\]/);assert.ok(source.includes("unplaced product families"));});
+test("Overall copy and premium budget trigger express the selected cohort",()=>{assert.ok(source.includes("products ranked"));assert.ok(!source.includes("Cross-format rankings at the selected opening budget"));assert.ok(source.includes('triggerVariant="budget"'));assert.ok(source.includes('eyebrow="Opening Budget"'));});
+test("compact sort control owns explicit direction without changing official ranks",()=>{assert.ok(source.includes('<SortMenuButton'));assert.ok(sortButton.includes('triggerVariant="sort"'));assert.ok(sortButton.includes('<ArrowUpDownIcon />'));assert.ok(sortButton.includes('block h-3.5 w-3.5 flex-none'));assert.ok(darkSelect.includes('inline-flex items-center gap-2'));assert.ok(darkSelect.includes('h-8 w-8 flex-none justify-center rounded-full'));assert.ok(darkSelect.includes('min-h-14 w-full justify-between'));assert.ok(darkSelect.includes('className="inline-flex items-center justify-center"'));assert.ok(!darkSelect.includes('items-center justify-between gap-2'));assert.ok(!darkSelect.includes('desk:h-8 desk:w-8'));assert.ok(!darkSelect.includes('triggerIcon ||'));assert.ok(source.includes('? "desc" : "asc"'));assert.ok(source.includes('sortDirection === "asc" ? av - bv : bv - av'));assert.ok(source.includes('if (next === sortKey)'));assert.ok(source.includes('setSortDirection("desc")'));assert.ok(!source.includes('ariaLabel="Sort products"'));});
+test("Rankings access is centralized on the database-backed Index plan",()=>{assert.ok(source.includes("useRankingsAccess()"));assert.ok(access.includes("useAuth()"));assert.ok(access.includes("resolveRankingsPlanAccess(user)"));assert.ok(!access.includes("Boolean(user)"));assert.ok(!access.includes("email"));});
+test("only loose packs render canonical product artwork",()=>{assert.ok(source.includes('<RankedProductIdentity'));assert.ok(primitives.includes('product?.productFamily === "loose_booster_pack"'));assert.ok(primitives.includes('resolveLooseBoosterPackArtwork({ productImageUrl: product.productImageUrl, setCanonicalKey: product.setCanonicalKey })'));assert.ok(primitives.includes('h-full w-auto max-w-full'));assert.ok(primitives.includes('object-contain'));assert.ok(!source.includes('p.setImage'));});
+test("pack art materially grows inside the shared compact product identity",()=>{assert.ok(primitives.includes('h-[42px] w-9'));assert.ok(primitives.includes('md:h-[52px] md:w-10'));assert.ok(primitives.includes('h-full w-auto max-w-full'));assert.ok(primitives.includes('scale-[1.25]'));assert.ok(!primitives.includes('scale-[1.08]'));});
+test("free Products expose identity and price while locking decision intelligence",()=>{assert.ok(primitives.includes('function PremiumMetricLock'));assert.ok(source.includes('!canViewProductRipIntelligence && option.value !== "alphabetical"'));assert.ok(source.includes('overall && canViewProductRipIntelligence ? <Strategy'));assert.ok(source.includes('canViewProductRipIntelligence ? <FormatStrength'));assert.ok(source.includes('value: "alphabetical"'));});
+test("free ordering is deterministic alphabetical A to Z",()=>{assert.ok(source.includes('String(a?.productName'));assert.ok(source.includes('String(a?.setName'));assert.ok(source.includes('String(a?.sealedProductId'));assert.ok(source.includes('? "overallRipLeaderScore" : "alphabetical"'));assert.ok(source.includes('? "desc" : "asc"'));});

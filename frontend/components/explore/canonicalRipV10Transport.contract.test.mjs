@@ -44,6 +44,7 @@ const HISTORICAL_KEYS = [
 const block = (score, relativeScore) => ({
   score,
   relativeScore,
+  leaderNormalizedScore: relativeScore,
   rank: 4,
   cohortSize: 22,
   tier: "B",

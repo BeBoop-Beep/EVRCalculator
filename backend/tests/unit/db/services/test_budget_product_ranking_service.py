@@ -151,9 +151,9 @@ def test_product_absent_from_every_budget_is_reported_explicitly():
     assert result["reason"] == "product_not_ranked_at_any_budget"
 
 
-def test_reader_is_not_imported_by_any_public_surface():
-    """Second lock. The tables grant nothing to anon/authenticated, but the
-    reader must also stay out of public code paths."""
+def test_reader_only_enters_public_delivery_through_snapshot_projection():
+    """Raw tables stay private; the one approved delivery path is the
+    allowlisted, service-built Rankings snapshot projection."""
     from pathlib import Path
     backend = Path(__file__).resolve().parents[4]
     offenders = []
@@ -163,4 +163,4 @@ def test_reader_is_not_imported_by_any_public_surface():
         source = path.read_text(encoding="utf-8", errors="ignore")
         if "budget_product_ranking_service" in source:
             offenders.append(path.name)
-    assert not offenders, "internal budget reader referenced outside itself: %s" % offenders
+    assert offenders == ["public_overall_product_rankings_service.py"]

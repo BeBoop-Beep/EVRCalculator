@@ -63,7 +63,15 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     segment_key_for_rarity,
     taxonomy_metadata,
 )
+from backend.domain.pokemon.constituent_movement import (
+    CONSTITUENT_MOVEMENT_WINDOWS,
+    build_constituent_movements,
+    prices_by_date_from_query_rows,
+)
 from backend.domain.pokemon.market_explorer_query import (
+    ASSET_CARDS,
+    ASSET_MODE_LABELS,
+    ASSET_SEALED,
     MODE_ALL,
     MODE_CHASE,
     MarketExplorerQueryError,
@@ -77,6 +85,7 @@ from backend.domain.pokemon.market_explorer_query import (
 from backend.domain.pokemon.market_index import (
     build_chain_linked_history_with_segments,
     compute_strict_window_movements,
+    resolve_window_baselines,
 )
 
 MARKET_EXPLORER_QUERY_SERVICE_VERSION = "pokemon-market-explorer-query-service-v1"
@@ -184,6 +193,57 @@ def resolve_scope_set_ids(
     return sorted(scoped - {""})
 
 
+#: Sets per canonical-card metadata request. Bounded rather than unlimited so a
+#: 167-set scope cannot build a URL-length-defeating `in_` list; 40 keeps the
+#: global 22-set cohort to a single batch with headroom to spare.
+CARD_UNIVERSE_SET_BATCH = 40
+
+#: Scope -> {canonical rarity key: raw spellings present in that scope}.
+#:
+#: WHY MEMOISE. A segment-filtered query only wants the cards of one rarity, and
+#: asking the database for them directly (`rarity IN (...)`) takes 0.10s where
+#: reading every card in scope and filtering in Python takes 5.6s. But the
+#: taxonomy deliberately refuses to hardcode spellings — "Rare" and "rare" and
+#: "MEGA_ATTACK_RARE" all occur — so the raw spellings have to be DISCOVERED
+#: from the data before they can be pushed down.
+#:
+#: That discovery is a property of the scope, not of the query: every rarity
+#: query over the same sets needs the same map. Caching it per scope means the
+#: first query of a scope pays for it once and every later query — including a
+#: different rarity, a different mode, a different top_n — skips straight to the
+#: narrow read. Read-only derived data with a TTL, so a newly catalogued rarity
+#: spelling appears without a restart.
+_RARITY_SPELLINGS_TTL_SECONDS = 15 * 60
+_rarity_spellings_cache: dict[tuple[str, ...], tuple[float, dict[str, set[str]]]] = {}
+
+
+def _resolve_rarity_spellings(client: Any, set_ids: Sequence[str]) -> dict[str, set[str]]:
+    """Canonical rarity key -> the raw spellings actually present in this scope.
+
+    Discovered, never assumed: the folding rules live in the taxonomy and are
+    applied here to real values, so a spelling nobody anticipated is still
+    classified exactly as `resolve_segment_card_universe` would classify it.
+    """
+    key = tuple(sorted(str(value) for value in set_ids))
+    cached = _rarity_spellings_cache.get(key)
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+
+    spellings: dict[str, set[str]] = {}
+    ids = list(key)
+    for offset in range(0, len(ids), CARD_UNIVERSE_SET_BATCH):
+        batch = ids[offset:offset + CARD_UNIVERSE_SET_BATCH]
+        rows = _page_all(lambda batch=batch: client.table("pokemon_canonical_cards")
+                         .select("rarity").in_("set_id", batch).order("rarity"))
+        for row in rows:
+            raw = row.get("rarity")
+            segment = segment_key_for_rarity(raw)
+            if segment and raw is not None:
+                spellings.setdefault(segment, set()).add(raw)
+    _rarity_spellings_cache[key] = (time.monotonic() + _RARITY_SPELLINGS_TTL_SECONDS, spellings)
+    return spellings
+
+
 def resolve_segment_card_universe(
     client: Any, set_ids: Sequence[str], segment_ids: Sequence[str],
 ) -> dict[str, dict[str, Any]]:
@@ -199,11 +259,49 @@ def resolve_segment_card_universe(
     if unknown:
         raise MarketExplorerQueryError(f"unknown card segment(s): {sorted(unknown)}")
 
+    # BATCHED, NOT PER-SET. This is a plain metadata read — "which canonical
+    # cards are in these sets, and what rarity is each" — and issuing it once
+    # per set made it 22 sequential round trips and roughly half the wall clock
+    # of an unscoped global query. Batching changes only how the same rows are
+    # fetched: the rarity filter, the keying and the emitted fields below are
+    # untouched, so the resolved universe is identical set-for-set.
+    #
+    # `.order("id")` is required, not cosmetic: paging with `range()` over an
+    # unordered scan can repeat or skip rows once the result exceeds one page,
+    # and this batched read is several pages where the per-set read was often
+    # one. The returned mapping is keyed by card id, so ordering never leaks
+    # into the result.
     universe: dict[str, dict[str, Any]] = {}
-    for set_id in set_ids:
-        rows = _page_all(lambda set_id=set_id: client.table("pokemon_canonical_cards")
-                         .select("id,set_id,name,rarity,number,image_small_url")
-                         .eq("set_id", str(set_id)))
+    ids = [str(value) for value in set_ids]
+
+    # PUSH THE RARITY FILTER DOWN when the query actually names segments. The
+    # spellings come from the scope's own data, so `wanted_spellings` is exactly
+    # the set of raw values that `segment_key_for_rarity` would have accepted —
+    # the Python-side check below still runs and still decides, this only avoids
+    # transporting the ~20k cards it would have rejected. A segment with no
+    # spelling in scope yields an empty universe, which is the same answer the
+    # unfiltered path gives.
+    wanted_spellings: list[str] | None = None
+    if wanted:
+        discovered = _resolve_rarity_spellings(client, ids)
+        wanted_spellings = sorted(
+            {spelling for key in wanted for spelling in discovered.get(key, ())}
+        )
+        if not wanted_spellings:
+            return {}
+
+    for offset in range(0, len(ids), CARD_UNIVERSE_SET_BATCH):
+        batch = ids[offset:offset + CARD_UNIVERSE_SET_BATCH]
+
+        def _query(batch=batch, spellings=wanted_spellings):
+            request = (client.table("pokemon_canonical_cards")
+                       .select("id,set_id,name,rarity,number,image_small_url")
+                       .in_("set_id", batch))
+            if spellings is not None:
+                request = request.in_("rarity", spellings)
+            return request.order("id")
+
+        rows = _page_all(_query)
         for row in rows:
             card_id = str(row.get("id") or "").strip()
             if not card_id:
@@ -271,6 +369,42 @@ _RPC_MAX_ROWS_PER_RESPONSE = 1000
 COHORT_CHUNK_DAYS = 30
 
 
+#: Largest UNRANKED universe the cohort authority can serve over full history.
+#:
+#: RE-DERIVED after the interval-based RPC, the covering index and the VACUUM
+#: that made index-only scans possible. The database work itself is now well
+#: within budget (Global Illustration Rare over full history: 12,271ms -> 789ms),
+#: so what binds is no longer the algorithm but PostgREST's 8s per-statement
+#: ceiling from `authenticator`: a request has one statement's worth of time,
+#: and an unranked full-history panel for a large rarity does not fit in it.
+#:
+#: Measured against the CURRENT architecture, not inherited from the old one:
+#: 222 cards completes (chunked, ~18s wall across chunks) and 363 does not.
+#: 250 still sits between them, so the number is unchanged but the reason is new.
+#:
+#: A `top_n` query is exempt: the database ranks internally, and Global Top 10
+#: now runs in ~4.6s median where it once took 40s.
+COHORT_MAX_UNRANKED_CARDS = 250
+
+
+def _is_statement_timeout(exc: Exception) -> bool:
+    """Postgres 57014, however the PostgREST client happens to wrap it."""
+    code = getattr(exc, "code", None)
+    if str(code) == "57014":
+        return True
+    payload = getattr(exc, "args", None)
+    text = str(payload[0]) if payload else str(exc)
+    return "57014" in text or "statement timeout" in text.lower()
+
+
+def _oversized_unranked_universe_message(card_count: int, set_count: int) -> str:
+    return (
+        "this market is too large to compute over its full history "
+        f"({card_count} cards across {set_count} sets). Narrow the scope to an era "
+        "or a set, or use Top 10, which the database can rank directly."
+    )
+
+
 def load_daily_cohort_rows(
     client: Any,
     set_ids: Sequence[str],
@@ -312,6 +446,15 @@ def load_daily_cohort_rows(
     # read it -- and that duplicated row is then dropped. The stitched series is
     # therefore identical to an unchunked one, gaps included, rather than
     # showing a false chain break at every chunk boundary.
+    # PRE-FLIGHT, so an impossible query is refused in milliseconds instead of
+    # after a 60-second statement timeout (or, for Illustration Rare, 66s of
+    # chunk retries). Only the unranked panel is bounded: `top_n` is ranked
+    # inside the database and never materialises the full card-day panel.
+    if not top_n and card_ids is not None and len(card_ids) > COHORT_MAX_UNRANKED_CARDS:
+        raise MarketExplorerQueryUnavailable(
+            _oversized_unranked_universe_message(len(card_ids), len(set_ids))
+        )
+
     rows: list[dict[str, Any]] = []
     cursor = first
     previous_observed: str | None = None
@@ -327,7 +470,23 @@ def load_daily_cohort_rows(
             "p_card_ids": [str(value) for value in card_ids] if card_ids is not None else None,
             "p_top_n": int(top_n) if top_n else None,
         }
-        page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
+        try:
+            page = list(getattr(client.rpc(COHORT_RPC, payload).execute(), "data", None) or [])
+        except Exception as exc:  # noqa: BLE001 - classified, then re-raised
+            # A statement timeout here is not a server fault, it is this query
+            # being too large for the current cohort authority: without
+            # `p_top_n` the panel does a latest-observation-before-boundary
+            # lookup per card per day, and past roughly 250 cards that exceeds
+            # the statement budget at ANY chunk size. Surfacing it as a generic
+            # 500 told the user "something broke"; naming it lets the UI say
+            # what to do instead. Anything else propagates unchanged.
+            if not _is_statement_timeout(exc):
+                raise
+            raise MarketExplorerQueryUnavailable(
+                _oversized_unranked_universe_message(
+                    len(card_ids) if card_ids is not None else -1, len(set_ids)
+                )
+            ) from exc
         if len(page) >= _RPC_MAX_ROWS_PER_RESPONSE:
             raise MarketExplorerQueryUnavailable(
                 f"{COHORT_RPC} hit the {_RPC_MAX_ROWS_PER_RESPONSE}-row response cap; "
@@ -384,6 +543,64 @@ def load_basket_for_date(
     ]
 
 
+def resolve_constituent_movement_baseline_dates(
+    market_dates: Sequence[str],
+    *,
+    windows: Sequence[str] = CONSTITUENT_MOVEMENT_WINDOWS,
+) -> list[str]:
+    """The distinct historical dates the movement windows actually need.
+
+    Deduplicated on purpose: on a sparse history 1D and 7D frequently resolve
+    to the same observation, and loading that date twice would buy nothing.
+    """
+    baselines = resolve_window_baselines([str(value)[:10] for value in market_dates])
+    wanted = {
+        (baselines.get(window) or {}).get("startDate")
+        for window in windows
+    }
+    return sorted(value for value in wanted if value)
+
+
+def load_constituent_movement_prices(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    market_dates: Sequence[str],
+    latest_date: str,
+    latest_rows: Sequence[Mapping[str, Any]],
+    card_ids: Sequence[str] | None = None,
+) -> dict[str, dict[str, float]]:
+    """Per-card prices on today plus each movement window's baseline date.
+
+    WHY THIS COSTS EXTRA READS AT ALL. The interactive path deliberately never
+    transports the full card-date panel -- that is the whole reason it exists --
+    so the only prices in memory are today's basket. Movement therefore needs
+    the baseline days, and this fetches EXACTLY those (at most four, usually
+    fewer after deduplication) rather than reinstating the panel.
+
+    Today's prices are reused from ``latest_rows``, never re-fetched.
+    """
+    prices: dict[str, dict[str, float]] = {
+        str(latest_date)[:10]: {
+            str(row["canonicalCardId"]): float(row["marketPrice"])
+            for row in latest_rows
+            if row.get("marketPrice") is not None
+        }
+    }
+    for baseline in resolve_constituent_movement_baseline_dates(market_dates):
+        if baseline in prices:
+            continue
+        rows = load_basket_for_date(
+            client, set_ids, market_date=baseline, card_ids=card_ids,
+        )
+        prices[baseline] = {
+            str(row["canonicalCardId"]): float(row["marketPrice"])
+            for row in rows
+            if row.get("marketPrice") is not None
+        }
+    return {date_key: values for date_key, values in prices.items() if values}
+
+
 def _numeric(value: Any) -> float | None:
     try:
         parsed = float(value)
@@ -408,6 +625,14 @@ def build_query_series(
     observations = build_query_observations(rows, mode=mode, top_n=top_n)
     if not observations:
         return None
+
+    # CONSTITUENT MOVEMENT. Free here: this reference path already holds the
+    # whole card-date panel. Built off the raw universe rather than the basket
+    # observations so a Top-N market still reports each member's own real
+    # movement rather than only the days it happened to be in the basket.
+    constituent_movements = build_constituent_movements(
+        prices_by_date_from_query_rows(rows, id_field="canonicalCardId")
+    )
 
     history = build_chain_linked_history_with_segments(observations)
     if not history:
@@ -448,6 +673,9 @@ def build_query_series(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible constituent of the filtered universe"
             ),
+            # The same compact contract prepared segments publish, so Current
+            # Constituents renders prepared and dynamic markets identically.
+            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -465,6 +693,8 @@ def build_query_series(
             for row in current
         ],
         "currentConstituents": constituents,
+        # Window boundary dates for this market, published once.
+        "movementWindows": constituent_movements.get("windows") or {},
         # Section 27: the information a future "entered / exited / previous
         # rank / days in chase" view needs is preserved here rather than
         # discarded after ranking. It is intentionally ids-and-ranks only --
@@ -511,6 +741,7 @@ def build_query_series_from_cohorts(
     *,
     mode: str,
     top_n: int | None,
+    movement_prices: Mapping[str, Mapping[str, float]] | None = None,
 ) -> dict[str, Any] | None:
     """The published series, built from per-date aggregates plus today's basket.
 
@@ -534,6 +765,13 @@ def build_query_series_from_cohorts(
     if not current:
         return None
     latest_row = current[-1]
+
+    # Absent movement prices mean the caller did not ask for movement; every
+    # row then simply carries no `changes`, and the table reports the window as
+    # unavailable rather than inventing a zero.
+    constituent_movements = (
+        build_constituent_movements(movement_prices) if movement_prices else {}
+    )
 
     universe = [row for row in basket_rows if row.get("marketPrice") is not None]
     selected = rank_chase_constituents(
@@ -565,6 +803,7 @@ def build_query_series_from_cohorts(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible constituent of the filtered universe"
             ),
+            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -584,6 +823,8 @@ def build_query_series_from_cohorts(
             for row in current
         ],
         "currentConstituents": constituents,
+        # Window boundary dates for this market, published once.
+        "movementWindows": constituent_movements.get("windows") or {},
         "membershipByDate": [
             {"marketDate": latest_row["marketDate"],
              "constituentIds": [row["canonicalCardId"] for row in constituents]},
@@ -696,8 +937,18 @@ def run_market_explorer_query(
     basket_rows = load_basket_for_date(
         client, scope_set_ids, market_date=cohort_rows[-1]["marketDate"], card_ids=card_ids,
     )
+    # Movement needs the window baseline days, which the cohort path does not
+    # transport. At most four extra single-date basket reads, usually fewer.
+    movement_prices = load_constituent_movement_prices(
+        client, scope_set_ids,
+        market_dates=[row["marketDate"] for row in cohort_rows],
+        latest_date=cohort_rows[-1]["marketDate"],
+        latest_rows=basket_rows,
+        card_ids=card_ids,
+    )
     series = build_query_series_from_cohorts(
         cohort_rows, basket_rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
+        movement_prices=movement_prices,
     )
     if series is None:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
@@ -722,6 +973,7 @@ def run_market_explorer_query(
         "diagnostics": {
             "cohortRowCount": len(cohort_rows),
             "currentBasketRowCount": len(basket_rows),
+            "movementBaselineDateCount": max(0, len(movement_prices) - 1),
             "elapsedSeconds": round(time.perf_counter() - started, 3),
         },
         **series,
@@ -773,9 +1025,44 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
         if era_id:
             tracked_by_era[era_id] = tracked_by_era.get(era_id, 0) + 1
 
+    # Sealed sets are resolved separately: a set can have card history without a
+    # prepared sealed snapshot and vice versa, so the builder must know which
+    # sets each asset can actually offer rather than assuming one list.
+    from backend.db.services.pokemon_sealed_market_explorer_query_service import (
+        published_sealed_family_options,
+        resolve_sealed_tracked_set_ids,
+    )
+
+    sealed_set_ids = set(resolve_sealed_tracked_set_ids(client))
+
     return {
         "serviceVersion": MARKET_EXPLORER_QUERY_SERVICE_VERSION,
-        "asset": {"id": "cards", "label": "Cards"},
+        # Retained for the existing card-only consumer contract.
+        "asset": {"id": ASSET_CARDS, "label": "Cards"},
+        "supportedAssets": [
+            {
+                "id": ASSET_CARDS,
+                "label": "Cards",
+                "segmentLabel": "Card Segment / Rarity",
+                "allSegmentsLabel": "All Rarities",
+                "modes": [
+                    {"id": MODE_ALL, "label": ASSET_MODE_LABELS[ASSET_CARDS][MODE_ALL]},
+                    {"id": MODE_CHASE, "label": ASSET_MODE_LABELS[ASSET_CARDS][MODE_CHASE],
+                     "topNOptions": [10], "defaultTopN": 10},
+                ],
+            },
+            {
+                "id": ASSET_SEALED,
+                "label": "Sealed Products",
+                "segmentLabel": "Sealed Product Family",
+                "allSegmentsLabel": "All Sealed Products",
+                "modes": [
+                    {"id": MODE_ALL, "label": ASSET_MODE_LABELS[ASSET_SEALED][MODE_ALL]},
+                    {"id": MODE_CHASE, "label": ASSET_MODE_LABELS[ASSET_SEALED][MODE_CHASE],
+                     "topNOptions": [10], "defaultTopN": 10},
+                ],
+            },
+        ],
         "eras": [
             {
                 "id": str(row.get("id")),
@@ -791,10 +1078,20 @@ def build_market_explorer_filter_options(client: Any) -> dict[str, Any]:
                 "label": str(row.get("name") or ""),
                 "eraId": str(row.get("era_id") or ""),
                 "releaseDate": str(row.get("release_date") or "")[:10] or None,
+                # A set with no prepared sealed snapshot has no sealed market to
+                # offer, so the builder can narrow the Set list per asset rather
+                # than presenting a choice that resolves to nothing.
+                "assets": [ASSET_CARDS] + (
+                    [ASSET_SEALED] if str(row.get("id")) in sealed_set_ids else []
+                ),
             }
             for row in sorted(set_rows, key=lambda row: str(row.get("name") or ""))
         ],
+        # Card rarity taxonomy. Kept under its existing key so no consumer
+        # breaks; `cardSegments` is the asset-explicit alias.
         "segments": published_segment_options(),
+        "cardSegments": published_segment_options(),
+        "sealedProductFamilies": published_sealed_family_options(),
         "marketModes": [
             {"id": MODE_ALL, "label": "All Constituents"},
             {"id": MODE_CHASE, "label": "Chase", "topNOptions": [10], "defaultTopN": 10},

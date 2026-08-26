@@ -81,6 +81,7 @@ from backend.desirability.collector_appeal import (
     COLLECTOR_APPEAL_V4_VERSION,
     COLLECTOR_APPEAL_V5_VERSION,
 )
+from backend.rankings.public_relative import public_leader_rip_tier
 from backend.calculations.evr.financial_rip_v3_config import (
     FINANCIAL_RIP_V3_COMPONENT_ORDER,
     FINANCIAL_RIP_V3_NORMALIZATION_VERSION,
@@ -478,29 +479,22 @@ def _blend_biggest_upside_score(
 
 
 def _compute_relative_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict[str, Optional[float]]:
-    """Compute 0-100 relative scores for a score field across current rows."""
+    """Compatibility wrapper around the one shared public min-max contract."""
+    from backend.rankings.public_relative import compute_public_relative_scores
 
-    scored_rows = [
-        (str(row.get("target_id")), _to_optional_float(row.get(score_key)))
-        for row in rows
-        if row.get("target_id")
-    ]
-    valid_scores = [score for _, score in scored_rows if score is not None]
-    if not valid_scores:
-        return {target_id: None for target_id, _ in scored_rows}
+    eligible = [row for row in rows if row.get("target_id")]
+    return compute_public_relative_scores(
+        eligible, id_getter=lambda row: row.get("target_id"), score_getter=lambda row: row.get(score_key)
+    )
 
-    score_min = min(valid_scores)
-    score_max = max(valid_scores)
-    if score_max <= score_min:
-        return {
-            target_id: (50.0 if score is not None else None)
-            for target_id, score in scored_rows
-        }
 
-    return {
-        target_id: (100.0 * ((score - score_min) / (score_max - score_min)) if score is not None else None)
-        for target_id, score in scored_rows
-    }
+def _compute_leader_scores(rows: List[Dict[str, Any]], score_key: str) -> Dict[str, Optional[float]]:
+    from backend.rankings.public_relative import compute_leader_normalized_scores
+
+    eligible = [row for row in rows if row.get("target_id")]
+    return compute_leader_normalized_scores(
+        eligible, id_getter=lambda row: row.get("target_id"), score_getter=lambda row: row.get(score_key)
+    )
 
 
 def _shorten_canonical_label(value: Optional[str]) -> Optional[str]:
@@ -597,21 +591,10 @@ def _calculate_score_ranks_and_tiers(
     scored_rows_with_valid_scores.sort(key=lambda item: (-item[1], item[0]))
     total = len(scored_rows_with_valid_scores)
     
-    # Assign ranks and calculate rank-bucket tiers (mirrors DB view semantics)
+    # Assign ranks and use the one shared public rank-tier authority.
+    from backend.rankings.public_relative import public_rank_tier
     for rank, (target_id, score) in enumerate(scored_rows_with_valid_scores, start=1):
-        if rank <= max(1, math.ceil(total * 0.05)):
-            tier = "S"
-        elif rank <= max(1, math.ceil(total * 0.15)):
-            tier = "A"
-        elif rank <= max(1, math.ceil(total * 0.30)):
-            tier = "B"
-        elif rank <= max(1, math.ceil(total * 0.50)):
-            tier = "C"
-        elif rank <= max(1, math.ceil(total * 0.75)):
-            tier = "D"
-        else:
-            tier = "F"
-        
+        tier = public_rank_tier(rank, total)
         result[target_id] = {"rank": rank, "tier": tier, "cohortSize": total}
     
     # Rows without scores get None
@@ -1302,12 +1285,18 @@ def _attach_relative_scores(cohort_rows: List[Dict[str, Any]]) -> None:
             for row in cohort_rows
         ]
         relatives = _compute_relative_scores(scratch, "_score")
+        leaders = _compute_leader_scores(scratch, "_score")
         for row in cohort_rows:
             obj = row.get(obj_key)
             if not isinstance(obj, dict):
                 continue
             relative = relatives.get(str(row.get("target_id")))
             obj["relativeScore"] = round(relative, 2) if relative is not None else None
+            if obj_key in {"overallRipV10", "financialRipV4"}:
+                leader = leaders.get(str(row.get("target_id")))
+                obj["leaderNormalizedScore"] = round(leader, 2) if leader is not None else None
+                obj["tier"] = public_leader_rip_tier(leader)
+                obj["publicTier"] = obj["tier"]
 
     # Collector Appeal V3 is a canonical published pillar in its own right, so it
     # gets the same absolute/relative pair. Its ABSOLUTE score is what the 90/10
@@ -1623,12 +1612,17 @@ def _load_rankings_top_chase_lookup(
         return {}
 
     try:
-        snapshot_rows = list((
-            service_read_client.table("pokemon_set_page_snapshot_latest")
-            .select("set_id,payload_json")
-            .in_("set_id", set_ids)
-            .execute()
-        ).data or [])
+        snapshot_rows = []
+        # payload_json is a large TOASTed document. Keep each authority read
+        # below the hosted statement timeout instead of requesting the whole
+        # ranked cohort in one cold query.
+        for chunk in _chunks(set_ids, 8):
+            snapshot_rows.extend(list((
+                service_read_client.table("pokemon_set_page_snapshot_latest")
+                .select("set_id,payload_json")
+                .in_("set_id", chunk)
+                .execute()
+            ).data or []))
     except Exception as exc:
         logger.warning("[rip-statistics-targets] Rankings chase snapshot read failed: %s", exc)
         warnings.append("Failed to load canonical set-page Top Chase data for ranked targets")

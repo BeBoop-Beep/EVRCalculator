@@ -126,7 +126,9 @@ LEGACY_BUDGET_COMPARISON_SCOPE_VERSION_PRE_FREEZE = "equal_committed_capital_cro
 #: Validated in research (docs/research/OVERALL_PRODUCT_RANK_DECISION_2026-08-22_v2.md):
 #: near-perfect (median Spearman 1.0) cross-budget rank stability, zero
 #: dominance inversions. Preserved as the canonical standard bands.
-CANONICAL_BUDGET_BANDS: tuple[float, ...] = (25.0, 50.0, 100.0, 150.0, 250.0, 500.0)
+CANONICAL_BUDGET_BANDS: tuple[float, ...] = (
+    25.0, 50.0, 100.0, 150.0, 250.0, 500.0, 750.0, 1000.0, 1250.0,
+)
 
 #: FULL_MARKET is a sentinel budget_type, not a fixed dollar figure — its
 #: dollar value is resolved dynamically per publication (see

@@ -12,13 +12,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.db.services.pokemon_market_index_service import (
-    build_market_index_history, build_market_overview, read_index_history,
+    build_market_index_history, read_index_history,
     read_raw_index_history_for_audit,
 )
 from backend.domain.pokemon.market_index import INDEX_KEYS, deterministic_fingerprint
-from backend.db.services.pokemon_global_sealed_market_service import (
-    build_global_sealed_market, build_global_sealed_segments,
-    read_global_sealed_source_snapshots,
+from backend.db.services.canonical_market_overview import (
+    build_canonical_market_overview, resolve_canonical_overview_sets,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
 
@@ -41,8 +40,12 @@ def _compare_json(expected: Any, actual: Any, path: str, failures: list[str]) ->
             # which reads as corruption rather than "republish is pending".
             missing = sorted(set(expected) - set(actual)); extra = sorted(set(actual) - set(expected))
             failures.append(f"{path} keys mismatch (missing from actual: {missing}; unexpected in actual: {extra})")
-            return
-        for key in sorted(expected): _compare_json(expected[key], actual[key], f"{path}.{key}", failures)
+            # DO NOT stop here. Returning made one missing additive key mask
+            # every difference beneath it — a stale snapshot reported only its
+            # top-level mismatch while the prepared `currentConstituents` drift
+            # underneath went unseen. Keep walking what both sides DO share.
+        for key in sorted(set(expected) & set(actual)):
+            _compare_json(expected[key], actual[key], f"{path}.{key}", failures)
     elif isinstance(expected, list):
         if not isinstance(actual, list) or len(expected) != len(actual): failures.append(f"{path} length/type mismatch"); return
         for index, (wanted, found) in enumerate(zip(expected, actual)): _compare_json(wanted, found, f"{path}[{index}]", failures)
@@ -50,6 +53,58 @@ def _compare_json(expected: Any, actual: Any, path: str, failures: list[str]) ->
         if not _numeric_equal(expected, actual): failures.append(f"{path} numeric mismatch")
     elif expected != actual:
         failures.append(f"{path} mismatch")
+
+
+def _prepared_segment_collections(overview: Any) -> list[tuple[str, dict]]:
+    """Every published prepared-segment collection in one overview.
+
+    Returns (path, segments-mapping) pairs so a caller can speak in the exact
+    contract path a reader would look up, rather than "some segment somewhere".
+    """
+    result: list[tuple[str, dict]] = []
+    if not isinstance(overview, dict):
+        return result
+    sealed = (overview.get("sealedSegments") or {}).get("segments")
+    if isinstance(sealed, dict):
+        result.append(("marketOverview.sealedSegments.segments", sealed))
+    card_segments = overview.get("cardSegments")
+    if isinstance(card_segments, dict):
+        for parent_key, parent in card_segments.items():
+            if not isinstance(parent, dict):
+                continue
+            segments = parent.get("segments")
+            if isinstance(segments, dict):
+                result.append((f"marketOverview.cardSegments.{parent_key}.segments", segments))
+    return result
+
+
+def _prepared_constituent_failures(expected: Any, public: Any) -> list[str]:
+    """Name prepared segments whose `currentConstituents` the publisher dropped.
+
+    The recursive comparison would eventually surface this as a keys mismatch,
+    but only as one line per segment buried among structural noise. Prepared
+    constituent transparency is a user-facing promise ("what is inside SIR?"),
+    so a snapshot that predates it gets its own unambiguous verdict naming the
+    exact segments and the exact remedy.
+    """
+    published: dict[str, dict] = {path: segments for path, segments in _prepared_segment_collections(public)}
+    failures: list[str] = []
+    for path, expected_segments in _prepared_segment_collections(expected):
+        actual_segments = published.get(path) or {}
+        stale = sorted(
+            key
+            for key, segment in expected_segments.items()
+            if isinstance(segment, dict)
+            and segment.get("available") is True
+            and "currentConstituents" in segment
+            and "currentConstituents" not in (actual_segments.get(key) or {})
+        )
+        if stale:
+            failures.append(
+                f"{path}[{', '.join(stale)}].currentConstituents absent from public payload "
+                "(builder emits prepared constituent summaries; republish required)"
+            )
+    return failures
 
 
 def audit(client: Any, market_date: str) -> dict[str, Any]:
@@ -82,36 +137,21 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
             failures.append(f"{prefix} constituents mismatch")
     latest = list(client.table("pokemon_explore_set_value_snapshot_latest").select("market_date,payload_json").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute().data or [])
     public = (latest[0].get("payload_json") or {}).get("marketOverview") if latest else None
-    sealed_market = None
-    sealed_segments = None
-    if isinstance(public, dict) and isinstance(public.get("sealedMarket"), dict):
-        try:
-            current_raw = next(
-                row for row in reversed(expected_history)
-                if row.get("index_key") == "raw" and str(row.get("market_date"))[:10] == market_date
-            )
-            set_ids = [str(row.get("setId")) for row in current_raw.get("constituents_json") or []]
-            sealed_rows = read_global_sealed_source_snapshots(client, set_ids)
-            sealed_market = build_global_sealed_market(
-                [dict(row.get("payload_json") or {}) for row in sealed_rows], market_date=market_date
-            )
-            sealed_segments = build_global_sealed_segments(
-                [dict(row.get("payload_json") or {}) for row in sealed_rows],
-                market_date=market_date, total=sealed_market,
-            )
-        except Exception as exc:
-            failures.append(f"expected sealed overview invalid: {exc}")
+    # The cohort and the overview are BOTH resolved through the publisher's own
+    # authority (canonical_market_overview). The audit deliberately enumerates
+    # no contract keys of its own: a key it forgot is precisely the drift that
+    # made this audit report a false `cardSegments` mismatch against a healthy
+    # snapshot, which in turn hid the real missing `currentConstituents`.
+    set_ids = [str(row["id"]) for row in resolve_canonical_overview_sets(client, market_date=market_date)]
     try:
-        expected_overview = build_market_overview(
-            expected_history, market_date=market_date,
-            sealed_market=sealed_market, sealed_segments=sealed_segments,
+        expected_overview = build_canonical_market_overview(
+            client, market_date=market_date, history=expected_history, set_ids=set_ids,
         )
     except Exception as exc:
         failures.append(f"expected overview invalid: {exc}"); expected_overview = None
     try:
-        persisted_overview = build_market_overview(
-            persisted_history, market_date=market_date,
-            sealed_market=sealed_market, sealed_segments=sealed_segments,
+        persisted_overview = build_canonical_market_overview(
+            client, market_date=market_date, history=persisted_history, set_ids=set_ids,
         )
     except Exception as exc:
         failures.append(f"persisted overview invalid: {exc}"); persisted_overview = None
@@ -132,6 +172,7 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
             for field in ("changes", "basketChanges"):
                 if not isinstance(family.get(field), dict) or not family[field]:
                     failures.append(f"marketOverview.{family_key}.{field} absent from public payload (republish required)")
+        failures.extend(_prepared_constituent_failures(expected_overview, public))
         _compare_json(expected_overview, public, "marketOverview", failures)
     return {"status": "passed" if not failures else "failed", "marketDate": market_date,
             "indexRows": len(actual), "failures": failures,

@@ -23,12 +23,24 @@
 // frontend re-derivation of a published figure and is forbidden.
 // ---------------------------------------------------------------------------
 
-/** Series identity colors. Identity only — never gain/loss semantics. */
+import { resolveSeriesIdentityColor, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+
+/**
+ * Series identity colors. Identity only — never gain/loss semantics.
+ *
+ * The color values come from the ONE registry
+ * (`marketExplorerSeriesColors.mjs`) rather than being written here, so the
+ * Market Overview table, the Explorer rail and the comparison chart cannot
+ * drift into three opinions about what color the Raw Card Market is.
+ */
 export const MARKET_SERIES_DEFINITIONS = [
-  { key: "raw", label: "Raw Card Market", color: "rgba(167,139,250,0.95)", softColor: "rgba(167,139,250,0.16)" },
-  { key: "topChase", label: "Top 10 Chase Market", color: "rgba(56,189,248,0.95)", softColor: "rgba(56,189,248,0.16)" },
-  { key: "sealedMarket", label: "Sealed Market", color: "rgba(251,191,36,0.95)", softColor: "rgba(251,191,36,0.16)" },
-];
+  { key: "raw", label: "Raw Card Market" },
+  { key: "topChase", label: "Top 10 Chase Market" },
+  { key: "sealedMarket", label: "Sealed Market" },
+].map((entry) => {
+  const color = resolveSeriesIdentityColor(entry.key);
+  return { ...entry, color, softColor: softSeriesColor(color) };
+});
 
 /**
  * Chart / summary windows. `changeKey` is the key the backend publishes inside
@@ -179,6 +191,14 @@ function normalizeFamily(definition, raw) {
     // than quietly falling back to the shared number under the wrong label.
     changes: normalizeChangeMap(raw.changes),
     familyChanges: normalizeChangeMap(raw.familyChanges),
+    // Carried through verbatim so a parent market can be inspected like a
+    // prepared segment. Only Total Sealed publishes one: its product roster is
+    // short enough to list, and it is the ONLY surface showing the `otherSealed`
+    // residual products, which belong to no child market. The raw-card parents
+    // deliberately publish none — that universe is a summary, not a table — so
+    // this is null for them and the panel says so rather than inventing
+    // composition.
+    currentConstituents: raw.currentConstituents || null,
     trend,
     oneDayComparisonTrend,
   };
@@ -299,6 +319,29 @@ export function buildMarketWindowOptions(overview) {
 }
 
 export const MARKET_PAGE_FAMILY_KEYS = Object.freeze(["raw", "sealedMarket"]);
+
+/**
+ * Asset classes the Market Overview ACKNOWLEDGES but cannot yet report.
+ *
+ * Graded is a real part of the Pokémon market and its absence from this table
+ * read as an oversight rather than a roadmap. It is listed so the page states
+ * the shape of the market honestly — and listed HERE, as a placeholder with no
+ * numeric fields at all, rather than as a family with zeroed values. A row
+ * showing $0 / Index 100 / 0.00% would be indistinguishable from a real market
+ * that had collapsed, and every consumer that averages or charts families would
+ * silently ingest it.
+ *
+ * `status` is what the row prints where a real market prints an action.
+ */
+export const MARKET_PAGE_PLACEHOLDER_FAMILIES = Object.freeze([
+  Object.freeze({
+    key: "graded",
+    label: "Graded Market",
+    status: "Unavailable",
+    // Said in the row's own ⓘ, so "Unavailable" is never a dead end.
+    reason: "Graded card prices are not tracked yet, so no Graded index is published. This row is here to show what the tracked market does and does not cover.",
+  }),
+]);
 
 /** Project the canonical publication into the broad-market /Market summary. */
 export function projectMarketPageOverview(overview) {

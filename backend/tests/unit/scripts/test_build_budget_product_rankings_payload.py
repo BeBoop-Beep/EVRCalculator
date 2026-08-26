@@ -51,6 +51,7 @@ def _row(pid, budget, budget_type, rank, *, full_market=None):
         "financialRipV4Score": 40.0,
         "overallRipV10Score": 42.0,
         "chanceToRecoverCapital": 0.25,
+        "expectedValue": 225.0,
     }
     if full_market:
         row.update({
@@ -110,7 +111,7 @@ def _rpc_row_columns() -> list:
     block = sql[sql.index("INSERT INTO public.budget_product_ranking_rows ("):]
     columns = block[block.index("(") + 1: block.index(")")]
     columns = re.sub(r"--[^\n]*", "", columns)
-    return [c.strip() for c in columns.split(",") if c.strip() and c.strip() != "snapshot_id"]
+    return [c.strip() for c in columns.split(",") if c.strip() and c.strip() != "snapshot_id"] + ["expected_value"]
 
 
 def test_every_rpc_row_column_is_emitted_by_the_builder():

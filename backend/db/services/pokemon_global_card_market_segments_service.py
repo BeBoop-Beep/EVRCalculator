@@ -45,6 +45,13 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     segment_key_for_rarity,
     taxonomy_metadata,
 )
+from backend.domain.pokemon.constituent_movement import (
+    build_constituent_movements,
+    prices_by_date_from_observations,
+)
+from backend.domain.pokemon.prepared_constituent_summary import (
+    summarize_card_segment_constituents,
+)
 from backend.domain.pokemon.market_index import (
     build_chain_linked_history_with_segments,
     compute_strict_window_movements,
@@ -68,28 +75,58 @@ class GlobalCardSegmentsUnavailable(RuntimeError):
     pass
 
 
-def read_canonical_card_rarities(client: Any, set_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
-    """Canonical rarity for every card in the tracked sets, read in pages.
+#: Sets per catalogue request. Batched rather than one call per set: the
+#: per-set loop was 22 sequential paged reads on every publication and every
+#: parity audit, for what is one filtered read of the same table.
+CARD_CATALOGUE_SET_BATCH = 40
 
-    One read of the canonical card catalogue; no per-card queries.
+
+def read_canonical_card_rarities(client: Any, set_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Canonical card catalogue for the tracked sets, keyed by card id.
+
+    Carries BOTH naming conventions on purpose. `rawRarity`/`rarityKey`/`name`
+    are what the segment partitioning has always read; `cardName`, `cardNumber`,
+    `rarity`, `imageUrl` and `setName` are the names the published constituent
+    summary reads. They were never populated, so every prepared card segment
+    would have published 25 rows of nulls — an id, a price and nothing a reader
+    could recognise. Emitting both keeps the partitioning untouched while making
+    the summary real.
     """
+    ids = [str(value) for value in set_ids]
+    set_names: dict[str, Any] = {}
+    for offset in range(0, len(ids), CARD_CATALOGUE_SET_BATCH):
+        batch = ids[offset:offset + CARD_CATALOGUE_SET_BATCH]
+        for row in (client.table("sets").select("id,name").in_("id", batch).execute().data or []):
+            set_names[str(row.get("id") or "")] = row.get("name")
+
     result: dict[str, dict[str, Any]] = {}
-    for set_id in set_ids:
+    for offset in range(0, len(ids), CARD_CATALOGUE_SET_BATCH):
+        batch = ids[offset:offset + CARD_CATALOGUE_SET_BATCH]
         start = 0
         while True:
             page = list((client.table("pokemon_canonical_cards")
-                         .select("id,set_id,name,rarity")
-                         .eq("set_id", str(set_id))
+                         .select("id,set_id,name,number,rarity,image_small_url")
+                         .in_("set_id", batch)
+                         # Deterministic order: paging a multi-set read with
+                         # `range()` over an unordered scan can repeat or skip
+                         # rows, which would silently drop cards from a segment.
+                         .order("id")
                          .range(start, start + 999).execute()).data or [])
             for row in page:
                 card_id = str(row.get("id") or "").strip()
                 if card_id:
+                    set_id = str(row.get("set_id") or "")
                     result[card_id] = {
                         "canonicalCardId": card_id,
-                        "setId": str(row.get("set_id") or ""),
+                        "setId": set_id,
+                        "setName": set_names.get(set_id),
                         "name": row.get("name"),
+                        "cardName": row.get("name"),
+                        "cardNumber": row.get("number"),
                         "rawRarity": row.get("rarity"),
+                        "rarity": row.get("rarity"),
                         "rarityKey": normalize_rarity(row.get("rarity")),
+                        "imageUrl": row.get("image_small_url"),
                     }
             if len(page) < 1000:
                 break
@@ -178,6 +215,15 @@ def _segment_series(
         {"date": row["marketDate"], "value": row["basketValue"]} for row in current
     ]
 
+    # CONSTITUENT MOVEMENT. Computed from the observations this function
+    # ALREADY built — the same per-card daily prices the index is chain-linked
+    # from — so the movement column costs no additional query. Windows resolve
+    # over the segment's own observed dates, so a card's "30D" is the same span
+    # as the segment's "30D".
+    constituent_movements = build_constituent_movements(
+        prices_by_date_from_observations(observations)
+    )
+
     today_cards = {
         str(entry["setId"]) for entry in latest["constituents"]
     }
@@ -202,6 +248,29 @@ def _segment_series(
             {"date": row["marketDate"], "value": round(float(row["basketValue"]), 2)}
             for row in current
         ],
+        # WHAT IS IN THIS INDEX. The CURRENT roster only, bounded to the most
+        # valuable few — a broad rarity holds thousands of cards and publishing
+        # all of them would inflate every consumer's snapshot for a table nobody
+        # reads to the end. `totalCount` states the true size and `isComplete`
+        # says plainly that this is a preview, so a bounded list can never be
+        # mistaken for the whole universe.
+        "currentConstituents": summarize_card_segment_constituents(
+            [
+                {
+                    "canonicalCardId": str(entry["setId"]),
+                    "cardName": (rarity_by_card.get(str(entry["setId"])) or {}).get("cardName"),
+                    "cardNumber": (rarity_by_card.get(str(entry["setId"])) or {}).get("cardNumber"),
+                    "setId": (rarity_by_card.get(str(entry["setId"])) or {}).get("setId"),
+                    "setName": (rarity_by_card.get(str(entry["setId"])) or {}).get("setName"),
+                    "rarity": (rarity_by_card.get(str(entry["setId"])) or {}).get("rarity"),
+                    "imageUrl": (rarity_by_card.get(str(entry["setId"])) or {}).get("imageUrl"),
+                    "marketPrice": entry.get("setValue"),
+                }
+                for entry in latest["constituents"]
+            ],
+            as_of=str(latest["marketDate"])[:10],
+            movements=constituent_movements,
+        ),
         "metadata": {
             "cardCount": len(today_cards),
             "setCount": len(today_sets),
