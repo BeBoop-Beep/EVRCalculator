@@ -51,7 +51,7 @@ def read_public_overall_product_rankings(
             "sealedProductId": raw.get("sealed_product_id"), "setId": raw.get("set_id"),
             "productName": identity.get("productName"), "setName": identity.get("setName"),
             "productFamily": raw.get("product_family"), "productFamilyLabel": identity.get("productFamilyLabel"),
-            "productImageUrl": identity.get("productImageUrl"),
+            "productImageUrl": identity.get("productImageUrl"), "setCanonicalKey": identity.get("setCanonicalKey"),
             "budgetRank": raw.get("budget_rank"), "budgetCohortSize": raw.get("budget_cohort_size"),
             "budgetTier": raw.get("budget_tier"), "budgetModelTier": public.get("budgetModelTier"),
             "publicTier": public.get("publicTier"),

@@ -44,13 +44,22 @@ def test_locked_public_relative_rip_tier_boundaries_and_invalid_values():
 def test_locked_public_leader_rip_tier_boundaries_and_regressions():
     cases = [(100, "S"), (95.50, "S"), (95.49, "A"), (94.99, "A"),
              (89.50, "A"), (89.49, "B"), (79.50, "B"), (79.49, "C"),
-             (69.50, "C"), (69.49, "D"), (54.50, "D"), (54.49, "F"), (0, "F")]
+             (64.50, "C"), (64.49, "D"), (49.50, "D"), (49.49, "F"), (0, "F")]
     assert [(score, public_leader_rip_tier(score)) for score, _ in cases] == cases
     assert public_leader_rip_tier(98.36) == "S"
     assert public_leader_rip_tier(62) == "D"
     assert public_rip_display_score(95.49) == public_rip_display_score(94.99) == 9.5
     assert public_leader_rip_tier(95.49) == public_leader_rip_tier(94.99) == "A"
     assert all(public_leader_rip_tier(value) is None for value in (None, "", float("nan"), float("inf")))
+
+
+def test_public_leader_tier_matches_every_approved_display_boundary_and_not_rank():
+    displayed_cases = [(10.0, "S"), (9.6, "S"), (9.5, "A"), (9.0, "A"),
+                       (8.9, "B"), (8.0, "B"), (7.9, "C"), (6.5, "C"),
+                       (6.4, "D"), (5.0, "D"), (4.9, "F")]
+    assert [(shown, public_leader_rip_tier(shown * 10)) for shown, _ in displayed_cases] == displayed_cases
+    # Rank is deliberately absent from this helper: even a cohort leader grades from its visible score.
+    assert public_leader_rip_tier(62) == "D"
 
 
 def test_overall_and_financial_are_independently_standardized():

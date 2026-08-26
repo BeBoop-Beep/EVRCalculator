@@ -387,3 +387,65 @@ def test_each_card_segment_is_measured_against_the_parents_shared_domain():
 
 def test_the_overview_omits_card_segments_entirely_when_none_are_supplied():
     assert "cardSegments" not in build_market_overview(HISTORY, market_date="2026-01-04")
+
+
+def test_the_catalogue_read_emits_the_keys_the_constituent_summary_consumes():
+    """Both naming conventions, or prepared card constituents publish nulls.
+
+    `read_canonical_card_rarities` keys the partitioning on `rawRarity`, while
+    the published `currentConstituents` rows read `cardName`, `cardNumber`,
+    `rarity`, `imageUrl` and `setName`. Only the first set existed, so every
+    prepared card segment built 25 rows carrying an id, a price and nothing a
+    reader could recognise. This pins both halves.
+    """
+    from backend.db.services.pokemon_global_card_market_segments_service import (
+        read_canonical_card_rarities,
+    )
+
+    class Result:
+        def __init__(self, data):
+            self.data = data
+
+    class Query:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def select(self, *_a, **_k):
+            return self
+
+        def in_(self, *_a, **_k):
+            return self
+
+        def order(self, *_a, **_k):
+            return self
+
+        def range(self, start, end):
+            self._range = (start, end)
+            return self
+
+        def execute(self):
+            start, end = getattr(self, "_range", (0, 999))
+            return Result(self._rows[start:end + 1])
+
+    class Client:
+        def table(self, name):
+            if name == "sets":
+                return Query([{"id": "set-a", "name": "Ascended Heroes"}])
+            return Query([{
+                "id": "card-1", "set_id": "set-a", "name": "Umbreon ex",
+                "number": "161", "rarity": "Special Illustration Rare",
+                "image_small_url": "http://img/161.png",
+            }])
+
+    card = read_canonical_card_rarities(Client(), ["set-a"])["card-1"]
+
+    # What the published summary reads.
+    assert card["cardName"] == "Umbreon ex"
+    assert card["cardNumber"] == "161"
+    assert card["rarity"] == "Special Illustration Rare"
+    assert card["imageUrl"] == "http://img/161.png"
+    assert card["setName"] == "Ascended Heroes"
+    # What the segment partitioning reads — unchanged.
+    assert card["rawRarity"] == "Special Illustration Rare"
+    assert card["rarityKey"] == "specialIllustrationRare"
+    assert card["setId"] == "set-a"

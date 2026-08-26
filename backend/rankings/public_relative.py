@@ -55,9 +55,9 @@ def public_leader_rip_tier(leader_score: Any) -> Optional[str]:
         return "A"
     if score >= 8.0:
         return "B"
-    if score >= 7.0:
+    if score >= 6.5:
         return "C"
-    if score >= 5.5:
+    if score >= 5.0:
         return "D"
     return "F"
 

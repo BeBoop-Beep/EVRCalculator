@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export function PublicRipTierInfo() {
-  const thresholds = [["S", "≥ 9.6"], ["A", "≥ 9.0"], ["B", "≥ 8.0"], ["C", "≥ 7.0"], ["D", "≥ 5.5"], ["F", "< 5.5"]];
+  const thresholds = [["S", "≥ 9.6"], ["A", "≥ 9.0"], ["B", "≥ 8.0"], ["C", "≥ 6.5"], ["D", "≥ 5.0"], ["F", "< 5.0"]];
   return (
     <div>
       <p>Tier grades the leader-curved Overall RIP score.</p>

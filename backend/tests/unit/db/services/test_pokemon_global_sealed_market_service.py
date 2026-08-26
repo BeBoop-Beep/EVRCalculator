@@ -128,3 +128,60 @@ def test_market_overview_extension_does_not_change_raw_or_top10():
     assert extended["sealedMarket"]["basketValue"] == sealed["basketValue"]
     assert extended["sealedMarket"]["trend"] == sealed["trend"]
     assert "comparisonWindows" in extended
+
+
+def test_total_sealed_publishes_its_own_current_constituents_including_the_residual():
+    """Total Sealed must show every eligible product, residual families included.
+
+    The five published families cover 129 of 139 eligible products; the other
+    ten are the `otherSealed` residual and belong to no child market. Total
+    Sealed is the only surface that can show them, so summarising it from the
+    children instead of from the parent's own universe would silently drop
+    exactly those ten and break reconciliation against
+    metadata.eligibleProductCount.
+    """
+    market_date = "2026-08-25"
+    payloads = [
+        {
+            "setId": "set-a",
+            "setName": "Alpha",
+            "marketDate": market_date,
+            "products": [
+                {
+                    "sealedProductId": f"product-{index}",
+                    "name": f"Product {index}",
+                    "productFamily": family,
+                    "productFamilyLabel": family.replace("_", " ").title(),
+                    "currentPrice": 100.0 + index,
+                    "history": [
+                        {"date": "2026-08-24", "marketPrice": 100.0 + index},
+                        {"date": market_date, "marketPrice": 100.0 + index},
+                    ],
+                }
+                for index, family in enumerate(
+                    ["booster_box", "elite_trainer_box", "half_booster_box", "enhanced_booster_box"]
+                )
+            ],
+        }
+    ]
+
+    total = build_global_sealed_market(payloads, market_date=market_date)
+    summary = total.get("currentConstituents")
+    assert summary is not None, "Total Sealed must publish its current composition"
+
+    # Reconciles with the parent's own eligibility count.
+    assert summary["totalCount"] == total["metadata"]["eligibleProductCount"]
+
+    ids = [row["sealedProductId"] for row in summary["topConstituents"]]
+    assert len(ids) == len(set(ids)), "no product may appear twice"
+
+    # The residual families are present, which is the whole point.
+    families = {row["productFamily"] for row in summary["topConstituents"]}
+    assert "half_booster_box" in families
+    assert "enhanced_booster_box" in families
+    # And so are the published ones.
+    assert "booster_box" in families and "elite_trainer_box" in families
+
+    # Current composition only: no historical observation series leaks out.
+    for row in summary["topConstituents"]:
+        assert "history" not in row

@@ -234,7 +234,7 @@ function ProductIdentity({ product: p, overall, canViewProductRipIntelligence })
     : null;
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      {artwork ? <span className="flex h-9 w-7 flex-none items-center justify-center md:h-10 md:w-8"><img src={artwork.src} alt="" className="max-h-full max-w-full object-contain" loading="lazy" /></span> : null}
+      {artwork ? <span className="flex h-9 w-8 flex-none items-center justify-center md:h-10 md:w-9"><img src={artwork.src} alt="" className="max-h-full max-w-full scale-[1.08] object-contain" loading="lazy" /></span> : null}
       <span className="min-w-0">
         <span className="block truncate font-semibold text-[var(--text-primary)]">{p.productName}</span>
         <span className="block truncate text-xs text-[var(--text-secondary)]">{p.setName} · {p.productFamilyLabel}</span>

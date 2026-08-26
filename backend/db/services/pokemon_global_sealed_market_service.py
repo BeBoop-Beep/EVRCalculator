@@ -126,6 +126,30 @@ def build_global_sealed_market(
         # ``history`` remain observed-only.
         "oneDayComparison": one_day_comparison,
         "history": full_history,
+        # WHAT IS IN THE PARENT. The published families cover 129 of the 139
+        # eligible products; the other ten are the `otherSealed` residual
+        # (enhanced and half booster boxes), which is deliberately not published
+        # as its own submarket. Total Sealed is therefore the ONLY place a user
+        # can see the residual's products, so it is summarised from the parent's
+        # own `products` universe rather than from the five children — a union
+        # of the children would silently omit exactly those ten.
+        "currentConstituents": summarize_sealed_segment_constituents(
+            [
+                {
+                    "sealedProductId": product.get("sealedProductId"),
+                    "productName": product.get("name"),
+                    "variantLabel": product.get("variantLabel"),
+                    "setId": product.get("setId"),
+                    "setName": product.get("setName"),
+                    "productFamily": product.get("productFamily"),
+                    "productFamilyLabel": product.get("productFamilyLabel"),
+                    "marketPrice": product.get("currentPrice"),
+                    "imageUrl": product.get("imageUrl"),
+                }
+                for product in products
+            ],
+            as_of=aggregate.get("valueAsOf"),
+        ),
         "metadata": {
             "eligibleProductCount": aggregate.get("productCount"),
             "contributingProductCount": aggregate.get("contributingProductCount"),
