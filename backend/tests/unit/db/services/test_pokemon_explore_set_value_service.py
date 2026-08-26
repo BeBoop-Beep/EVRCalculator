@@ -24,13 +24,50 @@ def pokemon_set():
 
 
 def test_window_semantics_keep_exact_selected_period_and_partial_status():
+    # The series moves exactly $1 per calendar day, so a window's amount IS its
+    # elapsed-day span. 7D must move 7.0, not the 6.0 the retired inclusive
+    # `days - 1` count produced.
     points = history(15)
     windows = compute_window_movements(points)
-    assert windows["7D"]["amount"] == 6.0
+    assert windows["7D"]["amount"] == 7.0
     assert windows["7D"]["coverage"] == "full"
+    # Fifteen days of history cannot reach a 30-day target, so this falls back
+    # to the Set's first observation and SAYS SO rather than presenting 14 days
+    # of movement as a 30D return.
     assert windows["30D"]["amount"] == 14.0
     assert windows["30D"]["coverage"] == "partial"
     assert windows["30D"]["isSinceFirstAvailable"] is True
+    assert windows["30D"]["targetStartDate"] == "2025-12-16"
+
+
+def test_set_market_window_targets_match_the_canonical_resolver():
+    """THE PINNED MATRIX, shared with the global Market and the frontend.
+
+    The Set Market used to own a second date formula. It now calls
+    `resolve_market_window_target`, so a 7D on /Market -> Set Market, a 7D on
+    that Set's Cards Market Index and a 7D on the global Market are the same
+    seven elapsed calendar days by construction.
+    """
+    from backend.domain.pokemon.market_index import resolve_market_window_target
+
+    expected = {"7D": "2026-08-18", "30D": "2026-07-26", "3M": "2026-05-27",
+                "6M": "2026-02-26", "1Y": "2025-08-25"}
+    first = date(2025, 1, 1)
+    points = [
+        {"date": (first + timedelta(days=i)).isoformat(), "value": 100.0}
+        for i in range((date(2026, 8, 25) - first).days + 1)
+    ]
+    windows = compute_window_movements(points)
+    for key, target in expected.items():
+        assert windows[key]["targetStartDate"] == target, key
+        assert windows[key]["startDate"] == target, key
+        assert windows[key]["coverage"] == "full", key
+        # And it is literally the canonical resolver's answer, not a lookalike.
+        assert resolve_market_window_target("2026-08-25", key) == target, key
+    # 1D stays the previous OBSERVED close; lifetime stays the Set's own start.
+    assert windows["1D"]["startDate"] == "2026-08-24"
+    assert windows["lifetime"]["targetStartDate"] is None
+    assert windows["lifetime"]["startDate"] == "2025-01-01"
 
 
 def test_fresh_365d_snapshot_wins_over_stale_30d_row():
@@ -44,7 +81,7 @@ def test_fresh_365d_snapshot_wins_over_stale_30d_row():
     published = result["payload_json"]["sets"][0]
     assert published["currentSetValue"] == rows[-1]["set_value"]
     assert published["setValueAsOf"] == target_date
-    assert published["windows"]["30D"]["amount"] == 29.0
+    assert published["windows"]["30D"]["amount"] == 30.0
 
 
 def test_publication_fails_closed_when_set_market_and_canonical_history_disagree():

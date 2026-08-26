@@ -6,10 +6,20 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.domain.pokemon.market_index import resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
+# The Set Market's window vocabulary. The last key is named "lifetime" rather
+# than "SinceTracking" because a Set Value series has no chain segments to
+# track from - it is simply that Set's own complete published history - but the
+# FIXED windows mean exactly what they mean on the global Market, and are
+# resolved by the same helper rather than by a local date formula.
 WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("lifetime", None))
+
+#: `lifetime` here is the Set's own history start; the canonical resolver names
+#: the equivalent global key `SinceTracking`. Only the fixed keys are looked up.
+_CANONICAL_WINDOW_KEY = {"1D": "1D", "7D": "7D", "30D": "30D", "3M": "3M", "6M": "6M", "1Y": "1Y"}
 MAX_TREND_POINTS = 48
 MAX_RECENT_DAILY_TREND_POINTS = 30
 
@@ -79,7 +89,12 @@ def compute_window_movements(points: Sequence[Mapping[str, Any]]) -> Dict[str, D
             baseline = rows[0]
             target_date = None
         else:
-            target_date = (date.fromisoformat(latest["date"]) - timedelta(days=days - 1)).isoformat()
+            # TRUE ELAPSED LOOKBACK, from the ONE canonical resolver. This used
+            # to compute `latest - (days - 1)` here - an inclusive day COUNT -
+            # so the Set Market's "7D" reached six elapsed days while the same
+            # label on the global Market and on this Set's own Cards/Sealed
+            # index reached seven. One label, three surfaces, one span.
+            target_date = resolve_market_window_target(latest["date"], _CANONICAL_WINDOW_KEY[key])
             if rows[0]["date"] > target_date:
                 baseline = rows[0]
                 partial = True

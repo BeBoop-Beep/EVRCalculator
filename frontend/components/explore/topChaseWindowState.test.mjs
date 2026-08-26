@@ -25,12 +25,15 @@ function history(count = 200, endDate = "2026-07-13") {
 
 function storedMovement(overrides = {}) {
   return {
-    changeAmount: 29,
+    changeAmount: 30,
     changePercent: 10,
     currentPrice: 299,
-    startDate: "2026-06-14",
+    // TRUE ELAPSED: 2026-07-13 minus 30 days. A snapshot published under the
+    // retired inclusive count put this at 2026-06-14; see the drift test below
+    // for what the client does with such a movement before a republish.
+    startDate: "2026-06-13",
     endDate: "2026-07-13",
-    targetStartDate: "2026-06-14",
+    targetStartDate: "2026-06-13",
     cardVariantId: "variant-1",
     conditionId: "near-mint",
     ...overrides,
@@ -57,12 +60,38 @@ test("30D stored movement remains authoritative while the graph uses only its hi
   const visible = filterHistoryPointsForDeltaWindow(points, state.chartWindow);
 
   assert.equal(state.source, "stored-canonical");
-  assert.equal(state.displayMovement.amount, 29);
-  assert.equal(state.chartWindow.startDate, "2026-06-14");
+  assert.equal(state.displayMovement.amount, 30);
+  assert.equal(state.chartWindow.startDate, "2026-06-13");
   assert.equal(state.chartWindow.endDate, "2026-07-13");
-  assert.equal(visible[0].date, "2026-06-14");
+  assert.equal(visible[0].date, "2026-06-13");
   assert.equal(visible.at(-1).date, "2026-07-13");
-  assert.equal(visible.length, 30);
+  // 31 points: the baseline day plus the thirty days that elapsed after it.
+  assert.equal(visible.length, 31);
+  // Stored and history agree, so nothing is flagged.
+  assert.ok(!state.warnings.some((warning) => warning.includes("stored_history_mismatch")));
+});
+
+test("a stored movement built under the retired days - 1 contract is flagged as drift", () => {
+  // THE PUBLICATION TRIPWIRE. A snapshot published before the elapsed-day
+  // repair carries 30D startDate = end - 29, while the history the browser
+  // holds now resolves end - 30.
+  //
+  // The stored movement deliberately STAYS authoritative for the printed
+  // number (see the test below) - this module does not silently substitute a
+  // recomputed figure for a published one. What it does do is raise
+  // `stored_history_mismatch:startDate`, which is exactly the signal that the
+  // canonical snapshot has not been republished under
+  // `true_elapsed_lookback_v5` yet. After the republish this warning is gone.
+  const state = resolveTopCardWindowState({
+    card: cardWithStored(storedMovement({
+      changeAmount: 29, startDate: "2026-06-14", targetStartDate: "2026-06-14",
+    })),
+    historyPoints: history(),
+    selectedWindowKey: "30D",
+  });
+
+  assert.ok(state.warnings.some((warning) => warning.includes("stored_history_mismatch:startDate")));
+  assert.equal(state.chartWindow.startDate, "2026-06-13");
 });
 
 test("missing 30D stored movement uses a real history delta and a constrained graph", () => {
@@ -71,8 +100,8 @@ test("missing 30D stored movement uses a real history delta and a constrained gr
   const visible = filterHistoryPointsForDeltaWindow(points, state.chartWindow);
 
   assert.equal(state.source, "history_fallback_missing_stored_window");
-  assert.equal(state.displayMovement.amount, 29);
-  assert.equal(visible.length, 30);
+  assert.equal(state.displayMovement.amount, 30);
+  assert.equal(visible.length, 31);
   assert.deepEqual(state.warnings, ["missing_stored_window"]);
 });
 
@@ -81,8 +110,8 @@ test("missing 7D stored movement never exposes the annual history", () => {
   const state = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "7D" });
   const visible = filterHistoryPointsForDeltaWindow(points, state.chartWindow);
 
-  assert.equal(visible.length, 7);
-  assert.equal(visible[0].date, "2026-07-07");
+  assert.equal(visible.length, 8);
+  assert.equal(visible[0].date, "2026-07-06");
   assert.equal(visible.at(-1).date, "2026-07-13");
 });
 
@@ -103,19 +132,19 @@ test("stored movement missing startDate is rejected in favor of valid history", 
   });
 
   assert.equal(state.source, "history_fallback_malformed_stored_window");
-  assert.equal(state.displayMovement.amount, 29);
+  assert.equal(state.displayMovement.amount, 30);
   assert.ok(state.warnings.includes("malformed_stored_window"));
 });
 
 test("stored amount stays authoritative when stored and history dates disagree", () => {
   const state = resolveTopCardWindowState({
-    card: cardWithStored(storedMovement({ changeAmount: 777, startDate: "2026-06-13" })),
+    card: cardWithStored(storedMovement({ changeAmount: 777, startDate: "2026-06-12" })),
     historyPoints: history(),
     selectedWindowKey: "30D",
   });
 
   assert.equal(state.displayMovement.amount, 777);
-  assert.equal(state.chartWindow.startDate, "2026-06-14");
+  assert.equal(state.chartWindow.startDate, "2026-06-13");
   assert.ok(state.warnings.some((warning) => warning.includes("stored_history_mismatch:startDate")));
 });
 
@@ -136,8 +165,8 @@ test("3M and 6M remain history-derived", () => {
   const threeMonths = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "3M" });
   const sixMonths = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "6M" });
 
-  assert.equal(filterHistoryPointsForDeltaWindow(points, threeMonths.chartWindow).length, 90);
-  assert.equal(filterHistoryPointsForDeltaWindow(points, sixMonths.chartWindow).length, 180);
+  assert.equal(filterHistoryPointsForDeltaWindow(points, threeMonths.chartWindow).length, 91);
+  assert.equal(filterHistoryPointsForDeltaWindow(points, sixMonths.chartWindow).length, 181);
   assert.equal(threeMonths.source, "history");
   assert.equal(sixMonths.source, "history");
 });
@@ -147,8 +176,8 @@ test("switching from 6M to 30D immediately produces the short visible series", (
   const sixMonths = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "6M" });
   const thirtyDays = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "30D" });
 
-  assert.equal(filterHistoryPointsForDeltaWindow(points, sixMonths.chartWindow).length, 180);
-  assert.equal(filterHistoryPointsForDeltaWindow(points, thirtyDays.chartWindow).length, 30);
+  assert.equal(filterHistoryPointsForDeltaWindow(points, sixMonths.chartWindow).length, 181);
+  assert.equal(filterHistoryPointsForDeltaWindow(points, thirtyDays.chartWindow).length, 31);
 });
 
 test("tooltip input points cannot escape the selected visual window", () => {
@@ -156,7 +185,9 @@ test("tooltip input points cannot escape the selected visual window", () => {
   const state = resolveTopCardWindowState({ card: {}, historyPoints: points, selectedWindowKey: "7D" });
   const tooltipPoints = filterHistoryPointsForDeltaWindow(points, state.chartWindow);
 
-  assert.ok(tooltipPoints.every((point) => point.date >= "2026-07-07" && point.date <= "2026-07-13"));
+  // 2026-07-13 minus 7 elapsed days.
+  assert.ok(tooltipPoints.every((point) => point.date >= "2026-07-06" && point.date <= "2026-07-13"));
+  assert.equal(tooltipPoints[0].date, "2026-07-06");
 });
 
 test("preferred graph end never advances beyond the snapshot market as-of date", () => {

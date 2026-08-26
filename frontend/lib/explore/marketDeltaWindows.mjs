@@ -1,3 +1,32 @@
+// ---------------------------------------------------------------------------
+// Set-level market window definitions.
+//
+// THE TIMEFRAME CONTRACT IS MIRRORED FROM THE BACKEND, NOT INVENTED HERE.
+// The authority is
+// `backend.domain.pokemon.market_index.resolve_market_window_target`, published
+// under the contract version `true_elapsed_lookback_v5`. A fixed window is a
+// TRUE ELAPSED CALENDAR LOOKBACK from the latest date:
+//
+//   1D  - the previous observed close (see below)
+//   7D  - latest - 7 days      3M - latest - 90 days     1Y - latest - 365 days
+//   30D - latest - 30 days     6M - latest - 180 days
+//
+// Ending 2026-08-25 the targets are 2026-08-24 / 2026-08-18 / 2026-07-26 /
+// 2026-05-27 / 2026-02-26 / 2025-08-25.
+//
+// THIS FILE USED TO SUBTRACT `days - 1` - an inclusive day COUNT - so "7D"
+// here reached six elapsed days while the same label on the global Market and
+// on a Set's own Cards/Sealed index reached seven. The visible consequence was
+// a chart that started one day later than the percentage printed beside it.
+// The parity test in `marketDeltaWindows.test.mjs` pins the exact matrix above;
+// changing the arithmetic without changing the backend resolver is a bug.
+//
+// Because the browser cannot import Python, EVERY frontend surface that derives
+// a window boundary from a history array must call
+// `resolveDeltaWindowTargetDate` rather than subtracting dates inline. One
+// mirror is maintainable; several are not.
+// ---------------------------------------------------------------------------
+
 export const DELTA_WINDOW_DEFINITIONS = [
   { key: "1D", label: "1D", days: 1 },
   { key: "7D", label: "7D", days: 7 },
@@ -63,6 +92,24 @@ function addDaysToDateKey(dateKey, days) {
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * The nominal date a fixed window reaches back to - the frontend mirror of
+ * `resolve_market_window_target`.
+ *
+ * Returns null for `lifetime`/`All` (no fixed target: it is the series' own
+ * start) and for `1D`, whose baseline is the previous OBSERVED point rather
+ * than a calendar date, because with non-daily Set history a literal calendar
+ * yesterday is frequently absent and the meaningful comparison is the last day
+ * the market was actually priced. Also returns null for an unusable end date.
+ */
+export function resolveDeltaWindowTargetDate(endDate, windowKey) {
+  const definition = getWindowDefinition(windowKey);
+  if (!definition || definition.days === null || definition.key === "1D") {
+    return null;
+  }
+  return addDaysToDateKey(endDate, -definition.days);
 }
 
 function candidateFieldNames(prefix, key) {
@@ -188,8 +235,7 @@ export function computeDeltaWindowsFromHistory(
       baseline = deltaRows[0];
       isSinceFirstAvailable = true;
     } else {
-      const spanOffset = definition.days - 1;
-      targetDate = addDaysToDateKey(latest.date, -spanOffset);
+      targetDate = resolveDeltaWindowTargetDate(latest.date, definition.key);
       if (!targetDate) {
         baseline = deltaRows[0];
         isSinceFirstAvailable = true;
