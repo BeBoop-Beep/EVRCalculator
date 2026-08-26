@@ -100,19 +100,20 @@ test("ONE timeframe state drives the overview period column and the chart", () =
   assert.match(performance, /buildMarketPerformanceSeries\(overview, selectedWindow\)/);
 });
 
-test("Market Overview is five columns and keeps BOTH published dimensions", () => {
-  // Tracked Market Value plus the market's OWN since-tracking index return.
+test("Market Overview is four columns and keeps BOTH published dimensions", () => {
+  // Market | Tracked Value | Market Index | Selected Period.
   assert.match(overview, /MARKET_OVERVIEW_GROUPS\.trackedValue/);
-  assert.match(overview, /const SINCE_TRACKING = "All"/);
-  // The Since Tracking column MUST read the family-specific series. Reading the
-  // shared-comparison `changes` here reported the common comparable start under
-  // a "Since Tracking" label, which is the defect this guards against.
-  assert.match(overview, /getFamilySinceTrackingChange\(family\)/);
-  assert.doesNotMatch(overview, /getPricePerformanceChange\(family, SINCE_TRACKING\)/);
+  assert.match(overview, /data-market-overview-column="trackedValue"/);
+  assert.match(overview, /data-market-overview-column="index"/);
+  assert.match(overview, /data-market-overview-column="selectedPeriod"/);
+  // THE RETIRED SINCE TRACKING COLUMN MUST NOT COME BACK. It printed a price-
+  // performance number under a "Tracked Market Value" group heading, and now
+  // that All means the market's own tracking start it would duplicate the
+  // period column outright.
+  assert.doesNotMatch(overview, /data-market-overview-tracked-change/);
+  assert.doesNotMatch(overview, /getFamilySinceTrackingChange/);
+  assert.doesNotMatch(overview, /scope="colgroup"/);
   assert.match(overview, /data-market-overview-metric="trackedValue"/);
-  // Price Performance: the index plus ONE dynamic period column, read from
-  // changes at the shared selection.
-  assert.match(overview, /MARKET_OVERVIEW_GROUPS\.pricePerformance/);
   assert.match(overview, /data-market-overview-metric="index"/);
   assert.match(overview, /data-market-overview-period-heading=\{selectedWindow\}/);
   // The old all-windows-at-once table is gone.

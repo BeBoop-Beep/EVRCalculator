@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { applySetRipEntitlement } from "@/lib/pokemon/setRipEntitlement.mjs";
 
 // Full set /page payloads can exceed Next's 2MB data-cache limit, so this
 // route always bypasses Next's fetch cache and never emits a cacheable
@@ -64,6 +66,16 @@ export async function GET(request, { params }) {
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
+
+  if (proxyResponse.ok && contentType.includes("application/json")) {
+    const parsed = JSON.parse(payload);
+    const auth = await getAuthenticatedUserFromCookies();
+    const entitledPayload = applySetRipEntitlement(parsed, auth?.user || null);
+    return NextResponse.json(entitledPayload, {
+      status: proxyResponse.status,
+      headers: { "Cache-Control": FAILED_ANALYTICS_CACHE_CONTROL, Vary: "Cookie, Authorization" },
+    });
+  }
 
   return new NextResponse(payload, {
     status: proxyResponse.status,

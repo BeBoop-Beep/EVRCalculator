@@ -15,8 +15,13 @@
 //   Tracked Value     — `basketChanges`, the literal dollar movement of the
 //                       complete tracked basket. Deliberately INCLUDES sets
 //                       entering or leaving the tracked universe.
-//   Price Performance — `changes`, the chain-linked common-cohort index. Cohort
-//                       entry/exit is neutralized at the transition.
+//   Price Performance — `familyChanges`, the chain-linked common-cohort index
+//                       over THIS market's own history. Cohort entry/exit is
+//                       neutralized at the transition. `changes`, the shared
+//                       cross-market comparison domain, is still published and
+//                       still read — but only through
+//                       getSharedComparisonChange, and never under a timeframe
+//                       button.
 //
 // They legitimately disagree, which is the whole reason both are shown. Writing
 // `current / first - 1` anywhere in this file (or in a component) would be a
@@ -43,8 +48,23 @@ export const MARKET_SERIES_DEFINITIONS = [
 });
 
 /**
- * Chart / summary windows. `changeKey` is the key the backend publishes inside
- * `changes`; "All" is the display name for Since Tracking.
+ * Chart / summary windows. `changeKey` is the key the backend publishes.
+ *
+ * THE USER-FACING TIMEFRAME CONTRACT. Every one of these windows reads the
+ * series' OWN published history (`familyChanges`):
+ *
+ *   1D  — the previous canonical market close
+ *   7D  — market date minus 7 elapsed calendar days
+ *   30D — minus 30 · 3M — minus 90 · 6M — minus 180 · 1Y — minus 365
+ *   All — this series' own complete tracked history / current chain segment
+ *
+ * "All" USED TO MEAN THE SHARED COMPARABLE START — the longest span every
+ * compared market has in common. That is a real analytic, but it is not what a
+ * reader means by "All": it let a market whose index read 105.87 report "ALL
+ * +3.76%", because the shared span began after that market did. Both numbers
+ * were true; only one answers the question the button asks. The shared series
+ * survives as `changes`, reachable through getSharedComparisonChange, and is
+ * never labelled "All".
  */
 export const MARKET_OVERVIEW_WINDOWS = [
   { key: "1D", changeKey: "1D", label: "1D", ariaLabel: "1 day" },
@@ -53,10 +73,10 @@ export const MARKET_OVERVIEW_WINDOWS = [
   { key: "3M", changeKey: "3M", label: "3M", ariaLabel: "3 months" },
   { key: "6M", changeKey: "6M", label: "6M", ariaLabel: "6 months" },
   { key: "1Y", changeKey: "1Y", label: "1Y", ariaLabel: "1 year" },
-  // "All" is the SHARED comparison window: the longest span every compared
-  // market can actually be measured across. It is NOT any one market's own
-  // tracking start, so it is never labelled "Since Tracking".
-  { key: "All", changeKey: "SinceTracking", label: "All", ariaLabel: "Since the common comparable start" },
+  // "All" is each series' OWN full tracked history. Two selected markets may
+  // therefore span different dates under one button, which is truthful: they
+  // did not begin tracking on the same day.
+  { key: "All", changeKey: "SinceTracking", label: "All", ariaLabel: "Since this market began tracking" },
 ];
 
 /** What the shared "All" window is called wherever it needs naming in prose. */
@@ -70,8 +90,6 @@ export const MARKET_OVERVIEW_SUMMARY_WINDOWS = [
   { key: "1D", changeKey: "1D", label: "1D" },
   { key: "7D", changeKey: "7D", label: "7D" },
   { key: "30D", changeKey: "30D", label: "30D" },
-  // Family-specific: read through getFamilySinceTrackingChange, never through
-  // the shared-comparison `changes`.
   { key: "All", changeKey: "SinceTracking", label: FAMILY_SINCE_TRACKING_LABEL },
 ];
 
@@ -87,12 +105,14 @@ export const MARKET_OVERVIEW_HELP = {
     "Current dollar value of all cards in this tracked basket. It can change because card prices move and because sets enter or leave the tracked universe. This is not market capitalization.",
   trackedValueChange:
     "Price performance since this market's own tracking start — the beginning of its current continuous tracking segment.",
+  selectedPeriod:
+    "Chain-linked price performance over the selected timeframe, measured from this market's own history. All means since this market began tracking, so it reconciles with its Market Index above.",
   index:
     "Price-performance index, base 100 — not a score. An index of 106.18 means this market is 6.18% above its own index base. It does not mean every card or product in it rose 6.18%. Chain-linking prevents newly added or removed constituents from creating an artificial jump; after one enters, its later price movement affects the index.",
   sinceTracking:
     "Movement since this market's own tracking start. Each market began tracking on its own date, so this is not directly comparable across markets.",
   sharedComparison:
-    "Movement over the longest span every compared market shares — the common comparable start. This is what \"All\" charts, and it usually begins later than any single market's own tracking start.",
+    "Movement over the longest span every compared market shares — the common comparable start. It usually begins later than any single market's own tracking start, and it is NOT what the All timeframe shows.",
 };
 
 /** Column-group headings for the two published dimensions. */
@@ -252,25 +272,35 @@ function resolveWindowDefinition(windowKey) {
 export function getPricePerformanceChange(family, windowKey) {
   const definition = resolveWindowDefinition(windowKey);
   if (!definition) return null;
-  return family?.changes?.[definition.changeKey] || null;
+  return family?.familyChanges?.[definition.changeKey] || null;
 }
 
 export const getMarketChange = getPricePerformanceChange;
 
 /**
- * This market's movement from ITS OWN tracking start — the backend's
- * `familyChanges`, a different published series from `changes`.
+ * The SHARED cross-market comparison series (`changes`) — the same window key
+ * measured over the one span every compared market has in common.
  *
- * ONLY this function may back a cell labelled "Since Tracking". Reading the
- * shared-comparison `changes` under that label is the exact defect this split
- * exists to prevent: it reported the common comparable start while claiming to
- * report the market's own tracking start.
+ * PRESERVED, AND DELIBERATELY NOT WIRED TO ANY TIMEFRAME BUTTON. It answers
+ * "over the period we can all be measured across, who moved more?", which is a
+ * legitimate question and a different one from "how has this market done?".
+ * Anything surfacing it must name it "Since Comparable Start" /
+ * "Comparable Period" — never "All", and never "Since Tracking".
  */
-export function getFamilyChange(family, windowKey) {
+export function getSharedComparisonChange(family, windowKey) {
   const definition = resolveWindowDefinition(windowKey);
   if (!definition) return null;
-  return family?.familyChanges?.[definition.changeKey] || null;
+  return family?.changes?.[definition.changeKey] || null;
 }
+
+/**
+ * This market's movement from ITS OWN history — the backend's `familyChanges`.
+ *
+ * Now the same series `getPricePerformanceChange` reads; kept as a named
+ * export because callers that specifically mean "this market's own history"
+ * should say so at the call site rather than rely on the default.
+ */
+export const getFamilyChange = getPricePerformanceChange;
 
 /** The family-specific Since Tracking movement. */
 export function getFamilySinceTrackingChange(family) {
@@ -294,26 +324,55 @@ export function getTrackedValueChange(family, windowKey) {
 export function isMarketWindowAvailable(overview, windowKey) {
   const families = overview?.families || [];
   const definition = resolveWindowDefinition(windowKey);
-  const window = definition ? overview?.comparisonWindows?.[definition.changeKey] : null;
-  return Boolean(window?.available)
+  // AVAILABILITY IS NOW PER-SERIES, not gated on the shared domain. A window
+  // the shared calendar cannot support may still be a real, truthful window
+  // for an individual market, and under the own-history contract that market
+  // is entitled to show it.
+  return Boolean(definition)
     && families.length > 0
     && families.some((family) => getMarketChange(family, windowKey)?.available === true);
+}
+
+/**
+ * The available family changes for one window, and the earliest real start
+ * among them. The chart's x-domain and the "since first available" disclosure
+ * both come from here, so a window's span and its reported returns cannot be
+ * derived from two different places.
+ */
+function resolveWindowFamilyCoverage(overview, windowKey) {
+  const entries = (overview?.families || [])
+    .map((family) => ({ family, change: getMarketChange(family, windowKey) }))
+    .filter((entry) => entry.change?.available === true && entry.change.startDate && entry.change.endDate);
+  if (entries.length === 0) return { entries, startDate: null, endDate: null, isSinceFirstAvailable: false };
+  return {
+    entries,
+    startDate: entries.reduce((earliest, entry) => (
+      earliest === null || entry.change.startDate < earliest ? entry.change.startDate : earliest
+    ), null),
+    endDate: entries.reduce((latest, entry) => (
+      latest === null || entry.change.endDate > latest ? entry.change.endDate : latest
+    ), null),
+    // Published by the backend when a long window could not reach its nominal
+    // target and fell back to that series' first observation.
+    isSinceFirstAvailable: entries.some((entry) => entry.change.isSinceFirstAvailable === true),
+  };
 }
 
 /** Window descriptors with `available` resolved, for the timeframe selector. */
 export function buildMarketWindowOptions(overview) {
   return MARKET_OVERVIEW_WINDOWS.map((entry) => {
-    const window = overview?.comparisonWindows?.[entry.changeKey];
-    const isSinceFirstAvailable = window?.isSinceFirstAvailable === true;
+    const coverage = resolveWindowFamilyCoverage(overview, entry.key);
+    const available = coverage.entries.length > 0;
+    const isSinceFirstAvailable = available && coverage.isSinceFirstAvailable;
     return {
       ...entry,
       ariaLabel: isSinceFirstAvailable
         ? `${entry.ariaLabel}, shown since first available history`
         : entry.ariaLabel,
-      available: isMarketWindowAvailable(overview, entry.key),
-      coverage: window?.coverage || "unavailable",
+      available,
+      coverage: !available ? "unavailable" : isSinceFirstAvailable ? "partial" : "full",
       isSinceFirstAvailable,
-      displayStartDate: window?.displayStartDate || null,
+      displayStartDate: coverage.startDate,
     };
   });
 }
@@ -365,29 +424,23 @@ export function resolveDefaultMarketWindow(overview, preferred = "30D") {
 /**
  * Dual-series chart model for one window.
  *
- * The visible span is clipped to the BACKEND-provided start/end dates of that
- * window's change object — never to a locally derived cutoff — so the chart and
- * the reported percentage describe the same interval.
+ * EACH SERIES IS CLIPPED TO ITS OWN backend-published start/end — never to a
+ * locally derived cutoff, and never to a start shared with the other series —
+ * so every line describes exactly the interval its own legend percentage
+ * reports. The x-domain spans the EARLIEST start among the visible series to
+ * the latest market date; a series whose history begins later renders null
+ * before its first observation rather than being clipped forward to make the
+ * lines equal length. Under "All" the lines legitimately begin on different
+ * days, because the markets began tracking on different days.
  */
 export function buildMarketPerformanceSeries(overview, windowKey) {
-  const families = overview?.families || [];
   const definition = resolveWindowDefinition(windowKey);
-  const window = definition ? overview?.comparisonWindows?.[definition.changeKey] : null;
-  const available = isMarketWindowAvailable(overview, windowKey);
-  if (!available) {
+  const coverage = definition ? resolveWindowFamilyCoverage(overview, windowKey) : null;
+  if (!coverage?.entries.length) {
     return { windowKey, available: false, startDate: null, endDate: null, dates: [], series: [] };
   }
-  const startDate = window.displayStartDate;
-  const endDate = window.displayEndDate;
-  const clipped = families.map((family) => {
-    const change = getMarketChange(family, windowKey);
-    const sourceTrend = windowKey === "1D" && family.oneDayComparisonTrend?.length
-      ? family.oneDayComparisonTrend : family.trend;
-    const points = change?.available ? sourceTrend.filter(
-      (point) => point.date >= startDate && point.date <= endDate
-    ) : [];
-    return { family, change, points };
-  });
+  const startDate = coverage.startDate;
+  const endDate = coverage.endDate;
   const dates = [];
   for (let cursor = new Date(`${startDate}T00:00:00Z`), end = new Date(`${endDate}T00:00:00Z`); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     dates.push(cursor.toISOString().slice(0, 10));
@@ -398,7 +451,15 @@ export function buildMarketPerformanceSeries(overview, windowKey) {
     startDate,
     endDate,
     dates,
-    series: clipped.map(({ family, change, points }) => {
+    series: (overview?.families || []).map((family) => {
+      const change = getMarketChange(family, windowKey);
+      const sourceTrend = windowKey === "1D" && family.oneDayComparisonTrend?.length
+        ? family.oneDayComparisonTrend : family.trend;
+      const points = change?.available && change.startDate
+        ? (sourceTrend || []).filter(
+          (point) => point.date >= change.startDate && point.date <= change.endDate
+        )
+        : [];
       const byDate = new Map(points.map((point) => [point.date, point.value]));
       const pointByDate = new Map(points.map((point) => [point.date, point]));
       return {

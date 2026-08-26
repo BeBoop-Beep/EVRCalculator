@@ -55,11 +55,13 @@ function snapshot({ withSealed = true } = {}) {
       // Tracked Value moved very differently from price performance. If any of
       // it leaks into a chart, legend or change cell, the assertions fail.
       basketChanges: changeSet(41.41), changes: changeSet(-0.89),
+      familyChanges: changeSet(2.25),
     },
     topChase: {
       basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01",
       trend: trend(100, 98, 97, 96.75, 96.5),
       basketChanges: changeSet(52.52), changes: changeSet(-1.09),
+      familyChanges: changeSet(-3.5),
     },
   };
   if (withSealed) {
@@ -67,6 +69,7 @@ function snapshot({ withSealed = true } = {}) {
       basketValue: 15550.25, indexValue: 106.18, historyStartDate: "2024-01-01",
       trend: trend(100, 103, 104, 105.5, 106.18),
       basketChanges: changeSet(63.63), changes: changeSet(-0.38),
+      familyChanges: changeSet(6.18),
     };
   }
   marketOverview.sealedSegments = SEALED_SEGMENTS;
@@ -443,7 +446,7 @@ test("the default timeframe is 7D and every canonical window is offered", () => 
   assert.equal(buttons.find((node) => node.props["data-market-window-value"] === "7D").props["aria-checked"], true);
 });
 
-test("All selects the Since Tracking window; a window the snapshot lacks stays disabled", () => {
+test("All selects each series' own tracking window; a window the snapshot lacks stays disabled", () => {
   const renderer = render();
   const button = (key) => renderer.root.findAll((node) => node.props?.["data-market-window-value"] === key, { deep: true })[0];
 
@@ -480,8 +483,13 @@ test("cards and detail rows print the published values, never a recomputed one",
   assert.ok(text.includes("$4,011.10"), "top chase tracked value");
   assert.ok(text.includes("$15,550.25"), "sealed tracked value");
   assert.ok(text.includes("102.25") && text.includes("96.50") && text.includes("106.18"), "index values");
-  // Published price-performance returns.
-  assert.ok(text.includes("0.89%") && text.includes("1.09%") && text.includes("0.38%"), "returns");
+  // Published price-performance returns - each market's OWN, which reconcile
+  // with the index levels above. The shared-comparison series is a different
+  // published series and no longer backs any timeframe.
+  assert.ok(text.includes("2.25%") && text.includes("3.50%") && text.includes("6.18%"), "returns");
+  for (const shared of ["0.89%", "1.09%", "0.38%"]) {
+    assert.ok(!text.includes(shared), `${shared} is a shared-comparison figure and must not be presented`);
+  }
   // The tracked-value series is a DIFFERENT published series and is never
   // charted or reported as price performance on this page.
   for (const forbidden of ["41.41", "52.52", "63.63"]) {
@@ -795,15 +803,19 @@ test("the detail table labels the family column Since Tracking and reads that se
   assert.ok(pageText(renderer).includes("Since Tracking"));
 });
 
-test("selecting All names the shared comparable span, never Since Tracking", () => {
+test("selecting All says each market is shown since its own tracking start", () => {
   const renderer = render();
   TestRenderer.act(() => {
     renderer.root.findAll((node) => node.props?.["data-market-window-value"] === "All", { deep: true })[0].props.onClick();
   });
-  const note = findAll(renderer, "data-market-explorer-shared-span-note");
+  const note = findAll(renderer, "data-market-explorer-all-span-note");
   assert.equal(note.length, 1);
-  assert.ok(pageText(renderer).includes("Since Comparable Start".toLowerCase())
-    || pageText(renderer).includes("since comparable start"));
+  const text = pageText(renderer);
+  assert.ok(text.includes("since its own tracking start"));
+  // The shared comparable span no longer describes what All draws, so the
+  // chart must not claim it does.
+  assert.ok(!text.toLowerCase().includes("longest range every selected market shares"));
+  assert.equal(findAll(renderer, "data-market-explorer-shared-span-note").length, 0);
 });
 
 // --- degradation ----------------------------------------------------------
@@ -856,9 +868,9 @@ test("the page explains Market Index without implying every constituent apprecia
   assert.ok(text.includes("above its own index base"));
   assert.ok(text.includes("not that every card or product in it rose"));
   assert.ok(text.includes("Tracked Value is the current dollar value of the tracked basket."));
-  // And the two long windows are explained as DIFFERENT spans.
-  assert.ok(text.includes("Since Tracking is measured from each market"));
-  assert.ok(text.includes("common comparable start"));
+  // And the timeframe copy states the own-history contract explicitly.
+  assert.ok(text.includes("seven elapsed calendar days back"));
+  assert.ok(text.includes("All reaches that market's tracking start"));
 });
 
 // --- dense-comparison readability -----------------------------------------

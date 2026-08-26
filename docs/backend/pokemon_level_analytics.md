@@ -16,11 +16,39 @@ index is multiplied by one plus that return. An entering set is present in the
 current dollar basket but cannot manufacture appreciation on entry; exits are
 symmetrical.
 
-Windows use the latest valid observation at or before their inclusive-calendar
-target (7D subtracts 6 days, 30D subtracts 29, then 90/180/365 days). A named
-window is unavailable when tracking does not reach its target. `SinceTracking`
-is the explicit first-to-latest comparison and is never relabeled as a partial
-long window.
+Windows use the latest valid observation at or before their TRUE ELAPSED
+target, resolved by the single helper `resolve_market_window_target`: 1D
+subtracts 1 day, 7D subtracts 7, 30D subtracts 30, then 90 / 180 / 365. Ending
+2026-08-25 the targets are 2026-08-24, 2026-08-18, 2026-07-26, 2026-05-27,
+2026-02-26 and 2025-08-25. A named window is unavailable when tracking does not
+reach its target, except 6M and 1Y, which may report the series' first
+available observation and flag `isSinceFirstAvailable`. `SinceTracking` is the
+explicit first-to-latest comparison and is never relabeled as a partial long
+window.
+
+### Comparison-window contract versions
+
+`MARKET_COMPARISON_WINDOW_CONTRACT_VERSION` names the interpretation of the
+fixed-window targets, and the semantics change with the string.
+
+| Version | Interpretation | 7D ending 2026-08-25 | 30D |
+| --- | --- | --- | --- |
+| `common_observation_domain_v4` (retired) | Inclusive day COUNT: `end - (days - 1)`, so 7D spanned six elapsed days | 2026-08-19 | 2026-07-27 |
+| `true_elapsed_lookback_v5` (current) | True elapsed lookback: `end - days` | 2026-08-18 | 2026-07-26 |
+
+The v4 formula lived only in `build_comparison_windows`; the family-window
+resolver already subtracted the full day count, so the same label named two
+different spans in one publication. Both now call one resolver.
+
+### Timeframe semantics presented to a reader
+
+`familyChanges` — each market's OWN history — is what every user-facing
+timeframe control reads, including "All", which therefore reconciles with that
+market's published index level: an index of 105.87 reports All ≈ +5.87%.
+`changes` — the shared comparable domain across the compared markets — is still
+published for explicit cross-market analysis, but must be named "Since
+Comparable Start" / "Comparable Period" wherever it is surfaced, never "All"
+and never "Since Tracking".
 
 ## Pokemon RIP Stats
 

@@ -7,7 +7,7 @@
 // controls.
 const HELP_TRACKED_VALUE = "Tracked Value is the current dollar value of the tracked basket. It moves both because prices move and because constituents enter or leave the tracked universe.";
 const HELP_INDEX = "Market Index measures price performance from a base of 100 while neutralizing constituent additions and removals. An index of 106.18 means that market is 6.18% above its own index base — not that every card or product in it rose 6.18%.";
-const HELP_WINDOWS = "Since Tracking is measured from each market's own tracking start, so it is not comparable across markets. The timeframe control — including All, the common comparable start — measures every selected market over one shared span.";
+const HELP_WINDOWS = "Every timeframe is measured over the selected market's OWN history: 7D reaches seven elapsed calendar days back, and All reaches that market's tracking start, so All reconciles with its Market Index. Markets began tracking on different dates, so All spans differ between them and is not a like-for-like cross-market comparison.";
 
 const NOTES = [
   { title: "Tracked Value.", body: HELP_TRACKED_VALUE },

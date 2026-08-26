@@ -39,15 +39,7 @@ import {
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
-import {
-  FamilyScoreRow,
-  FamilyTierBadge,
-  familyEvidenceScores,
-  familyLabel,
-  participatingFamilyCount,
-  participatingFamilyScores,
-  setRipTier,
-} from "./SetRipFamilyBreakdown.jsx";
+import { familyLabel } from "./SetRipFamilyBreakdown.jsx";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -270,7 +262,7 @@ function FinancialDriverSummary({ drivers }) {
  * gross spend, and is omitted entirely when no single-pack product is modeled
  * rather than being guessed from another format's price.
  */
-function ChaseReality({ chase, available, contractPresent, loosePackPrice, compact = false }) {
+function ChaseReality({ chase, available, contractPresent, loosePackPrice, compact = false, canViewAdvanced = false }) {
   if (!chase) {
     return (
       <article
@@ -348,7 +340,7 @@ function ChaseReality({ chase, available, contractPresent, loosePackPrice, compa
             <strong className="text-[var(--text-primary)]">{odds}</strong>
           </p>
         </div>
-        <dl className={styles.chaseThresholds}>
+        {canViewAdvanced ? <dl className={styles.chaseThresholds}>
           <div>
             <dt>50/50 Chance to Pull One</dt>
             <dd>{whole(chase.packsFor50PercentChance)} packs</dd>
@@ -369,7 +361,12 @@ function ChaseReality({ chase, available, contractPresent, loosePackPrice, compa
             </p>
             <small>Opening this many modeled packs gives you roughly a 90% chance of seeing at least one copy.</small>
           </div>
-        </dl>
+        </dl> : (
+          <div className={styles.premiumTeaser} data-index-plus-teaser="chase-acquisition">
+            <strong>Index Plus acquisition research</strong>
+            <p>See the modeled pack counts for approximately a 50% or 90% chance of pulling this card.</p>
+          </div>
+        )}
       </div>
       <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
         These are modeled independent-pack chances, not a guaranteed acquisition cost. You could pull{" "}
@@ -542,7 +539,6 @@ function ComparisonMobileRow({ product, familyRankInfo, setName, canView, isBest
   const { perPack, pricePerPack, valueBackPct } = productComparisonMetrics(product);
   const rows = [
     ["Product Rank", familyRankInfo ? `#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}` : "—"],
-    ["$ / Pack", pricePerPack === null ? "—" : money(pricePerPack)],
     ["Typical Back", valueBackPct === null ? money(product.typicalOpening) : `${valueBackPct}% · ${money(product.typicalOpening)} typical`],
     ["Entertainment Cost", perPack === null ? "—" : money(perPack)],
     ["Recover Cost", product.chanceToRecoverCost === null ? "—" : probability(product.chanceToRecoverCost)],
@@ -556,6 +552,7 @@ function ComparisonMobileRow({ product, familyRankInfo, setName, canView, isBest
       </div>
       <dl className="mt-2 grid gap-2 text-xs">
         <div className="flex items-center justify-between gap-4"><dt className="text-[var(--text-secondary)]">Market Price</dt><dd className="font-semibold tabular-nums">{money(product.marketPrice)}</dd></div>
+        <div className="flex items-center justify-between gap-4"><dt className="text-[var(--text-secondary)]">$ / Pack</dt><dd className="font-semibold tabular-nums">{pricePerPack === null ? "—" : money(pricePerPack)}</dd></div>
         {rows.map(([label, value]) => <div key={label} className="flex items-center justify-between gap-4"><dt className="text-[var(--text-secondary)]">{label}</dt><dd className="font-semibold tabular-nums"><LockedValue canView={canView}>{value}</LockedValue></dd></div>)}
       </dl>
     </article>
@@ -571,7 +568,7 @@ function ComparisonTableRow({ product, familyRankInfo, setName, canView, isBest 
       <td className="text-center"><LockedValue canView={canView}><RipScoreBadge score={familyRankInfo?.overallRipLeaderScore} tier={familyRankInfo?.publicTier} compact /></LockedValue></td>
       <td className="text-center"><LockedValue canView={canView}><RipTierMark tier={familyRankInfo?.publicTier} /></LockedValue></td>
       <td className={rankingStyles.numeric}>{money(product.marketPrice)}</td>
-      <td className={rankingStyles.numeric}><LockedValue canView={canView}>{pricePerPack === null ? "—" : money(pricePerPack)}</LockedValue></td>
+      <td className={rankingStyles.numeric}>{pricePerPack === null ? "—" : money(pricePerPack)}</td>
       <td className={rankingStyles.numeric}><LockedValue canView={canView}><span>{valueBackPct === null ? money(product.typicalOpening) : `${valueBackPct}%`}<small className="block text-[10px] font-normal text-[var(--text-secondary)]">{valueBackPct === null ? "typical" : `${money(product.typicalOpening)} typical`}</small></span></LockedValue></td>
       <td className={rankingStyles.numeric}><LockedValue canView={canView}>{perPack === null ? "—" : money(perPack)}</LockedValue></td>
       <td className={rankingStyles.numeric}><LockedValue canView={canView}>{product.chanceToRecoverCost === null ? "—" : probability(product.chanceToRecoverCost)}</LockedValue></td>
@@ -615,10 +612,6 @@ export default function RipDecisionPage({
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
   const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
-  const setRipFamilies = useMemo(() => participatingFamilyScores(setRip), [setRip]);
-  const setRipFamilyEvidence = useMemo(() => familyEvidenceScores(setRip), [setRip]);
-  const setRipParticipatingFamilyCount = useMemo(() => participatingFamilyCount(setRip), [setRip]);
-  const canonicalSetTier = setRipTier(setRip);
   // ONE normalization of the canonical decision contract for the whole page, so
   // no section re-reads raw snapshot keys or invents its own fallbacks.
   const decision = useMemo(() => selectRipDecisionContract(ripDecision), [ripDecision]);
@@ -747,15 +740,12 @@ export default function RipDecisionPage({
   // Kept for Simulation Evidence (section 6), which still shows all five as
   // a compact metric rail alongside the distribution chart.
   const openingMetrics = [
-    ["Long-Run Average", money(model.expectedValue), "Expected value"],
+    ["Pack Price", money(model.packCost), "Current modeled cost", false],
     ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median"],
-    [
-      "Chance to Beat Cost",
-      probability(model.recoverCostProbability),
-      "Financial break-even",
-    ],
-    ["Strong Upside", p95 === null ? "—" : `${money(p95)}+`, "P95 threshold"],
-    ["Jackpot Upside", p99 === null ? "—" : `${money(p99)}+`, "P99 / top 1% threshold"],
+    ["Expected Value", money(model.expectedValue), "Long-run average"],
+    ["Chance to Recover Cost", probability(model.recoverCostProbability), "Return at least pack price"],
+    ["Strong Upside", p95 === null ? "—" : `${money(p95)}+`, "P95 threshold", true],
+    ["Jackpot Upside", p99 === null ? "—" : `${money(p99)}+`, "P99 / top 1% threshold", true],
   ];
   const heroProduct = heroPick?.product || null;
   const heroPerPack = heroProduct?.entertainmentCost?.available ? heroProduct.entertainmentCost.perPack : null;
@@ -772,11 +762,30 @@ export default function RipDecisionPage({
       data-rip-decision-page
       className={`${styles.page} scroll-mt-24 md:scroll-mt-28`}
     >
+      <article data-rip-section="opening-snapshot" className={`${styles.panel} set-glass-surface`}>
+        <p className={styles.eyebrow}>1. Opening snapshot</p>
+        <h1 className={styles.sectionTitle}>Opening Snapshot</h1>
+        <p className={styles.sectionLede}>The headline view of what opening {setName || "this set"} is like at today&apos;s pack price.</p>
+        <div className={styles.compactScores}>
+          <ScoreSurface metric={metrics.overall} onActivate={() => setOverallOpen((value) => !value)} expanded={overallOpen} controls="overall-rip-explanation" />
+          <ScoreSurface metric={metrics.financial} onActivate={() => scrollToSection("set-detail-financial-rip")} />
+          <ScoreSurface metric={metrics.collector} onActivate={() => scrollToSection("set-detail-collector-appeal")} />
+        </div>
+        {overallOpen ? <div id="overall-rip-explanation" className={styles.overallDisclosure}>Overall RIP combines Financial RIP opening economics with Collector Appeal.</div> : null}
+        <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
+        <dl className={styles.snapshotMetrics}>
+          <div><dt>Pack Price <InfoPopover text="The current normalized market price of one modeled pack." /></dt><dd>{money(model.packCost)}</dd></div>
+          <div><dt>Typical Opening <InfoPopover text="The median modeled opening value (P50): half of modeled openings finish above it and half below." /></dt><dd>{money(p50 ?? model.typicalOpening)}</dd></div>
+          <div><dt>Expected Value <InfoPopover text="The long-run average modeled card value per opening. Individual openings commonly differ from this average." /></dt><dd>{money(model.expectedValue)}</dd></div>
+          <div><dt>Chance to Recover Cost <InfoPopover text="The modeled probability that an opening returns at least the applicable purchase price." /></dt><dd>{probability(model.recoverCostProbability)}</dd></div>
+        </dl>
+      </article>
+
       {/* ============================================================
           1. BEST WAY TO OPEN [SET] — the decision, first.
           ============================================================ */}
-      <article data-rip-section="hero-recommendation" className={`${styles.panel} set-glass-surface ${styles.heroPanel}`}>
-        <p className={styles.eyebrow}>1. Best way to open {setName || "this set"}</p>
+      {canViewProductRipIntelligence ? <article data-rip-section="hero-recommendation" className={`${styles.panel} set-glass-surface ${styles.heroPanel}`}>
+        <p className={styles.eyebrow}>2. Best way to open {setName || "this set"}</p>
         {!heroProduct ? (
           <p className={styles.unavailableNote}>
             {decision.contractPresent === false
@@ -891,7 +900,7 @@ export default function RipDecisionPage({
           Products are compared only within their own format — a Booster Box against other Booster Boxes,
           never against a Bundle or ETB. Cross-format comparison is not yet validated by the model.
         </p>
-      </article>
+      </article> : null}
 
       {/* ============================================================
           2. COMPARE WAYS TO OPEN [SET]
@@ -905,6 +914,11 @@ export default function RipDecisionPage({
             with products of the same type; opening economics below describe the specific product at
             its current market price.
           </p>
+          {!canViewProductRipIntelligence ? <div className={styles.premiumTeaser} data-index-plus-teaser="best-way-to-open">
+            <strong>Find the Best Way to Open {setName || "This Set"}</strong>
+            <p>Index Plus compares every modeled product against equivalent products across eligible sets at today&apos;s market price.</p>
+            <a href="/checkout">Unlock with Index Plus</a>
+          </div> : null}
           {/* ONE shared header for the entire table. Family groups below are a
               thin divider row, never a second full header — repeating column
               labels per product was the exact complaint this rebuild fixes. */}
@@ -968,6 +982,7 @@ export default function RipDecisionPage({
           contractPresent={decision.contractPresent}
           loosePackPrice={loosePackPrice}
           compact
+          canViewAdvanced={canViewProductRipIntelligence}
         />
         <div className={styles.chaseDivider}>
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
@@ -978,47 +993,6 @@ export default function RipDecisionPage({
         <a href={pullRatesHref} className={styles.pullRatesCta}>
           View all modeled pull rates <span aria-hidden="true">→</span>
         </a>
-      </article>
-
-      {/* ============================================================
-          4. WHY [SET] RANKS THIS WAY
-          ============================================================ */}
-      <article
-        data-rip-section="why-it-ranks"
-        className={`${styles.panel} set-glass-surface`}
-      >
-        <p className={styles.eyebrow}>4. Why {setName || "this set"} ranks this way</p>
-        <h2 className={styles.sectionTitle}>Why It Ranks</h2>
-        <div className={styles.compactScores}>
-          <ScoreSurface
-            metric={metrics.overall}
-            onActivate={() => setOverallOpen((value) => !value)}
-            expanded={overallOpen}
-            controls="overall-rip-explanation"
-          />
-          <ScoreSurface
-            metric={metrics.financial}
-            onActivate={() => {
-              setFinancialDeepDiveOpen(true);
-              scrollToSection("set-detail-financial-rip");
-            }}
-          />
-          <ScoreSurface
-            metric={metrics.collector}
-            onActivate={() => {
-              setCollectorDeepDiveOpen(true);
-              scrollToSection("set-detail-collector-appeal");
-            }}
-          />
-        </div>
-        {overallOpen ? (
-          <div id="overall-rip-explanation" className={styles.overallDisclosure}>
-            Overall RIP combines the set&apos;s opening economics, represented by
-            Financial RIP, with its collector-oriented desirability and desirable
-            pull opportunities, represented by Collector Appeal.
-          </div>
-        ) : null}
-        <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
       </article>
 
       {/* ============================================================
@@ -1053,6 +1027,9 @@ export default function RipDecisionPage({
             </p>
           )}
         </div>
+        <dl className={styles.snapshotMetrics}>
+          {openingMetrics.filter((metric) => canViewProductRipIntelligence || metric[3] !== true).map(([label, value, helper]) => <div key={label}><dt>{label}</dt><dd>{value}</dd><p>{helper}</p></div>)}
+        </dl>
         <SimulationFullReport
           canonical={canonical}
           summary={summary}
@@ -1060,6 +1037,7 @@ export default function RipDecisionPage({
           evRepresentativeness={evRepresentativeness}
           openingOutcomeProfile={openingOutcomeProfile}
           calculationRunId={calculationRunId}
+          canViewAdvanced={canViewProductRipIntelligence}
         />
       </article>
 
@@ -1077,6 +1055,14 @@ export default function RipDecisionPage({
           Explore the pricing, value structure and model details behind the headline results.
         </p>
 
+        {!canViewProductRipIntelligence ? <div className={styles.premiumTeaser} data-index-plus-teaser="advanced-research">
+          <strong>Advanced research with Index Plus</strong>
+          <p>Unlock EV composition, opening break-even analytics, downside and tail diagnostics, plus Financial RIP and Collector Appeal factor breakdowns.</p>
+          <a href="/checkout">Unlock with Index Plus</a>
+        </div> : null}
+
+        {canViewProductRipIntelligence ? <>
+
         <DeepDiveRow
           id="deep-dive-ev-contribution"
           title="What Drives Expected Value?"
@@ -1091,41 +1077,6 @@ export default function RipDecisionPage({
           subtitle="Each product against its own model break-even"
         >
           <ProductOpeningValue decision={decision} setName={setName} initialProductId={initialProductId} familyFilter={familyFilter} />
-        </DeepDiveRow>
-
-        <DeepDiveRow
-          id="deep-dive-set-rip-breakdown"
-          title={`What Makes Up ${setName || "This Set"}'s Set RIP Score?`}
-          subtitle="Scored product families"
-        >
-          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 p-4">
-            <p className="text-xs font-semibold text-[var(--text-secondary)]">{setName || "Set"} Set RIP Score</p>
-            <div className="mt-1 flex items-end justify-between gap-3">
-              <span className="text-4xl font-bold tabular-nums text-[var(--text-primary)]">{score(setRip?.score)}</span>
-              <FamilyTierBadge tier={canonicalSetTier} />
-            </div>
-            <p className="mt-2 text-xs text-[var(--text-secondary)]">
-              {rank(setRip?.rank, setRip?.cohortSize)}. Based on {setRipParticipatingFamilyCount} scored product families.
-            </p>
-          </div>
-          <div className="mt-4 hidden border-y border-[var(--border-subtle)] md:block">
-            <div className="grid grid-cols-[minmax(13rem,1.35fr)_4.5rem_4rem_4.75rem_minmax(11rem,1fr)] gap-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
-              <span>Product Family</span><span className="text-right">Score</span><span className="text-right">Rank</span><span>Tier</span><span>Key Takeaway</span>
-            </div>
-            <div className="divide-y divide-[var(--border-subtle)]">
-              {setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} showTakeaway />)}
-            </div>
-          </div>
-          <div className="mt-3 divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)] md:hidden">
-            {setRipFamilies.map((entry) => <FamilyScoreRow key={entry.family} entry={entry} compact />)}
-          </div>
-          {!setRipFamilies.length ? (
-            <p className="mt-3 text-sm text-[var(--text-secondary)]">
-              {setRipFamilyEvidence.length
-                ? "Family evidence is available, but family ranking context is unavailable for this snapshot."
-                : "Set RIP family scores are unavailable for this set."}
-            </p>
-          ) : null}
         </DeepDiveRow>
 
         <div
@@ -1194,6 +1145,7 @@ export default function RipDecisionPage({
             ) : null}
           </DeepDiveRow>
         </div>
+        </> : null}
       </article>
     </section>
   );

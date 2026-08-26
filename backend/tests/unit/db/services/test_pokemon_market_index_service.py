@@ -229,21 +229,45 @@ def test_the_two_dimensions_read_disjoint_columns():
     assert tampered["raw"]["changes"] != baseline["raw"]["changes"]
 
 
-def test_insufficient_common_history_uses_shared_fallback_for_index_only():
+def test_insufficient_long_history_is_reported_as_partial_in_both_dimensions():
     overview = build_market_overview(cohort_history(), market_date="2026-01-03")
     for family in ("raw", "topChase"):
         basket_changes = overview[family]["basketChanges"]
         assert sorted(basket_changes) == sorted(overview[family]["changes"])
-        # Three days of history cannot support 6M or 1Y — in EITHER dimension.
+        # Three days of history cannot support a FULL 6M or 1Y in either
+        # dimension. ONE partial policy now covers both: the window reports the
+        # real span it has and flags itself "since first available", rather
+        # than Tracked Value going dark while Price Performance reported a
+        # fallback under the same label.
         for window in ("6M", "1Y"):
-            assert basket_changes[window]["available"] is False
-            assert basket_changes[window]["percent"] is None
-            assert overview[family]["changes"][window]["available"] is True
-            assert overview[family]["changes"][window]["coverage"] == "partial"
-            assert overview[family]["changes"][window]["isSinceFirstAvailable"] is True
-            assert overview[family]["changes"][window]["percent"] == overview[family]["changes"]["SinceTracking"]["percent"]
-        for entry in basket_changes.values():
-            assert entry["coverage"] in ("full", "unavailable")
+            for dimension in ("basketChanges", "changes", "familyChanges"):
+                entry = overview[family][dimension][window]
+                assert entry["available"] is True
+                assert entry["coverage"] == "partial"
+                assert entry["isSinceFirstAvailable"] is True
+                assert entry["percent"] == overview[family][dimension]["SinceTracking"]["percent"]
+
+
+def test_all_reconciles_with_the_published_index_level():
+    """THE AUDIT ASSERTION for the user-facing All window.
+
+    For a continuous base-100 series, movement from the tracking start IS the
+    index level: 101.04 -> +1.04%, 95.01 -> -4.99%. This is asserted here and
+    never computed in a presentation layer. It is what makes "Market Index
+    105.87" sitting beside "ALL +3.76%" a test failure rather than a support
+    ticket.
+    """
+    overview = build_market_overview(cohort_history(), market_date="2026-01-03")
+    for family_key in ("raw", "topChase"):
+        family = overview[family_key]
+        since_tracking = family["familyChanges"]["SinceTracking"]
+        assert since_tracking["available"] is True
+        assert since_tracking["percent"] == pytest.approx(
+            (family["indexValue"] / 100.0 - 1.0) * 100.0
+        ), family_key
+        # The shared-comparison series is NOT required to reconcile with the
+        # index, which is precisely why it may not be labelled All.
+        assert set(family["changes"]) == set(family["familyChanges"])
 
 
 def test_the_payload_extension_is_additive_and_keeps_contract_v1():

@@ -98,6 +98,7 @@ function normalizeChange(raw) {
     endDate: dateKey(raw.endDate),
     targetStartDate: dateKey(raw.targetStartDate),
     coverage: String(raw.coverage || (available ? "full" : "unavailable")),
+    isSinceFirstAvailable: raw.isSinceFirstAvailable === true,
   };
 }
 
@@ -222,7 +223,7 @@ export function buildComparableSeries(overview, sealedSegments = [], cardSegment
   ];
 }
 
-/** Look one series' shared-comparison change up, whatever kind it is. */
+/** Look one series' user-facing (own-history) change up, whatever kind it is. */
 export function getSeriesComparisonChange(series, windowKey) {
   return getPricePerformanceChange(series, windowKey);
 }
@@ -236,26 +237,39 @@ export function getSeriesFamilyChange(series, windowKey) {
  * The comparison-chart model for an ARBITRARY set of series.
  *
  * `buildMarketPerformanceSeries` is fixed to `overview.families` — the three
- * parent markets — and cannot see a Sealed submarket. This is the same clipping
- * contract generalized over any series list: the visible span comes from the
- * BACKEND's comparison window for `windowKey`, never a locally derived cutoff,
- * so every line and every reported percentage describe the same interval.
+ * parent markets — and cannot see a Sealed submarket. This is the same
+ * contract generalized over any series list, and it is the SAME user-facing
+ * timeframe contract: every series is measured and clipped against ITS OWN
+ * published window (`familyChanges`), so the mini chart on /Market and this
+ * chart cannot report different numbers for the same series and timeframe.
  *
- * A series whose shared-comparison change is unavailable contributes no line
+ * IT USED TO CLIP EVERY SERIES TO THE SHARED comparison domain, which under
+ * "All" silently shortened a market's own history to the span it shared with
+ * whatever else happened to be selected — so the same market's All return
+ * changed depending on its neighbours. The x-domain now spans the earliest
+ * start among the drawable series to the latest end; a series with a later
+ * history simply has no line before its own first observation.
+ *
+ * A series whose own change for the window is unavailable contributes no line
  * rather than a partial one drawn over a span it cannot support.
  */
 export function buildExplorerChartModel(overview, series, windowKey) {
   const definition = MARKET_OVERVIEW_WINDOWS.find((entry) => entry.key === windowKey);
-  const window = definition ? overview?.comparisonWindows?.[definition.changeKey] : null;
   const active = (series || []).filter((entry) => entry.available !== false);
-  const drawable = active.filter(
-    (entry) => getPricePerformanceChange(entry, windowKey)?.available === true
-  );
-  if (!window?.available || drawable.length === 0) {
+  const drawable = definition
+    ? active
+      .map((entry) => ({ entry, change: getPricePerformanceChange(entry, windowKey) }))
+      .filter(({ change }) => change?.available === true && change.startDate && change.endDate)
+    : [];
+  if (drawable.length === 0) {
     return { windowKey, available: false, startDate: null, endDate: null, dates: [], series: [] };
   }
-  const startDate = window.displayStartDate;
-  const endDate = window.displayEndDate;
+  const startDate = drawable.reduce((earliest, { change }) => (
+    earliest === null || change.startDate < earliest ? change.startDate : earliest
+  ), null);
+  const endDate = drawable.reduce((latest, { change }) => (
+    latest === null || change.endDate > latest ? change.endDate : latest
+  ), null);
   const dates = [];
   for (
     let cursor = new Date(`${startDate}T00:00:00Z`), end = new Date(`${endDate}T00:00:00Z`);
@@ -270,12 +284,13 @@ export function buildExplorerChartModel(overview, series, windowKey) {
     startDate,
     endDate,
     dates,
-    series: drawable.map((entry) => {
-      const change = getPricePerformanceChange(entry, windowKey);
+    series: drawable.map(({ entry, change }) => {
       const sourceTrend = windowKey === "1D" && entry.oneDayComparisonTrend?.length
         ? entry.oneDayComparisonTrend
         : entry.trend || [];
-      const points = sourceTrend.filter((point) => point.date >= startDate && point.date <= endDate);
+      const points = sourceTrend.filter(
+        (point) => point.date >= change.startDate && point.date <= change.endDate
+      );
       const byDate = new Map(points.map((point) => [point.date, point.value]));
       const pointByDate = new Map(points.map((point) => [point.date, point]));
       return {

@@ -16,6 +16,7 @@ import {
   MARKET_DIMENSION_LABELS,
   MARKET_OVERVIEW_GROUPS,
   MARKET_OVERVIEW_HELP,
+  SHARED_COMPARISON_WINDOW_LABEL,
   buildCoverageSummary,
   buildMarketPerformanceSeries,
   buildMarketWindowOptions,
@@ -27,6 +28,7 @@ import {
   formatIndexValue,
   getMarketChange,
   getPricePerformanceChange,
+  getSharedComparisonChange,
   getTrackedValueChange,
   isMarketWindowAvailable,
   projectMarketPageOverview,
@@ -66,12 +68,12 @@ const SNAPSHOT = {
     marketDate: "2024-01-04",
     comparisonWindows: {
       "1D": { targetStartDate: "2024-01-03", displayStartDate: "2024-01-03", displayEndDate: "2024-01-04", available: true },
-      "7D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
-      "30D": { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
+      "7D": { targetStartDate: "2023-12-28", displayStartDate: "2024-01-02", displayEndDate: "2024-01-04", available: true },
+      "30D": { targetStartDate: "2023-12-05", displayStartDate: "2024-01-02", displayEndDate: "2024-01-04", available: true },
       "3M": { targetStartDate: "2023-10-07", displayStartDate: "2023-10-07", displayEndDate: "2024-01-04", available: false },
       "6M": { targetStartDate: "2023-07-09", displayStartDate: "2023-07-09", displayEndDate: "2024-01-04", available: false },
       "1Y": { targetStartDate: "2023-01-05", displayStartDate: "2023-01-05", displayEndDate: "2024-01-04", available: false },
-      SinceTracking: { targetStartDate: "2024-01-01", displayStartDate: "2024-01-01", displayEndDate: "2024-01-04", available: true },
+      SinceTracking: { targetStartDate: "2024-01-02", displayStartDate: "2024-01-02", displayEndDate: "2024-01-04", available: true },
     },
     coverage: { eligibleSetCount: 3, rawCardCount: 512, chaseCardCount: 30, cohortFingerprint: "fp" },
     raw: {
@@ -90,7 +92,9 @@ const SNAPSHOT = {
         "1Y": missing("2024-01-04", "2023-01-06"),
         SinceTracking: change(9.75, "2024-01-01", "2024-01-04"),
       },
-      changes: {
+      // THIS MARKET'S OWN HISTORY. Its SinceTracking reconciles with the
+      // published index of 102.25, which is what the All button must show.
+      familyChanges: {
         "1D": change(2.7638, "2024-01-03", "2024-01-04"),
         "7D": change(2.25, "2024-01-01", "2024-01-04"),
         "30D": change(2.25, "2024-01-01", "2024-01-04"),
@@ -98,6 +102,18 @@ const SNAPSHOT = {
         "6M": missing("2024-01-04", "2023-07-09"),
         "1Y": missing("2024-01-04", "2023-01-06"),
         SinceTracking: change(2.25, "2024-01-01", "2024-01-04"),
+      },
+      // THE SHARED COMPARABLE DOMAIN, which begins a day later because one
+      // compared market does. Deliberately a DIFFERENT number under the same
+      // key: it is preserved, but no timeframe button may read it.
+      changes: {
+        "1D": change(2.7638, "2024-01-03", "2024-01-04"),
+        "7D": change(1.2376, "2024-01-02", "2024-01-04"),
+        "30D": change(1.2376, "2024-01-02", "2024-01-04"),
+        "3M": missing("2024-01-04", "2023-10-07"),
+        "6M": missing("2024-01-04", "2023-07-09"),
+        "1Y": missing("2024-01-04", "2023-01-06"),
+        SinceTracking: change(1.2376, "2024-01-02", "2024-01-04"),
       },
     },
     topChase: {
@@ -114,7 +130,7 @@ const SNAPSHOT = {
         "1Y": missing("2024-01-04", "2023-01-06"),
         SinceTracking: change(4.5, "2024-01-01", "2024-01-04"),
       },
-      changes: {
+      familyChanges: {
         "1D": change(-0.5154, "2024-01-03", "2024-01-04"),
         "7D": change(-3.5, "2024-01-01", "2024-01-04"),
         "30D": change(-3.5, "2024-01-01", "2024-01-04"),
@@ -122,6 +138,15 @@ const SNAPSHOT = {
         "6M": missing("2024-01-04", "2023-07-09"),
         "1Y": missing("2024-01-04", "2023-01-06"),
         SinceTracking: change(-3.5, "2024-01-01", "2024-01-04"),
+      },
+      changes: {
+        "1D": change(-0.5154, "2024-01-03", "2024-01-04"),
+        "7D": change(-1.5306, "2024-01-02", "2024-01-04"),
+        "30D": change(-1.5306, "2024-01-02", "2024-01-04"),
+        "3M": missing("2024-01-04", "2023-10-07"),
+        "6M": missing("2024-01-04", "2023-07-09"),
+        "1Y": missing("2024-01-04", "2023-01-06"),
+        SinceTracking: change(-1.5306, "2024-01-02", "2024-01-04"),
       },
     },
   },
@@ -145,7 +170,7 @@ snapshotWithSealed.marketOverview.sealedMarket = {
   indexValue: 105.5,
   historyStartDate: "2024-01-01",
   trend: SEALED_TREND,
-  changes: {
+  familyChanges: {
     "1D": change(1.4423, "2024-01-03", "2024-01-04"),
     "7D": change(5.5, "2024-01-01", "2024-01-04"),
     "30D": change(5.5, "2024-01-01", "2024-01-04"),
@@ -153,6 +178,15 @@ snapshotWithSealed.marketOverview.sealedMarket = {
     "6M": missing("2024-01-04", "2023-07-09"),
     "1Y": missing("2024-01-04", "2023-01-06"),
     SinceTracking: change(5.5, "2024-01-01", "2024-01-04"),
+  },
+  changes: {
+    "1D": change(1.4423, "2024-01-03", "2024-01-04"),
+    "7D": change(5.5, "2024-01-02", "2024-01-04"),
+    "30D": change(5.5, "2024-01-02", "2024-01-04"),
+    "3M": missing("2024-01-04", "2023-10-07"),
+    "6M": missing("2024-01-04", "2023-07-09"),
+    "1Y": missing("2024-01-04", "2023-01-06"),
+    SinceTracking: change(5.5, "2024-01-02", "2024-01-04"),
   },
 };
 const sealedOverview = resolveMarketOverview(snapshotWithSealed);
@@ -264,14 +298,16 @@ test("the charted span is clipped to the backend window's start and end dates", 
   assert.deepEqual(model.series[1].values, [97, 96.5]);
 });
 
-test("shared domain excludes stale points and preserves missing calendar dates", () => {
+test("a window's span excludes stale points and preserves missing calendar dates", () => {
   const payload = structuredClone(snapshotWithSealed);
   payload.marketOverview.marketDate = "2026-08-24";
-  payload.marketOverview.comparisonWindows["30D"] = {
-    targetStartDate: "2026-07-26", displayStartDate: "2026-07-26", displayEndDate: "2026-08-24", available: true,
-  };
-  payload.marketOverview.sealedMarket.trend = [["2026-07-16", 99], ["2026-07-26", 100], ["2026-07-29", 101], ["2026-08-24", 102]];
-  payload.marketOverview.sealedMarket.changes["30D"] = { available: true, percent: 2, startDate: "2026-07-26", endDate: "2026-08-24", coverage: "full" };
+  for (const familyKey of ["raw", "topChase", "sealedMarket"]) {
+    payload.marketOverview[familyKey].trend = [["2026-07-16", 99], ["2026-07-26", 100], ["2026-07-29", 101], ["2026-08-24", 102]];
+    payload.marketOverview[familyKey].familyChanges["30D"] = {
+      available: true, percent: 2, startDate: "2026-07-26", endDate: "2026-08-24",
+      targetStartDate: "2026-07-25", coverage: "full",
+    };
+  }
   const model = buildMarketPerformanceSeries(resolveMarketOverview(payload), "30D");
   assert.equal(model.startDate, "2026-07-26");
   assert.equal(model.endDate, "2026-08-24");
@@ -284,7 +320,7 @@ test("shared domain excludes stale points and preserves missing calendar dates",
 
 test("one unavailable family does not disable a named comparison window", () => {
   const payload = structuredClone(snapshotWithSealed);
-  payload.marketOverview.sealedMarket.changes["1D"] = missing("2024-01-04", "2024-01-03");
+  payload.marketOverview.sealedMarket.familyChanges["1D"] = missing("2024-01-04", "2024-01-03");
   const resolved = resolveMarketOverview(payload);
   assert.equal(isMarketWindowAvailable(resolved, "1D"), true);
   const model = buildMarketPerformanceSeries(resolved, "1D");
@@ -309,7 +345,7 @@ test("Sealed 1D uses comparison-only carried provenance without mutating canonic
       { date: "2026-08-24", value: 106.17849310930887, isObserved: true, isCarriedForward: false, sourceDate: "2026-08-24" },
     ],
   };
-  payload.marketOverview.sealedMarket.changes["1D"] = {
+  payload.marketOverview.sealedMarket.familyChanges["1D"] = {
     available: true, percent: -0.03797091454105228,
     startDate: "2026-08-23", endDate: "2026-08-24",
     targetStartDate: "2026-08-23", coverage: "carried_previous_close",
@@ -317,7 +353,7 @@ test("Sealed 1D uses comparison-only carried provenance without mutating canonic
   };
   for (const key of ["raw", "topChase"]) {
     payload.marketOverview[key].trend = [["2026-08-23", 100], ["2026-08-24", 101]];
-    payload.marketOverview[key].changes["1D"] = change(1, "2026-08-23", "2026-08-24");
+    payload.marketOverview[key].familyChanges["1D"] = change(1, "2026-08-23", "2026-08-24");
   }
   const resolved = resolveMarketOverview(payload);
   const sealed = resolved.families.find((family) => family.key === "sealedMarket");
@@ -331,7 +367,7 @@ test("Sealed 1D uses comparison-only carried provenance without mutating canonic
   assert.equal(getMarketChange(sealed, "1D").coverage, "carried_previous_close");
 });
 
-test("partial 6M and 1Y use the shared All domain and remain selectable", () => {
+test("partial 6M and 1Y fall back to each series' own first observation and stay selectable", () => {
   const payload = structuredClone(snapshotWithSealed);
   for (const key of ["6M", "1Y"]) {
     payload.marketOverview.comparisonWindows[key] = {
@@ -343,8 +379,8 @@ test("partial 6M and 1Y use the shared All domain and remain selectable", () => 
       isSinceFirstAvailable: true,
     };
     for (const familyKey of ["raw", "topChase", "sealedMarket"]) {
-      payload.marketOverview[familyKey].changes[key] = {
-        ...payload.marketOverview[familyKey].changes.SinceTracking,
+      payload.marketOverview[familyKey].familyChanges[key] = {
+        ...payload.marketOverview[familyKey].familyChanges.SinceTracking,
         coverage: "partial",
         isSinceFirstAvailable: true,
         targetStartDate: payload.marketOverview.comparisonWindows[key].targetStartDate,
@@ -474,7 +510,11 @@ test("the two dimensions read different published series", () => {
   assert.equal(getTrackedValueChange(raw, "All"), raw.basketChanges.SinceTracking);
   // ...and Price Performance from changes. Same window, different numbers.
   assert.equal(getPricePerformanceChange(raw, "All").percent, 2.25);
-  assert.equal(getPricePerformanceChange(raw, "All"), raw.changes.SinceTracking);
+  assert.equal(getPricePerformanceChange(raw, "All"), raw.familyChanges.SinceTracking);
+  // ...and it is this market's OWN history, which reconciles with its
+  // published index of 102.25 — not the shared comparable span's +1.24%.
+  assert.equal(getSharedComparisonChange(raw, "All").percent, 1.2376);
+  assert.notEqual(getPricePerformanceChange(raw, "All").percent, getSharedComparisonChange(raw, "All").percent);
   assert.notEqual(getTrackedValueChange(raw, "All").percent, getPricePerformanceChange(raw, "All").percent);
 
   const chase = overview.families[1];
@@ -500,8 +540,8 @@ test("a snapshot published before the extension reports Tracked Value as unavail
     marketOverview: {
       marketDate: "2024-01-04",
       coverage: {},
-      raw: { basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: RAW_TREND, changes: { SinceTracking: change(2.25, "2024-01-01", "2024-01-04") } },
-      topChase: { basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: CHASE_TREND, changes: { SinceTracking: change(-3.5, "2024-01-01", "2024-01-04") } },
+      raw: { basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: RAW_TREND, familyChanges: { SinceTracking: change(2.25, "2024-01-01", "2024-01-04") } },
+      topChase: { basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: CHASE_TREND, familyChanges: { SinceTracking: change(-3.5, "2024-01-01", "2024-01-04") } },
     },
   });
   for (const family of legacy.families) {
@@ -534,8 +574,30 @@ test("the chart model still reads the index trend only, never basket dollars", (
   assert.deepEqual(model.series[0].values, RAW_TREND.map(([, value]) => value));
   assert.deepEqual(model.series[1].values, CHASE_TREND.map(([, value]) => value));
   // The change attached to each series is the price-performance one.
-  assert.equal(model.series[0].change, overview.families[0].changes.SinceTracking);
+  assert.equal(model.series[0].change, overview.families[0].familyChanges.SinceTracking);
   assert.notEqual(model.series[0].change, overview.families[0].basketChanges.SinceTracking);
+});
+
+test("All reconciles with the published Market Index for every family", () => {
+  // THE AUDIT ASSERTION, made here and nowhere in production code: a
+  // continuous base-100 series whose index reads X must report All as
+  // approximately (X / 100 - 1) * 100. This is what makes "Market Index
+  // 105.87" and "ALL +3.76%" impossible to ship together again.
+  for (const family of sealedOverview.families) {
+    const all = getPricePerformanceChange(family, "All");
+    assert.equal(all.available, true);
+    assert.ok(Math.abs(all.percent - (family.indexValue / 100 - 1) * 100) < 1e-9,
+      `${family.key}: All ${all.percent} must reconcile with index ${family.indexValue}`);
+  }
+});
+
+test("the shared comparable series is preserved but never named All or Since Tracking", () => {
+  const raw = overview.families[0];
+  assert.equal(getSharedComparisonChange(raw, "All"), raw.changes.SinceTracking);
+  assert.equal(getSharedComparisonChange(raw, "7D").startDate, "2024-01-02");
+  assert.equal(SHARED_COMPARISON_WINDOW_LABEL, "Since Comparable Start");
+  // No timeframe button routes to it.
+  assert.notEqual(getPricePerformanceChange(raw, "All"), getSharedComparisonChange(raw, "All"));
 });
 
 test("the two column-group headings are the locked terminology", () => {

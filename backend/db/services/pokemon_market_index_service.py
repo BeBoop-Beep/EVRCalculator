@@ -369,10 +369,19 @@ def build_market_overview(
         if (isinstance(one_day, dict)
                 and one_day.get("targetStartDate") == one_day_window.get("displayStartDate")
                 and one_day.get("endDate") == one_day_window.get("displayEndDate")):
-            comparison_family["changes"]["1D"] = {
+            resolved_one_day = {
                 key: value for key, value in one_day.items()
                 if key != "comparisonTrend"
             }
+            comparison_family["changes"]["1D"] = resolved_one_day
+            # THE SAME previous-close resolution backs the user-facing 1D.
+            # `familyChanges` is what the timeframe control now reads, so
+            # leaving its 1D on the generic previous-PRESENT-POINT convention
+            # would have silently regressed 1D from "yesterday's close" to
+            # "the last day this market happened to be observed" the moment
+            # the UI switched series. 1D means one calendar day in both.
+            if isinstance(comparison_family.get("familyChanges"), dict):
+                comparison_family["familyChanges"]["1D"] = dict(resolved_one_day)
     if sealed_segments is not None:
         # ADDITIVE AND NON-DISTURBING. Segments are attached AFTER the shared
         # comparison domain is fixed, and are deliberately NOT part of

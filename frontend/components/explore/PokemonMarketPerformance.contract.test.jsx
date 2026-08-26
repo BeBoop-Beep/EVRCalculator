@@ -220,8 +220,8 @@ test("partial 6M and 1Y are selectable and visibly say since first available", (
       isSinceFirstAvailable: true,
     };
     for (const familyKey of ["raw", "topChase"]) {
-      payload.marketOverview[familyKey].changes[key] = {
-        ...payload.marketOverview[familyKey].changes.SinceTracking,
+      payload.marketOverview[familyKey].familyChanges[key] = {
+        ...payload.marketOverview[familyKey].familyChanges.SinceTracking,
         coverage: "partial",
         isSinceFirstAvailable: true,
       };
@@ -289,8 +289,9 @@ test("ONE timeframe drives both the chart and the Market Overview period column"
     (node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined
   );
 
-  // Default: 7D, in the table heading and in the chart's own selection.
-  assert.equal(textOf(periodHeading()), "7D");
+  // Default: 7D, in the table heading and in the chart's own selection. The
+  // heading carries its own ⓘ, so match rather than compare exactly.
+  assert.match(textOf(periodHeading()), /^7D/);
   assert.equal(periodHeading().props["data-market-overview-period-heading"], "7D");
   assert.deepEqual(periodCells().map((node) => node.props["data-market-overview-change"]), ["7D", "7D"]);
   assert.match(textOf(periodCells()[0]), /−?\+?2\.25%/);
@@ -298,35 +299,36 @@ test("ONE timeframe drives both the chart and the Market Overview period column"
   // Selecting 1D on the chart's selector moves the table column with it.
   const oneDay = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "1D");
   TestRenderer.act(() => { oneDay.props.onClick(); });
-  assert.equal(textOf(periodHeading()), "1D");
+  assert.match(textOf(periodHeading()), /^1D/);
   assert.deepEqual(periodCells().map((node) => node.props["data-market-overview-change"]), ["1D", "1D"]);
   // The published 1D price performance, not the 1D tracked-value change.
   assert.match(textOf(periodCells()[0]), /0\.49%/);
   assert.doesNotMatch(textOf(periodCells()[0]), /11\.11/);
 
-  // And the fixed Since Tracking column stays on the FAMILY series, which does
-  // not follow the timeframe selection at all.
-  const tracked = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined);
-  assert.deepEqual(tracked.map((node) => node.props["data-market-overview-tracked-change"]), ["All", "All"]);
-  assert.match(textOf(tracked[0]), /6\.18%/);
+  // THE FIXED "SINCE TRACKING" COLUMN IS GONE. One dynamic period column is
+  // the only movement cell, so a heading can never describe a different span
+  // from the number beneath it.
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-overview-tracked-change"] !== undefined).length, 0);
 });
 
-test("selecting All separates the shared comparable span from Since Tracking", () => {
+test("All is the market's OWN tracking start, never the shared comparable span", () => {
   const renderer = render();
   const all = windowButtons(renderer).find((node) => node.props["data-market-window-value"] === "All");
   TestRenderer.act(() => { all.props.onClick(); });
 
   const periodCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-change"] !== undefined)[0];
-  const trackedCell = renderer.root.findAll((node) => node.type === "td" && node.props?.["data-market-overview-tracked-change"] !== undefined)[0];
-  // "All" is the SHARED comparable span (+2.25%); the Since Tracking column is
-  // the family own start (+6.18%). Both are price performance, both are true,
-  // and they are different spans - so they must not print the same number.
-  assert.match(textOf(periodCell), /2\.25%/);
-  assert.match(textOf(trackedCell), /6\.18%/);
-  assert.notEqual(textOf(periodCell), textOf(trackedCell));
-  // Never the tracked-value series.
+  // The family series (+6.18%), NOT the shared comparable span (+2.25%). This
+  // is the whole defect: the shared number sat under a button labelled "All"
+  // while the index level beside it told a different story.
+  assert.match(textOf(periodCell), /6\.18%/);
+  assert.doesNotMatch(textOf(periodCell), /2\.25%/);
+  // Never the tracked-value series either.
   assert.doesNotMatch(textOf(periodCell), /44\.44/);
-  assert.doesNotMatch(textOf(trackedCell), /44\.44/);
+
+  const legend = textOf(renderer.root.findAll((node) => node.props?.["data-market-performance-legend"] !== undefined)[0]);
+  assert.match(legend, /\+6\.18%/);
+  assert.match(legend, /−8\.40%/);
+  assert.doesNotMatch(legend, /\+2\.25%|−3\.50%/);
 });
 
 

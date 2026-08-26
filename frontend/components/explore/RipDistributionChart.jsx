@@ -741,7 +741,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
                     ? "bg-[rgba(94,234,212,0.98)]"
                     : "bg-[rgba(94,234,212,0.25)]"
                 }`} />
-                Chance To Reach
+                Chance of Returning At Least This Much
               </button>
             ) : null}
           </div>
