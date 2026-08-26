@@ -11,6 +11,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     INDEX_PLAN_PLUS,
     INDEX_PLAN_PREMIUM,
+    filter_set_market_signal_access,
     has_index_plus_access,
     has_index_premium_access,
     normalize_index_plan,
@@ -73,6 +74,54 @@ def test_authentication_alone_grants_nothing():
         {"id": "user-1", "email": "a@b.c", "index_plan": None}
     )
     assert authenticated_basic == anonymous
+
+
+def test_basic_set_market_response_redacts_breadth_but_keeps_market_index():
+    source = {
+        "cardsMarket": {
+            "marketIndex": {"currentValue": 112.4},
+            "marketBreadth": {"7D": {"advancingCount": 138, "advancingPercent": 46.8}},
+        },
+        "setValueHistoriesByScope": {"standard": [{"setValue": 5874}]},
+    }
+    filtered = filter_set_market_signal_access(source, None)
+    assert filtered["cardsMarket"]["marketIndex"] == {"currentValue": 112.4}
+    assert "marketBreadth" not in filtered["cardsMarket"]
+    assert filtered["setValueHistoriesByScope"] == source["setValueHistoriesByScope"]
+    assert source["cardsMarket"]["marketBreadth"]  # no mutation of the snapshot
+
+
+@pytest.mark.parametrize("plan", ["plus", "premium"])
+def test_plus_and_premium_set_market_response_keep_breadth(plan):
+    source = {"cardsMarket": {"marketBreadth": {"7D": {"advancingCount": 138}}}}
+    assert filter_set_market_signal_access(source, plan) == source
+
+
+def _collector_payload():
+    return {"publicRipContractV10": {"collectorAppeal": {"topSubjects": [{
+        "subjectName": "Charizard",
+        "elitePath": {"canonicalCardId": "charizard-elite", "modeledProbability": 0.001, "impliedOdds": 1000, "packsFor50PercentChance": 693, "packsFor90PercentChance": 2302},
+        "accessiblePath": {"canonicalCardId": "charizard-accessible", "modeledProbability": 0.01, "impliedOdds": 100, "packsFor50PercentChance": 69, "packsFor90PercentChance": 230},
+    }]}}}
+
+
+def test_basic_payload_keeps_collector_identity_and_raw_odds_but_redacts_milestones():
+    filtered = filter_set_market_signal_access(_collector_payload(), None)
+    subject = filtered["publicRipContractV10"]["collectorAppeal"]["topSubjects"][0]
+    for path in (subject["elitePath"], subject["accessiblePath"]):
+        assert path["canonicalCardId"]
+        assert path["modeledProbability"]
+        assert path["impliedOdds"]
+        assert "packsFor50PercentChance" not in path
+        assert "packsFor90PercentChance" not in path
+
+
+@pytest.mark.parametrize("plan", ["plus", "premium"])
+def test_plus_and_premium_payloads_keep_collector_milestones(plan):
+    filtered = filter_set_market_signal_access(_collector_payload(), plan)
+    subject = filtered["publicRipContractV10"]["collectorAppeal"]["topSubjects"][0]
+    assert subject["elitePath"]["packsFor50PercentChance"] == 693
+    assert subject["accessiblePath"]["packsFor90PercentChance"] == 230
 
 
 def test_the_gated_capability_is_named_as_a_feature_not_a_plan():

@@ -186,8 +186,8 @@ test("an unavailable lens in Market Snapshot never fabricates a value", () => {
   assert.ok(!/\$0\b/.test(body), "no literal $0 is ever rendered");
 });
 
-test("Market Breadth and Chase Concentration are Cards-only micro-stats on mobile", () => {
-  assert.ok(setValue.includes('segmentKey === "cards"'), "breadth/concentration are gated to the Cards lens");
+test("Market Breadth and Chase Concentration are Cards-only signal modules on mobile", () => {
+  assert.ok(setValue.includes('resolvedSegmentKey === "cards"'), "breadth/concentration are gated to the Cards lens");
   assert.ok(setValue.includes("selectPreparedMarketBreadth"));
   assert.ok(setValue.includes("selectChaseConcentration"));
 });
@@ -195,7 +195,7 @@ test("Market Breadth and Chase Concentration are Cards-only micro-stats on mobil
 test("Market Snapshot supporting details render as a compact micro-stat grid, not cards", () => {
   assert.ok(setValue.includes("data-market-mobile-micro-stats"));
   assert.ok(setValue.includes("grid-cols-2"), "a two-column micro-stat grid, not a stacked card list");
-  assert.ok(setValue.includes("buildSupportingDetails"), "the six fields reuse the shared desktop selector");
+  assert.ok(setValue.includes("buildSupportingDetails"), "the five fields reuse the shared desktop selector");
 });
 
 test("Market Snapshot fetches sealed data itself, the same way the removed standalone module did", () => {

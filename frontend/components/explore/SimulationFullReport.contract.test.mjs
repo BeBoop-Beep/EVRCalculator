@@ -60,6 +60,12 @@ test("primary report explains one-pack outcomes and the conceptual EV gap withou
   );
   assert.match(component, /Typical Opening/);
   assert.match(component, /Expected Value/);
+  assert.match(component, /data-ev-gap-comparison/);
+  assert.match(component, /row\.value \/ scaleMax/);
+  assert.match(component, /data-series=\{row\.key\}/);
+  assert.equal(component.includes("evConceptCards"), false);
+  assert.match(css, /i\[data-series="typical"\]/);
+  assert.match(css, /i\[data-series="expected"\]/);
   assert.equal(component.includes("Reach 80% of EV Reliably"), false);
   assert.equal(component.includes("Converge Near EV"), false);
   assert.equal(component.includes("Chance to Reach at Least 80% of EV"), false);

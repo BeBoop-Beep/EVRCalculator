@@ -59,9 +59,15 @@ export async function proxySlimSetModuleRequest(moduleKey, request, context) {
   const timeout = setTimeout(() => controller.abort(), BACKEND_FETCH_TIMEOUT_MS);
   let proxyResponse;
   try {
+    const authorization = request?.headers?.get("authorization");
+    const cookie = request?.headers?.get("cookie");
     proxyResponse = await fetch(backendUrl.toString(), {
       method: "GET",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...(authorization ? { Authorization: authorization } : {}),
+        ...(cookie ? { Cookie: cookie } : {}),
+      },
       cache: "no-store",
       signal: controller.signal,
     });
@@ -92,6 +98,7 @@ export async function proxySlimSetModuleRequest(moduleKey, request, context) {
     headers: {
       "content-type": contentType,
       "Cache-Control": cacheControl,
+      Vary: "Cookie, Authorization",
     },
   });
 }

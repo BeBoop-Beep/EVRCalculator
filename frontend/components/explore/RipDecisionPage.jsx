@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
@@ -44,8 +45,10 @@ import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import rankingStyles from "./explore.module.css";
 import {
   buildFamilyRankLookup,
+  buildSealedProductHref,
   groupProductsByFamily,
 } from "./setProductComparison.mjs";
+import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import {
   selectLoosePackMarketPrice,
   selectRipDecisionContract,
@@ -288,6 +291,7 @@ function ChaseReality({
   loosePackPrice,
   compact = false,
   canViewAdvanced = false,
+  setSlug,
 }) {
   if (!chase) {
     return (
@@ -317,6 +321,10 @@ function ChaseReality({
     packs === null || loosePackPrice === null || loosePackPrice === undefined
       ? null
       : money(packs * loosePackPrice);
+  const cardHref = buildPokemonCardHref(setSlug, {
+    canonicalCardId: chase.canonicalCardId || chase.cardId,
+    cardVariantId: chase.cardVariantId,
+  });
 
   return (
     <article
@@ -365,6 +373,11 @@ function ChaseReality({
             Modeled pack odds:{" "}
             <strong className="text-[var(--text-primary)]">{odds}</strong>
           </p>
+          {cardHref ? (
+            <Link href={cardHref} className={`${ANALYTICAL_ACTION_CLASS} mt-3 inline-flex text-sm font-semibold text-teal-300 hover:text-teal-200`}>
+              View Card <span aria-hidden="true">→</span>
+            </Link>
+          ) : null}
         </div>
         {canViewAdvanced ? (
           <dl className={styles.chaseThresholds}>
@@ -642,6 +655,8 @@ function ComparisonMobileRow({
   canView,
   isBest = false,
 }) {
+  const router = useRouter();
+  const href = buildSealedProductHref(product.sealedProductId);
   const { perPack, pricePerPack, valueBackPct } =
     productComparisonMetrics(product);
   const rows = [
@@ -667,7 +682,12 @@ function ComparisonMobileRow({
   ];
   return (
     <article
-      className={`${rankingStyles.surfaceQuiet} min-w-0 w-full overflow-hidden p-3`}
+      className={`${rankingStyles.surfaceQuiet} min-w-0 w-full overflow-hidden p-3 ${href ? "cursor-pointer transition hover:border-teal-400/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300" : ""}`}
+      role={href ? "link" : undefined}
+      tabIndex={href ? 0 : undefined}
+      aria-label={href ? `View ${product.label}` : undefined}
+      onClick={(event) => { if (href && !event.target.closest("a,button,[role='button']")) router.push(href); }}
+      onKeyDown={(event) => { if (href && event.key === "Enter") router.push(href); }}
       data-product-key={product.key}
       data-best-in-family={isBest ? "true" : undefined}
     >
@@ -722,11 +742,18 @@ function ComparisonTableRow({
   canView,
   isBest = false,
 }) {
+  const router = useRouter();
+  const href = buildSealedProductHref(product.sealedProductId);
   const { perPack, pricePerPack, valueBackPct } =
     productComparisonMetrics(product);
   return (
     <tr
-      className={rankingStyles.row}
+      className={`${rankingStyles.row} ${href ? "cursor-pointer transition-colors hover:bg-teal-400/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300" : ""}`}
+      role={href ? "link" : undefined}
+      tabIndex={href ? 0 : undefined}
+      aria-label={href ? `View ${product.label}` : undefined}
+      onClick={(event) => { if (href && !event.target.closest("a,button,[role='button']")) router.push(href); }}
+      onKeyDown={(event) => { if (href && event.key === "Enter") router.push(href); }}
       data-product-key={product.key}
       data-sealed-product-id={product.sealedProductId}
       data-best-in-family={isBest ? "true" : undefined}
@@ -800,6 +827,7 @@ export default function RipDecisionPage({
   ripDecision = null,
   setRip = null,
   setName = null,
+  setSlug = null,
   chaseCards = [],
   percentiles = [],
   pullRateAssumptions,
@@ -1176,7 +1204,7 @@ export default function RipDecisionPage({
               </dl>
               {heroProduct.sealedProductId ? (
                 <Link
-                  href={`/sealed-products/${encodeURIComponent(heroProduct.sealedProductId)}`}
+                  href={buildSealedProductHref(heroProduct.sealedProductId)}
                   className={`${styles.heroCta} ${ANALYTICAL_ACTION_CLASS}`}
                 >
                   View Product <span aria-hidden="true">→</span>
@@ -1353,6 +1381,7 @@ export default function RipDecisionPage({
           loosePackPrice={loosePackPrice}
           compact
           canViewAdvanced={canViewProductRipIntelligence}
+          setSlug={setSlug}
         />
         <div className={styles.chaseDivider}>
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--text-secondary)]">
@@ -1362,6 +1391,8 @@ export default function RipDecisionPage({
         <CollectorDriverSubjects
           subjects={collectorSubjects}
           canViewAdvanced={canViewProductRipIntelligence}
+          setSlug={setSlug}
+          loosePackPrice={loosePackPrice}
         />
         <a href={pullRatesHref} className={styles.pullRatesCta}>
           View all modeled pull rates <span aria-hidden="true">→</span>

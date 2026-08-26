@@ -23,6 +23,7 @@ const read = (relative) => fs.readFileSync(path.join(here, relative), "utf8").re
 
 const page = read("../../../explore/RipStatisticsPageClient.jsx");
 const model = read("./setMarketOverviewModel.mjs");
+const signals = read("./SetMarketSignals.jsx");
 
 /** Comments legitimately discuss what the code must NOT do, so strip them. */
 const code = (source) =>
@@ -171,13 +172,15 @@ test("the graph dominates the panel and is not reduced to a sparkline", () => {
   assert.ok(!panel.includes("<MarketSparkline"), "the main trend is a chart, not a sparkline");
 });
 
-test("supporting details render the six approved fields from the active lens", () => {
+test("supporting details render the five approved fields from the active lens", () => {
   const panel = componentSource("MarketValueTrendPanel");
   assert.ok(panel.includes("Supporting Details"));
   assert.ok(panel.includes("buildSupportingDetails(trend)"), "the fields derive from the ACTIVE lens");
-  for (const key of ["periodChange", "periodReturn", "periodHigh", "periodLow", "trackingSince", "trackedItems"]) {
+  for (const key of ["periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]) {
     assert.ok(panel.includes(key), `${key} is rendered`);
   }
+  assert.ok(!panel.includes("periodChange"));
+  assert.ok(!panel.includes("periodReturn"));
 });
 
 test("tracked items are counted per lens, with the lens's own noun", () => {
@@ -194,8 +197,10 @@ test("Set Signals is the right rail and carries the three approved blocks", () =
   const rail = componentSource("SetSignalsRail");
   assert.ok(rail.includes('title="Set Signals"'));
   assert.ok(rail.includes("Market Segments"));
-  assert.ok(rail.includes("data-market-breadth"));
-  assert.ok(rail.includes("data-chase-concentration"));
+  assert.ok(rail.includes("<MarketBreadthSignal"));
+  assert.ok(rail.includes("<ChaseConcentrationSignal"));
+  assert.ok(signals.includes("data-market-breadth"));
+  assert.ok(signals.includes("data-chase-concentration"));
 });
 
 test("the overview splits roughly two thirds chart to one third rail", () => {
@@ -221,8 +226,8 @@ test("breadth and concentration use authoritative data or render unavailable", (
   const rail = componentSource("SetSignalsRail");
   assert.ok(section.includes("selectPreparedMarketBreadth({ marketBreadth"), "breadth reads cardsMarket.marketBreadth");
   assert.ok(section.includes("selectChaseConcentration({ top10Value"), "concentration reads the published scopes");
-  assert.ok(rail.includes("data-breadth-unavailable"), "breadth degrades gracefully");
-  assert.ok(rail.includes("data-concentration-unavailable"), "concentration degrades gracefully");
+  assert.ok(signals.includes("data-breadth-unavailable"), "breadth degrades gracefully");
+  assert.ok(signals.includes("data-concentration-unavailable"), "concentration degrades gracefully");
 });
 
 test("concentration reads the published top10 scope, not a re-sum of the chase list", () => {

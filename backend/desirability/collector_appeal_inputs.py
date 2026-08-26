@@ -83,7 +83,7 @@ from backend.desirability.pull_model import (
     probability_from_denominator,
     slot_group_of,
 )
-from backend.domain.pokemon.rip_decision_metrics import packs_for_cumulative_probability
+from backend.domain.pokemon.rip_decision_metrics import exact_card_probability_contract
 from backend.desirability.rarity_buckets import HIT_BUCKETS, classify_rarity
 
 logger = logging.getLogger(__name__)
@@ -444,19 +444,18 @@ def _path_sort_key(card: Mapping[str, Any], *, accessible: bool) -> tuple:
 def _path_payload(card: Mapping[str, Any]) -> Dict[str, Any]:
     probability = card.get("pull_probability")
     probability = float(probability) if isinstance(probability, (int, float)) else None
-    implied_odds = None
-    if probability is not None and probability > 0 and math.isfinite(probability):
-        implied_odds = round(1.0 / probability, 1)
+    probability_contract = exact_card_probability_contract(probability)
     return {
         "canonicalCardId": card.get("canonical_card_id"),
         "cardName": card.get("card_name"),
         "cardNumber": card.get("printed_number") or card.get("card_number"),
         "rarity": card.get("rarity"),
         "imageUrl": card.get("image_url"),
-        "modeledProbability": probability,
-        "impliedOdds": implied_odds,
-        "packsFor50PercentChance": packs_for_cumulative_probability(probability, 0.50),
-        "packsFor90PercentChance": packs_for_cumulative_probability(probability, 0.90),
+        **probability_contract,
+        # Collector paths historically called this field ``impliedOdds``.
+        # Preserve that transport name while sourcing it from the canonical
+        # exact-card probability contract used by Top Chase.
+        "impliedOdds": probability_contract["impliedOddsOneInN"],
     }
 
 

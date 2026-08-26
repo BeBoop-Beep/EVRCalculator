@@ -685,6 +685,9 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
     variant_id = _optional_str(chosen.get("card_variant_id"))
     return {
         "cardId": card_id,
+        # simulation_input_cards.card_id is the canonical cards.id foreign key;
+        # publish the semantic name so routing never has to infer that fact.
+        "canonicalCardId": card_id,
         "cardVariantId": variant_id,
         "cardName": _optional_str(chosen.get("card_name")),
         "rarity": _optional_str(chosen.get("rarity_bucket")),

@@ -83,8 +83,8 @@ test("collector subjects tolerate missing images and support either or both path
         {
           subjectName: "Both",
           demandShare: 0,
-          accessiblePath: { cardName: "Card C", impliedOdds: 0 },
-          elitePath: { cardName: "Card D", impliedOdds: 50 },
+          accessiblePath: { canonicalCardId: "similar-name-accessible", cardName: "Card ex", impliedOdds: 0, packsFor50PercentChance: 69, packsFor90PercentChance: 230 },
+          elitePath: { canonicalCardId: "similar-name-elite", cardName: "Card ex", impliedOdds: 50, packsFor50PercentChance: 1039, packsFor90PercentChance: 3453 },
         },
         { subjectName: "Empty" },
       ],
@@ -105,6 +105,9 @@ test("collector subjects tolerate missing images and support either or both path
   assert.equal(rows[1].elitePath.packsFor50PercentChance, 624);
   assert.equal(rows[1].elitePath.packsFor90PercentChance, 2072);
   assert.equal(rows[2].demandShareLabel, "0%");
+  assert.equal(rows[2].elitePath.canonicalCardId, "similar-name-elite");
+  assert.equal(rows[2].accessiblePath.canonicalCardId, "similar-name-accessible");
+  assert.notEqual(rows[2].elitePath.packsFor50PercentChance, rows[2].accessiblePath.packsFor50PercentChance);
   assert.equal(
     rows[0].subjectDemand,
     undefined,

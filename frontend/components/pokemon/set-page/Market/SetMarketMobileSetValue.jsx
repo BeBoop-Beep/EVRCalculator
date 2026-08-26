@@ -7,6 +7,7 @@ import MarketMobileChart from "./MarketMobileChart.jsx";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import { ChaseConcentrationSignal, MarketBreadthSignal } from "./SetMarketSignals.jsx";
 import { getDeltaWindowLabel } from "@/lib/explore/marketDeltaWindows.mjs";
 import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
 import {
@@ -20,7 +21,7 @@ import {
   selectPreparedSegmentTrend,
   unavailableSegmentTrend,
 } from "./setMarketOverviewModel.mjs";
-import { formatCompactMoney, formatCount, formatSignedCompactMoney, formatSignedPercent } from "./setMarketMobileModel.mjs";
+import { formatCompactMoney, formatCount } from "./setMarketMobileModel.mjs";
 
 const shortDate = (value) =>
   value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
@@ -90,18 +91,12 @@ function MicroStat({ label, value }) {
 }
 
 /**
- * The 2-column micro-stat readout. Six fields are the active lens's own
- * supporting details (shared with desktop via `buildSupportingDetails`); the
- * final two — Breadth and Concentration — are card-market-only metrics, so
- * they render only while Cards is the active segment. Showing a "Cards"
- * concentration figure under a Sealed or Graded heading would misrepresent
- * what is being measured, so those two rows are omitted rather than reused.
+ * The five-field supporting-detail readout shared with desktop. Breadth and
+ * Concentration render as their own card-market signal modules below it.
  */
-function SupportingMicroStats({ trend, segmentKey, breadth, concentration }) {
+function SupportingMicroStats({ trend }) {
   const details = useMemo(() => buildSupportingDetails(trend), [trend]);
   const cells = details.map((detail) => {
-    if (detail.key === "periodChange") return { label: detail.label, value: formatSignedCompactMoney(detail.amount) };
-    if (detail.key === "periodReturn") return { label: detail.label, value: formatSignedPercent(detail.percent) };
     if (detail.key === "periodHigh" || detail.key === "periodLow") {
       return { label: detail.label, value: formatCompactMoney(detail.value) };
     }
@@ -113,17 +108,6 @@ function SupportingMicroStats({ trend, segmentKey, breadth, concentration }) {
     }
     return { label: detail.label, value: null };
   });
-
-  if (segmentKey === "cards") {
-    cells.push({
-      label: "Market Breadth",
-      value: breadth.available ? `${breadth.advancingPercent}% Advancing` : SEGMENT_UNAVAILABLE_TEXT,
-    });
-    cells.push({
-      label: "Chase Concentration",
-      value: concentration.available ? `${concentration.sharePercent}%` : SEGMENT_UNAVAILABLE_TEXT,
-    });
-  }
 
   return (
     <div data-market-mobile-micro-stats className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-[var(--border-subtle)] pt-2.5">
@@ -277,7 +261,21 @@ export default function SetMarketMobileSetValue({
             </div>
           )}
 
-          <SupportingMicroStats trend={activeTrend} segmentKey={resolvedSegmentKey} breadth={breadth} concentration={concentration} />
+          <SupportingMicroStats trend={activeTrend} />
+          {resolvedSegmentKey === "cards" ? (
+            <div data-market-mobile-signals className="space-y-2.5">
+              <MarketBreadthSignal
+                breadth={breadth}
+                windowLabel={windowLabel}
+                className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
+              />
+              <ChaseConcentrationSignal
+                concentration={concentration}
+                formatMoney={formatCompactMoney}
+                className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
+              />
+            </div>
+          ) : null}
         </div>
       )}
     </MarketMobileSection>

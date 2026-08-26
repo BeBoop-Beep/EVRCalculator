@@ -322,7 +322,7 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
   if (!entry) {
     return {
       available: false,
-      reason: "Market breadth is not published for this timeframe.",
+      reason: "Breadth is currently available for 1D, 7D, and 30D.",
       windowKey: normalized || null,
     };
   }
@@ -385,15 +385,13 @@ export function selectChaseConcentration({ top10Value, cardsValue } = {}) {
 // --- Supporting details -----------------------------------------------------
 
 /**
- * The six-field block under the graph. Every field is derived from the ACTIVE
- * lens at the ACTIVE timeframe, so switching either recomputes all six.
+ * The five-field block under the graph. Every field is derived from the ACTIVE
+ * lens at the ACTIVE timeframe, so switching either recomputes all five.
  * A field with no value is returned as null and printed as an em dash.
  */
 export function buildSupportingDetails(trend = {}) {
   const count = toFiniteNumber(trend.trackedItemCount);
   return [
-    { key: "periodChange", label: "Period Change", amount: trend.deltaAmount ?? null },
-    { key: "periodReturn", label: "Period Return", percent: trend.deltaPercent ?? null },
     { key: "periodHigh", label: "Period High", value: trend.periodHigh ?? null },
     { key: "periodLow", label: "Period Low", value: trend.periodLow ?? null },
     { key: "trackingSince", label: "Tracking Since", date: trend.trackingSinceDate ?? null },

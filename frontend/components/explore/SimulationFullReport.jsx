@@ -36,6 +36,14 @@ function EvGapExplanation({
     Number.isFinite(typicalValue)
       ? typicalValue / expectedValue
       : null;
+  const scaleMax = Math.max(
+    Number.isFinite(typicalValue) ? typicalValue : 0,
+    Number.isFinite(expectedValue) ? expectedValue : 0,
+  );
+  const comparisonRows = [
+    { key: "typical", label: "Typical Opening", value: typicalValue },
+    { key: "expected", label: "Expected Value", value: expectedValue },
+  ];
   return (
     <section
       className={styles.evGapSection}
@@ -48,17 +56,28 @@ function EvGapExplanation({
         Expected Value and a typical opening describe two different parts of the
         modeled distribution.
       </p>
-      <div className={styles.evConceptCards}>
-        <div>
-          <span>Typical Opening</span>
-          <strong>{currency(typicalValue)}</strong>
-          <small>What the median modeled pack returned.</small>
-        </div>
-        <div>
-          <span>Expected Value</span>
-          <strong>{currency(expectedValue)}</strong>
-          <small>The long-run average across all modeled openings.</small>
-        </div>
+      <div
+        className={styles.evGapComparison}
+        data-ev-gap-comparison
+        aria-label="Typical Opening compared with Expected Value on the same scale"
+      >
+        {comparisonRows.map((row) => {
+          const width =
+            scaleMax > 0 && Number.isFinite(row.value)
+              ? `${Math.max(0, (row.value / scaleMax) * 100)}%`
+              : "0%";
+          return (
+            <div className={styles.evGapRow} key={row.key}>
+              <div className={styles.evGapLabel}>
+                <span>{row.label}</span>
+                <strong>{currency(row.value)}</strong>
+              </div>
+              <div className={styles.evGapTrack} aria-hidden="true">
+                <i data-series={row.key} style={{ width }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
       {capture !== null ? (
         <p className={styles.evCapture}>

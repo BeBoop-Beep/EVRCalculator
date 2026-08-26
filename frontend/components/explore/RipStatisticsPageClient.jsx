@@ -43,6 +43,7 @@ import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/P
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
+import { ChaseConcentrationSignal, MarketBreadthSignal } from "@/components/pokemon/set-page/Market/SetMarketSignals";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -3768,70 +3769,8 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
           </div>
         </div>
 
-        <div
-          data-market-breadth
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Market Breadth
-            </p>
-            <InfoPopover text="Share of eligible tracked cards that rose, fell, or were unchanged over the selected period." />
-          </div>
-          {breadth.available ? (
-            <>
-              <div className="mt-2 flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-[var(--positive)]">{breadth.advancingPercent}% Advancing</span>
-                <span className="text-sm font-semibold text-[var(--negative)]">{breadth.decliningPercent}% Declining</span>
-              </div>
-              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                {breadth.unchangedPercent}% Unchanged
-              </p>
-              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
-                <div className="h-full bg-[var(--positive)]" style={{ width: `${breadth.advancingPercent}%` }} />
-                <div className="h-full bg-[var(--negative)]" style={{ width: `${breadth.decliningPercent}%` }} />
-                {breadth.flat > 0 ? <div className="h-full bg-slate-500/60" style={{ width: `${Math.max(0, 100 - breadth.advancingPercent - breadth.decliningPercent)}%` }} /> : null}
-              </div>
-              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
-                {breadth.advancing.toLocaleString("en-US")} advancing · {breadth.declining.toLocaleString("en-US")} declining · {breadth.flat.toLocaleString("en-US")} unchanged
-              </p>
-              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                {breadth.total.toLocaleString("en-US")} mover-eligible cards · {windowLabel}
-              </p>
-            </>
-          ) : (
-            <p data-breadth-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
-              {breadth.reason}
-            </p>
-          )}
-        </div>
-
-        <div
-          data-chase-concentration
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Chase Concentration
-            </p>
-            <InfoPopover text="The published Top 10 set-value scope as a share of the published Set scope, compared on the same date." />
-          </div>
-          {concentration.available ? (
-            <>
-              <p className="mt-2 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                {concentration.sharePercent}%
-              </p>
-              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Top 10 cards of card-market value</p>
-              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
-                Top 10 Value: {formatSegmentMoney(concentration.top10Value, { compact: true })}
-              </p>
-            </>
-          ) : (
-            <p data-concentration-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
-              {concentration.reason}
-            </p>
-          )}
-        </div>
+        <MarketBreadthSignal breadth={breadth} windowLabel={windowLabel} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
+        <ChaseConcentrationSignal concentration={concentration} formatMoney={(value) => formatSegmentMoney(value, { compact: true })} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
       </div>
     </SectionCard>
   );
@@ -3925,17 +3864,11 @@ function MarketValueTrendPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
             Supporting Details
           </p>
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
             {details.map((detail) => {
               let value = "—";
               let toneClassName = "text-[var(--text-primary)]";
-              if (detail.key === "periodChange" && detail.amount !== null) {
-                value = formatSignedMoney(detail.amount);
-                toneClassName = deltaToneClassName(detail.amount);
-              } else if (detail.key === "periodReturn" && detail.percent !== null) {
-                value = formatSignedPercentValue(detail.percent);
-                toneClassName = deltaToneClassName(detail.percent);
-              } else if ((detail.key === "periodHigh" || detail.key === "periodLow") && detail.value !== null) {
+              if ((detail.key === "periodHigh" || detail.key === "periodLow") && detail.value !== null) {
                 value = formatSegmentMoney(detail.value, { compact: true });
               } else if (detail.key === "trackingSince" && detail.date) {
                 value = formatLongDate(detail.date);
@@ -13944,6 +13877,7 @@ export default function RipStatisticsPageClient({
                     calculationRunId={activeCalculationRunId}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
+                    setSlug={activeSetSlug}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
                     pullRateAssumptions={pullRateAssumptions}

@@ -356,6 +356,7 @@ def test_top_chase_contract_shape_and_modeled_odds():
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
 
     assert chase["cardId"] == "card-b"
+    assert chase["canonicalCardId"] == "card-b"
     assert chase["cardVariantId"] == "variant-b"
     assert chase["cardName"] == "Card B"
     assert chase["rarity"] == "ultra_rare"

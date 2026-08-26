@@ -73,7 +73,7 @@ test("prepared breadth is displayed verbatim and All maps centrally to SinceTrac
 test("prepared breadth identifies an unpublished timeframe explicitly", () => {
   assert.equal(
     selectPreparedMarketBreadth({ marketBreadth: {}, windowKey: "6M" }).reason,
-    "Market breadth is not published for this timeframe."
+    "Breadth is currently available for 1D, 7D, and 30D."
   );
 });
 
@@ -215,7 +215,7 @@ test("concentration exposes no Low/Medium/High banding", () => {
 
 // --- Supporting details -----------------------------------------------------
 
-test("supporting details publish the six approved fields in order", () => {
+test("supporting details publish the five approved fields in order", () => {
   const details = buildSupportingDetails(
     selectSegmentTrend({
       history: dailyHistory([100, 90, 120, 110]),
@@ -226,11 +226,11 @@ test("supporting details publish the six approved fields in order", () => {
   );
   assert.deepEqual(
     details.map((detail) => detail.key),
-    ["periodChange", "periodReturn", "periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]
+    ["periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]
   );
   assert.deepEqual(
     details.map((detail) => detail.label),
-    ["Period Change", "Period Return", "Period High", "Period Low", "Tracking Since", "Market Index", "Tracked Items"]
+    ["Period High", "Period Low", "Tracking Since", "Market Index", "Tracked Items"]
   );
 });
 
@@ -249,7 +249,6 @@ test("tracked items follow the active lens's own noun and count", () => {
 
 test("supporting details for an unavailable lens carry nulls, not zeros", () => {
   const details = buildSupportingDetails(unavailableSegmentTrend());
-  assert.equal(details.find((detail) => detail.key === "periodChange").amount, null);
   assert.equal(details.find((detail) => detail.key === "periodHigh").value, null);
   assert.equal(details.find((detail) => detail.key === "trackedItems").count, null);
 });

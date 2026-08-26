@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   CARD_THUMBNAIL_WIDTH,
   optimizedImageUrl,
 } from "@/lib/images/remoteImageDelivery.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
+import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import styles from "./RipDecisionPage.module.css";
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -226,19 +228,27 @@ export function SimulationDriverCards({
   );
 }
 
-function SubjectPath({ label, path }) {
+function SubjectPath({ label, path, setSlug }) {
   if (!path) return null;
+  const href = buildPokemonCardHref(setSlug, path);
+  const image = <CardImage src={path.imageUrl} name={path.cardName} compact />;
   return (
     <div className={styles.subjectPath}>
       <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
         {label}
       </p>
       <div className="mt-2 flex min-w-0 items-center gap-3">
-        <CardImage src={path.imageUrl} name={path.cardName} compact />
+        {href ? (
+          <Link href={href} aria-label={`View ${path.cardName || "card"}`} className={styles.subjectCardLink}>
+            {image}
+          </Link>
+        ) : image}
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">
-            {path.cardName || "Card name unavailable"}
-          </p>
+          {href ? (
+            <Link href={href} className={`${styles.subjectNameLink} line-clamp-2 text-sm font-semibold`}>
+              {path.cardName || "Card name unavailable"}
+            </Link>
+          ) : <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{path.cardName || "Card name unavailable"}</p>}
           {path.rarity ? (
             <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
               {path.rarity}
@@ -258,7 +268,7 @@ function SubjectPath({ label, path }) {
   );
 }
 
-function SubjectAcquisition({ path, canViewAdvanced }) {
+function SubjectAcquisition({ path, canViewAdvanced, loosePackPrice }) {
   const rows = [
     ["50% Chance to Pull", path?.packsFor50PercentChance],
     ["90% Chance to Pull", path?.packsFor90PercentChance],
@@ -272,14 +282,17 @@ function SubjectAcquisition({ path, canViewAdvanced }) {
         <div key={label}>
           <dt>{label}</dt>
           <dd>
-            {canViewAdvanced && value ? (
-              `${Math.round(value).toLocaleString("en-US")} packs`
+            {canViewAdvanced ? (
+              value ? `${Math.round(value).toLocaleString("en-US")} packs` : "Unavailable"
             ) : (
               <>
                 <span aria-hidden="true">&#128274;</span> Index Plus
               </>
             )}
           </dd>
+          {canViewAdvanced && value && loosePackPrice !== null && loosePackPrice !== undefined ? (
+            <p>≈ {money(Number(value) * Number(loosePackPrice))} at today&apos;s loose-pack price</p>
+          ) : null}
         </div>
       ))}
     </dl>
@@ -289,6 +302,8 @@ function SubjectAcquisition({ path, canViewAdvanced }) {
 function CollectorDriverSubjectsDesktop({
   subjects = [],
   canViewAdvanced = false,
+  setSlug,
+  loosePackPrice = null,
 }) {
   if (!subjects.length)
     return (
@@ -329,18 +344,22 @@ function CollectorDriverSubjectsDesktop({
             <SubjectPath
               label="Elite Chase"
               path={subject.elitePath || subject.accessiblePath}
+              setSlug={setSlug}
             />
             <SubjectAcquisition
               path={subject.elitePath || subject.accessiblePath}
               canViewAdvanced={canViewAdvanced}
+              loosePackPrice={loosePackPrice}
             />
-            {subject.elitePath && subject.accessiblePath ? (
+            {subject.elitePath && subject.accessiblePath && subject.elitePath.canonicalCardId !== subject.accessiblePath.canonicalCardId ? (
               <details className={styles.attainableDisclosure}>
                 <summary>More attainable chase</summary>
                 <SubjectPath
                   label="More Attainable Chase"
                   path={subject.accessiblePath}
+                  setSlug={setSlug}
                 />
+                <SubjectAcquisition path={subject.accessiblePath} canViewAdvanced={canViewAdvanced} loosePackPrice={loosePackPrice} />
               </details>
             ) : null}
           </div>
@@ -353,6 +372,8 @@ function CollectorDriverSubjectsDesktop({
 export function CollectorDriverSubjects({
   subjects = [],
   canViewAdvanced = false,
+  setSlug,
+  loosePackPrice = null,
 }) {
   const [openSubject, setOpenSubject] = useState(null);
   if (!subjects.length)
@@ -360,6 +381,8 @@ export function CollectorDriverSubjects({
       <CollectorDriverSubjectsDesktop
         subjects={subjects}
         canViewAdvanced={canViewAdvanced}
+        setSlug={setSlug}
+        loosePackPrice={loosePackPrice}
       />
     );
   return (
@@ -368,6 +391,8 @@ export function CollectorDriverSubjects({
         <CollectorDriverSubjectsDesktop
           subjects={subjects}
           canViewAdvanced={canViewAdvanced}
+          setSlug={setSlug}
+          loosePackPrice={loosePackPrice}
         />
       </div>
       <div className={styles.subjectMobileList}>
@@ -425,19 +450,17 @@ export function CollectorDriverSubjects({
                   id={panelId}
                   className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}
                 >
-                  <SubjectPath
-                    label="Elite chase"
-                    path={subject.elitePath || subject.accessiblePath}
-                  />
+                  <SubjectPath label="Elite chase" path={subject.elitePath || subject.accessiblePath} setSlug={setSlug} />
                   <SubjectAcquisition
                     path={representative}
                     canViewAdvanced={canViewAdvanced}
+                    loosePackPrice={loosePackPrice}
                   />
-                  {subject.elitePath ? (
-                    <SubjectPath
-                      label="More attainable"
-                      path={subject.accessiblePath}
-                    />
+                  {subject.elitePath && subject.accessiblePath && subject.elitePath.canonicalCardId !== subject.accessiblePath.canonicalCardId ? (
+                    <>
+                      <SubjectPath label="More attainable" path={subject.accessiblePath} setSlug={setSlug} />
+                      <SubjectAcquisition path={subject.accessiblePath} canViewAdvanced={canViewAdvanced} loosePackPrice={loosePackPrice} />
+                    </>
                   ) : null}
                 </div>
               ) : null}

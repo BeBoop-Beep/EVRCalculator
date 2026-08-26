@@ -26,7 +26,7 @@ from backend.desirability.card_appeal import (
 )
 from backend.desirability.set_components import build_card_appeal_correlation_dataset
 from backend.desirability.set_validation import build_opening_set_audit, is_opening_set_row
-from backend.domain.pokemon.rip_decision_metrics import packs_for_cumulative_probability
+from backend.domain.pokemon.rip_decision_metrics import exact_card_probability_contract
 from backend.db.services.explore_page_service import ExplorePageError
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
@@ -6708,9 +6708,17 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
                     if not isinstance(path, dict):
                         continue
                     enriched_path = dict(path)
-                    probability = enriched_path.get("modeledProbability")
-                    enriched_path.setdefault("packsFor50PercentChance", packs_for_cumulative_probability(probability, 0.50))
-                    enriched_path.setdefault("packsFor90PercentChance", packs_for_cumulative_probability(probability, 0.90))
+                    probability_contract = exact_card_probability_contract(
+                        enriched_path.get("modeledProbability")
+                    )
+                    enriched_path.setdefault(
+                        "packsFor50PercentChance",
+                        probability_contract["packsFor50PercentChance"],
+                    )
+                    enriched_path.setdefault(
+                        "packsFor90PercentChance",
+                        probability_contract["packsFor90PercentChance"],
+                    )
                     enriched_subject[path_key] = enriched_path
                 enriched_subjects.append(enriched_subject)
             collector_block["topSubjects"] = enriched_subjects
