@@ -81,9 +81,12 @@ const overview = resolveMarketOverview(SNAPSHOT);
 test("both markets render from the snapshot, in the locked order and copy", () => {
   const renderer = render(overview);
   const rows = renderer.root.findAll((node) => node.props?.["data-market-overview-row"] !== undefined);
-  assert.deepEqual(rows.map((node) => node.props["data-market-overview-row"]), ["raw", "topChase"]);
+  // Graded trails the tracked markets: the table acknowledges the shape of the
+  // market rather than pretending it is only what inDex tracks today.
+  assert.deepEqual(rows.map((node) => node.props["data-market-overview-row"]), ["raw", "topChase", "graded"]);
   assert.match(textOf(rows[0]), /Raw Card Market/);
   assert.match(textOf(rows[1]), /Top 10 Chase Market/);
+  assert.match(textOf(rows[2]), /Graded Market/);
 
   const heading = renderer.root.findAll((node) => node.props?.id === "market-overview-heading")[0];
   assert.equal(textOf(heading), "Market Overview");
@@ -182,7 +185,7 @@ test("the dynamic period column reports the backend percentage for the selected 
 test("mobile gets a stacked-card composition, not a horizontally scrolled table", () => {
   const renderer = render(overview);
   const cards = renderer.root.findAll((node) => node.props?.["data-market-overview-card"] !== undefined);
-  assert.deepEqual(cards.map((node) => node.props["data-market-overview-card"]), ["raw", "topChase"]);
+  assert.deepEqual(cards.map((node) => node.props["data-market-overview-card"]), ["raw", "topChase", "graded"]);
 
   const cardList = renderer.root.findAll((node) => node.props?.["data-market-overview-cards"] !== undefined)[0];
   assert.equal(cardList.type, "ul");
@@ -312,5 +315,57 @@ test("a missing overview degrades to a quiet unavailable state, not a crash", ()
     assert.match(text, /Market Overview/);
     assert.match(text, /temporarily unavailable/);
     assert.equal(renderer.root.findAll((node) => node.props?.["data-market-overview-row"] !== undefined).length, 0);
+  }
+});
+
+test("the Graded placeholder publishes no number a consumer could mistake for data", () => {
+  const renderer = render(overview);
+  const gradedRow = renderer.root.findAll(
+    (node) => node.props?.["data-market-overview-row"] === "graded"
+  )[0];
+  const text = textOf(gradedRow);
+  assert.match(text, /Graded Market/);
+  assert.match(text, /Unavailable/);
+  // The exact failure this guards: a placeholder that renders $0.00 / 100.0 /
+  // 0.00% is indistinguishable from a real market that went to zero.
+  assert.doesNotMatch(text, /\$/, "no basket value");
+  assert.doesNotMatch(text, /%/, "no percentage");
+  assert.doesNotMatch(text, /\d+\.\d/, "no index value");
+  // And it never offers an Explore action that implies live analytics exist.
+  assert.equal(
+    gradedRow.findAll((node) => node.props?.["data-market-explore-link"] !== undefined).length,
+    0
+  );
+});
+
+test("the Graded placeholder is not a family and cannot reach the chart", () => {
+  // Placeholders live outside `overview.families`, so nothing that charts,
+  // sums or averages families can ingest one.
+  assert.ok(!overview.families.some((family) => family.key === "graded"));
+});
+
+test("Market Explorer has one prominent primary CTA in the header control area", () => {
+  const renderer = render(overview);
+  const cta = renderer.root.findAll((node) => node.props?.["data-market-explorer-cta"] !== undefined)[0];
+  assert.ok(cta, "the CTA must exist");
+  assert.equal(cta.props.href, "/Market/Explorer");
+  assert.match(textOf(cta), /Open Market Explorer/);
+  // Vague copy is exactly what this replaced.
+  assert.doesNotMatch(textOf(cta), /^(More|Details|Advanced)$/);
+  // Green, not yellow: yellow stays the scarce attention color.
+  const className = String(cta.props.className);
+  assert.match(className, /45,212,191/, "the CTA uses the inDex interaction green");
+  assert.doesNotMatch(className, /--accent/, "yellow must not become the primary-action color");
+});
+
+test("row-level Explore links stay secondary but share the green accent family", () => {
+  const renderer = render(overview);
+  const rowLinks = renderer.root.findAll(
+    (node) => node.props?.["data-market-explore-link"] !== undefined
+      && node.props["data-market-explore-link"] !== "all"
+  );
+  assert.ok(rowLinks.length > 0, "per-row drill-down must survive");
+  for (const link of rowLinks) {
+    assert.match(String(link.props.className), /45,212,191/);
   }
 });

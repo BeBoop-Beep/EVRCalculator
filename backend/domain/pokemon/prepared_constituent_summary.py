@@ -18,6 +18,19 @@ so a consumer cannot mistake a bounded preview for the whole universe, and
 ``isComplete`` says which it is. Sealed families are small enough that the
 roster is usually complete; the same shape reports that honestly rather than
 needing a second contract.
+
+MOVEMENT (v2). The summary may carry ``movementWindows`` -- the 1D/7D/30D/3M
+boundary dates for THIS market, published once -- and each row a ``changes`` map
+of window to percentage. That split is deliberate: the dates are a property of
+the market, identical for every constituent in it, and repeating them per row
+measured at +349% on a 25-card summary. ``null`` for a row's window means it had
+no comparable observation at that window's start; it is NOT zero.
+
+The movement is computed by ``constituent_movement`` from the SAME in-memory
+daily prices the caller already holds, so it costs no extra query and no schema
+change, and only the four compact windows are published -- never a per-row
+history array. A caller with no movement available omits it, and the fields are
+absent rather than zero.
 """
 
 from __future__ import annotations
@@ -25,7 +38,7 @@ from __future__ import annotations
 import math
 from typing import Any, Iterable, Mapping
 
-PREPARED_CONSTITUENT_SUMMARY_VERSION = "pokemon-prepared-constituent-summary-v1"
+PREPARED_CONSTITUENT_SUMMARY_VERSION = "pokemon-prepared-constituent-summary-v2"
 
 #: Bound for broad card segments. Sized for a table a user actually reads, not
 #: for completeness -- completeness is what the dynamic query engine is for.
@@ -51,6 +64,7 @@ def build_prepared_constituent_summary(
     as_of: str | None,
     id_field: str,
     limit: int,
+    movements: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Current composition for one segment, ordered by price descending.
 
@@ -81,6 +95,12 @@ def build_prepared_constituent_summary(
     selected = usable[:bound]
     for position, row in enumerate(selected, start=1):
         row["rank"] = position
+        # Attached ONLY to the published preview: publishing movement for a
+        # universe of thousands and then showing 25 rows would be wasted
+        # payload.
+        change = ((movements or {}).get("byConstituent") or {}).get(row[id_field])
+        if change is not None:
+            row["changes"] = dict(change)
 
     return {
         "contractVersion": PREPARED_CONSTITUENT_SUMMARY_VERSION,
@@ -91,6 +111,12 @@ def build_prepared_constituent_summary(
         # find out whether it is holding the whole market.
         "isComplete": len(selected) == len(usable),
         "idField": id_field,
+        # Stated so a consumer can tell "this publication predates movement"
+        # apart from "these constituents genuinely have no comparable history".
+        "hasMovement": any("changes" in row for row in selected),
+        # The window boundary dates for THIS market, published once rather than
+        # repeated on every row.
+        "movementWindows": dict((movements or {}).get("windows") or {}),
         "topConstituents": selected,
     }
 
@@ -100,10 +126,11 @@ def summarize_card_segment_constituents(
     *,
     as_of: str | None,
     limit: int = DEFAULT_CARD_CONSTITUENT_LIMIT,
+    movements: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Bounded current composition for one published card-rarity segment."""
     return build_prepared_constituent_summary(
-        rows, as_of=as_of, id_field="canonicalCardId", limit=limit,
+        rows, as_of=as_of, id_field="canonicalCardId", limit=limit, movements=movements,
     )
 
 
@@ -112,8 +139,9 @@ def summarize_sealed_segment_constituents(
     *,
     as_of: str | None,
     limit: int = DEFAULT_SEALED_CONSTITUENT_LIMIT,
+    movements: Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Current composition for one published sealed product-family segment."""
     return build_prepared_constituent_summary(
-        rows, as_of=as_of, id_field="sealedProductId", limit=limit,
+        rows, as_of=as_of, id_field="sealedProductId", limit=limit, movements=movements,
     )

@@ -45,6 +45,10 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     segment_key_for_rarity,
     taxonomy_metadata,
 )
+from backend.domain.pokemon.constituent_movement import (
+    build_constituent_movements,
+    prices_by_date_from_observations,
+)
 from backend.domain.pokemon.prepared_constituent_summary import (
     summarize_card_segment_constituents,
 )
@@ -211,6 +215,15 @@ def _segment_series(
         {"date": row["marketDate"], "value": row["basketValue"]} for row in current
     ]
 
+    # CONSTITUENT MOVEMENT. Computed from the observations this function
+    # ALREADY built — the same per-card daily prices the index is chain-linked
+    # from — so the movement column costs no additional query. Windows resolve
+    # over the segment's own observed dates, so a card's "30D" is the same span
+    # as the segment's "30D".
+    constituent_movements = build_constituent_movements(
+        prices_by_date_from_observations(observations)
+    )
+
     today_cards = {
         str(entry["setId"]) for entry in latest["constituents"]
     }
@@ -256,6 +269,7 @@ def _segment_series(
                 for entry in latest["constituents"]
             ],
             as_of=str(latest["marketDate"])[:10],
+            movements=constituent_movements,
         ),
         "metadata": {
             "cardCount": len(today_cards),

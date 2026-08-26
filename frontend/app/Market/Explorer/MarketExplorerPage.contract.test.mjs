@@ -105,7 +105,12 @@ test("card-rarity options come from the payload, never from a hardcoded list", (
   // `cardSegments` collection, so an unpublished rarity cannot appear.
   assert.match(series, /export function resolveCardSegmentSeries/);
   assert.match(state, /export function resolveAvailableCardSegmentIds/);
-  for (const forbidden of ["specialIllustrationRare", "Special Illustration Rare", "ultraRare", "Ultra Rare"]) {
+  // The rail renders `cardGroups`, which the client builds from the published
+  // collection — there is no literal option list anywhere in it.
+  assert.match(filters, /cardGroups\.map/);
+  assert.ok(!/backendKey|CARD_SEGMENT_SERIES/.test(filters),
+    "the filter must not reach for the identity table to build its options");
+  for (const forbidden of ["specialIllustrationRare", "ultraRare"]) {
     assert.ok(!filters.includes(forbidden), `the filter must not hardcode ${forbidden}`);
   }
 });
@@ -150,7 +155,11 @@ test("Sealed submarket options come from the payload, never from a hardcoded lis
   assert.match(series, /raw\.available !== true/);
   assert.match(state, /export function resolveAvailableSealedFamilyIds/);
   assert.ok(!filters.includes("boosterBox"), "the filter must not hardcode a segment key");
-  assert.ok(!filters.includes("Booster Box"), "the filter must not hardcode a segment label");
+  // `sealedEntries` is the whole option source: the rail maps it and nothing
+  // else. (Prose in the locked-state copy may NAME families — that is the
+  // value proposition shown to a visitor who cannot see the options at all,
+  // and it can never become an option.)
+  assert.match(filters, /entries=\{sealedEntries\}/);
 });
 
 test("Era & Sets is a live NAVIGATION axis that still claims no era index", () => {
@@ -233,20 +242,38 @@ test("the workspace is composed, not one giant page component", () => {
   }
   // No file in the surface is allowed to become the 1,000-line page.
   for (const [name, source] of Object.entries({ explorerPage, client, chart, filters, details, card })) {
-    assert.ok(source.split("\n").length < 300, `${name} is too large (${source.split("\n").length} lines)`);
+    // 340, raised from 300 when the access ladder landed. The guard exists to
+    // stop a component becoming THE page, not to cap documentation: the growth
+    // here is the client's prose explaining the three access levels, which is
+    // exactly the kind of thing that should not be compressed out.
+    assert.ok(source.split("\n").length < 340, `${name} is too large (${source.split("\n").length} lines)`);
   }
 });
 
 // --- paywall --------------------------------------------------------------
 
 test("the workspace is wrapped by a single named entitlement boundary", () => {
-  assert.match(explorerPage, /<MarketExplorerAccessGate>/);
+  assert.match(explorerPage, /<MarketExplorerAccessGate planAccess=\{planAccess\}>/);
   assert.match(explorerPage, /<MarketExplorerClient/);
-  assert.match(gate, /MARKET_EXPLORER_REQUIRED_PLAN/);
+  // The boundary now names a FEATURE rather than a plan, because commercial
+  // packaging is not final and a plan name at a call site is a rewrite later.
+  assert.match(gate, /MARKET_EXPLORER_PREMIUM_FEATURE/);
   // No invented entitlement state, and no second auth system.
   const gateCode = codeOf(gate);
   assert.ok(!/isPaid\s*=\s*(true|false)/.test(gateCode), "must not hardcode entitlement");
   assert.ok(!/localStorage|document\.cookie|signIn\(/.test(gateCode), "must not invent a second auth system");
+});
+
+test("plan access is resolved on the SERVER and passed down, never trusted from the client", () => {
+  // Two properties, both load-bearing:
+  //  - the session is read from the cookie via the canonical server resolver,
+  //    so the first paint is already correct instead of flashing basic;
+  //  - the plan hierarchy is the ONE shared module, not a local reading.
+  assert.match(explorerPage, /getAuthenticatedUserFromCookiesWithTimeout/);
+  assert.match(explorerPage, /resolveMarketExplorerPlanAccess/);
+  assert.match(explorerPage, /user=\{user\}/);
+  assert.ok(!/index_plan/.test(explorerPage),
+    "the page must not re-interpret the plan field itself");
 });
 
 // --- the existing Market homepage ----------------------------------------
@@ -267,7 +294,12 @@ test("/Market keeps its sections, order and analytics", () => {
 
 test("the Market Overview exposes one header action plus one link per market row", () => {
   assert.match(overview, /data-market-explore-link="all"/);
-  assert.match(overview, /Explore Market/);
+  // The header action is now a prominent PRIMARY CTA in the green interaction
+  // family, not the quiet 11px caption nobody found.
+  assert.match(overview, /Open Market Explorer/);
+  assert.match(overview, /data-market-explorer-cta/);
+  assert.ok(!/>\s*Explore Market\s*</.test(overview),
+    "the vague quiet link must not come back");
   assert.match(overview, /export function marketExplorerHref/);
   assert.match(overview, /\/Market\/Explorer/);
   assert.match(overview, /\?market=\$\{encodeURIComponent\(marketKey\)\}/);

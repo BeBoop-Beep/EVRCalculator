@@ -12,7 +12,7 @@ import test from "node:test";
 const read = (name) => readFile(new URL(name, import.meta.url), "utf8");
 
 const BUILDER = "./MarketExplorerQueryBuilder.jsx";
-const DYNAMIC = "./MarketExplorerDynamicSeries.jsx";
+const ACTIVE_MARKETS = "./MarketExplorerActiveMarkets.jsx";
 const CONSTITUENTS = "./MarketExplorerConstituents.jsx";
 const CLIENT = "./MarketExplorerClient.jsx";
 
@@ -100,17 +100,24 @@ test("the client merges query series into the comparison set", async () => {
   const source = await read(CLIENT);
   assert.ok(source.includes("querySeries"), "query series must reach the chart");
   assert.ok(source.includes("MarketExplorerQueryBuilder"), "the builder must be mounted");
-  assert.ok(source.includes("MarketExplorerDynamicSeries"), "constituents must be rendered");
+  // Custom markets appear in the ONE Active Markets row alongside prepared
+  // ones. They used to also get a second, duplicate chip strip of their own;
+  // that strip is gone and its responsibilities were absorbed, so a query is
+  // represented exactly once on the page.
+  assert.ok(source.includes("MarketExplorerActiveMarkets"), "query series must be listed");
+  assert.ok(!source.includes("MarketExplorerDynamicSeries"),
+    "the duplicate custom-market chip strip must not come back");
 });
 
 test("chase constituents are shown, never hidden behind a count", async () => {
   // Composition moved out of the chip strip into the shared panel, which shows
-  // one market at a time and handles both assets.
+  // one market at a time and handles both assets. The chip that points at it
+  // now lives in the single Active Markets row.
   const source = await read(CONSTITUENTS);
   assert.ok(source.includes("resolveSeriesConstituents"),
     "a Top 10 the user cannot enumerate is exactly what section 24 forbids");
-  const chips = await read(DYNAMIC);
-  assert.ok(chips.includes("data-market-explorer-inspect"),
+  const chips = await read(ACTIVE_MARKETS);
+  assert.ok(chips.includes("data-market-explorer-active-inspect"),
     "a chip must be able to point the panel at its market");
 });
 

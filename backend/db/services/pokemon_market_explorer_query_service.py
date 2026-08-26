@@ -63,6 +63,11 @@ from backend.domain.pokemon.card_rarity_taxonomy import (
     segment_key_for_rarity,
     taxonomy_metadata,
 )
+from backend.domain.pokemon.constituent_movement import (
+    CONSTITUENT_MOVEMENT_WINDOWS,
+    build_constituent_movements,
+    prices_by_date_from_query_rows,
+)
 from backend.domain.pokemon.market_explorer_query import (
     ASSET_CARDS,
     ASSET_MODE_LABELS,
@@ -80,6 +85,7 @@ from backend.domain.pokemon.market_explorer_query import (
 from backend.domain.pokemon.market_index import (
     build_chain_linked_history_with_segments,
     compute_strict_window_movements,
+    resolve_window_baselines,
 )
 
 MARKET_EXPLORER_QUERY_SERVICE_VERSION = "pokemon-market-explorer-query-service-v1"
@@ -537,6 +543,64 @@ def load_basket_for_date(
     ]
 
 
+def resolve_constituent_movement_baseline_dates(
+    market_dates: Sequence[str],
+    *,
+    windows: Sequence[str] = CONSTITUENT_MOVEMENT_WINDOWS,
+) -> list[str]:
+    """The distinct historical dates the movement windows actually need.
+
+    Deduplicated on purpose: on a sparse history 1D and 7D frequently resolve
+    to the same observation, and loading that date twice would buy nothing.
+    """
+    baselines = resolve_window_baselines([str(value)[:10] for value in market_dates])
+    wanted = {
+        (baselines.get(window) or {}).get("startDate")
+        for window in windows
+    }
+    return sorted(value for value in wanted if value)
+
+
+def load_constituent_movement_prices(
+    client: Any,
+    set_ids: Sequence[str],
+    *,
+    market_dates: Sequence[str],
+    latest_date: str,
+    latest_rows: Sequence[Mapping[str, Any]],
+    card_ids: Sequence[str] | None = None,
+) -> dict[str, dict[str, float]]:
+    """Per-card prices on today plus each movement window's baseline date.
+
+    WHY THIS COSTS EXTRA READS AT ALL. The interactive path deliberately never
+    transports the full card-date panel -- that is the whole reason it exists --
+    so the only prices in memory are today's basket. Movement therefore needs
+    the baseline days, and this fetches EXACTLY those (at most four, usually
+    fewer after deduplication) rather than reinstating the panel.
+
+    Today's prices are reused from ``latest_rows``, never re-fetched.
+    """
+    prices: dict[str, dict[str, float]] = {
+        str(latest_date)[:10]: {
+            str(row["canonicalCardId"]): float(row["marketPrice"])
+            for row in latest_rows
+            if row.get("marketPrice") is not None
+        }
+    }
+    for baseline in resolve_constituent_movement_baseline_dates(market_dates):
+        if baseline in prices:
+            continue
+        rows = load_basket_for_date(
+            client, set_ids, market_date=baseline, card_ids=card_ids,
+        )
+        prices[baseline] = {
+            str(row["canonicalCardId"]): float(row["marketPrice"])
+            for row in rows
+            if row.get("marketPrice") is not None
+        }
+    return {date_key: values for date_key, values in prices.items() if values}
+
+
 def _numeric(value: Any) -> float | None:
     try:
         parsed = float(value)
@@ -561,6 +625,14 @@ def build_query_series(
     observations = build_query_observations(rows, mode=mode, top_n=top_n)
     if not observations:
         return None
+
+    # CONSTITUENT MOVEMENT. Free here: this reference path already holds the
+    # whole card-date panel. Built off the raw universe rather than the basket
+    # observations so a Top-N market still reports each member's own real
+    # movement rather than only the days it happened to be in the basket.
+    constituent_movements = build_constituent_movements(
+        prices_by_date_from_query_rows(rows, id_field="canonicalCardId")
+    )
 
     history = build_chain_linked_history_with_segments(observations)
     if not history:
@@ -601,6 +673,9 @@ def build_query_series(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible constituent of the filtered universe"
             ),
+            # The same compact contract prepared segments publish, so Current
+            # Constituents renders prepared and dynamic markets identically.
+            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -618,6 +693,8 @@ def build_query_series(
             for row in current
         ],
         "currentConstituents": constituents,
+        # Window boundary dates for this market, published once.
+        "movementWindows": constituent_movements.get("windows") or {},
         # Section 27: the information a future "entered / exited / previous
         # rank / days in chase" view needs is preserved here rather than
         # discarded after ranking. It is intentionally ids-and-ranks only --
@@ -664,6 +741,7 @@ def build_query_series_from_cohorts(
     *,
     mode: str,
     top_n: int | None,
+    movement_prices: Mapping[str, Mapping[str, float]] | None = None,
 ) -> dict[str, Any] | None:
     """The published series, built from per-date aggregates plus today's basket.
 
@@ -687,6 +765,13 @@ def build_query_series_from_cohorts(
     if not current:
         return None
     latest_row = current[-1]
+
+    # Absent movement prices mean the caller did not ask for movement; every
+    # row then simply carries no `changes`, and the table reports the window as
+    # unavailable rather than inventing a zero.
+    constituent_movements = (
+        build_constituent_movements(movement_prices) if movement_prices else {}
+    )
 
     universe = [row for row in basket_rows if row.get("marketPrice") is not None]
     selected = rank_chase_constituents(
@@ -718,6 +803,7 @@ def build_query_series_from_cohorts(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible constituent of the filtered universe"
             ),
+            "changes": (constituent_movements.get("byConstituent") or {}).get(card_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -737,6 +823,8 @@ def build_query_series_from_cohorts(
             for row in current
         ],
         "currentConstituents": constituents,
+        # Window boundary dates for this market, published once.
+        "movementWindows": constituent_movements.get("windows") or {},
         "membershipByDate": [
             {"marketDate": latest_row["marketDate"],
              "constituentIds": [row["canonicalCardId"] for row in constituents]},
@@ -849,8 +937,18 @@ def run_market_explorer_query(
     basket_rows = load_basket_for_date(
         client, scope_set_ids, market_date=cohort_rows[-1]["marketDate"], card_ids=card_ids,
     )
+    # Movement needs the window baseline days, which the cohort path does not
+    # transport. At most four extra single-date basket reads, usually fewer.
+    movement_prices = load_constituent_movement_prices(
+        client, scope_set_ids,
+        market_dates=[row["marketDate"] for row in cohort_rows],
+        latest_date=cohort_rows[-1]["marketDate"],
+        latest_rows=basket_rows,
+        card_ids=card_ids,
+    )
     series = build_query_series_from_cohorts(
         cohort_rows, basket_rows, card_universe, mode=spec["mode"], top_n=spec["topN"],
+        movement_prices=movement_prices,
     )
     if series is None:
         raise MarketExplorerQueryUnavailable("the filtered universe has no priced history")
@@ -875,6 +973,7 @@ def run_market_explorer_query(
         "diagnostics": {
             "cohortRowCount": len(cohort_rows),
             "currentBasketRowCount": len(basket_rows),
+            "movementBaselineDateCount": max(0, len(movement_prices) - 1),
             "elapsedSeconds": round(time.perf_counter() - started, 3),
         },
         **series,

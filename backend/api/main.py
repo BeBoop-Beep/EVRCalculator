@@ -40,6 +40,10 @@ from backend.db.services.frontend_proxy_service import (
     update_customer_profile,
     update_profile,
 )
+from backend.domain.access.index_plan_access import (
+    FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    has_index_premium_access,
+)
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
 from backend.db.services.explore_rip_statistics_service import (
@@ -189,6 +193,45 @@ def _extract_token(authorization: Optional[str], token_cookie: Optional[str]) ->
     if authorization and authorization.lower().startswith("bearer "):
         return authorization.split(" ", 1)[1].strip() or None
     return None
+
+
+def _resolve_index_plan(authorization: Optional[str], token_cookie: Optional[str]) -> Optional[str]:
+    """The CANONICAL server-side plan for the caller, or None.
+
+    Read from the profile row through the same projection `/auth/me` uses, so
+    the API and the browser can never disagree about what someone is entitled
+    to. A client-supplied plan claim is never trusted, and is not even accepted
+    as an argument here.
+    """
+    payload, status = get_me(_extract_token(authorization, token_cookie))
+    if status != 200:
+        return None
+    return ((payload or {}).get("user") or {}).get("index_plan")
+
+
+def _require_market_explorer_custom_markets(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Authenticate, then require the Index Premium custom-markets entitlement.
+
+    ENFORCED BEFORE ANY WORK. This runs ahead of spec normalization, the shared
+    result cache and the query engine, so an Index Plus user cannot reach a
+    cached Premium result by calling the endpoint directly, and an unentitled
+    caller cannot make the database do work on their behalf.
+    """
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_premium_access(_resolve_index_plan(authorization, token_cookie)):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Building custom markets requires Index Premium.",
+                "code": "MARKET_EXPLORER_PREMIUM_REQUIRED",
+                "requiredFeature": FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+            },
+        )
+    return user_id
 
 
 def _require_authenticated_user_id(
@@ -553,8 +596,15 @@ def get_market_explorer_query_options(
     authorization: Optional[str] = Header(default=None, alias="authorization"),
     token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Authenticated, read-only filter metadata for the Explorer builder."""
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    """Read-only filter metadata for the Explorer builder — Index Premium.
+
+    The options ARE the custom-market builder's surface: era and set ids exist
+    on this endpoint for no other purpose, so it carries the same gate as the
+    query itself rather than a weaker one.
+    """
+    _require_market_explorer_custom_markets(
+        authorization=authorization, token_cookie=token_cookie
+    )
     try:
         return build_market_explorer_filter_options(service_read_client)
     except MarketExplorerQueryUnavailable as exc:
@@ -577,7 +627,9 @@ def post_market_explorer_query(
     apart because the asset is part of the spec, so the shared cache cannot
     serve one asset's result for the other.
     """
-    _require_authenticated_user_id(authorization=authorization, token_cookie=token_cookie)
+    _require_market_explorer_custom_markets(
+        authorization=authorization, token_cookie=token_cookie
+    )
     if payload.asset not in SUPPORTED_ASSETS:
         return JSONResponse(content={"message": f"Unsupported asset: {payload.asset}", "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
     if payload.mode == "chase" and payload.topN not in (None, 10):

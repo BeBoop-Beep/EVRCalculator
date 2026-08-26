@@ -8,11 +8,11 @@ import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
+import { PremiumMetricLock, RankedProductHeader, RankedProductIdentity } from "./RankedProductTablePrimitives.jsx";
 import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
-import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import styles from "./explore.module.css";
 
 const FAMILY_SORT_OPTIONS = [
@@ -207,14 +207,6 @@ function FormatStrength({ product: p }) {
     </div>
   );
 }
-function HeaderWithInfo({ children, text = null, info = null }) {
-  return (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap">
-      {children}
-      <InfoPopover text={text}>{info}</InfoPopover>
-    </span>
-  );
-}
 function Strategy({ p }) {
   return (
     <span className="mt-1 block text-[10.5px] text-[var(--text-secondary)]">
@@ -224,23 +216,11 @@ function Strategy({ p }) {
   );
 }
 
-function PremiumMetricLock() {
-  return <span aria-label="Index Plus metric locked" className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md border border-[rgba(45,212,191,0.22)] bg-[rgba(45,212,191,0.05)] text-xs text-[var(--text-secondary)]">🔒</span>;
-}
-
 function ProductIdentity({ product: p, overall, canViewProductRipIntelligence }) {
-  const artwork = p.productFamily === "loose_booster_pack"
-    ? resolveLooseBoosterPackArtwork({ productImageUrl: p.productImageUrl, setCanonicalKey: p.setCanonicalKey })
-    : null;
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {artwork ? <span className="flex h-[42px] w-9 flex-none items-center justify-center md:h-[52px] md:w-10"><img src={artwork.src} alt="" className="h-full w-auto max-w-full scale-[1.25] object-contain" loading="lazy" /></span> : null}
-      <span className="min-w-0">
-        <span className="block truncate font-semibold text-[var(--text-primary)]">{p.productName}</span>
-        <span className="block truncate text-xs text-[var(--text-secondary)]">{p.setName} · {p.productFamilyLabel}</span>
-        {overall && canViewProductRipIntelligence ? <Strategy p={p} /> : null}
-      </span>
-    </span>
+    <RankedProductIdentity product={p} secondary={`${p.setName} · ${p.productFamilyLabel}`}>
+      {overall && canViewProductRipIntelligence ? <Strategy p={p} /> : null}
+    </RankedProductIdentity>
   );
 }
 
@@ -335,25 +315,25 @@ function ProductRankingsTable({
                   <th>Rank</th>
                   <th>Product / Set</th>
                   <th>
-                    <HeaderWithInfo text={HELP.overall}>
+                    <RankedProductHeader text={HELP.overall}>
                       Overall RIP
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo info={<PublicRipTierInfo />}>Tier</HeaderWithInfo>
+                    <RankedProductHeader info={<PublicRipTierInfo />}>Tier</RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo text={HELP.financial}>
+                    <RankedProductHeader text={HELP.financial}>
                       Financial RIP
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo text={HELP.collector}>
+                    <RankedProductHeader text={HELP.collector}>
                       Collector Appeal
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo
+                    <RankedProductHeader
                       text={
                         overall
                           ? "The current price of one natural product unit."
@@ -361,10 +341,10 @@ function ProductRankingsTable({
                       }
                     >
                       {overall ? "Unit Price" : "Market Price"}
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo
+                    <RankedProductHeader
                       text={
                         overall
                           ? "Expected value of the complete persisted multi-unit opening strategy."
@@ -372,10 +352,10 @@ function ProductRankingsTable({
                       }
                     >
                       Expected Value
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo
+                    <RankedProductHeader
                       text={
                         overall
                           ? "Probability that the strategy recovers its actual committed capital, not the unused budget ceiling."
@@ -383,12 +363,12 @@ function ProductRankingsTable({
                       }
                     >
                       Chance to Recover Cost
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                   <th>
-                    <HeaderWithInfo text={HELP.format}>
+                    <RankedProductHeader text={HELP.format}>
                       Format Strength
-                    </HeaderWithInfo>
+                    </RankedProductHeader>
                   </th>
                 </tr>
               </thead>

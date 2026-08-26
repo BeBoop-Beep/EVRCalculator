@@ -48,14 +48,18 @@ function OptionsState({ status, message }) {
   if (status === OPTIONS_STATUS.signedOut) {
     return (
       <div data-market-query-options-state="signedOut" className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/35 px-3 py-3">
-        <p className="text-xs text-[var(--text-primary)]">Sign in to build a custom market.</p>
+        {/* This is the SIGNED-OUT state, not the entitlement state: the plan
+            gate is handled by the caller, which does not render the builder at
+            all without Index Premium. The copy therefore names the account
+            step only, and never claims that signing in unlocks the builder. */}
+        <p className="text-xs text-[var(--text-primary)]">Sign in to continue.</p>
         <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-          Prepared segments above stay available to everyone.
+          Building custom markets requires an account on Index Premium.
         </p>
         <Link
           href="/login"
           data-market-query-sign-in
-          className="mt-2 inline-flex min-h-11 items-center rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white desk:min-h-0"
+          className="mt-2 inline-flex min-h-11 items-center rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] px-3 py-2 text-xs font-semibold desk:min-h-0"
         >
           Sign in
         </Link>
@@ -275,7 +279,7 @@ export default function MarketExplorerQueryBuilder({ onAddQuery, scopeHandoff = 
               <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Query preview</span>
               <p data-market-query-preview className="truncate text-xs font-semibold text-[var(--text-primary)]">{preview}</p>
             </div>
-            <button type="button" data-market-query-add disabled={loading} onClick={add} className="min-h-11 rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 desk:min-h-0">{loading ? "Adding…" : "Add to Comparison"}</button>
+            <button type="button" data-market-query-add disabled={loading} onClick={add} className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] px-3 py-2 text-xs font-semibold disabled:opacity-50 desk:min-h-0">{loading ? "Adding…" : "Add to Comparison"}</button>
           </div>
           {message ? <p role="status" className="mt-2 text-[11px] text-[var(--text-secondary)]">{message}</p> : null}
         </>

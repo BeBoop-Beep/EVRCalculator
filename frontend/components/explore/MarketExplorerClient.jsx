@@ -6,11 +6,11 @@ import MarketExplorerDetails from "./MarketExplorerDetails";
 import MarketExplorerFilters from "./MarketExplorerFilters";
 import MarketExplorerSeriesCard from "./MarketExplorerSeriesCard";
 import MarketExplorerQueryBuilder from "./MarketExplorerQueryBuilder";
-import MarketExplorerDynamicSeries from "./MarketExplorerDynamicSeries";
 import MarketExplorerConstituents from "./MarketExplorerConstituents";
 import MarketExplorerActiveMarkets from "./MarketExplorerActiveMarkets";
 import MarketExplorerMethodology from "./MarketExplorerMethodology";
 import ExplorerDisclosure from "./ExplorerDisclosure";
+import ExplorerPlanLockPanel from "./ExplorerPlanLockPanel";
 import {
   buildAssetMarketModel,
   buildBenchmarkModel,
@@ -26,6 +26,7 @@ import useMarketExplorerQueries from "@/hooks/explore/useMarketExplorerQueries";
 import useMarketExplorerFilterOptions from "@/hooks/explore/useMarketExplorerFilterOptions";
 import useMarketExplorerScope from "@/hooks/explore/useMarketExplorerScope";
 import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelection";
+import { INDEX_PLAN_PREMIUM, resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 
 // ---------------------------------------------------------------------------
 // Market Explorer — the research workspace.
@@ -49,6 +50,19 @@ import useMarketExplorerSelection from "@/hooks/explore/useMarketExplorerSelecti
 // DEFAULT DENSITY IS LOW ON PURPOSE. Everything past the asset classes is a
 // collapsed disclosure, including the builder. Complexity appears when asked
 // for. Expanding a group is pure client state and issues no request.
+//
+// THREE ACCESS LEVELS, resolved once here and passed down, so no child invents
+// its own reading of the same plan:
+//
+//   basic   — Asset Market. Raw and Sealed, the chart, the timeframes.
+//   plus    — the prepared research layers, and their constituents.
+//   premium — Build a Market, the custom-query lane.
+//
+// Signing in is NOT one of the levels. An authenticated account with no paid
+// plan gets basic, exactly like an anonymous visitor. Everything below is
+// PRESENTATION; the API enforces the same boundary server-side from the
+// profile row, and an unentitled caller hitting the endpoint directly is
+// refused there rather than here.
 // ---------------------------------------------------------------------------
 export default function MarketExplorerClient({
   overview,
@@ -58,8 +72,24 @@ export default function MarketExplorerClient({
   cardReconciliation = null,
   topChaseSegmentStatus = null,
   initialState,
+  /** The canonical session user, or null. Server-resolved; never a client flag. */
+  user = null,
 }) {
   const timeframeOptions = useMemo(() => buildExplorerTimeframeOptions(overview), [overview]);
+  // ACCESS ARRIVES AS A PROP, RESOLVED ON THE SERVER from the session cookie.
+  // Deliberately not read from a client auth context here: the server already
+  // knows the plan when it renders this page, so passing it down means the
+  // first paint is already correct instead of flashing the basic rail and then
+  // unlocking. It also keeps the workspace a pure function of its props, which
+  // is what makes it renderable in a test.
+  //
+  // It is still only PRESENTATION. `resolveMarketExplorerPlanAccess` is the one
+  // shared hierarchy, and a caller that passes nothing gets basic — failing
+  // closed — while the API enforces the same boundary independently.
+  const {
+    accessMode, indexPlan, isAuthenticated,
+    canUsePreparedMarketIntelligence, canBuildCustomMarkets,
+  } = useMemo(() => resolveMarketExplorerPlanAccess(user), [user]);
   const {
     selection: { assetUniverse, sealedFamilyIds, segmentIds },
     selectedSeriesIds, toggleMarket, toggleSealed, toggleCardSegment, toggleAny,
@@ -153,6 +183,7 @@ export default function MarketExplorerClient({
       data-market-explorer-era-ids={eraScope.eraIds.join(",")}
       data-market-explorer-set-ids={eraScope.setIds.join(",")}
       data-market-explorer-detail-series={activeDetailSeriesId || ""}
+      data-market-explorer-access-mode={accessMode}
       className="space-y-3 desk:space-y-4"
     >
       {/* 1 — the ASSET CLASS selector cards. Submarkets and benchmarks
@@ -204,6 +235,9 @@ export default function MarketExplorerClient({
           onClearScope={resetScope}
           onUseScopeInBuilder={useScopeInBuilder}
           selectedSeriesCount={selectedSeriesIds.length}
+          canUsePreparedMarketIntelligence={canUsePreparedMarketIntelligence}
+          isAuthenticated={isAuthenticated}
+          currentPlan={indexPlan}
         />
       </section>
 
@@ -216,14 +250,32 @@ export default function MarketExplorerClient({
         <ExplorerDisclosure
           id="buildAMarket"
           title="Build a Market"
-          summary="Create a custom filtered market."
+          badge={canBuildCustomMarkets ? null : "🔒"}
+          summary={canBuildCustomMarkets ? "Create a custom filtered market." : "Index Premium"}
           openSignal={scopeHandoff?.token || null}
         >
-          <MarketExplorerQueryBuilder onAddQuery={addQuery} scopeHandoff={scopeHandoff} />
+          {canBuildCustomMarkets ? (
+            <MarketExplorerQueryBuilder onAddQuery={addQuery} scopeHandoff={scopeHandoff} />
+          ) : (
+            // The builder is not rendered disabled underneath: a functioning
+            // "Add to Comparison" that always refuses is worse than an honest
+            // locked panel, and the disabled controls would leak the filter
+            // taxonomy the gate exists to sell.
+            <ExplorerPlanLockPanel
+              requiredPlan={INDEX_PLAN_PREMIUM}
+              isAuthenticated={isAuthenticated}
+              currentPlan={indexPlan}
+              description="Build custom markets by Era, Set, rarity, product family and Top 10 composition, and chart them beside the prepared markets."
+            />
+          )}
         </ExplorerDisclosure>
       </section>
 
-      {/* 4 — everything currently charted, from either lane, in one row. */}
+      {/* 4 — everything currently charted, from either lane, in ONE row.
+             There is deliberately no second chip strip beneath this: custom
+             queries used to render their own duplicate row, which showed the
+             same markets twice and let the two disagree. Their one unique
+             contribution, the index level, moved onto the chip. */}
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Active markets">
         <MarketExplorerActiveMarkets
           series={selectedSeries}
@@ -233,13 +285,6 @@ export default function MarketExplorerClient({
           canRemove={selectedSeries.length > 1}
         />
       </section>
-
-      <MarketExplorerDynamicSeries
-        series={querySeries}
-        onRemove={removeQuery}
-        activeSeriesId={activeDetailSeriesId}
-        onInspect={setRequestedDetailSeriesId}
-      />
 
       <section className={`${styles.surfaceQuiet} set-glass-surface`} aria-label="Current market constituents">
         <MarketExplorerConstituents

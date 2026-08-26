@@ -110,6 +110,10 @@ function mountClient() {
           sealedSegments={sealedSegments}
           cardSegments={cardSegments}
           initialState={initialState}
+          // These tests are about TOGGLE BEHAVIOUR under StrictMode, so they
+          // render as an entitled user. What each plan is allowed to see is a
+          // separate contract, tested in MarketExplorerClient.contract.
+          user={{ id: "u-premium", index_plan: "premium" }}
         />
       </React.StrictMode>
     );

@@ -71,7 +71,14 @@ test("a signed-out user is asked to sign in, not told the filters are broken", a
   }));
   assert.equal(stateOf(renderer), OPTIONS_STATUS.signedOut);
   const rendered = JSON.stringify(renderer.toJSON());
-  assert.ok(rendered.includes("Sign in to build a custom market."));
+  // The copy names the ACCOUNT step only. It deliberately no longer says
+  // signing in gets you a custom market: the builder is Index Premium, and
+  // login alone unlocks nothing.
+  assert.ok(rendered.includes("Sign in to continue."));
+  assert.ok(rendered.includes("Index Premium"),
+    "the real requirement must be stated, not implied by a sign-in button");
+  assert.ok(!rendered.includes("Sign in to build a custom market."),
+    "copy that promised login was enough must not come back");
   assert.ok(!rendered.includes("Unable to load query filters"),
     "the string that hid every cause must not come back");
   const link = renderer.root.findAll((node) => node.props?.["data-market-query-sign-in"] !== undefined)[0];

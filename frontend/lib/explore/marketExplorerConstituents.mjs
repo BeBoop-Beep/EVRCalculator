@@ -19,12 +19,25 @@
 // would make the table lie about one of them, so the asset selects the columns
 // and the rows keep their own keys.
 //
-// NOTHING IS COMPUTED HERE. No price, no rank and no total is derived; every
-// value is read from whichever authority published it. When an authority has
-// published nothing, this says so rather than filling the gap.
+// MOVEMENT IS READ, NEVER RECONSTRUCTED. Each row may carry a compact
+// `changes` map — 1D/7D/30D/3M — published by the same canonical authority that
+// published its price. The browser never subtracts one price from another, and
+// never falls back to the market's aggregate return: an aggregate printed on
+// every row would look like data and mean nothing.
+//
+// ONE MOVEMENT COLUMN, NOT FOUR. Four simultaneous change columns make the
+// table too wide to read at any width, so the window is a local control and the
+// column is whichever one the user picked.
+//
+// NOTHING IS COMPUTED HERE. No price, no rank, no total and no percentage is
+// derived; every value is read from whichever authority published it. When an
+// authority has published nothing, this says so rather than filling the gap.
 // ---------------------------------------------------------------------------
 
 import { QUERY_ASSET_CARDS, QUERY_ASSET_SEALED } from "./marketExplorerQuery.mjs";
+
+/** The Sealed Market parent's series id. Not `sealed:`-prefixed, unlike its children. */
+const SEALED_PARENT_SERIES_ID = "sealedMarket";
 
 export const CONSTITUENTS_AVAILABLE = "available";
 /** The series exists and is analysable, but its composition is not published. */
@@ -34,6 +47,60 @@ export const CONSTITUENTS_NOT_APPLICABLE = "notApplicable";
 
 export const PENDING_PUBLICATION_MESSAGE =
   "Constituent detail will be available after the next market publication.";
+
+/**
+ * The movement windows the table offers, and the default.
+ *
+ * Mirrors the backend's CONSTITUENT_MOVEMENT_WINDOWS exactly. 7D is the default
+ * because 1D on a daily-observed market is mostly noise and 30D is too slow to
+ * show what changed this week.
+ */
+export const CONSTITUENT_MOVEMENT_WINDOWS = Object.freeze(["1D", "7D", "30D", "3M"]);
+export const DEFAULT_CONSTITUENT_MOVEMENT_WINDOW = "7D";
+
+export function normalizeConstituentMovementWindow(requested) {
+  return CONSTITUENT_MOVEMENT_WINDOWS.includes(requested)
+    ? requested
+    : DEFAULT_CONSTITUENT_MOVEMENT_WINDOW;
+}
+
+/**
+ * One row's movement percentage over one window, or null.
+ *
+ * NULL MEANS "DO NOT PRINT A NUMBER". The table renders an em dash for it —
+ * never 0.00%, which would claim the price held steady when the truth is that
+ * this constituent has no comparable observation at the window's start. A real
+ * zero is a Number and prints as 0.00%; the two must never collapse.
+ *
+ * The published shape is a bare number per window, because the boundary DATES
+ * are a property of the market and are published once beside the roster rather
+ * than repeated on every row.
+ */
+export function getConstituentChange(row, window) {
+  const raw = row?.changes?.[window];
+  // Guarded EXPLICITLY, because `Number(null)` is 0 and `Number("")` is 0:
+  // coercing first would turn "no comparable observation" into a confident
+  // 0.00%, which is the single most misleading thing this column could print.
+  if (typeof raw !== "number") return null;
+  return Number.isFinite(raw) ? raw : null;
+}
+
+/** Does ANY row in this basket carry movement for this window? */
+export function hasAnyConstituentMovement(rows, window) {
+  return (rows || []).some((row) => getConstituentChange(row, window) !== null);
+}
+
+/**
+ * The published boundary dates for one window of one market, or null.
+ *
+ * Read from the MARKET rather than from a row, which is where they now live.
+ */
+export function getMovementWindowMeta(series, window) {
+  const summary = series?.currentConstituents;
+  const windows = Array.isArray(summary) ? series?.movementWindows : summary?.movementWindows;
+  const meta = windows?.[window];
+  return meta && typeof meta === "object" ? meta : null;
+}
 
 /** Column contract per asset. The panel renders from this, never from a guess. */
 export const CONSTITUENT_COLUMNS = {
@@ -56,13 +123,45 @@ export const CONSTITUENT_COLUMNS = {
 const idFieldFor = (asset) =>
   (asset === QUERY_ASSET_SEALED ? "sealedProductId" : "canonicalCardId");
 
-/** A series' asset, from whichever of its shapes declares one. */
+/**
+ * The asset's columns plus the ONE movement column for the selected window.
+ *
+ * Appended rather than baked into CONSTITUENT_COLUMNS so the label always
+ * matches the control the user just used — a "7D Change" header above 30D
+ * numbers is worse than no movement column at all.
+ */
+export function buildConstituentColumns(asset, movementWindow) {
+  const base = CONSTITUENT_COLUMNS[asset] || CONSTITUENT_COLUMNS[QUERY_ASSET_CARDS];
+  const window = normalizeConstituentMovementWindow(movementWindow);
+  return [
+    ...base,
+    { key: "changes", label: `${window} Change`, align: "right", change: true, window },
+  ];
+}
+
+/**
+ * A series' asset, from whichever of its shapes declares one.
+ *
+ * THE PUBLISHED ROSTER IS CONSULTED FIRST, because it is the only source that
+ * states the asset as a FACT rather than by convention: the prepared summary
+ * carries the `idField` its rows are actually keyed by. Everything below it is
+ * inference from a naming convention, and inference lost here once already —
+ * the Sealed Market PARENT is keyed `sealedMarket`, which does not match the
+ * `sealed:` child prefix, so its roster of products was being resolved as
+ * cards and would have rendered under Card / Rarity column headings.
+ */
 export function resolveSeriesAsset(series) {
   if (!series) return QUERY_ASSET_CARDS;
+  const declaredIdField = series.currentConstituents && !Array.isArray(series.currentConstituents)
+    ? series.currentConstituents.idField
+    : null;
+  if (declaredIdField === "sealedProductId") return QUERY_ASSET_SEALED;
+  if (declaredIdField === "canonicalCardId") return QUERY_ASSET_CARDS;
   if (series.asset) return series.asset;
   if (series.spec?.asset) return series.spec.asset;
-  // Prepared series declare themselves through their id namespace.
+  // Prepared series otherwise declare themselves through their id namespace.
   if (String(series.key || "").startsWith("sealed:")) return QUERY_ASSET_SEALED;
+  if (series.key === SEALED_PARENT_SERIES_ID) return QUERY_ASSET_SEALED;
   if (series.group === "sealed") return QUERY_ASSET_SEALED;
   return QUERY_ASSET_CARDS;
 }
@@ -115,10 +214,21 @@ export function sortConstituentRows(rows, idField) {
  * `eligibleUniverseCount`, never inferred by comparing lengths — a preview that
  * happened to equal its limit would otherwise read as complete.
  */
-export function resolveSeriesConstituents(series, { previewLimit = 25 } = {}) {
+export function resolveSeriesConstituents(
+  series,
+  { previewLimit = 25, movementWindow = DEFAULT_CONSTITUENT_MOVEMENT_WINDOW } = {}
+) {
   const asset = resolveSeriesAsset(series);
   const idField = idFieldFor(asset);
-  const base = { asset, idField, columns: CONSTITUENT_COLUMNS[asset], rows: [], totalCount: 0 };
+  const window = normalizeConstituentMovementWindow(movementWindow);
+  const base = {
+    asset,
+    idField,
+    movementWindow: window,
+    columns: buildConstituentColumns(asset, window),
+    rows: [],
+    totalCount: 0,
+  };
 
   if (!series) return { ...base, availability: CONSTITUENTS_NOT_APPLICABLE };
   if (!isEnumerableSeries(series)) {
@@ -149,6 +259,10 @@ export function resolveSeriesConstituents(series, { previewLimit = 25 } = {}) {
       // previewed because it can hold thousands.
       bounded: !isTopMode && totalCount > rows.length,
       source: "query",
+      // Stated so the panel can explain an all-dash column as "this
+      // publication predates movement" rather than leaving it a mystery.
+      hasMovement: hasAnyConstituentMovement(rows, window),
+      movementWindowMeta: getMovementWindowMeta(series, window),
       belowRequestedTopN: series.reconciliation?.belowRequestedTopN === true,
       requestedTopN: numericOrNull(series.reconciliation?.requestedTopN),
     };
@@ -170,6 +284,8 @@ export function resolveSeriesConstituents(series, { previewLimit = 25 } = {}) {
       // The publisher states this; it is never inferred from the row count.
       bounded: prepared.isComplete === false || totalCount > Math.min(preparedRows.length, previewLimit),
       source: "prepared",
+      hasMovement: hasAnyConstituentMovement(preparedRows, window),
+      movementWindowMeta: getMovementWindowMeta(series, window),
     };
   }
 

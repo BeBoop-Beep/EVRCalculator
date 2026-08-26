@@ -55,7 +55,7 @@ export default function ExplorerDisclosure({
           aria-expanded={isOpen}
           aria-controls={panelId}
           onClick={() => setIsOpen((current) => !current)}
-          className="flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+          className="flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
         >
           <span
             aria-hidden="true"

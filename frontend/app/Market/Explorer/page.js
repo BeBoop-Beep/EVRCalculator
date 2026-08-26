@@ -2,6 +2,8 @@ import MarketExplorerAccessGate from "@/components/explore/MarketExplorerAccessG
 import MarketExplorerClient from "@/components/explore/MarketExplorerClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
+import { getAuthenticatedUserFromCookiesWithTimeout } from "@/lib/authServer";
+import { resolveMarketExplorerPlanAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { getExploreSetValueMarket } from "@/lib/explore/exploreSetValueMarketServer";
 import { resolveInitialExplorerState } from "@/lib/explore/marketExplorerState.mjs";
 import {
@@ -34,10 +36,16 @@ export const metadata = buildRouteMetadata({
 });
 
 export default async function MarketExplorerPage({ searchParams }) {
-  const [resolvedSearchParams, payload] = await Promise.all([
+  const [resolvedSearchParams, payload, auth] = await Promise.all([
     Promise.resolve(searchParams).catch(() => null),
     getExploreSetValueMarket().catch(() => null),
+    // PLAN, NOT LOGIN, decides what this workspace offers. Resolved here so the
+    // first paint is already correct; a failure or timeout yields no user,
+    // which is basic access — the gate fails CLOSED.
+    getAuthenticatedUserFromCookiesWithTimeout().catch(() => ({ user: null })),
   ]);
+  const user = auth?.user || null;
+  const planAccess = resolveMarketExplorerPlanAccess(user);
   const overview = resolveMarketOverview(payload);
   // Sealed product-family submarkets ride in the SAME snapshot — still exactly
   // one backend request. A snapshot published before the segmentation simply
@@ -56,7 +64,13 @@ export default async function MarketExplorerPage({ searchParams }) {
   const coverageSummary = buildCoverageSummary(overview);
 
   return (
-    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-7xl px-4 pb-20 pt-3 desk:pt-5 sm:px-6 lg:px-8`}>
+    // WIDER THAN THE REST OF THE APP, DELIBERATELY AND ONLY HERE.
+    // max-w-7xl (80rem) is the shell every ordinary dashboard page uses; this
+    // is a research terminal whose central object is a comparison chart, and at
+    // 1728px that shell left roughly 500px of unused viewport on either side.
+    // 118rem is close to full width with real gutters, and the class is on THIS
+    // page's wrapper — /Market and every other route are untouched.
+    <div className={`${styles.dashboard} explore-glass-scope index-environment relative isolate mx-auto w-full max-w-[118rem] px-4 pb-20 pt-3 desk:px-6 desk:pt-5 sm:px-6 lg:px-8 2xl:px-10`}>
       <PageArtworkAtmosphere src={getExploreBackground("pokemon")} dataAttribute="data-market-ambient-artwork" visibilityClassName="hidden desk:block" loading="lazy" />
 
       {/* Compact research header. Deliberately not a hero — this is a workspace. */}
@@ -64,8 +78,12 @@ export default async function MarketExplorerPage({ searchParams }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[20px] font-semibold text-[var(--text-primary)] desk:text-2xl">Market Explorer</h1>
-            <span data-market-explorer-plan-badge className="inline-flex flex-none items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Index Plus
+            {/* Names the level the visitor is ACTUALLY on, rather than
+                advertising one plan to everyone. */}
+            <span data-market-explorer-plan-badge data-market-explorer-plan={planAccess.accessMode} className="inline-flex flex-none items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+              {planAccess.accessMode === "premium" ? "Index Premium"
+                : planAccess.accessMode === "plus" ? "Index Plus"
+                : "Basic"}
             </span>
           </div>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">Compare performance across Pokémon market segments.</p>
@@ -82,10 +100,12 @@ export default async function MarketExplorerPage({ searchParams }) {
         ) : null}
       </header>
 
-      {/* The entitlement boundary. Open in this branch — no gate exists yet —
-          but the workspace is already wrapped, so installing the real one is a
-          change inside MarketExplorerAccessGate and nowhere else. */}
-      <MarketExplorerAccessGate>
+      {/* The entitlement boundary. Market Explorer ITSELF is open to everyone —
+          the Asset Market layer is the public market pulse, and hiding the
+          whole workspace would remove the thing the /Market CTA points at.
+          What varies by plan is DEPTH, and that is decided inside the
+          workspace from `user`. */}
+      <MarketExplorerAccessGate planAccess={planAccess}>
         <MarketExplorerClient
           overview={overview}
           sealedSegments={sealedSegments}
@@ -94,6 +114,7 @@ export default async function MarketExplorerPage({ searchParams }) {
           cardReconciliation={cardReconciliation}
           topChaseSegmentStatus={topChaseSegmentStatus}
           initialState={initialState}
+          user={user}
         />
       </MarketExplorerAccessGate>
     </div>

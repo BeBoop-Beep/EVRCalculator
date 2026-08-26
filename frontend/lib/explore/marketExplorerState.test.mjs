@@ -9,6 +9,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { isReservedHue, seriesColorForKey } from "./marketExplorerSeriesColors.mjs";
 import {
   MARKET_EXPLORER_ASSET_KEYS,
   MARKET_EXPLORER_ASSET_MARKET_KEYS,
@@ -376,20 +377,21 @@ test("card segments are grouped by parent market for the filter", () => {
   assert.ok(!groups.some((group) => group.parentMarket === "topChase"));
 });
 
-test("card submarket colors are a violet family, distinct from the sealed amber", () => {
+test("card submarket colors are distinguishable from each other AND from Raw", () => {
+  // THE RULE CHANGED, DELIBERATELY. This used to assert that every rarity sat
+  // in a violet family beside its violet parent, which is exactly what made
+  // Raw / SIR / IR / Ultra Rare unreadable when charted together. Identity now
+  // means DISTINGUISHABLE, and it comes from the one registry.
   const rawParent = overview.families.find((family) => family.key === "raw");
-  assert.ok(rawParent.color.startsWith("rgba(167,139,250"), "Raw keeps its violet identity");
-  const colors = CARD_SEGMENT_SERIES.map((entry) => entry.color);
+  assert.equal(rawParent.color, seriesColorForKey("raw"));
+  // Read from the BUILT series, not the definitions: a rarity's color depends
+  // on which parent market it indexes, so the definition list deliberately
+  // carries no color of its own.
+  const colors = cardSeries.map((entry) => entry.color);
   assert.equal(new Set(colors).size, colors.length, "every rarity is distinguishable");
-  for (const color of [...colors, rawParent.color]) {
-    const [, red, green, blue] = color.match(/rgba\((\d+),(\d+),(\d+)/).map(Number);
-    // Violet/purple: blue dominant, green lowest. The sealed palette is the
-    // mirror (red dominant), so the two groups never collide, and neither can
-    // be mistaken for the green/red performance vocabulary.
-    assert.ok(blue >= red && red > green, `${color} is outside the card palette`);
-  }
+  assert.ok(!colors.includes(rawParent.color), "no rarity wears its parent's color");
   for (const sealed of SEALED_SEGMENT_SERIES) {
-    assert.ok(!colors.includes(sealed.color), "card and sealed palettes must not overlap");
+    assert.ok(!colors.includes(sealed.color), "card and sealed identities must not collide");
   }
 });
 
@@ -653,16 +655,29 @@ test("a composite segment declares itself and names its families", () => {
   assert.equal(boosterBox.isComposite, false);
 });
 
-test("submarket colors are a sealed family and never gain/loss colors", () => {
+test("sealed submarket colors are distinguishable from each other AND from the parent", () => {
+  // Same deliberate change as the card palette: the five families used to all
+  // sit in one orange-amber band beside their amber parent.
   const sealedParent = overview.families.find((family) => family.key === "sealedMarket");
-  assert.ok(sealedParent.color.startsWith("rgba(251,191,36"), "parent keeps its amber identity");
+  assert.equal(sealedParent.color, seriesColorForKey("sealedMarket"));
   const colors = SEALED_SEGMENT_SERIES.map((entry) => entry.color);
   assert.equal(new Set(colors).size, colors.length, "every submarket is distinguishable");
-  for (const color of [...colors, sealedParent.color]) {
-    const [, red, green, blue] = color.match(/rgba\((\d+),(\d+),(\d+)/).map(Number);
-    // Amber/orange family: red dominant, blue lowest. A green or red tone
-    // would collide with the performance vocabulary.
-    assert.ok(red >= green && green > blue, `${color} is outside the sealed palette`);
+  assert.ok(!colors.includes(sealedParent.color), "no family wears its parent's color");
+});
+
+test("no prepared identity color lands in the gain/loss or interaction bands", () => {
+  // Identity must never be confusable with performance (green/red) or with
+  // interaction state (the inDex green used by focus rings and selected rows).
+  // The reserved bands are the registry's, so this checks the built series
+  // actually carry registry colors rather than re-stating the rule.
+  const identities = [
+    ...overview.families.map((family) => family.color),
+    ...cardSeries.map((entry) => entry.color),
+    ...SEALED_SEGMENT_SERIES.map((entry) => entry.color),
+  ];
+  for (const color of identities) {
+    const hue = Number(String(color).match(/^hsl\((\d+(?:\.\d+)?)/)[1]);
+    assert.equal(isReservedHue(hue), false, `${color} sits in a reserved band`);
   }
 });
 

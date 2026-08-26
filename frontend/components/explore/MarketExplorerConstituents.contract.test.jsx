@@ -89,14 +89,17 @@ const text = (renderer) => JSON.stringify(renderer.toJSON());
 test("a card market shows card columns", () => {
   const renderer = mount({ selectedSeries: [cardQuery()], activeSeriesId: "query:cards-fp" });
   assert.equal(panel(renderer)["data-market-constituents-asset"], "cards");
-  assert.deepEqual(headers(renderer), ["Rank", "Card", "Set", "Rarity", "Price"]);
+  // Six columns now: the movement column trails the price and names the
+  // window it is showing, so a "7D Change" header can never sit above 30D
+  // numbers.
+  assert.deepEqual(headers(renderer), ["Rank", "Card", "Set", "Rarity", "Price", "7D Change"]);
   assert.equal(rowIds(renderer).length, 10);
 });
 
 test("a sealed market shows product columns", () => {
   const renderer = mount({ selectedSeries: [sealedQuery()], activeSeriesId: "query:sealed-fp" });
   assert.equal(panel(renderer)["data-market-constituents-asset"], "sealed");
-  assert.deepEqual(headers(renderer), ["Rank", "Product", "Set", "Family", "Price"]);
+  assert.deepEqual(headers(renderer), ["Rank", "Product", "Set", "Family", "Price", "7D Change"]);
   assert.equal(rowIds(renderer).length, 10);
   assert.match(text(renderer), /Surging Sparks ETB 1/);
   assert.match(text(renderer), /Elite Trainer Box/);
@@ -321,4 +324,146 @@ test("the table scrolls inside its own container, never the page", () => {
   const table = renderer.root.find((node) => node.props?.["data-market-constituents-table"] !== undefined);
   assert.match(table.props.className, /overflow-x-auto/);
   assert.match(table.props.className, /hidden/);
+});
+
+// --- constituent movement ---------------------------------------------------
+//
+// The requirement: the table must answer BOTH "what is inside this market" and
+// "how are those things moving". The failure modes it must not have are the
+// aggregate-per-row lie and the zero-for-missing lie.
+
+const movingRow = (index, percents) => ({
+  ...cardRow(index),
+  // A bare number per window; null where there is no comparable observation.
+  changes: { ...percents },
+});
+
+const movingQuery = () => cardQuery({
+  currentConstituents: [
+    movingRow(1, { "1D": 0.4, "7D": 4.8, "30D": -12.5, "3M": null }),
+    movingRow(2, { "1D": -0.1, "7D": -2.1, "30D": 3.3, "3M": 0 }),
+  ],
+  reconciliation: { requestedTopN: 10, actualConstituentCount: 2, eligibleUniverseCount: 2 },
+});
+
+const windowButtons = (renderer) =>
+  renderer.root.findAll((node) => node.props?.["data-market-constituents-window"] !== undefined);
+
+/** The rendered percentage strings, read off the tree rather than the props. */
+const changeValues = (renderer) => {
+  const found = [];
+  const walk = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) return node.forEach(walk);
+    for (const match of String(JSON.stringify(node.children ?? "")).matchAll(/[+-]?\d+\.\d\d%/g)) {
+      found.push(match[0]);
+    }
+    if (node.children) walk(node.children);
+  };
+  walk(renderer.toJSON());
+  return found;
+};
+
+test("there is ONE movement column behind a local window control, not four", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  const changeHeaders = headers(renderer).filter((label) => String(label).includes("Change"));
+  assert.equal(changeHeaders.length, 1, "four simultaneous change columns overflow the table");
+  const windows = windowButtons(renderer).map((node) => node.props["data-market-constituents-window"]);
+  assert.deepEqual([...new Set(windows)], ["1D", "7D", "30D", "3M"]);
+});
+
+test("7D is the default window", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  assert.equal(panel(renderer)["data-market-constituents-movement-window"], "7D");
+  const active = windowButtons(renderer)
+    .filter((node) => node.props["data-market-constituents-window-active"] === "true")
+    .map((node) => node.props["data-market-constituents-window"]);
+  assert.deepEqual([...new Set(active)], ["7D"]);
+});
+
+test("changing the window changes the column header AND the numbers", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  assert.ok(headers(renderer).includes("7D Change"));
+  assert.match(text(renderer), /\+4\.80%/);
+
+  const thirtyDay = windowButtons(renderer)
+    .find((node) => node.props["data-market-constituents-window"] === "30D");
+  act(() => { thirtyDay.props.onClick(); });
+
+  assert.ok(headers(renderer).includes("30D Change"));
+  assert.ok(!headers(renderer).includes("7D Change"), "the header must follow the control");
+  assert.match(text(renderer), /-12\.50%/);
+  assert.ok(!/\+4\.80%/.test(text(renderer)), "the previous window's numbers must be gone");
+});
+
+test("each row moves on its own — the aggregate is never repeated down the column", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  const values = changeValues(renderer);
+  assert.ok(values.length >= 2, "both constituents must print a movement");
+  assert.equal(new Set(values).size > 1, true, "two constituents must not print the same number");
+});
+
+test("no comparable history prints a dash, never 0.00%", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  const threeMonth = windowButtons(renderer)
+    .find((node) => node.props["data-market-constituents-window"] === "3M");
+  act(() => { threeMonth.props.onClick(); });
+
+  const unavailable = renderer.root.findAll(
+    (node) => node.props?.["data-market-constituent-change-unavailable"] !== undefined
+  );
+  assert.ok(unavailable.length > 0, "a constituent with no 3M baseline must show a dash");
+  // ...and a genuine zero is still printed as a zero, because the price really
+  // did not move. The two must never collapse into one presentation.
+  assert.match(text(renderer), /0\.00%/);
+});
+
+test("a market published before the movement contract says so once, not per row", () => {
+  const renderer = mount({ selectedSeries: [cardQuery()], activeSeriesId: "query:cards-fp" });
+  assert.equal(panel(renderer)["data-market-constituents-has-movement"], "false");
+  const notice = renderer.root.findAll(
+    (node) => node.props?.["data-market-constituents-movement-pending"] !== undefined
+  );
+  assert.equal(notice.length, 1);
+});
+
+test("mobile keeps price AND movement rather than compressing the desktop table", () => {
+  const renderer = mount({ selectedSeries: [movingQuery()], activeSeriesId: "query:cards-fp" });
+  const cards = renderer.root.findAll(
+    (node) => node.props?.["data-market-constituents-cards"] !== undefined
+  );
+  assert.equal(cards.length, 1, "one stacked list, not a squeezed table");
+  const rendered = text(renderer);
+  assert.match(rendered, /Ascended Heroes/, "set identity survives");
+  assert.match(rendered, /\+4\.80%/, "movement survives");
+});
+
+test("a parent that publishes its roster CAN be inspected", () => {
+  // Total Sealed is a parent AND publishes `currentConstituents`. It is the
+  // only surface that lists the residual products belonging to no child
+  // market, so excluding every parent from the picker made that roster
+  // unreachable while the resolver was still willing to target it.
+  const totalSealed = {
+    key: "sealedMarket",
+    label: "Sealed Market",
+    isParent: true,
+    available: true,
+    currentConstituents: {
+      idField: "sealedProductId",
+      totalCount: 1,
+      isComplete: true,
+      asOf: "2026-08-25",
+      topConstituents: [productRow(1)],
+    },
+  };
+  const renderer = mount({ selectedSeries: [totalSealed], activeSeriesId: "sealedMarket" });
+  assert.equal(panel(renderer)["data-market-constituents-availability"], CONSTITUENTS_AVAILABLE);
+  assert.equal(panel(renderer)["data-market-constituents-asset"], "sealed");
+  assert.match(text(renderer), /Surging Sparks ETB 1/);
+});
+
+test("a parent with NO published roster still reports the parent-market reason", () => {
+  const rawParent = { key: "raw", label: "Raw Card Market", isParent: true, available: true };
+  const renderer = mount({ selectedSeries: [rawParent], activeSeriesId: "raw" });
+  assert.equal(panel(renderer)["data-market-constituents-availability"], CONSTITUENTS_NOT_APPLICABLE);
 });

@@ -11,11 +11,16 @@ export default function TableSearchInput({
   ariaLabel,
   className = "",
   containerClassName = "",
+  // Pass-through for a caller's own hook/test attribute (data-*). Deliberately
+  // spread on the input LAST but before className, so a caller can label its
+  // field without forking the component or reintroducing local dimensions.
+  inputProps = {},
 }) {
   return (
     <label className={`min-w-0 w-full flex-1 desk:max-w-[16rem] ${containerClassName} ${className}`.trim()}>
       <span className="sr-only">{ariaLabel}</span>
       <input
+        {...inputProps}
         type="search"
         value={value}
         onChange={onChange}

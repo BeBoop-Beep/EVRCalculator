@@ -18,6 +18,10 @@ from backend.domain.pokemon.market_index import (
     deterministic_fingerprint,
     resolve_one_day_comparison_close,
 )
+from backend.domain.pokemon.constituent_movement import (
+    build_constituent_movements,
+    prices_by_date_from_product_histories,
+)
 from backend.domain.pokemon.prepared_constituent_summary import (
     summarize_sealed_segment_constituents,
 )
@@ -149,6 +153,12 @@ def build_global_sealed_market(
                 for product in products
             ],
             as_of=aggregate.get("valueAsOf"),
+            # Each product's OWN movement, from its OWN normalized daily
+            # history that this function already holds. Never the family's
+            # aggregate return — that would print one number on every row.
+            movements=build_constituent_movements(
+                prices_by_date_from_product_histories(products)
+            ),
         ),
         "metadata": {
             "eligibleProductCount": aggregate.get("productCount"),
@@ -236,6 +246,12 @@ def _segment_series(
                 for product in products
             ],
             as_of=aggregate.get("valueAsOf"),
+            # Each product's OWN movement, from its OWN normalized daily
+            # history that this function already holds. Never the family's
+            # aggregate return — that would print one number on every row.
+            movements=build_constituent_movements(
+                prices_by_date_from_product_histories(products)
+            ),
         ),
         "metadata": {
             "eligibleProductCount": aggregate.get("productCount"),

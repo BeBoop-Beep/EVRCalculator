@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import TableSearchInput from "@/components/ui/TableSearchInput";
 import { filterEraSetTree } from "@/lib/explore/marketExplorerScope.mjs";
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ function SetRow({ entry, onToggleSet }) {
           type="checkbox"
           checked={entry.selected === true}
           onChange={() => onToggleSet?.(entry.id)}
-          className="h-3.5 w-3.5 flex-none rounded-[3px] border-[var(--border-subtle)] bg-transparent accent-[var(--accent)]"
+          className="h-3.5 w-3.5 flex-none rounded-[3px] border-[var(--border-subtle)] bg-transparent accent-[rgb(45,212,191)]"
         />
         <span className="min-w-0 truncate">{entry.label}</span>
       </label>
@@ -55,7 +56,7 @@ function EraRow({ era, isExpanded, onToggleExpanded, onToggleEra, onToggleSet })
           aria-controls={panelId}
           aria-label={`${isExpanded ? "Collapse" : "Expand"} ${era.label} sets`}
           onClick={() => onToggleExpanded(era.id)}
-          className="flex-none rounded px-1 py-1 text-[10px] leading-none text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+          className="flex-none rounded px-1 py-1 text-[10px] leading-none text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
         >
           <span aria-hidden="true" className={`inline-block transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
         </button>
@@ -68,7 +69,7 @@ function EraRow({ era, isExpanded, onToggleExpanded, onToggleEra, onToggleSet })
             type="checkbox"
             checked={era.selected === true}
             onChange={() => onToggleEra?.(era.id)}
-            className="h-3.5 w-3.5 flex-none rounded-[3px] border-[var(--border-subtle)] bg-transparent accent-[var(--accent)]"
+            className="h-3.5 w-3.5 flex-none rounded-[3px] border-[var(--border-subtle)] bg-transparent accent-[rgb(45,212,191)]"
           />
           <span className="min-w-0 truncate">{era.label}</span>
           <span className="ml-auto flex-none text-[10px] tabular-nums text-[var(--text-secondary)]">{era.sets.length}</span>
@@ -136,15 +137,21 @@ export default function MarketExplorerEraSets({
       </p>
 
       {tree.length >= SEARCH_THRESHOLD ? (
-        <input
-          type="search"
-          data-explorer-era-sets-search
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search eras and sets…"
-          aria-label="Search eras and sets"
-          className="mt-2 w-full min-w-0 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-page)]/45 px-2 py-1.5 text-[11px] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
-        />
+        // The SAME field as Set Market search on /Market — same ground, radius,
+        // height, typography, placeholder and green focus ring. It was a
+        // one-off before, with a /45 alpha ground and a yellow focus ring, and
+        // it read as a different product from the search two clicks away.
+        // The rail is narrow, so the desktop max-width is released here.
+        <div className="mt-2">
+          <TableSearchInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search eras and sets…"
+            ariaLabel="Search eras and sets"
+            containerClassName="desk:max-w-none"
+            inputProps={{ "data-explorer-era-sets-search": true }}
+          />
+        </div>
       ) : null}
 
       <ul className="mt-2 max-h-[19rem] min-w-0 space-y-0.5 overflow-y-auto overflow-x-hidden">
@@ -170,7 +177,10 @@ export default function MarketExplorerEraSets({
             type="button"
             data-explorer-scope-use
             onClick={onUseInBuilder}
-            className="min-h-11 rounded-md bg-[var(--accent)] px-2.5 py-1.5 text-[11px] font-semibold text-white desk:min-h-0"
+            // Green, like every other primary action in this workspace.
+            // Yellow stays the scarce emphasis color and is not the generic
+            // primary-action color.
+            className="min-h-11 rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 py-1.5 text-[11px] font-semibold text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)] desk:min-h-0"
           >
             Use in Build a Market
           </button>

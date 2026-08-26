@@ -57,6 +57,10 @@ from backend.db.services.pokemon_global_sealed_market_service import (
     collect_global_sealed_products,
     read_global_sealed_source_snapshots,
 )
+from backend.domain.pokemon.constituent_movement import (
+    build_constituent_movements,
+    prices_by_date_from_query_rows,
+)
 from backend.domain.pokemon.market_explorer_query import (
     ASSET_SEALED,
     MODE_ALL,
@@ -230,6 +234,14 @@ def build_sealed_query_series(
     if not observations:
         return None
 
+    # CONSTITUENT MOVEMENT costs nothing here: this engine already holds the
+    # whole product-date price panel in memory. Built off the raw panel rather
+    # than the basket observations so a Top-N market still reports each
+    # member's own real movement rather than only its in-basket days.
+    constituent_movements = build_constituent_movements(
+        prices_by_date_from_query_rows(panel_rows, id_field=SEALED_ID_FIELD)
+    )
+
     history = build_chain_linked_history_with_segments(observations)
     if not history:
         return None
@@ -266,6 +278,9 @@ def build_sealed_query_series(
                 f"rank {entry['rank']} by market price within the filtered universe"
                 if mode == MODE_CHASE else "eligible product of the filtered universe"
             ),
+            # The same compact contract prepared segments publish, so Current
+            # Constituents renders prepared and dynamic markets identically.
+            "changes": (constituent_movements.get("byConstituent") or {}).get(product_id) or {},
         })
 
     represented_sets = {row["setId"] for row in constituents if row.get("setId")}
@@ -283,6 +298,8 @@ def build_sealed_query_series(
             for row in current
         ],
         "currentConstituents": constituents,
+        # Window boundary dates for this market, published once.
+        "movementWindows": constituent_movements.get("windows") or {},
         # Ids and ranks only, as on the card side: carrying full product
         # metadata for every date would multiply the payload by the history
         # length for a view that does not exist yet. Unlike the card cohort

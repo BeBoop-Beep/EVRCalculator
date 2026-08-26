@@ -1060,12 +1060,42 @@
   display: block;
 }
 
+/* THE RAIL IS FIXED; THE CHART TAKES EVERYTHING ELSE.
+ *
+ * The previous 20fr/80fr split meant that widening the workspace widened the
+ * filter rail too — at 1728px the rail grew past 21rem, which buys nothing: it
+ * is a list of short labels, and every extra pixel it takes is a pixel the
+ * research surface does not get. The rail is now a fixed comfortable width and
+ * the chart column is minmax(0, 1fr), so ALL additional width lands on the
+ * chart. minmax(0, ...) rather than 1fr is what stops a wide chart child from
+ * forcing the grid past the viewport. */
 @media (min-width: 1200px) {
   .marketExplorerAnalysis {
     display: grid;
-    grid-template-columns: minmax(13rem, 20fr) minmax(30rem, 80fr);
+    /* 15rem at the narrowest desktop, measured rather than guessed: the old
+     * proportional rail resolved to 243px at 1280, and anything wider than
+     * that would have taken width away from the chart at exactly the width
+     * where it has the least to spare. */
+    grid-template-columns: 15rem minmax(0, 1fr);
     align-items: stretch;
   }
+}
+
+/* Past 1440 there is width to spare, so the rail relaxes to a comfortable
+ * reading measure — and stops there. Every pixel beyond this is the chart's. */
+@media (min-width: 1440px) {
+  .marketExplorerAnalysis {
+    grid-template-columns: 17rem minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1536px) {
+  .marketExplorerAnalysis {
+    grid-template-columns: 19rem minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
 
   .marketExplorerAnalysis > [data-market-explorer-chart-pane] {
     order: 2;

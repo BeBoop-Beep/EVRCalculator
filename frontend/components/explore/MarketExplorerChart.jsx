@@ -94,7 +94,7 @@ export default function MarketExplorerChart({
                 data-market-explorer-legend-toggle={series.key}
                 aria-pressed="true"
                 onClick={() => onToggleSeries?.(series.key)}
-                className="inline-flex items-center gap-2 rounded text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+                className="inline-flex items-center gap-2 rounded text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
               >
                 <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: series.color }} />
                 <span className="text-[var(--text-primary)]">{series.label}</span>
@@ -110,7 +110,17 @@ export default function MarketExplorerChart({
 
       <div className="min-w-0 flex-1 px-3 pb-3 sm:px-4">
         {visibleModel?.available
-          ? <MarketPerformanceChart model={visibleModel} plotClassName="h-64 desk:h-[26rem]" />
+          ? (
+            // THE PLOT IS THE PRODUCT, so it gets real height at every width.
+            // Previously 256px mobile / 416px desktop, which read as a summary
+            // widget rather than the page's central research surface. Stepped
+            // responsively rather than one large fixed height: 500px on a
+            // laptop would push the rail and the legend off-screen.
+            <MarketPerformanceChart
+              model={visibleModel}
+              plotClassName="h-[21rem] tab:h-[23rem] desk:h-[29rem] 2xl:h-[34rem]"
+            />
+          )
           : (
             <p role="status" data-market-explorer-chart-unavailable className="py-16 text-center text-sm text-[var(--text-secondary)]">
               {spanLabel ? describeUnavailableWindow(spanLabel) : "Market performance history is unavailable."}

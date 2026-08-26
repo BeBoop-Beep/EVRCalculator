@@ -23,6 +23,8 @@
 // a segment the backend does not publish must not be selectable.
 // ---------------------------------------------------------------------------
 
+import { colorForSeriesFingerprint, softSeriesColor } from "./marketExplorerSeriesColors.mjs";
+
 export const MARKET_EXPLORER_QUERY_CONTRACT_VERSION = "pokemon-market-explorer-query-v1";
 
 export const QUERY_ASSET_CARDS = "cards";
@@ -267,28 +269,24 @@ export function removeQuerySeries(existing, queryKey) {
 /**
  * Stable non-semantic series color derived from the backend fingerprint.
  *
- * ASSET IDENTITY IS VISIBLE. Card queries land in the violet band the card
- * markets already own; sealed queries land in the amber band the sealed markets
- * own. Within a band the hue is a pure hash of the fingerprint, so the same
- * market is always the same color and hydration cannot repaint a line.
+ * DELEGATED TO THE ONE REGISTRY. An earlier revision confined card queries to a
+ * narrow violet band and sealed queries to a narrow amber band so the asset was
+ * visible in the hue. That made the asset legible and the MARKET illegible: a
+ * custom card market landed on top of Raw, SIR and IR, which occupy exactly
+ * that band. Custom markets now draw from the full non-reserved wheel; the
+ * asset is stated on the chip and in the detail table, which is where a reader
+ * actually looks for it.
  *
- * Neither band touches the green/red performance vocabulary — identity and
- * performance must never be confusable.
+ * The fingerprint is still the ONLY input, so the same market is always the
+ * same color, hydration cannot repaint a line, and the order queries were added
+ * in is irrelevant. The registry keeps generated hues clear of the green/red
+ * performance vocabulary and of the interaction green.
+ *
+ * `asset` stays in the hashed input: two different assets sharing one spec are
+ * two different markets and should not collide.
  */
-const ASSET_HUE_BANDS = {
-  [QUERY_ASSET_CARDS]: { start: 250, span: 60 },
-  [QUERY_ASSET_SEALED]: { start: 20, span: 40 },
-};
-
 export function colorForQueryFingerprint(fingerprint, asset = QUERY_ASSET_CARDS) {
-  let hash = 2166136261;
-  for (const character of String(fingerprint || "query")) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  const band = ASSET_HUE_BANDS[normalizeAsset(asset)];
-  const hue = band.start + ((hash >>> 0) % band.span);
-  return `hsl(${hue} 72% 58%)`;
+  return colorForSeriesFingerprint(`${normalizeAsset(asset)}:${fingerprint || "query"}`);
 }
 
 function normalizeChangeMap(source) {
@@ -312,7 +310,8 @@ export function queryResultToSeries(result) {
     label: result.displayLabel,
     shortLabel: result.displayLabel,
     color,
-    softColor: color,
+    // The tinted fill under the line, not the line color again.
+    softColor: softSeriesColor(color),
     asset,
     group: "query",
     isParent: false,

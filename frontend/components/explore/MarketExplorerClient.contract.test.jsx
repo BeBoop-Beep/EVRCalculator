@@ -177,8 +177,22 @@ const CARD_SERIES = resolveCardSegmentSeries(snapshot());
 const CARD_RECONCILIATION = resolveCardSegmentReconciliation(snapshot());
 const CHASE_STATUS = resolveTopChaseSegmentStatus(snapshot());
 
+/**
+ * The plan a test renders as.
+ *
+ * These tests are about the WORKSPACE — what the rail offers, what the chart
+ * draws, which numbers come from the snapshot — so they render as an entitled
+ * user by default. What each PLAN sees is a separate contract with its own
+ * tests further down, and conflating the two would mean every rail assertion
+ * silently doubled as a gate assertion.
+ */
+const PREMIUM_USER = Object.freeze({ id: "u-premium", index_plan: "premium" });
+const PLUS_USER = Object.freeze({ id: "u-plus", index_plan: "plus" });
+const BASIC_USER = Object.freeze({ id: "u-basic", index_plan: null });
+
 function renderCollapsed(
   value = overview, searchParams = {}, sealedSegments = SEALED_SERIES, cardSegments = CARD_SERIES,
+  user = PREMIUM_USER,
 ) {
   let renderer;
   TestRenderer.act(() => {
@@ -191,6 +205,7 @@ function renderCollapsed(
         cardReconciliation: CARD_RECONCILIATION,
         topChaseSegmentStatus: CHASE_STATUS,
         initialState: resolveInitialExplorerState(value, searchParams, sealedSegments, cardSegments),
+        user,
       })
     );
   });
@@ -858,4 +873,112 @@ test("the area fill thins out as series are added so eight lines stay separable"
   assert.ok(resolveAreaOpacity(8) < resolveAreaOpacity(4));
   assert.ok(resolveAreaOpacity(8) >= 0.03, "never fully invisible");
   assert.equal(resolveAreaOpacity(0), 0.16);
+});
+
+// ---------------------------------------------------------------------------
+// ACCESS LADDER — Basic -> Index Plus -> Index Premium.
+//
+// The rule these encode, and the one most likely to be broken by a later
+// change: SIGNING IN IS NOT AN ACCESS LEVEL. An authenticated account with no
+// paid plan sees exactly what an anonymous visitor sees.
+// ---------------------------------------------------------------------------
+
+const railGroupPanel = (renderer, id) =>
+  renderer.root.findAll((entry) => entry.props?.["data-explorer-disclosure"] === id, { deep: true })[0] || null;
+
+/** Open every gated group and return the page text, as a user would see it. */
+function renderAs(user) {
+  const renderer = renderCollapsed(overview, {}, SEALED_SERIES, CARD_SERIES, user);
+  for (const id of [...RAIL_GROUPS, "buildAMarket"]) expandGroup(renderer, id);
+  return renderer;
+}
+
+const lockPanels = (renderer) => findAll(renderer, "data-explorer-plan-lock");
+
+test("Asset Market is fully usable at every level, including anonymous", () => {
+  for (const user of [null, BASIC_USER, PLUS_USER, PREMIUM_USER]) {
+    const renderer = renderAs(user);
+    const options = findAll(renderer, "data-market-explorer-filter-option")
+      .map((node) => node.props["data-market-explorer-filter-option"]);
+    assert.ok(options.includes("raw"), "Raw Card Market must be selectable");
+    assert.ok(options.includes("sealedMarket"), "Sealed Market must be selectable");
+  }
+});
+
+test("a basic visitor SEES the deeper groups but gets a plan lock, not the rows", () => {
+  for (const user of [null, BASIC_USER]) {
+    const renderer = renderAs(user);
+    // The headers exist — the point is to show that depth exists.
+    for (const id of ["cardRarities", "sealedFamilies", "eraSets", "benchmarks"]) {
+      assert.ok(railGroupPanel(renderer, id), `${id} header must remain visible`);
+    }
+    // ...but opening one reveals a lock, never the gated controls, which would
+    // leak the published taxonomy the gate exists to sell.
+    assert.equal(lockPanels(renderer).length > 0, true, "a lock panel must be shown");
+    const optionKeys = findAll(renderer, "data-market-explorer-filter-option")
+      .map((node) => node.props["data-market-explorer-filter-option"]);
+    assert.ok(!optionKeys.some((key) => String(key).startsWith("card:")), "no rarity rows leak");
+    assert.ok(!optionKeys.some((key) => String(key).startsWith("sealed:")), "no family rows leak");
+  }
+});
+
+test("login alone unlocks nothing: authenticated-basic matches anonymous exactly", () => {
+  const anonymousKeys = findAll(renderAs(null), "data-market-explorer-filter-option")
+    .map((node) => node.props["data-market-explorer-filter-option"]);
+  const basicKeys = findAll(renderAs(BASIC_USER), "data-market-explorer-filter-option")
+    .map((node) => node.props["data-market-explorer-filter-option"]);
+  assert.deepEqual(basicKeys, anonymousKeys);
+});
+
+test("locked copy names the PLAN, never 'sign in to unlock'", () => {
+  const text = pageText(renderAs(BASIC_USER));
+  assert.ok(text.includes("Available with Index Plus"));
+  assert.ok(!/Sign in to unlock/i.test(text),
+    "login is not the unlock, and the copy must not imply it is");
+});
+
+test("Index Plus unlocks the prepared layers and nothing more", () => {
+  const renderer = renderAs(PLUS_USER);
+  const optionKeys = findAll(renderer, "data-market-explorer-filter-option")
+    .map((node) => node.props["data-market-explorer-filter-option"]);
+  assert.ok(optionKeys.some((key) => String(key).startsWith("card:")), "rarities are Plus");
+  assert.ok(optionKeys.some((key) => String(key).startsWith("sealed:")), "families are Plus");
+  // Build a Market is NOT Plus.
+  const premiumLocks = lockPanels(renderer).filter((node) => node.props["data-explorer-plan-lock"] === "premium");
+  assert.equal(premiumLocks.length, 1, "Build a Market stays locked for Index Plus");
+  assert.equal(findAll(renderer, "data-market-query-add").length, 0,
+    "a functioning Add to Comparison must not sit under the premium lock");
+});
+
+test("an Index Plus user is offered the Premium upgrade, not a sign-in", () => {
+  const text = pageText(renderAs(PLUS_USER));
+  assert.ok(text.includes("Available with Index Premium"));
+  assert.ok(text.includes("You have Index Plus"), "the upsell names where they already are");
+});
+
+test("Index Premium has no gates left", () => {
+  const renderer = renderAs(PREMIUM_USER);
+  assert.equal(lockPanels(renderer).length, 0, "an entitled user must see no lock panel");
+});
+
+test("the workspace fails closed when no user prop is supplied at all", () => {
+  // A caller that forgets the prop must not accidentally hand out Plus. Mounted
+  // directly rather than through the test helper, whose own default is an
+  // entitled user.
+  let renderer;
+  TestRenderer.act(() => {
+    renderer = TestRenderer.create(
+      React.createElement(MarketExplorerClient, {
+        overview,
+        sealedSegments: SEALED_SERIES,
+        cardSegments: CARD_SERIES,
+        reconciliation: RECONCILIATION,
+        cardReconciliation: CARD_RECONCILIATION,
+        topChaseSegmentStatus: CHASE_STATUS,
+        initialState: resolveInitialExplorerState(overview, {}, SEALED_SERIES, CARD_SERIES),
+      })
+    );
+  });
+  const workspace = findAll(renderer, "data-market-explorer-access-mode")[0];
+  assert.equal(workspace.props["data-market-explorer-access-mode"], "basic");
 });

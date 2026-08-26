@@ -7,6 +7,7 @@ import {
   MARKET_DIMENSION_LABELS,
   MARKET_OVERVIEW_GROUPS,
   MARKET_OVERVIEW_HELP,
+  MARKET_PAGE_PLACEHOLDER_FAMILIES,
   changeDirection,
   describeChange,
   formatBasketValue,
@@ -76,10 +77,39 @@ function MarketSwatch({ color }) {
   return <span aria-hidden="true" className="inline-block h-2.5 w-2.5 flex-none rounded-[3px]" style={{ backgroundColor: color }} />;
 }
 
-// Drill-down into Market Explorer. Restrained on purpose: this table stays the
-// concise market pulse, so the affordance is one quiet header action plus one
-// per-row link — no new column, and no change to the row toggle it sits beside.
+// Drill-down into Market Explorer.
+//
+// THE HEADER ACTION IS NOW A REAL BUTTON, not quiet text. Market Explorer is a
+// substantial research tool and the only route into it was an 11px secondary
+// link that read as a caption — most people never found it. It is filled in the
+// inDex interaction green, the same green as a focused search field and a
+// selected control, so it is unmistakably the primary action here.
+//
+// IT IS NOT A MARKETING HERO. Normal control height, normal type scale, sitting
+// in the header control area beside the section title rather than as a banner
+// above or a footer below the table.
+//
+// YELLOW IS NOT USED. Yellow is this product's scarce attention color; making
+// it the generic primary-action color would spend it.
+//
+// The per-row links survive as SECONDARY navigation and now share the green
+// family, so they read as the same affordance at a lower level rather than as
+// incidental white text.
 export const MARKET_EXPLORER_HREF = "/Market/Explorer";
+
+const EXPLORER_CTA_CLASS = [
+  "ml-auto inline-flex min-h-9 flex-none items-center gap-1.5 whitespace-nowrap rounded-md",
+  "border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold",
+  "text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
+  "desk:min-h-8",
+].join(" ");
+
+const EXPLORER_ROW_LINK_CLASS = [
+  "text-[11px] font-semibold text-[rgba(45,212,191,0.9)] transition-colors",
+  "hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2",
+  "focus-visible:ring-[rgba(45,212,191,0.65)]",
+].join(" ");
 
 export function marketExplorerHref(marketKey) {
   return marketKey ? `${MARKET_EXPLORER_HREF}?market=${encodeURIComponent(marketKey)}` : MARKET_EXPLORER_HREF;
@@ -111,9 +141,10 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
         <Link
           href={MARKET_EXPLORER_HREF}
           data-market-explore-link="all"
-          className="ml-auto flex-none whitespace-nowrap rounded text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+          data-market-explorer-cta
+          className={EXPLORER_CTA_CLASS}
         >
-          Explore Market <span aria-hidden="true">&rarr;</span>
+          Open Market Explorer <span aria-hidden="true">&rarr;</span>
         </Link>
       </div>
 
@@ -178,7 +209,7 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                     href={marketExplorerHref(family.key)}
                     data-market-explore-link={family.key}
                     aria-label={`Explore ${family.label} in Market Explorer`}
-                    className="ml-1.5 align-middle text-[11px] font-semibold text-[var(--text-secondary)] opacity-0 transition-opacity hover:text-[var(--text-primary)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65 group-hover/market-row:opacity-100"
+                    className={`ml-1.5 align-middle opacity-0 focus-visible:opacity-100 group-hover/market-row:opacity-100 ${EXPLORER_ROW_LINK_CLASS}`}
                   >
                     <span aria-hidden="true">Explore &rarr;</span>
                   </Link>
@@ -204,6 +235,31 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
               </tr>
               );
             })}
+            {/* THE MARKET HAS THREE ASSET CLASSES; two are tracked. Graded is
+                acknowledged with NO numeric cells at all — not $0, not Index
+                100, not 0.00%, and no trend line — because a zeroed row is
+                indistinguishable from a market that collapsed. Where a tracked
+                row offers an Explore action, this one states "Unavailable"
+                rather than linking somewhere with nothing to show. */}
+            {MARKET_PAGE_PLACEHOLDER_FAMILIES.map((placeholder) => (
+              <tr
+                key={placeholder.key}
+                data-market-overview-row={placeholder.key}
+                data-market-overview-row-placeholder="true"
+                className={styles.marketOverviewRowInactive}
+              >
+                <th scope="row">
+                  <span className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
+                    <MarketSwatch color="var(--text-secondary)" />
+                    {placeholder.label}
+                    <InfoPopover text={placeholder.reason} />
+                  </span>
+                </th>
+                <td colSpan={4} data-market-overview-placeholder-status={placeholder.key} className="text-right text-[var(--text-secondary)]">
+                  {placeholder.status}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -261,7 +317,7 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                 href={marketExplorerHref(family.key)}
                 data-market-explore-link={family.key}
                 aria-label={`Explore ${family.label} in Market Explorer`}
-                className="inline-flex items-center rounded text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/65"
+                className={`inline-flex items-center rounded ${EXPLORER_ROW_LINK_CLASS}`}
               >
                 Explore <span aria-hidden="true" className="ml-1">&rarr;</span>
               </Link>
@@ -269,6 +325,23 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
           </li>
           );
         })}
+        {MARKET_PAGE_PLACEHOLDER_FAMILIES.map((placeholder) => (
+          <li
+            key={placeholder.key}
+            data-market-overview-card={placeholder.key}
+            data-market-overview-card-placeholder="true"
+            className="px-3 py-2 opacity-60 sm:px-4"
+          >
+            <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+              <MarketSwatch color="var(--text-secondary)" />
+              {placeholder.label}
+              <InfoPopover text={placeholder.reason} />
+              <span data-market-overview-placeholder-status={placeholder.key} className="ml-auto normal-case tracking-normal">
+                {placeholder.status}
+              </span>
+            </span>
+          </li>
+        ))}
       </ul>
     </section>
   );
