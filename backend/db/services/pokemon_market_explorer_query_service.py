@@ -365,16 +365,19 @@ COHORT_CHUNK_DAYS = 30
 
 #: Largest UNRANKED universe the cohort authority can serve over full history.
 #:
-#: MEASURED, and narrower chunks do not move it: a 222-card rarity completes at
-#: 30-day chunks, a 492-card one times out at 14 days, survives at 10 only by
-#: taking 57 seconds, and a 1,617-card one times out at every width down to 7.
-#: The cost is a latest-observation-before-boundary lookup per card per day, so
-#: shrinking the window trades one long statement for many — it does not reduce
-#: the work. 250 sits above the largest universe observed to succeed and below
-#: the smallest observed to fail.
+#: RE-DERIVED after the interval-based RPC, the covering index and the VACUUM
+#: that made index-only scans possible. The database work itself is now well
+#: within budget (Global Illustration Rare over full history: 12,271ms -> 789ms),
+#: so what binds is no longer the algorithm but PostgREST's 8s per-statement
+#: ceiling from `authenticator`: a request has one statement's worth of time,
+#: and an unranked full-history panel for a large rarity does not fit in it.
 #:
-#: A `top_n` query is exempt: the database ranks it internally and never
-#: materialises the full panel, which is why Global Top 10 is fast at any size.
+#: Measured against the CURRENT architecture, not inherited from the old one:
+#: 222 cards completes (chunked, ~18s wall across chunks) and 363 does not.
+#: 250 still sits between them, so the number is unchanged but the reason is new.
+#:
+#: A `top_n` query is exempt: the database ranks internally, and Global Top 10
+#: now runs in ~4.6s median where it once took 40s.
 COHORT_MAX_UNRANKED_CARDS = 250
 
 

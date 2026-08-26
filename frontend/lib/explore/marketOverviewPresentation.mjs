@@ -179,6 +179,14 @@ function normalizeFamily(definition, raw) {
     // than quietly falling back to the shared number under the wrong label.
     changes: normalizeChangeMap(raw.changes),
     familyChanges: normalizeChangeMap(raw.familyChanges),
+    // Carried through verbatim so a parent market can be inspected like a
+    // prepared segment. Only Total Sealed publishes one: its product roster is
+    // short enough to list, and it is the ONLY surface showing the `otherSealed`
+    // residual products, which belong to no child market. The raw-card parents
+    // deliberately publish none — that universe is a summary, not a table — so
+    // this is null for them and the panel says so rather than inventing
+    // composition.
+    currentConstituents: raw.currentConstituents || null,
     trend,
     oneDayComparisonTrend,
   };

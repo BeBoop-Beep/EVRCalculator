@@ -67,9 +67,22 @@ export function resolveSeriesAsset(series) {
   return QUERY_ASSET_CARDS;
 }
 
-/** Parent markets are the whole universe and are not enumerated. */
+/**
+ * Can this market's composition be listed?
+ *
+ * Parent markets are normally the whole tracked universe and are summarised
+ * rather than enumerated — Raw Card Market is 4,372 cards and a table of them
+ * helps nobody. But "parent" is not the same as "unlistable": Total Sealed is a
+ * parent whose 139 products ARE a roster worth reading, and it is the only
+ * surface that shows the ten `otherSealed` residual products, which belong to
+ * no child market. So enumerability follows the published composition, not the
+ * isParent flag: a parent that publishes `currentConstituents` can be inspected,
+ * and one that does not still reports the parent-market reason.
+ */
 export function isEnumerableSeries(series) {
-  return Boolean(series) && series.isParent !== true;
+  if (!series) return false;
+  if (series.isParent !== true) return true;
+  return Boolean(series.currentConstituents);
 }
 
 const numericOrNull = (value) => {

@@ -560,3 +560,46 @@ test("no frontend source re-derives a basket percentage", () => {
     }
   }
 });
+
+test("a parent market's published constituent roster survives normalization", () => {
+  // Total Sealed is the only parent that publishes one, and it is the only
+  // surface showing the `otherSealed` residual products. normalizeFamily builds
+  // an explicit allow-list, so a field it forgets is silently dropped between a
+  // correct API response and the panel — which is exactly what happened here.
+  const overview = resolveMarketOverview({
+    marketOverview: {
+      marketDate: "2026-08-25",
+      sealedMarket: {
+        basketValue: 22860.88,
+        indexValue: 105.87,
+        historyStartDate: "2026-04-07",
+        changes: { "7D": { percent: -0.49, available: true } },
+        trend: [["2026-08-25", 105.87]],
+        currentConstituents: {
+          contractVersion: "pokemon-prepared-constituent-summary-v1",
+          asOf: "2026-08-25",
+          totalCount: 139,
+          limit: 250,
+          isComplete: true,
+          idField: "sealedProductId",
+          topConstituents: [{ sealedProductId: "p-1", productName: "A", marketPrice: 10 }],
+        },
+      },
+      raw: {
+        basketValue: 39344.72,
+        indexValue: 101.04,
+        historyStartDate: "2026-04-23",
+        changes: { "7D": { percent: -0.3, available: true } },
+        trend: [["2026-08-25", 101.04]],
+      },
+    },
+  });
+
+  const sealed = overview.families.find((family) => family.key === "sealedMarket");
+  assert.equal(sealed.currentConstituents.totalCount, 139);
+  assert.equal(sealed.currentConstituents.isComplete, true);
+
+  // A parent that publishes nothing stays null rather than inheriting anything.
+  const raw = overview.families.find((family) => family.key === "raw");
+  assert.equal(raw.currentConstituents, null);
+});
