@@ -78,7 +78,34 @@ test("prepared breadth is displayed verbatim and All maps centrally to SinceTrac
     coverage: null,
     isSinceFirstAvailable: false,
     partialLabel: null,
+    totalTrackedCount: null,
+    excludedCount: null,
   });
+});
+
+test("prepared breadth reconciles the comparable cohort to the authoritative tracked total", () => {
+  const breadth = selectPreparedMarketBreadth({
+    windowKey: "7D",
+    totalTrackedCount: 305,
+    marketBreadth: {
+      "7D": {
+        available: true,
+        eligibleCount: 295,
+        advancingCount: 138,
+        decliningCount: 134,
+        unchangedCount: 23,
+        advancingPercent: 46.8,
+        decliningPercent: 45.4,
+        unchangedPercent: 7.8,
+      },
+    },
+  });
+  assert.equal(breadth.total, 295);
+  assert.equal(breadth.totalTrackedCount, 305);
+  assert.equal(breadth.excludedCount, 10);
+  assert.equal(breadth.advancingPercent, 46.8);
+  assert.equal(breadth.decliningPercent, 45.4);
+  assert.equal(breadth.unchangedPercent, 7.8);
 });
 
 test("prepared breadth uses the same window-key mapper as the Cards Market Index, so All reads SinceTracking", () => {

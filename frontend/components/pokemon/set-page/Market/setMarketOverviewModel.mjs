@@ -267,7 +267,7 @@ function breadthReasonForStatus(status) {
  * mapper the Cards Market Index uses, so "lifetime" resolves to
  * "SinceTracking" identically for both surfaces.
  */
-export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
+export function selectPreparedMarketBreadth({ marketBreadth, windowKey, totalTrackedCount = null } = {}) {
   const movementKey = toPreparedMovementKey(windowKey);
   const entry = marketBreadth?.[movementKey] || marketBreadth?.[String(movementKey).toLowerCase()] || null;
   if (!entry) {
@@ -287,6 +287,8 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
     return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: movementKey || null };
   }
   const isSinceFirstAvailable = Boolean(entry.isSinceFirstAvailable ?? entry.is_since_first_available);
+  const trackedTotal = toFiniteNumber(totalTrackedCount);
+  const excludedCount = trackedTotal !== null && trackedTotal >= total ? trackedTotal - total : null;
   return {
     available: true,
     windowKey: movementKey,
@@ -300,6 +302,8 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
     coverage: entry.coverage ?? null,
     isSinceFirstAvailable,
     partialLabel: isSinceFirstAvailable ? "Since first available" : null,
+    totalTrackedCount: trackedTotal,
+    excludedCount,
   };
 }
 

@@ -183,6 +183,13 @@ test("selected Set Market promotes the prepared index and keeps index return sep
   assert.doesNotMatch(setMarket, /currentSetValue\s*\/|marketIndex[^\n]*=\s*.*currentSetValue/);
 });
 
+test("selected Set Market tightly groups period movement and Market Index without shrinking the chart", () => {
+  assert.match(setMarket, /data-set-market-detail-secondary-metrics[^>]*mt-1 space-y-0 leading-tight/);
+  assert.match(setMarket, /data-set-market-detail-window[\s\S]*?<ChangeText[\s\S]*?data-set-market-detail-index/);
+  assert.doesNotMatch(setMarket, /data-set-market-detail-index[^>]*(?:mt-|pt-|gap-)/);
+  assert.match(setMarket, /plotClassName="h-44 desk:h-\[15rem\]"/);
+});
+
 test("mobile Set Market uses document scroll with a contextual sticky toolbar", () => {
   assert.match(css, /@media \(max-width: 1199\.98px\) \{[\s\S]*?\.setListScroll \{[\s\S]*?height: auto;[\s\S]*?max-height: none;[\s\S]*?overflow-y: visible;/);
   assert.match(css, /\.setMarketMobileSticky \{[\s\S]*?position: sticky;[\s\S]*?top: var\(--app-header-offset, 64px\);[\s\S]*?z-index: 30;/);

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Mapping, Optional
 
 from backend.db.clients.supabase_client import supabase
@@ -63,6 +63,120 @@ def _current_run_id(client: Any, set_id: str) -> Optional[str]:
     return _text(rip.get("sourceCalculationRunId") if isinstance(rip, dict) else None)
 
 
+_MARKET_WINDOWS = {"1D": 1, "7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
+
+
+def _date_key(value: Any) -> Optional[str]:
+    text = _text(value)
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
+    except ValueError:
+        try:
+            return date.fromisoformat(text[:10]).isoformat()
+        except ValueError:
+            return None
+
+
+def _market_movement(history: List[Dict[str, Any]], window: str) -> Dict[str, Any]:
+    valued = [row for row in history if _positive(row.get("marketPrice")) is not None]
+    if not valued:
+        return {"available": False, "status": "unavailable", "requestedWindow": window}
+    end = valued[-1]
+    requested_start = valued[0]["date"]
+    if window != "lifetime":
+        requested_start = (date.fromisoformat(end["date"]) - timedelta(days=_MARKET_WINDOWS[window])).isoformat()
+    candidates = [row for row in valued if row["date"] <= requested_start]
+    start = candidates[-1] if candidates else valued[0]
+    start_price = _positive(start.get("marketPrice"))
+    end_price = _positive(end.get("marketPrice"))
+    if start_price is None or end_price is None:
+        return {"available": False, "status": "unavailable", "requestedWindow": window}
+    amount = round(end_price - start_price, 2)
+    full_coverage = window == "lifetime" or valued[0]["date"] <= requested_start
+    return {
+        "available": True,
+        "status": "available" if full_coverage else "partial_history",
+        "requestedWindow": window,
+        "effectiveWindow": window if full_coverage else "lifetime",
+        "fullCoverage": full_coverage,
+        "startDate": start["date"],
+        "endDate": end["date"],
+        "startPrice": start_price,
+        "endPrice": end_price,
+        "deltaAmount": amount,
+        "deltaPercent": round(amount / start_price * 100, 2),
+        "historyPointCount": sum(start["date"] <= row["date"] <= end["date"] for row in valued),
+    }
+
+
+def _load_card_market_history(client: Any, variant_id: Optional[str], condition_id: Optional[str]) -> List[Dict[str, Any]]:
+    if not variant_id or not condition_id:
+        return []
+    rows = _rows(
+        client.table("card_variant_price_observations")
+        .select("card_variant_id,condition_id,market_price,source,captured_at")
+        .eq("card_variant_id", variant_id)
+        .eq("condition_id", condition_id)
+    )
+    by_day: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        day = _date_key(row.get("captured_at"))
+        price = _positive(row.get("market_price"))
+        if not day or price is None:
+            continue
+        existing = by_day.get(day)
+        if not existing or str(row.get("captured_at") or "") > str(existing.get("observedAt") or ""):
+            by_day[day] = {
+                "date": day, "marketPrice": round(price, 2), "source": _text(row.get("source")),
+                "conditionId": condition_id, "isObserved": True, "isCarriedForward": False,
+                "sourceDate": day, "observedAt": _text(row.get("captured_at")),
+            }
+    return [by_day[key] for key in sorted(by_day)]
+
+
+def _load_card_intelligence(client: Any, card_id: str, rarity: Any) -> Dict[str, Any]:
+    """Narrow, best-effort projection of production card desirability data."""
+    try:
+        links = _rows(
+            client.table("pokemon_card_desirability_links")
+            .select("pokemon_reference_id,contribution_weight,match_confidence")
+            .eq("pokemon_canonical_card_id", card_id)
+        )
+        reference_ids = [row.get("pokemon_reference_id") for row in links if row.get("pokemon_reference_id") is not None]
+        scores = _rows(
+            client.table("pokemon_desirability_composite_scores")
+            .select("pokemon_reference_id,desirability_score,scoring_version,created_at")
+            .in_("pokemon_reference_id", reference_ids)
+        ) if reference_ids else []
+        latest: Dict[str, Dict[str, Any]] = {}
+        for row in scores:
+            key = str(row.get("pokemon_reference_id"))
+            if key not in latest or str(row.get("created_at") or "") > str(latest[key].get("created_at") or ""):
+                latest[key] = row
+        weighted = []
+        for link in links:
+            score = _positive((latest.get(str(link.get("pokemon_reference_id"))) or {}).get("desirability_score"))
+            weight = _positive(link.get("contribution_weight"))
+            if score is not None and weight is not None:
+                weighted.append((score, weight))
+        demand = round(sum(score * weight for score, weight in weighted) / sum(weight for _, weight in weighted), 2) if weighted else None
+        from backend.desirability.card_appeal import calculate_adjusted_card_appeal, get_treatment_score
+        treatment = get_treatment_score(rarity)
+        appeal = calculate_adjusted_card_appeal(demand, treatment, None)
+        return {
+            "available": appeal is not None or demand is not None or treatment is not None,
+            "cardAppeal": {"score": appeal, "available": appeal is not None},
+            "pokemonDemand": {"score": demand, "available": demand is not None},
+            "treatment": {"score": treatment, "available": treatment is not None},
+            "scarcity": {"score": None, "available": False},
+            "provenance": {"source": "pokemon_card_desirability_links+pokemon_desirability_composite_scores", "formula": "card_appeal_v1"},
+        }
+    except Exception:
+        return {"available": False, "reason": "card_intelligence_unavailable"}
+
+
 def get_pokemon_card_detail_payload(
     *, set_id: str, card_id: str, variant_id: Optional[str] = None, client: Any = None
 ) -> Dict[str, Any]:
@@ -73,6 +187,12 @@ def get_pokemon_card_detail_payload(
     except PokemonSetMarketError as exc:
         raise PokemonCardDetailError(exc.status_code, exc.message, exc.code) from exc
     resolved_set_id = str(set_row["id"])
+    try:
+        artwork_rows = _rows(active.table("sets").select("id,hero_image_url,logo_image_url,symbol_image_url").eq("id", resolved_set_id).limit(1))
+        if artwork_rows:
+            set_row = {**set_row, **artwork_rows[0]}
+    except Exception:
+        pass
 
     canonical_rows = _rows(
         active.table("pokemon_canonical_cards")
@@ -236,8 +356,16 @@ def get_pokemon_card_detail_payload(
             "priceSelectionReason": _text(canonical_market.get("price_selection_reason")),
         }
 
+    selected_condition = _text((modeled.get(selected or "") or {}).get("condition_id"))
+    history = _load_card_market_history(active, selected or canonical_selected, selected_condition or _text(canonical_market.get("condition_id")))
+    market["history"] = history
+    market["movements"] = {key: _market_movement(history, key) for key in (*_MARKET_WINDOWS, "lifetime")}
+    intelligence = _load_card_intelligence(active, str(card_id), card.get("rarity"))
+
     return {
-        "set": {"id": resolved_set_id, "name": _text(set_row.get("name")), "slug": _text(set_row.get("canonical_key"))},
+        "set": {"id": resolved_set_id, "name": _text(set_row.get("name")), "slug": _text(set_row.get("canonical_key")),
+                "heroImageUrl": _text(set_row.get("hero_image_url")), "logoImageUrl": _text(set_row.get("logo_image_url")),
+                "symbolImageUrl": _text(set_row.get("symbol_image_url"))},
         "card": {
             "id": str(card["id"]), "canonicalCardId": str(card["id"]),
             "name": _text(card.get("name")), "setId": resolved_set_id,
@@ -253,9 +381,10 @@ def get_pokemon_card_detail_payload(
         "variantSelection": {"state": selection_state, "source": source},
         "market": market,
         "chase": chase,
+        "intelligence": intelligence,
         "meta": {
-            "contractVersion": "pokemon_card_detail_v1",
-            "sources": ["pokemon_canonical_cards", "simulation_input_cards", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results"],
+            "contractVersion": "pokemon_card_detail_v2",
+            "sources": ["pokemon_canonical_cards", "card_variant_price_observations", "simulation_input_cards", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results", "pokemon_card_desirability_links", "pokemon_desirability_composite_scores"],
             "wholeSetChaseSnapshotRead": False,
             "requestedVariantValid": requested_is_valid if requested else None,
         },

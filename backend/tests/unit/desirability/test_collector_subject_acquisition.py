@@ -3,7 +3,7 @@ from backend.domain.pokemon.rip_decision_metrics import exact_card_probability_c
 
 
 def test_subject_paths_publish_the_same_cumulative_probability_counts_as_top_chase():
-    probability = 1 / 480
+    probability = 1 / 1533
     paths = select_subject_paths({"cards": [{
         "canonical_card_id": "chase-1",
         "card_name": "Chase",
@@ -13,6 +13,8 @@ def test_subject_paths_publish_the_same_cumulative_probability_counts_as_top_cha
 
     elite = paths["elitePath"]
     canonical = exact_card_probability_contract(probability)
+    assert canonical["packsFor50PercentChance"] == 1063
+    assert canonical["packsFor90PercentChance"] == 3529
     assert elite["packsFor50PercentChance"] == canonical["packsFor50PercentChance"]
     assert elite["packsFor90PercentChance"] == canonical["packsFor90PercentChance"]
 
@@ -26,8 +28,13 @@ def test_elite_and_accessible_paths_use_their_own_probability_without_snapshot_j
     accessible = paths["accessiblePath"]
     assert elite["canonicalCardId"] == "same-name-elite"
     assert accessible["canonicalCardId"] == "same-name-accessible"
-    assert elite["packsFor50PercentChance"] == exact_card_probability_contract(1 / 1500)["packsFor50PercentChance"]
-    assert accessible["packsFor50PercentChance"] == exact_card_probability_contract(1 / 100)["packsFor50PercentChance"]
+    elite_contract = exact_card_probability_contract(1 / 1500)
+    accessible_contract = exact_card_probability_contract(1 / 100)
+    assert elite["packsFor50PercentChance"] == elite_contract["packsFor50PercentChance"]
+    assert elite["packsFor90PercentChance"] == elite_contract["packsFor90PercentChance"]
+    assert accessible["packsFor50PercentChance"] == accessible_contract["packsFor50PercentChance"]
+    assert accessible["packsFor90PercentChance"] == accessible_contract["packsFor90PercentChance"]
+    assert elite["packsFor50PercentChance"] != accessible["packsFor50PercentChance"]
     assert elite["packsFor90PercentChance"] != accessible["packsFor90PercentChance"]
 
 

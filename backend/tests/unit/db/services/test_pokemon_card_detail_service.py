@@ -162,3 +162,30 @@ def test_product_economics_are_the_existing_chase_output(monkeypatch):
     for key, value in direct.items():
         assert actual[key] == value
     assert payload["chase"]["recoveryModel"] == "gross_market_value"
+
+
+def test_market_history_is_variant_condition_scoped_sorted_and_deduplicated():
+    client = fixture()
+    client.tables["card_variant_price_observations"] = [
+        {"card_variant_id": "v2", "condition_id": "nm", "market_price": 999, "captured_at": "2026-08-02T00:00:00Z"},
+        {"card_variant_id": "v1", "condition_id": "lp", "market_price": 3, "captured_at": "2026-08-02T00:00:00Z"},
+        {"card_variant_id": "v1", "condition_id": "nm", "market_price": 10, "source": "TCGPlayer", "captured_at": "2026-08-01T12:00:00Z"},
+        {"card_variant_id": "v1", "condition_id": "nm", "market_price": 11, "source": "TCGPlayer", "captured_at": "2026-08-01T23:00:00Z"},
+        {"card_variant_id": "v1", "condition_id": "nm", "market_price": 12, "source": "TCGPlayer", "captured_at": "2026-08-03T00:00:00Z"},
+    ]
+    payload = build(client)
+    assert [row["date"] for row in payload["market"]["history"]] == ["2026-08-01", "2026-08-03"]
+    assert [row["marketPrice"] for row in payload["market"]["history"]] == [11.0, 12.0]
+    assert all(row["conditionId"] == "nm" and row["isObserved"] for row in payload["market"]["history"])
+
+
+def test_long_requested_window_truthfully_reports_partial_coverage():
+    history = [
+        {"date": "2026-06-01", "marketPrice": 10},
+        {"date": "2026-08-01", "marketPrice": 15},
+    ]
+    movement = service._market_movement(history, "1Y")
+    assert movement["status"] == "partial_history"
+    assert movement["fullCoverage"] is False
+    assert movement["effectiveWindow"] == "lifetime"
+    assert movement["deltaAmount"] == 5

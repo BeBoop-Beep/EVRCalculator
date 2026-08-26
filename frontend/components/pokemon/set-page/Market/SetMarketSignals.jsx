@@ -6,6 +6,18 @@ import { useAuth } from "@/components/AuthContext";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { describePlanLock } from "@/components/explore/ExplorerPlanLockPanel";
 import { INDEX_PLAN_PLUS, hasIndexPlusAccess } from "@/lib/access/indexPlanAccess.mjs";
+import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
+
+// The neutral "unchanged" tone. Advancing/declining use the app's canonical
+// market colors (the same POSITIVE_VALUE_COLOR/NEGATIVE_VALUE_COLOR every
+// other delta/trend surface uses); there is no CSS custom property for them
+// anywhere in globals.css, so referencing those two custom properties
+// here previously made the WHOLE conic-gradient background declaration
+// invalid CSS -- the browser drops an entire background value if any one of
+// its var() references fails to resolve, which is why the donut ring was
+// rendering with no fill at all while the plain-text percentages next to it
+// (unaffected by the bad var) displayed fine.
+const UNCHANGED_COLOR = "rgba(148,163,184,0.55)";
 
 function LockIcon() {
   return (
@@ -57,31 +69,40 @@ export function MarketBreadthDonut({ breadth }) {
   const unchanged = Math.max(0, Number(breadth?.unchangedPercent) || 0);
   const advancingEnd = Math.min(100, advancing);
   const decliningEnd = Math.min(100, advancingEnd + declining);
-  const background = `conic-gradient(var(--positive) 0 ${advancingEnd}%, var(--negative) ${advancingEnd}% ${decliningEnd}%, rgba(148,163,184,0.55) ${decliningEnd}% 100%)`;
+  // Literal color values, not var() references: there is no --positive/
+  // --negative custom property defined anywhere in globals.css, and a
+  // conic-gradient() with one unresolved var() drops the ENTIRE background
+  // declaration rather than just that stop, which is what made this ring
+  // invisible.
+  const background = `conic-gradient(${POSITIVE_VALUE_COLOR} 0 ${advancingEnd}%, ${NEGATIVE_VALUE_COLOR} ${advancingEnd}% ${decliningEnd}%, ${UNCHANGED_COLOR} ${decliningEnd}% 100%)`;
   const legend = [
-    ["Advancing", advancing, "bg-[var(--positive)]"],
-    ["Declining", declining, "bg-[var(--negative)]"],
-    ["Unchanged", unchanged, "bg-slate-400/60"],
+    ["Advancing", advancing, POSITIVE_VALUE_COLOR],
+    ["Declining", declining, NEGATIVE_VALUE_COLOR],
+    ["Unchanged", unchanged, UNCHANGED_COLOR],
   ];
 
   return (
-    <div className="mt-3 flex min-w-0 items-center gap-3 max-[430px]:flex-col" data-market-breadth-donut>
-      <div
-        role="img"
-        aria-label={`${advancing}% advancing, ${declining}% declining, ${unchanged}% unchanged`}
-        className="relative h-[92px] w-[92px] shrink-0 rounded-full"
-        style={{ background }}
-      >
-        <div className="absolute inset-[13px] flex flex-col items-center justify-center rounded-full bg-[var(--surface-card)] text-center">
-          <span className="text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">{Number(breadth.total).toLocaleString("en-US")}</span>
-          <span className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">Analyzed</span>
+    <div className="mx-auto mt-3 grid w-fit min-w-0 grid-cols-[96px_auto] items-center gap-4 max-[430px]:w-full max-[430px]:grid-cols-1 max-[430px]:gap-3" data-market-breadth-donut>
+      <div className="flex w-24 justify-center max-[430px]:mx-auto" data-market-breadth-donut-column>
+        <div
+          role="img"
+          aria-label={`${advancing}% advancing, ${declining}% declining, ${unchanged}% unchanged`}
+          className="relative h-[92px] w-[92px] shrink-0 rounded-full"
+          style={{ background }}
+        >
+          {/* --surface-card does not exist either; --surface-panel is the real
+              token used for a raised panel surface elsewhere in the app. */}
+          <div className="absolute inset-[13px] flex flex-col items-center justify-center rounded-full text-center" style={{ backgroundColor: "var(--surface-panel)" }}>
+            <span className="text-lg font-semibold leading-none tabular-nums text-[var(--text-primary)]">{Number(breadth.total).toLocaleString("en-US")}</span>
+            <span className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">Analyzed</span>
+          </div>
         </div>
       </div>
-      <div className="grid min-w-0 flex-1 grid-cols-1 gap-1.5 max-[430px]:w-full max-[430px]:grid-cols-3">
+      <div className="grid min-w-0 grid-cols-1 gap-1.5 text-left max-[430px]:w-full max-[430px]:grid-cols-3" data-market-breadth-legend>
         {legend.map(([label, percent, color]) => (
           <div key={label} className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold tabular-nums text-[var(--text-primary)]">
-              <span className={`h-2 w-2 shrink-0 rounded-full ${color}`} /> {percent}%
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} /> {percent}%
             </p>
             <p className="truncate text-[10px] text-[var(--text-secondary)]">{label}</p>
           </div>
@@ -97,7 +118,7 @@ export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
     <div data-market-breadth className={className}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Breadth</p>
-        <InfoPopover text="Market Breadth shows how many comparable tracked cards advanced, declined, or were unchanged over the selected period. Cards need pricing at both period endpoints to be included." />
+        <InfoPopover text="Market Breadth measures the share of comparable tracked cards that advanced, declined, or were unchanged over the selected period. Cards need valid pricing at both endpoints to be included. Cards without a valid comparison are shown separately as N/A." />
       </div>
       {!canViewSetMarketSignals ? (
         <SetMarketSignalLock description="See whether this Set's market move is broad or concentrated." />
@@ -107,8 +128,15 @@ export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
           <p className="mt-2 text-[10px] tabular-nums text-[var(--text-secondary)]">
             {breadth.advancing.toLocaleString("en-US")} advancing · {breadth.declining.toLocaleString("en-US")} declining · {breadth.flat.toLocaleString("en-US")} unchanged
           </p>
+          {breadth.excludedCount > 0 ? (
+            <p data-breadth-excluded className="mt-1 text-[10px] tabular-nums text-[var(--text-secondary)]">
+              {breadth.excludedCount.toLocaleString("en-US")} N/A · insufficient comparable pricing
+            </p>
+          ) : null}
           <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-            {breadth.total.toLocaleString("en-US")} cards included in breadth analysis · {windowLabel}
+            {breadth.totalTrackedCount !== null
+              ? `${breadth.totalTrackedCount.toLocaleString("en-US")} tracked cards total`
+              : `${breadth.total.toLocaleString("en-US")} cards included in breadth analysis`} · {windowLabel}
           </p>
           {breadth.partialLabel ? (
             <p data-breadth-partial className="mt-0.5 text-[10px] italic text-[var(--text-secondary)]">

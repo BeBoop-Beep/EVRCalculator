@@ -188,8 +188,12 @@ export default function SetMarketMobileSetValue({
     activeTrend.deltaAmount === null ? "neutral" : activeTrend.deltaAmount < 0 ? "negative" : activeTrend.deltaAmount > 0 ? "positive" : "neutral";
 
   const breadth = useMemo(
-    () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
-    [cardsMarket, effectiveWindowKey]
+    () => selectPreparedMarketBreadth({
+      marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth,
+      windowKey: effectiveWindowKey,
+      totalTrackedCount: cardsTrend.trackedItemCount,
+    }),
+    [cardsMarket, cardsTrend.trackedItemCount, effectiveWindowKey]
   );
   const concentration = useMemo(
     () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),

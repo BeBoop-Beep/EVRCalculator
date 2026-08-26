@@ -1,121 +1,68 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { useAuth } from "@/components/AuthContext";
+import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import { hasIndexPlusAccess } from "@/lib/access/indexPlanAccess.mjs";
 import { getPokemonCardDetail } from "@/lib/pokemon/pokemonCardDetailClient";
+import AssetMarketPanel from "./AssetMarketPanel";
 
-const money = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { style: "currency", currency: "USD" }) : "Unavailable";
-const number = (value, digits = 0) => Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { maximumFractionDigits: digits }) : "â€”";
-const percent = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}%` : "â€”";
+const finite = (v) => v !== null && v !== undefined && Number.isFinite(Number(v)) ? Number(v) : null;
+const money = (v) => finite(v) === null ? "Unavailable" : finite(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
+const number = (v, d = 0) => finite(v) === null ? "Unavailable" : finite(v).toLocaleString("en-US", { maximumFractionDigits: d });
+const percent = (v) => finite(v) === null ? "Unavailable" : `${(finite(v) * 100).toFixed(3).replace(/0+$/, "").replace(/\.$/, "")}%`;
+const dateLabel = (v) => v ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v).slice(0, 10)}T00:00:00Z`)) : "Unavailable";
+const score = (v) => finite(v) === null ? "Unavailable" : `${(finite(v) / 10).toFixed(1)} / 10`;
+
+function Metric({ label, children }) {
+  return <div className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.35)] p-4"><dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">{label}</dt><dd className="mt-2 text-xl font-semibold tabular-nums">{children}</dd></div>;
+}
 
 function VariantSelector({ detail, onSelect, pending }) {
   if (detail.availableVariants.length < 2) return null;
-  return (
-    <section aria-labelledby="printing-title" className="space-y-3">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-300">Printing</p><h2 id="printing-title" className="text-xl font-semibold">Choose a printing</h2></div>
-      <div role="radiogroup" aria-label="Card printing" className="flex flex-wrap gap-2">
-        {detail.availableVariants.map((variant) => (
-          <button key={variant.cardVariantId} type="button" role="radio"
-            aria-checked={detail.selectedVariantId === variant.cardVariantId}
-            disabled={!variant.modeled || pending} onClick={() => onSelect(variant.cardVariantId)}
-            className={`min-h-11 rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300 ${detail.selectedVariantId === variant.cardVariantId ? "border-teal-300 bg-teal-300/15 text-teal-100" : "border-white/15 bg-white/5 text-slate-200 hover:border-white/30 disabled:opacity-45"}`}>
-            {variant.label}{!variant.modeled ? " (not modeled)" : ""}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
+  return <div><p className="text-xs font-semibold text-[var(--text-secondary)]">Printing</p><div role="radiogroup" aria-label="Card printing" className="mt-2 flex flex-wrap gap-2">{detail.availableVariants.map((v) => <button key={v.cardVariantId} type="button" role="radio" aria-checked={detail.selectedVariantId === v.cardVariantId} disabled={!v.modeled || pending} onClick={() => onSelect(v.cardVariantId)} className={`min-h-11 rounded-lg border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${detail.selectedVariantId === v.cardVariantId ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]" : "border-[var(--border-subtle)] bg-white/5 text-[var(--text-secondary)] disabled:opacity-45"}`}>{v.label}{!v.modeled ? " · Not modeled" : ""}</button>)}</div></div>;
+}
+
+function PlusLock({ title }) {
+  const id = title.replace(/\s/g, "-").toLowerCase();
+  return <section aria-labelledby={id} className="set-glass-surface relative overflow-hidden rounded-2xl border p-6"><div aria-hidden="true" className="grid grid-cols-3 gap-3 opacity-20 blur-sm"><span className="h-20 rounded-xl bg-white/10"/><span className="h-20 rounded-xl bg-white/10"/><span className="h-20 rounded-xl bg-white/10"/></div><div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.62)] text-center"><p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">🔒 Index Plus</p><h2 id={id} className="mt-2 text-xl font-semibold">Unlock {title}</h2><Link href="/pricing" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-amber-300/40 bg-amber-300/10 px-4 text-sm font-semibold text-amber-200">Explore Index Plus</Link></div></section>;
 }
 
 function ProbabilityJourney({ chase }) {
-  const milestones = [
-    ["50%", chase.packsFor50PercentChance], ["75%", chase.packsFor75PercentChance],
-    ["90%", chase.packsFor90PercentChance], ["95%", chase.packsFor95PercentChance],
-  ];
-  const max = Number(chase.packsFor95PercentChance) || 1;
-  const p = Number(chase.modeledProbability) || 0;
-  const points = Array.from({ length: 41 }, (_, index) => {
-    const packs = max * index / 40;
-    const probability = 1 - Math.pow(1 - p, packs);
-    return `${(index / 40) * 100},${100 - probability * 92}`;
-  }).join(" ");
-  return (
-    <section aria-labelledby="journey-title" className="rounded-2xl border border-white/10 bg-slate-950/55 p-5 sm:p-6">
-      <h2 id="journey-title" className="text-2xl font-semibold">Probability journey</h2>
-      <p className="mt-2 max-w-3xl text-sm text-slate-300">â€œ1 in Nâ€ is a long-run average, not a guarantee that the card appears within N packs.</p>
-      <svg viewBox="0 0 100 100" className="mt-5 h-44 w-full overflow-visible" role="img" aria-label={`Cumulative modeled probability reaches 50 percent at ${chase.packsFor50PercentChance} packs and 95 percent at ${chase.packsFor95PercentChance} packs.`} preserveAspectRatio="none">
-        <line x1="0" y1="96" x2="100" y2="96" stroke="rgba(148,163,184,.35)" />
-        <polyline points={points} fill="none" stroke="rgb(45 212 191)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        {milestones.map(([label, packs]) => { const x = Math.min(100, Number(packs) / max * 100); const y = 100 - Number(label.slice(0, -1)) * .92; return <g key={label}><circle cx={x} cy={y} r="1.8" fill="rgb(94 234 212)" /><title>{label} at {packs} packs</title></g>; })}
-      </svg>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{milestones.map(([label, packs]) => <div key={label} className="rounded-xl bg-white/5 p-3"><p className="text-xs text-slate-400">{label} chance</p><p className="mt-1 font-semibold">{number(packs)} packs</p></div>)}</div>
-    </section>
-  );
+  const points = [["50%", chase.packsFor50PercentChance], ["75%", chase.packsFor75PercentChance], ["90%", chase.packsFor90PercentChance], ["95%", chase.packsFor95PercentChance]];
+  return <section aria-labelledby="probability-title" className="rounded-2xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.35)] p-5"><h3 id="probability-title" className="text-xl font-semibold">Probability Journey</h3><p className="mt-2 text-sm text-[var(--text-secondary)]">“1 in N” is a long-run modeled rate, not a guarantee that the card appears within N packs.</p><dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">{points.map(([label, packs]) => <Metric key={label} label={`${label} Chance`}>{number(packs)} packs</Metric>)}</dl></section>;
 }
 
 function ProductEconomics({ chase }) {
-  const products = useMemo(
-    () => Array.isArray(chase.products) ? chase.products.filter((product) => product.available) : [],
-    [chase.products]
-  );
+  const products = useMemo(() => Array.isArray(chase.products) ? chase.products.filter((p) => p.available) : [], [chase.products]);
   const [selectedId, setSelectedId] = useState(products[0]?.sealedProductId || null);
-  const selected = useMemo(() => products.find((product) => product.sealedProductId === selectedId) || products[0], [products, selectedId]);
-  if (!selected) return <p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-100">No supported sealed product is available for this run.</p>;
-  const ratio = Number(chase.currentTargetMarketPrice) > 0 && Number(selected.ripAcquisitionCost) >= 0 ? Number(selected.ripAcquisitionCost) / Number(chase.currentTargetMarketPrice) : null;
-  return (
-    <div className="space-y-6">
-      <section aria-labelledby="products-title"><h2 id="products-title" className="text-2xl font-semibold">Choose how youâ€™d open it</h2>
-        <div role="radiogroup" aria-label="Sealed product" className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{products.map((product) => <button key={product.sealedProductId} role="radio" aria-checked={selected.sealedProductId === product.sealedProductId} onClick={() => setSelectedId(product.sealedProductId)} className={`min-h-14 rounded-xl border p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300 ${selected.sealedProductId === product.sealedProductId ? "border-teal-300 bg-teal-300/10" : "border-white/10 bg-white/5"}`}><span className="block font-semibold">{product.productName}</span><span className="text-xs text-slate-400">{percent(product.targetProbabilityPerProduct)} per product Â· {number(product.packCount)} packs</span></button>)}</div>
-      </section>
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-5"><h2 className="text-2xl font-semibold">What would you spend?</h2>
-          <dl className="mt-4 space-y-3 text-sm"><div className="flex justify-between gap-4"><dt>Gross Chase spend</dt><dd>{money(selected.grossSpend)}</dd></div><div className="flex justify-between gap-4"><dt>Gross modeled incidental card value</dt><dd>âˆ’ {money(selected.incidentalRecovery)}</dd></div><div className="flex justify-between gap-4 border-t border-white/10 pt-3 font-semibold"><dt>Gross recovery-adjusted Chase cost</dt><dd>{money(selected.ripAcquisitionCost)}</dd></div></dl>
-          <p className="mt-4 text-xs leading-relaxed text-slate-400">Gross market-value recovery assumes incidental pulls retain 100% of modeled Near Mint market value. It is not realizable cash and includes no fees, shipping, liquidity, condition, or sell-through haircut.</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-5"><h2 className="text-2xl font-semibold">Opening vs buying</h2><dl className="mt-4 space-y-3"><div><dt className="text-xs text-slate-400">Current single price</dt><dd className="text-xl font-semibold">{money(chase.currentTargetMarketPrice)}</dd></div><div><dt className="text-xs text-slate-400">Recovery-adjusted Chase cost</dt><dd className="text-xl font-semibold">{money(selected.ripAcquisitionCost)}</dd></div><div><dt className="text-xs text-slate-400">Opening / buying ratio</dt><dd className="text-3xl font-bold text-teal-200">{ratio == null ? "Unavailable" : `${number(ratio, 2)}Ã—`}</dd></div></dl><p className="mt-4 text-xs text-slate-400">A modeled comparison, not buying, selling, or investment advice.</p></div>
-      </section>
-    </div>
-  );
+  const selected = products.find((p) => p.sealedProductId === selectedId) || products[0];
+  if (!selected) return <p className="text-sm text-[var(--text-secondary)]">No supported sealed product is available for this simulation run.</p>;
+  return <div className="space-y-4"><div><h3 className="text-xl font-semibold">Choose How You Open It</h3><div role="radiogroup" aria-label="Sealed product" className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{products.map((p) => <button key={p.sealedProductId} role="radio" aria-checked={selected.sealedProductId === p.sealedProductId} onClick={() => setSelectedId(p.sealedProductId)} className={`min-h-16 rounded-xl border p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${selected.sealedProductId === p.sealedProductId ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : "border-[var(--border-subtle)] bg-white/5"}`}><span className="block font-semibold">{p.productName}</span><span className="text-xs text-[var(--text-secondary)]">{number(p.packCount)} packs · {percent(p.targetProbabilityPerProduct)} chance</span></button>)}</div></div><dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Product Price">{money(selected.productPrice)}</Metric><Metric label="Expected Products">{number(selected.expectedProductsToHit, 2)}</Metric><Metric label="Gross Chase Spend">{money(selected.grossSpend)}</Metric><Metric label="Recovery-adjusted Cost">{money(selected.ripAcquisitionCost)}</Metric></dl><p className="text-xs leading-relaxed text-[var(--text-secondary)]">Recovery-adjusted figures credit incidental pulls at modeled Near Mint market value before fees, shipping, condition discounts, liquidity, or sell-through.</p></div>;
+}
+
+function CardIntelligence({ detail }) {
+  const chase = detail.chase || {};
+  return <section aria-labelledby="card-intelligence-title" className="set-glass-surface rounded-2xl border p-5 sm:p-6"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">Index Plus</p><h2 id="card-intelligence-title" className="mt-1 text-2xl font-semibold">Card Intelligence</h2>{!chase.available ? <p className="mt-4 text-sm text-[var(--text-secondary)]">Modeled Card Intelligence is not currently available for this card.</p> : <div className="mt-5 space-y-5"><dl className="grid gap-3 sm:grid-cols-3"><Metric label="Pull Odds">1 in {number(chase.impliedOddsOneInN, 2)} packs</Metric><Metric label="Expected Packs">{number(chase.expectedPacksToHit, 2)}</Metric>{finite(chase.expectedSpend) !== null ? <Metric label="Expected Spend">{money(chase.expectedSpend)}</Metric> : null}</dl><ProbabilityJourney chase={chase}/><ProductEconomics chase={chase}/></div>}</section>;
+}
+
+function CollectorIntelligence({ intelligence }) {
+  const metrics = [["Card Appeal", intelligence?.cardAppeal], ["Pokémon Demand", intelligence?.pokemonDemand], ["Card Treatment", intelligence?.treatment], ["Scarcity", intelligence?.scarcity]];
+  return <section aria-labelledby="collector-title" className="set-glass-surface rounded-2xl border p-5 sm:p-6"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">Index Plus</p><h2 id="collector-title" className="mt-1 text-2xl font-semibold">Collector Intelligence</h2><p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">Card Appeal is a collector-interest signal combining Pokémon demand and this card’s collectible treatment. It is not a price prediction.</p><dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{metrics.map(([label, metric]) => <Metric key={label} label={label}>{metric?.available ? score(metric.score) : label === "Pokémon Demand" ? "Not applicable" : "Unavailable"}</Metric>)}</dl></section>;
 }
 
 export default function PokemonCardDetailClient({ initialDetail }) {
   const [detail, setDetail] = useState(initialDetail);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
+  const { user } = useAuth();
   const router = useRouter();
-  const selectVariant = (variantId) => startTransition(async () => {
-    setError(null);
-    try {
-      const next = await getPokemonCardDetail(detail.set.id, detail.card.id, variantId);
-      setDetail(next);
-      router.replace(`/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}?variant=${encodeURIComponent(variantId)}`, { scroll: false });
-    } catch (requestError) { setError(requestError.message); }
-  });
-  const chase = detail.chase || {};
-  const selectedVariant = detail.availableVariants.find((variant) => variant.cardVariantId === detail.selectedVariantId);
-  return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(13,148,136,.16),transparent_35%),#050914] px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <nav aria-label="Breadcrumb" className="text-sm text-slate-400"><Link className="rounded hover:text-teal-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-300" href={`/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}`}>{detail.set.name}</Link><span aria-hidden="true"> / </span><span>{detail.card.name}</span></nav>
-        <section className="grid items-start gap-7 md:grid-cols-[minmax(220px,340px)_1fr]">
-          {detail.card.imageLargeUrl || detail.card.imageSmallUrl ? (
-            <Image src={detail.card.imageLargeUrl || detail.card.imageSmallUrl} alt={`${detail.card.name} card artwork`} width={734} height={1024} priority className="mx-auto max-h-[58vh] h-auto w-auto max-w-full rounded-2xl object-contain drop-shadow-2xl md:max-h-none" />
-          ) : (
-            <div className="mx-auto flex aspect-[3/4] w-full max-w-[340px] items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm text-slate-400">Card artwork unavailable</div>
-          )}
-          <div className="space-y-6"><div><p className="text-sm font-semibold text-teal-300">{detail.set.name}</p><h1 className="mt-1 text-4xl font-bold tracking-tight sm:text-5xl">{detail.card.name}</h1><p className="mt-2 text-slate-300">{[detail.card.printedNumber || detail.card.cardNumber, detail.card.rarity, detail.card.subtypes?.join(" / ")].filter(Boolean).join(" Â· ")}</p></div>
-            <VariantSelector detail={detail} onSelect={selectVariant} pending={pending} />
-            {error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
-            <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Selected printing</p><p className="mt-1 font-semibold">{selectedVariant?.label || (detail.variantSelection.state === "selection_required" ? "Choose a printing" : "Unavailable")}</p></div><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Current market price</p><p className="mt-1 text-xl font-semibold">{money(detail.market.currentPrice)}</p></div><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Price observed</p><p className="mt-1 font-semibold">{detail.market.marketDate || "Unavailable"}</p></div></div>
-            {chase.available ? <div className="rounded-2xl border border-teal-300/25 bg-teal-300/10 p-5"><p className="text-xs font-semibold uppercase tracking-[.18em] text-teal-300">How rare is it?</p><div className="mt-2 flex flex-wrap items-end gap-x-8 gap-y-2"><p className="text-4xl font-bold">1 in {number(chase.impliedOddsOneInN, 2)}</p><p className="pb-1 text-slate-200">{percent(chase.modeledProbability)} per modeled pack</p></div><p className="mt-2 text-sm text-slate-300">Expected packs to hit (long-run average): {number(chase.expectedPacksToHit, 2)}</p></div> : null}
-          </div>
-        </section>
-        {detail.variantSelection.state === "selection_required" ? <section className="rounded-2xl border border-amber-300/25 bg-amber-300/5 p-6"><h2 className="text-xl font-semibold">Choose a printing to see Chase economics</h2><p className="mt-2 text-sm text-slate-300">This canonical card has multiple modeled variants with different pull rates. No printing has been selected arbitrarily.</p></section> : null}
-        {detail.variantSelection.state === "unavailable" || (!chase.available && detail.variantSelection.state !== "selection_required") ? <section className="rounded-2xl border border-white/10 bg-white/5 p-6"><h2 className="text-xl font-semibold">Modeled Chase data is unavailable for this card.</h2><p className="mt-2 text-sm text-slate-300">Card identity and available market information remain shown above.</p></section> : null}
-        {chase.available ? <><ProbabilityJourney chase={chase} /><ProductEconomics chase={chase} /><section className="rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="text-xl font-semibold">Model assumptions & disclosures</h2><ul className="mt-3 grid gap-2 text-sm text-slate-300 sm:grid-cols-2"><li>Pull rates and product composition are modeled, not guaranteed.</li><li>Opening outcomes remain random and independent under the model.</li><li>Card and sealed-product prices use the displayed current provenance clocks.</li><li>Recovery model: <code>gross_market_value</code>; no liquidation haircut.</li></ul></section></> : null}
-      </div>
-    </main>
-  );
+  const entitled = hasIndexPlusAccess(user?.index_plan);
+  const selectedVariant = detail.availableVariants.find((v) => v.cardVariantId === detail.selectedVariantId);
+  const artwork = detail.set.heroImageUrl || detail.set.logoImageUrl || detail.set.symbolImageUrl;
+  const selectVariant = (variantId) => startTransition(async () => { try { setError(null); const next = await getPokemonCardDetail(detail.set.id, detail.card.id, variantId); setDetail(next); router.replace(`/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}?variant=${encodeURIComponent(variantId)}`, { scroll: false }); } catch (e) { setError(e.message); } });
+  return <main className="index-environment set-detail-glass-scope min-h-screen px-4 pb-12 pt-6 text-[var(--text-primary)] sm:px-6 lg:px-8"><PageArtworkAtmosphere src={artwork} dataAttribute="data-card-set-ambient-artwork"/><div className="relative mx-auto max-w-[1400px] space-y-5"><nav aria-label="Breadcrumb" className="text-sm text-[var(--text-secondary)]"><Link className="hover:text-[var(--accent)]" href={`/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}`}>{detail.set.name}</Link><span aria-hidden="true"> / </span><span>{detail.card.name}</span></nav><section className="grid items-start gap-5 md:grid-cols-[minmax(210px,34%)_minmax(0,1fr)] lg:gap-8"><div className="order-2 flex justify-center md:order-1">{detail.card.imageLargeUrl || detail.card.imageSmallUrl ? <Image src={detail.card.imageLargeUrl || detail.card.imageSmallUrl} alt={`${detail.card.name} card artwork`} width={734} height={1024} priority className="h-auto max-h-[48vh] w-auto max-w-full object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)] md:max-h-[680px]"/> : <div className="flex aspect-[734/1024] w-full max-w-[330px] items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-white/5 text-sm text-[var(--text-secondary)]">Card artwork unavailable</div>}</div><div className="order-1 min-w-0 space-y-4 md:order-2"><header><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">{detail.set.name}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{detail.card.name}</h1><p className="mt-2 text-sm text-[var(--text-secondary)]">{[detail.card.rarity, detail.card.printedNumber || detail.card.cardNumber].filter(Boolean).join(" · ")}</p></header><AssetMarketPanel market={detail.market}/><VariantSelector detail={detail} onSelect={selectVariant} pending={pending}/>{error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}</div></section><section aria-labelledby="details-title" className="set-glass-surface rounded-2xl border p-5"><h2 id="details-title" className="text-lg font-semibold">Card Details</h2><dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-5"><div><dt className="text-[var(--text-secondary)]">Set</dt><dd className="mt-1 font-medium">{detail.set.name}</dd></div><div><dt className="text-[var(--text-secondary)]">Card Number</dt><dd className="mt-1 font-medium">{detail.card.printedNumber || detail.card.cardNumber || "Unavailable"}</dd></div><div><dt className="text-[var(--text-secondary)]">Rarity</dt><dd className="mt-1 font-medium">{detail.card.rarity || "Unavailable"}</dd></div><div><dt className="text-[var(--text-secondary)]">Printing</dt><dd className="mt-1 font-medium">{selectedVariant?.label || "Unavailable"}</dd></div><div><dt className="text-[var(--text-secondary)]">Market Price As Of</dt><dd className="mt-1 font-medium">{dateLabel(detail.market.marketDate)}</dd></div></dl></section>{entitled ? <><CardIntelligence detail={detail}/><CollectorIntelligence intelligence={detail.intelligence}/></> : <><PlusLock title="Card Intelligence"/><PlusLock title="Collector Intelligence"/></>}<details className="set-glass-surface rounded-2xl border p-5 text-sm text-[var(--text-secondary)]"><summary className="cursor-pointer font-semibold text-[var(--text-primary)]">Methodology & Provenance</summary><ul className="mt-3 grid gap-2 sm:grid-cols-2"><li>Market points are real variant and condition observations.</li><li>Pull rates and product composition are modeled, not guaranteed.</li><li>Opening outcomes are independent under the model assumptions.</li><li>Market source: {detail.market.source || "Unavailable"}; recovery model: {detail.chase?.recoveryModel || "Unavailable"}.</li></ul></details></div></main>;
 }

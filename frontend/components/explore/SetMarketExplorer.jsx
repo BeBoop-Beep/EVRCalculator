@@ -90,7 +90,7 @@ function ChangeText({ movement, windowKey, className = "" }) {
   const glyph = direction === "positive" ? "▲" : direction === "negative" ? "▼" : "—";
   return (
     <span className={`tabular-nums ${className}`} style={{ color: toneOf(direction) }}>
-      {`${glyph} ${signedCurrency.format(amount)} (${percent >= 0 ? "+" : ""}${percent.toFixed(1)}%)`}
+      {`${glyph} ${signedCurrency.format(amount)} (${percent >= 0 ? "+" : ""}${percent.toFixed(1)}%) · ${windowLabel(windowKey)}`}
     </span>
   );
 }
@@ -121,9 +121,9 @@ function movementWithIndexReturn(target, windowKey) {
 }
 
 function formatMarketIndex(value) {
-  if (value === null || value === undefined || value === "") return "â€”";
+  if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(2) : "â€”";
+  return Number.isFinite(number) ? number.toFixed(2) : "—";
 }
 
 /**
@@ -409,19 +409,20 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
       </div>
 
       <div className="mt-3">
-        <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+        <p>
           <span data-set-market-detail-value className="text-[24px] font-semibold leading-none tabular-nums text-[var(--text-primary)]">
             {currency.format(selected.value)}
           </span>
-          <ChangeText movement={detailMovement} windowKey={activeDetailWindowKey} className="text-[13px] font-semibold" />
         </p>
-        <p data-set-market-detail-window={activeDetailWindowKey} className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-          {`Set Value · ${windowLabel(activeDetailWindowKey)}`}
-          {detailMovement?.coverage === "partial" ? <span> · since first available</span> : null}
-        </p>
-        <p data-set-market-detail-index className="mt-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-          Market Index <span className="tabular-nums text-[var(--text-primary)]">{formatMarketIndex(selected.target?.marketIndex?.currentValue)}</span>
-        </p>
+        <div data-set-market-detail-secondary-metrics className="mt-1 space-y-0 leading-tight">
+          <p data-set-market-detail-window={activeDetailWindowKey}>
+            <ChangeText movement={detailMovement} windowKey={activeDetailWindowKey} className="text-[13px] font-semibold" />
+            {detailMovement?.coverage === "partial" ? <span className="text-[10px] text-[var(--text-secondary)]"> · since first available</span> : null}
+          </p>
+          <p data-set-market-detail-index className="text-[11px] font-medium text-[var(--text-secondary)]">
+            Market Index <span className="tabular-nums text-[var(--text-primary)]">{formatMarketIndex(selected.target?.marketIndex?.currentValue)}</span>
+          </p>
+        </div>
       </div>
 
       <div className="mt-3 min-w-0">

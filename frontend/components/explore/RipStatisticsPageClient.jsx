@@ -3952,8 +3952,12 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
   const breadth = useMemo(
-    () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
-    [cardsMarket, effectiveWindowKey]
+    () => selectPreparedMarketBreadth({
+      marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth,
+      windowKey: effectiveWindowKey,
+      totalTrackedCount: cardsTrend.trackedItemCount,
+    }),
+    [cardsMarket, cardsTrend.trackedItemCount, effectiveWindowKey]
   );
   // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
   // Standard and Top 10 set-value scopes, not a full Cards Market Index

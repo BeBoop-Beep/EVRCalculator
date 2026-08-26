@@ -228,7 +228,8 @@ test("segment rows are clickable and switch the left chart", () => {
 test("breadth and concentration use authoritative data or render unavailable", () => {
   const section = componentSource("SetMarketOverviewSection");
   const rail = componentSource("SetSignalsRail");
-  assert.ok(section.includes("selectPreparedMarketBreadth({ marketBreadth"), "breadth reads cardsMarket.marketBreadth");
+  assert.ok(section.includes("selectPreparedMarketBreadth({"), "breadth uses the prepared selector");
+  assert.ok(section.includes("marketBreadth: cardsMarket?.marketBreadth"), "breadth reads cardsMarket.marketBreadth");
   assert.ok(section.includes("selectChaseConcentration({ top10Value"), "concentration reads the published scopes");
   assert.ok(signals.includes("data-breadth-unavailable"), "breadth degrades gracefully");
   assert.ok(signals.includes("data-concentration-unavailable"), "concentration degrades gracefully");
