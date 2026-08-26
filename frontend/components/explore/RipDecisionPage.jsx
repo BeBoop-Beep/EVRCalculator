@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { buildRipDecisionModel } from "./ripDecisionModel.mjs";
 import {
@@ -12,7 +13,8 @@ import { selectCollectorAppealBreakdown } from "./collectorAppealBreakdownSelect
 import FinancialRipV3Breakdown from "./FinancialRipV3Breakdown.jsx";
 import CollectorAppealBreakdown from "./CollectorAppealBreakdown.jsx";
 import RipDistributionChart from "./RipDistributionChart";
-import SimulationFullReport from "./SimulationFullReport.jsx";
+import SimulationFullReport, { SimulationDiagnostics } from "./SimulationFullReport.jsx";
+import EvRepresentativenessSection from "./simulation-evidence/EvRepresentativenessSection.jsx";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
@@ -26,6 +28,7 @@ import {
 import { CollectorDriverSubjects } from "./RipStoryEvidence.jsx";
 import { getRipTierPresentation } from "./ripTierPresentation.mjs";
 import styles from "./RipDecisionPage.module.css";
+import { ANALYTICAL_ACTION_CLASS } from "@/components/ui/analyticalInteraction.mjs";
 import ProductOpeningValue, {
   ENTERTAINMENT_COST_PER_PACK_HELP,
   ENTERTAINMENT_COST_HELP,
@@ -737,16 +740,6 @@ export default function RipDecisionPage({
       help: "Roster desirability and the frequency of desirable modeled outcomes.",
     },
   };
-  // Kept for Simulation Evidence (section 6), which still shows all five as
-  // a compact metric rail alongside the distribution chart.
-  const openingMetrics = [
-    ["Pack Price", money(model.packCost), "Current modeled cost", false],
-    ["Typical Opening", money(p50 ?? model.typicalOpening), "P50 / median"],
-    ["Expected Value", money(model.expectedValue), "Long-run average"],
-    ["Chance to Recover Cost", probability(model.recoverCostProbability), "Return at least pack price"],
-    ["Strong Upside", p95 === null ? "—" : `${money(p95)}+`, "P95 threshold", true],
-    ["Jackpot Upside", p99 === null ? "—" : `${money(p99)}+`, "P99 / top 1% threshold", true],
-  ];
   const heroProduct = heroPick?.product || null;
   const heroPerPack = heroProduct?.entertainmentCost?.available ? heroProduct.entertainmentCost.perPack : null;
   const heroPricePerPack =
@@ -755,6 +748,10 @@ export default function RipDecisionPage({
       : null;
   const heroValueBackPct = heroProduct ? pctOfPrice(heroProduct.typicalOpening, heroProduct.marketPrice) : null;
   const heroFamilyName = heroProduct ? familyLabel(heroProduct.family) : null;
+  const chartMarkersForAccess = canViewProductRipIntelligence ? chartMarkers : [
+    ...(Array.isArray(chartMarkers) ? chartMarkers.filter((marker) => ["pack-cost", "median", "mean"].includes(marker?.key)) : []),
+    ...[["p25", "P25"], ["p75", "P75"], ["bad-floor", "Bad Floor"], ["big-hit", "Big Hit Threshold"], ["big-hit-upside", "Strong Upside"], ["god-pull-upside", "Jackpot Upside"], ["max", "Best Pull"]].map(([key, label]) => ({ key, label, value: null, locked: true })),
+  ];
 
   return (
     <section
@@ -773,19 +770,18 @@ export default function RipDecisionPage({
         </div>
         {overallOpen ? <div id="overall-rip-explanation" className={styles.overallDisclosure}>Overall RIP combines Financial RIP opening economics with Collector Appeal.</div> : null}
         <p className={styles.compactScoreTakeaway}>{model.takeaway}</p>
-        <dl className={styles.snapshotMetrics}>
-          <div><dt>Pack Price <InfoPopover text="The current normalized market price of one modeled pack." /></dt><dd>{money(model.packCost)}</dd></div>
-          <div><dt>Typical Opening <InfoPopover text="The median modeled opening value (P50): half of modeled openings finish above it and half below." /></dt><dd>{money(p50 ?? model.typicalOpening)}</dd></div>
-          <div><dt>Expected Value <InfoPopover text="The long-run average modeled card value per opening. Individual openings commonly differ from this average." /></dt><dd>{money(model.expectedValue)}</dd></div>
-          <div><dt>Chance to Recover Cost <InfoPopover text="The modeled probability that an opening returns at least the applicable purchase price." /></dt><dd>{probability(model.recoverCostProbability)}</dd></div>
-        </dl>
       </article>
+
+      <div data-rip-section="compare-products" className={`${styles.sectionIntro} scroll-mt-24 md:scroll-mt-28`}>
+        <p className={styles.eyebrow}>2. Compare ways to open {setName || "this set"}</p>
+        <h2 className={styles.sectionTitle}>Compare Ways to Open</h2>
+      </div>
 
       {/* ============================================================
           1. BEST WAY TO OPEN [SET] — the decision, first.
           ============================================================ */}
-      {canViewProductRipIntelligence ? <article data-rip-section="hero-recommendation" className={`${styles.panel} set-glass-surface ${styles.heroPanel}`}>
-        <p className={styles.eyebrow}>2. Best way to open {setName || "this set"}</p>
+      {canViewProductRipIntelligence ? <article data-rip-subsection="best-way-to-open" className={`${styles.panel} set-glass-surface ${styles.heroPanel}`}>
+        <p className={styles.eyebrow}>Best way to open {setName || "this set"}</p>
         {!heroProduct ? (
           <p className={styles.unavailableNote}>
             {decision.contractPresent === false
@@ -832,7 +828,7 @@ export default function RipDecisionPage({
                   </span>
                   {heroProduct.overallRipScore === null ? null : (
                     <span className={styles.heroBadge}>
-                      {score(heroProduct.overallRipScore)} Overall RIP
+                      {score(heroProduct.overallRipScore)} RIP Score
                     </span>
                   )}
                 </div>
@@ -882,18 +878,12 @@ export default function RipDecisionPage({
                 <p>Beat your purchase price</p>
               </div>
             </dl>
-            {/* No canonical sealed-product detail route is wired to this page
-                yet, so this stays a disabled, non-navigating affordance
-                rather than linking to an invented URL. TODO: point at the
-                real product-detail route once one exists. */}
-            <span
-              role="button"
-              aria-disabled="true"
-              title="Product detail page not yet available"
-              className={styles.heroCtaDisabled}
+            {heroProduct.sealedProductId ? <Link
+              href={`/sealed-products/${encodeURIComponent(heroProduct.sealedProductId)}`}
+              className={`${styles.heroCta} ${ANALYTICAL_ACTION_CLASS}`}
             >
               View Product <span aria-hidden="true">→</span>
-            </span>
+            </Link> : null}
           </div>
         )}
         <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
@@ -906,8 +896,7 @@ export default function RipDecisionPage({
           2. COMPARE WAYS TO OPEN [SET]
           ============================================================ */}
       {familyGroups.length === 0 ? null : (
-        <article data-rip-section="compare-products" className={`${styles.panel} set-glass-surface`}>
-          <p className={styles.eyebrow}>2. Compare ways to open {setName || "this set"}</p>
+        <article data-rip-subsection="product-comparison" className={`${styles.panel} set-glass-surface`}>
           <h2 className={styles.sectionTitle}>Product Comparison</h2>
           <p className={styles.sectionLede}>
             Compare each way to open this set. Product Rank and RIP Score compare each product only
@@ -924,10 +913,10 @@ export default function RipDecisionPage({
               labels per product was the exact complaint this rebuild fixes. */}
           <div className="mt-3 hidden overflow-x-auto rounded-xl border border-[var(--border-subtle)] lg:block">
             <table className={`${rankingStyles.table} min-w-[960px]`} data-set-product-comparison-table>
-              <colgroup><col className="w-[5.5rem]" /><col className="w-[17rem]" /><col className="w-[5rem]" /><col className="w-[4rem]" /><col span="2" className="w-[6.25rem]" /><col className="w-[8rem]" /><col className="w-[8rem]" /><col className="w-[6.25rem]" /></colgroup>
+              <colgroup><col className="w-[7rem]" /><col className="w-[16rem]" /><col className="w-[5rem]" /><col className="w-[4rem]" /><col span="2" className="w-[6.25rem]" /><col className="w-[8rem]" /><col className="w-[8rem]" /><col className="w-[6.25rem]" /></colgroup>
               <caption className="sr-only">Sealed-product opening economics for {setName || "this set"}</caption>
               <thead className={rankingStyles.head}><tr>
-                <th scope="col"><RankedProductHeader text="Ranks this product against other products of the same type. Booster Packs are compared with Booster Packs, ETBs with ETBs, Booster Boxes with Booster Boxes, and so on.">Product Rank</RankedProductHeader></th>
+                <th scope="col" className="whitespace-normal"><RankedProductHeader text="Ranked against eligible modeled products of the same product family.">Product Rank</RankedProductHeader></th>
                 <th scope="col">Product</th>
                 <th scope="col"><RankedProductHeader text="How close this product's Overall RIP performance is to the strongest eligible product of the same type.">RIP Score</RankedProductHeader></th>
                 <th scope="col"><RankedProductHeader info={<PublicRipTierInfo />}>Tier</RankedProductHeader></th>
@@ -1015,7 +1004,7 @@ export default function RipDecisionPage({
             <RipDistributionChart
               bins={distributionBins}
               thresholdBins={thresholdBins}
-              markers={chartMarkers}
+              markers={chartMarkersForAccess}
               showTitle={false}
               flush
             />
@@ -1027,9 +1016,6 @@ export default function RipDecisionPage({
             </p>
           )}
         </div>
-        <dl className={styles.snapshotMetrics}>
-          {openingMetrics.filter((metric) => canViewProductRipIntelligence || metric[3] !== true).map(([label, value, helper]) => <div key={label}><dt>{label}</dt><dd>{value}</dd><p>{helper}</p></div>)}
-        </dl>
         <SimulationFullReport
           canonical={canonical}
           summary={summary}
@@ -1062,6 +1048,21 @@ export default function RipDecisionPage({
         </div> : null}
 
         {canViewProductRipIntelligence ? <>
+        <DeepDiveRow
+          id="deep-dive-ev-realization"
+          title="When Does EV Start Looking Real?"
+          subtitle="EV realization and convergence for real-sized opening runs"
+        >
+          <EvRepresentativenessSection summary={summary} percentiles={percentiles} evRepresentativeness={evRepresentativeness} calculationRunId={calculationRunId} headingId="deep-dive-ev-realization-heading" />
+        </DeepDiveRow>
+
+        <DeepDiveRow
+          id="deep-dive-downside-upside"
+          title="Downside & Upside"
+          subtitle="Compact outcome, tail and distribution diagnostics"
+        >
+          <SimulationDiagnostics canonical={canonical} summary={summary} percentiles={percentiles} />
+        </DeepDiveRow>
 
         <DeepDiveRow
           id="deep-dive-ev-contribution"

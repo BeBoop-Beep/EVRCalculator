@@ -3689,8 +3689,13 @@ function MarketSegmentRow({ row, active, onSelect }) {
   const amountText = row.available ? formatSignedMoney(row.deltaAmount) : null;
   const percentText = row.available ? formatSignedPercentValue(row.deltaPercent) : null;
   const className = `w-full min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-    active ? "border-[var(--accent)] bg-[var(--accent)]/10" : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
-  } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-default opacity-70"}`;
+    // CANONICAL MARKET GREEN, not the site's yellow --accent. This is the
+    // same rgb(45,212,191) family Market Explorer's "Open Market Explorer"
+    // CTA and the approved TimeRangeSelector already use for selection —
+    // reused here rather than invented, so Set Market has one interaction
+    // color instead of a second one.
+    active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.10)]" : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
+  } ${row.selectable ? "hover:border-[rgba(45,212,191,0.6)]" : "cursor-default opacity-70"}`;
 
   const body = (
     <>
@@ -3862,9 +3867,9 @@ function MarketValueTrendPanel({
               onClick={() => onSegmentChange?.(row.key)}
               className={`min-h-9 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                 row.key === activeSegmentKey
-                  ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]"
+                  ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]"
                   : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-[var(--text-secondary)]"
-              } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-not-allowed opacity-50"}`}
+              } ${row.selectable ? "hover:border-[rgba(45,212,191,0.6)]" : "cursor-not-allowed opacity-50"}`}
             >
               {row.label}
             </button>
@@ -3956,7 +3961,7 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
@@ -4009,9 +4014,12 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
     [cardsMarket, effectiveWindowKey]
   );
+  // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
+  // Standard and Top 10 set-value scopes, not a full Cards Market Index
+  // history — see the prop's own comment at the call site.
   const concentration = useMemo(
-    () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),
-    [cardsTrend.currentValue, top10Value]
+    () => selectChaseConcentration({ top10Value, cardsValue: standardValue }),
+    [standardValue, top10Value]
   );
 
   return (
@@ -4056,7 +4064,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
  * There is NO movers strip in here. 7D movers is Section 1's job, and repeating
  * it would make the reader check two places for one answer.
  */
-function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
   const [lens, setLens] = useState("cards");
   const sealedState = useSealedSetMarket(setId);
   const sealedProducts = useMemo(
@@ -4096,6 +4104,12 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
     return selectSegmentTrend({ history, selectedWindowKey, trackedItemNoun: "Cards" });
   }, [lens, marketAsOfDate, selectedCard, selectedWindowKey]);
 
+  // NONE until setSlug and a resolvable card identity both exist — never a
+  // href="#" and never a guessed id. See buildPokemonCardHref for the
+  // identity fallback order (canonicalCardId, then id).
+  const cardDetailHref = lens === "cards" && setSlug && selectedCard
+    ? buildPokemonCardHref(setSlug, selectedCard)
+    : null;
   const heroImageUrl = selectedCard ? readCardHeroImageUrl(selectedCard) : null;
   const windowLabel = getDeltaWindowLabel(cardTrend.effectiveWindowKey || selectedWindowKey) || "Trend";
   const trendDirection =
@@ -4137,7 +4151,7 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
     >
       <div className="mb-4 flex gap-1.5" role="tablist" aria-label="Top 10 market lens">
         {["cards", "sealed"].map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
             {key === "cards" ? "Cards" : "Sealed"}
           </button>
         ))}
@@ -4156,8 +4170,8 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
                   onClick={() => setSelectedKey(row.key)}
                   className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
                     active
-                      ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 hover:border-[var(--accent)]/50"
+                      ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.10)]"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 hover:border-[rgba(45,212,191,0.5)]"
                   }`}
                 >
                   <span className="w-6 flex-none text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
@@ -4173,10 +4187,15 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
                   <span className="flex-none text-right">
                     <span className="block text-sm font-semibold text-[var(--text-primary)]">{row.priceText || "—"}</span>
                     {row.hasMovement ? (
-                      <span className={`block text-[11px] ${deltaToneClassName(row.amount ?? row.percent)}`}>
+                      <span className={`flex items-center justify-end gap-1 text-[11px] ${deltaToneClassName(row.amount ?? row.percent)}`}>
+                        <DeltaTrendIcon value={row.amount ?? row.percent} />
                         {[row.amountText, row.percentText].filter(Boolean).join(" ")}
                       </span>
-                    ) : null}
+                    ) : (
+                      // No comparable window for this card — an explicit dash,
+                      // never a fabricated 0.0% and never a false arrow.
+                      <span className="block text-[11px] text-[var(--text-secondary)]">—</span>
+                    )}
                   </span>
                 </button>
               </li>
@@ -4189,17 +4208,73 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
           {/* ZONE A — detail. Artwork left, metadata right. The artwork is
               height-constrained here and appears nowhere else in this column. */}
           <div data-chase-detail-zone className="flex min-w-0 items-start gap-4">
-            <CardArtworkFrame
-              imageUrl={heroImageUrl}
-              alt={selectedRow ? `${selectedRow.name} card artwork` : ""}
-              initials={selectedRow?.initials}
-              className="h-40 flex-none desk:h-48"
-            />
+            {/* IMAGE, NAME and VIEW CARD all point at the ONE routing
+                authority — buildPokemonCardHref, the same helper the
+                checklist grid already uses to reach the real
+                /TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId] page. A card
+                whose identity does not resolve (no canonicalCardId/id) gets
+                a null href from that helper, and every one of the three
+                entry points degrades to non-interactive together rather
+                than three independently-guessed hrefs. */}
+            {lens === "cards" && cardDetailHref ? (
+              <a
+                href={cardDetailHref}
+                aria-label={`View ${selectedRow?.name || "card"} details`}
+                className="flex-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              >
+                <CardArtworkFrame
+                  imageUrl={heroImageUrl}
+                  alt=""
+                  initials={selectedRow?.initials}
+                  className="h-40 flex-none desk:h-48"
+                />
+              </a>
+            ) : (
+              <CardArtworkFrame
+                imageUrl={heroImageUrl}
+                alt={selectedRow ? `${selectedRow.name} card artwork` : ""}
+                initials={selectedRow?.initials}
+                className="h-40 flex-none desk:h-48"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-semibold text-[var(--text-primary)]">{selectedRow?.name || "—"}</p>
+              {lens === "cards" && cardDetailHref ? (
+                <a
+                  href={cardDetailHref}
+                  className="block truncate text-lg font-semibold text-[var(--text-primary)] hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                >
+                  {selectedRow?.name || "—"}
+                </a>
+              ) : (
+                <p className="truncate text-lg font-semibold text-[var(--text-primary)]">{selectedRow?.name || "—"}</p>
+              )}
               <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
                 {[selectedRow?.rarity, selectedRow?.cardNumber].filter(Boolean).join(" · ") || "—"}
               </p>
+              {lens === "cards" ? (
+                <div className="mt-2">
+                  {cardDetailHref ? (
+                    <a
+                      href={cardDetailHref}
+                      data-top-chase-view-card
+                      className="inline-flex min-h-8 items-center rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                    >
+                      View Card
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      data-top-chase-view-card
+                      aria-disabled="true"
+                      disabled
+                      title="Card details are unavailable for this listing."
+                      className="inline-flex min-h-8 cursor-not-allowed items-center rounded-md border border-[var(--border-subtle)] bg-transparent px-2.5 text-[11px] font-semibold text-[var(--text-secondary)] opacity-60"
+                    >
+                      View Card
+                    </button>
+                  )}
+                </div>
+              ) : null}
               <div className="mt-3">
                 <MarketValueChange
                   value={cardTrend.currentValue ?? selectedRow?.price ?? null}
@@ -11263,6 +11338,23 @@ export default function RipStatisticsPageClient({
     }
     return null;
   }, [activeSetValueHistory.historiesByScope]);
+  // Chase Concentration's OTHER input, read the same independent way. It must
+  // NOT come from the Cards Market Index trend (`cardsTrend.currentValue`):
+  // that figure is gated on the Cards Market Index having a full chain-linked
+  // history, while Chase Concentration only needs the current Standard and
+  // Top 10 set-value scopes to agree on a date. A set whose Cards Market
+  // Index is unavailable can still have both scopes, and Chase Concentration
+  // must render for it — see selectChaseConcentration's independence
+  // contract in setMarketOverviewModel.mjs.
+  const setValueStandardCurrentValue = useMemo(() => {
+    const points = activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history;
+    if (!Array.isArray(points) || points.length === 0) return null;
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+      if (value !== null) return value;
+    }
+    return null;
+  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -13967,9 +14059,20 @@ export default function RipStatisticsPageClient({
                         <SetMarketOverviewSection
                           setId={resolvedSetResourceId}
                           cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
-                          cardsMarket={activeMarketDashboardDerivedState.setValue.cardsMarket}
+                          // THE LIVE SOURCE. `activeMarketDashboardDerivedState` is
+                          // built from the retired monolithic /market/dashboard
+                          // fetch, which nothing on this page calls live any more
+                          // (Top Chase Cards and Market Movers moved to their own
+                          // slim endpoints — see the effect above) — so this prop
+                          // was permanently null except from a stale cache entry
+                          // or an SSR seed that never carries it either.
+                          // `effectiveSetValueDerivedState` is the payload the
+                          // Market tab actually fetches (the slim /overview
+                          // endpoint), which now also serves cardsMarket.
+                          cardsMarket={effectiveSetValueDerivedState.setValue.cardsMarket}
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
+                          standardValue={setValueStandardCurrentValue}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -13980,6 +14083,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
                         <TopChaseCardsPanel
                           setId={resolvedSetResourceId}
+                          setSlug={activeSetSlug}
                           cards={topPricedCards}
                           status={topPricedCardsStatus}
                           error={activeTopMarketCardsState.error}

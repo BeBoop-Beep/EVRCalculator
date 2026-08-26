@@ -9,7 +9,11 @@ const PUBLIC_RIP_HEADLINE_FIELDS = new Set([
   "status", "statusReason", "modelVersion", "marketDate", "asOfDate",
 ]);
 const ADVANCED_PAYLOAD_KEYS = new Set([
-  "productFamilyRankings", "evRepresentativeness", "rankings", "pack_paths", "packPaths",
+  "productFamilyRankings", "evRepresentativeness", "rankings", "pack_paths", "packPaths", "percentiles",
+]);
+const PUBLIC_SUMMARY_FIELDS = new Set([
+  "packCost", "pack_cost", "meanValue", "mean_value", "medianValue", "median_value",
+  "probProfit", "prob_profit", "calculationRunId", "calculation_run_id",
 ]);
 
 function publicProduct(product) {
@@ -44,6 +48,22 @@ function redactPublicRipContract(contract) {
   };
 }
 
+function publicOutcomeProfile(profile) {
+  if (!profile || typeof profile !== "object" || !Array.isArray(profile.buckets)) return profile;
+  const definitions = [
+    ["under-half", "Less Than Half Back", (row) => row.ceilingRatio != null && Number(row.ceilingRatio) <= .5, 0, .5],
+    ["half-to-cost", "Half Back to Under Cost", (row) => Number(row.floorRatio) >= .5 && row.ceilingRatio != null && Number(row.ceilingRatio) <= 1, .5, 1],
+    ["cost-to-two", "Recovered Cost to Under 2×", (row) => Number(row.floorRatio) >= 1 && row.ceilingRatio != null && Number(row.ceilingRatio) <= 2, 1, 2],
+    ["two-plus", "2× or More", (row) => Number(row.floorRatio) >= 2, 2, null],
+  ];
+  const buckets = definitions.map(([key, label, predicate, floorRatio, ceilingRatio]) => ({
+    key, label, floorRatio, ceilingRatio,
+    probability: profile.buckets.filter(predicate).reduce((sum, row) => sum + Number(row.probability || 0), 0),
+    interpretation: `${label}: share of modeled openings in this return range.`,
+  }));
+  return { ...profile, buckets, cumulativeProbabilities: [], premiumDetailIncluded: false };
+}
+
 function redactNode(value) {
   if (Array.isArray(value)) return value.map(redactNode);
   if (!value || typeof value !== "object") return value;
@@ -53,6 +73,10 @@ function redactNode(value) {
       result[key] = Array.isArray(child) ? [] : null;
     } else if (key === "ripDecision") {
       result[key] = redactDecision(child);
+    } else if (key === "summary") {
+      result[key] = Object.fromEntries(Object.entries(child || {}).filter(([field]) => PUBLIC_SUMMARY_FIELDS.has(field)));
+    } else if (key === "openingOutcomeProfile") {
+      result[key] = publicOutcomeProfile(child);
     } else if (/^publicRipContractV\d+$/.test(key)) {
       result[key] = redactPublicRipContract(child);
     } else {

@@ -97,10 +97,10 @@ function ratePercent(value) {
 
 /** Neutral wording for which side of break-even a product sits on. */
 function edgeSideLabel(edge) {
-  if (edge === null || edge === undefined) return "Model edge unavailable";
-  if (edge > 0) return "Above model break-even";
-  if (edge < 0) return "Below model break-even";
-  return "At model break-even";
+  if (edge === null || edge === undefined) return "Opening value gap unavailable";
+  if (edge > 0) return "above current market price";
+  if (edge < 0) return "below current market price";
+  return "equal to current market price";
 }
 
 function BreakEvenRow({ product, axis, selected, onSelect }) {
@@ -206,11 +206,11 @@ function SelectedProductPanel({ product }) {
     // PRIMARY — the existing product decision information, unchanged and first.
     { label: "Market Price", value: money(product.marketPrice), helper: "What it costs today" },
     {
-      label: "Model Break-Even",
+      label: "Opening Break-Even Price",
       value: money(product.modelBreakEvenPrice),
       helper: "Where modeled value equals price",
     },
-    { label: "Current Gap", value: percent(edge, { signed: true }), helper: edgeSideLabel(edge) },
+    { label: "Opening Value Gap", value: percent(edge, { signed: true }), helper: edgeSideLabel(edge) },
     { label: "Typical Opening", value: money(product.typicalOpening), helper: "Median simulated result" },
     {
       label: "Chance to Recover Cost",
@@ -382,6 +382,7 @@ export default function ProductOpeningValue({ decision, setName, onSelectProduct
         pack-count order; they are not ranked against one another.
       </p>
 
+      <p className={styles.breakEvenInstruction}>Select a product to inspect its opening economics.</p>
       <div className={styles.breakEvenScale} aria-hidden="true">
         <span>Below model break-even</span>
         <span className={styles.breakEvenScaleZero}>0%</span>

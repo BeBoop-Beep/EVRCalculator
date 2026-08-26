@@ -16,6 +16,7 @@ import {
   getPricePerformanceChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import styles from "./explore.module.css";
+import { ANALYTICAL_ACTION_CLASS, ANALYTICAL_ROW_LINK_CLASS } from "@/components/ui/analyticalInteraction.mjs";
 
 // FOUR columns: Market, Tracked Value, Market Index, Selected Period.
 //
@@ -80,19 +81,9 @@ function MarketSwatch({ color }) {
 // incidental white text.
 export const MARKET_EXPLORER_HREF = "/Market/Explorer";
 
-const EXPLORER_CTA_CLASS = [
-  "ml-auto inline-flex min-h-9 flex-none items-center gap-1.5 whitespace-nowrap rounded-md",
-  "border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold",
-  "text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
-  "desk:min-h-8",
-].join(" ");
+const EXPLORER_CTA_CLASS = `ml-auto desk:min-h-8 ${ANALYTICAL_ACTION_CLASS}`;
 
-const EXPLORER_ROW_LINK_CLASS = [
-  "text-[11px] font-semibold text-[rgba(45,212,191,0.9)] transition-colors",
-  "hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2",
-  "focus-visible:ring-[rgba(45,212,191,0.65)]",
-].join(" ");
+const EXPLORER_ROW_LINK_CLASS = ANALYTICAL_ROW_LINK_CLASS;
 
 export function marketExplorerHref(marketKey) {
   return marketKey ? `${MARKET_EXPLORER_HREF}?market=${encodeURIComponent(marketKey)}` : MARKET_EXPLORER_HREF;

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { applySetRipEntitlement } from "./setRipEntitlement.mjs";
+import { readCanonicalBlock, resolveCanonicalRipV7 } from "../../components/explore/canonicalRipV7.mjs";
 
 const payload = {
   productFamilyRankings: { families: { booster_box: { rank: 1 } } },
@@ -40,4 +41,18 @@ test("Basic set payload keeps facts and strips Index Plus decision intelligence"
 test("Index Plus receives the canonical premium publication unchanged", () => {
   assert.equal(applySetRipEntitlement(payload, { id: "plus", index_plan: "plus" }), payload);
   assert.equal(applySetRipEntitlement(payload, { id: "premium", index_plan: "premium" }), payload);
+});
+
+test("Basic redaction preserves authoritative V10/V4 set headline scores", () => {
+  const source = { publicRipContractV10: {
+    overallRip: { leaderNormalizedScore: 87.4, rank: 2, tier: "S", rankedSetCount: 20, components: { productRip: 100 } },
+    financialRip: { leaderNormalizedScore: 92.1, rank: 1, tier: "S", rankedSetCount: 20, components: { winFrequency: 99 } },
+    collectorAppeal: { relativeScore: 65.2, rank: 8, rankedSetCount: 20, components: { roster: 70 } },
+  } };
+  const redacted = applySetRipEntitlement(source, { index_plan: null });
+  const canonical = resolveCanonicalRipV7(redacted);
+  assert.equal(readCanonicalBlock(canonical.overall).publicScore, 87.4);
+  assert.equal(readCanonicalBlock(canonical.financialRip).publicScore, 92.1);
+  assert.equal(readCanonicalBlock(canonical.collectorAppeal).publicScore, 65.2);
+  assert.equal(redacted.publicRipContractV10.overallRip.components, undefined);
 });

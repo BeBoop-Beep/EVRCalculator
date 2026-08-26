@@ -209,8 +209,11 @@ test("segment rows are clickable and switch the left chart", () => {
   assert.ok(rail.includes("onSelect={onSegmentChange}"));
   assert.ok(row.includes("onClick={() => onSelect?.(row.key)}"));
   assert.ok(row.includes("aria-pressed={active}"));
-  // The selected row carries the teal active treatment.
-  assert.ok(row.includes("border-[var(--accent)]"));
+  // The selected row carries the canonical Market green — the SAME
+  // rgb(45,212,191) family Open Market Explorer and TimeRangeSelector use —
+  // never the site's yellow --accent.
+  assert.ok(row.includes("border-[rgb(45,212,191)]"));
+  assert.ok(!row.includes("var(--accent)"), "must not use the yellow accent for selection");
 });
 
 test("breadth and concentration use authoritative data or render unavailable", () => {
@@ -229,6 +232,46 @@ test("concentration reads the published top10 scope, not a re-sum of the chase l
   assert.ok(derivation.includes("historiesByScope?.top10"), "the value comes from the published top10 scope");
   const section = code(componentSource("SetMarketOverviewSection"));
   assert.ok(!/reduce\(/.test(section), "the frontend does not re-derive the canonical figure");
+});
+
+test("Chase Concentration is wired independently of the Cards Market Index trend", () => {
+  // THE REGRESSION THIS GUARDS: `selectChaseConcentration` was called with
+  // `cardsTrend.currentValue`, which is null whenever the Cards Market Index
+  // (chain-linked history) is unavailable — even when the Standard and Top 10
+  // set-value scopes both exist and agree on a date. That cascade made Chase
+  // Concentration disappear for the same reason Cards Market Index did,
+  // though the two are independent analytical contracts.
+  const start = page.indexOf("const setValueStandardCurrentValue");
+  assert.notEqual(start, -1, "a standalone Standard set-value reader must exist");
+  const derivation = page.slice(start, start + 700);
+  assert.ok(derivation.includes("historiesByScope?.standard"), "reads the published standard scope directly");
+
+  const section = code(componentSource("SetMarketOverviewSection"));
+  assert.ok(
+    section.includes("selectChaseConcentration({ top10Value, cardsValue: standardValue })"),
+    "concentration must read the independent standard-scope value, not cardsTrend.currentValue"
+  );
+  assert.ok(
+    !/selectChaseConcentration\(\{[^}]*cardsTrend\.currentValue/.test(section),
+    "concentration must never be gated on the Cards Market Index trend's availability"
+  );
+});
+
+test("Cards Market Index reads the LIVE overview payload, not the retired dead dashboard fetch", () => {
+  // THE OTHER REGRESSION THIS GUARDS: nothing on this page calls the
+  // monolithic /market/dashboard endpoint live any more (Top Chase Cards and
+  // Market Movers moved to their own slim endpoints), so
+  // `activeMarketDashboardDerivedState` was permanently empty except from a
+  // stale cache hit or an SSR seed that never carries cardsMarket either.
+  const callSite = page.slice(page.indexOf("<SetMarketOverviewSection"), page.indexOf("<SetMarketOverviewSection") + 1600);
+  assert.ok(
+    callSite.includes("cardsMarket={effectiveSetValueDerivedState.setValue.cardsMarket}"),
+    "Cards Market Index must read the same live payload the Market tab actually fetches"
+  );
+  assert.ok(
+    !callSite.includes("activeMarketDashboardDerivedState.setValue.cardsMarket"),
+    "must not read from the dead legacy dashboard state"
+  );
 });
 
 test("no Low / Medium / High banding is invented for concentration", () => {
@@ -435,7 +478,15 @@ test("the master-detail proportions target the approved 35-40 / 60-65 split", ()
 test("selecting any of the ten rows updates the right-hand detail, never navigates away", () => {
   const chase = code(componentSource("TopChaseCardsPanel"));
   assert.ok(chase.includes("onClick={() => setSelectedKey(row.key)}"), "a click sets local selection state");
-  assert.ok(!/window\.location|router\.push|<a\s+href/.test(chase), "no row is a navigation link");
+  // Scoped to the RANKED LIST only. The detail pane legitimately gained real
+  // navigation (image/name/"View Card", all through the one
+  // buildPokemonCardHref routing authority) once this component started
+  // reading a resolvable card identity — that is a different affordance from
+  // the list rows, which must stay local selection.
+  const listStart = chase.indexOf("data-top-chase-list");
+  const detailStart = chase.indexOf("data-top-chase-detail");
+  const listSection = chase.slice(listStart, detailStart);
+  assert.ok(!/window\.location|router\.push|<a\s+href/.test(listSection), "no ranked-list row is a navigation link");
 });
 
 test("the selected-card graph renders only inside the right pane, never beneath the list", () => {
@@ -448,4 +499,74 @@ test("the selected-card graph renders only inside the right pane, never beneath 
   // living inside the detail column's own flex stack is what keeps it out from
   // underneath the list.
   assert.match(chase, /grid-cols-1[^"]*desk:grid-cols-\[minmax\(0,37fr\)_minmax\(0,63fr\)\][^>]*>/s);
+});
+
+// --- TOP 10: selection color, movement grammar, card-page seam ------------
+
+test("Top 10's Cards/Sealed lens toggle and selected row use the canonical Market green", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  // The lens toggle (Cards | Sealed)...
+  assert.match(chase, /lens === key \? "border-\[rgb\(45,212,191\)\] bg-\[rgba\(45,212,191,0\.12\)\] text-\[rgb\(45,212,191\)\]"/);
+  assert.ok(!/lens === key \? "border-\[var\(--accent\)/.test(chase), "the lens toggle must not use the yellow accent");
+  // ...and the selected ranked-list row both carry the same identity.
+  assert.match(chase, /\? "border-\[rgb\(45,212,191\)\] bg-\[rgba\(45,212,191,0\.10\)\]"/);
+  assert.ok(!/active[\s\S]{0,20}\? "border-\[var\(--accent\)/.test(chase), "the selected row must not use the yellow accent");
+});
+
+test("Market Segments (Cards/Sealed/Graded) selection uses the canonical Market green, not yellow", () => {
+  const row = code(componentSource("MarketSegmentRow"));
+  const tabs = code(componentSource("MarketValueTrendPanel"));
+  for (const source of [row, tabs]) {
+    assert.ok(!source.includes("var(--accent)"), "must not use the yellow accent for selection");
+    assert.ok(source.includes("rgb(45,212,191)"), "must use the canonical Market green");
+  }
+});
+
+test("each Top 10 row's movement is a directional arrow plus semantic color, or an explicit dash", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  // The arrow and the amount/percent text share ONE colored container, driven
+  // by DeltaTrendIcon — the same shared component the rest of the app uses —
+  // rather than a bespoke duplicate.
+  assert.match(chase, /<DeltaTrendIcon value=\{row\.amount \?\? row\.percent\} \/>/);
+  assert.match(chase, /row\.hasMovement \? \(\s*<span className=\{`flex items-center justify-end gap-1/s);
+  // No comparable window renders a dash, never a fabricated 0.0% or a false
+  // arrow.
+  assert.match(chase, /\) : \(\s*\/\/ No comparable window[\s\S]*?—<\/span>/);
+});
+
+test("the left list and the selected detail read the SAME movement contract for the active timeframe", () => {
+  const chase = code(componentSource("TopChaseCardsPanel"));
+  // Both the row model (`buildTopChaseModel`/`buildTopSealedModel`) and the
+  // selected card's own trend (`cardTrend`) are built from `selectedWindowKey`
+  // — there is no second, independently-derived window anywhere in this file.
+  assert.ok(chase.includes("selectedWindowKey, marketAsOfDate, maxRows: 10"));
+  assert.ok(chase.includes("selectSegmentTrend({ history, selectedWindowKey"));
+});
+
+test("View Card, the card image and the card name share ONE routing authority", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  const occurrences = chase.match(/buildPokemonCardHref\(setSlug, selectedCard\)/g) || [];
+  assert.equal(occurrences.length, 1, "the href is computed once, in one place, not guessed independently per entry point");
+  assert.ok(chase.includes("const cardDetailHref"));
+  // All three consumers read that ONE value.
+  const consumers = (chase.match(/cardDetailHref/g) || []).length;
+  assert.ok(consumers >= 4, "image, name and the View Card CTA must all consume cardDetailHref");
+});
+
+test("View Card is a real link when the identity resolves, and a genuinely disabled control when it does not", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  assert.ok(chase.includes("href={cardDetailHref}") && chase.includes("data-top-chase-view-card"));
+  const viewCardIndex = chase.indexOf("data-top-chase-view-card");
+  const enabledLinkBefore = chase.lastIndexOf("<a", viewCardIndex);
+  assert.ok(viewCardIndex - enabledLinkBefore < 120, "the enabled View Card <a> must carry data-top-chase-view-card near its opening tag");
+  assert.match(chase, /aria-disabled="true"\s+disabled\s+title="Card details are unavailable for this listing\."/);
+  // Never a dead link and never a fake handler. (code(), not chase, so the
+  // comment above explaining what this guards cannot trip its own assertion.)
+  assert.ok(!code(chase).includes('href="#"'));
+});
+
+test("no fake link cursor or click handler on the disabled image/name when the route cannot resolve", () => {
+  const chase = componentSource("TopChaseCardsPanel");
+  // Sealed lens never gets the Cards route at all.
+  assert.match(chase, /lens === "cards" && cardDetailHref \? \(/);
 });
