@@ -110,6 +110,11 @@ export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
           <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
             {breadth.total.toLocaleString("en-US")} cards included in breadth analysis · {windowLabel}
           </p>
+          {breadth.partialLabel ? (
+            <p data-breadth-partial className="mt-0.5 text-[10px] italic text-[var(--text-secondary)]">
+              {breadth.partialLabel}
+            </p>
+          ) : null}
         </>
       ) : (
         <p data-breadth-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">{breadth.reason}</p>

@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, us
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
+import { buildSealedProductHref } from "@/components/explore/setProductComparison.mjs";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
 import {
@@ -3831,6 +3832,9 @@ function MarketValueTrendPanel({
               variant="chart-summary"
               accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
             />
+            <p data-market-trend-index className="text-[11px] font-medium text-[var(--text-secondary)]">
+              Market Index <span className="tabular-nums text-[var(--text-primary)]">{trend.marketIndexValue == null ? "â€”" : Number(trend.marketIndexValue).toFixed(2)}</span>
+            </p>
 
             <div className="flex min-w-0 items-center gap-2">
               <MarketWindowSelector
@@ -3864,7 +3868,7 @@ function MarketValueTrendPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
             Supporting Details
           </p>
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-5">
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
             {details.map((detail) => {
               let value = "—";
               let toneClassName = "text-[var(--text-primary)]";
@@ -3874,8 +3878,6 @@ function MarketValueTrendPanel({
                 value = formatLongDate(detail.date);
               } else if (detail.key === "trackedItems" && detail.count !== null) {
                 value = `${detail.count.toLocaleString("en-US")} ${detail.noun}`;
-              } else if (detail.key === "marketIndex" && detail.value !== null) {
-                value = Number(detail.value).toFixed(2);
               }
               return (
                 <div key={detail.key} className="min-w-0" data-supporting-detail={detail.key}>
@@ -4004,6 +4006,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
  * it would make the reader check two places for one answer.
  */
 function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+  const router = useRouter();
   const [lens, setLens] = useState("cards");
   const sealedState = useSealedSetMarket(setId);
   const sealedProducts = useMemo(
@@ -4049,6 +4052,28 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
   const cardDetailHref = lens === "cards" && setSlug && selectedCard
     ? buildPokemonCardHref(setSlug, selectedCard)
     : null;
+  // Same one-authority rule as the card lens: a product whose canonical id
+  // does not resolve gets a null href, and image/name/View Product/second-click
+  // navigation all degrade to non-interactive together.
+  const productDetailHref = lens === "sealed" && selectedCard
+    ? buildSealedProductHref(selectedCard.sealedProductId)
+    : null;
+  const detailHref = lens === "cards" ? cardDetailHref : productDetailHref;
+  // First activation of an unselected row only selects it -- switching the
+  // detail pane. A second activation of the row ALREADY selected navigates,
+  // because at that point the reader has already seen the detail pane and is
+  // asking for the full page. This is two ordinary activations, not a
+  // dblclick: a fast double click still lands as two onClick calls.
+  const activateTopTenRow = useCallback(
+    (row) => {
+      if (row.key !== resolvedKey) {
+        setSelectedKey(row.key);
+        return;
+      }
+      if (detailHref) router.push(detailHref);
+    },
+    [resolvedKey, detailHref, router]
+  );
   const heroImageUrl = selectedCard ? readCardHeroImageUrl(selectedCard) : null;
   const windowLabel = getDeltaWindowLabel(cardTrend.effectiveWindowKey || selectedWindowKey) || "Trend";
   const trendDirection =
@@ -4106,7 +4131,7 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
                   type="button"
                   data-top-chase-row={row.rank}
                   aria-pressed={active}
-                  onClick={() => setSelectedKey(row.key)}
+                  onClick={() => activateTopTenRow(row)}
                   className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
                     active
                       ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.10)]"
@@ -4147,18 +4172,19 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
           {/* ZONE A — detail. Artwork left, metadata right. The artwork is
               height-constrained here and appears nowhere else in this column. */}
           <div data-chase-detail-zone className="flex min-w-0 items-start gap-4">
-            {/* IMAGE, NAME and VIEW CARD all point at the ONE routing
-                authority — buildPokemonCardHref, the same helper the
-                checklist grid already uses to reach the real
-                /TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId] page. A card
-                whose identity does not resolve (no canonicalCardId/id) gets
-                a null href from that helper, and every one of the three
-                entry points degrades to non-interactive together rather
-                than three independently-guessed hrefs. */}
-            {lens === "cards" && cardDetailHref ? (
+            {/* IMAGE, NAME and the VIEW CTA all point at the ONE routing
+                authority for the active lens — buildPokemonCardHref for Cards
+                (the same helper the checklist grid uses to reach
+                /TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId]), buildSealedProductHref
+                for Sealed (the same resolver the RIP page's product comparison
+                already uses to reach /sealed-products/[productId]). A row whose
+                identity does not resolve gets a null href from that helper, and
+                every one of the three entry points degrades to non-interactive
+                together rather than three independently-guessed hrefs. */}
+            {detailHref ? (
               <a
-                href={cardDetailHref}
-                aria-label={`View ${selectedRow?.name || "card"} details`}
+                href={detailHref}
+                aria-label={`View ${selectedRow?.name || (lens === "cards" ? "card" : "product")} details`}
                 className="flex-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
               >
                 <CardArtworkFrame
@@ -4171,15 +4197,15 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
             ) : (
               <CardArtworkFrame
                 imageUrl={heroImageUrl}
-                alt={selectedRow ? `${selectedRow.name} card artwork` : ""}
+                alt={selectedRow ? `${selectedRow.name} artwork` : ""}
                 initials={selectedRow?.initials}
                 className="h-40 flex-none desk:h-48"
               />
             )}
             <div className="min-w-0 flex-1">
-              {lens === "cards" && cardDetailHref ? (
+              {detailHref ? (
                 <a
-                  href={cardDetailHref}
+                  href={detailHref}
                   className="block truncate text-lg font-semibold text-[var(--text-primary)] hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                 >
                   {selectedRow?.name || "—"}
@@ -4190,15 +4216,21 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
               <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
                 {[selectedRow?.rarity, selectedRow?.cardNumber].filter(Boolean).join(" · ") || "—"}
               </p>
-              {lens === "cards" ? (
+              {(() => {
+                const viewLabel = lens === "cards" ? "View Card" : "View Product";
+                const unavailableTitle =
+                  lens === "cards"
+                    ? "Card details are unavailable for this listing."
+                    : "Product details are unavailable for this listing.";
+                return (
                 <div className="mt-2">
-                  {cardDetailHref ? (
+                  {detailHref ? (
                     <a
-                      href={cardDetailHref}
+                      href={detailHref}
                       data-top-chase-view-card
                       className="inline-flex min-h-8 items-center rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
                     >
-                      View Card
+                      {viewLabel}
                     </a>
                   ) : (
                     <button
@@ -4206,14 +4238,15 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
                       data-top-chase-view-card
                       aria-disabled="true"
                       disabled
-                      title="Card details are unavailable for this listing."
+                      title={unavailableTitle}
                       className="inline-flex min-h-8 cursor-not-allowed items-center rounded-md border border-[var(--border-subtle)] bg-transparent px-2.5 text-[11px] font-semibold text-[var(--text-secondary)] opacity-60"
                     >
-                      View Card
+                      {viewLabel}
                     </button>
                   )}
                 </div>
-              ) : null}
+                );
+              })()}
               <div className="mt-3">
                 <MarketValueChange
                   value={cardTrend.currentValue ?? selectedRow?.price ?? null}

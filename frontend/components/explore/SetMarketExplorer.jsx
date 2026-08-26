@@ -109,6 +109,23 @@ function ChangePercent({ movement, windowKey }) {
   );
 }
 
+function indexMovementFor(target, windowKey) {
+  const key = windowKey === "lifetime" ? "SinceTracking" : windowKey;
+  return target?.marketIndex?.movements?.[key] || target?.marketIndex?.movements?.[String(key).toLowerCase()] || null;
+}
+
+function movementWithIndexReturn(target, windowKey) {
+  const valueMovement = target?.windows?.[windowKey] || null;
+  const indexMovement = indexMovementFor(target, windowKey);
+  return valueMovement ? { ...valueMovement, percent: indexMovement?.available === false ? null : indexMovement?.percent ?? null } : null;
+}
+
+function formatMarketIndex(value) {
+  if (value === null || value === undefined || value === "") return "â€”";
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(2) : "â€”";
+}
+
 /**
  * Rank every priced target by canonical current Set Value — once, and
  * independently of the search/era/sort controls, so "#1" always means "first
@@ -252,7 +269,8 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
     selectSet(row.setId, { openDetail: true });
   };
 
-  const detailMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
+  const detailValueMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
+  const detailMovement = selected ? movementWithIndexReturn(selected.target, activeDetailWindowKey) : null;
   useEffect(() => {
     const browserIsDesktop = typeof window === "undefined" || typeof window.matchMedia !== "function"
       ? isMasterDetail
@@ -290,7 +308,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
   }, [isMasterDetail, selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
   const detailTrend = selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
-    ? clipSetMarketDetailHistory(detailHistoryState.history, detailMovement)
+    ? clipSetMarketDetailHistory(detailHistoryState.history, detailValueMovement)
     : [];
   const detailDirection = directionOf(detailMovement?.amount);
   const detailHref = selected
@@ -333,7 +351,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
           ) : (
             <ul aria-label="Tracked Pokémon sets, ranked by canonical current Set Value">
               {visible.map((row, index) => {
-                const movement = row.target?.windows?.[listWindowKey] || null;
+                const movement = movementWithIndexReturn(row.target, listWindowKey);
                 const miniTrend = selectSetMarketMiniTrend(row.target, listWindowKey);
                 const isActive = selected?.setId === row.setId;
                 return (
@@ -401,6 +419,9 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
           {`Set Value · ${windowLabel(activeDetailWindowKey)}`}
           {detailMovement?.coverage === "partial" ? <span> · since first available</span> : null}
         </p>
+        <p data-set-market-detail-index className="mt-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
+          Market Index <span className="tabular-nums text-[var(--text-primary)]">{formatMarketIndex(selected.target?.marketIndex?.currentValue)}</span>
+        </p>
       </div>
 
       <div className="mt-3 min-w-0">
@@ -420,7 +441,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
             points={detailTrend}
             valueKey="setValue"
             trendDirection={detailDirection}
-            baselineValue={resolveDeltaWindowBaselineValue(detailMovement, selected.value)}
+            baselineValue={resolveDeltaWindowBaselineValue(detailValueMovement, selected.value)}
             label={`${selected.name} Set Value trend`}
             emptyLabel="No daily Set Value history is available for this timeframe."
             data-set-market-detail-chart-window={activeDetailWindowKey}

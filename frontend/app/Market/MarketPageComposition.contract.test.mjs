@@ -174,6 +174,15 @@ test("selecting a set updates the pane in place and lazily loads only its full d
   assert.doesNotMatch(setMarket, /targets\.map\([^)]*getPokemonSetValueHistory/);
 });
 
+test("selected Set Market promotes the prepared index and keeps index return separate from dollar movement", () => {
+  assert.match(setMarket, /data-set-market-detail-index/);
+  assert.match(setMarket, /selected\.target\?\.marketIndex\?\.currentValue/);
+  assert.match(setMarket, /movementWithIndexReturn/);
+  assert.match(setMarket, /indexMovement\?\.percent/);
+  assert.match(setMarket, /detailValueMovement/);
+  assert.doesNotMatch(setMarket, /currentSetValue\s*\/|marketIndex[^\n]*=\s*.*currentSetValue/);
+});
+
 test("mobile Set Market uses document scroll with a contextual sticky toolbar", () => {
   assert.match(css, /@media \(max-width: 1199\.98px\) \{[\s\S]*?\.setListScroll \{[\s\S]*?height: auto;[\s\S]*?max-height: none;[\s\S]*?overflow-y: visible;/);
   assert.match(css, /\.setMarketMobileSticky \{[\s\S]*?position: sticky;[\s\S]*?top: var\(--app-header-offset, 64px\);[\s\S]*?z-index: 30;/);

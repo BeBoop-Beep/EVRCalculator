@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  BREADTH_SUPPORTED_WINDOW_KEYS,
   MARKET_SEGMENT_KEYS,
   SEGMENT_UNAVAILABLE_TEXT,
   buildMarketSegmentRows,
@@ -11,7 +10,6 @@ import {
   resolveActiveSegmentKey,
   resolveDefaultSegmentKey,
   selectChaseConcentration,
-  selectMarketBreadth,
   selectPreparedMarketBreadth,
   selectPreparedSegmentTrend,
   selectSegmentTrend,
@@ -67,14 +65,69 @@ test("prepared breadth is displayed verbatim and All maps centrally to SinceTrac
   assert.deepEqual(selectPreparedMarketBreadth({
     windowKey: "7D",
     marketBreadth: { "7D": { available: true, eligibleCount: 10, advancingCount: 6, decliningCount: 3, unchangedCount: 1, advancingPercent: 60, decliningPercent: 30 } },
-  }), { available: true, windowKey: "7D", advancing: 6, declining: 3, flat: 1, total: 10, advancingPercent: 60, decliningPercent: 30, unchangedPercent: 10 });
+  }), {
+    available: true,
+    windowKey: "7D",
+    advancing: 6,
+    declining: 3,
+    flat: 1,
+    total: 10,
+    advancingPercent: 60,
+    decliningPercent: 30,
+    unchangedPercent: 10,
+    coverage: null,
+    isSinceFirstAvailable: false,
+    partialLabel: null,
+  });
 });
 
-test("prepared breadth identifies an unpublished timeframe explicitly", () => {
+test("prepared breadth uses the same window-key mapper as the Cards Market Index, so All reads SinceTracking", () => {
+  const breadth = selectPreparedMarketBreadth({
+    windowKey: "lifetime",
+    marketBreadth: { SinceTracking: { available: true, eligibleCount: 4, advancingCount: 2, decliningCount: 1, unchangedCount: 1, advancingPercent: 50, decliningPercent: 25 } },
+  });
+  assert.equal(breadth.available, true);
+  assert.equal(breadth.windowKey, "SinceTracking");
+});
+
+test("prepared breadth surfaces a real reason instead of a stale generic window list", () => {
+  assert.equal(selectPreparedMarketBreadth({ marketBreadth: {}, windowKey: "6M" }).reason, SEGMENT_UNAVAILABLE_TEXT);
   assert.equal(
-    selectPreparedMarketBreadth({ marketBreadth: {}, windowKey: "6M" }).reason,
-    "Breadth is currently available for 1D, 7D, and 30D."
+    selectPreparedMarketBreadth({
+      marketBreadth: { "6M": { available: false, status: "insufficient_history" } },
+      windowKey: "6M",
+    }).reason,
+    "Not enough tracked history for this period yet"
   );
+  assert.equal(
+    selectPreparedMarketBreadth({
+      marketBreadth: { "6M": { available: false, status: "no_common_cohort" } },
+      windowKey: "6M",
+    }).reason,
+    "No common comparable cohort for this period"
+  );
+});
+
+test("prepared breadth surfaces partial ('since first available') coverage for long windows", () => {
+  const breadth = selectPreparedMarketBreadth({
+    windowKey: "6M",
+    marketBreadth: {
+      "6M": {
+        available: true,
+        eligibleCount: 4,
+        advancingCount: 2,
+        decliningCount: 1,
+        unchangedCount: 1,
+        advancingPercent: 50,
+        decliningPercent: 25,
+        coverage: "partial",
+        isSinceFirstAvailable: true,
+      },
+    },
+  });
+  assert.equal(breadth.coverage, "partial");
+  assert.equal(breadth.isSinceFirstAvailable, true);
+  assert.equal(breadth.partialLabel, "Since first available");
 });
 
 test("a segment trend reports value, delta, return, high and low for the selected window", () => {
@@ -154,42 +207,6 @@ test("Cards is the default lens, and selection can never strand the chart", () =
   assert.equal(resolveActiveSegmentKey("nonsense", trends), "cards");
 });
 
-// --- Breadth ----------------------------------------------------------------
-
-function moversByWindow(amounts) {
-  return {
-    "7D": { marketMovers: { all: amounts.map((changeAmount) => ({ changeAmount })) } },
-  };
-}
-
-test("breadth counts the complete mover-eligible list, not the ticker's slice", () => {
-  const breadth = selectMarketBreadth({
-    moversByWindow: moversByWindow([5, 4, -1, -2, -3, -4, -5, -6]),
-    windowKey: "7D",
-  });
-  assert.equal(breadth.available, true);
-  assert.equal(breadth.total, 8);
-  assert.equal(breadth.advancing, 2);
-  assert.equal(breadth.declining, 6);
-  assert.equal(breadth.advancingPercent, 25);
-  assert.equal(breadth.decliningPercent, 75);
-});
-
-test("breadth is unavailable for timeframes the movers contract does not publish", () => {
-  assert.deepEqual(BREADTH_SUPPORTED_WINDOW_KEYS, ["1D", "7D", "30D"]);
-  for (const windowKey of ["3M", "6M", "1Y", "lifetime"]) {
-    const breadth = selectMarketBreadth({ moversByWindow: moversByWindow([1, -1]), windowKey });
-    assert.equal(breadth.available, false, `${windowKey} has no authoritative breadth reading`);
-    assert.equal(breadth.advancingPercent, undefined, "no percentage is invented for an unsupported window");
-  }
-});
-
-test("breadth is unavailable rather than 0% when the window carries no movements", () => {
-  const breadth = selectMarketBreadth({ moversByWindow: { "7D": { marketMovers: { all: [] } } }, windowKey: "7D" });
-  assert.equal(breadth.available, false);
-  assert.equal(breadth.reason, SEGMENT_UNAVAILABLE_TEXT);
-});
-
 // --- Concentration ----------------------------------------------------------
 
 test("concentration is the published top10 scope over the published set scope", () => {
@@ -215,7 +232,7 @@ test("concentration exposes no Low/Medium/High banding", () => {
 
 // --- Supporting details -----------------------------------------------------
 
-test("supporting details publish the five approved fields in order", () => {
+test("supporting details publish the four diagnostics in order without Market Index", () => {
   const details = buildSupportingDetails(
     selectSegmentTrend({
       history: dailyHistory([100, 90, 120, 110]),
@@ -226,11 +243,11 @@ test("supporting details publish the five approved fields in order", () => {
   );
   assert.deepEqual(
     details.map((detail) => detail.key),
-    ["periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]
+    ["periodHigh", "periodLow", "trackingSince", "trackedItems"]
   );
   assert.deepEqual(
     details.map((detail) => detail.label),
-    ["Period High", "Period Low", "Tracking Since", "Market Index", "Tracked Items"]
+    ["Period High", "Period Low", "Tracking Since", "Tracked Items"]
   );
 });
 

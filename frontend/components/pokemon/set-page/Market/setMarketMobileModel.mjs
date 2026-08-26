@@ -251,6 +251,10 @@ export function buildTopSealedModel(products, { selectedWindowKey = "7D", maxRow
     const name = String(product?.name || compactSealedProductLabel(product) || "Sealed product");
     return {
       key: String(product?.sealedProductId || product?.id || name || index),
+      // Distinct from `key`, which falls back to name/index for a row-list
+      // identity. A route must never be guessed from that fallback, so this is
+      // null whenever the product carries no real canonical id.
+      sealedProductId: product?.sealedProductId ? String(product.sealedProductId) : null,
       rank: index + 1,
       name,
       rarity: compactSealedProductLabel(product),

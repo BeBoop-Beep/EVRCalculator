@@ -35,9 +35,6 @@ export const MARKET_SEGMENT_LABELS = {
 /** The single string the UI prints wherever a lens has no history. */
 export const SEGMENT_UNAVAILABLE_TEXT = "Not enough market data";
 
-/** Breadth is only defined for the windows the movers contract publishes. */
-export const BREADTH_SUPPORTED_WINDOW_KEYS = ["1D", "7D", "30D"];
-
 export function toPreparedMovementKey(windowKey) {
   return String(windowKey || "").toLowerCase() === "lifetime" ? "SinceTracking" : String(windowKey || "");
 }
@@ -249,85 +246,35 @@ export function resolveActiveSegmentKey(requestedKey, trendsByKey = {}) {
 
 // --- Market Breadth ---------------------------------------------------------
 
-/**
- * How much of the set is advancing versus declining over the selected window.
- *
- * Counted from `marketMovers.all`, which is the COMPLETE mover-eligible
- * movement list for a window — not the truncated heatingUp/coolingOff lists the
- * ticker draws from. Counting the ticker's ten rows would report a breadth of
- * whatever the page happened to display.
- *
- * The denominator is deliberately named to the reader as mover-eligible cards
- * rather than "all cards": the backend applies price and history-span
- * guardrails before a card is eligible to move, so this is a share of the
- * cards whose movement is measurable, and the surface says so.
- *
- * The movers contract publishes 1D, 7D and 30D only. Longer timeframes have no
- * authoritative breadth reading, so they return `available: false` and the
- * module renders as unavailable rather than reusing a shorter window's answer.
- */
-export function selectMarketBreadth({ moversByWindow, windowKey } = {}) {
-  const normalized = String(windowKey || "").trim().toUpperCase();
-  if (!BREADTH_SUPPORTED_WINDOW_KEYS.includes(normalized)) {
-    return {
-      available: false,
-      reason: "Breadth is published for 1D, 7D and 30D only.",
-      windowKey: normalized || null,
-    };
-  }
+/** Maps a Breadth entry's backend `status` to an honest, reader-facing reason. */
+const BREADTH_STATUS_REASONS = {
+  insufficient_history: "Not enough tracked history for this period yet",
+  no_common_cohort: "No common comparable cohort for this period",
+  baseline_unavailable: "No prior comparison point for this period",
+};
 
-  const entry = moversByWindow?.[normalized] || moversByWindow?.[normalized.toLowerCase()] || null;
-  const movements =
-    entry?.marketMovers?.all ||
-    entry?.market_movers?.all ||
-    entry?.marketMovers?.All ||
-    (Array.isArray(entry?.all) ? entry.all : null);
-
-  if (!Array.isArray(movements) || movements.length === 0) {
-    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized };
-  }
-
-  let advancing = 0;
-  let declining = 0;
-  let flat = 0;
-  for (const movement of movements) {
-    const amount = toFiniteNumber(movement?.changeAmount ?? movement?.change_amount);
-    if (amount === null) continue;
-    if (amount > 0) advancing += 1;
-    else if (amount < 0) declining += 1;
-    else flat += 1;
-  }
-
-  const total = advancing + declining + flat;
-  if (total === 0) {
-    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized };
-  }
-
-  return {
-    available: true,
-    windowKey: normalized,
-    advancing,
-    declining,
-    flat,
-    total,
-    advancingPercent: Math.round((advancing / total) * 1000) / 10,
-    decliningPercent: Math.round((declining / total) * 1000) / 10,
-  };
+function breadthReasonForStatus(status) {
+  return BREADTH_STATUS_REASONS[status] || SEGMENT_UNAVAILABLE_TEXT;
 }
 
-/** Reads the canonical cardsMarket.marketBreadth entry without recounting UI rows. */
+/**
+ * Reads the canonical cardsMarket.marketBreadth entry for the selected window.
+ *
+ * Breadth is its own analytical contract, published for every window the
+ * Cards Market Index publishes (1D/7D/30D/3M/6M/1Y/SinceTracking) — it is not
+ * derived from the Movers ticker and is not restricted to Movers' 1D/7D/30D.
+ * The window key is normalized through the SAME `toPreparedMovementKey`
+ * mapper the Cards Market Index uses, so "lifetime" resolves to
+ * "SinceTracking" identically for both surfaces.
+ */
 export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
-  const normalized = String(windowKey || "").trim().toUpperCase();
-  const entry = marketBreadth?.[normalized] || marketBreadth?.[normalized.toLowerCase()] || null;
+  const movementKey = toPreparedMovementKey(windowKey);
+  const entry = marketBreadth?.[movementKey] || marketBreadth?.[String(movementKey).toLowerCase()] || null;
   if (!entry) {
-    return {
-      available: false,
-      reason: "Breadth is currently available for 1D, 7D, and 30D.",
-      windowKey: normalized || null,
-    };
+    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: movementKey || null };
   }
   if (entry.available === false) {
-    return { available: false, reason: entry.status || SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
+    return { available: false, reason: breadthReasonForStatus(entry.status), windowKey: movementKey || null };
   }
   const advancing = toFiniteNumber(entry.advancingCount ?? entry.advancing_count);
   const declining = toFiniteNumber(entry.decliningCount ?? entry.declining_count);
@@ -337,11 +284,12 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
   const decliningPercent = toFiniteNumber(entry.decliningPercent ?? entry.declining_percent);
   const unchangedPercent = toFiniteNumber(entry.unchangedPercent ?? entry.unchanged_percent);
   if (total === null || advancingPercent === null || decliningPercent === null) {
-    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: normalized || null };
+    return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: movementKey || null };
   }
+  const isSinceFirstAvailable = Boolean(entry.isSinceFirstAvailable ?? entry.is_since_first_available);
   return {
     available: true,
-    windowKey: normalized,
+    windowKey: movementKey,
     advancing,
     declining,
     flat,
@@ -349,6 +297,9 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey } = {}) {
     advancingPercent,
     decliningPercent,
     unchangedPercent: unchangedPercent ?? Math.max(0, Math.round((100 - advancingPercent - decliningPercent) * 10) / 10),
+    coverage: entry.coverage ?? null,
+    isSinceFirstAvailable,
+    partialLabel: isSinceFirstAvailable ? "Since first available" : null,
   };
 }
 
@@ -385,8 +336,8 @@ export function selectChaseConcentration({ top10Value, cardsValue } = {}) {
 // --- Supporting details -----------------------------------------------------
 
 /**
- * The five-field block under the graph. Every field is derived from the ACTIVE
- * lens at the ACTIVE timeframe, so switching either recomputes all five.
+ * The four-field block under the graph. Market Index is intentionally absent:
+ * it is a primary-summary KPI, while these are supporting diagnostics.
  * A field with no value is returned as null and printed as an em dash.
  */
 export function buildSupportingDetails(trend = {}) {
@@ -395,7 +346,6 @@ export function buildSupportingDetails(trend = {}) {
     { key: "periodHigh", label: "Period High", value: trend.periodHigh ?? null },
     { key: "periodLow", label: "Period Low", value: trend.periodLow ?? null },
     { key: "trackingSince", label: "Tracking Since", date: trend.trackingSinceDate ?? null },
-    { key: "marketIndex", label: "Market Index", value: trend.marketIndexValue ?? null },
     { key: "trackedItems", label: "Tracked Items", count, noun: trend.trackedItemNoun || "Items", secondary: true },
   ];
 }

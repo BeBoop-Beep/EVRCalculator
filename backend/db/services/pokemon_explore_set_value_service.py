@@ -172,9 +172,15 @@ def build_global_set_value_row(
         if prepared[-1]["date"] != canonical[-1]["date"] or abs(prepared[-1]["value"] - canonical[-1]["value"]) > 0.005:
             mismatched.append({"setId": set_id, "prepared": prepared[-1], "canonical": canonical[-1]})
             continue
+        cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
+        prepared_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
+        if prepared_index is not None and _text(prepared_index.get("asOf")) != target_market_date:
+            stale.append({"setId": set_id, "dashboardDate": dashboard_date,
+                          "indexDate": _text(prepared_index.get("asOf"))})
+            continue
         windows = compute_window_movements(canonical)
         current = canonical[-1]
-        published.append({
+        published_row = {
             "setId": set_id,
             "canonicalKey": pokemon_set.get("canonical_key"),
             "name": pokemon_set.get("name"),
@@ -194,8 +200,19 @@ def build_global_set_value_row(
             "historyStartDate": canonical[0]["date"],
             "historyEndDate": current["date"],
             "historyPointCount": len(canonical),
-        })
-        generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}")
+        }
+        # Additive/backward-compatible: old dashboard rows have no Cards
+        # Market contract and simply omit this field. Never substitute 100.
+        if prepared_index is not None:
+            published_row["marketIndex"] = {
+                "currentValue": prepared_index.get("currentValue"),
+                "baseValue": prepared_index.get("baseValue"),
+                "asOf": prepared_index.get("asOf"),
+                "movements": prepared_index.get("movements") if isinstance(prepared_index.get("movements"), Mapping) else {},
+            }
+        published.append(published_row)
+        index_value = prepared_index.get("currentValue") if prepared_index is not None else None
+        generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
     diagnostics = {"eligibleSetCount": len(eligible), "publishedSetCount": len(published), "missingSets": missing, "staleSets": stale, "mismatchedSets": mismatched}
     if missing or stale or mismatched or len(published) != len(eligible):
         raise ExploreSetValueUnavailable("eligible Market Set Value sources are incomplete or disagree", diagnostics=diagnostics)

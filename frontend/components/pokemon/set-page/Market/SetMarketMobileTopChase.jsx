@@ -10,6 +10,7 @@ import { getStandardDeltaWindowDefinitions } from "../../../../lib/explore/marke
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "../../../../lib/explore/interpretationTone";
 import { CARD_ART_WIDTH, CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "../../../../lib/images/remoteImageDelivery.mjs";
 import { MOBILE_TOP_CHASE_PREVIEW_LIMIT, buildTopChaseModel, buildTopSealedModel } from "./setMarketMobileModel.mjs";
+import { buildSealedProductHref } from "../../../explore/setProductComparison.mjs";
 
 // ---------------------------------------------------------------------------
 // Top Chase Cards — featured card plus a ranked list.
@@ -223,12 +224,25 @@ export default function SetMarketMobileTopChase({
             ariaDescription="Chooses which published change window these chase cards report. No data is fetched."
           />
 
-          <FeaturedChaseCard row={model.featured} href={lens === "cards" ? rowHref : null} />
+          {/* Cards lens drills into the set's own "All Cards" tab (one shared
+              rowHref) -- there is no equivalent Sealed tab to drill into, so
+              each Sealed row instead links straight to that product's own
+              page via the same buildSealedProductHref resolver the desktop
+              Top 10 and the RIP page already share. A product with no
+              resolvable id gets a null href and stays non-interactive. */}
+          <FeaturedChaseCard
+            row={model.featured}
+            href={lens === "cards" ? rowHref : buildSealedProductHref(model.featured?.sealedProductId)}
+          />
 
           {visibleRanked.length > 0 ? (
             <div className="divide-y divide-[var(--border-subtle)]">
               {visibleRanked.map((row) => (
-                <RankedChaseRow key={row.key} row={row} href={lens === "cards" ? rowHref : null} />
+                <RankedChaseRow
+                  key={row.key}
+                  row={row}
+                  href={lens === "cards" ? rowHref : buildSealedProductHref(row.sealedProductId)}
+                />
               ))}
             </div>
           ) : null}

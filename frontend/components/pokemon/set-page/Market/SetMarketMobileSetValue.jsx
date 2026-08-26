@@ -91,7 +91,7 @@ function MicroStat({ label, value }) {
 }
 
 /**
- * The five-field supporting-detail readout shared with desktop. Breadth and
+ * The four-field supporting-detail readout shared with desktop. Breadth and
  * Concentration render as their own card-market signal modules below it.
  */
 function SupportingMicroStats({ trend }) {
@@ -100,7 +100,6 @@ function SupportingMicroStats({ trend }) {
     if (detail.key === "periodHigh" || detail.key === "periodLow") {
       return { label: detail.label, value: formatCompactMoney(detail.value) };
     }
-    if (detail.key === "marketIndex") return { label: detail.label, value: detail.value == null ? null : Number(detail.value).toFixed(2) };
     if (detail.key === "trackingSince") return { label: detail.label, value: shortDate(detail.date) };
     if (detail.key === "trackedItems") {
       const count = formatCount(detail.count);
@@ -234,6 +233,9 @@ export default function SetMarketMobileSetValue({
                   variant="chart-summary"
                   accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[resolvedSegmentKey]} market value`}
                 />
+                <p data-market-mobile-index className="mt-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
+                  Market Index <span className="tabular-nums text-[var(--text-primary)]">{activeTrend.marketIndexValue == null ? "â€”" : Number(activeTrend.marketIndexValue).toFixed(2)}</span>
+                </p>
               </div>
 
               <MarketWindowSelector

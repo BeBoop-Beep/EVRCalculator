@@ -282,6 +282,49 @@ def test_breadth_percentages_always_total_one_hundred():
     assert total == pytest.approx(100.0)
 
 
+def test_breadth_endpoints_match_index_movements_for_every_window():
+    """Breadth and the Cards Market Index must describe the SAME span per window.
+
+    A window the reader picks (say 3M) must mean the identical
+    targetStartDate/startDate/endDate/coverage whether they are looking at the
+    index's return or breadth's participation count -- otherwise the two
+    numbers on screen would silently describe two different periods.
+    """
+    spec = {f"2026-08-{day:02d}": {"a": 10.0, "b": 10.0} for day in range(1, 31)}
+    spec["2026-07-31"] = {"a": 10.0, "b": 10.0}
+    spec["2026-08-30"] = {"a": 12.0, "b": 8.0}
+    payload = build_cards_market_analytics_from_observations(observations(spec))
+    breadth = payload["marketBreadth"]
+    movements = payload["marketIndex"]["movements"]
+    assert set(breadth) == set(movements)
+    for key in breadth:
+        assert breadth[key]["targetStartDate"] == movements[key]["targetStartDate"], key
+        assert breadth[key]["startDate"] == movements[key]["startDate"], key
+        assert breadth[key]["endDate"] == movements[key]["endDate"], key
+        assert breadth[key]["coverage"] == movements[key]["coverage"], key
+        assert breadth[key]["available"] == movements[key]["available"], key
+
+
+def test_breadth_reports_partial_coverage_for_long_windows_like_the_index():
+    """A market younger than 6M reports a real partial 6M breadth, not unavailable.
+
+    Mirrors the index's own since-first-available fallback for 6M/1Y: dropping
+    the window because the nominal span isn't met would be a worse answer than
+    reporting the real (shorter) span and saying so.
+    """
+    spec = {f"2026-08-{day:02d}": {"a": 10.0, "b": 20.0} for day in range(1, 11)}
+    spec["2026-08-10"] = {"a": 12.0, "b": 18.0}
+    payload = build_cards_market_analytics_from_observations(observations(spec))
+    breadth_6m = payload["marketBreadth"]["6M"]
+    index_6m = payload["marketIndex"]["movements"]["6M"]
+    assert breadth_6m["available"] is True
+    assert breadth_6m["coverage"] == "partial"
+    assert breadth_6m["isSinceFirstAvailable"] is True
+    assert breadth_6m["startDate"] == "2026-08-01"
+    assert breadth_6m["startDate"] == index_6m["startDate"]
+    assert breadth_6m["coverage"] == index_6m["coverage"]
+
+
 def test_breadth_confined_to_current_chain_segment():
     """Breadth must not compare across a break the index considers disconnected."""
     payload = build_cards_market_analytics_from_observations(

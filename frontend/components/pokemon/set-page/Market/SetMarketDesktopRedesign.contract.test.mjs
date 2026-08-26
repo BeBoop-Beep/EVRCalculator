@@ -172,13 +172,16 @@ test("the graph dominates the panel and is not reduced to a sparkline", () => {
   assert.ok(!panel.includes("<MarketSparkline"), "the main trend is a chart, not a sparkline");
 });
 
-test("supporting details render the five approved fields from the active lens", () => {
+test("Market Index is promoted into the summary and removed from supporting details", () => {
   const panel = componentSource("MarketValueTrendPanel");
+  assert.ok(panel.includes("data-market-trend-index"));
+  assert.ok(panel.includes("trend.marketIndexValue"));
   assert.ok(panel.includes("Supporting Details"));
   assert.ok(panel.includes("buildSupportingDetails(trend)"), "the fields derive from the ACTIVE lens");
-  for (const key of ["periodHigh", "periodLow", "trackingSince", "marketIndex", "trackedItems"]) {
+  for (const key of ["periodHigh", "periodLow", "trackingSince", "trackedItems"]) {
     assert.ok(panel.includes(key), `${key} is rendered`);
   }
+  assert.ok(!panel.includes('detail.key === "marketIndex"'), "supporting details do not duplicate the index");
   assert.ok(!panel.includes("periodChange"));
   assert.ok(!panel.includes("periodReturn"));
 });
@@ -201,6 +204,7 @@ test("Set Signals is the right rail and carries the three approved blocks", () =
   assert.ok(rail.includes("<ChaseConcentrationSignal"));
   assert.ok(signals.includes("data-market-breadth"));
   assert.ok(signals.includes("data-chase-concentration"));
+  assert.ok(componentSource("MarketSegmentRow").includes("row.marketIndexValue"), "Set Signals retains its compact Index value");
 });
 
 test("the overview splits roughly two thirds chart to one third rail", () => {
@@ -296,7 +300,7 @@ test("Top 10 renders a ranked list whose rows switch the detail", () => {
   assert.ok(chase.includes("data-top-chase-row={row.rank}"));
   assert.ok(chase.includes("#{row.rank}"), "rows are ranked #1..#10");
   assert.ok(chase.includes("maxRows: 10"));
-  assert.ok(chase.includes("onClick={() => setSelectedKey(row.key)}"), "clicking a row selects it");
+  assert.ok(chase.includes("onClick={() => activateTopTenRow(row)}"), "clicking a row activates the select-then-navigate rule");
   assert.ok(chase.includes("aria-pressed={active}"));
 });
 
@@ -480,18 +484,23 @@ test("the master-detail proportions target the approved 35-40 / 60-65 split", ()
   assert.match(chase, /desk:grid-cols-\[minmax\(0,37fr\)_minmax\(0,63fr\)\]/, "37/63 sits inside the approved 35-40/60-65 range");
 });
 
-test("selecting any of the ten rows updates the right-hand detail, never navigates away", () => {
+test("selecting an unselected row updates the right-hand detail without navigating; a second click on the selected row navigates", () => {
   const chase = code(componentSource("TopChaseCardsPanel"));
-  assert.ok(chase.includes("onClick={() => setSelectedKey(row.key)}"), "a click sets local selection state");
-  // Scoped to the RANKED LIST only. The detail pane legitimately gained real
-  // navigation (image/name/"View Card", all through the one
-  // buildPokemonCardHref routing authority) once this component started
-  // reading a resolvable card identity — that is a different affordance from
-  // the list rows, which must stay local selection.
+  assert.ok(chase.includes("onClick={() => activateTopTenRow(row)}"), "a click delegates to the shared row-activation rule");
+  assert.match(
+    chase,
+    /if \(row\.key !== resolvedKey\) \{\s*setSelectedKey\(row\.key\);\s*return;\s*\}/,
+    "first click on an unselected row only updates local selection state"
+  );
+  assert.match(chase, /if \(detailHref\) router\.push\(detailHref\);/, "a second click on the already-selected row navigates");
+  // Scoped to the RANKED LIST markup only. Rows themselves are never <a> tags
+  // or raw window.location/router.push calls — activation always routes
+  // through the one shared function above, which is the only place that may
+  // navigate.
   const listStart = chase.indexOf("data-top-chase-list");
   const detailStart = chase.indexOf("data-top-chase-detail");
   const listSection = chase.slice(listStart, detailStart);
-  assert.ok(!/window\.location|router\.push|<a\s+href/.test(listSection), "no ranked-list row is a navigation link");
+  assert.ok(!/window\.location|router\.push|<a\s+href/.test(listSection), "no ranked-list row is itself a navigation link");
 });
 
 test("the selected-card graph renders only inside the right pane, never beneath the list", () => {
@@ -548,23 +557,30 @@ test("the left list and the selected detail read the SAME movement contract for 
   assert.ok(chase.includes("selectSegmentTrend({ history, selectedWindowKey"));
 });
 
-test("View Card, the card image and the card name share ONE routing authority", () => {
+test("View Card/View Product, the artwork and the name share ONE routing authority per lens, folded into ONE detailHref", () => {
   const chase = componentSource("TopChaseCardsPanel");
-  const occurrences = chase.match(/buildPokemonCardHref\(setSlug, selectedCard\)/g) || [];
-  assert.equal(occurrences.length, 1, "the href is computed once, in one place, not guessed independently per entry point");
+  const cardOccurrences = chase.match(/buildPokemonCardHref\(setSlug, selectedCard\)/g) || [];
+  assert.equal(cardOccurrences.length, 1, "the Cards href is computed once, in one place, not guessed independently per entry point");
+  const productOccurrences = chase.match(/buildSealedProductHref\(selectedCard\.sealedProductId\)/g) || [];
+  assert.equal(productOccurrences.length, 1, "the Sealed href is computed once, via the same shared resolver the RIP page uses");
   assert.ok(chase.includes("const cardDetailHref"));
-  // All three consumers read that ONE value.
-  const consumers = (chase.match(/cardDetailHref/g) || []).length;
-  assert.ok(consumers >= 4, "image, name and the View Card CTA must all consume cardDetailHref");
+  assert.ok(chase.includes("const productDetailHref"));
+  assert.ok(chase.includes("const detailHref = lens === \"cards\" ? cardDetailHref : productDetailHref"));
+  // All entry points (image, name, the View CTA, and second-click navigation)
+  // read that ONE folded value rather than branching per lens.
+  const consumers = (chase.match(/\bdetailHref\b/g) || []).length;
+  assert.ok(consumers >= 5, "image, name, the View CTA and row activation must all consume detailHref");
 });
 
-test("View Card is a real link when the identity resolves, and a genuinely disabled control when it does not", () => {
+test("View Card/View Product is a real link when the identity resolves, and a genuinely disabled control when it does not", () => {
   const chase = componentSource("TopChaseCardsPanel");
-  assert.ok(chase.includes("href={cardDetailHref}") && chase.includes("data-top-chase-view-card"));
+  assert.ok(chase.includes("href={detailHref}") && chase.includes("data-top-chase-view-card"));
   const viewCardIndex = chase.indexOf("data-top-chase-view-card");
   const enabledLinkBefore = chase.lastIndexOf("<a", viewCardIndex);
-  assert.ok(viewCardIndex - enabledLinkBefore < 120, "the enabled View Card <a> must carry data-top-chase-view-card near its opening tag");
-  assert.match(chase, /aria-disabled="true"\s+disabled\s+title="Card details are unavailable for this listing\."/);
+  assert.ok(viewCardIndex - enabledLinkBefore < 120, "the enabled View CTA <a> must carry data-top-chase-view-card near its opening tag");
+  assert.match(chase, /aria-disabled="true"\s*\n\s*disabled\s*\n\s*title=\{unavailableTitle\}/);
+  assert.ok(chase.includes('"Card details are unavailable for this listing."'));
+  assert.ok(chase.includes('"Product details are unavailable for this listing."'));
   // Never a dead link and never a fake handler. (code(), not chase, so the
   // comment above explaining what this guards cannot trip its own assertion.)
   assert.ok(!code(chase).includes('href="#"'));
@@ -572,6 +588,9 @@ test("View Card is a real link when the identity resolves, and a genuinely disab
 
 test("no fake link cursor or click handler on the disabled image/name when the route cannot resolve", () => {
   const chase = componentSource("TopChaseCardsPanel");
-  // Sealed lens never gets the Cards route at all.
-  assert.match(chase, /lens === "cards" && cardDetailHref \? \(/);
+  // Sealed lens only ever gets the Sealed route, Cards lens only the Cards
+  // route — each computed href is gated to its own lens before either can
+  // feed the shared detailHref that the image/name/CTA read.
+  assert.match(chase, /lens === "cards" && setSlug && selectedCard\s*\n\s*\? buildPokemonCardHref\(setSlug, selectedCard\)/);
+  assert.match(chase, /lens === "sealed" && selectedCard\s*\n\s*\? buildSealedProductHref\(selectedCard\.sealedProductId\)/);
 });

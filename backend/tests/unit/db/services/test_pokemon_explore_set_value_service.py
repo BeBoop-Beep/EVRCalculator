@@ -84,6 +84,51 @@ def test_fresh_365d_snapshot_wins_over_stale_30d_row():
     assert published["windows"]["30D"]["amount"] == 30.0
 
 
+def test_compact_snapshot_reuses_prepared_set_market_index_and_movements():
+    rows = history()
+    target_date = rows[-1]["snapshot_date"]
+    dashboard = {
+        "set_id": "set-1",
+        "window_key": "365d",
+        "latest_market_date": target_date,
+        "set_value_histories_json": {"standard": prepared(rows)},
+        "cardsMarket": {"marketIndex": {
+            "currentValue": 92.88,
+            "baseValue": 100.0,
+            "asOf": target_date,
+            "movements": {"7D": {"available": True, "percent": -0.8}},
+            "history": [{"date": target_date, "indexValue": 92.88}],
+        }},
+    }
+    result = build_global_set_value_row(
+        [pokemon_set()], [dashboard], {"set-1": rows}, target_market_date=target_date
+    )
+    index = result["payload_json"]["sets"][0]["marketIndex"]
+    assert index == {
+        "currentValue": 92.88,
+        "baseValue": 100.0,
+        "asOf": target_date,
+        "movements": {"7D": {"available": True, "percent": -0.8}},
+    }
+    assert "history" not in index
+
+
+def test_compact_snapshot_rejects_a_set_index_from_another_market_date():
+    rows = history()
+    target_date = rows[-1]["snapshot_date"]
+    dashboard = {
+        "set_id": "set-1",
+        "window_key": "365d",
+        "latest_market_date": target_date,
+        "set_value_histories_json": {"standard": prepared(rows)},
+        "cardsMarket": {"marketIndex": {"currentValue": 92.88, "asOf": "2025-01-01"}},
+    }
+    with pytest.raises(ExploreSetValueUnavailable, match="incomplete or disagree"):
+        build_global_set_value_row(
+            [pokemon_set()], [dashboard], {"set-1": rows}, target_market_date=target_date
+        )
+
+
 def test_publication_fails_closed_when_set_market_and_canonical_history_disagree():
     rows = history()
     target_date = rows[-1]["snapshot_date"]

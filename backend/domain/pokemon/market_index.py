@@ -104,6 +104,36 @@ def build_chain_linked_history(observations: Iterable[Mapping[str, Any]]) -> lis
     return output
 
 
+def resolve_partial_window_coverage(
+    key: str,
+    *,
+    target: str | None,
+    start: str | None,
+    earliest: str,
+    latest: str,
+) -> tuple[str | None, str, bool]:
+    """Whether a window with no full-length baseline may report a truthful partial.
+
+    Shared by ``compute_strict_window_movements`` (Cards Market Index) and
+    ``compute_market_breadth`` so a 6M/1Y window that predates a market's
+    history reports the SAME effective start, coverage, and
+    ``isSinceFirstAvailable`` flag whether it is asked for an index return or a
+    breadth classification. Short windows never fall back here: only
+    ``PARTIAL_ELIGIBLE_WINDOW_KEYS`` may substitute the earliest observation
+    for a missing baseline.
+
+    Returns ``(effective_start, coverage, is_since_first_available)``.
+    """
+    is_partial = bool(
+        start is None and key in PARTIAL_ELIGIBLE_WINDOW_KEYS and target is not None and earliest > target and earliest < latest
+    )
+    if is_partial:
+        return earliest, "partial", True
+    if start is None:
+        return None, "unavailable", False
+    return start, "full", False
+
+
 def compute_strict_window_movements(points: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
     normalized = sorted(({"date": str(row.get("date") or row.get("marketDate"))[:10],
                           "value": float(row.get("value") if row.get("value") is not None else row.get("normalizedIndexValue"))}
@@ -129,11 +159,9 @@ def compute_strict_window_movements(points: Sequence[Mapping[str, Any]]) -> dict
         # label's nominal one, and `isSinceFirstAvailable` says so. Short
         # windows never fall back: a 7D that silently became "since the start"
         # would be a fabricated 7D.
-        is_partial = bool(start is None and key in PARTIAL_ELIGIBLE_WINDOW_KEYS
-                          and target is not None and earliest > target
-                          and earliest < latest["date"])
-        if is_partial:
-            start = earliest
+        start, coverage, is_partial = resolve_partial_window_coverage(
+            key, target=target, start=start, earliest=earliest, latest=latest["date"]
+        )
         if start is None:
             result[key] = {"available": False, "percent": None, "startDate": None,
                            "endDate": latest["date"], "targetStartDate": target,

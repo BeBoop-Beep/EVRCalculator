@@ -195,7 +195,9 @@ test("Market Breadth and Chase Concentration are Cards-only signal modules on mo
 test("Market Snapshot supporting details render as a compact micro-stat grid, not cards", () => {
   assert.ok(setValue.includes("data-market-mobile-micro-stats"));
   assert.ok(setValue.includes("grid-cols-2"), "a two-column micro-stat grid, not a stacked card list");
-  assert.ok(setValue.includes("buildSupportingDetails"), "the five fields reuse the shared desktop selector");
+  assert.ok(setValue.includes("buildSupportingDetails"), "the four supporting fields reuse the shared desktop selector");
+  assert.ok(setValue.includes("data-market-mobile-index"), "Market Index is promoted into the primary summary");
+  assert.ok(!setValue.includes('detail.key === "marketIndex"'), "the lower micro-stat grid does not duplicate Market Index");
 });
 
 test("Market Snapshot fetches sealed data itself, the same way the removed standalone module did", () => {
