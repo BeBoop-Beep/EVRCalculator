@@ -25,6 +25,12 @@ class _Client:
                            {"calculation_run_id": "run-b", "pack_cost": 10, "mean_value": 10}])
         if name == "simulation_derived_metrics":
             return _Query([{"calculation_run_id": "run-a"}, {"calculation_run_id": "run-b"}])
+        # Deliberately two DIFFERENT eras, so the partition is exercised rather
+        # than trivially reproducing the global cohort.
+        if name == "sets":
+            return _Query([{"id": "a", "era_id": "era-1"}, {"id": "b", "era_id": "era-2"}])
+        if name == "eras":
+            return _Query([{"id": "era-1", "name": "Alpha"}, {"id": "era-2", "name": "Beta"}])
         raise AssertionError(name)
 
 
@@ -46,5 +52,16 @@ def test_service_processes_artifacts_sequentially_without_retaining_set_vectors(
         return SimpleNamespace(metadata={"outcome_count": 4, "raw_sha256": ("a" if run_id == "run-a" else "b") * 64}, outcomes=vector)
     monkeypatch.setattr(service, "load_pack_outcome_artifact", load)
     built = service.build_pokemon_rip_stats_snapshot(_Client(), market_date="2026-08-17")
-    assert calls == ["run-a", "run-b", "run-a", "run-b"]
+    # Global makes two streaming passes over both sets; each era then makes two
+    # passes over only its own member. A set is never loaded for another era.
+    assert calls == ["run-a", "run-b", "run-a", "run-b", "run-a", "run-a", "run-b", "run-b"]
     assert built["metrics"]["totalSourceOutcomeCount"] == 8
+
+    eras = built["payload"]["openingEconomics"]["eras"]
+    assert [era["eraName"] for era in eras] == ["Alpha", "Beta"]
+    assert [era["setCount"] for era in eras] == [1, 1]
+    # The era partition re-adds to the global cohort exactly.
+    assert sum(era["setCount"] for era in eras) == built["metrics"]["setCount"]
+    # No cross-era contamination: Alpha holds only run-a's $5 pack, Beta only run-b's $10.
+    assert eras[0]["meanPackCost"] == 5.0
+    assert eras[1]["meanPackCost"] == 10.0

@@ -104,6 +104,7 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     run_market_explorer_query,
 )
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
+from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
     ASSET_SEALED,
     SUPPORTED_ASSETS,
@@ -111,6 +112,7 @@ from backend.domain.pokemon.market_explorer_query import (
     normalize_query_spec,
     query_fingerprint,
 )
+from backend.api.market_request_metrics import build_identity, market_request_metrics_middleware
 
 
 app = FastAPI(title="EVR Collection API")
@@ -118,6 +120,7 @@ app = FastAPI(title="EVR Collection API")
 logger = logging.getLogger(__name__)
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
+_MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
 _market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
@@ -292,6 +295,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.middleware("http")(market_request_metrics_middleware)
+
+
+@app.get("/health")
+def get_health():
+    """Deployment identity for operators; contains no configuration secrets."""
+    return {"status": "ok", "build": build_identity()}
 
 
 @app.get("/collection/dashboard")
@@ -561,6 +571,30 @@ def get_overall_product_rankings(budget: str = Query(default="full_market")):
         return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
 
 
+@app.get("/explore/opening-economics")
+def get_explore_opening_economics():
+    """Global and per-era loose-pack opening economics from the canonical snapshot.
+
+    PUBLIC. These are high-level educational market statistics and carry no
+    per-product RIP intelligence, so no entitlement is resolved here; the paid
+    product surfaces keep their existing database-backed gating untouched.
+
+    Compact by construction - finalized scalars and two six-point ladders per
+    scope. Failure is reported as an explicit unavailable contract rather than
+    a 5xx, so the Overall lens can degrade on its own without taking Sets or
+    Products down with it.
+    """
+    try:
+        return read_public_opening_economics(service_read_client())
+    except Exception:
+        logger.exception("/explore/opening-economics unexpected error")
+        return JSONResponse(
+            content={"status": "unavailable", "reason": "backend_error",
+                     "global": None, "eras": []},
+            status_code=503,
+        )
+
+
 @app.get("/explore/card-market-movers")
 def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
     """Serve the prepared, fixed-window global Explore card-movers snapshot."""
@@ -665,6 +699,8 @@ def post_market_explorer_query(
             time.monotonic() + _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS,
             result,
         )
+        while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
+            _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
         return result
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)

@@ -41,6 +41,7 @@ def fixture(*, variants=("v1",), canonical_selected=None, price=True):
              "special_type": "master ball" if i else None}
             for i, variant in enumerate(variants)
         ],
+        "conditions": [{"id": "nm", "name": "Near Mint"}],
         "pokemon_set_page_snapshot_latest": [{
             "set_id": "set-1", "payload_json": {"ripDecision": {"sourceCalculationRunId": "run-1"}}
         }],
@@ -106,6 +107,22 @@ def test_valid_explicit_variant_preserves_variant_identity_and_math():
     assert payload["selectedVariantId"] == "v2"
     assert payload["variantSelection"]["source"] == "query"
     assert payload["chase"]["impliedOddsOneInN"] == 960
+
+
+def test_market_only_variant_is_selectable_without_reusing_modeled_pull_rate():
+    client = fixture(variants=("v1", "v2"))
+    client.tables["simulation_input_cards"] = client.tables["simulation_input_cards"][:1]
+    client.tables["simulation_input_cards_with_near_mint_price"] = client.tables["simulation_input_cards_with_near_mint_price"][:1]
+    client.tables["card_variant_price_observations"] = [{
+        "card_variant_id": "v2", "condition_id": "nm", "market_price": 31,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
+    payload = build(client, "v2")
+    assert payload["selectedVariantId"] == "v2"
+    assert payload["market"]["currentPrice"] == 31
+    assert payload["chase"]["available"] is False
+    assert payload["chase"]["reason"] == "variant_not_modeled"
+    assert "modeledProbability" not in payload["chase"]
 
 
 def test_foreign_or_unknown_explicit_variant_is_never_used_and_falls_back_deterministically():

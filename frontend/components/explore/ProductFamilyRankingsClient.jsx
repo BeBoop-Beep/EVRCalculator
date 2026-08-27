@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import OpeningEconomicsOverall from "./OpeningEconomicsOverall";
+import OpeningEconomicsEras from "./OpeningEconomicsEras";
 import DarkSelect from "@/components/ui/DarkSelect";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
@@ -513,13 +515,14 @@ export default function ProductFamilyRankingsClient({
   productFamilyRankings,
   initialOverallProductRankings,
   loadError,
+  openingEconomics = null,
   onUnlockProductRip = null,
 }) {
   const { canViewRankingsIntelligence } = useRankingsAccess();
   const canViewProductRipIntelligence = canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
-  const [view, setView] = useState("sets"),
+  const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
     [sortDirection, setSortDirection] = useState(canViewProductRipIntelligence ? "desc" : "asc"),
     [query, setQuery] = useState(""),
@@ -557,23 +560,31 @@ export default function ProductFamilyRankingsClient({
       () => filterAndSortProducts(selected?.products, query, sortKey, sortDirection),
       [selected, query, sortKey, sortDirection],
     ),
-    productsActive = view !== "sets";
+    // Four top-level lenses. `view` still carries the product family key when a
+    // family is selected, so the lens is derived from it rather than tracked in
+    // a second piece of state that could disagree with it.
+    productsActive = view !== "sets" && view !== "economics" && view !== "eras";
+  const lens = view === "economics" ? "economics" : view === "eras" ? "eras" : view === "sets" ? "sets" : "products";
   const selectView = (next) => {
       setQuery("");
       setSortKey(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical");
       setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
     },
-    changeView = (next) => selectView(next === "products" ? "overall" : "sets");
+    changeView = (next) =>
+      selectView(next === "products" ? "allProducts" : next);
   return (
     <>
       <SegmentedControl
         className="mb-3 inline-block"
         ariaLabel="Ranking view"
         variant="primary"
-        value={productsActive ? "products" : "sets"}
+        value={lens}
         onChange={changeView}
+        mobileScroll
         options={[
+          { value: "economics", label: "Overall" },
+          { value: "eras", label: "Eras" },
           { value: "sets", label: "Sets" },
           { value: "products", label: "Products" },
         ]}
@@ -585,10 +596,10 @@ export default function ProductFamilyRankingsClient({
         >
           <button
             type="button"
-            onClick={() => selectView("overall")}
-            aria-pressed={view === "overall"}
+            onClick={() => selectView("allProducts")}
+            aria-pressed={view === "allProducts"}
             data-overall-product-tab
-            className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${view === "overall" ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}
+            className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${view === "allProducts" ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}
           >
             <span
               aria-hidden="true"
@@ -596,7 +607,7 @@ export default function ProductFamilyRankingsClient({
             >
               ◇
             </span>
-            Overall
+            All Products
           </button>
           {entries.map(([family, b]) => (
             <button
@@ -611,9 +622,13 @@ export default function ProductFamilyRankingsClient({
           ))}
         </nav>
       ) : null}
-      {view === "sets" ? (
+      {view === "economics" ? (
+        <OpeningEconomicsOverall economics={openingEconomics} onSelectEras={() => selectView("eras")} />
+      ) : view === "eras" ? (
+        <OpeningEconomicsEras economics={openingEconomics} onSelectSets={() => selectView("sets")} />
+      ) : view === "sets" ? (
         <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
-      ) : view === "overall" ? (
+      ) : view === "allProducts" ? (
         <OverallProductRankings
           result={overallResult}
           query={query}

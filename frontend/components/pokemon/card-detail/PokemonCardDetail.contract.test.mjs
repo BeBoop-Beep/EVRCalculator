@@ -7,6 +7,7 @@ const source = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card
 const market = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card-detail/AssetMarketPanel.jsx"), "utf8");
 const marketModel = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card-detail/assetMarketModel.mjs"), "utf8");
 const page = fs.readFileSync(path.join(process.cwd(), "app/TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId]/page.js"), "utf8");
+const detailModel = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card-detail/cardDetailModel.mjs"), "utf8");
 const styles = fs.readFileSync(path.join(process.cwd(), "app/styles/globals.css"), "utf8");
 
 test("variant selection preserves canonical route and accessible radio state", () => {
@@ -17,8 +18,9 @@ test("variant selection preserves canonical route and accessible radio state", (
 });
 
 test("unsupported cards retain public market identity without fake intelligence", () => {
-  assert.match(source, /Modeled Card Intelligence is not currently available for this card/);
+  assert.match(source, /Pull intelligence is not modeled for this printing/);
   assert.match(source, /Card artwork unavailable/);
+  assert.match(source, /onError=\{\(\) => setFailed\(true\)\}/);
   assert.match(source, /hasIndexPlusAccess\(user\?\.index_plan\)/);
   assert.doesNotMatch(source, /plan\s*===\s*["']plus["']/);
 });
@@ -37,18 +39,19 @@ test("market shell exposes raw, disabled graded, canonical windows, chart and tr
 });
 
 test("journey and product economics use canonical fields with recovery disclosure", () => {
-  for (const label of ["50%", "75%", "90%", "95%", "Choose How You Open It", "Gross Chase Spend", "Recovery-adjusted Cost"]) assert.ok(source.includes(label), `missing ${label}`);
-  assert.match(source, /fees, shipping, condition discounts, liquidity, or sell-through/);
+  assert.match(detailModel, /Object\.freeze\(\[0\.5, 0\.75, 0\.9, 0\.95\]\)/);
+  for (const label of ["Choose How You Open It", "Gross Chase Spend", "Recovery-adjusted Cost"]) assert.ok(source.includes(label), `missing ${label}`);
+  assert.match(source, /fees, shipping, condition discounts, liquidity, and sell-through/i);
   assert.doesNotMatch(source, /Overall RIP|Financial RIP|Collector Appeal|RIP Tier/);
 });
 
 test("probability journey renders its canonical curve and all milestone markers", () => {
   assert.match(source, /chase\.modeledProbability/);
-  assert.match(source, /1 - Math\.pow\(1 - probability, packs\)/);
+  assert.match(source, /cumulativePullProbability\(probability, packs\)/);
   assert.match(source, /data-probability-journey-chart/);
   assert.match(source, /data-probability-curve/);
   assert.match(source, /data-probability-marker=/);
-  for (const label of ["50%", "75%", "90%", "95%"] ) assert.ok(source.includes(label));
+  assert.match(detailModel, /Object\.freeze\(\[0\.5, 0\.75, 0\.9, 0\.95\]\)/);
 });
 
 test("card detail shares the dynamic set atmosphere and establishes its stacking context", () => {
@@ -64,10 +67,12 @@ test("normal card-detail interactions use Market teal while the lock remains amb
   assert.match(source, /border-amber-300\/40/);
 });
 
-test("product choices use canonical compact labels and a responsive four-column desktop grid", () => {
-  assert.match(source, /compactSealedProductLabel\(p\)/);
-  assert.match(source, /sm:grid-cols-2 lg:grid-cols-4/);
-  assert.match(source, /selected\.sealedProductId === p\.sealedProductId/);
+test("product choices use compact labels, scalable desktop navigation, and a mobile select", () => {
+  assert.match(source, /compactSealedProductLabel\(product\)/);
+  assert.match(source, /md:grid-cols-\[minmax\(13rem,17rem\)_minmax\(0,1fr\)\]/);
+  assert.match(source, /<select id="product-select"/);
+  assert.match(source, /max-h-\[22rem\].*overflow-y-auto/);
+  assert.match(source, /selected\.sealedProductId === product\.sealedProductId/);
 });
 
 test("collector hierarchy keeps actual scores and honest unavailable scarcity", () => {
@@ -89,4 +94,17 @@ test("canonical metadata excludes variant query", () => {
   assert.match(page, /const path = `\/TCGs\/Pokemon\/Sets\/\$\{encodeURIComponent\(detail\.set\.slug\)\}\/Cards\/\$\{encodeURIComponent\(detail\.card\.id\)\}`/);
   assert.doesNotMatch(page, /path.*variant/);
   assert.match(page, /notFound\(\)/);
+  assert.match(page, / — /);
+  assert.doesNotMatch(page, /Ã|â€|Â/);
+});
+
+test("top and bottom set navigation both land on the Cards view", () => {
+  assert.match(source, /const setHref = `\/TCGs\/Pokemon\/Sets\/\$\{encodeURIComponent\(detail\.set\.slug\)\}\?tab=cards`/);
+  assert.match(source, /← Back to \{detail\.set\.name\} Cards/);
+  assert.match(source, /Explore more cards from \{detail\.set\.name\}/);
+});
+
+test("market-only variants are selectable while pull modeling remains explicit", () => {
+  assert.doesNotMatch(source, /disabled=\{!variant\.modeled/);
+  assert.match(source, /!variant\.modeled \? " · Not modeled"/);
 });

@@ -21,8 +21,23 @@ def deterministic_fingerprint(rows: Sequence[Mapping[str, Any]]) -> str:
     return hashlib.sha256(json.dumps(normalized, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
 
 
-def _quantile(values: np.ndarray, q: float) -> float:
-    return float(np.quantile(values, q, method="linear", overwrite_input=True))
+#: The exact-outcome quantile ladder published for BOTH distributions. P50/P95/P99
+#: predate the ladder and keep their original field names; P05/P25/P75 extend it.
+#: Every one is read straight off the pooled empirical population - none is
+#: interpolated from summary statistics and none is inferred from the mean.
+RAW_QUANTILES = (0.05, 0.25, 0.50, 0.75, 0.95, 0.99)
+
+
+def _quantiles(values: np.ndarray, qs=RAW_QUANTILES) -> list[float]:
+    """All requested quantiles in ONE pass over the pooled population.
+
+    ``overwrite_input`` lets numpy partition the buffer in place rather than
+    copying 176 MB; the caller owns ``values`` and fully rewrites it before any
+    later read, so the reordering is unobservable. Asking for the whole ladder
+    at once also avoids re-partitioning the population once per percentile.
+    """
+    result = np.quantile(values, list(qs), method="linear", overwrite_input=True)
+    return [float(item) for item in np.atleast_1d(result)]
 
 
 def calculate_pokemon_rip_stats_streaming(
@@ -61,7 +76,7 @@ def calculate_pokemon_rip_stats_streaming(
         per_set_ev.append(float(vector.mean()))
         del vector
     expected_value = float(population.mean())
-    typical_value, p95_value, p99_value = (_quantile(population, q) for q in (.50, .95, .99))
+    p05_value, p25_value, typical_value, p75_value, p95_value, p99_value = _quantiles(population)
     retention_sum = 0.0; loss_retention_sum = 0.0; loss_count = 0; soft_count = 0; hard_count = 0
     for index, (item, cost) in enumerate(zip(ordered, costs)):
         vector = np.asarray(load_outcomes(item), dtype=np.float64)
@@ -81,21 +96,36 @@ def calculate_pokemon_rip_stats_streaming(
         del losing, chunk, vector
     size = population.size
     expected_retention = retention_sum / size
-    typical_retention, p95_retention, p99_retention = (_quantile(population, q) for q in (.50, .95, .99))
+    (p05_retention, p25_retention, typical_retention,
+     p75_retention, p95_retention, p99_retention) = _quantiles(population)
     mean_cost = float(np.mean(costs))
+    # Aggregate dollars for the spend-weighted headline ratios. These answer a
+    # DIFFERENT question from `expectedRetention` below: buying one pack from
+    # every set and asking what share of that basket the model returns, rather
+    # than averaging each set's own return ratio. Because the sets differ in
+    # price the two disagree, and the spend-weighted form is the one that
+    # describes the actual basket. `expectedRetention` keeps its original
+    # equal-weighted meaning for its existing consumers.
+    total_cost = float(sum(costs))
+    total_ev = float(sum(per_set_ev))
+    modeled_return_on_spend = total_ev / total_cost
     return {"setCount": len(ordered), "outcomeCountPerSet": count, "totalSourceOutcomeCount": size,
         "meanPackCost": mean_cost, "medianPackCost": float(np.median(costs)), "expectedValue": expected_value,
         "expectedRetention": expected_retention, "chanceToBeatCost": wins / size,
         "expectedLossUnconditional": loss_total / size,
         "expectedEntertainmentCost": float(np.mean(np.asarray(costs) - np.asarray(per_set_ev))),
         "expectedEntertainmentCostRatio": 1.0 - expected_retention,
+        "modeledReturnOnSpend": modeled_return_on_spend,
+        "entertainmentCostShare": 1.0 - modeled_return_on_spend,
         "typicalOpeningValue": typical_value, "p95Value": p95_value, "p99Value": p99_value,
+        "p05Value": p05_value, "p25Value": p25_value, "p75Value": p75_value,
         "typicalRetention": typical_retention, "p95Retention": p95_retention, "p99Retention": p99_retention,
+        "p05Retention": p05_retention, "p25Retention": p25_retention, "p75Retention": p75_retention,
         "averageRetentionGivenLoss": loss_retention_sum / loss_count if loss_count else 1.0,
         "softLossShareGivenLoss": soft_count / loss_count if loss_count else 1.0,
         "hardLossProbability": hard_count / size, "onePackPerSet": {"setCount": len(ordered),
-            "totalPackCost": float(sum(costs)), "totalExpectedValue": float(sum(per_set_ev)),
-            "expectedEntertainmentCost": float(sum(costs) - sum(per_set_ev))}}
+            "totalPackCost": total_cost, "totalExpectedValue": total_ev,
+            "expectedEntertainmentCost": total_cost - total_ev}}
 
 
 def calculate_pokemon_rip_stats(inputs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:

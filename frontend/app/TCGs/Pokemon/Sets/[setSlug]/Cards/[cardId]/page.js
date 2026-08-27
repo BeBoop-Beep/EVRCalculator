@@ -13,14 +13,24 @@ export async function generateMetadata({ params, searchParams }) {
   try {
     const detail = await load(params, searchParams);
     const path = `/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}`;
-    const number = detail.card.printedNumber || detail.card.cardNumber;
-    return buildRouteMetadata({ path, title: `${detail.card.name} â€” ${detail.set.name} Chase Analysis | inDex`, description: `${detail.card.name}${number ? ` ${number}` : ""} from ${detail.set.name}: current market price, modeled pull odds, probability milestones, and sealed-product Chase economics.` });
-  } catch { return {}; }
+    const cardNumber = detail.card.printedNumber || detail.card.cardNumber;
+    return buildRouteMetadata({
+      path,
+      title: `${detail.card.name} — ${detail.set.name} Chase Analysis | inDex`,
+      description: `${detail.card.name}${cardNumber ? ` ${cardNumber}` : ""} from ${detail.set.name}: current market price, modeled pull odds, probability milestones, and sealed-product Chase economics.`,
+    });
+  } catch {
+    return {};
+  }
 }
 
 export default async function PokemonCardPage({ params, searchParams }) {
   let detail;
-  try { detail = await load(params, searchParams); }
-  catch (error) { if (error?.status === 404) notFound(); throw error; }
-  return <PokemonCardDetailClient initialDetail={detail} />;
+  try {
+    detail = await load(params, searchParams);
+  } catch (error) {
+    if (error?.status === 404) notFound();
+    throw error;
+  }
+  return <PokemonCardDetailClient initialDetail={detail}/>;
 }

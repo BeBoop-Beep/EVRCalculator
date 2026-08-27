@@ -16,6 +16,9 @@
 # next.js
 /.next/
 /.next-perf*/
+# Custom Next.js dist directories created by isolated build/validation runs
+# (e.g. .next-card-detail), matching the root .gitignore convention.
+/.next-*/
 /out/
 
 # production

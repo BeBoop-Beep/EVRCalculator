@@ -222,6 +222,10 @@ def get_pokemon_card_detail_payload(
             .in_("card_id", legacy_ids)
         )
     candidate_ids = [str(row["id"]) for row in variant_rows if row.get("id")]
+    near_mint_rows = _rows(
+        active.table("conditions").select("id,name").eq("name", "Near Mint").limit(1)
+    )
+    near_mint_condition_id = _text(near_mint_rows[0].get("id")) if near_mint_rows else None
 
     run_id = _current_run_id(active, resolved_set_id)
     modeled_rows: List[Dict[str, Any]] = []
@@ -262,7 +266,9 @@ def get_pokemon_card_detail_payload(
     canonical_selected = _text(canonical_market.get("card_variant_id"))
 
     requested = _text(variant_id)
-    requested_is_valid = bool(requested and requested in modeled and requested in candidate_ids)
+    # Market-only variants stay selectable. Their pull modules explicitly
+    # remain unavailable instead of inheriting another printing's model.
+    requested_is_valid = bool(requested and requested in candidate_ids)
     selected: Optional[str] = None
     source: Optional[str] = None
     if requested_is_valid:
@@ -303,7 +309,7 @@ def get_pokemon_card_detail_payload(
 
     chase: Dict[str, Any]
     market: Dict[str, Any]
-    if selected:
+    if selected and selected in modeled:
         sim = modeled[selected]
         current = prices.get(selected, {})
         selected_cards = select_chase_cards(
@@ -345,19 +351,28 @@ def get_pokemon_card_detail_payload(
     else:
         chase = {
             "available": False,
-            "reason": "variant_selection_required" if modeled else "modeled_chase_unavailable",
+            "reason": "variant_not_modeled" if selected else ("variant_selection_required" if modeled else "modeled_chase_unavailable"),
             "sourceCalculationRunId": run_id,
         }
         market = {
-            "currentPrice": _positive(canonical_market.get("market_price")),
-            "observedAt": _text(canonical_market.get("captured_at")),
-            "marketDate": (_text(canonical_market.get("captured_at")) or "")[:10] or None,
-            "source": _text(canonical_market.get("source")),
-            "priceSelectionReason": _text(canonical_market.get("price_selection_reason")),
+            "currentPrice": None if selected else _positive(canonical_market.get("market_price")),
+            "observedAt": None if selected else _text(canonical_market.get("captured_at")),
+            "marketDate": None if selected else (_text(canonical_market.get("captured_at")) or "")[:10] or None,
+            "source": None if selected else _text(canonical_market.get("source")),
+            "priceSelectionReason": None if selected else _text(canonical_market.get("price_selection_reason")),
         }
 
-    selected_condition = _text((modeled.get(selected or "") or {}).get("condition_id"))
-    history = _load_card_market_history(active, selected or canonical_selected, selected_condition or _text(canonical_market.get("condition_id")))
+    selected_condition = _text((modeled.get(selected or "") or {}).get("condition_id")) or near_mint_condition_id
+    canonical_condition = _text(canonical_market.get("condition_id")) if not selected or selected == canonical_selected else None
+    history = _load_card_market_history(active, selected or canonical_selected, selected_condition or canonical_condition)
+    if selected and history and market.get("currentPrice") is None:
+        latest = history[-1]
+        market.update({
+            "currentPrice": latest.get("marketPrice"),
+            "observedAt": latest.get("observedAt") or latest.get("date"),
+            "marketDate": latest.get("date"),
+            "source": latest.get("source"),
+        })
     market["history"] = history
     market["movements"] = {key: _market_movement(history, key) for key in (*_MARKET_WINDOWS, "lifetime")}
     intelligence = _load_card_intelligence(active, str(card_id), card.get("rarity"))

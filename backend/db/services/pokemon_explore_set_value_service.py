@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -10,6 +12,7 @@ from backend.domain.pokemon.market_index import resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
+logger = logging.getLogger("market.performance")
 # The Set Market's window vocabulary. The last key is named "lifetime" rather
 # than "SinceTracking" because a Set Value series has no chain segments to
 # track from - it is simply that Set's own complete published history - but the
@@ -22,6 +25,11 @@ WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 36
 _CANONICAL_WINDOW_KEY = {"1D": "1D", "7D": "7D", "30D": "30D", "3M": "3M", "6M": "6M", "1Y": "1Y"}
 MAX_TREND_POINTS = 48
 MAX_RECENT_DAILY_TREND_POINTS = 30
+MARKET_PAGE_OVERVIEW_FIELDS = (
+    "raw", "topChase", "sealedMarket", "marketDate", "coverage",
+    "contractVersion", "windowSemantics", "comparisonWindows",
+    "comparisonWindowContractVersion", "sourceGenerationFingerprint",
+)
 
 
 class ExploreSetValueUnavailable(Exception):
@@ -227,11 +235,22 @@ def build_global_set_value_row(
 
 def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
     active = client or service_read_client
+    started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
+    db_ms = round((time.perf_counter() - started) * 1000, 2)
     if not rows:
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
+    overview = payload.get("marketOverview")
+    if isinstance(overview, Mapping):
+        # The persisted publication also contains deep card/sealed segment
+        # explorer data. /Market renders only the three parent families; do not
+        # materialize those unused nested structures into the HTTP response.
+        payload["marketOverview"] = {
+            key: overview[key] for key in MARKET_PAGE_OVERVIEW_FIELDS if key in overview
+        }
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE, "payloadSizeBytes": rows[0].get("payload_size_bytes")}
+    logger.info("market_read route=/explore/set-value-market dbDurationMs=%s majorReads=1 payloadBytes=%s", db_ms, rows[0].get("payload_size_bytes"))
     return payload
 
 

@@ -137,6 +137,8 @@ test("all required Rankings metrics are sortable columns", () => {
     "collectorAppeal",
     "typicalOpening",
     "modelBreakEven",
+    "modeledReturn",
+    "entertainmentCost",
     "marketPrice",
     "chanceToBeatCost",
     "topChase",
@@ -150,6 +152,8 @@ test("all required Rankings metrics are sortable columns", () => {
       "Collector Appeal",
       "Typical Opening",
       "Model Break-Even",
+      "Modeled Return",
+      "Entertainment Cost",
       "Market Price",
       "Chance to Beat Cost",
       "Top Chase Market Value",
@@ -172,6 +176,36 @@ test("each column reads its authoritative field and derives nothing new", () => 
   assert.equal(readAverageLoss(ALPHA), 9.5, "Average Loss is expected_loss_when_losing");
   assert.equal(readTypicalOpening(ALPHA), 9.5);
   assert.equal(readModelBreakEven(ALPHA), 9.8);
+  // Modeled Return and Entertainment Cost are the SAME two published numbers
+  // (pack_cost, mean_value) as a ratio and a difference. Neither introduces a
+  // third field and neither is a score.
+  assert.equal(readSortValue(ALPHA, "modeledReturn"), (9.8 / 100.5) * 100);
+  assert.equal(readSortValue(ALPHA, "entertainmentCost"), 100.5 - 9.8);
+});
+
+/* ------------------------------- Entertainment Cost vs Average Loss --- */
+
+test("Entertainment Cost is the unconditional gap, distinct from Average Loss", () => {
+  // ALPHA: unconditional gap 90.7, conditional average loss 9.5. Keeping both
+  // is the point — one is what the experience costs, the other is how badly a
+  // losing opening loses.
+  assert.equal(readSortValue(ALPHA, "entertainmentCost"), 90.7);
+  assert.equal(readAverageLoss(ALPHA), 9.5);
+  assert.notEqual(readSortValue(ALPHA, "entertainmentCost"), readAverageLoss(ALPHA));
+});
+
+test("a negative Entertainment Cost survives rather than being clamped", () => {
+  const underpriced = { pack_cost: 4, mean_value: 6.5 };
+  assert.equal(readSortValue(underpriced, "entertainmentCost"), -2.5);
+  assert.equal(readSortValue(underpriced, "modeledReturn"), (6.5 / 4) * 100);
+});
+
+test("Modeled Return and Entertainment Cost stay unavailable without both inputs", () => {
+  for (const id of ["modeledReturn", "entertainmentCost"]) {
+    assert.equal(readSortValue({ pack_cost: 10 }, id), null, `${id} invented an EV`);
+    assert.equal(readSortValue({ mean_value: 5 }, id), null, `${id} invented a price`);
+    assert.equal(readSortValue({ pack_cost: 0, mean_value: 5 }, id), null, `${id} divided by a zero price`);
+  }
 });
 
 /* ------------------------------------------- Average Loss When Losing --- */

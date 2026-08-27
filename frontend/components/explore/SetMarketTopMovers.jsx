@@ -34,6 +34,13 @@ const WINDOW = "7D";
 const LIMIT = 10;
 
 const cache = new Map();
+const CACHE_MAX_ENTRIES = 48;
+
+function cacheResult(setId, value) {
+  cache.delete(setId);
+  cache.set(setId, value);
+  while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value);
+}
 
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
 
@@ -101,7 +108,7 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
     getPokemonSetMarketMovers(setId, { window: WINDOW, limit: LIMIT })
       .then((payload) => {
         const next = { status: "success", entry: payload };
-        cache.set(setId, next);
+        cacheResult(setId, next);
         if (!cancelled) setState(next);
       })
       .catch(() => {
