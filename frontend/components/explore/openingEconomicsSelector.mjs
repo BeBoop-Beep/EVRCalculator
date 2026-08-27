@@ -203,3 +203,86 @@ export function projectEraRow(era) {
     chanceToRecover: ratioAsPercent(era?.chanceToBeatCost),
   };
 }
+
+/**
+ * Positions for the Opening Outcome Range.
+ *
+ * GEOMETRY, NOT STATISTICS. Every value plotted here is already published; this
+ * only decides where each one sits on an axis. No percentile is estimated, no
+ * point between two published percentiles is interpolated as data, and the
+ * distribution between ticks is deliberately never drawn as a curve.
+ *
+ * The axis is LOGARITHMIC because the published ladder spans $1.25 to $60.39 —
+ * roughly one and a half decades. On a linear axis the four points that
+ * describe most modeled openings (P05 through P75, all under $3) collapse into
+ * a few pixels at the left edge, which hides the exact comparison the section
+ * exists to make. The scale is labeled in the UI rather than left for the
+ * reader to infer.
+ */
+export function outcomeRangePositions(distribution, expectedValue) {
+  const rows = distributionRows(distribution, (value) => money(value));
+  if (!rows) return null;
+  const values = rows.filter((row) => row.raw !== null && row.raw > 0);
+  if (values.length < 2) return null;
+
+  const ev = finite(expectedValue);
+  const lower = Math.min(...values.map((row) => row.raw), ev !== null && ev > 0 ? ev : Infinity);
+  const upper = Math.max(...values.map((row) => row.raw), ev !== null && ev > 0 ? ev : 0);
+  if (!(upper > lower)) return null;
+
+  const span = Math.log(upper) - Math.log(lower);
+  const place = (value) => ((Math.log(value) - Math.log(lower)) / span) * 100;
+
+  return {
+    scale: "logarithmic",
+    points: values.map((row) => ({
+      key: row.key,
+      label: PERCENTILE_LABELS[row.key] || row.label,
+      shortLabel: row.label,
+      display: row.display,
+      percent: place(row.raw),
+      typical: row.key === "p50",
+    })),
+    expectedValue: ev !== null && ev > 0
+      ? { display: money(ev), percent: place(ev) }
+      : null,
+  };
+}
+
+/**
+ * Percentiles named precisely. "95th percentile" is a position in the modeled
+ * outcome distribution; "95% chance" is a probability. They are not the same
+ * statement and the labels must never blur them.
+ */
+export const PERCENTILE_LABELS = {
+  p05: "5th percentile",
+  p25: "25th percentile",
+  p50: "Typical (median)",
+  p75: "75th percentile",
+  p95: "95th percentile",
+  p99: "99th percentile",
+};
+
+/**
+ * The price -> break-even -> typical progression, with each stage's bar width
+ * proportional to its dollar value against the pack price.
+ *
+ * Break-Even carries `sameAsExpectedValue` so the view can state outright that
+ * it IS the modeled Expected Value re-expressed as a price, rather than
+ * presenting it as a third independent statistic.
+ */
+export function valueDescent(scope) {
+  const price = finite(scope?.meanPackCost);
+  const breakEven = finite(scope?.expectedValue);
+  const typical = finite(scope?.typicalOpening?.value);
+  if (price === null || price <= 0) return null;
+  const share = (value) => (value === null ? null : Math.max(0.5, (value / price) * 100));
+  return [
+    { key: "price", label: "Average pack price", value: money(price), percent: 100,
+      note: "What one loose pack costs today" },
+    { key: "breakEven", label: "Model break-even", value: money(breakEven), percent: share(breakEven),
+      note: "Long-run modeled Expected Value, expressed as a price", sameAsExpectedValue: true },
+    { key: "typical", label: "Typical opening", value: money(typical), percent: share(typical),
+      note: "The median modeled opening — half finish above, half below" },
+  ];
+}

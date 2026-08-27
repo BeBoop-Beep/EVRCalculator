@@ -585,7 +585,7 @@ def get_explore_opening_economics():
     Products down with it.
     """
     try:
-        return read_public_opening_economics(service_read_client())
+        return read_public_opening_economics(service_read_client)
     except Exception:
         logger.exception("/explore/opening-economics unexpected error")
         return JSONResponse(

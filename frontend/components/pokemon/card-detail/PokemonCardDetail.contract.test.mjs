@@ -11,7 +11,7 @@ const detailModel = fs.readFileSync(path.join(process.cwd(), "components/pokemon
 const styles = fs.readFileSync(path.join(process.cwd(), "app/styles/globals.css"), "utf8");
 
 test("variant selection preserves canonical route and accessible radio state", () => {
-  assert.match(source, /getPokemonCardDetail\(detail\.set\.id, detail\.card\.id, variantId\)/);
+  assert.match(source, /getPokemonCardDetail\([\s\S]*?detail\.set\.id,[\s\S]*?detail\.card\.id,[\s\S]*?variantId/);
   assert.match(source, /\?variant=\$\{encodeURIComponent\(variantId\)\}/);
   assert.match(source, /role="radiogroup"/);
   assert.match(source, /aria-checked=/);
@@ -26,14 +26,15 @@ test("unsupported cards retain public market identity without fake intelligence"
 });
 
 test("identity is rarity plus number and excludes subtype metadata", () => {
-  assert.match(source, /detail\.card\.rarity, detail\.card\.printedNumber \|\| detail\.card\.cardNumber/);
+  assert.match(source, /detail\.card\.rarity,[\s\S]*?detail\.card\.printedNumber \|\| detail\.card\.cardNumber/);
   assert.doesNotMatch(source, /subtypes\?\.join|detail\.card\.subtypes/);
 });
 
 test("market shell exposes raw, disabled graded, canonical windows, chart and truthful fallback", () => {
   for (const label of ["Raw", "Graded · Coming Soon", "Showing history since tracking began"]) assert.ok(market.includes(label), `missing ${label}`);
   for (const label of ["1D", "7D", "30D", "3M", "6M", "1Y", "ALL"]) assert.ok(marketModel.includes(label), `missing ${label}`);
-  assert.match(market, /disabled title="Graded market data is coming soon"/);
+  assert.match(market, /title="Graded market data is coming soon"[\s\S]*?disabled|disabled[\s\S]*?title="Graded market data is coming soon"/);
+  assert.match(market, /MarketWindowSelector/);
   assert.match(market, /MarketMobileChart/);
   assert.doesNotMatch(market, /PSA|BGS|CGC/);
 });
@@ -41,7 +42,7 @@ test("market shell exposes raw, disabled graded, canonical windows, chart and tr
 test("journey and product economics use canonical fields with recovery disclosure", () => {
   assert.match(detailModel, /Object\.freeze\(\[0\.5, 0\.75, 0\.9, 0\.95\]\)/);
   for (const label of ["Choose How You Open It", "Gross Chase Spend", "Recovery-adjusted Cost"]) assert.ok(source.includes(label), `missing ${label}`);
-  assert.match(source, /fees, shipping, condition discounts, liquidity, and sell-through/i);
+  assert.match(source, /Fees, shipping, condition discounts,[\s\S]*?liquidity,[\s\S]*?sell-through/i);
   assert.doesNotMatch(source, /Overall RIP|Financial RIP|Collector Appeal|RIP Tier/);
 });
 
@@ -55,8 +56,8 @@ test("probability journey renders its canonical curve and all milestone markers"
 });
 
 test("card detail shares the dynamic set atmosphere and establishes its stacking context", () => {
-  assert.match(source, /optimizedImageUrl\(detail\.set\.heroImageUrl \|\| detail\.set\.logoImageUrl \|\| detail\.set\.symbolImageUrl, SET_LOGO_WIDTH\)/);
-  assert.match(source, /PageArtworkAtmosphere src=\{artwork\}/);
+  assert.match(source, /optimizedImageUrl\([\s\S]*?detail\.set\.heroImageUrl[\s\S]*?detail\.set\.logoImageUrl[\s\S]*?detail\.set\.symbolImageUrl[\s\S]*?SET_LOGO_WIDTH/);
+  assert.match(source, /<PageArtworkAtmosphere[\s\S]*?src=\{artwork\}/);
   assert.match(source, /relative isolate/);
   assert.doesNotMatch(source, /Ascended Heroes.*artwork|Black Bolt.*artwork/);
 });
@@ -70,13 +71,13 @@ test("normal card-detail interactions use Market teal while the lock remains amb
 test("product choices use compact labels, scalable desktop navigation, and a mobile select", () => {
   assert.match(source, /compactSealedProductLabel\(product\)/);
   assert.match(source, /md:grid-cols-\[minmax\(13rem,17rem\)_minmax\(0,1fr\)\]/);
-  assert.match(source, /<select id="product-select"/);
+  assert.match(source, /<select[\s\S]*?id="product-select"/);
   assert.match(source, /max-h-\[22rem\].*overflow-y-auto/);
   assert.match(source, /selected\.sealedProductId === product\.sealedProductId/);
 });
 
 test("collector hierarchy keeps actual scores and honest unavailable scarcity", () => {
-  assert.match(source, /primary=\{?true\}?|primary\/>/);
+  assert.match(source, /primary\s*\/>/);
   assert.match(source, /intelligence\?\.cardAppeal/);
   assert.match(source, /intelligence\?\.pokemonDemand/);
   assert.match(source, /intelligence\?\.treatment/);
@@ -100,7 +101,8 @@ test("canonical metadata excludes variant query", () => {
 
 test("top and bottom set navigation both land on the Cards view", () => {
   assert.match(source, /const setHref = `\/TCGs\/Pokemon\/Sets\/\$\{encodeURIComponent\(detail\.set\.slug\)\}\?tab=cards`/);
-  assert.match(source, /← Back to \{detail\.set\.name\} Cards/);
+  assert.match(source, /← Back to \{detail\.set\.name\}/);
+  assert.doesNotMatch(source, /Back to \{detail\.set\.name\} Cards/);
   assert.match(source, /Explore more cards from \{detail\.set\.name\}/);
 });
 

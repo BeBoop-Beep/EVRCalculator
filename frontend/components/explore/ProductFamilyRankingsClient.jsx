@@ -522,6 +522,10 @@ export default function ProductFamilyRankingsClient({
   const canViewProductRipIntelligence = canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
+  // The era a drilldown scoped the Sets lens to. Held here rather than inside
+  // ExploreTableClient so the Eras lens can set it while navigating, and so
+  // leaving the Sets lens does not silently strand an invisible filter.
+  const [selectedEra, setSelectedEra] = useState(null);
   const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
     [sortDirection, setSortDirection] = useState(canViewProductRipIntelligence ? "desc" : "asc"),
@@ -567,6 +571,7 @@ export default function ProductFamilyRankingsClient({
   const lens = view === "economics" ? "economics" : view === "eras" ? "eras" : view === "sets" ? "sets" : "products";
   const selectView = (next) => {
       setQuery("");
+      setSelectedEra(null);
       setSortKey(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical");
       setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
@@ -625,9 +630,33 @@ export default function ProductFamilyRankingsClient({
       {view === "economics" ? (
         <OpeningEconomicsOverall economics={openingEconomics} onSelectEras={() => selectView("eras")} />
       ) : view === "eras" ? (
-        <OpeningEconomicsEras economics={openingEconomics} onSelectSets={() => selectView("sets")} />
+        <OpeningEconomicsEras
+          economics={openingEconomics}
+          onSelectEra={(era) => {
+            selectView("sets");
+            setSelectedEra(era?.eraName || null);
+          }}
+        />
       ) : view === "sets" ? (
-        <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
+        <>
+          {selectedEra ? (
+            <div className="mb-3 flex flex-wrap items-center gap-2" data-era-filter-chip>
+              <span className="text-xs text-[var(--text-secondary)]">Showing sets from</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]">
+                {selectedEra}
+                <button
+                  type="button"
+                  onClick={() => setSelectedEra(null)}
+                  aria-label={`Clear the ${selectedEra} filter and show all sets`}
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </span>
+            </div>
+          ) : null}
+          <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />
+        </>
       ) : view === "allProducts" ? (
         <OverallProductRankings
           result={overallResult}

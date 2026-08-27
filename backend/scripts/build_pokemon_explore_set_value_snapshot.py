@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +27,18 @@ from backend.db.services.canonical_market_overview import (
     resolve_canonical_overview_sets,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
+
+
+def publisher_build_sha() -> str:
+    configured = (os.getenv("PUBLICATION_BUILD_SHA") or os.getenv("GIT_SHA") or "").strip()
+    if configured:
+        return configured[:40]
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True, timeout=5
+        ).strip()[:40]
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -92,7 +106,10 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         overview = build_canonical_market_overview(
             client, market_date=market_date, history=history, set_ids=set_ids,
         )
-    row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
+    row = build_global_set_value_row(
+        sets, dashboards, histories, target_market_date=market_date,
+        market_overview=overview, publisher_build_sha=publisher_build_sha(),
+    )
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)
     return row

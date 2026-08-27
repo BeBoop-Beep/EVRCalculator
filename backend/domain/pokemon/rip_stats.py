@@ -7,7 +7,18 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
-POKEMON_RIP_STATS_CONTRACT_VERSION = "pokemon-rip-stats-v1"
+#: v2 adds the `openingEconomics` block: spend-weighted headline ratios, the
+#: P05/P25/P75 extensions to both quantile ladders, and per-era scopes. It is a
+#: CONTRACT bump only - the payload grew, so a reader must be able to tell a
+#: snapshot that carries those fields from one that predates them.
+#:
+#: The methodology and weighting versions deliberately do NOT move. The
+#: statistics are still the exact empirical mixture over the persisted
+#: million-outcome artifacts, and sets are still weighted equally; claiming
+#: either changed would assert a difference in how the numbers were computed
+#: that did not happen. Every previously published field keeps its meaning and
+#: its value.
+POKEMON_RIP_STATS_CONTRACT_VERSION = "pokemon-rip-stats-v2"
 POKEMON_RIP_STATS_METHODOLOGY_VERSION = "exact_empirical_mixture_v1"
 POKEMON_RIP_STATS_WEIGHTING_VERSION = "equal-set-empirical-v1"
 

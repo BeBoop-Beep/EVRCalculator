@@ -13,6 +13,9 @@ import {
   projectEraRow,
   ratioAsPercent,
   sortEras,
+  valueDescent,
+  outcomeRangePositions,
+  PERCENTILE_LABELS,
 } from "./openingEconomicsSelector.mjs";
 
 // Sources are read with line endings normalized: this tree mixes CRLF and LF,
@@ -251,8 +254,10 @@ test("a missing distribution yields no rows rather than a row of zeros", () => {
 test("the opening economics fetch never rejects and never fails the page", () => {
   assert.ok(server.includes("catch"));
   assert.ok(server.includes('status: "unavailable"'));
+  // Both lenses render the SAME empty component, so neither can drift into a
+  // different failure story than the other.
   assert.ok(overall.includes("data-opening-economics-unavailable"));
-  assert.ok(eras.includes("data-opening-economics-eras-unavailable"));
+  assert.ok(eras.includes("OpeningEconomicsEmpty"));
 });
 
 test("opening economics is fetched in parallel with the existing rankings reads", () => {
@@ -290,7 +295,101 @@ test("era sort headers expose aria-sort and real buttons", () => {
 
 test("the era drilldown to Sets is reachable", () => {
   assert.ok(eras.includes("data-era-drilldown"));
-  assert.ok(client.includes('onSelectSets={() => selectView("sets")}'));
   assert.ok(overall.includes("data-view-era-details"));
   assert.ok(client.includes('onSelectEras={() => selectView("eras")}'));
+  // Selecting an era switches to Sets and scopes it, rather than rendering a
+  // second set table inside the Eras lens.
+  assert.ok(client.includes('selectView("sets")'));
+  assert.ok(client.includes("setSelectedEra(era?.eraName || null)"));
+  assert.ok(client.includes("eraFilter={selectedEra}"));
+  assert.ok(!eras.includes("ExploreTableClient"), "Eras must not embed a duplicate set table");
+});
+
+// ---------------------------------------------------------------------------
+// Value descent and the outcome range (this pass)
+// ---------------------------------------------------------------------------
+
+test("the descent presents price, break-even and typical as one progression", () => {
+  const stages = valueDescent(PUBLISHED.global);
+  assert.deepEqual(stages.map((stage) => stage.value), ["$11.90", "$5.40", "$1.84"]);
+  // Bar length is the value's share of the pack price, so the collapse is read
+  // as distance. The price stage is the full-width reference.
+  assert.equal(stages[0].percent, 100);
+  assert.ok(stages[1].percent > stages[2].percent);
+  assert.ok(stages[2].percent < 20);
+  // Break-Even must declare that it IS Expected Value, not a second statistic.
+  assert.equal(stages[1].sameAsExpectedValue, true);
+});
+
+test("the outcome range places EV to the right of the typical band", () => {
+  const range = outcomeRangePositions(PUBLISHED.global.rawDistribution, PUBLISHED.global.expectedValue);
+  assert.equal(range.scale, "logarithmic");
+  const at = Object.fromEntries(range.points.map((point) => [point.key, point.percent]));
+  // The whole point of the section: EV sits beyond P75, near the sparse tail.
+  assert.ok(range.expectedValue.percent > at.p75, "EV must plot right of the 75th percentile");
+  assert.ok(range.expectedValue.percent < at.p95, "EV must plot left of the 95th percentile");
+  assert.equal(range.expectedValue.display, "$5.40");
+  // Ticks ascend and stay inside the axis.
+  const ordered = ["p05", "p25", "p50", "p75", "p95", "p99"].map((key) => at[key]);
+  assert.deepEqual(ordered, [...ordered].sort((a, b) => a - b));
+  assert.equal(Math.round(ordered[0]), 0);
+  assert.equal(Math.round(ordered.at(-1)), 100);
+});
+
+test("percentiles are named as positions, never as probabilities", () => {
+  assert.equal(PERCENTILE_LABELS.p95, "95th percentile");
+  assert.equal(PERCENTILE_LABELS.p50, "Typical (median)");
+  for (const source of [overall, eras]) {
+    assert.ok(!/95% chance|99% chance|90% chance/i.test(source));
+  }
+});
+
+test("the range is labeled with its scale and carries a text equivalent", () => {
+  assert.ok(overall.includes("Logarithmic scale"));
+  assert.ok(overall.includes('role="img"'));
+  assert.ok(overall.includes("aria-label"));
+});
+
+test("Modeled Return and Typical Retention are never presented as the same thing", () => {
+  const returnPct = ratioAsPercent(PUBLISHED.global.modeledReturnOnSpend);
+  const retentionPct = ratioAsPercent(PUBLISHED.global.typicalOpening.retention);
+  assert.equal(returnPct, "45.4%");
+  assert.equal(retentionPct, "19.8%");
+  assert.notEqual(returnPct, retentionPct);
+  // Their help text must distinguish median-of-outcomes from aggregate-of-spend.
+  assert.match(overall, /MEDIAN outcome relative to purchase price/);
+  assert.match(overall, /aggregate value divided by aggregate spend/);
+});
+
+test("the recover-cost metric is never relabelled as profit", () => {
+  for (const source of [overall, eras]) {
+    assert.ok(!/chance to profit/i.test(source));
+  }
+  assert.ok(overall.includes("Chance to Recover Cost"));
+});
+
+test("entertainment cost language is descriptive, not moralizing", () => {
+  assert.ok(!/wasted|bad decision|gambl|you lose/i.test(overall));
+  assert.match(overall, /given up in exchange for that opening experience/);
+});
+
+test("no accent other than teal is introduced", () => {
+  const css = read("./openingEconomics.module.css");
+  assert.ok(!css.includes("--ex-amber"), "the amber token must not be used as an accent");
+  assert.ok(!/#f[0-9a-f]{2}[0-9a-f]{0,3}\b|yellow|gold/i.test(css));
+  assert.ok(css.includes("--ex-teal"));
+});
+
+test("the loading state uses stable skeleton dimensions", () => {
+  assert.ok(overall.includes("OpeningEconomicsSkeleton"));
+  assert.ok(overall.includes('aria-busy="true"'));
+  const css = read("./openingEconomics.module.css");
+  assert.ok(css.includes("prefers-reduced-motion"));
+});
+
+test("a stale snapshot reads as absence and a failed request reads as failure", () => {
+  // Two different reasons must not produce the same sentence.
+  assert.match(overall, /request_failed/);
+  assert.match(overall, /does not yet contain aggregate/);
+  assert.match(overall, /could not be loaded/);
 });

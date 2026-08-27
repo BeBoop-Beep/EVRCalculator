@@ -111,6 +111,74 @@ def test_compact_snapshot_reuses_prepared_set_market_index_and_movements():
         "movements": {"7D": {"available": True, "percent": -0.8}},
     }
     assert "history" not in index
+    assert result["_diagnostics"]["dashboardMarketIndexAvailableCount"] == 1
+    assert result["_diagnostics"]["publishedMarketIndexCount"] == 1
+    assert result["_diagnostics"]["missingMarketIndexSetIds"] == []
+
+
+def test_available_dashboard_index_cannot_silently_disappear():
+    rows = history()
+    target_date = rows[-1]["snapshot_date"]
+    dashboard = {
+        "set_id": "set-1", "window_key": "365d", "latest_market_date": target_date,
+        "set_value_histories_json": {"standard": prepared(rows)},
+        "cardsMarket": {"available": True, "marketIndex": {
+            "currentValue": None, "asOf": target_date, "movements": {"7D": {"available": True}}
+        }},
+    }
+    with pytest.raises(ExploreSetValueUnavailable) as caught:
+        build_global_set_value_row([pokemon_set()], [dashboard], {"set-1": rows}, target_market_date=target_date)
+    assert caught.value.diagnostics["missingMarketIndexSetIds"] == ["set-1"]
+
+
+def test_all_twenty_two_available_dashboard_indices_survive_publication():
+    sets, dashboards, histories = [], [], {}
+    for index in range(22):
+        set_id = f"set-{index}"
+        rows = history(set_id=set_id)
+        target_date = rows[-1]["snapshot_date"]
+        sets.append({"id": set_id, "canonical_key": set_id, "name": f"Set {index}"})
+        histories[set_id] = rows
+        dashboards.append({
+            "set_id": set_id, "window_key": "365d", "latest_market_date": target_date,
+            "set_value_histories_json": {"standard": prepared(rows)},
+            "cardsMarket": {"available": True, "marketIndex": {
+                "currentValue": 90.0 + index, "baseValue": 100.0, "asOf": target_date,
+                "movements": {"7D": {"available": True, "percent": -1.0}},
+            }},
+        })
+    result = build_global_set_value_row(
+        sets, dashboards, histories, target_market_date=target_date, publisher_build_sha="test-sha"
+    )
+    published = result["payload_json"]["sets"]
+    assert len(published) == 22
+    assert sum(1 for row in published if row.get("marketIndex")) == 22
+    assert result["_diagnostics"]["dashboardMarketIndexAvailableCount"] == 22
+    assert result["_diagnostics"]["publishedMarketIndexCount"] == 22
+    assert result["_diagnostics"]["missingMarketIndexSetIds"] == []
+
+
+def test_legitimately_unavailable_dashboard_index_remains_unavailable():
+    rows = history()
+    target_date = rows[-1]["snapshot_date"]
+    dashboard = {
+        "set_id": "set-1", "window_key": "365d", "latest_market_date": target_date,
+        "set_value_histories_json": {"standard": prepared(rows)},
+        "cardsMarket": {"available": False, "marketIndex": None},
+    }
+    result = build_global_set_value_row([pokemon_set()], [dashboard], {"set-1": rows}, target_market_date=target_date)
+    assert "marketIndex" not in result["payload_json"]["sets"][0]
+    assert result["_diagnostics"]["dashboardMarketIndexAvailableCount"] == 0
+    assert result["_diagnostics"]["publishedMarketIndexCount"] == 0
+
+
+def test_ascended_heroes_true_elapsed_seven_day_target():
+    first = date(2026, 8, 1)
+    points = [{"date": (first + timedelta(days=i)).isoformat(), "value": 100 + i} for i in range(27)]
+    windows = compute_window_movements(points)
+    assert points[-1]["date"] == "2026-08-27"
+    assert windows["7D"]["targetStartDate"] == "2026-08-20"
+    assert windows["7D"]["startDate"] == "2026-08-20"
 
 
 def test_compact_snapshot_rejects_a_set_index_from_another_market_date():
@@ -258,6 +326,17 @@ def test_snapshot_row_carries_the_columns_the_table_requires():
     assert built["payload_size_bytes"] > 0
     assert len(built["source_generation_fingerprint"]) == 64
     assert built["payload_json"]["meta"]["snapshot"]["marketDate"] == built["market_date"]
+
+
+def test_snapshot_records_publisher_build_identity():
+    rows = history()
+    target_date = rows[-1]["snapshot_date"]
+    dashboard = {"set_id": "set-1", "window_key": "365d", "latest_market_date": target_date,
+                 "set_value_histories_json": {"standard": prepared(rows)}}
+    built = build_global_set_value_row([pokemon_set()], [dashboard], {"set-1": rows},
+                                        target_market_date=target_date, publisher_build_sha="abc123")
+    assert built["payload_json"]["meta"]["publisherBuildSha"] == "abc123"
+    assert built["_diagnostics"]["publisherBuildSha"] == "abc123"
 
 
 def test_fingerprint_tracks_the_source_generation():

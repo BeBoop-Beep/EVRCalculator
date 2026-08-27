@@ -163,13 +163,14 @@ def _load_card_intelligence(client: Any, card_id: str, rarity: Any) -> Dict[str,
                 weighted.append((score, weight))
         demand = round(sum(score * weight for score, weight in weighted) / sum(weight for _, weight in weighted), 2) if weighted else None
         from backend.desirability.card_appeal import calculate_adjusted_card_appeal, get_treatment_score
+        from backend.desirability.composite import assign_composite_tier
         treatment = get_treatment_score(rarity)
         appeal = calculate_adjusted_card_appeal(demand, treatment, None)
         return {
             "available": appeal is not None or demand is not None or treatment is not None,
-            "cardAppeal": {"score": appeal, "available": appeal is not None},
-            "pokemonDemand": {"score": demand, "available": demand is not None},
-            "treatment": {"score": treatment, "available": treatment is not None},
+            "cardAppeal": {"score": appeal, "tier": assign_composite_tier(appeal) if appeal is not None else None, "available": appeal is not None},
+            "pokemonDemand": {"score": demand, "tier": assign_composite_tier(demand) if demand is not None else None, "available": demand is not None},
+            "treatment": {"score": treatment, "tier": assign_composite_tier(treatment) if treatment is not None else None, "available": treatment is not None},
             "scarcity": {"score": None, "available": False},
             "provenance": {"source": "pokemon_card_desirability_links+pokemon_desirability_composite_scores", "formula": "card_appeal_v1"},
         }
@@ -329,10 +330,27 @@ def get_pokemon_card_detail_payload(
                 snapshot_built_at=datetime.now(timezone.utc).isoformat(),
             )
             card_chase = contract["cards"][0]
+            supported_products = {str(item.get("sealedProductId")): item for item in card_chase.get("products", [])}
+            try:
+                catalog_rows = _rows(active.table("sealed_products").select("id,name,product_type,set_id").eq("set_id", resolved_set_id))
+            except Exception:
+                catalog_rows = []
+            all_products = []
+            for product in catalog_rows:
+                product_id = str(product.get("id"))
+                all_products.append(supported_products.pop(product_id, {
+                    "sealedProductId": product_id,
+                    "productName": _text(product.get("name")),
+                    "productFamily": _text(product.get("product_type")),
+                    "available": False,
+                    "reason": "chase_economics_not_supported",
+                }))
+            all_products.extend(supported_products.values())
             chase = {
                 "available": True,
                 "reason": None,
                 **card_chase,
+                "products": all_products,
                 "recoveryModel": contract["recoveryModel"],
                 "modelAssumptions": contract["modelAssumptions"],
                 "sourceCalculationRunId": contract["sourceCalculationRunId"],

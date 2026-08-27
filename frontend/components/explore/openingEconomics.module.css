@@ -1,0 +1,211 @@
+/*
+ * Opening Economics surfaces.
+ *
+ * Scoped by CSS Modules, and deliberately built on the tokens the Explore
+ * dashboard already defines (--ex-line, --ex-line-strong, --ex-teal) rather
+ * than introducing a second palette. Teal is the only accent used; the amber
+ * token is intentionally never referenced here.
+ *
+ * Tailwind runs with `important: true`, so layout (grid/flex/gap/padding) stays
+ * in utilities and only surface, depth and geometry live in this file.
+ */
+
+/* ------------------------------------------------------------------ *
+ * The economic equation: return and entertainment cost as one whole
+ * ------------------------------------------------------------------ */
+
+.equationSplit {
+  position: relative;
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.equationReturned {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(var(--ex-teal), 0.85) 0%, rgba(var(--ex-teal), 0.55) 100%);
+}
+
+.equationCost {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* The hairline that separates the two halves of the equation on desktop. */
+.equationRule {
+  border-left: 1px solid var(--ex-line);
+}
+
+/* ------------------------------------------------------------------ *
+ * The value descent: price -> break-even -> typical
+ * The signature element. Bar width is the value as a share of pack price,
+ * so the collapse from $11.90 to $1.84 is read as length, not arithmetic.
+ * ------------------------------------------------------------------ */
+
+.descentTrack {
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.descentFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(var(--ex-teal), 0.42) 0%, rgba(var(--ex-teal), 0.16) 100%);
+  box-shadow: inset 0 0 0 1px rgba(var(--ex-teal), 0.28);
+}
+
+/* The price stage is the reference length, so it reads as the container the
+   other two are measured against rather than as another teal quantity. */
+.descentFillReference {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+/* ------------------------------------------------------------------ *
+ * Insight callout
+ * ------------------------------------------------------------------ */
+
+.insight {
+  border: 1px solid var(--ex-line);
+  border-left: 2px solid rgba(var(--ex-teal), 0.55);
+  border-radius: 10px;
+  background: rgba(var(--ex-teal), 0.035);
+}
+
+/* ------------------------------------------------------------------ *
+ * Opening Outcome Range
+ * A logarithmic axis with published percentile ticks and one EV marker.
+ * No curve is drawn between ticks: the space between two percentiles is
+ * not measured data and must not be rendered as though it were.
+ * ------------------------------------------------------------------ */
+
+.rangeAxis {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--ex-teal), 0.5) 0%,
+    rgba(var(--ex-teal), 0.22) 24%,
+    rgba(255, 255, 255, 0.1) 60%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+}
+
+/* The band holding most modeled openings (P05 to P75), drawn as a quiet
+   thickening of the axis rather than as a separate shape. */
+.rangeTypicalBand {
+  position: absolute;
+  top: -3px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(var(--ex-teal), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--ex-teal), 0.3);
+}
+
+.rangeTick {
+  position: absolute;
+  top: 50%;
+  width: 1px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.rangeTickTypical {
+  width: 2px;
+  height: 20px;
+  background: rgba(var(--ex-teal), 0.95);
+}
+
+.rangeMarker {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  background: var(--text-primary);
+}
+
+.rangeMarker::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------ *
+ * Era comparison
+ * ------------------------------------------------------------------ */
+
+.eraRow {
+  border-top: 1px solid var(--ex-line);
+}
+
+.eraRow:first-child {
+  border-top: 0;
+}
+
+/* Compact table treatment. Rows are deliberately short: this is a dense
+   comparison surface, not a leaderboard with artwork. */
+.eraTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.eraTable th,
+.eraTable td {
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.eraTable thead th {
+  border-bottom: 1px solid var(--ex-line-strong);
+  font-weight: 500;
+}
+
+.eraTable tbody tr + tr th,
+.eraTable tbody tr + tr td {
+  border-top: 1px solid var(--ex-line);
+}
+
+.eraTable tbody tr:hover td,
+.eraTable tbody tr:hover th {
+  background: rgba(var(--ex-teal), 0.045);
+}
+
+/* ------------------------------------------------------------------ *
+ * Skeleton — fixed dimensions matching the real surfaces so the lens does
+ * not shift layout when the payload arrives.
+ * ------------------------------------------------------------------ */
+
+.skeleton {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.045) 0%,
+    rgba(255, 255, 255, 0.075) 50%,
+    rgba(255, 255, 255, 0.045) 100%
+  );
+  background-size: 200% 100%;
+  animation: openingEconomicsShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes openingEconomicsShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

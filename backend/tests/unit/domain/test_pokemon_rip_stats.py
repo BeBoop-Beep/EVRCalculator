@@ -134,3 +134,19 @@ def test_full_quantile_ladder_comes_from_the_exact_pooled_population():
     assert result["p95Value"] == pytest.approx(np.quantile(pooled, .95))
     assert result["p99Value"] == pytest.approx(np.quantile(pooled, .99))
     assert result["typicalRetention"] == pytest.approx(np.quantile(retention, .5))
+
+
+def test_contract_version_moves_but_methodology_and_weighting_do_not():
+    """The v2 bump marks a wider payload, not a different calculation.
+
+    A consumer needs to distinguish a snapshot carrying `openingEconomics` from
+    one published before it existed. That is a contract change. The mixture is
+    still exact and empirical and sets are still equally weighted, so asserting
+    a methodology or weighting change would misreport how the numbers were
+    produced.
+    """
+    from backend.domain.pokemon import rip_stats
+
+    assert rip_stats.POKEMON_RIP_STATS_CONTRACT_VERSION == "pokemon-rip-stats-v2"
+    assert rip_stats.POKEMON_RIP_STATS_METHODOLOGY_VERSION == "exact_empirical_mixture_v1"
+    assert rip_stats.POKEMON_RIP_STATS_WEIGHTING_VERSION == "equal-set-empirical-v1"

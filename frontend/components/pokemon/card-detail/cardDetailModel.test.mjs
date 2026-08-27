@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cumulativePullProbability, milestoneXPosition, packsForMilestone, probabilityMilestones, validPullProbability } from "./cardDetailModel.mjs";
+import { cumulativePullProbability, milestoneXPosition, packsAtPlotX, packsForMilestone, probabilityMilestones, validPullProbability } from "./cardDetailModel.mjs";
 
 test("cumulative probability and milestone packs use the canonical independent-pack equations", () => {
   const p = 1 / 21;
@@ -16,6 +16,16 @@ test("published backend milestones remain authoritative", () => {
 test("milestone positions are proportional to real pack counts", () => {
   assert.equal(milestoneXPosition(15, 62), 54 + 15 / 62 * 626);
   assert.ok(milestoneXPosition(29, 62) - milestoneXPosition(15, 62) < milestoneXPosition(62, 62) - milestoneXPosition(29, 62));
+});
+
+test("plot pointer coordinates invert the same SVG scale at bounds, milestones, and midpoint", () => {
+  const max = 4591;
+  assert.equal(packsAtPlotX(54, max), 0);
+  assert.equal(packsAtPlotX(680, max), max);
+  assert.equal(packsAtPlotX(367, max), Math.round(max / 2));
+  for (const packs of [1063, 2125, 3529, 4591]) {
+    assert.ok(Math.abs(packsAtPlotX(milestoneXPosition(packs, max), max) - packs) <= 1);
+  }
 });
 
 test("invalid, zero, null, and impossible inputs never emit fake numbers", () => {

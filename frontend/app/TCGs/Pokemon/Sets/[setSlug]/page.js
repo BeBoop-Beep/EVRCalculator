@@ -43,13 +43,16 @@ const SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
  */
 export async function generateMetadata({ params }) {
   const resolvedParams = (await params) || {};
-  const requestedSetSlug = String(resolvedParams?.setSlug || "").trim().toLowerCase();
+  const requestedSetSlug = String(resolvedParams?.setSlug || "")
+    .trim()
+    .toLowerCase();
 
   if (!requestedSetSlug) {
     return buildRouteMetadata({
       path: SETS_BASE_PATH,
       title: "Pokémon TCG Set Catalog — inDex",
-      description: "Browse Pokémon TCG sets and open one for its Overall RIP and opening analysis.",
+      description:
+        "Browse Pokémon TCG sets and open one for its Overall RIP and opening analysis.",
     });
   }
 
@@ -58,10 +61,14 @@ export async function generateMetadata({ params }) {
   // getRipStatisticsTargets is wrapped in React `cache()` AND a process-level
   // TTL cache, so this resolves from the same in-flight/cached payload the page
   // body below awaits. Metadata costs no extra backend request.
-  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(() => null);
+  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(
+    () => null,
+  );
   const setName = String(
-    findTargetBySetSlug(Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [], requestedSetSlug)
-      ?.name || ""
+    findTargetBySetSlug(
+      Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [],
+      requestedSetSlug,
+    )?.name || "",
   ).trim();
 
   // Graceful failure: a set we cannot name still gets the RIGHT canonical URL
@@ -84,10 +91,15 @@ export async function generateMetadata({ params }) {
   });
 }
 
-export default async function TcgSetRipStatisticsPage({ params, searchParams }) {
+export default async function TcgSetRipStatisticsPage({
+  params,
+  searchParams,
+}) {
   const routeStartedAt = Date.now();
   const resolvedParams = (await params) || {};
-  const requestedSetSlug = String(resolvedParams?.setSlug || "").trim().toLowerCase();
+  const requestedSetSlug = String(resolvedParams?.setSlug || "")
+    .trim()
+    .toLowerCase();
   const resolvedSearchParams = (await searchParams) || {};
 
   // NOTE: the legacy default-view tab aliases (?tab=rip|analysis|analytics) are
@@ -101,19 +113,23 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   const activeSetDetailTab = resolveSetDetailTab(resolvedSearchParams?.tab);
 
   const targetsStartedAt = Date.now();
-  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch((error) => ({
-    targets: [],
-    default_target: null,
-    meta: {
-      fallback: true,
-      requestFailed: true,
-      warnings: [
-        `RIP Statistics targets unavailable; continuing with direct set snapshot fallback. ${error?.message || ""}`.trim(),
-      ],
-    },
-  }));
+  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(
+    (error) => ({
+      targets: [],
+      default_target: null,
+      meta: {
+        fallback: true,
+        requestFailed: true,
+        warnings: [
+          `RIP Statistics targets unavailable; continuing with direct set snapshot fallback. ${error?.message || ""}`.trim(),
+        ],
+      },
+    }),
+  );
   const targetsMs = Date.now() - targetsStartedAt;
-  const targets = Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [];
+  const targets = Array.isArray(targetsPayload?.targets)
+    ? targetsPayload.targets
+    : [];
   const defaultTarget = targetsPayload?.default_target || null;
   const targetHrefById = buildTargetHrefById(targets);
 
@@ -122,9 +138,23 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   }
 
   const selectedTarget = findTargetBySetSlug(targets, requestedSetSlug);
+  if (selectedTarget) {
+    const canonicalHref = buildTcgSetHrefFromTarget(selectedTarget, {
+      tab: resolvedSearchParams?.tab,
+      section: resolvedSearchParams?.section,
+      window: resolvedSearchParams?.window,
+    });
+    const canonicalPath = canonicalHref.split("?")[0];
+    const requestedPath = `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`;
+    if (canonicalPath !== requestedPath) redirect(canonicalHref);
+  }
   const requestedTargetType = selectedTarget?.target_type || "set";
   const requestedTargetId = selectedTarget?.target_id || requestedSetSlug;
-  const fallbackTarget = selectedTarget || (requestedTargetId ? { target_type: "set", target_id: requestedTargetId } : null);
+  const fallbackTarget =
+    selectedTarget ||
+    (requestedTargetId
+      ? { target_type: "set", target_id: requestedTargetId }
+      : null);
   const effectiveSelectedTarget = selectedTarget || fallbackTarget;
 
   let explorePayload = null;
@@ -151,11 +181,14 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
   if (requestedTargetId) {
     const snapshotPromise =
       requestedTargetType === "set"
-        ? getPokemonSetInitialSnapshots(requestedTargetId, { tab: activeSetDetailTab }).catch((error) => ({
+        ? getPokemonSetInitialSnapshots(requestedTargetId, {
+            tab: activeSetDetailTab,
+          }).catch((error) => ({
             ...initialModuleSnapshots,
             errors: {
               moduleSnapshots: {
-                message: error?.message || "Failed to load initial module snapshots.",
+                message:
+                  error?.message || "Failed to load initial module snapshots.",
               },
             },
           }))
@@ -170,13 +203,21 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
       (async () => {
         const startedAt = Date.now();
         if (!needsExplorePagePayload) {
-          return { payload: null, error: null, elapsedMs: Date.now() - startedAt };
+          return {
+            payload: null,
+            error: null,
+            elapsedMs: Date.now() - startedAt,
+          };
         }
         try {
           return {
-            payload: await getExplorePagePayload(requestedTargetType, requestedTargetId, {
-              fallbackTarget,
-            }),
+            payload: await getExplorePagePayload(
+              requestedTargetType,
+              requestedTargetId,
+              {
+                fallbackTarget,
+              },
+            ),
             error: null,
             elapsedMs: Date.now() - startedAt,
           };
@@ -192,9 +233,11 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
     initialModuleSnapshots = moduleSnapshotsResult || initialModuleSnapshots;
 
     if (exploreResult.error) {
-      pageError = exploreResult.error?.message || "Failed to load RIP Statistics.";
+      pageError =
+        exploreResult.error?.message || "Failed to load RIP Statistics.";
     } else if (!explorePayload && needsExplorePagePayload) {
-      pageError = "No persisted RIP Statistics payload is available for this set.";
+      pageError =
+        "No persisted RIP Statistics payload is available for this set.";
     }
   } else {
     pageError = "Set not found for this URL.";
@@ -202,7 +245,8 @@ export default async function TcgSetRipStatisticsPage({ params, searchParams }) 
 
   const routeTotalMs = Date.now() - routeStartedAt;
   const snapshotTimings = initialModuleSnapshots?.timings || {};
-  const snapshotTimedOut = requestedTargetType === "set" && !initialModuleSnapshots?.timings?.totalMs;
+  const snapshotTimedOut =
+    requestedTargetType === "set" && !initialModuleSnapshots?.timings?.totalMs;
 
   console.info("[set-page-route] timings", {
     setSlug: requestedSetSlug,

@@ -104,7 +104,10 @@ const LEAD_RANK_LIMIT = 3;
 // stays lazy: at the dense-row thumbnail width a logo is ~2-3 kB, so six eager
 // requests are ~15 kB and do not meaningfully contend with anything.
 const EAGER_LOGO_ROW_LIMIT = 6;
-const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "chanceToBeatCost", "topChase"];
+// The metric menu's sortable set. `modeledReturn` and `entertainmentCost` sit
+// next to the two published numbers they are derived from (market price and
+// model break-even) so the relationship is visible in the list itself.
+const MOBILE_DECISION_COLUMN_IDS = ["setRip", "marketPrice", "typicalOpening", "modelBreakEven", "modeledReturn", "entertainmentCost", "chanceToBeatCost", "topChase"];
 
 function TopChaseCell({ target, compact = false }) {
   const chase = readOptionalRankingsChase(target);
@@ -486,7 +489,7 @@ function SortableHeader({ columnId, label, sort, onSort, note, infoText = null, 
   );
 }
 
-export default function ExploreTableClient({ targets = [], loadError = false, canViewProductRipIntelligence = false, onUnlockProductRip = null }) {
+export default function ExploreTableClient({ targets = [], loadError = false, canViewProductRipIntelligence = false, onUnlockProductRip = null, eraFilter = null, onClearEraFilter = null }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
@@ -515,8 +518,18 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
   const sortedTargets = useMemo(() => sortRankingsRows(canonicalTargets, sort), [canonicalTargets, sort]);
   const displayedTargets = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
-    return query ? sortedTargets.filter((target) => String(target?.name || "").toLocaleLowerCase().includes(query)) : sortedTargets;
-  }, [sortedTargets, searchQuery]);
+    const era = String(eraFilter || "").trim().toLocaleLowerCase();
+    // Scoping to one era narrows the SAME canonical rows the leaderboard always
+    // renders — it never re-ranks them and never fetches a second cohort, so a
+    // set keeps the rank it holds in the full table.
+    let rows = era
+      ? sortedTargets.filter((target) => String(target?.era || "").trim().toLocaleLowerCase() === era)
+      : sortedTargets;
+    if (query) {
+      rows = rows.filter((target) => String(target?.name || "").toLocaleLowerCase().includes(query));
+    }
+    return rows;
+  }, [sortedTargets, searchQuery, eraFilter]);
   // The row's position in the CANONICAL order, used only as the "#" fallback for
   // a target the backend gave no rank. Taking it from the canonical array rather
   // than from the rendered index keeps that fallback meaning "where this set

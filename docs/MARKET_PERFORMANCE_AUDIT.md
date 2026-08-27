@@ -47,5 +47,22 @@ Local running-backend baseline (20 sequential requests per endpoint, 2026-08-27)
 | `/explore/set-value-market` | 248.22ms | 780.30ms | 2851.83ms | 373,679 | 0 |
 | `/explore/card-market-movers?limit=30` | 130.14ms | 182.82ms | 273.00ms | 78,976 | 0 |
 
-The deterministic response projection against that same live snapshot is 119,426 bytes for Set Value, reducing immediately visible critical JSON from 452,655 to 198,402 bytes (56.2%). The already-running backend process did not contain this working-tree code, so an after-change latency/RSS claim would be misleading; rerun the command after restart/deploy and compare its structured `market_request` RSS records.
+## 2026-08-27 Set Market integrity correction
+
+The malformed live snapshot was built at `2026-08-27T15:55:41Z` from the scheduled checkout logged at HEAD `876718c92b6c31678d2547eaa0b8da4b50975d1e` in local mode with a modified worktree. That commit contains the corrected projection and elapsed-window code, but the output contained neither, proving that the effective runtime/worktree was stale. The old snapshot did not record source identity, so its exact effective source-byte SHA cannot be recovered after the fact.
+
+The real PostgREST projection `cardsMarket:payload_json->cardsMarket` was verified directly against Ascended Heroes and returned Market Index 91.90172147751157 plus its 7D movement. Publication now records `publisherBuildSha` and blocks when any available dashboard Market Index disappears or is malformed. The corrected canonical publication records HEAD `c00de31e49b89151b98b266189da5b2f3a8e8b5c`, 22 eligible sets, 22 available dashboard indices, 22 published indices, and no missing IDs.
+
+Ascended Heroes after publication: Set Value $5,789.11; Market Index 91.90172147751157; 7D Set Value movement -$81.88 (-1.394654%); 7D Market Index return -1.394654%; target/start/end 2026-08-20 / 2026-08-20 / 2026-08-27.
+
+Actual compact read-path benchmark, two 20-request runs against the current server on port 8001:
+
+| Run | Endpoint | p50 | p95 | max | mean bytes | errors |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | Set Value Market | 519.51ms | 668.32ms | 967.72ms | 207,669 | 0 |
+| 1 | Global Movers | 155.72ms | 242.03ms | 526.31ms | 78,976 | 0 |
+| 2 | Set Value Market | 503.16ms | 613.23ms | 936.00ms | 207,669 | 0 |
+| 2 | Global Movers | 144.38ms | 197.51ms | 339.25ms | 78,976 | 0 |
+
+The stale port-8000 process returned 640,897 Set Value bytes after republishing. The current read path returns 207,669 bytes, a 67.6% reduction. The persisted canonical publication is 641,211 bytes; persistence size and transferred response size are intentionally reported separately.
 
