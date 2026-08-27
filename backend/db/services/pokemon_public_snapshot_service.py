@@ -5424,6 +5424,8 @@ def _empty_market_movers_payload(
 
 CANONICAL_MARKET_MOVERS_READ_MODEL_KEY = "canonicalMarketMoversByWindow"
 CANONICAL_MARKET_MOVERS_READ_MODEL_LIMIT = MAX_TOP_MARKET_CARDS_LIMIT
+SET_PAGE_MARKET_MOVERS_READ_MODEL_KEY = "setPageMarketMoversByWindow"
+SET_PAGE_MARKET_MOVERS_LIMIT = 10
 
 
 def _slim_market_mover_card(card: Dict[str, Any], window_key: str) -> Dict[str, Any]:
@@ -5504,11 +5506,85 @@ def build_canonical_market_movers_read_model(cards: List[Dict[str, Any]]) -> Dic
     return result
 
 
+def build_set_page_market_movers_read_model(
+    cards: List[Dict[str, Any]], *, set_id: Optional[str] = None, set_canonical_key: Optional[str] = None
+) -> Dict[str, Any]:
+    """Set-page-only 7D movers ranked across the complete canonical set.
+
+    This deliberately does not reuse the global/canonical final ranking:
+    absolute percentage is the primary metric here, followed by absolute
+    dollar movement and stable canonical identity.
+    """
+    camel_cards = [_to_camel_case_only(card) for card in cards if isinstance(card, dict)]
+    calculable = [card for card in camel_cards if _cards_page_has_valid_movement(card, "7D")]
+    candidates = []
+    for card in calculable:
+        amount, percent = _cards_page_movement_values(card, "7d")
+        if percent is None or abs(percent) <= _MOVEMENT_ZERO_EPSILON:
+            continue
+        canonical_id = (
+            _to_optional_str(card.get("canonicalCardId"))
+            or _to_optional_str(card.get("id"))
+            or _to_optional_str(card.get("cardId"))
+            or ""
+        )
+        candidates.append((card, abs(percent), abs(amount) if amount is not None else 0.0, canonical_id))
+    candidates.sort(key=lambda row: (-row[1], -row[2], row[3]))
+    ranked = [row[0] for row in candidates]
+    projected = []
+    for card in ranked[:SET_PAGE_MARKET_MOVERS_LIMIT]:
+        movement = _cards_page_movement_dict(card, "7d")
+        amount, percent = _cards_page_movement_values(card, "7d")
+        price = _to_optional_float(card.get("marketPrice"))
+        if price is None:
+            price = _to_optional_float(card.get("currentPrice"))
+        canonical_id = (
+            _to_optional_str(card.get("canonicalCardId"))
+            or _to_optional_str(card.get("id"))
+            or _to_optional_str(card.get("cardId"))
+        )
+        projected.append({
+            "canonicalCardId": canonical_id,
+            "cardVariantId": _to_optional_str(card.get("cardVariantId")) or _to_optional_str(movement.get("cardVariantId")),
+            "conditionId": _to_optional_str(card.get("conditionId")) or _to_optional_str(movement.get("conditionId")),
+            "setId": _to_optional_str(card.get("setId")) or _to_optional_str(set_id),
+            "setCanonicalKey": _to_optional_str(card.get("setCanonicalKey")) or _to_optional_str(set_canonical_key),
+            "name": _to_optional_str(card.get("name")),
+            "rarity": _to_optional_str(card.get("rarity")),
+            "cardNumber": _to_optional_str(card.get("cardNumber")) or _to_optional_str(card.get("printedNumber")),
+            "imageSmallUrl": _to_optional_str(card.get("imageSmallUrl")),
+            "marketPrice": price,
+            "changeAmount": amount,
+            "changePercent": percent,
+            "window": "7D",
+            "windowDays": 7,
+            "targetStartDate": _parse_date_key(movement.get("targetStartDate")),
+            "startDate": _parse_date_key(movement.get("startDate")),
+            "endDate": _parse_date_key(movement.get("endDate")),
+            "reliable": movement.get("reliable"),
+            "reliability": _to_optional_str(movement.get("reliability")),
+            "fullWindowCoverage": movement.get("fullWindowCoverage"),
+            "isPartialWindow": movement.get("isPartialWindow"),
+        })
+    return {
+        "7D": {
+            "all": projected,
+            "checklistCardCount": len(camel_cards),
+            "cardsWithCalculableMovement": len(calculable),
+            "nonzeroPercentMovementCount": len(ranked),
+            "publishedMoverCount": len(projected),
+            "rankingMetric": "absolute-percent",
+        }
+    }
+
+
 def get_pokemon_set_market_movers_snapshot_payload(
     set_id: str,
     window: str = DEFAULT_MARKET_MOVERS_WINDOW,
     limit: Any = None,
     movement: Any = None,
+    surface: Any = None,
+    metric: Any = None,
 ) -> Dict[str, Any]:
     """Return the slim Market Movers payload for a Pokemon set.
 
@@ -5543,6 +5619,12 @@ def get_pokemon_set_market_movers_snapshot_payload(
     window_days = _MARKET_MOVERS_WINDOW_DAYS_BY_KEY[resolved_window]
     limit_value = _sanitize_market_movers_limit(limit)
     movement_filter = _sanitize_cards_movement_filter(movement)
+    set_page_absolute_percent = (
+        str(surface or "").strip().lower() == "set-page"
+        and str(metric or "").strip().lower() == "absolute-percent"
+        and resolved_window == "7D"
+        and movement_filter == "all"
+    )
 
     set_row: Optional[Dict[str, Any]] = None
     if is_uuid:
@@ -5556,11 +5638,16 @@ def get_pokemon_set_market_movers_snapshot_payload(
     # cards contract.
     if resolved_window in ("7D", "30D"):
         try:
+            read_model_key = (
+                SET_PAGE_MARKET_MOVERS_READ_MODEL_KEY
+                if set_page_absolute_percent
+                else CANONICAL_MARKET_MOVERS_READ_MODEL_KEY
+            )
             result = (
                 service_read_client.table("pokemon_set_cards_snapshot_latest")
                 .select(
                     "set_id,card_count,updated_at,snapshot_meta:payload_json->meta->snapshot,"
-                    f"canonical_movers:payload_json->{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}->{resolved_window}"
+                    f"canonical_movers:payload_json->{read_model_key}->{resolved_window}"
                 )
                 .eq("set_id", resolved_set_id)
                 .limit(1)
@@ -5596,7 +5683,9 @@ def get_pokemon_set_market_movers_snapshot_payload(
                 "window": resolved_window,
                 "checklistCardCount": _to_optional_int(read_model.get("checklistCardCount")) or 0,
                 "cardsWithCalculableMovement": _to_optional_int(read_model.get("cardsWithCalculableMovement")) or 0,
-                "nonzeroMovementCount": _to_optional_int(read_model.get("nonzeroMovementCount")) or 0,
+                "nonzeroMovementCount": _to_optional_int(
+                    read_model.get("nonzeroMovementCount", read_model.get("nonzeroPercentMovementCount"))
+                ) or 0,
                 "filteredTotal": len(ranked_cards), "pageCount": len(served_cards),
             }
             snapshot_meta = _movement_snapshot_meta(cards_row or {})
@@ -5628,19 +5717,20 @@ def get_pokemon_set_market_movers_snapshot_payload(
                     "limit": limit_value,
                     "warnings": [],
                     "movementTotals": movement_totals,
-                    "priceBasis": f"pokemon_set_cards_snapshot_latest.payload_json.{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}",
+                    "priceBasis": f"pokemon_set_cards_snapshot_latest.payload_json.{read_model_key}",
                     "query": {
                         "section": "market-movers",
                         "window": resolved_window,
                         "movement": movement_filter,
-                        "sort": "largest-dollar-move",
+                        "sort": "largest-absolute-percent" if set_page_absolute_percent else "largest-dollar-move",
                         "limit": limit_value,
+                        **({"surface": "set-page", "metric": "absolute-percent"} if set_page_absolute_percent else {}),
                     },
                     "snapshot": {
                         **snapshot_meta,
                         "source": "canonical_cards_published_movers",
                         "sourceTable": "pokemon_set_cards_snapshot_latest",
-                        "sourceField": f"payload_json.{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}.{resolved_window}",
+                        "sourceField": f"payload_json.{read_model_key}.{resolved_window}",
                         "marketAsOfDate": market_as_of_date,
                         "latestMarketDate": market_as_of_date,
                         "window": resolved_window,

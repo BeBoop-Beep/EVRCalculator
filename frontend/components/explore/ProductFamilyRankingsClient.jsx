@@ -7,6 +7,7 @@ import OpeningEconomicsOverall from "./OpeningEconomicsOverall";
 import OpeningEconomicsEras from "./OpeningEconomicsEras";
 import EraRankings from "./EraRankings";
 import SetPackMetrics from "./SetPackMetrics";
+import CardChaseEfficiencyRankings from "./CardChaseEfficiencyRankings";
 import DarkSelect from "@/components/ui/DarkSelect";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
@@ -521,7 +522,7 @@ export default function ProductFamilyRankingsClient({
   eraSetStrength = null,
   onUnlockProductRip = null,
 }) {
-  const { canViewRankingsIntelligence } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
   const canViewProductRipIntelligence = canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
@@ -572,8 +573,8 @@ export default function ProductFamilyRankingsClient({
     // Four top-level lenses. `view` still carries the product family key when a
     // family is selected, so the lens is derived from it rather than tracked in
     // a second piece of state that could disagree with it.
-    productsActive = view !== "sets" && view !== "economics" && view !== "eras";
-  const lens = view === "economics" ? "economics" : view === "eras" ? "eras" : view === "sets" ? "sets" : "products";
+    productsActive = view !== "sets" && view !== "economics" && view !== "eras" && view !== "cards";
+  const lens = view === "economics" ? "economics" : view === "eras" ? "eras" : view === "sets" ? "sets" : view === "cards" ? "cards" : "products";
   const selectView = (next) => {
       setQuery("");
       setSelectedEra(null);
@@ -597,6 +598,7 @@ export default function ProductFamilyRankingsClient({
           { value: "eras", label: "Eras" },
           { value: "sets", label: "Sets" },
           { value: "products", label: "Products" },
+          { value: "cards", label: "Cards" },
         ]}
       />
       {productsActive ? (
@@ -672,6 +674,8 @@ export default function ProductFamilyRankingsClient({
           ) : null}
           {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
         </>
+      ) : view === "cards" ? (
+        <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />
       ) : view === "allProducts" ? (
         <OverallProductRankings
           result={overallResult}

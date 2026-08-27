@@ -75,3 +75,14 @@ export async function getPokemonCardDetail(setId, cardId, variantId, { signal } 
   }
   return normalizePokemonCardDetail(payload);
 }
+
+export async function getPokemonCardChaseEfficiency(setId, cardId, variantId, { signal } = {}) {
+  const resolvedSet = text(setId), resolvedCard = text(cardId);
+  if (!resolvedSet || !resolvedCard) throw new Error("Set and canonical card ids are required");
+  const url = new URL(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSet)}/cards/${encodeURIComponent(resolvedCard)}/chase-efficiency`, window.location.origin);
+  if (text(variantId)) url.searchParams.set("variant_id", text(variantId));
+  const response = await fetch(url, { method: "GET", cache: "no-store", signal });
+  let payload = null; try { payload = await response.json(); } catch { payload = null; }
+  if (!response.ok) { const error = new Error(payload?.detail?.message || payload?.message || "Unable to load Chase Efficiency"); error.status = response.status; error.code = payload?.detail?.code || payload?.code; throw error; }
+  return payload;
+}

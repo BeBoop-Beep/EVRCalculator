@@ -148,7 +148,11 @@ class WeightedEmpiricalMixture:
         lo = np.full(requested.shape, min(lows)); hi = np.full(requested.shape, max(highs))
         # All percentiles share each component scan. This is ~100x cheaper than
         # locating P01..P99 independently while preserving the same ECDF.
-        for _ in range(56):
+        # Product outcomes originate in cent-denominated card values and are
+        # divided by at most a few dozen packs. Thirty-six halvings resolve far
+        # below that minimum spacing; observed-boundary refinement below still
+        # supplies the exact inverse-ECDF atom rather than the numeric bracket.
+        for _ in range(36):
             mid = (lo + hi) / 2; cdf = np.zeros(requested.shape)
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)

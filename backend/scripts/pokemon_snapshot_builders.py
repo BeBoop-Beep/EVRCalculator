@@ -38,7 +38,9 @@ from backend.db.services.pokemon_card_market_delta_contract import (
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.pokemon_public_snapshot_service import (
     CANONICAL_MARKET_MOVERS_READ_MODEL_KEY,
+    SET_PAGE_MARKET_MOVERS_READ_MODEL_KEY,
     build_canonical_market_movers_read_model,
+    build_set_page_market_movers_read_model,
     enrich_cards_payload_with_desirability,
 )
 from backend.db.services.pokemon_set_market_service import (
@@ -3839,6 +3841,11 @@ def build_cards_snapshot_row(
         **payload,
         "cards": cards,
         CANONICAL_MARKET_MOVERS_READ_MODEL_KEY: build_canonical_market_movers_read_model(cards),
+        SET_PAGE_MARKET_MOVERS_READ_MODEL_KEY: build_set_page_market_movers_read_model(
+            cards,
+            set_id=set_id,
+            set_canonical_key=first_non_empty(set_row.get("canonical_key")),
+        ),
     }
     payload = with_snapshot_meta(
         payload,

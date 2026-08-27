@@ -1340,6 +1340,8 @@ def get_pokemon_set_market_movers(
     window: Optional[str] = Query(default=None),
     limit: Optional[str] = Query(default=None),
     movement: Optional[str] = Query(default=None),
+    surface: Optional[str] = Query(default=None),
+    metric: Optional[str] = Query(default=None),
 ):
     """Return market movers for a single requested window for a Pokemon set.
 
@@ -1348,7 +1350,8 @@ def get_pokemon_set_market_movers(
     """
     try:
         return get_pokemon_set_market_movers_snapshot_payload(
-            set_id=set_id, window=window or "30D", limit=limit, movement=movement
+            set_id=set_id, window=window or "30D", limit=limit, movement=movement,
+            surface=surface, metric=metric,
         )
     except PokemonSetMarketError as exc:
         return JSONResponse(

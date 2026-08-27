@@ -7,6 +7,8 @@ const source = fs.readFileSync(
   path.resolve(__dirname, "SevenDayMarketMoversTicker.jsx"),
   "utf8"
 );
+const setPageSource = fs.readFileSync(path.resolve(__dirname, "RipStatisticsPageClient.jsx"), "utf8");
+const clientSource = fs.readFileSync(path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js"), "utf8");
 
 test("both modes retain compact item width while Explore alone receives extra height", () => {
   assert.ok(!source.includes("w-[13.5rem]"));
@@ -61,6 +63,12 @@ test("set action uses one responsive accessible anchor and Explore still omits i
 test("every mover card uses the canonical shared Card Detail route", () => {
   assert.ok(source.includes('import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient"'));
   assert.ok(source.includes("const hrefFor = (card) => buildPokemonCardDetailHref(card);"));
-  assert.ok(source.includes("href={crossSet ? hrefFor(card) : viewAllHref}"));
+  assert.ok(source.includes("href={hrefFor(card)}"));
   assert.ok(!source.includes("buildTcgSetHrefFromTarget"));
+});
+
+test("the individual set page explicitly requests its isolated absolute-percent policy", () => {
+  assert.ok(setPageSource.includes('surface: "set-page", metric: "absolute-percent"'));
+  assert.ok(clientSource.includes('params.set("surface", String(surface))'));
+  assert.ok(clientSource.includes('params.set("metric", String(metric))'));
 });

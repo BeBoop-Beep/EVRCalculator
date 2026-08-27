@@ -91,6 +91,7 @@ export function resolveRankingsPlanAccess(user) {
   const indexPlan = normalizeIndexPlan(user?.index_plan);
   return {
     canViewRankingsIntelligence: hasIndexPlusAccess(indexPlan),
+    canViewCardChaseEfficiency: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_CHASE_EFFICIENCY),
     accessMode: indexPlan || "basic",
   };
 }

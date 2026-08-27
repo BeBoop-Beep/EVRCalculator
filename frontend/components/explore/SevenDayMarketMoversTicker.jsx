@@ -37,7 +37,7 @@ export default function SevenDayMarketMoversTicker({ entry, maxItems = 10, scope
   const renderSequence = (hidden, ref) => <div ref={ref} aria-hidden={hidden ? "true" : undefined}
     className={`flex items-center gap-1 pr-1 ${hidden ? "index-ticker-duplicate" : ""}`.trim()}>
     {items.map(({ card, movement }) => <Item key={`${hidden ? "dup:" : ""}${identity(card)}`} card={card} movement={movement}
-      href={crossSet ? hrefFor(card) : viewAllHref} hidden={hidden} crossSet={crossSet} thumbnailSize={thumbnailSize} />)}
+      href={hrefFor(card)} hidden={hidden} crossSet={crossSet} thumbnailSize={thumbnailSize} />)}
   </div>;
   const fallback = status === "loading" ? <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" /> :
     status === "error" ? <span className="truncate text-xs text-red-300">{error || "Market movers are unavailable."}{onRetry ? <button onClick={onRetry}> Retry</button> : null}</span> :

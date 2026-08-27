@@ -13283,7 +13283,7 @@ export default function RipStatisticsPageClient({
     let requestSettled = false;
     dispatchMarketMovers({ type: "loading", setId, sourceWindow: moversSourceWindow });
 
-    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit })
+    getPokemonSetMarketMovers(setId, { window: moversSourceWindow, limit: moversFetchLimit, surface: "set-page", metric: "absolute-percent" })
       .then((payload) => {
         requestSettled = true;
         if (isCancelled) {
