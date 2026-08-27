@@ -226,7 +226,7 @@ export default function SetMarketMobileSetValue({
                   accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[resolvedSegmentKey]} market value`}
                 />
                 <p data-market-mobile-index className="mt-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-                  Market Index <span className="tabular-nums text-[var(--text-primary)]">{activeTrend.marketIndexValue == null ? "â€”" : Number(activeTrend.marketIndexValue).toFixed(2)}</span>
+                  Market Index <span className="tabular-nums text-[var(--text-primary)]">{activeTrend.marketIndexValue == null ? "—" : Number(activeTrend.marketIndexValue).toFixed(2)}</span>
                 </p>
               </div>
 
