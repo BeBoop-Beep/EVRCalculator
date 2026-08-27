@@ -175,6 +175,11 @@ test("the graph dominates the panel and is not reduced to a sparkline", () => {
 test("Market Index is promoted into the summary and removed from supporting details", () => {
   const panel = componentSource("MarketValueTrendPanel");
   assert.ok(panel.includes("data-market-trend-index"));
+  assert.match(
+    panel,
+    /<div data-market-trend-summary className="min-w-0">[\s\S]*?<MarketValueChange[\s\S]*?<p data-market-trend-index[\s\S]*?<\/p>\s*<\/div>/,
+    "the value, delta, and Market Index form one direct-child summary block"
+  );
   assert.ok(panel.includes("trend.marketIndexValue"));
   assert.ok(panel.includes("Supporting Details"));
   assert.ok(panel.includes("buildSupportingDetails(trend)"), "the fields derive from the ACTIVE lens");
@@ -229,7 +234,7 @@ test("breadth and concentration use authoritative data or render unavailable", (
   const section = componentSource("SetMarketOverviewSection");
   const rail = componentSource("SetSignalsRail");
   assert.ok(section.includes("selectPreparedMarketBreadth({"), "breadth uses the prepared selector");
-  assert.ok(section.includes("marketBreadth: cardsMarket?.marketBreadth"), "breadth reads cardsMarket.marketBreadth");
+  assert.ok(section.includes("breadthSource"), "breadth follows the resolved asset lens");
   assert.ok(section.includes("selectChaseConcentration({ top10Value"), "concentration reads the published scopes");
   assert.ok(signals.includes("data-breadth-unavailable"), "breadth degrades gracefully");
   assert.ok(signals.includes("data-concentration-unavailable"), "concentration degrades gracefully");
@@ -265,6 +270,18 @@ test("Chase Concentration is wired independently of the Cards Market Index trend
     !/selectChaseConcentration\(\{[^}]*cardsTrend\.currentValue/.test(section),
     "concentration must never be gated on the Cards Market Index trend's availability"
   );
+});
+
+test("the signal rail follows the active asset lens without card fallbacks", () => {
+  const section = componentSource("SetMarketOverviewSection");
+  const rail = componentSource("SetSignalsRail");
+  assert.ok(section.includes('resolvedSegmentKey === "sealed"'));
+  assert.ok(section.includes("setMarket?.marketBreadth"));
+  assert.ok(section.includes('sealedState.status === "loading"'));
+  assert.ok(section.includes('sealedState.status === "error"'));
+  assert.ok(rail.includes('activeSegmentKey === "cards" || activeSegmentKey === "sealed"'));
+  assert.ok(rail.includes('title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}'));
+  assert.match(rail, /activeSegmentKey === "cards"[\s\S]*?<ChaseConcentrationSignal/);
 });
 
 test("Cards Market Index reads the LIVE overview payload, not the retired dead dashboard fetch", () => {

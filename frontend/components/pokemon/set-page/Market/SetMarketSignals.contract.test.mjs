@@ -47,10 +47,16 @@ test("the donut and left-aligned legend form one centered bounded visual group",
   assert.ok(source.includes("max-[430px]:grid-cols-1"), "430px and below may stack without overflow");
 });
 
-test("excluded tracked cards are disclosed separately and never become a fourth donut slice", () => {
+test("excluded tracked items are disclosed separately and never become a fourth donut slice", () => {
   assert.match(source, /data-breadth-excluded/);
   assert.match(source, /excludedCount\.toLocaleString\("en-US"\).*N\/A · insufficient comparable pricing/s);
-  assert.match(source, /totalTrackedCount\.toLocaleString\("en-US"\).*tracked cards total/s);
+  assert.match(source, /totalTrackedCount\.toLocaleString\("en-US"\).*tracked \$\{itemNoun\} total/s);
   assert.equal((source.match(/const legend = \[/g) || []).length, 1);
   assert.doesNotMatch(source.slice(source.indexOf("const legend = ["), source.indexOf("];", source.indexOf("const legend = ["))), /N\/A|Excluded/);
+});
+
+test("the reusable breadth signal accepts asset noun and title context", () => {
+  assert.match(source, /MarketBreadthSignal\(\{ breadth, windowLabel, itemNoun = "cards", title = "Market Breadth"/);
+  assert.ok(source.includes("share of comparable tracked items"));
+  assert.ok(source.includes("Items need valid pricing at both comparison endpoints"));
 });

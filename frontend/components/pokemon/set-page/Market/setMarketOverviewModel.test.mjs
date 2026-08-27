@@ -157,6 +157,23 @@ test("prepared breadth surfaces partial ('since first available') coverage for l
   assert.equal(breadth.partialLabel, "Since first available");
 });
 
+test("prepared breadth honors canonical tracked and excluded counts from sealed snapshots", () => {
+  const breadth = selectPreparedMarketBreadth({
+    marketBreadth: {
+      "7D": {
+        available: true, eligibleCount: 3, totalTrackedCount: 4, excludedCount: 1,
+        advancingCount: 1, decliningCount: 2, unchangedCount: 0,
+        advancingPercent: 33.3, decliningPercent: 66.7, unchangedPercent: 0,
+      },
+    },
+    windowKey: "7D",
+    totalTrackedCount: 99,
+  });
+  assert.equal(breadth.totalTrackedCount, 4);
+  assert.equal(breadth.excludedCount, 1);
+  assert.equal(breadth.total, 3);
+});
+
 test("a segment trend reports value, delta, return, high and low for the selected window", () => {
   const trend = selectSegmentTrend({
     history: dailyHistory([100, 90, 120, 110]),

@@ -38,6 +38,22 @@ def test_elite_and_accessible_paths_use_their_own_probability_without_snapshot_j
     assert elite["packsFor90PercentChance"] != accessible["packsFor90PercentChance"]
 
 
+def test_collector_path_card_outside_top_25_chase_cap_still_gets_thresholds():
+    probability = 1 / 777
+    paths = select_subject_paths({"cards": [{
+        "canonical_card_id": "collector-only-rank-26",
+        "card_name": "Collector-only printing",
+        "pull_probability": probability,
+        # Deliberately no Top Chase snapshot/rank input: Collector paths are
+        # serialized directly from the subject index, outside that storage cap.
+    }]})
+
+    canonical = exact_card_probability_contract(probability)
+    assert paths["elitePath"]["canonicalCardId"] == "collector-only-rank-26"
+    assert paths["elitePath"]["packsFor50PercentChance"] == canonical["packsFor50PercentChance"]
+    assert paths["elitePath"]["packsFor90PercentChance"] == canonical["packsFor90PercentChance"]
+
+
 def test_collector_paths_import_the_canonical_contract_not_threshold_math():
     from pathlib import Path
     source = (Path(__file__).resolve().parents[3] / "desirability" / "collector_appeal_inputs.py").read_text(encoding="utf-8")

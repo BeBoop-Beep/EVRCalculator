@@ -3755,7 +3755,7 @@ function MarketSegmentRow({ row, active, onSelect }) {
 }
 
 /** SECTION 2B — the right-hand signal rail. */
-function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, concentration, windowLabel }) {
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel }) {
   return (
     <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
       <div className="space-y-4">
@@ -3770,8 +3770,18 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
           </div>
         </div>
 
-        <MarketBreadthSignal breadth={breadth} windowLabel={windowLabel} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
-        <ChaseConcentrationSignal concentration={concentration} formatMoney={(value) => formatSegmentMoney(value, { compact: true })} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
+        {activeSegmentKey === "cards" || activeSegmentKey === "sealed" ? (
+          <MarketBreadthSignal
+            breadth={breadthStatus ? { available: false, reason: breadthStatus } : breadth}
+            windowLabel={windowLabel}
+            itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
+            title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
+          />
+        ) : null}
+        {activeSegmentKey === "cards" ? (
+          <ChaseConcentrationSignal concentration={concentration} formatMoney={(value) => formatSegmentMoney(value, { compact: true })} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
+        ) : null}
       </div>
     </SectionCard>
   );
@@ -3824,17 +3834,19 @@ function MarketValueTrendPanel({
 
         {trend.available ? (
           <>
-            <MarketValueChange
-              value={trend.currentValue}
-              changeAmount={trend.deltaAmount}
-              changePercent={trend.deltaPercent}
-              windowLabel={windowLabel}
-              variant="chart-summary"
-              accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
-            />
-            <p data-market-trend-index className="text-[11px] font-medium text-[var(--text-secondary)]">
-              Market Index <span className="tabular-nums text-[var(--text-primary)]">{trend.marketIndexValue == null ? "â€”" : Number(trend.marketIndexValue).toFixed(2)}</span>
-            </p>
+            <div data-market-trend-summary className="min-w-0">
+              <MarketValueChange
+                value={trend.currentValue}
+                changeAmount={trend.deltaAmount}
+                changePercent={trend.deltaPercent}
+                windowLabel={windowLabel}
+                variant="chart-summary"
+                accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
+              />
+              <p data-market-trend-index className="text-[11px] font-medium leading-tight text-[var(--text-secondary)]">
+                Market Index <span className="tabular-nums text-[var(--text-primary)]">{trend.marketIndexValue == null ? "—" : Number(trend.marketIndexValue).toFixed(2)}</span>
+              </p>
+            </div>
 
             <div className="flex min-w-0 items-center gap-2">
               <MarketWindowSelector
@@ -3945,20 +3957,32 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+    ? "sealed"
+    : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
   const segmentRows = useMemo(() => buildMarketSegmentRows(trendsByKey), [trendsByKey]);
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
+  const breadthSource = resolvedSegmentKey === "sealed"
+    ? sealedState.payload?.setMarket?.marketBreadth || sealedState.payload?.setMarket?.market_breadth
+    : resolvedSegmentKey === "cards"
+    ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
+    : null;
   const breadth = useMemo(
     () => selectPreparedMarketBreadth({
-      marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth,
+      marketBreadth: breadthSource,
       windowKey: effectiveWindowKey,
-      totalTrackedCount: cardsTrend.trackedItemCount,
+      totalTrackedCount: activeTrend.trackedItemCount,
     }),
-    [cardsMarket, cardsTrend.trackedItemCount, effectiveWindowKey]
+    [activeTrend.trackedItemCount, breadthSource, effectiveWindowKey]
   );
+  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading"
+    ? "Loading sealed market breadthâ€¦"
+    : resolvedSegmentKey === "sealed" && sealedState.status === "error"
+    ? sealedState.error || "Unable to load sealed market breadth"
+    : null;
   // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
   // Standard and Top 10 set-value scopes, not a full Cards Market Index
   // history — see the prop's own comment at the call site.
@@ -3986,6 +4010,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           activeSegmentKey={resolvedSegmentKey}
           onSegmentChange={setActiveSegmentKey}
           breadth={breadth}
+          breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
         />

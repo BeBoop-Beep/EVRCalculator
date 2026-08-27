@@ -1711,6 +1711,30 @@ body::-webkit-scrollbar-thumb:hover {
     );
 }
 
+/* Card detail uses the same interaction teal as Market Explorer. The global
+   accent remains amber for deliberate premium locks elsewhere in the app. */
+.card-detail-environment {
+  --accent: rgb(45, 212, 191);
+  --accent-dark: rgb(20, 184, 166);
+}
+
+@media (min-width: 768px) {
+  .card-detail-artwork {
+    position: relative;
+    min-height: 0;
+  }
+
+  .card-detail-artwork > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+    object-position: center;
+  }
+}
+
 /* The artwork, untouched. blur(0) is deliberate — a surface has definition,
    an apparition does not — and brightness/saturate stay at 1 so the rendered
    pixels are the source pixels at a lower alpha. Nothing here shifts hue. */

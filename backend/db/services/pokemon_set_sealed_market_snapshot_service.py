@@ -18,7 +18,7 @@ from backend.domain.pokemon.market_index import (
     compute_strict_window_movements,
 )
 
-SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v3"
+SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v4"
 WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
 MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 # Retained as product-family metadata for consumers; product ordering itself is
@@ -289,6 +289,91 @@ def _chain_link_with_cohort_breaks(observations: List[Dict[str, Any]]) -> List[D
     return build_chain_linked_history_with_segments(observations)
 
 
+def _breadth_percentages(counts: Dict[str, int], total: int) -> Dict[str, Optional[float]]:
+    """Round the three displayed shares to one decimal and exactly 100%."""
+    if total <= 0:
+        return {key: None for key in counts}
+    rounded = {key: round(value * 100.0 / total, 1) for key, value in counts.items()}
+    drift = round(100.0 - sum(rounded.values()), 1)
+    if abs(drift) >= 0.05:
+        target = max(rounded, key=lambda key: (counts[key], key))
+        rounded[target] = round(rounded[target] + drift, 1)
+    return rounded
+
+
+def compute_sealed_market_breadth(
+    products: List[Dict[str, Any]], market_index_movements: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, Any]]:
+    """Classify the canonical sealed basket at the index's exact endpoints."""
+    basket = [product for product in products if product.get("history")]
+    total_tracked = len(basket)
+    price_by_product = {
+        str(product.get("sealedProductId")): {
+            str(point.get("date"))[:10]: point.get("marketPrice")
+            for point in product["history"]
+            if point.get("date") and point.get("marketPrice") is not None
+        }
+        for product in basket
+    }
+    result: Dict[str, Dict[str, Any]] = {}
+    for key, movement_entry in market_index_movements.items():
+        start_date = movement_entry.get("startDate")
+        end_date = movement_entry.get("endDate")
+        base = {
+            "targetStartDate": movement_entry.get("targetStartDate"),
+            "startDate": start_date,
+            "endDate": end_date,
+            "coverage": movement_entry.get("coverage", "unavailable"),
+            "isSinceFirstAvailable": bool(movement_entry.get("isSinceFirstAvailable")),
+            "eligibleCount": 0,
+            "advancingCount": None,
+            "decliningCount": None,
+            "unchangedCount": None,
+            "advancingPercent": None,
+            "decliningPercent": None,
+            "unchangedPercent": None,
+            "totalTrackedCount": total_tracked,
+            "excludedCount": total_tracked,
+        }
+        if movement_entry.get("available") is False or not start_date:
+            result[key] = {**base, "available": False, "status": "insufficient_history"}
+            continue
+        if not end_date or start_date == end_date:
+            result[key] = {**base, "available": False, "status": "baseline_unavailable"}
+            continue
+
+        counts = {"advancingCount": 0, "decliningCount": 0, "unchangedCount": 0}
+        for prices in price_by_product.values():
+            if start_date not in prices or end_date not in prices:
+                continue
+            start_price = prices[start_date]
+            end_price = prices[end_date]
+            if end_price > start_price:
+                counts["advancingCount"] += 1
+            elif end_price < start_price:
+                counts["decliningCount"] += 1
+            else:
+                counts["unchangedCount"] += 1
+
+        eligible = sum(counts.values())
+        if not eligible:
+            result[key] = {**base, "available": False, "status": "no_common_cohort"}
+            continue
+        percents = _breadth_percentages(counts, eligible)
+        result[key] = {
+            **base,
+            "available": True,
+            "status": "available",
+            "eligibleCount": eligible,
+            **counts,
+            "advancingPercent": percents["advancingCount"],
+            "decliningPercent": percents["decliningCount"],
+            "unchangedPercent": percents["unchangedCount"],
+            "excludedCount": total_tracked - eligible,
+        }
+    return result
+
+
 def build_sealed_segment_history(
     products: List[Dict[str, Any]], *, through_date: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
@@ -380,6 +465,8 @@ def build_sealed_segment_history(
         if product["history"] and (date.fromisoformat(end) - date.fromisoformat(product["history"][-1]["date"])).days <= SEALED_PRICE_FRESHNESS_DAYS
     )
 
+    market_breadth = compute_sealed_market_breadth(basket, index_movements)
+
     return {
         "currentValue": tracked_history[-1]["marketPrice"],
         "valueAsOf": tracked_history[-1]["date"],
@@ -388,6 +475,7 @@ def build_sealed_segment_history(
         "contributingProductCount": contributing_product_count,
         "history": tracked_history,
         "movements": {key: movement(tracked_history, key) for key in MOVEMENT_WINDOWS},
+        "marketBreadth": market_breadth,
         "marketIndex": {
             "currentValue": index_points[-1]["value"] if index_points else None,
             "baseValue": MARKET_INDEX_BASE_VALUE,

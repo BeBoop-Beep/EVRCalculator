@@ -112,13 +112,13 @@ export function MarketBreadthDonut({ breadth }) {
   );
 }
 
-export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
+export function MarketBreadthSignal({ breadth, windowLabel, itemNoun = "cards", title = "Market Breadth", className = "" }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   return (
     <div data-market-breadth className={className}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">Market Breadth</p>
-        <InfoPopover text="Market Breadth measures the share of comparable tracked cards that advanced, declined, or were unchanged over the selected period. Cards need valid pricing at both endpoints to be included. Cards without a valid comparison are shown separately as N/A." />
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{title}</p>
+        <InfoPopover text="Market Breadth shows the share of comparable tracked items that advanced, declined, or were unchanged over the selected period. Items need valid pricing at both comparison endpoints to be included. Items without a valid comparison are shown separately as N/A." />
       </div>
       {!canViewSetMarketSignals ? (
         <SetMarketSignalLock description="See whether this Set's market move is broad or concentrated." />
@@ -128,6 +128,9 @@ export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
           <p className="mt-2 text-[10px] tabular-nums text-[var(--text-secondary)]">
             {breadth.advancing.toLocaleString("en-US")} advancing · {breadth.declining.toLocaleString("en-US")} declining · {breadth.flat.toLocaleString("en-US")} unchanged
           </p>
+          <p data-breadth-analyzed className="mt-1 text-[10px] text-[var(--text-secondary)]">
+            {breadth.total.toLocaleString("en-US")} {itemNoun} included in breadth analysis
+          </p>
           {breadth.excludedCount > 0 ? (
             <p data-breadth-excluded className="mt-1 text-[10px] tabular-nums text-[var(--text-secondary)]">
               {breadth.excludedCount.toLocaleString("en-US")} N/A · insufficient comparable pricing
@@ -135,7 +138,7 @@ export function MarketBreadthSignal({ breadth, windowLabel, className = "" }) {
           ) : null}
           <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
             {breadth.totalTrackedCount !== null
-              ? `${breadth.totalTrackedCount.toLocaleString("en-US")} tracked cards total`
+              ? `${breadth.totalTrackedCount.toLocaleString("en-US")} tracked ${itemNoun} total`
               : `${breadth.total.toLocaleString("en-US")} cards included in breadth analysis`} · {windowLabel}
           </p>
           {breadth.partialLabel ? (

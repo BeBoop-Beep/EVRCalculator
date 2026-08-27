@@ -287,8 +287,9 @@ export function selectPreparedMarketBreadth({ marketBreadth, windowKey, totalTra
     return { available: false, reason: SEGMENT_UNAVAILABLE_TEXT, windowKey: movementKey || null };
   }
   const isSinceFirstAvailable = Boolean(entry.isSinceFirstAvailable ?? entry.is_since_first_available);
-  const trackedTotal = toFiniteNumber(totalTrackedCount);
-  const excludedCount = trackedTotal !== null && trackedTotal >= total ? trackedTotal - total : null;
+  const trackedTotal = toFiniteNumber(entry.totalTrackedCount ?? entry.total_tracked_count ?? totalTrackedCount);
+  const publishedExcluded = toFiniteNumber(entry.excludedCount ?? entry.excluded_count);
+  const excludedCount = publishedExcluded ?? (trackedTotal !== null && trackedTotal >= total ? trackedTotal - total : null);
   return {
     available: true,
     windowKey: movementKey,

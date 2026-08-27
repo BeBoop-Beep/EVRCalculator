@@ -1240,6 +1240,7 @@ export async function getPokemonSetSealedMarket(setId) {
           ...setMarket,
           history: setMarket.history || [],
           productCount: setMarket.productCount ?? setMarket.product_count ?? payload?.products?.length ?? null,
+          marketBreadth: setMarket.marketBreadth || setMarket.market_breadth || {},
           marketIndex: normalizePreparedMarketIndex(setMarket.marketIndex || setMarket.market_index),
         }
       : null;
