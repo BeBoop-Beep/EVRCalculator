@@ -1,7 +1,7 @@
 """Canonical Market Movers contract tests.
 
-Market Movers is a filtered/sorted view of the complete Cards dataset
-(pokemon_set_cards_snapshot_latest.cards_json), never a separate
+Market Movers is a publication-time projection of the complete Cards dataset,
+never a separate
 reliability-qualified subset. Membership is hasValidMovement + nonzero
 movement; ranking is absolute dollar move desc, then absolute percent desc,
 then canonical card id. Reliability stays metadata only. The Overview banner
@@ -47,9 +47,12 @@ class _Query:
 class _Client:
     def __init__(self, handlers):
         self.handlers = handlers
+        self.queries = []
 
     def table(self, table_name):
-        return _Query(table_name, self.handlers)
+        query = _Query(table_name, self.handlers)
+        self.queries.append(query)
+        return query
 
 
 @pytest.fixture(autouse=True)
@@ -118,15 +121,27 @@ def _movement_card(
 
 
 def _cards_snapshot_client(cards, extra_handlers=None):
-    handlers = {
-        "pokemon_set_cards_snapshot_latest": lambda _q: [
-            {
+    read_model = pokemon_public_snapshot_service.build_canonical_market_movers_read_model(cards)
+
+    def cards_handler(query):
+        if "canonical_movers:" in query.select_fields:
+            window = "30D" if "->30D" in query.select_fields else "7D"
+            return [{
                 "set_id": _TEST_UUID,
-                "cards_json": cards,
+                "canonical_movers": read_model[window],
                 "card_count": len(cards),
                 "updated_at": "2026-07-14T02:00:00+00:00",
-            }
-        ],
+                "snapshot_meta": dict(_CARDS_MOVEMENT_METADATA),
+            }]
+        return [{
+            "set_id": _TEST_UUID,
+            "cards_json": cards,
+            "card_count": len(cards),
+            "updated_at": "2026-07-14T02:00:00+00:00",
+        }]
+
+    handlers = {
+        "pokemon_set_cards_snapshot_latest": cards_handler,
     }
     handlers.update(extra_handlers or {})
     return _Client(handlers)
@@ -586,7 +601,7 @@ def test_market_movers_endpoint_is_first_n_of_canonical_cards_query(monkeypatch)
         assert banner_card["startDate"] == cards_card["movement7d"]["startDate"]
         assert banner_card["endDate"] == cards_card["movement7d"]["endDate"]
 
-    assert movers["meta"]["snapshot"]["source"] == "canonical_cards_filter"
+    assert movers["meta"]["snapshot"]["source"] == "canonical_cards_published_movers"
     assert movers["meta"]["snapshot"]["usedLegacyMoverList"] is False
     assert movers["meta"]["snapshot"]["marketAsOfDate"] == "2026-07-13"
     assert movers["meta"]["query"] == {
@@ -599,6 +614,9 @@ def test_market_movers_endpoint_is_first_n_of_canonical_cards_query(monkeypatch)
     # Slim projection: no heavy checklist fields ride along.
     assert "priceHistory" not in banner[0]
     assert "movementMetadata" not in banner[0]
+    mover_query = next(query for query in client.queries if "canonical_movers:" in query.select_fields)
+    assert "cards_json" not in mover_query.select_fields
+    assert "payload_json->canonicalMarketMoversByWindow->7D" in mover_query.select_fields
 
 
 def test_market_movers_endpoint_banner_can_be_ten_negatives_and_is_not_five_five_capped(monkeypatch):

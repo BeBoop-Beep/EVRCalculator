@@ -166,9 +166,10 @@ test("a failed request says so and stays retryable rather than caching the failu
   respond = () => Promise.reject(new Error("boom"));
   const renderer = await render({ setId: "set-fail", setName: "Paradox Rift", viewAllHref: "/x" });
   assert.match(jsonOf(renderer), /currently unavailable/);
+  const retry = renderer.root.find((node) => node.type === "button" && node.children?.includes("Retry movers"));
 
   respond = () => Promise.resolve(payloadWith(2));
-  const retried = await render({ setId: "set-fail", setName: "Paradox Rift", viewAllHref: "/x" });
+  await TestRenderer.act(async () => retry.props.onClick());
   assert.equal(calls.length, 2, "the failure was not cached as this set's answer");
-  assert.equal(cardsIn(retried).length, 2);
+  assert.equal(cardsIn(renderer).length, 2);
 });

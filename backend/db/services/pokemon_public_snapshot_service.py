@@ -5417,7 +5417,8 @@ def _empty_market_movers_payload(
     }
 
 
-_MOVERS_CARDS_SNAPSHOT_COLUMNS = "set_id,cards_json,card_count,updated_at"
+CANONICAL_MARKET_MOVERS_READ_MODEL_KEY = "canonicalMarketMoversByWindow"
+CANONICAL_MARKET_MOVERS_READ_MODEL_LIMIT = MAX_TOP_MARKET_CARDS_LIMIT
 
 
 def _slim_market_mover_card(card: Dict[str, Any], window_key: str) -> Dict[str, Any]:
@@ -5471,6 +5472,33 @@ def _slim_market_mover_card(card: Dict[str, Any], window_key: str) -> Dict[str, 
     return slim
 
 
+def build_canonical_market_movers_read_model(cards: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Publication-time projection of the exact canonical Cards mover query."""
+    camel_cards = [_to_camel_case_only(card) for card in cards if isinstance(card, dict)]
+    result: Dict[str, Any] = {}
+    for window_key in ("7D", "30D"):
+        movement_sort = "7d-movers" if window_key == "7D" else None
+        ranked = _apply_cards_page_filters_and_sort(
+            camel_cards, query=None, rarity=None, movement_filter="all",
+            sort="set-number", movement_sort=movement_sort, section="market-movers",
+        )
+        if window_key != "7D":
+            ranked = _sort_cards_by_largest_dollar_move(ranked, window_key)
+        heating = [card for card in ranked if _cards_page_movement_direction(card, window_key) > 0]
+        cooling = [card for card in ranked if _cards_page_movement_direction(card, window_key) < 0]
+        project = lambda rows: [
+            _slim_market_mover_card(card, window_key)
+            for card in rows[:CANONICAL_MARKET_MOVERS_READ_MODEL_LIMIT]
+        ]
+        result[window_key] = {
+            "all": project(ranked), "heating": project(heating), "cooling": project(cooling),
+            "checklistCardCount": len(camel_cards),
+            "cardsWithCalculableMovement": sum(1 for card in camel_cards if _cards_page_has_valid_movement(card, window_key)),
+            "nonzeroMovementCount": len(ranked),
+        }
+    return result
+
+
 def get_pokemon_set_market_movers_snapshot_payload(
     set_id: str,
     window: str = DEFAULT_MARKET_MOVERS_WINDOW,
@@ -5479,11 +5507,10 @@ def get_pokemon_set_market_movers_snapshot_payload(
 ) -> Dict[str, Any]:
     """Return the slim Market Movers payload for a Pokemon set.
 
-    Canonical contract: Market Movers is a filtered/sorted view of the
-    complete canonical Cards dataset. This reads the same
-    pokemon_set_cards_snapshot_latest.cards_json the Cards tab pages
-    through and runs the exact same shared query implementation
-    (_apply_cards_page_filters_and_sort with section="market-movers"):
+    Canonical contract: Market Movers is a publication-time projection of the
+    complete canonical Cards dataset. Snapshot publication runs the exact same
+    shared Cards query implementation (_apply_cards_page_filters_and_sort with
+    section="market-movers"); this request reads only that narrow JSON path:
 
         section=market-movers, window=<1D|7D|30D>, movement=all|heating|cooling,
         sort=largest-dollar-move, limit=N
@@ -5526,7 +5553,10 @@ def get_pokemon_set_market_movers_snapshot_payload(
         try:
             result = (
                 service_read_client.table("pokemon_set_cards_snapshot_latest")
-                .select(_MOVERS_CARDS_SNAPSHOT_COLUMNS)
+                .select(
+                    "set_id,card_count,updated_at,snapshot_meta:payload_json->meta->snapshot,"
+                    f"canonical_movers:payload_json->{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}->{resolved_window}"
+                )
                 .eq("set_id", resolved_set_id)
                 .limit(1)
                 .execute()
@@ -5542,22 +5572,11 @@ def get_pokemon_set_market_movers_snapshot_payload(
             )
             cards_row = None
 
-        raw_cards = cards_row.get("cards_json") if cards_row and isinstance(cards_row.get("cards_json"), list) else []
-        if raw_cards:
-            camel_cards = [_to_camel_case_only(card) for card in raw_cards if isinstance(card, dict)]
-            filtered_cards = _apply_cards_page_filters_and_sort(
-                camel_cards,
-                query=None,
-                rarity=None,
-                movement_filter=movement_filter,
-                sort="set-number",
-                movement_sort="7d-movers" if resolved_window == "7D" else None,
-                section="market-movers",
-            )
-            if resolved_window != "7D":
-                filtered_cards = _sort_cards_by_largest_dollar_move(filtered_cards, resolved_window)
-
-            served_cards = [_slim_market_mover_card(card, resolved_window) for card in filtered_cards[:limit_value]]
+        read_model = cards_row.get("canonical_movers") if cards_row and isinstance(cards_row.get("canonical_movers"), dict) else {}
+        source_key = movement_filter if movement_filter in {"heating", "cooling"} else "all"
+        ranked_cards = read_model.get(source_key) if isinstance(read_model.get(source_key), list) else []
+        if read_model and isinstance(read_model.get("all"), list):
+            served_cards = [card for card in ranked_cards[:limit_value] if isinstance(card, dict)]
             heating_up = [
                 card
                 for card in served_cards
@@ -5568,12 +5587,13 @@ def get_pokemon_set_market_movers_snapshot_payload(
                 for card in served_cards
                 if _cards_page_movement_direction(card, resolved_window) < 0
             ]
-            movement_totals = _cards_movement_totals(
-                camel_cards,
-                filtered_cards=filtered_cards,
-                page_cards=served_cards,
-                window_key=resolved_window,
-            )
+            movement_totals = {
+                "window": resolved_window,
+                "checklistCardCount": _to_optional_int(read_model.get("checklistCardCount")) or 0,
+                "cardsWithCalculableMovement": _to_optional_int(read_model.get("cardsWithCalculableMovement")) or 0,
+                "nonzeroMovementCount": _to_optional_int(read_model.get("nonzeroMovementCount")) or 0,
+                "filteredTotal": len(ranked_cards), "pageCount": len(served_cards),
+            }
             snapshot_meta = _movement_snapshot_meta(cards_row or {})
             market_as_of_date = _market_as_of_date_from_snapshot_meta(snapshot_meta)
 
@@ -5603,7 +5623,7 @@ def get_pokemon_set_market_movers_snapshot_payload(
                     "limit": limit_value,
                     "warnings": [],
                     "movementTotals": movement_totals,
-                    "priceBasis": "pokemon_set_cards_snapshot_latest.cards_json",
+                    "priceBasis": f"pokemon_set_cards_snapshot_latest.payload_json.{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}",
                     "query": {
                         "section": "market-movers",
                         "window": resolved_window,
@@ -5613,9 +5633,9 @@ def get_pokemon_set_market_movers_snapshot_payload(
                     },
                     "snapshot": {
                         **snapshot_meta,
-                        "source": "canonical_cards_filter",
+                        "source": "canonical_cards_published_movers",
                         "sourceTable": "pokemon_set_cards_snapshot_latest",
-                        "sourceField": "cards_json",
+                        "sourceField": f"payload_json.{CANONICAL_MARKET_MOVERS_READ_MODEL_KEY}.{resolved_window}",
                         "marketAsOfDate": market_as_of_date,
                         "latestMarketDate": market_as_of_date,
                         "window": resolved_window,

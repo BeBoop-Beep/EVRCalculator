@@ -93,13 +93,14 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
   const [state, setState] = useState(() => (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
   const trackRef = useRef(null);
   const [edges, setEdges] = useState({ atStart: true, atEnd: true });
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!setId) {
       setState({ status: "idle", entry: null });
       return undefined;
     }
-    if (cache.has(setId)) {
+    if (cache.has(setId) && retryToken === 0) {
       setState(cache.get(setId));
       return undefined;
     }
@@ -119,7 +120,7 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
     return () => {
       cancelled = true;
     };
-  }, [setId]);
+  }, [setId, retryToken]);
 
   const items = selectMoversTickerItems(state.entry, { maxItems: LIMIT });
 
@@ -178,9 +179,10 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
       </div>
 
       {state.status === "error" ? (
-        <p role="status" className="py-3 text-xs text-[var(--text-secondary)]">
-          {`7-day movers for ${setName || "this set"} are currently unavailable.`}
-        </p>
+        <div role="status" className="flex items-center justify-between gap-3 py-3 text-xs text-[var(--text-secondary)]">
+          <span>{`7-day movers for ${setName || "this set"} are currently unavailable.`}</span>
+          <button type="button" onClick={() => { cache.delete(setId); setRetryToken((token) => token + 1); }} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry movers</button>
+        </div>
       ) : state.status !== "success" ? (
         <div aria-hidden="true" className="h-[4.5rem] animate-pulse rounded-[10px] bg-[rgba(148,163,184,0.08)] max-desk:h-[4.75rem]" />
       ) : items.length === 0 ? (

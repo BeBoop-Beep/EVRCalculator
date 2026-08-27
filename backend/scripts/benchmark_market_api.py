@@ -1,6 +1,9 @@
 """Small production-like Market endpoint latency/size/RSS benchmark.
 
 Usage: python -m backend.scripts.benchmark_market_api --base-url http://localhost:8000 --requests 20
+
+Pass --selected-set-id to include the selected-set 7D movers path used by the
+desktop master/detail surface.
 """
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-ENDPOINTS = ("/explore/set-value-market", "/explore/card-market-movers?limit=30")
+GLOBAL_ENDPOINTS = ("/explore/set-value-market", "/explore/card-market-movers?limit=30")
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -23,9 +26,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--requests", type=int, default=20)
+    parser.add_argument("--selected-set-id")
     args = parser.parse_args()
+    endpoints = list(GLOBAL_ENDPOINTS)
+    if args.selected_set_id:
+        endpoints.append(f"/sets/{args.selected_set_id}/market/movers?window=7D&limit=10")
     report = []
-    for endpoint in ENDPOINTS:
+    for endpoint in endpoints:
         durations, sizes, errors = [], [], 0
         for _ in range(max(1, args.requests)):
             started = time.perf_counter()
