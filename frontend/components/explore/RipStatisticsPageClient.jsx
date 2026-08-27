@@ -153,12 +153,12 @@ import {
   getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
   getPokemonSetOverview,
-  getPokemonSetSealedMarket,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
@@ -3657,34 +3657,6 @@ function deltaToneClassName(value) {
  * client-side aggregation: `setMarket` is the canonical set-level series the
  * snapshot service publishes.
  */
-function useSealedSetMarket(setId) {
-  const [state, setState] = useState({ status: "idle", payload: null, error: null });
-
-  useEffect(() => {
-    if (!setId) {
-      setState({ status: "idle", payload: null, error: null });
-      return undefined;
-    }
-    let cancelled = false;
-    setState((current) => ({ ...current, status: "loading" }));
-    getPokemonSetSealedMarket(setId).then(
-      (payload) => {
-        if (!cancelled) setState({ status: "success", payload, error: null });
-      },
-      (error) => {
-        if (!cancelled) {
-          setState({ status: "error", payload: null, error: error?.message || "Unable to load sealed market" });
-        }
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [setId]);
-
-  return state;
-}
-
 /** One Market Segments row on the right rail. */
 function MarketSegmentRow({ row, active, onSelect }) {
   const valueText = row.available ? formatSegmentMoney(row.currentValue, { compact: true }) : null;
@@ -3755,7 +3727,7 @@ function MarketSegmentRow({ row, active, onSelect }) {
 }
 
 /** SECTION 2B — the right-hand signal rail. */
-function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel }) {
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry }) {
   return (
     <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
       <div className="space-y-4">
@@ -3771,13 +3743,21 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
         </div>
 
         {activeSegmentKey === "cards" || activeSegmentKey === "sealed" ? (
-          <MarketBreadthSignal
-            breadth={breadthStatus ? { available: false, reason: breadthStatus } : breadth}
-            windowLabel={windowLabel}
-            itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
-            title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
-            className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
-          />
+          <div>
+            <MarketBreadthSignal
+              breadth={breadthStatus ? { available: false, reason: breadthStatus } : breadth}
+              windowLabel={windowLabel}
+              itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
+              title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
+            />
+            {activeSegmentKey === "sealed" && sealedError ? (
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs text-red-300">
+                <span>{sealedError}</span>
+                <button type="button" onClick={onSealedRetry} className="min-h-9 rounded-lg border border-[var(--border-subtle)] px-3 font-semibold text-[var(--text-primary)]">Retry</button>
+              </div>
+            ) : null}
+          </div>
         ) : null}
         {activeSegmentKey === "cards" ? (
           <ChaseConcentrationSignal concentration={concentration} formatMoney={(value) => formatSegmentMoney(value, { compact: true })} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
@@ -3914,12 +3894,11 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
-  const sealedState = useSealedSetMarket(setId);
 
   const cardsTrend = useMemo(
     () =>
@@ -3961,7 +3940,10 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
-  const segmentRows = useMemo(() => buildMarketSegmentRows(trendsByKey), [trendsByKey]);
+  const segmentRows = useMemo(
+    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedState.status === "loading" ? { ...row, selectable: true } : row),
+    [sealedState.status, trendsByKey]
+  );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
@@ -3978,9 +3960,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     }),
     [activeTrend.trackedItemCount, breadthSource, effectiveWindowKey]
   );
-  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading"
-    ? "Loading sealed market breadthâ€¦"
-    : resolvedSegmentKey === "sealed" && sealedState.status === "error"
+  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+    ? "Loading Sealed market…"
+    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
     ? sealedState.error || "Unable to load sealed market breadth"
     : null;
   // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
@@ -4013,6 +3995,8 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
+          sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
+          onSealedRetry={sealedState.retry}
         />
       </div>
     </div>
@@ -4034,10 +4018,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
  * There is NO movers strip in here. 7D movers is Section 1's job, and repeating
  * it would make the reader check two places for one answer.
  */
-function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry, sealedState }) {
   const router = useRouter();
   const [lens, setLens] = useState("cards");
-  const sealedState = useSealedSetMarket(setId);
   const sealedProducts = useMemo(
     () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
     [sealedState.payload]
@@ -4128,8 +4111,8 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
     return (
       <SectionCard title="Top 10">
         <p className="text-sm text-red-300">{effectiveError || "Unable to load this ranking for this set."}</p>
-        {onRetry ? (
-          <button type="button" onClick={onRetry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
+        {(lens === "cards" ? onRetry : sealedState.retry) ? (
+          <button type="button" onClick={lens === "cards" ? onRetry : sealedState.retry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
             Try again
           </button>
         ) : null}
@@ -11356,6 +11339,9 @@ export default function RipStatisticsPageClient({
     }
     return null;
   }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
+  const desktopSealedMarketState = usePokemonSetSealedMarket(
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null
+  );
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -14007,6 +13993,7 @@ export default function RipStatisticsPageClient({
                       error: activeSetValueHistory.error,
                       cardsTrackedCount: authoritativeSetCardCount,
                       top10Value: setValueTop10CurrentValue,
+                      standardValue: setValueStandardCurrentValue,
                       moversByWindow: marketMoversByWindow,
                       cardsMarket: activeMarketDashboardDerivedState.setValue.cardsMarket,
                     }}
@@ -14075,6 +14062,7 @@ export default function RipStatisticsPageClient({
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
                           standardValue={setValueStandardCurrentValue}
+                          sealedState={desktopSealedMarketState}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -14093,6 +14081,7 @@ export default function RipStatisticsPageClient({
                           onWindowChange={setTopMarketCardsWindowKey}
                           marketAsOfDate={marketAsOfDate}
                           onRetry={retryTopChaseModule}
+                          sealedState={desktopSealedMarketState}
                         />
                       </SectionErrorBoundary>
                     </div>

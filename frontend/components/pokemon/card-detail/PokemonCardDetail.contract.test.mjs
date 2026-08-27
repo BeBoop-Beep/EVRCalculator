@@ -7,6 +7,7 @@ const source = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card
 const market = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card-detail/AssetMarketPanel.jsx"), "utf8");
 const marketModel = fs.readFileSync(path.join(process.cwd(), "components/pokemon/card-detail/assetMarketModel.mjs"), "utf8");
 const page = fs.readFileSync(path.join(process.cwd(), "app/TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId]/page.js"), "utf8");
+const styles = fs.readFileSync(path.join(process.cwd(), "app/styles/globals.css"), "utf8");
 
 test("variant selection preserves canonical route and accessible radio state", () => {
   assert.match(source, /getPokemonCardDetail\(detail\.set\.id, detail\.card\.id, variantId\)/);
@@ -39,6 +40,44 @@ test("journey and product economics use canonical fields with recovery disclosur
   for (const label of ["50%", "75%", "90%", "95%", "Choose How You Open It", "Gross Chase Spend", "Recovery-adjusted Cost"]) assert.ok(source.includes(label), `missing ${label}`);
   assert.match(source, /fees, shipping, condition discounts, liquidity, or sell-through/);
   assert.doesNotMatch(source, /Overall RIP|Financial RIP|Collector Appeal|RIP Tier/);
+});
+
+test("probability journey renders its canonical curve and all milestone markers", () => {
+  assert.match(source, /chase\.modeledProbability/);
+  assert.match(source, /1 - Math\.pow\(1 - probability, packs\)/);
+  assert.match(source, /data-probability-journey-chart/);
+  assert.match(source, /data-probability-curve/);
+  assert.match(source, /data-probability-marker=/);
+  for (const label of ["50%", "75%", "90%", "95%"] ) assert.ok(source.includes(label));
+});
+
+test("card detail shares the dynamic set atmosphere and establishes its stacking context", () => {
+  assert.match(source, /optimizedImageUrl\(detail\.set\.heroImageUrl \|\| detail\.set\.logoImageUrl \|\| detail\.set\.symbolImageUrl, SET_LOGO_WIDTH\)/);
+  assert.match(source, /PageArtworkAtmosphere src=\{artwork\}/);
+  assert.match(source, /relative isolate/);
+  assert.doesNotMatch(source, /Ascended Heroes.*artwork|Black Bolt.*artwork/);
+});
+
+test("normal card-detail interactions use Market teal while the lock remains amber", () => {
+  assert.match(styles, /\.card-detail-environment[\s\S]*--accent: rgb\(45, 212, 191\)/);
+  assert.match(source, /text-amber-300/);
+  assert.match(source, /border-amber-300\/40/);
+});
+
+test("product choices use canonical compact labels and a responsive four-column desktop grid", () => {
+  assert.match(source, /compactSealedProductLabel\(p\)/);
+  assert.match(source, /sm:grid-cols-2 lg:grid-cols-4/);
+  assert.match(source, /selected\.sealedProductId === p\.sealedProductId/);
+});
+
+test("collector hierarchy keeps actual scores and honest unavailable scarcity", () => {
+  assert.match(source, /primary=\{?true\}?|primary\/>/);
+  assert.match(source, /intelligence\?\.cardAppeal/);
+  assert.match(source, /intelligence\?\.pokemonDemand/);
+  assert.match(source, /intelligence\?\.treatment/);
+  assert.match(source, /intelligence\?\.scarcity/);
+  assert.match(source, /"Unavailable"/);
+  assert.doesNotMatch(source, /0 \/ 10/);
 });
 
 test("product economics read the canonical productPrice contract field", () => {

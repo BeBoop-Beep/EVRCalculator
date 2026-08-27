@@ -63,6 +63,9 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
     )
     identities = [classify_sealed_product(product["name"]) for product in products]
     payload = row["payload_json"]
+    set_market = payload.get("setMarket") or {}
+    market_index = set_market.get("marketIndex") or {}
+    market_breadth = set_market.get("marketBreadth") or {}
     report = {
         "set": payload["set"],
         "rawProductCount": len(products),
@@ -80,6 +83,10 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
         "historyEndDate": row["market_date"],
         "productLatestDates": {product["sealedProductId"]: product["priceAsOf"] for product in payload["products"]},
         "snapshotMarketDate": row["market_date"],
+        "snapshotContractVersion": (payload.get("meta") or {}).get("snapshotContractVersion"),
+        "setMarketCurrentValue": set_market.get("currentValue"),
+        "setMarketIndexCurrentValue": market_index.get("currentValue"),
+        "setMarketBreadthKeys": list(market_breadth.keys()),
         "fingerprint": row["source_generation_fingerprint"],
         "warnings": payload["meta"]["warnings"],
         "action": action,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import MarketMobileSection from "./MarketMobileSection.jsx";
 import MarketMobileChart from "./MarketMobileChart.jsx";
@@ -9,7 +9,6 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import { ChaseConcentrationSignal, MarketBreadthSignal } from "./SetMarketSignals.jsx";
 import { getDeltaWindowLabel } from "@/lib/explore/marketDeltaWindows.mjs";
-import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
 import {
   MARKET_SEGMENT_LABELS,
   SEGMENT_UNAVAILABLE_TEXT,
@@ -25,6 +24,7 @@ import { formatCompactMoney, formatCount } from "./setMarketMobileModel.mjs";
 
 const shortDate = (value) =>
   value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+const IDLE_SEALED_STATE = { status: "idle", payload: null, error: null, retry: null };
 
 // ---------------------------------------------------------------------------
 // Market Snapshot — the anchor of the mobile Market tab.
@@ -51,32 +51,6 @@ const shortDate = (value) =>
 /** Mirrors the desktop `useSealedSetMarket` hook. The standalone mobile Sealed
  * Market module that used to own this fetch was removed as redundant — this
  * section's Sealed lens is now the only mobile consumer of it. */
-function useSealedSetMarket(setId) {
-  const [state, setState] = useState({ status: "idle", payload: null, error: null });
-
-  useEffect(() => {
-    if (!setId) {
-      setState({ status: "idle", payload: null, error: null });
-      return undefined;
-    }
-    let cancelled = false;
-    setState((current) => ({ ...current, status: "loading" }));
-    getPokemonSetSealedMarket(setId).then(
-      (payload) => {
-        if (!cancelled) setState({ status: "success", payload, error: null });
-      },
-      (error) => {
-        if (!cancelled) setState({ status: "error", payload: null, error: error?.message || "Unable to load sealed market" });
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [setId]);
-
-  return state;
-}
-
 function MicroStat({ label, value }) {
   return (
     <div className="min-w-0">
@@ -126,12 +100,13 @@ export default function SetMarketMobileSetValue({
   error = null,
   cardsTrackedCount = null,
   top10Value = null,
+  standardValue = null,
   moversByWindow = null,
   cardsMarket = null,
+  sealedState = IDLE_SEALED_STATE,
 }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
-  const sealedState = useSealedSetMarket(setId);
 
   const cardsHistory = Array.isArray(historiesByScope?.standard) ? historiesByScope.standard : history;
   const cardsTrend = useMemo(
@@ -167,7 +142,9 @@ export default function SetMarketMobileSetValue({
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+    ? "sealed"
+    : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
   // An unavailable lens (Graded, always; Sealed, sometimes) is disabled rather
   // than clickable-then-snapping-back — the same treatment desktop's segment
@@ -178,27 +155,38 @@ export default function SetMarketMobileSetValue({
       buildMarketSegmentRows(trendsByKey).map((row) => ({
         value: row.key,
         label: row.label,
-        disabled: !row.selectable,
+        disabled: row.key === "sealed" && sealedState.status === "loading" ? false : !row.selectable,
       })),
-    [trendsByKey]
+    [sealedState.status, trendsByKey]
   );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
   const direction =
     activeTrend.deltaAmount === null ? "neutral" : activeTrend.deltaAmount < 0 ? "negative" : activeTrend.deltaAmount > 0 ? "positive" : "neutral";
 
+  const breadthSource = resolvedSegmentKey === "sealed"
+    ? sealedState.payload?.setMarket?.marketBreadth || sealedState.payload?.setMarket?.market_breadth
+    : resolvedSegmentKey === "cards"
+    ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
+    : null;
+  const breadthTrackedCount = resolvedSegmentKey === "sealed" ? sealedTrend.trackedItemCount : cardsTrend.trackedItemCount;
   const breadth = useMemo(
     () => selectPreparedMarketBreadth({
-      marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth,
+      marketBreadth: breadthSource,
       windowKey: effectiveWindowKey,
-      totalTrackedCount: cardsTrend.trackedItemCount,
+      totalTrackedCount: breadthTrackedCount,
     }),
-    [cardsMarket, cardsTrend.trackedItemCount, effectiveWindowKey]
+    [breadthSource, breadthTrackedCount, effectiveWindowKey]
   );
   const concentration = useMemo(
-    () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),
-    [cardsTrend.currentValue, top10Value]
+    () => selectChaseConcentration({ top10Value, cardsValue: standardValue }),
+    [standardValue, top10Value]
   );
+  const sealedStatusMessage = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+    ? "Loading Sealed market…"
+    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
+    ? sealedState.error
+    : null;
 
   const isLoading = (status === "loading" || status === "idle") && activeTrend.points.length === 0 && activeTrend.currentValue === null;
   const isError = status === "error" && activeTrend.currentValue === null && resolvedSegmentKey === "cards";
@@ -268,18 +256,24 @@ export default function SetMarketMobileSetValue({
           )}
 
           <SupportingMicroStats trend={activeTrend} />
-          {resolvedSegmentKey === "cards" ? (
+          {resolvedSegmentKey === "cards" || resolvedSegmentKey === "sealed" ? (
             <div data-market-mobile-signals className="space-y-2.5">
               <MarketBreadthSignal
                 breadth={breadth}
                 windowLabel={windowLabel}
+                title={resolvedSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+                itemNoun={resolvedSegmentKey === "sealed" ? "products" : "cards"}
+                statusMessage={sealedStatusMessage}
                 className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
               />
-              <ChaseConcentrationSignal
+              {resolvedSegmentKey === "cards" ? <ChaseConcentrationSignal
                 concentration={concentration}
                 formatMoney={formatCompactMoney}
                 className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
-              />
+              /> : null}
+              {resolvedSegmentKey === "sealed" && sealedState.status === "error" ? (
+                <button type="button" onClick={sealedState.retry} className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)]">Retry</button>
+              ) : null}
             </div>
           ) : null}
         </div>

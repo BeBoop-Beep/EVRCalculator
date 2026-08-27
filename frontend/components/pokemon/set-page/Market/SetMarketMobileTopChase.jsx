@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import MarketMobileSection, { MarketMobileSectionLink } from "./MarketMobileSection.jsx";
 import MarketWindowSelector from "../../../explore/MarketWindowSelector";
 import SegmentedControl from "../../../ui/SegmentedControl";
-import { getPokemonSetSealedMarket } from "../../../../lib/pokemon/pokemonSetMarketClient";
 import { getStandardDeltaWindowDefinitions } from "../../../../lib/explore/marketDeltaWindows.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "../../../../lib/explore/interpretationTone";
 import { CARD_ART_WIDTH, CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "../../../../lib/images/remoteImageDelivery.mjs";
@@ -37,6 +36,7 @@ const TONE = {
 };
 
 const WINDOWS = getStandardDeltaWindowDefinitions();
+const IDLE_SEALED_STATE = { status: "idle", payload: null, error: null, retry: null };
 
 function ChangeText({ row, className = "" }) {
   const parts = [row.amountText, row.percentText].filter(Boolean);
@@ -138,20 +138,10 @@ export default function SetMarketMobileTopChase({
   rowHref = null,
   viewAllHref = null,
   onRetry = null,
+  sealedState = IDLE_SEALED_STATE,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [lens, setLens] = useState("cards");
-  const [sealedState, setSealedState] = useState({ status: "idle", payload: null, error: null });
-  useEffect(() => {
-    let cancelled = false;
-    if (!setId) return undefined;
-    setSealedState((current) => ({ ...current, status: "loading" }));
-    getPokemonSetSealedMarket(setId).then(
-      (payload) => !cancelled && setSealedState({ status: "success", payload, error: null }),
-      (requestError) => !cancelled && setSealedState({ status: "error", payload: null, error: requestError?.message || "Unable to load sealed products" })
-    );
-    return () => { cancelled = true; };
-  }, [setId]);
   const hasCards = Array.isArray(cards) && cards.length > 0;
   const sealedProducts = useMemo(
     () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
@@ -202,10 +192,10 @@ export default function SetMarketMobileTopChase({
       ) : (lens === "cards" ? status : sealedState.status) === "error" && !hasRows ? (
         <div className="flex flex-col items-start gap-2">
           <p className="text-[13px] text-red-300">{(lens === "cards" ? error : sealedState.error) || "Unable to load this ranking."}</p>
-          {lens === "cards" && onRetry ? (
+          {(lens === "cards" ? onRetry : sealedState.retry) ? (
             <button
               type="button"
-              onClick={onRetry}
+              onClick={lens === "cards" ? onRetry : sealedState.retry}
               className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.04)] px-3 text-xs font-semibold text-[var(--text-primary)]"
             >
               Retry

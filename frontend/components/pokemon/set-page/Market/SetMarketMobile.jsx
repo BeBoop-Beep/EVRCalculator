@@ -6,6 +6,7 @@ import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import SetMarketMobileMovers from "./SetMarketMobileMovers.jsx";
 import SetMarketMobileSetValue from "./SetMarketMobileSetValue.jsx";
 import SetMarketMobileTopChase from "./SetMarketMobileTopChase.jsx";
+import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 
 // ---------------------------------------------------------------------------
 // The mobile Set Market tab.
@@ -54,6 +55,8 @@ export default function SetMarketMobile({
   setValue,
   topChase,
 }) {
+  const sealedState = usePokemonSetSealedMarket(setId);
+
   return (
     <section id={sectionIds.root} data-market-page data-market-mobile className="min-w-0 space-y-3">
       <SectionErrorBoundary sectionName="market-mobile-movers" resetKeys={[setId]} title="7D Market Movers" minHeightClassName="min-h-[10rem]">
@@ -62,11 +65,11 @@ export default function SetMarketMobile({
 
       <SectionErrorBoundary sectionName="market-mobile-set-value" resetKeys={[setId]} title="Market Snapshot" minHeightClassName="min-h-[16rem]">
         <span id={sectionIds.sealed} aria-hidden="true" className="block" />
-        <SetMarketMobileSetValue id={sectionIds.setValue} setId={setId} {...setValue} />
+        <SetMarketMobileSetValue id={sectionIds.setValue} setId={setId} sealedState={sealedState} {...setValue} />
       </SectionErrorBoundary>
 
       <SectionErrorBoundary sectionName="market-mobile-top-chase" resetKeys={[setId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} {...topChase} />
+        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} sealedState={sealedState} {...topChase} />
       </SectionErrorBoundary>
     </section>
   );

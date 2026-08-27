@@ -1231,7 +1231,7 @@ export async function getPokemonSetSealedMarket(setId) {
     if (!matches) {
       const error = new Error("Sealed market response did not match the requested set");
       error.code = "POKEMON_SET_SEALED_MARKET_IDENTITY_MISMATCH";
-      error.retryable = true;
+      error.retryable = false;
       throw error;
     }
     const setMarket = payload?.setMarket || payload?.set_market || null;
