@@ -233,7 +233,7 @@ test("selected-set Top Movers reuses the existing per-set movers data and select
   assert.match(topMovers, /const LIMIT = 10/);
   // Lazy and per-selection: nothing is fetched until a set is selected.
   assert.match(topMovers, /if \(!setId\)/);
-  assert.match(setMarket, /<SetMarketTopMovers key=\{selected\.setId\}/);
+  assert.match(setMarket, /<SetMarketTopMovers[\s\S]*key=\{selected\.setId\}[\s\S]*initialPayload=/);
   // It does NOT reach into the approved page-level ticker component.
   assert.doesNotMatch(codeOf(topMovers), /SevenDayMarketMoversTicker/);
 });
@@ -311,7 +311,7 @@ test("the page still serves exactly two global snapshots in parallel", () => {
 
 test("Movers and Set Market render regardless of Market Overview availability", () => {
   assert.match(page, /<ExploreMarketMovers payload=\{moversPayload\} \/>/);
-  assert.match(page, /<SetMarketExplorer targets=\{targets\} loadError=\{loadError\} \/>/);
+  assert.match(page, /<SetMarketExplorer targets=\{targets\} initialSelectedSetMovers=\{initialSelectedSetMovers\} loadError=\{loadError\} \/>/);
   const conditionalOverview = /\{overview \?[\s\S]*<SetMarketExplorer/.test(page);
   assert.equal(conditionalOverview, false, "Set Market must not be gated on the overview");
 });

@@ -40,6 +40,7 @@ export default async function MarketPage() {
   // already the compact Market-domain publication (setId, name, era, logo,
   // currentSetValue, windows, trend), not the canonical Rankings document.
   const targets = Array.isArray(setValuePayload?.sets) ? setValuePayload.sets : [];
+  const initialSelectedSetMovers = setValuePayload?.initialSelectedSetMovers || null;
   const loadError = setValuePayload === null || Boolean(setValuePayload?.meta?.requestFailed);
   const coverageSummary = buildCoverageSummary(overview);
 
@@ -68,7 +69,7 @@ export default async function MarketPage() {
       <div className="desk:space-y-4">
         <div className="max-desk:-mx-4 max-desk:px-4 sm:max-desk:-mx-6 sm:max-desk:px-6"><ExploreMarketMovers payload={moversPayload} /></div>
         <div data-mobile-section className="max-desk:-mx-4 sm:max-desk:-mx-6"><PokemonMarketAnalysis overview={marketPageOverview} /></div>
-        <div data-mobile-section className="max-desk:-mx-4 sm:max-desk:-mx-6"><SetMarketExplorer targets={targets} loadError={loadError} /></div>
+        <div data-mobile-section className="max-desk:-mx-4 sm:max-desk:-mx-6"><SetMarketExplorer targets={targets} initialSelectedSetMovers={initialSelectedSetMovers} loadError={loadError} /></div>
       </div>
     </div>
   );

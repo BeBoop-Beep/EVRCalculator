@@ -173,3 +173,22 @@ test("a failed request says so and stays retryable rather than caching the failu
   assert.equal(calls.length, 2, "the failure was not cached as this set's answer");
   assert.equal(cardsIn(renderer).length, 2);
 });
+
+test("a valid initial payload renders immediately without a duplicate request", async () => {
+  calls.length = 0;
+  const initialPayload = {
+    setId: "set-preloaded",
+    window: "7D",
+    marketDate: "2026-08-27",
+    items: Array.from({ length: 5 }, (_, index) => mover(index)),
+  };
+  const renderer = await render({
+    setId: "set-preloaded",
+    setName: "Ascended Heroes",
+    viewAllHref: "/x",
+    initialPayload,
+  });
+  assert.equal(calls.length, 0, "the default selected set must not issue a client movers request");
+  assert.equal(cardsIn(renderer).length, 5);
+  assert.ok(!jsonOf(renderer).includes("animate-pulse"), "preloaded movers never enter the skeleton branch");
+});

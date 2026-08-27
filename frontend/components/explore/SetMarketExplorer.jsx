@@ -155,7 +155,7 @@ export function shouldResetSetMarketResults({ control, sortKey }) {
   return control === "query" || control === "era" || control === "sort" || (control === "timeframe" && sortKey === "change");
 }
 
-export default function SetMarketExplorer({ targets = [], loadError = false, navigate = null }) {
+export default function SetMarketExplorer({ targets = [], initialSelectedSetMovers = null, loadError = false, navigate = null }) {
   const navigationStartedRef = useRef(false);
   const sectionTopRef = useRef(null);
   const resultsTopRef = useRef(null);
@@ -458,7 +458,13 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
         )}
       </div>
 
-      <SetMarketTopMovers key={selected.setId} setId={selected.setId} setName={selected.name} viewAllHref={moversHref} />
+      <SetMarketTopMovers
+        key={selected.setId}
+        setId={selected.setId}
+        setName={selected.name}
+        viewAllHref={moversHref}
+        initialPayload={initialSelectedSetMovers?.setId === selected.setId ? initialSelectedSetMovers : null}
+      />
     </div>
   ) : null;
 

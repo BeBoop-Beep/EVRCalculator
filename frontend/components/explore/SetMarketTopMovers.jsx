@@ -42,6 +42,18 @@ function cacheResult(setId, value) {
   while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value);
 }
 
+function preloadedState(setId, initialPayload) {
+  if (!setId || initialPayload?.setId !== setId || initialPayload?.window !== WINDOW || !Array.isArray(initialPayload?.items)) {
+    return null;
+  }
+  const next = {
+    status: "success",
+    entry: { ...initialPayload, all: initialPayload.items, heatingUp: [], coolingOff: [] },
+  };
+  cacheResult(setId, next);
+  return next;
+}
+
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
 
 function MoverCard({ card, movement, href }) {
@@ -89,8 +101,8 @@ function StepButton({ direction, disabled, onClick, setName }) {
   );
 }
 
-export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
-  const [state, setState] = useState(() => (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
+export default function SetMarketTopMovers({ setId, setName, viewAllHref, initialPayload = null }) {
+  const [state, setState] = useState(() => preloadedState(setId, initialPayload) || (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
   const trackRef = useRef(null);
   const [edges, setEdges] = useState({ atStart: true, atEnd: true });
   const [retryToken, setRetryToken] = useState(0);

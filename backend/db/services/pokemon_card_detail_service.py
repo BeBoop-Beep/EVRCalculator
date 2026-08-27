@@ -15,6 +15,8 @@ from backend.db.services.pokemon_set_market_service import (
     resolve_pokemon_set_identifier,
 )
 from backend.db.services.rip_decision_service import _load_current_run_product_rows
+from backend.db.services.pokemon_sets_catalog_service import _slugify as canonical_set_route_slug
+from backend.domain.pokemon.sealed_product_classifier import classify_sealed_product
 
 
 class PokemonCardDetailError(Exception):
@@ -178,6 +180,54 @@ def _load_card_intelligence(client: Any, card_id: str, rarity: Any) -> Dict[str,
         return {"available": False, "reason": "card_intelligence_unavailable"}
 
 
+def _load_sealed_product_catalog(client: Any, set_id: str) -> List[Dict[str, Any]]:
+    """Return every canonical SKU once, enriched with its latest real price."""
+    products = _rows(
+        client.table("sealed_products")
+        .select("id,name,product_type,set_id,image_small_url,image_large_url")
+        .eq("set_id", set_id)
+    )
+    product_ids = [str(row["id"]) for row in products if row.get("id")]
+    observations = _rows(
+        client.table("sealed_product_price_observations")
+        .select("sealed_product_id,market_price,captured_at,source")
+        .in_("sealed_product_id", product_ids)
+    ) if product_ids else []
+    latest: Dict[str, Dict[str, Any]] = {}
+    for row in observations:
+        product_id = _text(row.get("sealed_product_id"))
+        price = _positive(row.get("market_price"))
+        if not product_id or price is None:
+            continue
+        current = latest.get(product_id)
+        if current is None or str(row.get("captured_at") or "") > str(current.get("captured_at") or ""):
+            latest[product_id] = row
+    catalog: Dict[str, Dict[str, Any]] = {}
+    for row in products:
+        product_id = _text(row.get("id"))
+        if not product_id or product_id in catalog:
+            continue
+        identity = classify_sealed_product(row.get("name"))
+        price = latest.get(product_id, {})
+        catalog[product_id] = {
+            "sealedProductId": product_id,
+            "productName": _text(row.get("name")) or _text(row.get("product_type")),
+            "catalogProductType": _text(row.get("product_type")),
+            "productFamily": identity.get("productFamily"),
+            "productFamilyLabel": identity.get("productFamilyLabel"),
+            "imageUrl": _text(row.get("image_small_url")) or _text(row.get("image_large_url")),
+            "imageSmallUrl": _text(row.get("image_small_url")),
+            "imageLargeUrl": _text(row.get("image_large_url")),
+            "productPageId": product_id,
+            "currentPrice": _positive(price.get("market_price")),
+            "priceAsOf": _date_key(price.get("captured_at")),
+            "priceSource": _text(price.get("source")),
+            "available": False,
+            "reason": "chase_economics_not_supported",
+        }
+    return list(catalog.values())
+
+
 def get_pokemon_card_detail_payload(
     *, set_id: str, card_id: str, variant_id: Optional[str] = None, client: Any = None
 ) -> Dict[str, Any]:
@@ -332,19 +382,14 @@ def get_pokemon_card_detail_payload(
             card_chase = contract["cards"][0]
             supported_products = {str(item.get("sealedProductId")): item for item in card_chase.get("products", [])}
             try:
-                catalog_rows = _rows(active.table("sealed_products").select("id,name,product_type,set_id").eq("set_id", resolved_set_id))
+                catalog_rows = _load_sealed_product_catalog(active, resolved_set_id)
             except Exception:
                 catalog_rows = []
             all_products = []
             for product in catalog_rows:
-                product_id = str(product.get("id"))
-                all_products.append(supported_products.pop(product_id, {
-                    "sealedProductId": product_id,
-                    "productName": _text(product.get("name")),
-                    "productFamily": _text(product.get("product_type")),
-                    "available": False,
-                    "reason": "chase_economics_not_supported",
-                }))
+                product_id = str(product.get("sealedProductId"))
+                supported = supported_products.pop(product_id, None)
+                all_products.append({**product, **(supported or {})})
             all_products.extend(supported_products.values())
             chase = {
                 "available": True,
@@ -396,7 +441,7 @@ def get_pokemon_card_detail_payload(
     intelligence = _load_card_intelligence(active, str(card_id), card.get("rarity"))
 
     return {
-        "set": {"id": resolved_set_id, "name": _text(set_row.get("name")), "slug": _text(set_row.get("canonical_key")),
+        "set": {"id": resolved_set_id, "targetId": _text(set_row.get("canonical_key")), "name": _text(set_row.get("name")), "slug": canonical_set_route_slug(_text(set_row.get("name")) or ""),
                 "heroImageUrl": _text(set_row.get("hero_image_url")), "logoImageUrl": _text(set_row.get("logo_image_url")),
                 "symbolImageUrl": _text(set_row.get("symbol_image_url"))},
         "card": {
