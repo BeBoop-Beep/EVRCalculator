@@ -79,6 +79,15 @@ function Metric({ label, info = null, children }) {
   );
 }
 
+const PULL_STATUS_LABELS = Object.freeze({
+  legacy_run_variant_detail_unavailable: "Exact variant detail unavailable for this legacy run",
+  not_pullable_by_current_model: "Not pullable by the current pack model",
+  pull_model_configuration_missing: "Pull-model configuration missing",
+  insufficient_observed_pulls: "Insufficient observed simulation pulls",
+});
+
+const pullStatusLabel = (status) => PULL_STATUS_LABELS[status] || "Pull intelligence unavailable";
+
 function VariantSelector({ detail, onSelect, pending }) {
   if (detail.availableVariants.length < 2) return null;
   return (
@@ -104,7 +113,7 @@ function VariantSelector({ detail, onSelect, pending }) {
               className={`min-h-11 rounded-lg border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-wait disabled:opacity-55 ${selected ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]" : "border-[var(--border-subtle)] bg-white/5 text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent)_35%,transparent)]"}`}
             >
               {variant.label}
-              {!variant.modeled ? " · Not modeled" : ""}
+              {!variant.modeled ? ` · ${pullStatusLabel(variant.pullModelStatus)}` : ""}
             </button>
           );
         })}
@@ -616,8 +625,8 @@ function CardIntelligence({ detail }) {
           Card Intelligence
         </h2>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          Pull intelligence is not modeled for this printing. Its available
-          market data remains usable above.
+          {pullStatusLabel(chase.reason)}. Its available market data remains
+          usable above.
         </p>
       </section>
     );

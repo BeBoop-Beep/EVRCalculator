@@ -1400,7 +1400,8 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
     params.set("limit", String(limit));
   }
   // Shared canonical Cards query contract: section=market-movers,
-  // movement=all|heating|cooling, sort=largest-dollar-move (backend-implied).
+  // Default requests use largest-dollar-move. The Set page explicitly opts
+  // into its isolated 7D absolute-percent published contract.
   if (movement) {
     params.set("movement", String(movement));
   }

@@ -1056,6 +1056,7 @@ def make_simulate_pack_fn_v2(
     path_counts: Optional[MutableMapping[str, int]] = None,
     state_counts: Optional[MutableMapping[str, int]] = None,
     research_recorder: Optional[object] = None,
+    variant_summary_recorder: Optional[object] = None,
 ) -> Callable[..., object]:
     """Create a V2 pack simulator with special-pack bypass and state-first normal packs.
 
@@ -1087,6 +1088,9 @@ def make_simulate_pack_fn_v2(
         ``test_recorder_does_not_perturb_sampling`` asserts by comparing seeded
         runs with and without a recorder attached.
     """
+    if research_recorder is not None and variant_summary_recorder is not None:
+        raise ValueError("Only one sampling observer may be attached to a simulation")
+    sampling_observer = variant_summary_recorder or research_recorder
     rng = _to_rng(rng)
 
     # ------------------------------------------------------------------
@@ -1147,19 +1151,19 @@ def make_simulate_pack_fn_v2(
     _emit_sim_pool_debug("[SIM_POOL_DEBUG]", "reverse_prepared", reverse_pool, "Reverse Variant Price ($)")
 
     _common_pool = _build_array_pool(
-        _common_pool_df, value_col="Price ($)", default_rarity="common", recorder=research_recorder
+        _common_pool_df, value_col="Price ($)", default_rarity="common", recorder=sampling_observer
     )
     _uncommon_pool = _build_array_pool(
         _uncommon_pool_df,
         value_col="Price ($)",
         default_rarity="uncommon",
-        recorder=research_recorder,
+        recorder=sampling_observer,
     )
     _rare_base_pool = _build_array_pool(
-        _rare_base_pool_df, value_col="Price ($)", recorder=research_recorder
+        _rare_base_pool_df, value_col="Price ($)", recorder=sampling_observer
     )
     _reverse_pool = _build_array_pool(
-        reverse_pool, value_col="Reverse Variant Price ($)", recorder=research_recorder
+        reverse_pool, value_col="Reverse Variant Price ($)", recorder=sampling_observer
     )
 
     # Slot-count constants
@@ -1184,7 +1188,7 @@ def make_simulate_pack_fn_v2(
                 if _mode == "pattern":
                     _validate_pattern_token_pool(_eligible, token=_token)
                 _token_pool_map[_key] = _build_array_pool(
-                    _eligible, value_col="Price ($)", recorder=research_recorder
+                    _eligible, value_col="Price ($)", recorder=sampling_observer
                 )
 
     # Per-state slot-pool key lookup: avoids get_simulation_token_mode +
@@ -1233,13 +1237,13 @@ def make_simulate_pack_fn_v2(
                 rarity_pull_counts=rarity_pull_counts,
                 rarity_value_totals=rarity_value_totals,
             )
-            if research_recorder is not None:
+            if sampling_observer is not None:
                 # Special packs resolve rows off the source frame rather than an
                 # _ArrayPool, so they carry identities instead of entity ids.
                 # ~0.2% of packs take this path, so the per-row registration cost
                 # never reaches the hot loop.
                 for _identity in special["row_identities"]:
-                    research_recorder.add(research_recorder.register_row(**_identity))
+                    sampling_observer.add(sampling_observer.register_row(**_identity))
             value = float(special["total_value"])
             if path_counts is not None:
                 path_counts["god"] += 1
@@ -1278,13 +1282,13 @@ def make_simulate_pack_fn_v2(
                 rarity_pull_counts=rarity_pull_counts,
                 rarity_value_totals=rarity_value_totals,
             )
-            if research_recorder is not None:
+            if sampling_observer is not None:
                 # Special packs resolve rows off the source frame rather than an
                 # _ArrayPool, so they carry identities instead of entity ids.
                 # ~0.2% of packs take this path, so the per-row registration cost
                 # never reaches the hot loop.
                 for _identity in special["row_identities"]:
-                    research_recorder.add(research_recorder.register_row(**_identity))
+                    sampling_observer.add(sampling_observer.register_row(**_identity))
             value = float(special["total_value"])
             if path_counts is not None:
                 path_counts["demi_god"] += 1
@@ -1332,7 +1336,7 @@ def make_simulate_pack_fn_v2(
             rarity_value_totals=rarity_value_totals,
             rng=rng,
             include_details=_collect_details,
-            entity_sink=research_recorder,
+            entity_sink=sampling_observer,
         )
 
         # Cheap direct-counter update — no record dict needed for normal runs.
@@ -1357,7 +1361,7 @@ def make_simulate_pack_fn_v2(
 
         return sampled["total_value"]
 
-    if research_recorder is None:
+    if sampling_observer is None:
         return simulate_one_pack
 
     def simulate_one_pack_recorded(*, return_pack_data: bool = False):
@@ -1368,11 +1372,11 @@ def make_simulate_pack_fn_v2(
         try/finally here closes every pack exactly once without threading
         bookkeeping through logic that must stay identical to production.
         """
-        research_recorder.open_pack()
+        sampling_observer.open_pack()
         try:
             return simulate_one_pack(return_pack_data=return_pack_data)
         finally:
-            research_recorder.close_pack()
+            sampling_observer.close_pack()
 
     return simulate_one_pack_recorded
 

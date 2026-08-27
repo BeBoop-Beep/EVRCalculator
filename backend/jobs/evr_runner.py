@@ -26,6 +26,7 @@ from backend.constants.tcg.pokemon.scarletAndVioletEra.setMap import (
 )
 from backend.db.services.calculation_run_persistence_service import (
     persist_parent_run_with_price_snapshots,
+    persist_simulation_card_variant_pull_rates,
     persist_simulation_etb_summary,
     persist_simulation_inputs,
     persist_simulation_outputs,
@@ -650,6 +651,11 @@ class EVRRunOrchestrator:
             calculation_input=calculation_input,
             config=config,
         )
+        persisted_variant_pull_rates = persist_simulation_card_variant_pull_rates(
+            run_id=run_id,
+            set_id=persisted_parent.get("set_id"),
+            sim_results=sim_results,
+        )
 
         # Stage 1 sealed products. Strictly ADDITIVE and strictly downstream: it
         # consumes the pack simulation that already finished and the parent run
@@ -738,6 +744,7 @@ class EVRRunOrchestrator:
                 "parent": persisted_parent,
                 "outputs": persisted_outputs,
                 "inputs": persisted_inputs,
+                "variant_pull_rates": persisted_variant_pull_rates,
                 "etb_summary": persisted_etb,
             },
             "derived": derived,

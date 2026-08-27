@@ -215,6 +215,8 @@ class EVRInputRepository:
                     {
                         "variant_id": variant.get("id"),
                         "pokemon_tcg_api_id": variant.get("pokemon_tcg_api_id"),
+                        "printing_type": variant.get("printing_type"),
+                        "edition": variant.get("edition"),
                         "special_type": variant.get("special_type"),
                         "near_mint_latest": price_by_variant.get(variant.get("id")),
                     }

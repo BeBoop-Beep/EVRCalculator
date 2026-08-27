@@ -88,7 +88,7 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
     temp_bytes = 0
     with tempfile.TemporaryDirectory(prefix="pokemon-opening-v3-") as directory:
         owner = WeightedEmpiricalMixture(directory)
-        paths = {}
+        paths = {}; distribution_cache = {}
         try:
             for status in statuses:
                 run_id, set_id = str(status.calculation_run_id), str(status.set_id)
@@ -107,11 +107,14 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
                         guaranteed = float(row.get("guaranteed_component_market_value") or 0)
                         if guaranteed: vector = vector + guaranteed
                         _verify(row, vector)
-                        per_pack = vector / pack_count
-                        owner.add(per_pack, weight=1, cost_per_pack=float(row["product_market_cost"]) / pack_count)
-                        component = owner.components[-1]
-                        paths[str(row["sealed_product_id"])] = (component.path, component.count)
-                        temp_bytes += component.path.stat().st_size
+                        cache_key = (run_id, pack_count, guaranteed)
+                        if cache_key not in distribution_cache:
+                            per_pack = vector / pack_count
+                            owner.add(per_pack, weight=1, cost_per_pack=float(row["product_market_cost"]) / pack_count)
+                            component = owner.components[-1]
+                            distribution_cache[cache_key] = (component.path, component.count)
+                            temp_bytes += component.path.stat().st_size
+                        paths[str(row["sealed_product_id"])] = distribution_cache[cache_key]
                         usable.append(dict(row))
                     except (KeyError, TypeError, ValueError, OpeningEconomicsV3Error) as exc:
                         exclusions.append({"sealedProductId": row.get("sealed_product_id"), "reason": str(exc)})

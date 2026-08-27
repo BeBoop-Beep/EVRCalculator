@@ -94,6 +94,7 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
         "setPageConsumerContributingProductCount": consumer_market.get("contributingProductCount"),
         "setPageConsumerCurrentValue": consumer_market.get("currentValue"),
         "setPageConsumerExcludedCaseDisplayCount": payload["meta"].get("setPageConsumerExcludedCaseDisplayCount"),
+        "setPageConsumerExcludedBulkContainerCount": payload["meta"].get("setPageConsumerExcludedBulkContainerCount"),
         "setPageConsumerProductsWithoutHistoryCount": payload["meta"].get("setPageConsumerProductsWithoutHistoryCount"),
         "setPageConsumerTopProducts": [product["name"] for product in payload.get("setPageConsumerTopProducts") or []],
         "setPageConsumer7DBreadth": (consumer_market.get("marketBreadth") or {}).get("7D"),

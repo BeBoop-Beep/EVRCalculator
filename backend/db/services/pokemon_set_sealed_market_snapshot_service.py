@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from backend.domain.pokemon.sealed_product_classifier import (
     CLASSIFICATION_VERSION,
+    SET_PAGE_CONSUMER_POLICY_VERSION,
     classify_sealed_product,
 )
 from backend.domain.pokemon.market_index import (
@@ -19,7 +20,6 @@ from backend.domain.pokemon.market_index import (
 )
 
 SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v5-consumer-lens"
-SET_PAGE_CONSUMER_POLICY_VERSION = "set-page-consumer-sealed-v1"
 WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
 MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 # Retained as product-family metadata for consumers; product ordering itself is
@@ -521,7 +521,10 @@ def fingerprint(set_id: str, products: List[Dict[str, Any]], observation_rows: I
         if product_id in eligible_ids:
             token = (str(row.get("captured_at") or ""), str(row.get("id") or ""))
             latest[product_id] = max(latest.get(product_id, ("", "")), token)
-    canonical = [str(set_id), CLASSIFICATION_VERSION, SNAPSHOT_CONTRACT_VERSION]
+    canonical = [
+        str(set_id), CLASSIFICATION_VERSION, SNAPSHOT_CONTRACT_VERSION,
+        SET_PAGE_CONSUMER_POLICY_VERSION,
+    ]
     canonical.extend(sorted(eligible_ids))
     canonical.extend(f"{key}:{value[0]}:{value[1]}" for key, value in sorted(latest.items()))
     return hashlib.sha256("|".join(canonical).encode()).hexdigest()
@@ -533,7 +536,7 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
     consumer_candidates = [
         (product, identity)
         for product, identity in classified
-        if not identity["isCase"] and not identity["isDisplay"]
+        if identity["isSetPageConsumerMarketEligible"]
     ]
     observations_by_product: Dict[str, List[Dict[str, Any]]] = {}
     for row in observations:
@@ -564,6 +567,30 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
     consumer_products = prepared_products(consumer_candidates)
     now = datetime.now(timezone.utc).isoformat()
     market_date = max((item["priceAsOf"] for item in payload_products), default=None)
+    # The broader Set-page lens is still one member of this canonical sealed
+    # snapshot. It may not advance beyond the legacy basket's marketDate.
+    # Recompute every current price and movement from the clipped history so
+    # Top 10, aggregate value, breadth, and movement endpoints all agree.
+    if market_date:
+        clipped_consumer_products = []
+        for product in consumer_products:
+            history = [point for point in product["history"] if point["date"] <= market_date]
+            if not history:
+                continue
+            current = history[-1]
+            clipped_consumer_products.append(
+                {
+                    **product,
+                    "currentPrice": current["marketPrice"],
+                    "priceAsOf": current["date"],
+                    "source": current["source"],
+                    "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+                    "history": history,
+                }
+            )
+        consumer_products = sorted(clipped_consumer_products, key=product_sort_key)
+    else:
+        consumer_products = []
     fingerprint_products = {str(product["id"]): product for product, _ in eligible + consumer_candidates}
     source_fingerprint = fingerprint(str(set_row["id"]), list(fingerprint_products.values()), observations)
     payload = {
@@ -589,6 +616,9 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
             "setPageConsumerPolicyVersion": SET_PAGE_CONSUMER_POLICY_VERSION,
             "setPageConsumerCandidateCount": len(consumer_candidates),
             "setPageConsumerProductCount": len(consumer_products),
+            "setPageConsumerExcludedBulkContainerCount": len(classified) - len(consumer_candidates),
+            # Compatibility alias retained for v1 readers. In v2 the count
+            # also includes cartons and other classifier-owned bulk identities.
             "setPageConsumerExcludedCaseDisplayCount": len(classified) - len(consumer_candidates),
             "setPageConsumerProductsWithoutHistoryCount": len(consumer_candidates) - len(consumer_products),
             "warnings": [],

@@ -158,6 +158,12 @@ def test_transform_emits_expected_dataframe_shape_and_scalars():
         "condition_id",
         "price_source",
         "captured_at",
+        "printing_type",
+        "reverse_variant_id",
+        "reverse_condition_id",
+        "reverse_printing_type",
+        "reverse_price_source",
+        "reverse_captured_at",
     ]
 
     assert len(df) == 2
@@ -229,6 +235,8 @@ def test_transform_uses_deterministic_variant_selection_for_base_and_reverse_pri
     assert len(df) == 1
     assert df.iloc[0]["Price ($)"] == 7.0
     assert df.iloc[0]["Reverse Variant Price ($)"] == 12.0
+    assert df.iloc[0]["card_variant_id"] == 10
+    assert df.iloc[0]["reverse_variant_id"] == 12
     assert df.iloc[0]["Special Type"] == ""
     assert df.iloc[0]["Pull Rate (1/X)"] == 42.0
 

@@ -667,6 +667,43 @@ def test_set_page_movers_projection_caps_ten_and_endpoint_reads_only_compact_pat
     assert "cards_json" not in query.select_fields
 
 
+def test_set_page_absolute_percent_request_fails_closed_when_projection_missing(monkeypatch):
+    def missing_projection(query):
+        return [{"set_id": _TEST_UUID, "canonical_movers": None, "card_count": 1,
+                 "updated_at": "2026-07-14T02:00:00+00:00", "snapshot_meta": dict(_CARDS_MOVEMENT_METADATA)}]
+
+    client = _cards_snapshot_client(
+        [_movement_card("legacy", amount=99.0, percent=1.0)],
+        extra_handlers={
+            "pokemon_set_cards_snapshot_latest": missing_projection,
+            "pokemon_set_market_dashboard_snapshot_latest": _legacy_dashboard_handler({"365d": _legacy_dashboard_row()}),
+        },
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+
+    with pytest.raises(pokemon_public_snapshot_service.PokemonSetMarketError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+            _TEST_UUID, window="7D", limit=10, surface="set-page", metric="absolute-percent"
+        )
+    assert raised.value.status_code == 503
+    assert raised.value.code == "POKEMON_SET_PAGE_MARKET_MOVERS_SNAPSHOT_INCOMPLETE"
+    assert not any(query.table_name == "pokemon_set_market_dashboard_snapshot_latest" for query in client.queries)
+
+
+def test_set_page_absolute_percent_source_metadata_is_explicit(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "service_read_client",
+        _cards_snapshot_client([_movement_card("mover", amount=1.0, percent=20.0)]),
+    )
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", surface="set-page", metric="absolute-percent"
+    )
+    assert payload["meta"]["snapshot"]["source"] == "set_page_absolute_percent_published_movers"
+    assert payload["meta"]["snapshot"]["sourceTable"] == "pokemon_set_cards_snapshot_latest"
+    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.setPageMarketMoversByWindow.7D"
+
+
 def test_market_movers_endpoint_banner_can_be_ten_negatives_and_is_not_five_five_capped(monkeypatch):
     cards = [
         _movement_card(f"drop-{index:02d}", amount=-float(50 - index), percent=-10.0) for index in range(12)

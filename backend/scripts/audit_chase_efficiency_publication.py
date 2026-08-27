@@ -17,7 +17,7 @@ def run_audit(client: Any, *, market_date: str) -> Dict[str, Any]:
         snapshots = list(client.table("pokemon_card_chase_efficiency_snapshots").select("*").eq("id", snapshot_id).execute().data or [])
         if len(snapshots) != 1: return {"passed": False, "failures": ["latest snapshot missing"]}
         stored = snapshots[0]
-        persisted = _all(client.table("pokemon_card_chase_efficiency_rows").select("*").eq("snapshot_id", snapshot_id))
+        persisted = _all(lambda: client.table("pokemon_card_chase_efficiency_rows").select("*").eq("snapshot_id", snapshot_id))
         rows: List[Dict[str, Any]] = []
         for row in persisted:
             rows.append({

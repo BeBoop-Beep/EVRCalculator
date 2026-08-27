@@ -53,8 +53,11 @@ test("variant selection preserves canonical route and accessible radio state", (
   assert.match(source, /aria-checked=/);
 });
 
-test("unsupported cards retain public market identity without fake intelligence", () => {
-  assert.match(source, /Pull intelligence is not modeled for this printing/);
+test("unsupported cards retain public market identity with precise pull-model status", () => {
+  assert.match(source, /not_pullable_by_current_model/);
+  assert.match(source, /legacy_run_variant_detail_unavailable/);
+  assert.match(source, /pull_model_configuration_missing/);
+  assert.doesNotMatch(source, /· Not modeled/);
   assert.match(source, /Card artwork unavailable/);
   assert.match(source, /onError=\{\(\) => setFailed\(true\)\}/);
   assert.match(source, /hasIndexPlusAccess\(user\?\.index_plan\)/);
@@ -211,5 +214,5 @@ test("hero stretches its left column and places variants after the hero", () => 
 
 test("market-only variants are selectable while pull modeling remains explicit", () => {
   assert.doesNotMatch(source, /disabled=\{!variant\.modeled/);
-  assert.match(source, /!variant\.modeled \? " · Not modeled"/);
+  assert.match(source, /pullStatusLabel\(variant\.pullModelStatus\)/);
 });

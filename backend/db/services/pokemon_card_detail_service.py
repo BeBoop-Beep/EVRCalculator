@@ -62,7 +62,25 @@ def _current_run_id(client: Any, set_id: str) -> Optional[str]:
     )
     payload = rows[0].get("payload_json") if rows else {}
     rip = payload.get("ripDecision") if isinstance(payload, dict) else {}
-    return _text(rip.get("sourceCalculationRunId") if isinstance(rip, dict) else None)
+    snapshot_run_id = _text(rip.get("sourceCalculationRunId") if isinstance(rip, dict) else None)
+    # Exact-variant publication is itself a completed-run marker: these rows are
+    # written only after the authoritative V2 simulation and its input snapshot
+    # have persisted.  Prefer its newest run so card detail does not wait for a
+    # separately rebuilt whole-set page snapshot.
+    try:
+        exact_rows = _rows(
+            client.table("simulation_card_variant_pull_rates")
+            .select("calculation_run_id,created_at")
+            .eq("set_id", set_id)
+            .order("created_at", desc=True)
+            .limit(1)
+        )
+        exact_run_id = _text(exact_rows[0].get("calculation_run_id")) if exact_rows else None
+        if exact_run_id:
+            return exact_run_id
+    except Exception:
+        pass
+    return snapshot_run_id
 
 
 _MARKET_WINDOWS = {"1D": 1, "7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
@@ -228,6 +246,37 @@ def _load_sealed_product_catalog(client: Any, set_id: str) -> List[Dict[str, Any
     return list(catalog.values())
 
 
+def _merge_product_catalog(catalog_rows: List[Dict[str, Any]], supported_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    catalog_by_id = {str(item.get("sealedProductId")): item for item in catalog_rows}
+    merged: List[Dict[str, Any]] = []
+    for supported in supported_rows:
+        product_id = str(supported.get("sealedProductId"))
+        merged.append({**catalog_by_id.pop(product_id, {}), **supported})
+    merged.extend(sorted(catalog_by_id.values(), key=lambda item: (
+        (_text(item.get("productName")) or "").casefold(),
+        _text(item.get("sealedProductId")) or "",
+    )))
+    return merged
+
+
+def _latest_variant_market_rows(client: Any, variant_ids: List[str], condition_id: Optional[str]) -> Dict[str, Dict[str, Any]]:
+    if not variant_ids:
+        return {}
+    query = client.table("card_variant_price_observations").select(
+        "card_variant_id,condition_id,market_price,source,captured_at"
+    ).in_("card_variant_id", variant_ids)
+    if condition_id:
+        query = query.eq("condition_id", condition_id)
+    latest: Dict[str, Dict[str, Any]] = {}
+    for row in _rows(query):
+        variant = _text(row.get("card_variant_id"))
+        if not variant or _positive(row.get("market_price")) is None:
+            continue
+        if variant not in latest or str(row.get("captured_at") or "") > str(latest[variant].get("captured_at") or ""):
+            latest[variant] = row
+    return latest
+
+
 def get_pokemon_card_detail_payload(
     *, set_id: str, card_id: str, variant_id: Optional[str] = None, client: Any = None
 ) -> Dict[str, Any]:
@@ -281,6 +330,8 @@ def get_pokemon_card_detail_payload(
     run_id = _current_run_id(active, resolved_set_id)
     modeled_rows: List[Dict[str, Any]] = []
     price_rows: List[Dict[str, Any]] = []
+    exact_rows: List[Dict[str, Any]] = []
+    exact_publication_available = False
     if run_id and candidate_ids:
         modeled_rows = _rows(
             active.table("simulation_input_cards")
@@ -300,9 +351,32 @@ def get_pokemon_card_detail_payload(
             .eq("calculation_run_id", run_id)
             .in_("card_variant_id", candidate_ids)
         )
+        try:
+            exact_rows = _rows(
+                active.table("simulation_card_variant_pull_rates")
+                .select("card_id,card_variant_id,condition_id,printing_type,special_type,pull_count,pack_presence_count,simulation_count,modeled_probability,effective_pull_rate,price_used,price_source,price_captured_at,model_source,model_version,status")
+                .eq("calculation_run_id", run_id)
+                .in_("card_variant_id", candidate_ids)
+            )
+            exact_publication_available = bool(exact_rows)
+            if not exact_publication_available:
+                exact_publication_available = bool(_rows(
+                    active.table("simulation_card_variant_pull_rates")
+                    .select("card_variant_id")
+                    .eq("calculation_run_id", run_id)
+                    .limit(1)
+                ))
+        except Exception:
+            exact_rows = []
 
     modeled = {str(row["card_variant_id"]): row for row in modeled_rows if row.get("card_variant_id")}
     prices = {str(row["card_variant_id"]): row for row in price_rows if row.get("card_variant_id")}
+    exact = {str(row["card_variant_id"]): row for row in exact_rows if row.get("card_variant_id")}
+    latest_variant_market = _latest_variant_market_rows(active, candidate_ids, near_mint_condition_id)
+    try:
+        catalog_rows = _load_sealed_product_catalog(active, resolved_set_id)
+    except Exception:
+        catalog_rows = []
     canonical_market_rows = _rows(
         active.table("pokemon_canonical_card_market_prices_latest")
         .select(
@@ -324,14 +398,14 @@ def get_pokemon_card_detail_payload(
     source: Optional[str] = None
     if requested_is_valid:
         selected, source = requested, "query"
-    elif canonical_selected and canonical_selected in modeled:
+    elif canonical_selected and (canonical_selected in modeled or canonical_selected in exact):
         selected, source = canonical_selected, "canonical_market_selection"
-    elif len(modeled) == 1:
-        selected, source = next(iter(modeled)), "only_modeled_variant"
+    elif len(set(modeled) | set(exact)) == 1:
+        selected, source = next(iter(set(modeled) | set(exact))), "only_modeled_variant"
 
     if selected:
         selection_state = "selected"
-    elif modeled:
+    elif modeled or exact:
         selection_state = "selection_required"
     else:
         selection_state = "unavailable"
@@ -341,30 +415,65 @@ def get_pokemon_card_detail_payload(
     for candidate in sorted(candidate_ids, key=lambda value: (_variant_label(by_id[value]), value)):
         row = by_id[candidate]
         current = prices.get(candidate, {})
-        observed = _text(current.get("current_near_mint_price_captured_at"))
+        market_current = latest_variant_market.get(candidate, {})
+        observed = _text(current.get("current_near_mint_price_captured_at")) or _text(market_current.get("captured_at"))
+        exact_row = exact.get(candidate, {})
+        if candidate in modeled:
+            pull_status = "modeled"
+            pull_source = "simulation_input_analytic"
+        elif exact_row:
+            pull_status = _text(exact_row.get("status")) or "insufficient_observed_pulls"
+            pull_source = _text(exact_row.get("model_source"))
+        elif not run_id:
+            pull_status = "pull_model_configuration_missing"
+            pull_source = None
+        elif not exact_publication_available:
+            pull_status = "legacy_run_variant_detail_unavailable"
+            pull_source = None
+        elif _text(row.get("special_type")):
+            pull_status = "pull_model_configuration_missing"
+            pull_source = None
+        else:
+            pull_status = "not_pullable_by_current_model"
+            pull_source = None
         variants.append({
             "cardVariantId": candidate,
             "label": _variant_label(row),
             "printingType": _text(row.get("printing_type")),
             "specialType": _text(row.get("special_type")),
-            "conditionId": _text((modeled.get(candidate) or {}).get("condition_id")),
-            "currentPrice": _positive(current.get("current_near_mint_price")),
+            "conditionId": _text((modeled.get(candidate) or exact_row or {}).get("condition_id")),
+            "currentPrice": _positive(current.get("current_near_mint_price")) or _positive(market_current.get("market_price")),
             "priceUpdatedAt": observed,
             "priceSourceDate": observed[:10] if observed else None,
             "marketDate": observed[:10] if observed else None,
             "priceCarriedForward": False if observed else None,
-            "priceSource": _text(current.get("current_near_mint_price_source")),
+            "priceSource": _text(current.get("current_near_mint_price_source")) or _text(market_current.get("source")),
             "priceSelectionReason": _text(canonical_market.get("price_selection_reason")) if candidate == canonical_selected else None,
-            "modeled": candidate in modeled,
+            "modeled": pull_status == "modeled",
+            "pullModelStatus": pull_status,
+            "pullRateSource": pull_source,
+            "pullRateMethod": "analytic_effective_pull_rate" if candidate in modeled else (_text(exact_row.get("model_version")) if exact_row else None),
+            "pullRateRunId": run_id,
+            "simulationCount": exact_row.get("simulation_count") if exact_row else None,
         })
 
     chase: Dict[str, Any]
     market: Dict[str, Any]
-    if selected and selected in modeled:
-        sim = modeled[selected]
-        current = prices.get(selected, {})
+    selected_exact = exact.get(selected or "", {})
+    selected_pull_available = bool(selected and (selected in modeled or _positive(selected_exact.get("effective_pull_rate"))))
+    if selected_pull_available:
+        sim = modeled.get(selected) or selected_exact
+        market_current = latest_variant_market.get(selected, {})
+        current = prices.get(selected, {}) or {
+            "card_id": sim.get("card_id"),
+            "card_variant_id": selected,
+            "condition_id": sim.get("condition_id") or near_mint_condition_id,
+            "current_near_mint_price": market_current.get("market_price"),
+            "current_near_mint_price_captured_at": market_current.get("captured_at"),
+            "current_near_mint_price_source": market_current.get("source"),
+        }
         selected_cards = select_chase_cards(
-            [{**current, "price_used_as_of": sim.get("captured_at")}],
+            [{**current, "price_used_as_of": sim.get("captured_at") or sim.get("price_captured_at")}],
             {selected: sim.get("effective_pull_rate")},
             {selected: sim.get("price_used")},
             limit=1,
@@ -381,26 +490,7 @@ def get_pokemon_card_detail_payload(
             )
             card_chase = contract["cards"][0]
             supported_products = list(card_chase.get("products", []))
-            try:
-                catalog_rows = _load_sealed_product_catalog(active, resolved_set_id)
-            except Exception:
-                catalog_rows = []
-            catalog_by_id = {
-                str(item.get("sealedProductId")): item for item in catalog_rows
-            }
-            all_products = []
-            for supported in supported_products:
-                product_id = str(supported.get("sealedProductId"))
-                catalog = catalog_by_id.pop(product_id, {})
-                all_products.append({**catalog, **supported})
-            unsupported = sorted(
-                catalog_by_id.values(),
-                key=lambda item: (
-                    _text(item.get("productName")).casefold(),
-                    _text(item.get("sealedProductId")),
-                ),
-            )
-            all_products.extend(unsupported)
+            all_products = _merge_product_catalog(catalog_rows, supported_products)
             chase = {
                 "available": True,
                 "reason": None,
@@ -410,9 +500,18 @@ def get_pokemon_card_detail_payload(
                 "modelAssumptions": contract["modelAssumptions"],
                 "sourceCalculationRunId": contract["sourceCalculationRunId"],
                 "provenance": contract["provenance"],
+                "pullRateSource": "simulation_input_analytic" if selected in modeled else _text(selected_exact.get("model_source")),
+                "pullRateMethod": "analytic_effective_pull_rate" if selected in modeled else _text(selected_exact.get("model_version")),
+                "pullRateRunId": run_id,
+                "simulationCount": selected_exact.get("simulation_count") if selected_exact else None,
             }
         else:
-            chase = {"available": False, "reason": "current_market_price_unavailable"}
+            chase = {
+                "available": False,
+                "reason": "current_market_price_unavailable",
+                "sourceCalculationRunId": run_id,
+                "products": _merge_product_catalog(catalog_rows, []),
+            }
         observed = _text(current.get("current_near_mint_price_captured_at"))
         market = {
             "currentPrice": _positive(current.get("current_near_mint_price")),
@@ -424,18 +523,19 @@ def get_pokemon_card_detail_payload(
     else:
         chase = {
             "available": False,
-            "reason": "variant_not_modeled" if selected else ("variant_selection_required" if modeled else "modeled_chase_unavailable"),
+            "reason": (next((v["pullModelStatus"] for v in variants if v["cardVariantId"] == selected), None) if selected else ("variant_selection_required" if modeled or exact else "pull_model_configuration_missing")),
             "sourceCalculationRunId": run_id,
+            "products": _merge_product_catalog(catalog_rows, []),
         }
         market = {
-            "currentPrice": None if selected else _positive(canonical_market.get("market_price")),
-            "observedAt": None if selected else _text(canonical_market.get("captured_at")),
-            "marketDate": None if selected else (_text(canonical_market.get("captured_at")) or "")[:10] or None,
-            "source": None if selected else _text(canonical_market.get("source")),
+            "currentPrice": _positive((latest_variant_market.get(selected or "") or {}).get("market_price")) if selected else _positive(canonical_market.get("market_price")),
+            "observedAt": _text((latest_variant_market.get(selected or "") or {}).get("captured_at")) if selected else _text(canonical_market.get("captured_at")),
+            "marketDate": (_text((latest_variant_market.get(selected or "") or {}).get("captured_at")) or "")[:10] or None if selected else (_text(canonical_market.get("captured_at")) or "")[:10] or None,
+            "source": _text((latest_variant_market.get(selected or "") or {}).get("source")) if selected else _text(canonical_market.get("source")),
             "priceSelectionReason": None if selected else _text(canonical_market.get("price_selection_reason")),
         }
 
-    selected_condition = _text((modeled.get(selected or "") or {}).get("condition_id")) or near_mint_condition_id
+    selected_condition = _text((modeled.get(selected or "") or exact.get(selected or "") or {}).get("condition_id")) or near_mint_condition_id
     canonical_condition = _text(canonical_market.get("condition_id")) if not selected or selected == canonical_selected else None
     history = _load_card_market_history(active, selected or canonical_selected, selected_condition or canonical_condition)
     if selected and history and market.get("currentPrice") is None:
@@ -471,8 +571,8 @@ def get_pokemon_card_detail_payload(
         "chase": chase,
         "intelligence": intelligence,
         "meta": {
-            "contractVersion": "pokemon_card_detail_v2",
-            "sources": ["pokemon_canonical_cards", "card_variant_price_observations", "simulation_input_cards", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results", "pokemon_card_desirability_links", "pokemon_desirability_composite_scores"],
+            "contractVersion": "pokemon_card_detail_v3",
+            "sources": ["pokemon_canonical_cards", "card_variant_price_observations", "simulation_input_cards", "simulation_card_variant_pull_rates", "simulation_input_cards_with_near_mint_price", "simulation_sealed_product_results", "pokemon_card_desirability_links", "pokemon_desirability_composite_scores"],
             "wholeSetChaseSnapshotRead": False,
             "requestedVariantValid": requested_is_valid if requested else None,
         },

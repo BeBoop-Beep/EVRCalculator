@@ -6,6 +6,7 @@ import re
 from typing import Any, Dict, Optional
 
 CLASSIFICATION_VERSION = "sealed-product-classification-v3-loose-pack-family"
+SET_PAGE_CONSUMER_POLICY_VERSION = "set-page-consumer-sealed-v2-bulk-containers"
 OVERVIEW_FAMILIES = frozenset(
     {
         "booster_box",
@@ -51,6 +52,8 @@ def classify_sealed_product(name: Any) -> Dict[str, Any]:
     text = re.sub(r"\s+", " ", raw).lower()
     is_case = bool(re.search(r"\bcase\b", text))
     is_display = bool(re.search(r"\bdisplay\b", text))
+    is_carton = bool(re.search(r"\b(?:master\s+)?carton\b", text))
+    is_bulk_container = is_case or is_display or is_carton
     set_listing = bool(re.search(r"\bset of\s+\d+\b", text))
 
     # Precedence is intentional: container/listing identities before their
@@ -99,6 +102,9 @@ def classify_sealed_product(name: Any) -> Dict[str, Any]:
         "unitQuantity": 1,
         "isCase": is_case,
         "isDisplay": is_display,
+        "isBulkContainer": is_bulk_container,
+        "isSetPageConsumerMarketEligible": not is_bulk_container,
+        "setPageConsumerPolicyVersion": SET_PAGE_CONSUMER_POLICY_VERSION,
         "isMultiProductBundle": family == "multi_product_bundle",
         "isOverviewEligible": family in OVERVIEW_FAMILIES,
         "classificationVersion": CLASSIFICATION_VERSION,

@@ -22,6 +22,7 @@ from .utils.simulationTokenResolver import (
     resolve_hit_pool_rows,
 )
 from .validations.monteCarloValidations import validate_and_debug_slot, validate_full_pack_logic
+from .variant_pull_summary import VariantPullSummaryRecorder
 
 
 logger = logging.getLogger(__name__)
@@ -283,6 +284,7 @@ class PackEVRSimulator(PackCalculations):
         slot_logs = []
 
         if use_v2:
+            variant_summary_recorder = VariantPullSummaryRecorder(df)
             _t0 = time.perf_counter()
             debug_print(
                 "[SIM_POOL_DEBUG] [SIM_PATH_TRACE] "
@@ -320,6 +322,7 @@ class PackEVRSimulator(PackCalculations):
                 pack_logs=None,
                 path_counts=_path_counts,
                 state_counts=_state_counts,
+                variant_summary_recorder=variant_summary_recorder,
             )
             debug_print(
                 "[SIM_POOL_DEBUG] [SIM_PATH_TRACE] "
@@ -335,6 +338,7 @@ class PackEVRSimulator(PackCalculations):
                 pack_path_counts=_path_counts,
                 pack_state_counts=_state_counts,
             )
+            sim_results["variant_pull_summary"] = variant_summary_recorder.finalize()
             debug_print(f"[SIM_TIMING] stage_name=simulation_loop elapsed_ms={(time.perf_counter()-_t0)*1000:.1f}")
 
             _t0 = time.perf_counter()

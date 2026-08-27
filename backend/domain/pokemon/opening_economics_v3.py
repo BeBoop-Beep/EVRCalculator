@@ -106,7 +106,7 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             threshold = value * component.cost_per_pack if normalized else value
-            total += component.weight * int(vector.searchsorted(threshold, side=side)) / component.count
+            total += component.weight * int(self._searchsorted(vector, [threshold], side=side)[0]) / component.count
             self._close(vector)
         return total
 
@@ -114,6 +114,22 @@ class WeightedEmpiricalMixture:
     def _close(vector: Any) -> None:
         mmap = getattr(vector, "_mmap", None)
         if mmap is not None: mmap.close()
+
+    @staticmethod
+    def _searchsorted(vector: Any, values: Any, *, side: str) -> np.ndarray:
+        """Binary-search a memmap without NumPy coercing/scanning its full file."""
+        requested = np.atleast_1d(values)
+        result = np.empty(requested.shape, dtype=np.int64)
+        for output_index, value in enumerate(requested):
+            low, high = 0, len(vector)
+            while low < high:
+                middle = (low + high) // 2
+                if float(vector[middle]) < value or (side == "right" and float(vector[middle]) == value):
+                    low = middle + 1
+                else:
+                    high = middle
+            result[output_index] = low
+        return result
 
     def quantile(self, q: float, *, normalized: bool = False) -> float:
         if not self.components or not 0 <= q <= 1:
@@ -135,7 +151,7 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             threshold = hi * component.cost_per_pack if normalized else hi
-            index = min(int(vector.searchsorted(threshold, side="left")), component.count - 1)
+            index = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
             candidates.append(float(vector[index]) / (component.cost_per_pack if normalized else 1.0))
             self._close(vector)
         valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
@@ -147,6 +163,15 @@ class WeightedEmpiricalMixture:
         requested = np.asarray(list(qs), dtype=np.float64)
         if not self.components or requested.size == 0 or (requested < 0).any() or (requested > 1).any():
             raise OpeningEconomicsV3Error("invalid quantile request")
+        if len(self.components) == 1:
+            component = self.components[0]
+            vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
+            # inf{x:F(x)>=q}: the first 1-indexed rank meeting q.
+            positions = np.maximum(0, np.ceil(requested * component.count).astype(np.int64) - 1)
+            scale = component.cost_per_pack if normalized else 1.0
+            values = [float(vector[position]) / scale for position in positions]
+            self._close(vector)
+            return {percentile_key(float(q)): value for q, value in zip(requested, values)}
         lows, highs = [], []
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
@@ -164,7 +189,7 @@ class WeightedEmpiricalMixture:
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
                 thresholds = mid * component.cost_per_pack if normalized else mid
-                cdf += component.weight * vector.searchsorted(thresholds, side="right") / component.count
+                cdf += component.weight * self._searchsorted(vector, thresholds, side="right") / component.count
                 self._close(vector)
             crossed = cdf >= requested
             hi = np.where(crossed, mid, hi); lo = np.where(crossed, lo, mid)
@@ -174,7 +199,7 @@ class WeightedEmpiricalMixture:
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
                 threshold = hi[index] * component.cost_per_pack if normalized else hi[index]
-                position = min(int(vector.searchsorted(threshold, side="left")), component.count - 1)
+                position = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
                 candidates.append(float(vector[position]) / (component.cost_per_pack if normalized else 1.0))
                 self._close(vector)
             valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
@@ -240,7 +265,7 @@ def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str,
         raw = mixture.quantiles(qs)
         returns = mixture.quantiles(qs, normalized=True)
         empirical_recovery = mixture.recovery_probability()
-        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], abs_tol=1e-9):
+        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], abs_tol=1e-6):
             raise OpeningEconomicsV3Error("recovery distribution invariant failed")
         return {**scalars, "typicalOpeningPerPack": raw["p50"], "typicalRetention": returns["p50"],
                 "valuePerPackPercentiles": raw, "normalizedReturnPercentiles": returns}

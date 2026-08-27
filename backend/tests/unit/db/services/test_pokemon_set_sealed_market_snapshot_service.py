@@ -602,8 +602,27 @@ def test_build_snapshot_adds_consumer_set_page_lens_without_changing_legacy_bask
     assert payload["meta"]["setPageConsumerProductCount"] == 2
     assert payload["meta"]["setPageConsumerExcludedCaseDisplayCount"] == 2
     assert payload["meta"]["setPageConsumerProductsWithoutHistoryCount"] == 1
-    assert payload["meta"]["setPageConsumerPolicyVersion"] == "set-page-consumer-sealed-v1"
+    assert payload["meta"]["setPageConsumerPolicyVersion"] == "set-page-consumer-sealed-v2-bulk-containers"
     assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v5-consumer-lens"
+
+
+def test_consumer_contract_is_clipped_to_legacy_snapshot_market_date():
+    products = [
+        {"id": 1, "set_id": "s", "name": "Set Booster Box", "product_type": "box"},
+        {"id": 2, "set_id": "s", "name": "Set Mega ex Box", "product_type": "other"},
+    ]
+    observations = [
+        {**priced_observation(1, 1, 100.0), "captured_at": "2026-01-10T09:00:00Z"},
+        {**priced_observation(2, 2, 40.0), "captured_at": "2026-01-10T09:00:00Z"},
+        {**priced_observation(2, 3, 90.0), "captured_at": "2026-01-11T09:00:00Z"},
+    ]
+    payload = build_snapshot({"id": "s", "canonical_key": "set", "name": "Set"}, products, observations)["payload_json"]
+    consumer = payload["setPageConsumerMarket"]
+    top_other = next(product for product in payload["setPageConsumerTopProducts"] if product["sealedProductId"] == "2")
+    assert payload["marketDate"] == consumer["valueAsOf"] == "2026-01-10"
+    assert consumer["history"][-1]["date"] == "2026-01-10"
+    assert top_other["priceAsOf"] == top_other["history"][-1]["date"] == "2026-01-10"
+    assert top_other["currentPrice"] == 40.0
 
 
 def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():

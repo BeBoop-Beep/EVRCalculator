@@ -1345,8 +1345,9 @@ def get_pokemon_set_market_movers(
 ):
     """Return market movers for a single requested window for a Pokemon set.
 
-    Shares the canonical Cards filter/sort contract:
-    section=market-movers, movement=all|heating|cooling, sort=largest-dollar-move.
+    Default consumers share the canonical largest-dollar-move contract. The
+    explicit Set-page 7D absolute-percent request reads its isolated published
+    projection and fails closed while that projection is incomplete.
     """
     try:
         return get_pokemon_set_market_movers_snapshot_payload(
@@ -1355,7 +1356,7 @@ def get_pokemon_set_market_movers(
         )
     except PokemonSetMarketError as exc:
         return JSONResponse(
-            content={"message": exc.message, "code": exc.code},
+            content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500},
             status_code=exc.status_code,
         )
     except Exception:

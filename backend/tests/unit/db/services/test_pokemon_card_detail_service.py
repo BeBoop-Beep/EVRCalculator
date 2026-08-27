@@ -97,9 +97,10 @@ def test_multiple_variants_require_selection_without_provable_default():
     payload = build(fixture(variants=("v1", "v2")))
     assert payload["selectedVariantId"] is None
     assert payload["variantSelection"]["state"] == "selection_required"
-    assert payload["chase"] == {
-        "available": False, "reason": "variant_selection_required", "sourceCalculationRunId": "run-1"
-    }
+    assert payload["chase"]["available"] is False
+    assert payload["chase"]["reason"] == "variant_selection_required"
+    assert payload["chase"]["sourceCalculationRunId"] == "run-1"
+    assert payload["chase"]["products"] == []
 
 
 def test_valid_explicit_variant_preserves_variant_identity_and_math():
@@ -117,12 +118,22 @@ def test_market_only_variant_is_selectable_without_reusing_modeled_pull_rate():
         "card_variant_id": "v2", "condition_id": "nm", "market_price": 31,
         "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
     }]
+    client.tables["sealed_products"] = [{
+        "id": "catalog-only", "set_id": "set-1", "name": "Example Three-Pack Blister",
+        "product_type": "Sealed Products", "image_small_url": "product.jpg",
+    }]
+    client.tables["sealed_product_price_observations"] = [{
+        "sealed_product_id": "catalog-only", "market_price": 34.99,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
     payload = build(client, "v2")
     assert payload["selectedVariantId"] == "v2"
     assert payload["market"]["currentPrice"] == 31
     assert payload["chase"]["available"] is False
-    assert payload["chase"]["reason"] == "variant_not_modeled"
+    assert payload["chase"]["reason"] == "legacy_run_variant_detail_unavailable"
     assert "modeledProbability" not in payload["chase"]
+    assert payload["chase"]["products"][0]["productName"] == "Example Three-Pack Blister"
+    assert payload["chase"]["products"][0]["currentPrice"] == 34.99
 
 
 def test_foreign_or_unknown_explicit_variant_is_never_used_and_falls_back_deterministically():
@@ -143,7 +154,33 @@ def test_canonical_card_without_usable_chase_still_returns_identity():
     payload = build(client)
     assert payload["card"]["canonicalCardId"] == "canonical"
     assert payload["variantSelection"]["state"] == "unavailable"
-    assert payload["chase"]["reason"] == "modeled_chase_unavailable"
+    assert payload["chase"]["reason"] == "pull_model_configuration_missing"
+
+
+def test_exact_reverse_frequency_fallback_enables_existing_chase_economics():
+    client = fixture(variants=("v1", "v2"))
+    client.tables["simulation_input_cards"] = client.tables["simulation_input_cards"][:1]
+    client.tables["simulation_input_cards_with_near_mint_price"] = client.tables["simulation_input_cards_with_near_mint_price"][:1]
+    client.tables["simulation_card_variant_pull_rates"] = [{
+        "calculation_run_id": "run-1", "card_id": "legacy", "card_variant_id": "v2",
+        "condition_id": "nm", "printing_type": "reverse-holo", "special_type": None,
+        "pull_count": 50, "pack_presence_count": 50, "simulation_count": 10000,
+        "modeled_probability": 0.005, "effective_pull_rate": 200,
+        "price_used": 1.25, "price_source": "TCGPlayer", "price_captured_at": "2026-08-18T00:00:00Z",
+        "model_source": "monte_carlo_exact_variant_frequency_v1",
+        "model_version": "exact_variant_pull_frequency_v1", "status": "modeled",
+    }]
+    client.tables["card_variant_price_observations"] = [{
+        "card_variant_id": "v2", "condition_id": "nm", "market_price": 2.5,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
+    payload = build(client, "v2")
+    assert payload["chase"]["available"] is True
+    assert payload["chase"]["impliedOddsOneInN"] == 200
+    assert payload["chase"]["pullRateSource"] == "monte_carlo_exact_variant_frequency_v1"
+    reverse = next(row for row in payload["availableVariants"] if row["cardVariantId"] == "v2")
+    assert reverse["pullModelStatus"] == "modeled"
+    assert reverse["simulationCount"] == 10000
 
 
 def test_wrong_card_set_combination_is_404():

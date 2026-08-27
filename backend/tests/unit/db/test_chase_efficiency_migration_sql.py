@@ -14,3 +14,13 @@ def test_normalized_atomic_private_publication_surface():
     assert "card_variant_id UUID NOT NULL" in SQL
     assert "best_verified_pack_equivalent_cost" in SQL
     assert "loose_booster_pack_price" in SQL
+
+
+def test_publication_rpc_promotes_latest_only_after_rows_and_integrity_checks():
+    assert SQL.strip().startswith("-- Canonical exact-printing Chase Efficiency publication surface.\nBEGIN;")
+    assert SQL.strip().endswith("COMMIT;")
+    row_insert = SQL.index("INSERT INTO public.pokemon_card_chase_efficiency_rows")
+    row_count_check = SQL.index("persisted Chase Efficiency count mismatch")
+    rank_check = SQL.index("persisted Chase Efficiency set ranks invalid")
+    latest_promotion = SQL.index("INSERT INTO public.pokemon_card_chase_efficiency_latest")
+    assert row_insert < row_count_check < rank_check < latest_promotion

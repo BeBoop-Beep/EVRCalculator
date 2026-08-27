@@ -5594,7 +5594,8 @@ def get_pokemon_set_market_movers_snapshot_payload(
     section="market-movers"); this request reads only that narrow JSON path:
 
         section=market-movers, window=<1D|7D|30D>, movement=all|heating|cooling,
-        sort=largest-dollar-move, limit=N
+        sort=largest-dollar-move, limit=N (legacy/default), or the explicit
+        Set-page 7D largest-absolute-percent contract.
 
     Membership is hasValidMovement + nonzero movement; the legacy
     reliability/mover-eligibility guardrails are carried through as metadata
@@ -5607,7 +5608,8 @@ def get_pokemon_set_market_movers_snapshot_payload(
     fallback when the cards snapshot is missing or the requested window has
     no movement contract in it (1D); those responses set
     meta.snapshot.source to the legacy source and usedLegacyMoverList=True
-    so the UI can warn in development.
+    so the UI can warn in development. The explicit Set-page absolute-percent
+    contract fails closed when its published projection is unavailable.
     """
     started = time.perf_counter()
     resolved = _to_optional_str(set_id)
@@ -5667,7 +5669,15 @@ def get_pokemon_set_market_movers_snapshot_payload(
         read_model = cards_row.get("canonical_movers") if cards_row and isinstance(cards_row.get("canonical_movers"), dict) else {}
         source_key = movement_filter if movement_filter in {"heating", "cooling"} else "all"
         ranked_cards = read_model.get(source_key) if isinstance(read_model.get(source_key), list) else []
-        if read_model and isinstance(read_model.get("all"), list):
+        read_model_valid = (
+            bool(read_model)
+            and isinstance(read_model.get("all"), list)
+            and (
+                not set_page_absolute_percent
+                or read_model.get("rankingMetric") == "absolute-percent"
+            )
+        )
+        if read_model_valid:
             served_cards = [card for card in ranked_cards[:limit_value] if isinstance(card, dict)]
             heating_up = [
                 card
@@ -5728,7 +5738,9 @@ def get_pokemon_set_market_movers_snapshot_payload(
                     },
                     "snapshot": {
                         **snapshot_meta,
-                        "source": "canonical_cards_published_movers",
+                        "source": "set_page_absolute_percent_published_movers"
+                        if set_page_absolute_percent
+                        else "canonical_cards_published_movers",
                         "sourceTable": "pokemon_set_cards_snapshot_latest",
                         "sourceField": f"payload_json.{read_model_key}.{resolved_window}",
                         "marketAsOfDate": market_as_of_date,
@@ -5756,6 +5768,13 @@ def get_pokemon_set_market_movers_snapshot_payload(
                 payload["meta"]["timings"]["snapshotReadMs"],
             )
             return payload
+
+        if set_page_absolute_percent:
+            raise PokemonSetMarketError(
+                503,
+                "Set-page absolute-percent movers snapshot is incomplete; retry after publication",
+                "POKEMON_SET_PAGE_MARKET_MOVERS_SNAPSHOT_INCOMPLETE",
+            )
 
         logger.warning(
             "[pokemon-snapshot] market movers cards snapshot missing; falling back to legacy mover list set_id=%s window=%s",

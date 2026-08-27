@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 import json
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from backend.domain.pokemon.chase_efficiency import (
     CHASE_EFFICIENCY_CONTRACT_VERSION,
@@ -18,16 +18,22 @@ from backend.domain.pokemon.chase_efficiency import (
 )
 
 PAGE_SIZE = 1000
+PUBLICATION_CHUNK_SIZE = 500
 
 
 def _rows(response: Any) -> List[Dict[str, Any]]:
     return list(getattr(response, "data", None) or [])
 
 
-def _all(query: Any, *, limit: int = 100_000) -> List[Dict[str, Any]]:
+def _all(query_factory: Callable[[], Any], *, limit: int = 100_000,
+         telemetry: Optional[Dict[str, int]] = None) -> List[Dict[str, Any]]:
+    """Read all pages without reusing PostgREST's mutable query builder."""
     result: List[Dict[str, Any]] = []
     for start in range(0, limit, PAGE_SIZE):
+        query = query_factory()
         batch = _rows(query.range(start, start + PAGE_SIZE - 1).execute())
+        if telemetry is not None:
+            telemetry["page_requests"] = telemetry.get("page_requests", 0) + 1
         result.extend(batch)
         if len(batch) < PAGE_SIZE:
             return result
@@ -148,24 +154,50 @@ def validate_candidate(candidate: Mapping[str, Any]) -> List[str]:
     return failures
 
 
-def publish_candidate(client: Any, candidate: Mapping[str, Any]) -> str:
+def publish_candidate(client: Any, candidate: Mapping[str, Any], *,
+                      telemetry: Optional[Dict[str, int]] = None) -> str:
     failures = validate_candidate(candidate)
     if failures:
         raise ValueError("Chase Efficiency audit failed: " + "; ".join(failures))
-    response = client.rpc("publish_pokemon_card_chase_efficiency_snapshot", {
-        "p_snapshot": candidate["snapshot"], "p_rows": candidate["rows"],
+    begin = client.rpc("begin_pokemon_card_chase_efficiency_publication", {
+        "p_snapshot": candidate["snapshot"],
     }).execute()
+    publication_id = getattr(begin, "data", None)
+    if isinstance(publication_id, list): publication_id = publication_id[0] if publication_id else None
+    if not publication_id:
+        raise RuntimeError("Chase Efficiency staging RPC returned no publication id")
+    try:
+        rows = list(candidate["rows"])
+        for start in range(0, len(rows), PUBLICATION_CHUNK_SIZE):
+            client.rpc("append_pokemon_card_chase_efficiency_publication_rows", {
+                "p_publication_id": publication_id,
+                "p_rows": rows[start:start + PUBLICATION_CHUNK_SIZE],
+            }).execute()
+            if telemetry is not None:
+                telemetry["staging_requests"] = telemetry.get("staging_requests", 0) + 1
+        response = client.rpc("finalize_pokemon_card_chase_efficiency_publication", {
+            "p_publication_id": publication_id,
+        }).execute()
+    except Exception:
+        try:
+            client.rpc("abort_pokemon_card_chase_efficiency_publication", {
+                "p_publication_id": publication_id,
+            }).execute()
+        except Exception:
+            pass
+        raise
     data = getattr(response, "data", None)
     if isinstance(data, list): data = data[0] if data else None
     if not data: raise RuntimeError("Chase Efficiency publication RPC returned no snapshot id")
     return str(data)
 
 
-def load_candidate(client: Any, *, market_date: str) -> Dict[str, Any]:
+def load_candidate(client: Any, *, market_date: str,
+                   telemetry: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """Resolve the promoted-date real-data authority and build one candidate."""
-    set_rows = _all(client.table("sets").select("id,name,era_id,supports_opening_simulation").eq("supports_opening_simulation", True))
+    set_rows = _all(lambda: client.table("sets").select("id,name,era_id,supports_opening_simulation").eq("supports_opening_simulation", True), telemetry=telemetry)
     supported = {str(row["id"]): row for row in set_rows}
-    authority_rows = _all(client.table("explore_rip_statistics_latest").select("set_id,calculation_run_id"))
+    authority_rows = _all(lambda: client.table("explore_rip_statistics_latest").select("set_id,calculation_run_id"), telemetry=telemetry)
     authorities = {
         str(row["set_id"]): str(row["calculation_run_id"])
         for row in authority_rows
@@ -175,10 +207,10 @@ def load_candidate(client: Any, *, market_date: str) -> Dict[str, Any]:
         missing = sorted(set(supported) - set(authorities))
         raise RuntimeError(f"supported sets missing authoritative run: {missing}")
 
-    canonical_rows = _all(client.table("pokemon_canonical_cards").select("id,set_id,name,rarity"))
+    canonical_rows = _all(lambda: client.table("pokemon_canonical_cards").select("id,set_id,name,rarity"), telemetry=telemetry)
     # A direct price-projection read supplies the legacy-card bridge shared by
     # all exact variants of that card.
-    canonical_prices = _all(client.table("pokemon_canonical_card_market_prices_latest").select("canonical_card_id,legacy_card_id"))
+    canonical_prices = _all(lambda: client.table("pokemon_canonical_card_market_prices_latest").select("canonical_card_id,legacy_card_id"), telemetry=telemetry)
     canonical_by_id = {str(row["id"]): row for row in canonical_rows}
     canonical_by_legacy = {
         str(row["legacy_card_id"]): canonical_by_id.get(str(row["canonical_card_id"]), {})
@@ -188,9 +220,9 @@ def load_candidate(client: Any, *, market_date: str) -> Dict[str, Any]:
     raw_cards: List[Dict[str, Any]] = []
     products_by_set: Dict[str, List[Dict[str, Any]]] = {}
     for set_id, run_id in authorities.items():
-        source_cards = _all(client.table("simulation_input_cards_with_near_mint_price").select(
+        source_cards = _all(lambda run_id=run_id: client.table("simulation_input_cards_with_near_mint_price").select(
             "calculation_run_id,card_id,card_variant_id,card_name,effective_pull_rate,current_near_mint_price,current_near_mint_price_captured_at,current_near_mint_price_source"
-        ).eq("calculation_run_id", run_id))
+        ).eq("calculation_run_id", run_id), telemetry=telemetry)
         for row in source_cards:
             variant_ids.add(str(row.get("card_variant_id") or ""))
             canonical = canonical_by_legacy.get(str(row.get("card_id") or ""), {})
@@ -205,9 +237,9 @@ def load_candidate(client: Any, *, market_date: str) -> Dict[str, Any]:
                 "card_price_source": row.get("current_near_mint_price_source"),
                 "price_is_fresh": str(row.get("current_near_mint_price_captured_at") or "")[:10] == market_date,
             })
-        source_products = _all(client.table("simulation_sealed_product_results").select(
+        source_products = _all(lambda run_id=run_id: client.table("simulation_sealed_product_results").select(
             "calculation_run_id,set_id,sealed_product_id,product_name,product_family,product_market_cost,pack_count,random_pack_count,guaranteed_component_market_value,composition_id,composition_version,price_as_of,price_source"
-        ).eq("calculation_run_id", run_id).eq("price_as_of", market_date))
+        ).eq("calculation_run_id", run_id).eq("price_as_of", market_date), telemetry=telemetry)
         normalized_products: List[Dict[str, Any]] = []
         loose_prices: List[float] = []
         for row in source_products:
@@ -233,7 +265,7 @@ def load_candidate(client: Any, *, market_date: str) -> Dict[str, Any]:
     if variant_ids:
         # A single giant PostgREST `in` filter exceeds httpx's URL limit for
         # the full cohort. The table is small enough for one paged projection.
-        variant_rows = _all(client.table("card_variants").select("id,printing_type,special_type,image_large_url,image_small_url"))
+        variant_rows = _all(lambda: client.table("card_variants").select("id,printing_type,special_type,image_large_url,image_small_url"), telemetry=telemetry)
         variants = {str(row["id"]): row for row in variant_rows}
         for card in raw_cards:
             variant = variants.get(str(card.get("card_variant_id") or ""), {})
