@@ -336,18 +336,9 @@ test("the Graded placeholder is not a family and cannot reach the chart", () => 
   assert.ok(!overview.families.some((family) => family.key === "graded"));
 });
 
-test("Market Explorer has one prominent primary CTA in the header control area", () => {
+test("Market Overview no longer duplicates the primary Market Explorer CTA", () => {
   const renderer = render(overview);
-  const cta = renderer.root.findAll((node) => node.props?.["data-market-explorer-cta"] !== undefined)[0];
-  assert.ok(cta, "the CTA must exist");
-  assert.equal(cta.props.href, "/Market/Explorer");
-  assert.match(textOf(cta), /Open Market Explorer/);
-  // Vague copy is exactly what this replaced.
-  assert.doesNotMatch(textOf(cta), /^(More|Details|Advanced)$/);
-  // Green, not yellow: yellow stays the scarce attention color.
-  const className = String(cta.props.className);
-  assert.match(className, /45,212,191/, "the CTA uses the inDex interaction green");
-  assert.doesNotMatch(className, /--accent/, "yellow must not become the primary-action color");
+  assert.equal(renderer.root.findAll((node) => node.props?.["data-market-explorer-cta"] !== undefined).length, 0);
 });
 
 test("row-level Explore links stay secondary but share the green accent family", () => {

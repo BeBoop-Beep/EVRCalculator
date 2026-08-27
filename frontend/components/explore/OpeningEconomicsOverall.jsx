@@ -1,9 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Image from "next/image";
 import InfoPopover from "@/components/ui/InfoPopover";
 import styles from "./explore.module.css";
 import local from "./openingEconomics.module.css";
+import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import {
   UNAVAILABLE_LABEL,
   centsPerDollar,
@@ -23,7 +25,7 @@ import {
  */
 
 const METHODOLOGY = [
-  "A loose booster pack is the comparison unit, because it is the only opening unit directly comparable across every modeled set.",
+  "Every eligible modeled sealed product is normalized to an all-in per-pack equivalent.",
   "Each modeled set counts once, weighted equally, so no set carries more influence than another.",
   "The statistics come from the stored results of a million simulated openings per set.",
   "Typical Opening is the median of all those openings pooled together — not the average of each set's own median.",
@@ -32,6 +34,30 @@ const METHODOLOGY = [
 
 function Dash() {
   return <span className="text-[var(--text-secondary)] opacity-60">—</span>;
+}
+
+function OpeningDistribution({ scope, targets }) {
+  const [lens, setLens] = useState("return");
+  const distribution = lens === "return" ? scope.normalizedReturnPercentiles : scope.valuePerPackPercentiles;
+  const points = ["p01","p05","p10","p25","p50","p75","p90","p95","p99"].map(key => ({ key, value: distribution?.[key] })).filter(point => Number.isFinite(Number(point.value)));
+  const formatter = lens === "return" ? ratioAsPercent : money;
+  const packs = (targets || []).map(target => ({
+    target,
+    art: resolveLooseBoosterPackArtwork({ setCanonicalKey: target.canonical_key }),
+    fallback: target.logo_image_url || target.symbol_image_url,
+  }));
+  const metrics = [
+    ["Modeled Return", ratioAsPercent(scope.modeledReturnOnSpend)],
+    ["Typical Retention", ratioAsPercent(scope.typicalRetention)],
+    ["Chance to Recover Cost", ratioAsPercent(scope.chanceToRecoverCost)],
+    ["Entertainment Cost / Pack", money(scope.averageEntertainmentCostPerPack)],
+  ];
+  return <section className={`${styles.surface} rounded-xl p-4 sm:p-5`} data-opening-distribution>
+    <div className="grid grid-cols-2 gap-4 border-b border-[var(--ex-line)] pb-4 lg:grid-cols-4">{metrics.map(([label,value]) => <div key={label}><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value || <Dash/>}</p></div>)}</div>
+    <div className="mt-5 flex items-end justify-between gap-3"><div><h3 className="text-base font-semibold">Opening Distribution</h3><p className="mt-1 text-xs text-[var(--text-secondary)]">Weighted empirical percentile / outcome curve across the modeled product cohort.</p></div><div className="flex rounded-lg border border-[var(--ex-line)] p-1"><button onClick={()=>setLens("return")} aria-pressed={lens==="return"} className="px-3 py-1 text-xs">Return %</button><button onClick={()=>setLens("value")} aria-pressed={lens==="value"} className="px-3 py-1 text-xs">Value / Pack</button></div></div>
+    {points.length ? <div className="mt-6" role="img" aria-label={`${lens === "return" ? "Normalized return" : "Value per pack"} weighted empirical percentile curve`}><div className="flex items-end gap-1 border-b border-[var(--ex-line-strong)] pb-2">{points.map((point,index)=><div key={point.key} className="min-w-0 flex-1 text-center"><div className="mx-auto w-1.5 rounded-full bg-[rgb(var(--ex-teal))]" style={{height:`${18+index*10}px`}}/><b className="mt-2 block text-[.68rem] tabular-nums">{formatter(point.value)}</b><span className="text-[.6rem] text-[var(--text-secondary)]">{point.key.toUpperCase()}</span></div>)}</div><p className="mt-4 text-xs text-[var(--text-secondary)]">{lens === "return" ? `P50 ${ratioAsPercent(scope.typicalRetention)} · Mean outcome retention ${ratioAsPercent(scope.meanOutcomeRetention)} · 100% recovery threshold · ${ratioAsPercent(scope.chanceToRecoverCost)} recover cost.` : `P50 ${money(scope.typicalOpeningPerPack)} · Distribution mean / break-even ${money(scope.averageModelBreakEvenPerPack)}.`}</p></div> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The canonical weighted percentile curve is unavailable.</p>}
+    {packs.length ? <div className="mt-5 border-t border-[var(--ex-line)] pt-4"><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">Sets represented in this model</p><div className="mt-2 flex h-14 gap-1.5 overflow-hidden opacity-70">{packs.map(({target,art,fallback})=><span key={target.set_id || target.target_id} title={target.name} className="flex h-14 min-w-0 flex-1 items-center justify-center">{art || fallback ? <Image src={art?.src || fallback} width={34} height={50} alt="" className="h-14 w-full object-contain" /> : <i className="h-3 w-3 rotate-45 border border-[rgb(var(--ex-teal))]" />}</span>)}</div></div>:null}
+  </section>;
 }
 
 /* ---------------------------------------------------------------- header --- */
@@ -43,14 +69,14 @@ function Header({ scope, marketDate }) {
         Pokémon Opening Economics
       </h2>
       <p className="mt-1 text-sm text-[var(--text-secondary)]">
-        What one Pokémon pack looks like across the sets currently modeled by inDex.
+        All modeled sealed products normalized per pack.
       </p>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
         <span className="tabular-nums">{scope.setCount} modeled sets</span>
         <span aria-hidden="true" className="opacity-40">·</span>
-        <span>Equal set weighting</span>
+        <span className="tabular-nums">{scope.productFamilyCount} represented product families</span>
         <span aria-hidden="true" className="opacity-40">·</span>
-        <span>Current tracked pack prices</span>
+        <span className="tabular-nums">{scope.productSkuCount} modeled products</span>
         {marketDate ? (
           <>
             <span aria-hidden="true" className="opacity-40">·</span>
@@ -437,7 +463,7 @@ export function OpeningEconomicsSkeleton() {
 
 /* ------------------------------------------------------------------ page --- */
 
-export default function OpeningEconomicsOverall({ economics, onSelectEras = null }) {
+export default function OpeningEconomicsOverall({ economics, onSelectEras = null, targets = [] }) {
   if (economics?.status === "loading") return <OpeningEconomicsSkeleton />;
   if (!isAvailable(economics)) {
     return (
@@ -454,11 +480,7 @@ export default function OpeningEconomicsOverall({ economics, onSelectEras = null
   return (
     <section data-opening-economics-overall>
       <Header scope={scope} marketDate={economics.marketDate} />
-      <EconomicEquation scope={scope} />
-      <ValueDescent scope={scope} />
-      <EvInsight scope={scope} />
-      <SupportingMetrics scope={scope} />
-      <OutcomeRange scope={scope} />
+      <OpeningDistribution scope={scope} targets={targets} />
       <EraPreview eras={economics.eras} onSelectEras={onSelectEras} />
 
       <details className={`${styles.surfaceQuiet} mt-3 rounded-xl px-4 py-3`} data-opening-economics-methodology>

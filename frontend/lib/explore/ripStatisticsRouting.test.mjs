@@ -13,7 +13,7 @@ const routingSource = read("ripStatisticsRouting.js").replace(
   /^import \{[^}]*\} from "@\/utils\/slugify";\n/m,
   ""
 );
-const { buildTcgSetHrefFromSlug, buildTcgSetHrefFromTarget } = await import(
+const { buildTcgSetHrefFromSlug, buildTcgSetHrefFromTarget, findTargetBySetSlug, toSetSlug } = await import(
   `data:text/javascript;base64,${Buffer.from(`${slugifySource}\n${routingSource}`, "utf8").toString("base64")}`
 );
 
@@ -21,6 +21,33 @@ test("set slug routes preserve the requested set and default to RIP", () => {
   assert.equal(
     buildTcgSetHrefFromSlug("perfect-order"),
     "/TCGs/Pokemon/Sets/perfect-order"
+  );
+});
+
+test("public set routes canonicalize camelCase identities without erasing word boundaries", () => {
+  assert.equal(toSetSlug("Ascended Heroes"), "ascended-heroes");
+  assert.equal(toSetSlug("ascendedHeroes"), "ascended-heroes");
+  assert.equal(toSetSlug("Mega Evolution"), "mega-evolution");
+  assert.equal(toSetSlug("megaEvolution"), "mega-evolution");
+  assert.equal(
+    buildTcgSetHrefFromSlug("ascendedHeroes"),
+    "/TCGs/Pokemon/Sets/ascended-heroes",
+  );
+});
+
+test("known internal aliases resolve to targets whose public href comes from the set name", () => {
+  const targets = [
+    { target_type: "set", target_id: "ascendedHeroes", name: "Ascended Heroes" },
+    { target_type: "set", target_id: "megaEvolution", name: "Mega Evolution" },
+  ];
+  for (const alias of ["ascendedHeroes", "ascendedheroes"]) {
+    const target = findTargetBySetSlug(targets, alias);
+    assert.equal(target?.target_id, "ascendedHeroes");
+    assert.equal(buildTcgSetHrefFromTarget(target), "/TCGs/Pokemon/Sets/ascended-heroes");
+  }
+  assert.equal(
+    buildTcgSetHrefFromTarget(findTargetBySetSlug(targets, "megaEvolution")),
+    "/TCGs/Pokemon/Sets/mega-evolution",
   );
 });
 

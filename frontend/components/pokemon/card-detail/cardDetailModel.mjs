@@ -69,3 +69,10 @@ export function scorePercent(value) {
   const score = Number(value);
   return Number.isFinite(score) && score >= 0 && score <= 100 ? score : null;
 }
+
+export function buildCardParentSetHref(set) {
+  const slug = String(set?.slug || "").trim();
+  return slug
+    ? `/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}`
+    : "/TCGs/Pokemon/Sets";
+}

@@ -461,6 +461,7 @@ export default function SetMarketExplorer({ targets = [], initialSelectedSetMove
       <SetMarketTopMovers
         key={selected.setId}
         setId={selected.setId}
+        setCanonicalKey={selected.target?.canonicalKey}
         setName={selected.name}
         viewAllHref={moversHref}
         initialPayload={initialSelectedSetMovers?.setId === selected.setId ? initialSelectedSetMovers : null}

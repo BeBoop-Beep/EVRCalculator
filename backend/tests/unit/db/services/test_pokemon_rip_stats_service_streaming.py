@@ -43,6 +43,10 @@ def test_service_processes_artifacts_sequentially_without_retaining_set_vectors(
         {"id": "a", "release_date": "2020-01-01"}, {"id": "b", "release_date": "2020-01-01"}])
     monkeypatch.setattr(service, "load_pack_outcome_artifact_metadata", lambda _client, run_id:
         {"outcome_count": 4, "raw_sha256": ("a" if run_id == "run-a" else "b") * 64})
+    monkeypatch.setattr(service, "build_opening_economics_v3", lambda *_a, **_k:
+        ({"status": "available", "global": {"productSkuCount": 2},
+          "eras": [{"eraName": "Alpha", "setCount": 1, "meanPackCost": 5.0},
+                   {"eraName": "Beta", "setCount": 1, "meanPackCost": 10.0}], "sets": []}, {}))
     alive = []; calls = []
     def load(_client, run_id):
         gc.collect()

@@ -45,6 +45,7 @@ const SCALAR_FIELDS = Object.freeze([
   "id",
   "name",
   "era",
+  "canonical_key",
   "logo_image_url",
   "symbol_image_url",
 
@@ -75,6 +76,7 @@ const SCALAR_FIELDS = Object.freeze([
   "relative_experience_score", "experience_rank", "experience_tier",
   "relative_chase_potential_score", "chase_potential_rank", "chase_potential_tier",
   "mean_value_to_cost_ratio", "mean_value_to_cost_rank", "mean_value_to_cost_tier",
+  "median_value_to_cost_ratio",
   "relative_biggest_upside_score", "biggest_upside_rank", "biggest_upside_tier",
   "p99_value_to_cost_ratio", "p99_value_to_cost_rank", "p99_value_to_cost_tier",
 ]);

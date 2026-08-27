@@ -18,6 +18,7 @@ from backend.db.services.public_rip_publication_contract import (
     payload_guarantees_canonical_set_value,
 )
 from backend.db.services.set_rip_service import attach_set_rip_to_targets, build_set_rip
+from backend.db.services.era_set_strength_service import attach_era_set_strength
 from backend.desirability.card_appeal import (
     calculate_adjusted_card_appeal,
     calculate_scarcity_score,
@@ -2002,6 +2003,10 @@ def get_pokemon_explore_rankings_snapshot_payload(limit: Any = DEFAULT_RANKINGS_
         # Must run on the full persisted cohort before request limiting: family
         # ranks and cohorts are publication-wide, never page-size-relative.
         payload = upgrade_rankings_set_rip_contract_if_needed(payload)
+        try:
+            payload = attach_era_set_strength(payload)
+        except (TypeError, ValueError):
+            logger.warning("[pokemon-snapshot] Era Set Strength attachment failed", exc_info=True)
 
         enrichment_warning = None
         # THE COMPATIBILITY FILL IS A FALLBACK, AND IS NOW PRICED AS ONE.

@@ -41,9 +41,15 @@ from backend.db.services.frontend_proxy_service import (
     update_profile,
 )
 from backend.domain.access.index_plan_access import (
+    FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     filter_set_market_signal_access,
+    has_index_feature_access,
     has_index_premium_access,
+)
+from backend.db.services.chase_efficiency_query_service import (
+    get_card_chase_efficiency as read_card_chase_efficiency,
+    query_chase_efficiency,
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
@@ -233,6 +239,27 @@ def _require_market_explorer_custom_markets(
                 "message": "Building custom markets requires Index Premium.",
                 "code": "MARKET_EXPLORER_PREMIUM_REQUIRED",
                 "requiredFeature": FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+            },
+        )
+    return user_id
+
+
+def _require_card_chase_efficiency(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Authenticate and resolve Premium from the canonical profile server-side."""
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_feature_access(
+        _resolve_index_plan(authorization, token_cookie), FEATURE_CARD_CHASE_EFFICIENCY
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Chase Efficiency requires Index Premium.",
+                "code": "CARD_CHASE_EFFICIENCY_PREMIUM_REQUIRED",
+                "requiredFeature": FEATURE_CARD_CHASE_EFFICIENCY,
             },
         )
     return user_id
@@ -569,6 +596,31 @@ def get_overall_product_rankings(budget: str = Query(default="full_market")):
     except Exception:
         logger.exception("/explore/product-rankings/overall unexpected error budget=%s", budget)
         return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
+
+
+@app.get("/explore/card-chase-efficiency")
+def get_card_chase_efficiency_rankings(
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=100),
+    search: Optional[str] = Query(default=None), era: Optional[str] = Query(default=None),
+    set_id: Optional[str] = Query(default=None, alias="set"), rarity: Optional[str] = Query(default=None),
+    min_price: Optional[float] = Query(default=None), max_price: Optional[float] = Query(default=None),
+    sort: str = Query(default="rank"), direction: str = Query(default="asc"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    # Gate before touching the latest pointer: row ordering is Premium data.
+    _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    try:
+        return query_chase_efficiency(
+            service_read_client, page=page, page_size=page_size, search=search, era=era,
+            set_id=set_id, rarity=rarity, min_price=min_price, max_price=max_price,
+            sort=sort, direction=direction,
+        )
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "CARD_CHASE_EFFICIENCY_QUERY_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/explore/card-chase-efficiency unexpected error")
+        return JSONResponse(content={"message": "Unable to load Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
 
 
 @app.get("/explore/opening-economics")
@@ -996,6 +1048,23 @@ def get_pokemon_card_detail(
             content={"message": "Unable to load Pokemon card", "code": "POKEMON_CARD_DETAIL_FAILED"},
             status_code=500,
         )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/cards/{card_id}/chase-efficiency")
+def get_pokemon_card_chase_efficiency(
+    set_id: str, card_id: str, variant_id: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    try:
+        result = read_card_chase_efficiency(
+            service_read_client, set_id=set_id, card_id=card_id, variant_id=variant_id
+        )
+        return result if result.get("available") else JSONResponse(content=result, status_code=404)
+    except Exception:
+        logger.exception("card Chase Efficiency failed set=%s card=%s", set_id, card_id)
+        return JSONResponse(content={"message": "Unable to load card Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/pull-rates")

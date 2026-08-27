@@ -13,11 +13,21 @@ import {
   optimizedImageUrl,
   SET_LOGO_WIDTH,
 } from "@/lib/images/remoteImageDelivery.mjs";
-import { getPokemonCardDetail } from "@/lib/pokemon/pokemonCardDetailClient";
+import {
+  buildPokemonCardDetailHref,
+  getPokemonCardDetail,
+} from "@/lib/pokemon/pokemonCardDetailClient";
 import { compactSealedProductLabel } from "@/components/pokemon/set-page/Overview/sealedMarketTrendSelector.mjs";
 import AssetMarketPanel from "./AssetMarketPanel";
 import {
+  buildSealedProductHref,
+  expectedProductsCopy,
+  orderCardProducts,
+  productDisplayPrice,
+} from "./productPresentation.mjs";
+import {
   cumulativePullProbability,
+  buildCardParentSetHref,
   milestoneXPosition,
   packsAtPlotX,
   probabilityMilestones,
@@ -183,14 +193,19 @@ function ProbabilityJourney({ chase }) {
       aria-labelledby="probability-title"
       className="rounded-2xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.42)] p-4"
     >
-      <h3 id="probability-title" className="text-lg font-semibold">
+      <h3
+        id="probability-title"
+        className="flex items-center gap-1.5 text-lg font-semibold"
+      >
         Probability Journey
+        <InfoPopover text="Shows approximately how many eligible packs correspond to each cumulative probability of pulling at least one copy of this exact printing. These probability thresholds are not guarantees." />
       </h3>
       <p className="mt-1.5 max-w-4xl text-sm leading-relaxed text-[var(--text-secondary)]">
         Your cumulative chance of pulling this exact printing at least once as
-        you open more eligible packs. Pull odds are modeled probabilities, not
-        guarantees; “1 in N” describes a long-run rate, not a promise within N
-        packs.
+        you open more eligible packs. Each milestone shows approximately how
+        many packs correspond to that chance. Pull odds are modeled
+        probabilities, not guarantees; “1 in N” describes a long-run rate, not a
+        promise that the card appears within N packs.
       </p>
       {usable ? (
         <>
@@ -200,13 +215,11 @@ function ProbabilityJourney({ chase }) {
           >
             <svg
               role="img"
-              aria-labelledby="probability-chart-title probability-chart-desc"
+              aria-label="Cumulative pull probability by packs opened"
+              aria-describedby="probability-chart-desc"
               viewBox="0 0 710 235"
               className="h-[190px] w-full sm:h-[220px]"
             >
-              <title id="probability-chart-title">
-                Cumulative pull probability by packs opened
-              </title>
               <desc id="probability-chart-desc">
                 Pack counts are positioned proportionally, with milestones at
                 50, 75, 90 and 95 percent.
@@ -367,7 +380,7 @@ function ProbabilityJourney({ chase }) {
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {milestones.map(({ label, packs }) => (
-              <Metric key={label} label={`${label} Chance`}>
+              <Metric key={label} label={`${label} Chance to Pull`}>
                 {number(packs)} packs
               </Metric>
             ))}
@@ -385,7 +398,7 @@ function ProbabilityJourney({ chase }) {
 
 function ProductEconomics({ chase }) {
   const products = useMemo(
-    () => (Array.isArray(chase.products) ? chase.products : []),
+    () => orderCardProducts(chase.products),
     [chase.products],
   );
   const [selectedId, setSelectedId] = useState(
@@ -398,6 +411,12 @@ function ProductEconomics({ chase }) {
   const selected =
     products.find((product) => product.sealedProductId === selectedId) ||
     products[0];
+  const selectedName =
+    selected?.productName ||
+    selected?.productFamilyLabel ||
+    compactSealedProductLabel(selected);
+  const selectedHref = buildSealedProductHref(selected);
+  const expectedCopy = expectedProductsCopy(selected);
   if (!selected)
     return (
       <div>
@@ -413,7 +432,7 @@ function ProductEconomics({ chase }) {
       <h3 id="opening-title" className="text-lg font-semibold">
         Choose How You Open It
       </h3>
-      <div className="mt-3 grid gap-3 md:grid-cols-[minmax(13rem,17rem)_minmax(0,1fr)]">
+      <div className="mt-3 grid gap-3 md:grid-cols-[minmax(15rem,19rem)_minmax(0,1fr)]">
         <div>
           <label htmlFor="product-select" className="sr-only">
             Sealed product
@@ -429,10 +448,13 @@ function ProductEconomics({ chase }) {
                 key={product.sealedProductId}
                 value={product.sealedProductId}
               >
-                {compactSealedProductLabel(product)} ·{" "}
+                {product.productName ||
+                  product.productFamilyLabel ||
+                  "Product identity unavailable"}{" "}
+                ·{" "}
                 {product.available
                   ? `${number(product.packCount)} packs`
-                  : "Not supported"}
+                  : `${productDisplayPrice(product) === null ? "Price unavailable" : money(productDisplayPrice(product))} · Not supported`}
               </option>
             ))}
           </select>
@@ -453,13 +475,33 @@ function ProductEconomics({ chase }) {
                   onClick={() => setSelectedId(product.sealedProductId)}
                   className={`w-full rounded-lg border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${active ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_13%,rgba(2,8,23,.58))]" : "border-transparent bg-white/[.025] hover:border-[var(--border-subtle)] hover:bg-white/[.05]"}`}
                 >
-                  <span className="block text-sm font-semibold">
-                    {compactSealedProductLabel(product)}
-                  </span>
-                  <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
-                    {product.available
-                      ? `${number(product.packCount)} packs · ${percent(product.targetProbabilityPerProduct)} chance`
-                      : "Not supported"}
+                  <span className="flex items-center gap-2.5">
+                    {product.imageUrl ? (
+                      <Image
+                        src={product.imageUrl}
+                        alt=""
+                        width={44}
+                        height={44}
+                        className="h-11 w-11 flex-none rounded-md object-contain"
+                      />
+                    ) : null}
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">
+                        {product.productName ||
+                          product.productFamilyLabel ||
+                          "Product identity unavailable"}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
+                        {productDisplayPrice(product) === null
+                          ? "Price unavailable"
+                          : money(productDisplayPrice(product))}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">
+                        {product.available
+                          ? `${number(product.packCount)} packs · ${percent(product.targetProbabilityPerProduct)} chance`
+                          : `${finite(product.packCount) === null ? "" : `${number(product.packCount)} packs · `}Not supported`}
+                      </span>
+                    </span>
                   </span>
                 </button>
               );
@@ -470,14 +512,45 @@ function ProductEconomics({ chase }) {
           <p className="text-xs font-bold uppercase tracking-[.12em] text-[var(--accent)]">
             Selected format
           </p>
-          <h4 className="mt-1 text-xl font-semibold">
-            {compactSealedProductLabel(selected)}
-          </h4>
+          <h4 className="mt-1 text-xl font-semibold">{selectedName}</h4>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)]">
+            {selected.imageUrl ? (
+              <Image
+                src={selected.imageUrl}
+                alt=""
+                width={64}
+                height={64}
+                className="h-16 w-16 rounded-lg object-contain"
+              />
+            ) : null}
+            <span>
+              {productDisplayPrice(selected) === null
+                ? "Price unavailable"
+                : money(productDisplayPrice(selected))}
+            </span>
+            {selectedHref ? (
+              <Link
+                href={selectedHref}
+                className="font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              >
+                View Product →
+              </Link>
+            ) : null}
+          </div>
           {!selected.available ? (
-            <p className="mt-4 rounded-lg border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">
-              Card-level opening intelligence is not currently supported for
-              this product.
-            </p>
+            <>
+              <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+                <Metric label="Product Price">
+                  {productDisplayPrice(selected) === null
+                    ? "Price unavailable"
+                    : money(productDisplayPrice(selected))}
+                </Metric>
+              </dl>
+              <p className="mt-4 rounded-lg border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">
+                Card-level opening intelligence is not currently supported for
+                this product.
+              </p>
+            </>
           ) : (
             <>
               <p className="mt-1 text-sm text-[var(--text-secondary)]">
@@ -492,21 +565,18 @@ function ProductEconomics({ chase }) {
                 >
                   {money(selected.productPrice)}
                 </Metric>
-                <Metric
-                  label="Expected Products"
-                  info="The long-run average number of fully opened products needed per successful product under the modeled product pull probability."
-                >
+                <Metric label={expectedCopy.label} info={expectedCopy.tooltip}>
                   {number(selected.expectedProductsToHit, 2)}
                 </Metric>
                 <Metric
                   label="Gross Chase Spend"
-                  info="Product market price multiplied by the model's expected number of fully opened products needed to reach the first successful product."
+                  info={`Estimated total spend at the long-run expected number of ${selectedName} products required per copy of this card, before crediting incidental pull value.`}
                 >
                   {money(selected.grossSpend)}
                 </Metric>
                 <Metric
                   label="Recovery-adjusted Cost"
-                  info="Gross Chase Spend minus modeled incidental pull recovery, including duplicate targets, at the run's gross Near Mint market-value basis."
+                  info="Gross Chase Spend minus modeled incidental pull recovery, including duplicate targets, at the run's gross Near Mint market-value basis. Fees, shipping, condition discounts, liquidity, and sell-through are not modeled."
                 >
                   {money(selected.ripAcquisitionCost)}
                 </Metric>
@@ -593,7 +663,7 @@ function CardIntelligence({ detail }) {
 }
 
 function CollectorIntelligence({ intelligence }) {
-  const Meter = ({ label, metric, primary = false }) => {
+  const Meter = ({ label, metric, info, primary = false }) => {
     const score = scorePercent(metric?.score);
     const available = metric?.available && score !== null;
     const tier = getRipTierPresentation(metric?.tier, {
@@ -604,8 +674,9 @@ function CollectorIntelligence({ intelligence }) {
         style={tier.style}
         className={`rounded-xl border p-3.5 ${tier.tier ? "border-[var(--tier-border)] bg-[var(--tier-surface)]" : primary ? "border-[rgba(45,212,191,.25)] bg-[rgba(2,8,23,.46)]" : "border-[var(--border-subtle)] bg-[rgba(2,8,23,.38)]"}`}
       >
-        <dt className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--text-secondary)]">
-          {label}
+        <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.1em] text-[var(--text-secondary)]">
+          <span>{label}</span>
+          <InfoPopover text={info} />
         </dt>
         <dd className="mt-2 flex items-center justify-between gap-3">
           <span
@@ -657,11 +728,28 @@ function CollectorIntelligence({ intelligence }) {
         treatment. It is not a price prediction.
       </p>
       <dl className="mt-4 space-y-2">
-        <Meter label="Card Appeal" metric={intelligence?.cardAppeal} primary />
+        <Meter
+          label="Card Appeal"
+          metric={intelligence?.cardAppeal}
+          info="inDex's composite collector-interest score for this card. It combines Pokémon Demand and Card Treatment using the published card-appeal weights, renormalized across available factors. It is not a price prediction."
+          primary
+        />
         <div className="grid gap-2 sm:grid-cols-3">
-          <Meter label="Pokémon Demand" metric={intelligence?.pokemonDemand} />
-          <Meter label="Card Treatment" metric={intelligence?.treatment} />
-          <Meter label="Scarcity" metric={intelligence?.scarcity} />
+          <Meter
+            label="Pokémon Demand"
+            metric={intelligence?.pokemonDemand}
+            info="The weighted desirability score of the Pokémon subjects linked to this card, using the published Pokémon desirability composite records and their card-link contribution weights."
+          />
+          <Meter
+            label="Card Treatment"
+            metric={intelligence?.treatment}
+            info="A treatment score derived from this card's published rarity label. Premium illustration and rarity treatments receive different configured scores; no market price or pull rate is used."
+          />
+          <Meter
+            label="Scarcity"
+            metric={intelligence?.scarcity}
+            info="Scarcity scoring is not currently published for this card or printing."
+          />
         </div>
       </dl>
     </section>
@@ -689,7 +777,7 @@ function CardArtwork({ detail }) {
       height={1024}
       priority
       onError={() => setFailed(true)}
-      className="h-auto max-h-[46vh] w-auto max-w-full object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)]"
+      className="h-auto w-full max-w-[430px] object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)] md:h-full md:w-auto md:max-w-full"
     />
   );
 }
@@ -701,7 +789,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const { user } = useAuth();
   const router = useRouter();
   const entitled = hasIndexPlusAccess(user?.index_plan);
-  const setHref = `/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}?tab=cards`;
+  const setHref = buildCardParentSetHref(detail.set);
   const artwork = optimizedImageUrl(
     detail.set.heroImageUrl ||
       detail.set.logoImageUrl ||
@@ -719,7 +807,11 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         );
         setDetail(next);
         router.replace(
-          `/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}?variant=${encodeURIComponent(variantId)}`,
+          buildPokemonCardDetailHref({
+            setSlug: detail.set.slug,
+            canonicalCardId: detail.card.id,
+            cardVariantId: variantId,
+          }),
           { scroll: false },
         );
       } catch (caught) {
@@ -744,14 +836,15 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         </div>
         <section
           data-card-detail-hero
-          className="grid gap-4 md:grid-cols-[minmax(210px,31%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
+          className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
         >
-          <div className="order-2 space-y-4 md:order-1">
-            <div className="card-detail-artwork flex min-h-[280px] justify-center">
+          <div className="order-2 grid gap-4 md:order-1 md:h-full md:min-h-0 md:grid-rows-[minmax(0,1fr)_auto]">
+            <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0">
               <CardArtwork detail={detail} />
             </div>
             <section
               aria-labelledby="details-title"
+              data-card-details-panel
               className="set-glass-surface rounded-xl border px-4 py-3"
             >
               <h2 id="details-title" className="text-sm font-semibold">
@@ -789,13 +882,6 @@ export default function PokemonCardDetailClient({ initialDetail }) {
                   </dd>
                 </div>
               </dl>
-              <div className="mt-4">
-                <VariantSelector
-                  detail={detail}
-                  onSelect={selectVariant}
-                  pending={pending}
-                />
-              </div>
               {error ? (
                 <p role="alert" className="mt-3 text-sm text-red-300">
                   {error}
@@ -820,9 +906,16 @@ export default function PokemonCardDetailClient({ initialDetail }) {
                   .join(" · ")}
               </p>
             </header>
-            <AssetMarketPanel market={detail.market} />
+            <div data-card-market-panel>
+              <AssetMarketPanel market={detail.market} />
+            </div>
           </div>
         </section>
+        <VariantSelector
+          detail={detail}
+          onSelect={selectVariant}
+          pending={pending}
+        />
         {entitled ? (
           <>
             <CardIntelligence detail={detail} />

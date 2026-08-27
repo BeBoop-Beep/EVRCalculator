@@ -5,6 +5,7 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import { selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { getPokemonSetMarketMovers } from "@/lib/pokemon/pokemonSetMarketClient";
 import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
+import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import styles from "./explore.module.css";
 
 // Top Movers for the SELECTED set — a fixed-height horizontal carousel at the
@@ -61,7 +62,7 @@ function MoverCard({ card, movement, href }) {
   const name = card?.name || "Unknown card";
   const price = Number(card?.marketPrice ?? card?.currentPrice);
   return (
-    <a href={href} className={styles.moverCard} title={`${name} — view market movers`}>
+    <a href={href} className={styles.moverCard} title={`${name} — view card details`}>
       <span className="flex h-[3.25rem] w-[2.3rem] flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)]">
         {image
           ? <img src={image} alt="" className="h-full w-full object-contain" loading="lazy" decoding="async" />
@@ -101,7 +102,7 @@ function StepButton({ direction, disabled, onClick, setName }) {
   );
 }
 
-export default function SetMarketTopMovers({ setId, setName, viewAllHref, initialPayload = null }) {
+export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, viewAllHref, initialPayload = null }) {
   const [state, setState] = useState(() => preloadedState(setId, initialPayload) || (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
   const trackRef = useRef(null);
   const [edges, setEdges] = useState({ atStart: true, atEnd: true });
@@ -211,7 +212,12 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref, initia
             className={styles.moverTrack}
           >
             {items.map(({ card, movement }) => (
-              <MoverCard key={identity(card)} card={card} movement={movement} href={viewAllHref || "#"} />
+              <MoverCard
+                key={identity(card)}
+                card={card}
+                movement={movement}
+                href={buildPokemonCardDetailHref({ ...card, setCanonicalKey, setId })}
+              />
             ))}
           </div>
           <StepButton direction="forward" disabled={edges.atEnd} onClick={() => page(1)} setName={setName} />

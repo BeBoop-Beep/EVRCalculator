@@ -15,19 +15,20 @@ def parser():
 def build(client, *, market_date, commit):
     built=build_pokemon_rip_stats_snapshot(client,market_date=market_date)
     snapshot_id=publish_pokemon_rip_stats_snapshot(client,built) if commit else None
-    m=built["metrics"]; economics=built["payload"]["openingEconomics"]
-    return {"marketDate":market_date,"eligibleSetCount":m["setCount"],"exactArtifactSetCount":m["setCount"],
-        "outcomeCountPerSet":m["outcomeCountPerSet"],"totalSourceOutcomeCount":m["totalSourceOutcomeCount"],
-        "sourceRunFingerprint":built["snapshot"]["source_run_fingerprint"],"meanPackCost":m["meanPackCost"],
-        "expectedValue":m["expectedValue"],"expectedRetention":m["expectedRetention"],"typicalOpeningValue":m["typicalOpeningValue"],
-        "typicalRetention":m["typicalRetention"],"chanceToBeatCost":m["chanceToBeatCost"],"p95Value":m["p95Value"],
-        "p99Value":m["p99Value"],"expectedEntertainmentCost":m["expectedEntertainmentCost"],
-        "modeledReturnOnSpend":m["modeledReturnOnSpend"],"entertainmentCostShare":m["entertainmentCostShare"],
+    m=built["metrics"]; economics=built["payload"]["openingEconomics"]; global_metrics=economics["global"]
+    return {"marketDate":market_date,"eligibleSetCount":economics["population"]["setCount"],
+        "eligibleProductCount":economics["population"]["productSkuCount"],"productFamilyCount":economics["population"]["productFamilyCount"],
+        "exactArtifactSetCount":m["setCount"], "sourceRunFingerprint":built["snapshot"]["source_run_fingerprint"],
+        **{key:global_metrics[key] for key in ("averageCostPerPack","averageModelBreakEvenPerPack","modeledReturnOnSpend",
+            "meanOutcomeRetention","averageEntertainmentCostPerPack","entertainmentCostShare","typicalOpeningPerPack",
+            "typicalRetention","chanceToRecoverCost","valuePerPackPercentiles","normalizedReturnPercentiles")},
         "eraCount":len(economics["eras"]),
         "eras":[{"eraName":era["eraName"],"setCount":era["setCount"],
                  "modeledReturnOnSpend":era["modeledReturnOnSpend"],
-                 "typicalOpeningValue":era["typicalOpening"]["value"],
-                 "expectedEntertainmentCost":era["expectedEntertainmentCost"]} for era in economics["eras"]],
+                 "productSkuCount":era["productSkuCount"], "typicalOpeningPerPack":era["typicalOpeningPerPack"],
+                 "typicalRetention":era["typicalRetention"], "averageEntertainmentCostPerPack":era["averageEntertainmentCostPerPack"],
+                 "valuePerPackPercentiles":era["valuePerPackPercentiles"],
+                 "normalizedReturnPercentiles":era["normalizedReturnPercentiles"]} for era in economics["eras"]],
         "publicationStatus":"published" if commit else "validated","snapshotId":snapshot_id,"errors":[]}
 
 def main():

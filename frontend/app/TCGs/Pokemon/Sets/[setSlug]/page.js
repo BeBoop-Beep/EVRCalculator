@@ -7,9 +7,10 @@ import {
   buildTcgSetHrefFromTarget,
   findTargetBySetSlug,
   resolveSetDetailTab,
+  toSetSlug,
 } from "@/lib/explore/ripStatisticsRouting";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 const SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
 
@@ -43,9 +44,8 @@ const SETS_BASE_PATH = "/TCGs/Pokemon/Sets";
  */
 export async function generateMetadata({ params }) {
   const resolvedParams = (await params) || {};
-  const requestedSetSlug = String(resolvedParams?.setSlug || "")
-    .trim()
-    .toLowerCase();
+  const rawSetSegment = String(resolvedParams?.setSlug || "").trim();
+  const requestedSetSlug = toSetSlug(rawSetSegment);
 
   if (!requestedSetSlug) {
     return buildRouteMetadata({
@@ -56,20 +56,20 @@ export async function generateMetadata({ params }) {
     });
   }
 
-  const canonicalPath = `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`;
-
   // getRipStatisticsTargets is wrapped in React `cache()` AND a process-level
   // TTL cache, so this resolves from the same in-flight/cached payload the page
   // body below awaits. Metadata costs no extra backend request.
   const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(
     () => null,
   );
-  const setName = String(
-    findTargetBySetSlug(
+  const selectedTarget = findTargetBySetSlug(
       Array.isArray(targetsPayload?.targets) ? targetsPayload.targets : [],
-      requestedSetSlug,
-    )?.name || "",
-  ).trim();
+      rawSetSegment,
+    );
+  const setName = String(selectedTarget?.name || "").trim();
+  const canonicalPath = selectedTarget
+    ? buildTcgSetHrefFromTarget(selectedTarget).split("?")[0]
+    : `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`;
 
   // Graceful failure: a set we cannot name still gets the RIGHT canonical URL
   // and an accurate generic title. A name is never invented from the slug.
@@ -97,9 +97,8 @@ export default async function TcgSetRipStatisticsPage({
 }) {
   const routeStartedAt = Date.now();
   const resolvedParams = (await params) || {};
-  const requestedSetSlug = String(resolvedParams?.setSlug || "")
-    .trim()
-    .toLowerCase();
+  const rawSetSegment = String(resolvedParams?.setSlug || "").trim();
+  const requestedSetSlug = toSetSlug(rawSetSegment);
   const resolvedSearchParams = (await searchParams) || {};
 
   // NOTE: the legacy default-view tab aliases (?tab=rip|analysis|analytics) are
@@ -137,7 +136,7 @@ export default async function TcgSetRipStatisticsPage({
     redirect(buildTcgSetHrefFromTarget(defaultTarget));
   }
 
-  const selectedTarget = findTargetBySetSlug(targets, requestedSetSlug);
+  const selectedTarget = findTargetBySetSlug(targets, rawSetSegment);
   if (selectedTarget) {
     const canonicalHref = buildTcgSetHrefFromTarget(selectedTarget, {
       tab: resolvedSearchParams?.tab,
@@ -145,17 +144,14 @@ export default async function TcgSetRipStatisticsPage({
       window: resolvedSearchParams?.window,
     });
     const canonicalPath = canonicalHref.split("?")[0];
-    const requestedPath = `${SETS_BASE_PATH}/${encodeURIComponent(requestedSetSlug)}`;
+    const requestedPath = `${SETS_BASE_PATH}/${encodeURIComponent(rawSetSegment)}`;
     if (canonicalPath !== requestedPath) redirect(canonicalHref);
   }
+  if (!selectedTarget) notFound();
   const requestedTargetType = selectedTarget?.target_type || "set";
-  const requestedTargetId = selectedTarget?.target_id || requestedSetSlug;
-  const fallbackTarget =
-    selectedTarget ||
-    (requestedTargetId
-      ? { target_type: "set", target_id: requestedTargetId }
-      : null);
-  const effectiveSelectedTarget = selectedTarget || fallbackTarget;
+  const requestedTargetId = selectedTarget?.target_id;
+  const fallbackTarget = selectedTarget;
+  const effectiveSelectedTarget = selectedTarget;
 
   let explorePayload = null;
   let pageError = null;

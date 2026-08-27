@@ -23,6 +23,7 @@ INDEX_PLAN_PREMIUM = "premium"
 #: later move to a differently-named tier, the seam is this constant's mapping
 #: and not every call site.
 FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS = "market_explorer_custom_markets"
+FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency"
 
 
 def normalize_index_plan(plan: Any) -> Optional[str]:
@@ -39,6 +40,13 @@ def has_index_plus_access(plan: Any) -> bool:
 
 def has_index_premium_access(plan: Any) -> bool:
     return normalize_index_plan(plan) == INDEX_PLAN_PREMIUM
+
+
+def has_index_feature_access(plan: Any, feature: str) -> bool:
+    """Canonical capability-to-plan mapping; unknown capabilities fail closed."""
+    if feature in (FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS, FEATURE_CARD_CHASE_EFFICIENCY):
+        return has_index_premium_access(plan)
+    return False
 
 
 def filter_set_market_signal_access(payload: Mapping[str, Any], plan: Any) -> dict[str, Any]:

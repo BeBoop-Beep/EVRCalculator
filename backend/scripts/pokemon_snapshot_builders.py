@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import subprocess
 import time
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -57,6 +58,38 @@ from backend.desirability.set_validation import (
 from backend.scripts.set_value_scope_invariants import validate_histories_by_scope
 
 logger = logging.getLogger(__name__)
+
+
+def publisher_build_identity() -> Dict[str, Any]:
+    """Describe the source that produced a snapshot without overclaiming.
+
+    A commit SHA identifies the executing source only when the worktree is
+    clean. For a dirty checkout, retain HEAD as diagnostic context but leave
+    ``publisherBuildSha`` null because uncommitted code may affect the payload.
+    """
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo_root,
+            capture_output=True, text=True, check=True, timeout=5,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "status", "--porcelain"], cwd=repo_root,
+                capture_output=True, text=True, check=True, timeout=5,
+            ).stdout.strip()
+        )
+        return {
+            "publisherBuildSha": None if dirty else head,
+            "publisherGitHeadSha": head or None,
+            "publisherWorktreeDirty": dirty,
+        }
+    except (OSError, subprocess.SubprocessError):
+        return {
+            "publisherBuildSha": None,
+            "publisherGitHeadSha": None,
+            "publisherWorktreeDirty": None,
+        }
 
 DEFAULT_DASHBOARD_WINDOW = "365d"
 DEFAULT_DASHBOARD_DAYS = 365
@@ -3224,6 +3257,7 @@ def build_market_dashboard_snapshot_rows(
     # the SAME canonical card constituents that reproduce Set Value. Prepared
     # here so the frontend consumes finished analytics, never raw constituents.
     cards_market_section = _build_cards_market_analytics_section(client, set_id)
+    build_identity = publisher_build_identity()
 
     dashboard_payload = {
         "set": top_payload.get("set")
@@ -3328,7 +3362,9 @@ def build_market_dashboard_snapshot_rows(
             "snapshot": {
                 "type": "pokemon_set_market_dashboard",
                 "builtAt": built_at,
+                "marketDate": latest_market_date,
                 "source": "pokemon_snapshot_builders",
+                **build_identity,
                 "movementContractVersion": MOVEMENT_CONTRACT_VERSION,
                 "windowConvention": WINDOW_CONVENTION,
                 "movementAsOfDate": latest_market_date,

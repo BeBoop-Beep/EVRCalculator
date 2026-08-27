@@ -107,6 +107,19 @@ def calculate_pokemon_rip_stats_streaming(
         del losing, chunk, vector
     size = population.size
     expected_retention = retention_sum / size
+    # A compact deterministic histogram from the exact normalized outcome
+    # population. Fixed 10%-of-cost buckets keep snapshots and differently
+    # priced sets directly comparable; the final bucket honestly carries the
+    # long tail rather than frontend-interpolating between percentile points.
+    histogram_edges = np.concatenate((np.arange(0.0, 2.01, 0.10), [np.inf]))
+    histogram_counts, _ = np.histogram(population, bins=histogram_edges)
+    normalized_return_bins = [
+        {"floor": float(histogram_edges[i]),
+         "ceiling": (None if not np.isfinite(histogram_edges[i + 1]) else float(histogram_edges[i + 1])),
+         "probability": int(count_value) / size,
+         "recoversCost": bool(histogram_edges[i] >= 1.0)}
+        for i, count_value in enumerate(histogram_counts)
+    ]
     (p05_retention, p25_retention, typical_retention,
      p75_retention, p95_retention, p99_retention) = _quantiles(population)
     mean_cost = float(np.mean(costs))
@@ -132,6 +145,7 @@ def calculate_pokemon_rip_stats_streaming(
         "p05Value": p05_value, "p25Value": p25_value, "p75Value": p75_value,
         "typicalRetention": typical_retention, "p95Retention": p95_retention, "p99Retention": p99_retention,
         "p05Retention": p05_retention, "p25Retention": p25_retention, "p75Retention": p75_retention,
+        "normalizedReturnBins": normalized_return_bins,
         "averageRetentionGivenLoss": loss_retention_sum / loss_count if loss_count else 1.0,
         "softLossShareGivenLoss": soft_count / loss_count if loss_count else 1.0,
         "hardLossProbability": hard_count / size, "onePackPerSet": {"setCount": len(ordered),

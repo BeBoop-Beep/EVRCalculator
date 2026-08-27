@@ -103,9 +103,13 @@ test("the carousel renders the published mover order, never a re-ranked one", as
   const titles = cardsIn(renderer).map((node) => node.props.title);
   assert.equal(titles.length, 10, "the full top ten is available to navigate");
   assert.deepEqual(titles.slice(0, 3), [
-    "Mover 0 — view market movers",
-    "Mover 1 — view market movers",
-    "Mover 2 — view market movers",
+    "Mover 0 — view card details",
+    "Mover 1 — view card details",
+    "Mover 2 — view card details",
+  ]);
+  assert.deepEqual(cardsIn(renderer).slice(0, 2).map((node) => node.props.href), [
+    "/TCGs/Pokemon/Sets/set-order/Cards/card-0",
+    "/TCGs/Pokemon/Sets/set-order/Cards/card-1",
   ]);
 });
 

@@ -380,17 +380,27 @@ def get_pokemon_card_detail_payload(
                 snapshot_built_at=datetime.now(timezone.utc).isoformat(),
             )
             card_chase = contract["cards"][0]
-            supported_products = {str(item.get("sealedProductId")): item for item in card_chase.get("products", [])}
+            supported_products = list(card_chase.get("products", []))
             try:
                 catalog_rows = _load_sealed_product_catalog(active, resolved_set_id)
             except Exception:
                 catalog_rows = []
+            catalog_by_id = {
+                str(item.get("sealedProductId")): item for item in catalog_rows
+            }
             all_products = []
-            for product in catalog_rows:
-                product_id = str(product.get("sealedProductId"))
-                supported = supported_products.pop(product_id, None)
-                all_products.append({**product, **(supported or {})})
-            all_products.extend(supported_products.values())
+            for supported in supported_products:
+                product_id = str(supported.get("sealedProductId"))
+                catalog = catalog_by_id.pop(product_id, {})
+                all_products.append({**catalog, **supported})
+            unsupported = sorted(
+                catalog_by_id.values(),
+                key=lambda item: (
+                    _text(item.get("productName")).casefold(),
+                    _text(item.get("sealedProductId")),
+                ),
+            )
+            all_products.extend(unsupported)
             chase = {
                 "available": True,
                 "reason": None,

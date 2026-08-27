@@ -8,12 +8,14 @@ free on the API or unreachable in the UI, and neither failure announces itself.
 import pytest
 
 from backend.domain.access.index_plan_access import (
+    FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     INDEX_PLAN_PLUS,
     INDEX_PLAN_PREMIUM,
     filter_set_market_signal_access,
     has_index_plus_access,
     has_index_premium_access,
+    has_index_feature_access,
     normalize_index_plan,
     resolve_market_explorer_plan_access,
 )
@@ -42,6 +44,13 @@ def test_plan_hierarchy(plan, plus, premium):
 def test_premium_satisfies_every_plus_check():
     assert has_index_plus_access(INDEX_PLAN_PREMIUM) is True
     assert has_index_premium_access(INDEX_PLAN_PLUS) is False
+
+
+def test_card_chase_efficiency_maps_only_to_index_premium():
+    assert FEATURE_CARD_CHASE_EFFICIENCY == "card_chase_efficiency"
+    assert has_index_feature_access(None, FEATURE_CARD_CHASE_EFFICIENCY) is False
+    assert has_index_feature_access("plus", FEATURE_CARD_CHASE_EFFICIENCY) is False
+    assert has_index_feature_access("premium", FEATURE_CARD_CHASE_EFFICIENCY) is True
 
 
 def test_unrecognised_plans_normalize_to_none_rather_than_to_a_tier():

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import InfoPopover from "@/components/ui/InfoPopover";
 import MarketOverviewWindowSelector from "./MarketOverviewWindowSelector";
 import MarketPerformanceChart from "./MarketPerformanceChart";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import styles from "./explore.module.css";
+import { ANALYTICAL_ACTION_CLASS, MARKET_EXPLORER_HREF } from "@/components/ui/analyticalInteraction.mjs";
 
 // Deliberately explicit: this chart is the PRICE-PERFORMANCE dimension only.
 // Tracked Value (which does move when sets join the universe) lives in the
@@ -58,9 +60,12 @@ export default function PokemonMarketPerformance({ overview, options = [], selec
   return (
     <section data-market-performance-pane className="flex min-w-0 flex-col" aria-labelledby="market-performance-heading">
       <div className={`${styles.divider} px-3 py-3 sm:px-4`}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 id="market-performance-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Pokémon Market Performance</h2>
           <span className="desk:hidden"><InfoPopover text={SUB_LABEL} /></span>
+          <Link href={MARKET_EXPLORER_HREF} data-market-explorer-cta className={`ml-auto desk:min-h-8 ${ANALYTICAL_ACTION_CLASS}`}>
+            Open Market Explorer <span aria-hidden="true">&rarr;</span>
+          </Link>
         </div>
         <p id="market-performance-description" className="mt-1 hidden text-xs text-[var(--text-secondary)] desk:block">{SUB_LABEL}</p>
         {/* Legend above, timeframes below. On this pane's ~58% the two do not

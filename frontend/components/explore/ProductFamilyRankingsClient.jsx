@@ -5,6 +5,8 @@ import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
 import OpeningEconomicsOverall from "./OpeningEconomicsOverall";
 import OpeningEconomicsEras from "./OpeningEconomicsEras";
+import EraRankings from "./EraRankings";
+import SetPackMetrics from "./SetPackMetrics";
 import DarkSelect from "@/components/ui/DarkSelect";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
@@ -516,6 +518,7 @@ export default function ProductFamilyRankingsClient({
   initialOverallProductRankings,
   loadError,
   openingEconomics = null,
+  eraSetStrength = null,
   onUnlockProductRip = null,
 }) {
   const { canViewRankingsIntelligence } = useRankingsAccess();
@@ -526,6 +529,8 @@ export default function ProductFamilyRankingsClient({
   // ExploreTableClient so the Eras lens can set it while navigating, and so
   // leaving the Sets lens does not silently strand an invisible filter.
   const [selectedEra, setSelectedEra] = useState(null);
+  const [eraLens, setEraLens] = useState("economics");
+  const [setLens, setSetLens] = useState("rankings");
   const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
     [sortDirection, setSortDirection] = useState(canViewProductRipIntelligence ? "desc" : "asc"),
@@ -627,12 +632,22 @@ export default function ProductFamilyRankingsClient({
           ))}
         </nav>
       ) : null}
+      {(view === "eras" || view === "sets") ? (
+        <SegmentedControl
+          className="mb-3 inline-block text-sm"
+          ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}
+          value={view === "eras" ? eraLens : setLens}
+          onChange={view === "eras" ? setEraLens : setSetLens}
+          options={[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }]}
+        />
+      ) : null}
       {view === "economics" ? (
-        <OpeningEconomicsOverall economics={openingEconomics} onSelectEras={() => selectView("eras")} />
+        <OpeningEconomicsOverall economics={openingEconomics} targets={targets} onSelectEras={() => selectView("eras")} />
       ) : view === "eras" ? (
-        <OpeningEconomicsEras
+        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
           economics={openingEconomics}
           onSelectEra={(era) => {
+            setSetLens("economics");
             selectView("sets");
             setSelectedEra(era?.eraName || null);
           }}
@@ -655,7 +670,7 @@ export default function ProductFamilyRankingsClient({
               </span>
             </div>
           ) : null}
-          <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />
+          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
         </>
       ) : view === "allProducts" ? (
         <OverallProductRankings

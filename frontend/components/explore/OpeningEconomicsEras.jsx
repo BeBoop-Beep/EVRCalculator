@@ -13,7 +13,7 @@ import {
 } from "./openingEconomicsSelector.mjs";
 
 /**
- * The Eras lens: the same loose-pack economics, partitioned by era.
+ * The Eras lens: all eligible sealed-product economics, partitioned by era.
  *
  * Sorting is PRESENTATION ONLY. No era carries a rank, tier or score, none is
  * persisted, and no row is ever marked as the winner — the metrics are left to
@@ -24,13 +24,14 @@ import {
 const COLUMNS = [
   { key: "eraName", label: "Era", sort: "eraName", align: "left" },
   { key: "setCount", label: "Sets", sort: null },
+  { key: "productSkuCount", label: "Products", sort: null },
   { key: "modeledReturn", label: "Modeled Return", sort: "modeledReturnOnSpend", emphasis: "primary" },
-  { key: "typicalOpening", label: "Typical Opening", sort: "typicalOpeningValue" },
+  { key: "typicalOpening", label: "Typical Opening / Pack", sort: "typicalOpeningValue" },
   { key: "typicalRetention", label: "Typical Retention", sort: "typicalRetention" },
-  { key: "entertainmentCost", label: "Entertainment Cost", sort: "expectedEntertainmentCost", secondary: "entertainmentCostShare" },
+  { key: "entertainmentCost", label: "Entertainment Cost / Pack", sort: "expectedEntertainmentCost", secondary: "entertainmentCostShare" },
   { key: "chanceToRecover", label: "Chance to Recover", sort: "chanceToBeatCost" },
-  { key: "meanPackCost", label: "Avg Pack Price", sort: "meanPackCost", emphasis: "quiet" },
-  { key: "expectedValue", label: "Model Break-Even", sort: "expectedValue", emphasis: "quiet" },
+  { key: "meanPackCost", label: "Avg Cost / Pack", sort: "meanPackCost", emphasis: "quiet" },
+  { key: "expectedValue", label: "Break-Even / Pack", sort: "expectedValue", emphasis: "quiet" },
 ];
 
 function Dash() {
@@ -84,7 +85,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
           Opening Economics by Era
         </h2>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Compare what opening one loose booster pack looks like across Pokémon eras.
+          Compare all eligible modeled sealed products normalized per pack across Pokémon eras.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
           <span>Equal set weighting within each era</span>

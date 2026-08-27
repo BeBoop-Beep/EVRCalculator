@@ -99,7 +99,7 @@ export function headlineMetrics(scope) {
     {
       key: "entertainmentCost",
       label: "Average Entertainment Cost",
-      value: money(scope.expectedEntertainmentCost),
+      value: money(scope.averageEntertainmentCostPerPack ?? scope.expectedEntertainmentCost),
       secondary: (() => {
         const share = ratioAsPercent(scope.entertainmentCostShare);
         return share === null ? null : `${share} of pack spend`;
@@ -111,9 +111,9 @@ export function headlineMetrics(scope) {
     {
       key: "typicalOpening",
       label: "Typical Opening",
-      value: money(scope.typicalOpening?.value),
+      value: money(scope.typicalOpeningPerPack ?? scope.typicalOpening?.value),
       secondary: (() => {
-        const retention = ratioAsPercent(scope.typicalOpening?.retention);
+        const retention = ratioAsPercent(scope.typicalRetention ?? scope.typicalOpening?.retention);
         return retention === null ? null : `${retention} typical retention`;
       })(),
       help: "The median modeled opening outcome. Half of modeled openings finish above this value and half below. Taken from the pooled distribution across participating sets — not an average of each set's median.",
@@ -122,20 +122,20 @@ export function headlineMetrics(scope) {
     {
       key: "chanceToRecover",
       label: "Chance to Recover Cost",
-      value: ratioAsPercent(scope.chanceToBeatCost),
+      value: ratioAsPercent(scope.chanceToRecoverCost ?? scope.chanceToBeatCost),
       help: "The modeled probability that an opening's card value reaches or exceeds its current purchase price.",
       primary: true,
     },
     {
       key: "averagePackPrice",
       label: "Average Pack Price",
-      value: money(scope.meanPackCost),
+      value: money(scope.averageCostPerPack ?? scope.meanPackCost),
       help: "The mean current market price of one loose booster pack across participating sets.",
     },
     {
       key: "modelBreakEven",
       label: "Average Model Break-Even",
-      value: money(scope.expectedValue),
+      value: money(scope.averageModelBreakEvenPerPack ?? scope.expectedValue),
       help: "The purchase price where modeled Expected Value would equal cost. This is the modeled long-run Expected Value, expressed as a break-even price — not a second calculation.",
     },
   ];
@@ -158,8 +158,12 @@ export const DEFAULT_ERA_SORT = { key: "modeledReturnOnSpend", direction: "desc"
 
 function eraSortValue(era, key) {
   if (key === "eraName") return String(era?.eraName || "");
-  if (key === "typicalOpeningValue") return finite(era?.typicalOpening?.value);
-  if (key === "typicalRetention") return finite(era?.typicalOpening?.retention);
+  if (key === "typicalOpeningValue") return finite(era?.typicalOpeningPerPack ?? era?.typicalOpening?.value);
+  if (key === "typicalRetention") return finite(era?.typicalRetention ?? era?.typicalOpening?.retention);
+  if (key === "expectedEntertainmentCost") return finite(era?.averageEntertainmentCostPerPack ?? era?.expectedEntertainmentCost);
+  if (key === "chanceToBeatCost") return finite(era?.chanceToRecoverCost ?? era?.chanceToBeatCost);
+  if (key === "meanPackCost") return finite(era?.averageCostPerPack ?? era?.meanPackCost);
+  if (key === "expectedValue") return finite(era?.averageModelBreakEvenPerPack ?? era?.expectedValue);
   return finite(era?.[key]);
 }
 
@@ -193,14 +197,15 @@ export function projectEraRow(era) {
   return {
     eraName: String(era?.eraName || ""),
     setCount: finite(era?.setCount),
-    meanPackCost: money(era?.meanPackCost),
-    expectedValue: money(era?.expectedValue),
-    typicalOpening: money(era?.typicalOpening?.value),
-    typicalRetention: ratioAsPercent(era?.typicalOpening?.retention),
+    ...(finite(era?.productSkuCount) === null ? {} : { productSkuCount: finite(era?.productSkuCount) }),
+    meanPackCost: money(era?.averageCostPerPack ?? era?.meanPackCost),
+    expectedValue: money(era?.averageModelBreakEvenPerPack ?? era?.expectedValue),
+    typicalOpening: money(era?.typicalOpeningPerPack ?? era?.typicalOpening?.value),
+    typicalRetention: ratioAsPercent(era?.typicalRetention ?? era?.typicalOpening?.retention),
     modeledReturn: ratioAsPercent(era?.modeledReturnOnSpend),
-    entertainmentCost: money(era?.expectedEntertainmentCost),
+    entertainmentCost: money(era?.averageEntertainmentCostPerPack ?? era?.expectedEntertainmentCost),
     entertainmentCostShare: ratioAsPercent(era?.entertainmentCostShare),
-    chanceToRecover: ratioAsPercent(era?.chanceToBeatCost),
+    chanceToRecover: ratioAsPercent(era?.chanceToRecoverCost ?? era?.chanceToBeatCost),
   };
 }
 

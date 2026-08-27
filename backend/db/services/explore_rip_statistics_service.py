@@ -2014,6 +2014,12 @@ def get_rip_statistics_targets_payload(
                 "pack_cost": row.get("pack_cost"),
                 "mean_value": row.get("mean_value"),
                 "median_value": row.get("median_value"),
+                "median_value_to_cost_ratio": (
+                    float(row.get("median_value")) / float(row.get("pack_cost"))
+                    if _to_optional_float(row.get("median_value")) is not None
+                    and _to_optional_float(row.get("pack_cost")) is not None
+                    and float(row.get("pack_cost")) > 0 else None
+                ),
                 # AVERAGE LOSS WHEN LOSING — E[pack_cost - value | value < cost],
                 # in dollars.
                 #

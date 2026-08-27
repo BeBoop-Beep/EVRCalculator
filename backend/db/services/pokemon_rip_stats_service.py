@@ -12,9 +12,16 @@ from backend.db.services.pack_outcome_artifact_service import (
 from backend.db.services.pokemon_market_index_service import resolve_eligible_sets
 from backend.db.services.publication_gate import MODE_REQUIRED, evaluate_publication_gate
 from backend.domain.pokemon.rip_stats import (
-    POKEMON_RIP_STATS_CONTRACT_VERSION, POKEMON_RIP_STATS_METHODOLOGY_VERSION,
-    POKEMON_RIP_STATS_WEIGHTING_VERSION, calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
+    POKEMON_RIP_STATS_METHODOLOGY_VERSION as LEGACY_METHODOLOGY_VERSION,
+    POKEMON_RIP_STATS_WEIGHTING_VERSION as LEGACY_WEIGHTING_VERSION,
+    calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
 )
+from backend.domain.pokemon.opening_economics_v3 import (
+    CONTRACT_VERSION as POKEMON_RIP_STATS_CONTRACT_VERSION,
+    METHODOLOGY_VERSION as POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+    WEIGHTING_VERSION as POKEMON_RIP_STATS_WEIGHTING_VERSION,
+)
+from backend.db.services.opening_economics_v3_service import build_opening_economics_v3
 
 HISTORY_TABLE = "pokemon_rip_stats_snapshots"
 LATEST_TABLE = "pokemon_rip_stats_snapshot_latest"
@@ -81,6 +88,7 @@ def _scope_metrics_block(metrics: Mapping[str, Any]) -> dict[str, Any]:
         "expectedEntertainmentCost": metrics["expectedEntertainmentCost"],
         "rawDistribution": _distribution_block(metrics, "Value"),
         "normalizedReturnDistribution": _distribution_block(metrics, "Retention"),
+        "normalizedReturnBins": metrics.get("normalizedReturnBins"),
         "onePackPerSet": metrics["onePackPerSet"],
     }
 
@@ -99,7 +107,7 @@ def _build_payload(metrics: Mapping[str, Any], *, market_date: str, cohort_finge
         "entertainmentCost": {"expectedCost": metrics["expectedEntertainmentCost"], "expectedCostRatio": metrics["expectedEntertainmentCostRatio"],
             "recoveryModel": "gross_market_value", "accessoryValueIncluded": False, "contractVersion": "entertainment-cost-v1"},
         "onePackPerSet": metrics["onePackPerSet"],
-        "methodology": {"version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weightingVersion": POKEMON_RIP_STATS_WEIGHTING_VERSION,
+        "methodology": {"version": LEGACY_METHODOLOGY_VERSION, "weightingVersion": LEGACY_WEIGHTING_VERSION,
             "quantilesBuiltFromExactOutcomes": True, "score": False},
         # The read contract for the Overall and Eras lenses. Additive: every
         # legacy block above keeps its original fields and meanings, because
@@ -202,13 +210,18 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
         )
 
     payload = _build_payload(metrics, market_date=day, cohort_fingerprint=cohort_fp, source_fingerprint=source_fp, eras=eras)
+    opening_economics_v3, v3_diagnostics = build_opening_economics_v3(
+        client, market_date=day, statuses=statuses,
+    )
+    payload["openingEconomics"] = opening_economics_v3
     now = datetime.now(timezone.utc).isoformat()
     private = {"market_date": day, "built_at": now, "contract_version": POKEMON_RIP_STATS_CONTRACT_VERSION,
         "methodology_version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weighting_version": POKEMON_RIP_STATS_WEIGHTING_VERSION,
         "eligible_cohort_count": len(statuses), "exact_outcome_set_count": len(constituents),
         "total_source_outcome_count": metrics["totalSourceOutcomeCount"], "cohort_fingerprint": cohort_fp,
         "source_run_fingerprint": source_fp, "payload_json": payload,
-        "diagnostics_json": {"artifactRawBytes": sum(int(load.get("artifact_outcome_count")) * 8 for load in constituents)}}
+        "diagnostics_json": {"artifactRawBytes": sum(int(load.get("artifact_outcome_count")) * 8 for load in constituents),
+                             "openingEconomicsV3": v3_diagnostics}}
     return {"snapshot": private, "constituents": constituents, "payload": payload, "metrics": metrics,
             "payloadSizeBytes": len(json.dumps(payload, separators=(",", ":")).encode())}
 
@@ -265,7 +278,7 @@ def read_pokemon_rip_stats_history(client: Any) -> list[dict[str, Any]]:
 #: so a reader never branches on shape - only on `status`.
 def _unavailable_opening_economics(reason: str, *, market_date: str | None = None) -> dict[str, Any]:
     return {"status": "unavailable", "reason": reason, "marketDate": market_date,
-            "methodologyVersion": POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+            "methodologyVersion": LEGACY_METHODOLOGY_VERSION,
             "weightingMode": "equal_set_weight", "productFamily": "loose_booster_pack",
             "global": None, "eras": []}
 

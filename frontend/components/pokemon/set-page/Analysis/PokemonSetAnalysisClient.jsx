@@ -13,6 +13,7 @@ import RankBadge from "@/components/ui/RankBadge";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { getPokemonSetInsightsCritical } from "@/lib/pokemon/pokemonSetInsightsCriticalClient";
 import { getPokemonSetInsightsSecondary } from "@/lib/pokemon/pokemonSetInsightsSecondaryClient";
+import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
 
 const SECTIONS = [["overview","Overview","gauge"],["simulation","Simulation","analysis"],["financial-rip","Financial RIP","shield"],["collector-appeal","Collector Appeal","star"],["market-context","Market Context","trend"]];
 function number(value) { const parsed=Number(value); return value===null||value===undefined||value===""||!Number.isFinite(parsed)?null:parsed; }
@@ -32,11 +33,11 @@ function MetricGrid({rows}) { const visible=rows.filter((row)=>row.value!=="—"
 
 export default function PokemonSetAnalysisClient({selectedTarget,targets=[]}) {
   const router=useRouter(); const searchParams=useSearchParams(); const requestedSection=String(searchParams.get("section")||"overview").toLowerCase(); const activeSection=SECTIONS.some(([value])=>value===requestedSection)?requestedSection:"overview";
-  const [critical,setCritical]=useState(null); const [secondary,setSecondary]=useState(null); const [error,setError]=useState(null); const setId=selectedTarget?.target_id; const setSlug=selectedTarget?.slug||selectedTarget?.canonical_key; const setName=selectedTarget?.name||"this set"; const setHref=`/TCGs/Pokemon/Sets/${encodeURIComponent(setSlug)}`;
+  const [critical,setCritical]=useState(null); const [secondary,setSecondary]=useState(null); const [error,setError]=useState(null); const setId=selectedTarget?.target_id; const setName=selectedTarget?.name||"this set"; const setHref=buildTcgSetHrefFromTarget(selectedTarget);
   useEffect(()=>{let current=true;setCritical(null);setSecondary(null);setError(null);Promise.all([getPokemonSetInsightsCritical(setId),getPokemonSetInsightsSecondary(setId)]).then(([nextCritical,nextSecondary])=>{if(current){setCritical(nextCritical);setSecondary(nextSecondary);}}).catch((reason)=>{if(current)setError(reason?.message||"Analysis is unavailable.");});return()=>{current=false;};},[setId]);
   const canonical=useMemo(()=>resolveCanonicalRipV7(critical),[critical]); const summary=critical?.summary||secondary?.ripStatistics?.summary||secondary?.ripStatistics||{}; const percentiles=secondary?.outcomeDistribution?.percentiles||[]; const distributionBins=secondary?.outcomeDistribution?.distributionBins||[]; const thresholdBins=secondary?.outcomeDistribution?.thresholdBins||[]; const sectionHref=(section)=>`?section=${section}`;
   const p25=percentile(percentiles,25),p50=percentile(percentiles,50)??number(summary.median_value),p75=percentile(percentiles,75),p95=percentile(percentiles,95),p99=percentile(percentiles,99);
-  const switchSet=(event)=>{const target=targets.find((row)=>String(row.target_id)===event.target.value);const slug=target?.slug||target?.canonical_key;if(slug)router.push(`/TCGs/Pokemon/Sets/${encodeURIComponent(slug)}/analysis?section=${activeSection}`);};
+  const switchSet=(event)=>{const target=targets.find((row)=>String(row.target_id)===event.target.value);const href=target?buildTcgSetHrefFromTarget(target):null;if(href)router.push(`${href}/analysis?section=${activeSection}`);};
   const metricRows=(rows)=>rows.map(([label,value,helper])=>({label,value,helper}));
 
   return <main data-analysis-page className="w-full max-w-full pb-[calc(5.25rem+env(safe-area-inset-bottom)+0.875rem)] pt-0 desk:pb-8 desk:pt-8"><div className="mx-auto w-full max-w-[960px] desk:max-w-[1440px] desk:px-4 2xl:px-5"><div className="set-detail-glass-scope mx-auto flex w-full max-w-[1400px] min-w-0 flex-col px-4 pt-3 sm:px-5 desk:px-0 desk:pt-0">

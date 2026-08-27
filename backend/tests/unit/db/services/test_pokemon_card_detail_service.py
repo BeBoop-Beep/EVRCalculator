@@ -181,6 +181,26 @@ def test_product_economics_are_the_existing_chase_output(monkeypatch):
     assert payload["chase"]["recoveryModel"] == "gross_market_value"
 
 
+def test_supported_products_keep_model_order_before_sorted_catalog_only_products(monkeypatch):
+    supported = [
+        {"sealed_product_id": "bundle", "product_name": "Bundle", "product_family": "booster_bundle",
+         "product_market_cost": 30, "pack_count": 6, "expected_value": 20},
+        {"sealed_product_id": "etb", "product_name": "ETB", "product_family": "elite_trainer_box",
+         "product_market_cost": 55, "pack_count": 9, "expected_value": 30},
+    ]
+    monkeypatch.setattr(service, "_load_current_run_product_rows", lambda **_kwargs: supported)
+    monkeypatch.setattr(service, "_load_sealed_product_catalog", lambda *_args: [
+        {"sealedProductId": "z", "productName": "Zulu Blister", "available": False, "currentPrice": 19.99},
+        {"sealedProductId": "etb", "productName": "Example ETB", "available": False, "currentPrice": 54.99},
+        {"sealedProductId": "a", "productName": "Alpha Blister", "available": False, "currentPrice": 12.99},
+        {"sealedProductId": "bundle", "productName": "Example Bundle", "available": False, "currentPrice": 29.99},
+    ])
+    products = build(fixture())["chase"]["products"]
+    assert [item["sealedProductId"] for item in products] == ["bundle", "etb", "a", "z"]
+    assert all(item["available"] for item in products[:2])
+    assert all(not item["available"] for item in products[2:])
+
+
 def test_market_history_is_variant_condition_scoped_sorted_and_deduplicated():
     client = fixture()
     client.tables["card_variant_price_observations"] = [
@@ -206,3 +226,39 @@ def test_long_requested_window_truthfully_reports_partial_coverage():
     assert movement["fullCoverage"] is False
     assert movement["effectiveWindow"] == "lifetime"
     assert movement["deltaAmount"] == 5
+
+
+def test_catalog_products_preserve_identity_media_latest_price_and_page_id():
+    client = fixture()
+    client.tables["sealed_products"] = [
+        {"id": "p1", "set_id": "set-1", "name": "Example Set Booster Bundle", "product_type": "Sealed Products", "image_small_url": "small.jpg", "image_large_url": "large.jpg"},
+        {"id": "p1", "set_id": "set-1", "name": "Duplicate", "product_type": "Sealed Products"},
+    ]
+    client.tables["sealed_product_price_observations"] = [
+        {"sealed_product_id": "p1", "market_price": 80, "captured_at": "2026-08-20", "source": "TCGPlayer"},
+        {"sealed_product_id": "p1", "market_price": 86.23, "captured_at": "2026-08-26", "source": "TCGPlayer"},
+    ]
+    products = service._load_sealed_product_catalog(client, "set-1")
+    assert len(products) == 1
+    assert products[0] == {
+        "sealedProductId": "p1", "productName": "Example Set Booster Bundle", "catalogProductType": "Sealed Products",
+        "productFamily": "booster_bundle", "productFamilyLabel": "Booster Bundle", "imageUrl": "small.jpg",
+        "imageSmallUrl": "small.jpg", "imageLargeUrl": "large.jpg", "productPageId": "p1", "currentPrice": 86.23,
+        "priceAsOf": "2026-08-26", "priceSource": "TCGPlayer", "available": False,
+        "reason": "chase_economics_not_supported",
+    }
+
+
+def test_set_contract_separates_internal_target_id_from_canonical_route_slug():
+    payload = build(fixture())
+    assert payload["set"]["targetId"] == "example-set"
+    assert payload["set"]["slug"] == "example-set"
+
+
+def test_camel_case_internal_set_key_never_becomes_route_slug(monkeypatch):
+    monkeypatch.setattr(service, "resolve_pokemon_set_identifier", lambda _value, client=None: {
+        "id": "set-1", "name": "Ascended Heroes", "canonical_key": "ascendedHeroes"
+    })
+    payload = build(fixture())
+    assert payload["set"]["targetId"] == "ascendedHeroes"
+    assert payload["set"]["slug"] == "ascended-heroes"

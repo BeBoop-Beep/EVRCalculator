@@ -1,0 +1,822 @@
+﻿{
+  "market_date": "2026-08-27",
+  "built_at": "2026-08-27T21:53:48.976175+00:00",
+  "publication_status": "candidate",
+  "contract_version": "pokemon-chase-efficiency-v1",
+  "calculation_methodology_version": "value-times-hit-hazard-over-best-pack-cost-v1",
+  "pricing_basis_version": "best-verified-pack-equivalent-cost-v1",
+  "eligible_cohort_count": 4862,
+  "excluded_cohort_count": 17,
+  "supported_set_count": 22,
+  "cohort_fingerprint": "e1dd522fd9600ab0d2a987ede7b8730bb6993eb9954ef19eb05a507d681c4add",
+  "source_run_fingerprint": "cde8c58d5a944acee6142abad57228637921c3ae47ddb5d17394ac2ca8965def",
+  "diagnostics_json": {
+    "excludedCountByReason": {
+      "stale_near_mint_price": 9,
+      "unmapped_canonical_card_identity": 8
+    },
+    "excludedRows": [
+      {
+        "card_variant_id": "3faa7cde-076c-4f5b-bcfd-e32a5f8471f0",
+        "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+        "source_calculation_run_id": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "41019a19-26d6-414f-9cbd-aa49d6b0dd12",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "e76dc943-4a7d-4f94-a161-59e5314562ff",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "cab3f6e5-0b1f-4aba-a75d-994737822072",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "36351c03-e7f4-4e1c-a5a0-19f906c79247",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "192e1566-593b-4aef-95ff-095b7c1f1a3e",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "1ff2940c-49f3-47ca-9840-cbc1628d85da",
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "source_calculation_run_id": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "eab1b79a-d695-4d95-9f76-913901f1e9d9",
+        "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+        "source_calculation_run_id": "597e7856-6844-4d3a-a481-461248c3ed53",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "3e4b6fa4-fadc-41e2-891a-357cf48baa05",
+        "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "source_calculation_run_id": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "55e0ddb3-12dc-4677-9738-1ba1f7fc3c52",
+        "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "source_calculation_run_id": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "576819d8-6f15-4ed1-bccb-caf54407af0d",
+        "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "source_calculation_run_id": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "9e6695ee-050f-4108-9fbb-0b84a04ee06c",
+        "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "source_calculation_run_id": "355f1d39-e252-48ef-bd49-67b564f101e2",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "50f4636b-0dc4-441f-879c-22bbd94a03c6",
+        "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "source_calculation_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "24cecfd8-5f3a-4afb-93fc-2725f3023204",
+        "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "source_calculation_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "79f4ea6f-9124-404a-b060-5eda7ab002c2",
+        "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "source_calculation_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "f8a0aaca-c541-4530-99c6-1c26b0ec3ad4",
+        "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "source_calculation_run_id": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+        "reason": "unmapped_canonical_card_identity",
+        "diagnostics": {}
+      },
+      {
+        "card_variant_id": "093ee018-82d0-4aa8-ae85-715b7070caba",
+        "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "source_calculation_run_id": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+        "reason": "stale_near_mint_price",
+        "diagnostics": {}
+      }
+    ],
+    "authoritativeRunIds": {
+      "0f7e51e2-5a78-4500-9c9c-f690e934a069": "e26bfac0-e608-4c85-9857-1f912f3ab383",
+      "142d3869-9d39-48b6-a810-751af2aac748": "597e7856-6844-4d3a-a481-461248c3ed53",
+      "202518a0-5e86-4949-b1cd-c1c8ad95b616": "d5bf5544-fcc4-4435-8b46-8844b9d2daa9",
+      "3b753fb6-a465-4e68-8ad9-4e34e114d4b7": "871692b4-a521-441e-b334-e8efc77d8760",
+      "3c459327-59d0-41d5-b21e-aae36361cc77": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+      "41a0ac1c-27ca-444b-8665-8ba35e583a3b": "e88c8392-ebc8-4db1-83f7-e299202d26f6",
+      "472f851c-2e41-4c80-b6fc-8478d1d92730": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+      "4b15f040-4351-41ea-90e1-c07eb1b2f4d6": "587f51ce-5389-4643-b931-a73f8c141858",
+      "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+      "5d3d5c23-7098-4393-ad63-6ad9372aee30": "f45a2692-999e-4c70-9aff-be4adcb992c9",
+      "5e99f658-39f0-4845-9228-db8db3965f32": "9fd50ae1-df15-4a6a-9f16-b759e23daad4",
+      "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": "564493ab-a870-4ee0-a7b0-22dc053624c2",
+      "7a3dd188-4375-41af-94de-c5247fe0b1a6": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+      "91442900-3949-4ba4-8398-9e3dc2db1fa6": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+      "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": "a7045029-2d8c-4daa-930f-6e4d4f911087",
+      "b4b34b61-ce48-4fc4-bd91-201a350b2600": "f3f779a2-e9e2-46a7-bda6-59b3b259c395",
+      "c38df164-ea0d-4e9e-bae6-4c3a517beb8f": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+      "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b": "48907836-a7b6-45f7-ae32-962f3289877f",
+      "d001d563-988b-4f8e-904f-acb926748e22": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+      "de291399-ead5-41dc-bc12-e7c587684f85": "de161271-7398-44a1-a24d-0c17d6f5ba85",
+      "f59f25a2-d3da-4100-a918-901271a99925": "e159f4b4-e16d-49ce-887d-71fab757b470",
+      "fd1538dd-36b9-4d02-98dc-fd65a5230d27": "355f1d39-e252-48ef-bd49-67b564f101e2"
+    }
+  },
+  "audit": "PASS",
+  "auditFailures": [],
+  "top25": [
+    {
+      "overall_rank": 1,
+      "overall_cohort_size": 4862,
+      "card_name": "Mega Charizard X ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.159925239606,
+      "probability": 0.0025,
+      "current_market_price": 700.2,
+      "best_verified_pack_equivalent_cost": 10.959444444444,
+      "era_rank": 1,
+      "era_cohort_size": 972,
+      "set_rank": 1,
+      "set_cohort_size": 130,
+      "rarity_rank": 1,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 2,
+      "overall_cohort_size": 4862,
+      "card_name": "Mew ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.089622969646,
+      "probability": 0.002150537634408602,
+      "current_market_price": 964.98,
+      "best_verified_pack_equivalent_cost": 23.18,
+      "era_rank": 1,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 244,
+      "rarity_rank": 2,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 3,
+      "overall_cohort_size": 4862,
+      "card_name": "Mega Darkrai ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.086426940504,
+      "probability": 0.0020833333333333333,
+      "current_market_price": 214.15,
+      "best_verified_pack_equivalent_cost": 5.1675,
+      "era_rank": 2,
+      "era_cohort_size": 972,
+      "set_rank": 1,
+      "set_cohort_size": 120,
+      "rarity_rank": 3,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 4,
+      "overall_cohort_size": 4862,
+      "card_name": "Squirtle",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.077710253467,
+      "probability": 0.005988023952095809,
+      "current_market_price": 112.84,
+      "best_verified_pack_equivalent_cost": 8.721111111111,
+      "era_rank": 2,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 175,
+      "rarity_rank": 1,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 5,
+      "overall_cohort_size": 4862,
+      "card_name": "Mega Greninja ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.072626481226,
+      "probability": 0.0020161290322580645,
+      "current_market_price": 185.35,
+      "best_verified_pack_equivalent_cost": 5.150555555556,
+      "era_rank": 3,
+      "era_cohort_size": 972,
+      "set_rank": 1,
+      "set_cohort_size": 121,
+      "rarity_rank": 4,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 6,
+      "overall_cohort_size": 4862,
+      "card_name": "Bulbasaur",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.070692640184,
+      "probability": 0.005988023952095809,
+      "current_market_price": 102.65,
+      "best_verified_pack_equivalent_cost": 8.721111111111,
+      "era_rank": 3,
+      "era_cohort_size": 3890,
+      "set_rank": 2,
+      "set_cohort_size": 175,
+      "rarity_rank": 2,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 7,
+      "overall_cohort_size": 4862,
+      "card_name": "Umbreon ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.068528206738,
+      "probability": 0.0006944444444444445,
+      "current_market_price": 1472.79,
+      "best_verified_pack_equivalent_cost": 14.93,
+      "era_rank": 4,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 347,
+      "rarity_rank": 5,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 8,
+      "overall_cohort_size": 4862,
+      "card_name": "Magikarp",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.062124940085,
+      "probability": 0.0021141649048625794,
+      "current_market_price": 382.54,
+      "best_verified_pack_equivalent_cost": 13.031944444444,
+      "era_rank": 5,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 279,
+      "rarity_rank": 3,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 9,
+      "overall_cohort_size": 4862,
+      "card_name": "Charizard ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.056481282453,
+      "probability": 0.0044444444444444444,
+      "current_market_price": 376.47,
+      "best_verified_pack_equivalent_cost": 29.69,
+      "era_rank": 6,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 207,
+      "rarity_rank": 6,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 10,
+      "overall_cohort_size": 4862,
+      "card_name": "Charizard ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.056078820934,
+      "probability": 0.005208333333333333,
+      "current_market_price": 109.1,
+      "best_verified_pack_equivalent_cost": 10.159166666667,
+      "era_rank": 7,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 230,
+      "rarity_rank": 7,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 11,
+      "overall_cohort_size": 4862,
+      "card_name": "Meowth ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.054100661775,
+      "probability": 0.002053388090349076,
+      "current_market_price": 125.4,
+      "best_verified_pack_equivalent_cost": 4.764444444444,
+      "era_rank": 4,
+      "era_cohort_size": 972,
+      "set_rank": 1,
+      "set_cohort_size": 124,
+      "rarity_rank": 8,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 12,
+      "overall_cohort_size": 4862,
+      "card_name": "Team Rocket's Mewtwo ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.052663712007,
+      "probability": 0.000968054211035818,
+      "current_market_price": 488.29,
+      "best_verified_pack_equivalent_cost": 8.98,
+      "era_rank": 8,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 244,
+      "rarity_rank": 9,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 13,
+      "overall_cohort_size": 4862,
+      "card_name": "Pikachu ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.049791463537,
+      "probability": 0.0006523157208088715,
+      "current_market_price": 1056.83,
+      "best_verified_pack_equivalent_cost": 13.85,
+      "era_rank": 5,
+      "era_cohort_size": 972,
+      "set_rank": 1,
+      "set_cohort_size": 289,
+      "rarity_rank": 10,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 14,
+      "overall_cohort_size": 4862,
+      "card_name": "Mega Gengar ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.047200194842,
+      "probability": 0.0006523157208088715,
+      "current_market_price": 1001.83,
+      "best_verified_pack_equivalent_cost": 13.85,
+      "era_rank": 6,
+      "era_cohort_size": 972,
+      "set_rank": 2,
+      "set_cohort_size": 289,
+      "rarity_rank": 11,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 15,
+      "overall_cohort_size": 4862,
+      "card_name": "Persian",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.046552653969,
+      "probability": 0.005555555555555556,
+      "current_market_price": 74.37,
+      "best_verified_pack_equivalent_cost": 8.9,
+      "era_rank": 9,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 107,
+      "rarity_rank": 4,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 16,
+      "overall_cohort_size": 4862,
+      "card_name": "Greninja ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.045346096776,
+      "probability": 0.0010626992561105207,
+      "current_market_price": 373.17,
+      "best_verified_pack_equivalent_cost": 8.75,
+      "era_rank": 10,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 226,
+      "rarity_rank": 12,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 17,
+      "overall_cohort_size": 4862,
+      "card_name": "Clefairy",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.041612018052,
+      "probability": 0.01020408163265306,
+      "current_market_price": 19.33,
+      "best_verified_pack_equivalent_cost": 4.764444444444,
+      "era_rank": 7,
+      "era_cohort_size": 972,
+      "set_rank": 2,
+      "set_cohort_size": 124,
+      "rarity_rank": 5,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 18,
+      "overall_cohort_size": 4862,
+      "card_name": "Eevee",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.039846401269,
+      "probability": 0.003676470588235294,
+      "current_market_price": 94.66,
+      "best_verified_pack_equivalent_cost": 8.75,
+      "era_rank": 11,
+      "era_cohort_size": 3890,
+      "set_rank": 2,
+      "set_cohort_size": 226,
+      "rarity_rank": 6,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 19,
+      "overall_cohort_size": 4862,
+      "card_name": "Gastly",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.039307104554,
+      "probability": 0.0035087719298245615,
+      "current_market_price": 95.98,
+      "best_verified_pack_equivalent_cost": 8.582777777778,
+      "era_rank": 12,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 218,
+      "rarity_rank": 7,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 20,
+      "overall_cohort_size": 4862,
+      "card_name": "Pikachu ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.039078152439,
+      "probability": 0.0010416666666666667,
+      "current_market_price": 290.59,
+      "best_verified_pack_equivalent_cost": 7.75,
+      "era_rank": 13,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 252,
+      "rarity_rank": 13,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 21,
+      "overall_cohort_size": 4862,
+      "card_name": "Morpeko ex",
+      "canonical_rarity": "Special Illustration Rare",
+      "chase_efficiency": 0.036814688362,
+      "probability": 0.0020833333333333333,
+      "current_market_price": 91.22,
+      "best_verified_pack_equivalent_cost": 5.1675,
+      "era_rank": 8,
+      "era_cohort_size": 972,
+      "set_rank": 2,
+      "set_cohort_size": 120,
+      "rarity_rank": 14,
+      "rarity_cohort_size": 222
+    },
+    {
+      "overall_rank": 22,
+      "overall_cohort_size": 4862,
+      "card_name": "Houndoom",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.036512253678,
+      "probability": 0.005555555555555556,
+      "current_market_price": 58.33,
+      "best_verified_pack_equivalent_cost": 8.9,
+      "era_rank": 14,
+      "era_cohort_size": 3890,
+      "set_rank": 2,
+      "set_cohort_size": 107,
+      "rarity_rank": 8,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 23,
+      "overall_cohort_size": 4862,
+      "card_name": "Groudon",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.036035679507,
+      "probability": 0.0022624434389140274,
+      "current_market_price": 120.26,
+      "best_verified_pack_equivalent_cost": 7.558888888889,
+      "era_rank": 15,
+      "era_cohort_size": 3890,
+      "set_rank": 1,
+      "set_cohort_size": 266,
+      "rarity_rank": 9,
+      "rarity_cohort_size": 492
+    },
+    {
+      "overall_rank": 24,
+      "overall_cohort_size": 4862,
+      "card_name": "Mega Greninja ex",
+      "canonical_rarity": "Mega Hyper Rare",
+      "chase_efficiency": 0.034512849966,
+      "probability": 0.0010460251046025104,
+      "current_market_price": 169.85,
+      "best_verified_pack_equivalent_cost": 5.150555555556,
+      "era_rank": 9,
+      "era_cohort_size": 972,
+      "set_rank": 2,
+      "set_cohort_size": 121,
+      "rarity_rank": 1,
+      "rarity_cohort_size": 8
+    },
+    {
+      "overall_rank": 25,
+      "overall_cohort_size": 4862,
+      "card_name": "Duskull",
+      "canonical_rarity": "Illustration Rare",
+      "chase_efficiency": 0.034039711212,
+      "probability": 0.005555555555555556,
+      "current_market_price": 54.38,
+      "best_verified_pack_equivalent_cost": 8.9,
+      "era_rank": 16,
+      "era_cohort_size": 3890,
+      "set_rank": 3,
+      "set_cohort_size": 107,
+      "rarity_rank": 10,
+      "rarity_cohort_size": 492
+    }
+  ],
+  "topSIRs": [
+    {
+      "rank": 1,
+      "name": "Mega Charizard X ex",
+      "chaseEfficiency": 0.159925239606
+    },
+    {
+      "rank": 2,
+      "name": "Mew ex",
+      "chaseEfficiency": 0.089622969646
+    },
+    {
+      "rank": 3,
+      "name": "Mega Darkrai ex",
+      "chaseEfficiency": 0.086426940504
+    },
+    {
+      "rank": 4,
+      "name": "Mega Greninja ex",
+      "chaseEfficiency": 0.072626481226
+    },
+    {
+      "rank": 5,
+      "name": "Umbreon ex",
+      "chaseEfficiency": 0.068528206738
+    },
+    {
+      "rank": 6,
+      "name": "Charizard ex",
+      "chaseEfficiency": 0.056481282453
+    },
+    {
+      "rank": 7,
+      "name": "Charizard ex",
+      "chaseEfficiency": 0.056078820934
+    },
+    {
+      "rank": 8,
+      "name": "Meowth ex",
+      "chaseEfficiency": 0.054100661775
+    },
+    {
+      "rank": 9,
+      "name": "Team Rocket's Mewtwo ex",
+      "chaseEfficiency": 0.052663712007
+    },
+    {
+      "rank": 10,
+      "name": "Pikachu ex",
+      "chaseEfficiency": 0.049791463537
+    },
+    {
+      "rank": 11,
+      "name": "Mega Gengar ex",
+      "chaseEfficiency": 0.047200194842
+    },
+    {
+      "rank": 12,
+      "name": "Greninja ex",
+      "chaseEfficiency": 0.045346096776
+    },
+    {
+      "rank": 13,
+      "name": "Pikachu ex",
+      "chaseEfficiency": 0.039078152439
+    },
+    {
+      "rank": 14,
+      "name": "Morpeko ex",
+      "chaseEfficiency": 0.036814688362
+    },
+    {
+      "rank": 15,
+      "name": "Mega Dragonite ex",
+      "chaseEfficiency": 0.031409474557
+    },
+    {
+      "rank": 16,
+      "name": "Lillie's Clefairy ex",
+      "chaseEfficiency": 0.030989014118
+    },
+    {
+      "rank": 17,
+      "name": "Gardevoir ex",
+      "chaseEfficiency": 0.027843197586
+    },
+    {
+      "rank": 18,
+      "name": "Charizard ex",
+      "chaseEfficiency": 0.026176022057
+    },
+    {
+      "rank": 19,
+      "name": "Cynthia's Garchomp ex",
+      "chaseEfficiency": 0.025583893025
+    },
+    {
+      "rank": 20,
+      "name": "Sylveon ex",
+      "chaseEfficiency": 0.025248776882
+    },
+    {
+      "rank": 21,
+      "name": "Mega Zygarde ex",
+      "chaseEfficiency": 0.024858693233
+    },
+    {
+      "rank": 22,
+      "name": "Mega Lucario ex",
+      "chaseEfficiency": 0.024729612336
+    },
+    {
+      "rank": 23,
+      "name": "Latias ex",
+      "chaseEfficiency": 0.024499321419
+    },
+    {
+      "rank": 24,
+      "name": "Mega Gardevoir ex",
+      "chaseEfficiency": 0.023927013258
+    },
+    {
+      "rank": 25,
+      "name": "Mega Zeraora ex",
+      "chaseEfficiency": 0.023904121812
+    }
+  ],
+  "topIRs": [
+    {
+      "rank": 1,
+      "name": "Squirtle",
+      "chaseEfficiency": 0.077710253467
+    },
+    {
+      "rank": 2,
+      "name": "Bulbasaur",
+      "chaseEfficiency": 0.070692640184
+    },
+    {
+      "rank": 3,
+      "name": "Magikarp",
+      "chaseEfficiency": 0.062124940085
+    },
+    {
+      "rank": 4,
+      "name": "Persian",
+      "chaseEfficiency": 0.046552653969
+    },
+    {
+      "rank": 5,
+      "name": "Clefairy",
+      "chaseEfficiency": 0.041612018052
+    },
+    {
+      "rank": 6,
+      "name": "Eevee",
+      "chaseEfficiency": 0.039846401269
+    },
+    {
+      "rank": 7,
+      "name": "Gastly",
+      "chaseEfficiency": 0.039307104554
+    },
+    {
+      "rank": 8,
+      "name": "Houndoom",
+      "chaseEfficiency": 0.036512253678
+    },
+    {
+      "rank": 9,
+      "name": "Groudon",
+      "chaseEfficiency": 0.036035679507
+    },
+    {
+      "rank": 10,
+      "name": "Duskull",
+      "chaseEfficiency": 0.034039711212
+    },
+    {
+      "rank": 11,
+      "name": "Horsea",
+      "chaseEfficiency": 0.031035102646
+    },
+    {
+      "rank": 12,
+      "name": "Misty's Psyduck",
+      "chaseEfficiency": 0.02696284946
+    },
+    {
+      "rank": 13,
+      "name": "Ninetales",
+      "chaseEfficiency": 0.026217711537
+    },
+    {
+      "rank": 14,
+      "name": "Sawsbuck",
+      "chaseEfficiency": 0.024813684777
+    },
+    {
+      "rank": 15,
+      "name": "Slowbro",
+      "chaseEfficiency": 0.024389203987
+    },
+    {
+      "rank": 16,
+      "name": "Articuno",
+      "chaseEfficiency": 0.023907403843
+    },
+    {
+      "rank": 17,
+      "name": "Cleffa",
+      "chaseEfficiency": 0.023624064269
+    },
+    {
+      "rank": 18,
+      "name": "Drowzee",
+      "chaseEfficiency": 0.022969249331
+    },
+    {
+      "rank": 19,
+      "name": "Chansey",
+      "chaseEfficiency": 0.022869796968
+    },
+    {
+      "rank": 20,
+      "name": "N's Reshiram",
+      "chaseEfficiency": 0.020923454287
+    },
+    {
+      "rank": 21,
+      "name": "Dusknoir",
+      "chaseEfficiency": 0.020124617791
+    },
+    {
+      "rank": 22,
+      "name": "Dusclops",
+      "chaseEfficiency": 0.019673926506
+    },
+    {
+      "rank": 23,
+      "name": "Munkidori",
+      "chaseEfficiency": 0.019367206048
+    },
+    {
+      "rank": 24,
+      "name": "Wailord",
+      "chaseEfficiency": 0.018619845229
+    },
+    {
+      "rank": 25,
+      "name": "Seismitoad",
+      "chaseEfficiency": 0.018368661355
+    }
+  ]
+}
