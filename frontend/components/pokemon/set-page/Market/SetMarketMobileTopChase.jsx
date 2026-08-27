@@ -144,7 +144,7 @@ export default function SetMarketMobileTopChase({
   const [lens, setLens] = useState("cards");
   const hasCards = Array.isArray(cards) && cards.length > 0;
   const sealedProducts = useMemo(
-    () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
+    () => (Array.isArray(sealedState.payload?.setPageConsumerTopProducts) ? sealedState.payload.setPageConsumerTopProducts : []),
     [sealedState.payload]
   );
   const hasRows = lens === "cards" ? hasCards : sealedProducts.length > 0;

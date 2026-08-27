@@ -106,7 +106,7 @@ def test_equal_price_tie_break_fingerprint_and_empty_set():
     assert result["payload_json"]["defaultProductId"] == "20"
     assert [item["sealedProductId"] for item in result["payload_json"]["products"]] == ["20", "21"]
     assert fingerprint("s", products, observations) == fingerprint("s", list(reversed(products)), list(reversed(observations)))
-    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v4"
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v5-consumer-lens"
     assert result["payload_json"]["meta"]["snapshotContractVersion"] == SNAPSHOT_CONTRACT_VERSION
     assert list(result["payload_json"]["products"][0]["movements"]) == list(MOVEMENT_WINDOWS)
     empty = build_snapshot({"id": "x", "canonical_key": "x", "name": "X"}, [], [])
@@ -576,6 +576,36 @@ def test_build_snapshot_publishes_the_set_level_lens():
     assert empty["setMarket"] is None
 
 
+def test_build_snapshot_adds_consumer_set_page_lens_without_changing_legacy_basket():
+    products = [
+        {"id": 1, "set_id": "s", "name": "Set Booster Box", "product_type": "box"},
+        {"id": 2, "set_id": "s", "name": "Set Collector Chest", "product_type": "other"},
+        {"id": 3, "set_id": "s", "name": "Set Mini Tin Display", "product_type": "display"},
+        {"id": 4, "set_id": "s", "name": "Set Elite Trainer Box Case", "product_type": "case"},
+        {"id": 5, "set_id": "s", "name": "Set Retail Special", "product_type": "other"},
+    ]
+    observations = [
+        priced_observation(1, 1, 400.0),
+        priced_observation(2, 2, 40.0),
+        priced_observation(3, 3, 600.0),
+        priced_observation(4, 4, 700.0),
+    ]
+    payload = build_snapshot({"id": "s", "canonical_key": "set", "name": "Set"}, products, observations)["payload_json"]
+
+    assert [product["sealedProductId"] for product in payload["products"]] == ["1"]
+    assert payload["setMarket"]["currentValue"] == 400.0
+    assert [product["sealedProductId"] for product in payload["setPageConsumerTopProducts"]] == ["1", "2"]
+    assert payload["setPageConsumerMarket"]["currentValue"] == 440.0
+    assert payload["setPageConsumerMarket"]["productCount"] == 2
+    assert payload["meta"]["eligibleProductCount"] == 1
+    assert payload["meta"]["setPageConsumerCandidateCount"] == 3
+    assert payload["meta"]["setPageConsumerProductCount"] == 2
+    assert payload["meta"]["setPageConsumerExcludedCaseDisplayCount"] == 2
+    assert payload["meta"]["setPageConsumerProductsWithoutHistoryCount"] == 1
+    assert payload["meta"]["setPageConsumerPolicyVersion"] == "set-page-consumer-sealed-v1"
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v5-consumer-lens"
+
+
 def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():
     """Stale snapshots serve the new lens without a republication run."""
 
@@ -613,8 +643,9 @@ def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():
 
     payload = snapshot_service.read_snapshot(_Client(), "s")
     assert payload["setMarket"]["currentValue"] == 125.0
-    # The contract version is deliberately untouched, so no fingerprint moves.
-    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v4"
+    # Legacy rows still receive their legacy lens; the new consumer lens is
+    # publication-only because the old payload lacks the excluded raw SKUs.
+    assert payload.get("setPageConsumerMarket") is None
 
 
 def test_sealed_breadth_uses_index_endpoints_and_keeps_missing_baseline_na():

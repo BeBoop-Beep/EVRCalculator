@@ -106,8 +106,14 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             threshold = value * component.cost_per_pack if normalized else value
-            total += component.weight * int(np.searchsorted(vector, threshold, side=side)) / component.count
+            total += component.weight * int(vector.searchsorted(threshold, side=side)) / component.count
+            self._close(vector)
         return total
+
+    @staticmethod
+    def _close(vector: Any) -> None:
+        mmap = getattr(vector, "_mmap", None)
+        if mmap is not None: mmap.close()
 
     def quantile(self, q: float, *, normalized: bool = False) -> float:
         if not self.components or not 0 <= q <= 1:
@@ -120,7 +126,7 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             scale = component.cost_per_pack if normalized else 1.0
-            lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale)
+            lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo, hi = min(lows), max(highs)
         for _ in range(64):
             mid = (lo + hi) / 2
@@ -129,8 +135,9 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             threshold = hi * component.cost_per_pack if normalized else hi
-            index = min(int(np.searchsorted(vector, threshold, side="left")), component.count - 1)
+            index = min(int(vector.searchsorted(threshold, side="left")), component.count - 1)
             candidates.append(float(vector[index]) / (component.cost_per_pack if normalized else 1.0))
+            self._close(vector)
         valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
         if not valid:
             raise OpeningEconomicsV3Error("quantile boundary could not be refined")
@@ -144,7 +151,7 @@ class WeightedEmpiricalMixture:
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             scale = component.cost_per_pack if normalized else 1.0
-            lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale)
+            lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo = np.full(requested.shape, min(lows)); hi = np.full(requested.shape, max(highs))
         # All percentiles share each component scan. This is ~100x cheaper than
         # locating P01..P99 independently while preserving the same ECDF.
@@ -157,7 +164,8 @@ class WeightedEmpiricalMixture:
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
                 thresholds = mid * component.cost_per_pack if normalized else mid
-                cdf += component.weight * np.searchsorted(vector, thresholds, side="right") / component.count
+                cdf += component.weight * vector.searchsorted(thresholds, side="right") / component.count
+                self._close(vector)
             crossed = cdf >= requested
             hi = np.where(crossed, mid, hi); lo = np.where(crossed, lo, mid)
         results = []
@@ -166,8 +174,9 @@ class WeightedEmpiricalMixture:
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
                 threshold = hi[index] * component.cost_per_pack if normalized else hi[index]
-                position = min(int(np.searchsorted(vector, threshold, side="left")), component.count - 1)
+                position = min(int(vector.searchsorted(threshold, side="left")), component.count - 1)
                 candidates.append(float(vector[position]) / (component.cost_per_pack if normalized else 1.0))
+                self._close(vector)
             valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
             if not valid: raise OpeningEconomicsV3Error("quantile boundary could not be refined")
             results.append(valid[0])

@@ -1244,11 +1244,26 @@ export async function getPokemonSetSealedMarket(setId) {
           marketIndex: normalizePreparedMarketIndex(setMarket.marketIndex || setMarket.market_index),
         }
       : null;
+    const consumerMarket = payload?.setPageConsumerMarket || payload?.set_page_consumer_market || null;
+    const normalizedConsumerMarket = consumerMarket
+      ? {
+          ...consumerMarket,
+          history: consumerMarket.history || [],
+          productCount: consumerMarket.productCount ?? consumerMarket.product_count ?? null,
+          marketBreadth: consumerMarket.marketBreadth || consumerMarket.market_breadth || {},
+          marketIndex: normalizePreparedMarketIndex(consumerMarket.marketIndex || consumerMarket.market_index),
+        }
+      : null;
     return {
       ...payload,
       products: Array.isArray(payload?.products) ? payload.products : [],
       setMarket: normalizedSetMarket,
       set_market: normalizedSetMarket,
+      setPageConsumerMarket: normalizedConsumerMarket,
+      set_page_consumer_market: normalizedConsumerMarket,
+      setPageConsumerTopProducts: Array.isArray(payload?.setPageConsumerTopProducts)
+        ? payload.setPageConsumerTopProducts
+        : Array.isArray(payload?.set_page_consumer_top_products) ? payload.set_page_consumer_top_products : [],
     };
   });
 }

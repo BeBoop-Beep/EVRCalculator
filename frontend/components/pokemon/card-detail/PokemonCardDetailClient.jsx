@@ -8,13 +8,14 @@ import { useAuth } from "@/components/AuthContext";
 import InfoPopover from "@/components/ui/InfoPopover";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getRipTierPresentation } from "@/components/explore/ripTierPresentation.mjs";
-import { hasIndexPlusAccess } from "@/lib/access/indexPlanAccess.mjs";
+import { FEATURE_CARD_CHASE_EFFICIENCY, hasIndexFeatureAccess, hasIndexPlusAccess } from "@/lib/access/indexPlanAccess.mjs";
 import {
   optimizedImageUrl,
   SET_LOGO_WIDTH,
 } from "@/lib/images/remoteImageDelivery.mjs";
 import {
   buildPokemonCardDetailHref,
+  getPokemonCardChaseEfficiency,
   getPokemonCardDetail,
 } from "@/lib/pokemon/pokemonCardDetailClient";
 import { compactSealedProductLabel } from "@/components/pokemon/set-page/Overview/sealedMarketTrendSelector.mjs";
@@ -145,7 +146,7 @@ function PlusLock({ title }) {
   );
 }
 
-function ProbabilityJourney({ chase }) {
+function ProbabilityJourney({ chase, milestoneDollars = null }) {
   const probability = validPullProbability(chase.modeledProbability);
   const milestones = probabilityMilestones(probability, chase);
   const usable =
@@ -382,6 +383,9 @@ function ProbabilityJourney({ chase }) {
             {milestones.map(({ label, packs }) => (
               <Metric key={label} label={`${label} Chance to Pull`}>
                 {number(packs)} packs
+                {finite(milestoneDollars?.[label]) !== null ? (
+                  <span className="mt-1 block text-sm font-semibold text-[var(--accent)]">≈ {money(milestoneDollars[label])}</span>
+                ) : null}
               </Metric>
             ))}
           </dl>
@@ -662,6 +666,29 @@ function CardIntelligence({ detail }) {
   );
 }
 
+function PremiumLock() {
+  return <section data-chase-efficiency-lock className="set-glass-surface relative overflow-hidden rounded-2xl border border-[rgba(45,212,191,.2)] p-5"><div aria-hidden="true" className="grid grid-cols-4 gap-2 opacity-20 blur-sm">{[1,2,3,4].map((key)=><span key={key} className="h-16 rounded-xl bg-[rgba(45,212,191,.18)]" />)}</div><div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.72)] text-center"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">Index Premium</p><h2 className="mt-2 text-xl font-semibold">Unlock Chase Efficiency</h2><p className="mt-1 max-w-lg px-4 text-xs text-[var(--text-secondary)]">See how economically favorable this exact printing is to chase, its global context, and canonical milestone costs.</p><Link href="/pricing" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[rgba(45,212,191,.42)] bg-[rgba(45,212,191,.1)] px-4 text-sm font-semibold text-[var(--accent)]">Explore Index Premium</Link></div></section>;
+}
+
+const rarityRankLabel = (rarity) => rarity === "Special Illustration Rare" ? "Special Illustration Rares" : rarity === "Illustration Rare" ? "Illustration Rares" : `${rarity || "Rarity"} printings`;
+
+function ChaseEfficiencySection({ state }) {
+  if (state.status === "loading") return <section className="set-glass-surface rounded-2xl border border-[rgba(45,212,191,.2)] p-6 text-sm text-[var(--text-secondary)]">Loading Chase Efficiency…</section>;
+  if (state.status !== "ready" || !state.payload?.row) return <section className="set-glass-surface rounded-2xl border border-[rgba(45,212,191,.2)] p-6"><p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">Index Premium</p><h2 className="mt-1 text-2xl font-semibold">Chase Efficiency</h2><p className="mt-3 text-sm text-[var(--text-secondary)]">Chase Efficiency is unavailable for this printing in the current published cohort.</p></section>;
+  const row = state.payload.row, milestones = row.milestones || {};
+  const premiumChase = { modeledProbability: row.exactPullProbability };
+  const dollars = {};
+  for (const threshold of [50,75,90,95]) { premiumChase[`packsFor${threshold}PercentChance`] = milestones[String(threshold)]?.packsNeeded; dollars[`${threshold}%`] = milestones[String(threshold)]?.spend; }
+  const rank = row.ranks?.overall || {}, chosen = row.chosenProduct || {};
+  return <section data-chase-efficiency-section aria-labelledby="chase-efficiency-title" className="set-glass-surface overflow-hidden rounded-2xl border border-[rgba(45,212,191,.28)] shadow-[0_18px_55px_rgba(13,148,136,.08)]">
+    <header className="border-b border-[rgba(45,212,191,.16)] bg-[linear-gradient(135deg,rgba(13,148,136,.13),rgba(2,8,23,.28))] p-5 sm:p-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--accent)]">Chase Efficiency · Index Premium</p><h2 id="chase-efficiency-title" className="mt-2 text-2xl font-semibold sm:text-3xl">#{number(rank.rank)} of {number(rank.cohortSize)} eligible printings</h2><p className="mt-1 text-sm font-semibold text-[rgb(153,246,228)]">Top {number(row.topPercent, 1)}%</p><p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]"><strong className="text-[var(--text-primary)]">Chase Efficiency</strong> measures how economically favorable hunting this exact printing is relative to buying it and relative to other cards.</p></header>
+    <div className="space-y-5 p-4 sm:p-6"><section><h3 className="text-lg font-semibold">Rank Context</h3><dl className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">{[["Overall",row.ranks?.overall],["Era",row.ranks?.era],["Set",row.ranks?.set],[rarityRankLabel(row.rarity),row.ranks?.rarity]].map(([label,value])=><Metric key={label} label={label}>#{number(value?.rank)} <span className="text-sm font-normal text-[var(--text-secondary)]">/ {number(value?.cohortSize)}</span></Metric>)}</dl></section>
+      <section><h3 className="text-lg font-semibold">Economics</h3><dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Card Market Price">{money(row.currentNearMintMarketPrice)}</Metric><Metric label="Best Verified Opening Route">{chosen.name || "Unavailable"}<span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">{number(chosen.randomPackCount)} random packs · {money(chosen.price)}</span></Metric><Metric label="Effective Pack Cost">{money(row.bestVerifiedPackEquivalentCost)}</Metric><Metric label="Loose Pack Price">{money(row.looseBoosterPackPrice)}</Metric><Metric label="Chance at Buy Price">{percent(row.chanceAtBuyPrice)}<span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">within {number(row.packsAtBuyPrice)} pack-equivalents</span></Metric><Metric label="50% Chase Spend">{money(row.chaseSpend50 ?? milestones["50"]?.spend)}</Metric><Metric label="50% Cost Multiple">{finite(row.costMultiple50)===null?"Unavailable":`${number(row.costMultiple50,1)}× the single`}</Metric><Metric label="Chase Efficiency">{number(row.chaseEfficiency,6)}</Metric></dl></section>
+      <ProbabilityJourney chase={premiumChase} milestoneDollars={dollars} />
+      <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.32)] p-4"><h3 className="font-semibold">Pull Odds</h3><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">How rare is this exact printing?</p></div><div className="rounded-xl border border-[rgba(45,212,191,.22)] bg-[rgba(45,212,191,.05)] p-4"><h3 className="font-semibold">Chase Efficiency</h3><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">How favorable is hunting it relative to buying and other cards?</p></div><div className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.32)] p-4"><h3 className="font-semibold">Product Chase Economics</h3><p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">How does the journey change depending on which sealed product you open?</p></div></div>
+    </div></section>;
+}
+
 function CollectorIntelligence({ intelligence }) {
   const Meter = ({ label, metric, info, primary = false }) => {
     const score = scorePercent(metric?.score);
@@ -789,6 +816,17 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const { user } = useAuth();
   const router = useRouter();
   const entitled = hasIndexPlusAccess(user?.index_plan);
+  const premiumEntitled = hasIndexFeatureAccess(user?.index_plan, FEATURE_CARD_CHASE_EFFICIENCY);
+  const [chaseEfficiencyState, setChaseEfficiencyState] = useState({ status: "idle", payload: null });
+  useEffect(() => {
+    if (!premiumEntitled) { setChaseEfficiencyState({ status: "locked", payload: null }); return undefined; }
+    const controller = new AbortController();
+    setChaseEfficiencyState({ status: "loading", payload: null });
+    getPokemonCardChaseEfficiency(detail.set.id, detail.card.id, detail.selectedVariantId, { signal: controller.signal })
+      .then((payload) => setChaseEfficiencyState({ status: "ready", payload }))
+      .catch((caught) => { if (caught.name !== "AbortError") setChaseEfficiencyState({ status: "error", error: caught.message, payload: null }); });
+    return () => controller.abort();
+  }, [premiumEntitled, detail.set.id, detail.card.id, detail.selectedVariantId]);
   const setHref = buildCardParentSetHref(detail.set);
   const artwork = optimizedImageUrl(
     detail.set.heroImageUrl ||
@@ -927,6 +965,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
             <PlusLock title="Collector Intelligence" />
           </>
         )}
+        {premiumEntitled ? <ChaseEfficiencySection state={chaseEfficiencyState} /> : <PremiumLock />}
         <details className="set-glass-surface rounded-2xl border p-4 text-sm text-[var(--text-secondary)]">
           <summary className="cursor-pointer font-semibold text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">
             Methodology & Provenance

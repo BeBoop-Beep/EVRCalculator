@@ -190,7 +190,7 @@ test("an unavailable lens in Market Snapshot never fabricates a value", () => {
 
 test("mobile signals are asset-aware and concentration remains Cards-only", () => {
   assert.ok(setValue.includes('resolvedSegmentKey === "cards" || resolvedSegmentKey === "sealed"'));
-  assert.ok(setValue.includes("setMarket?.marketBreadth"));
+  assert.ok(setValue.includes("setPageConsumerMarket?.marketBreadth"));
   assert.ok(setValue.includes('resolvedSegmentKey === "cards" ? <ChaseConcentrationSignal'));
   assert.ok(setValue.includes("selectPreparedMarketBreadth"));
   assert.ok(setValue.includes("selectChaseConcentration"));

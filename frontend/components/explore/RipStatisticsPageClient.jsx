@@ -3913,7 +3913,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   );
 
   const sealedTrend = useMemo(() => {
-    const setMarket = sealedState.payload?.setMarket || null;
+    const setMarket = sealedState.payload?.setPageConsumerMarket || null;
     if (!setMarket?.history?.length) {
       return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
     }
@@ -3948,7 +3948,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
   const breadthSource = resolvedSegmentKey === "sealed"
-    ? sealedState.payload?.setMarket?.marketBreadth || sealedState.payload?.setMarket?.market_breadth
+    ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
     ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
     : null;
@@ -4022,7 +4022,7 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
   const router = useRouter();
   const [lens, setLens] = useState("cards");
   const sealedProducts = useMemo(
-    () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
+    () => (Array.isArray(sealedState.payload?.setPageConsumerTopProducts) ? sealedState.payload.setPageConsumerTopProducts : []),
     [sealedState.payload]
   );
   const model = useMemo(

@@ -276,7 +276,7 @@ test("the signal rail follows the active asset lens without card fallbacks", () 
   const section = componentSource("SetMarketOverviewSection");
   const rail = componentSource("SetSignalsRail");
   assert.ok(section.includes('resolvedSegmentKey === "sealed"'));
-  assert.ok(section.includes("setMarket?.marketBreadth"));
+  assert.ok(section.includes("setPageConsumerMarket?.marketBreadth"));
   assert.ok(section.includes('sealedState.status === "loading"'));
   assert.ok(section.includes('sealedState.status === "error"'));
   assert.ok(rail.includes('activeSegmentKey === "cards" || activeSegmentKey === "sealed"'));
