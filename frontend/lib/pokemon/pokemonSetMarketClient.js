@@ -1231,7 +1231,7 @@ export async function getPokemonSetSealedMarket(setId) {
     if (!matches) {
       const error = new Error("Sealed market response did not match the requested set");
       error.code = "POKEMON_SET_SEALED_MARKET_IDENTITY_MISMATCH";
-      error.retryable = true;
+      error.retryable = false;
       throw error;
     }
     const setMarket = payload?.setMarket || payload?.set_market || null;
@@ -1240,6 +1240,7 @@ export async function getPokemonSetSealedMarket(setId) {
           ...setMarket,
           history: setMarket.history || [],
           productCount: setMarket.productCount ?? setMarket.product_count ?? payload?.products?.length ?? null,
+          marketBreadth: setMarket.marketBreadth || setMarket.market_breadth || {},
           marketIndex: normalizePreparedMarketIndex(setMarket.marketIndex || setMarket.market_index),
         }
       : null;
@@ -1307,6 +1308,7 @@ export function normalizeOverviewPayload(payload) {
   const performanceVsCostHistory = normalizeSimulationPerformanceHistory(
     payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
   );
+  const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
 
   return {
     set: {
@@ -1319,6 +1321,8 @@ export function normalizeOverviewPayload(payload) {
     set_value_histories_by_scope: normalizedHistoriesByScope,
     performanceVsCostHistory,
     performance_vs_cost_history: performanceVsCostHistory,
+    cardsMarket,
+    cards_market: cardsMarket,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),

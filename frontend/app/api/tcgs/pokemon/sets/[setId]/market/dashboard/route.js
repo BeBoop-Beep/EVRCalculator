@@ -41,23 +41,31 @@ export async function GET(request, { params }) {
     backendUrl.searchParams.set("days", days);
   }
 
-  const bypassCache = shouldBypassCache(request);
+  const authorization = request?.headers?.get("authorization");
+  const cookie = request?.headers?.get("cookie");
   const proxyResponse = await fetch(backendUrl.toString(), {
     method: "GET",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      ...(authorization ? { Authorization: authorization } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
+    },
     cache: "no-store",
   });
 
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
-  const cacheControl =
-    bypassCache || !proxyResponse.ok ? FAILED_ANALYTICS_CACHE_CONTROL : PUBLIC_ANALYTICS_CACHE_CONTROL;
+  // This response contains entitlement-filtered Set signals. Never place an
+  // entitled payload in the shared CDN cache where a Basic request could read
+  // it back; the underlying prepared snapshot remains independently cached.
+  const cacheControl = FAILED_ANALYTICS_CACHE_CONTROL;
 
   return new NextResponse(payload, {
     status: proxyResponse.status,
     headers: {
       "content-type": contentType,
       "Cache-Control": cacheControl,
+      Vary: "Cookie, Authorization",
     },
   });
 }

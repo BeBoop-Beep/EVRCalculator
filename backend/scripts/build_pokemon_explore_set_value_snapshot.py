@@ -73,10 +73,11 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
     set_ids = [str(row["id"]) for row in sets]
     dashboards = []
     # One bounded query per batch, never one request per set. Read only the
-    # split Set Value column; raw dashboard payload_json is intentionally absent.
+    # split Set Value column plus the one prepared Cards Market path; raw
+    # dashboard payload_json is intentionally absent.
     for offset in range(0, len(set_ids), 20):
         result = (client.table("pokemon_set_market_dashboard_snapshot_latest")
-            .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at")
+            .select("set_id,window_key,set_value_histories_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket")
             .eq("window_key", "365d").in_("set_id", set_ids[offset:offset + 20]).execute())
         dashboards.extend(result.data or [])
     histories = _load_canonical_histories(client, set_ids, through_date=market_date)

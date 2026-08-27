@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useId, useMemo, useReducer, us
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
+import { buildSealedProductHref } from "@/components/explore/setProductComparison.mjs";
 import { adaptCriticalInsightsToExplorePayload } from "@/lib/pokemon/pokemonSetInsightsCriticalExploreAdapter.mjs";
 
 import {
@@ -43,6 +44,7 @@ import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/P
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
+import { ChaseConcentrationSignal, MarketBreadthSignal } from "@/components/pokemon/set-page/Market/SetMarketSignals";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -151,12 +153,12 @@ import {
   getPokemonSetCardsValidation,
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
+import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
   getPokemonSetOverview,
-  getPokemonSetSealedMarket,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
 } from "@/lib/pokemon/pokemonSetMarketClient";
@@ -3655,42 +3657,19 @@ function deltaToneClassName(value) {
  * client-side aggregation: `setMarket` is the canonical set-level series the
  * snapshot service publishes.
  */
-function useSealedSetMarket(setId) {
-  const [state, setState] = useState({ status: "idle", payload: null, error: null });
-
-  useEffect(() => {
-    if (!setId) {
-      setState({ status: "idle", payload: null, error: null });
-      return undefined;
-    }
-    let cancelled = false;
-    setState((current) => ({ ...current, status: "loading" }));
-    getPokemonSetSealedMarket(setId).then(
-      (payload) => {
-        if (!cancelled) setState({ status: "success", payload, error: null });
-      },
-      (error) => {
-        if (!cancelled) {
-          setState({ status: "error", payload: null, error: error?.message || "Unable to load sealed market" });
-        }
-      }
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [setId]);
-
-  return state;
-}
-
 /** One Market Segments row on the right rail. */
 function MarketSegmentRow({ row, active, onSelect }) {
   const valueText = row.available ? formatSegmentMoney(row.currentValue, { compact: true }) : null;
   const amountText = row.available ? formatSignedMoney(row.deltaAmount) : null;
   const percentText = row.available ? formatSignedPercentValue(row.deltaPercent) : null;
   const className = `w-full min-w-0 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-    active ? "border-[var(--accent)] bg-[var(--accent)]/10" : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
-  } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-default opacity-70"}`;
+    // CANONICAL MARKET GREEN, not the site's yellow --accent. This is the
+    // same rgb(45,212,191) family Market Explorer's "Open Market Explorer"
+    // CTA and the approved TimeRangeSelector already use for selection —
+    // reused here rather than invented, so Set Market has one interaction
+    // color instead of a second one.
+    active ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.10)]" : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55"
+  } ${row.selectable ? "hover:border-[rgba(45,212,191,0.6)]" : "cursor-default opacity-70"}`;
 
   const body = (
     <>
@@ -3748,7 +3727,7 @@ function MarketSegmentRow({ row, active, onSelect }) {
 }
 
 /** SECTION 2B — the right-hand signal rail. */
-function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, concentration, windowLabel }) {
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry }) {
   return (
     <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
       <div className="space-y-4">
@@ -3763,64 +3742,26 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
           </div>
         </div>
 
-        <div
-          data-market-breadth
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Market Breadth
-            </p>
-            <InfoPopover text="Share of eligible tracked cards that rose, fell, or were unchanged over the selected period." />
-          </div>
-          {breadth.available ? (
-            <>
-              <div className="mt-2 flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-[var(--positive)]">{breadth.advancingPercent}% Advancing</span>
-                <span className="text-sm font-semibold text-[var(--negative)]">{breadth.decliningPercent}% Declining</span>
+        {activeSegmentKey === "cards" || activeSegmentKey === "sealed" ? (
+          <div>
+            <MarketBreadthSignal
+              breadth={breadthStatus ? { available: false, reason: breadthStatus } : breadth}
+              windowLabel={windowLabel}
+              itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
+              title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+              className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
+            />
+            {activeSegmentKey === "sealed" && sealedError ? (
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs text-red-300">
+                <span>{sealedError}</span>
+                <button type="button" onClick={onSealedRetry} className="min-h-9 rounded-lg border border-[var(--border-subtle)] px-3 font-semibold text-[var(--text-primary)]">Retry</button>
               </div>
-              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-page)]">
-                <div className="h-full bg-[var(--positive)]" style={{ width: `${breadth.advancingPercent}%` }} />
-                <div className="h-full bg-[var(--negative)]" style={{ width: `${breadth.decliningPercent}%` }} />
-                {breadth.flat > 0 ? <div className="h-full bg-slate-500/60" style={{ width: `${Math.max(0, 100 - breadth.advancingPercent - breadth.decliningPercent)}%` }} /> : null}
-              </div>
-              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
-                {breadth.total.toLocaleString("en-US")} mover-eligible cards · {windowLabel}
-              </p>
-            </>
-          ) : (
-            <p data-breadth-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
-              {breadth.reason}
-            </p>
-          )}
-        </div>
-
-        <div
-          data-chase-concentration
-          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
-              Chase Concentration
-            </p>
-            <InfoPopover text="The published Top 10 set-value scope as a share of the published Set scope, compared on the same date." />
+            ) : null}
           </div>
-          {concentration.available ? (
-            <>
-              <p className="mt-2 text-2xl font-semibold leading-none text-[var(--text-primary)]">
-                {concentration.sharePercent}%
-              </p>
-              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">Top 10 cards of card-market value</p>
-              <p className="mt-1.5 text-[11px] text-[var(--text-secondary)]">
-                Top 10 Value: {formatSegmentMoney(concentration.top10Value, { compact: true })}
-              </p>
-            </>
-          ) : (
-            <p data-concentration-unavailable className="mt-2 text-[11px] text-[var(--text-secondary)]">
-              {concentration.reason}
-            </p>
-          )}
-        </div>
+        ) : null}
+        {activeSegmentKey === "cards" ? (
+          <ChaseConcentrationSignal concentration={concentration} formatMoney={(value) => formatSegmentMoney(value, { compact: true })} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3" />
+        ) : null}
       </div>
     </SectionCard>
   );
@@ -3862,9 +3803,9 @@ function MarketValueTrendPanel({
               onClick={() => onSegmentChange?.(row.key)}
               className={`min-h-9 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                 row.key === activeSegmentKey
-                  ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]"
+                  ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]"
                   : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 text-[var(--text-secondary)]"
-              } ${row.selectable ? "hover:border-[var(--accent)]/60" : "cursor-not-allowed opacity-50"}`}
+              } ${row.selectable ? "hover:border-[rgba(45,212,191,0.6)]" : "cursor-not-allowed opacity-50"}`}
             >
               {row.label}
             </button>
@@ -3873,14 +3814,19 @@ function MarketValueTrendPanel({
 
         {trend.available ? (
           <>
-            <MarketValueChange
-              value={trend.currentValue}
-              changeAmount={trend.deltaAmount}
-              changePercent={trend.deltaPercent}
-              windowLabel={windowLabel}
-              variant="chart-summary"
-              accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
-            />
+            <div data-market-trend-summary className="min-w-0">
+              <MarketValueChange
+                value={trend.currentValue}
+                changeAmount={trend.deltaAmount}
+                changePercent={trend.deltaPercent}
+                windowLabel={windowLabel}
+                variant="chart-summary"
+                accessibleLabel={`Current ${MARKET_SEGMENT_LABELS[activeSegmentKey]} market value`}
+              />
+              <p data-market-trend-index className="text-[11px] font-medium leading-tight text-[var(--text-secondary)]">
+                Market Index <span className="tabular-nums text-[var(--text-primary)]">{trend.marketIndexValue == null ? "—" : Number(trend.marketIndexValue).toFixed(2)}</span>
+              </p>
+            </div>
 
             <div className="flex min-w-0 items-center gap-2">
               <MarketWindowSelector
@@ -3914,24 +3860,16 @@ function MarketValueTrendPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
             Supporting Details
           </p>
-          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
             {details.map((detail) => {
               let value = "—";
               let toneClassName = "text-[var(--text-primary)]";
-              if (detail.key === "periodChange" && detail.amount !== null) {
-                value = formatSignedMoney(detail.amount);
-                toneClassName = deltaToneClassName(detail.amount);
-              } else if (detail.key === "periodReturn" && detail.percent !== null) {
-                value = formatSignedPercentValue(detail.percent);
-                toneClassName = deltaToneClassName(detail.percent);
-              } else if ((detail.key === "periodHigh" || detail.key === "periodLow") && detail.value !== null) {
+              if ((detail.key === "periodHigh" || detail.key === "periodLow") && detail.value !== null) {
                 value = formatSegmentMoney(detail.value, { compact: true });
               } else if (detail.key === "trackingSince" && detail.date) {
                 value = formatLongDate(detail.date);
               } else if (detail.key === "trackedItems" && detail.count !== null) {
                 value = `${detail.count.toLocaleString("en-US")} ${detail.noun}`;
-              } else if (detail.key === "marketIndex" && detail.value !== null) {
-                value = Number(detail.value).toFixed(2);
               }
               return (
                 <div key={detail.key} className="min-w-0" data-supporting-detail={detail.key}>
@@ -3956,12 +3894,11 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
-  const sealedState = useSealedSetMarket(setId);
 
   const cardsTrend = useMemo(
     () =>
@@ -3999,19 +3936,41 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+    ? "sealed"
+    : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
-  const segmentRows = useMemo(() => buildMarketSegmentRows(trendsByKey), [trendsByKey]);
+  const segmentRows = useMemo(
+    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedState.status === "loading" ? { ...row, selectable: true } : row),
+    [sealedState.status, trendsByKey]
+  );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
+  const breadthSource = resolvedSegmentKey === "sealed"
+    ? sealedState.payload?.setMarket?.marketBreadth || sealedState.payload?.setMarket?.market_breadth
+    : resolvedSegmentKey === "cards"
+    ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
+    : null;
   const breadth = useMemo(
-    () => selectPreparedMarketBreadth({ marketBreadth: cardsMarket?.marketBreadth || cardsMarket?.market_breadth, windowKey: effectiveWindowKey }),
-    [cardsMarket, effectiveWindowKey]
+    () => selectPreparedMarketBreadth({
+      marketBreadth: breadthSource,
+      windowKey: effectiveWindowKey,
+      totalTrackedCount: activeTrend.trackedItemCount,
+    }),
+    [activeTrend.trackedItemCount, breadthSource, effectiveWindowKey]
   );
+  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+    ? "Loading Sealed market…"
+    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
+    ? sealedState.error || "Unable to load sealed market breadth"
+    : null;
+  // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
+  // Standard and Top 10 set-value scopes, not a full Cards Market Index
+  // history — see the prop's own comment at the call site.
   const concentration = useMemo(
-    () => selectChaseConcentration({ top10Value, cardsValue: cardsTrend.currentValue }),
-    [cardsTrend.currentValue, top10Value]
+    () => selectChaseConcentration({ top10Value, cardsValue: standardValue }),
+    [standardValue, top10Value]
   );
 
   return (
@@ -4033,8 +3992,11 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           activeSegmentKey={resolvedSegmentKey}
           onSegmentChange={setActiveSegmentKey}
           breadth={breadth}
+          breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
+          sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
+          onSealedRetry={sealedState.retry}
         />
       </div>
     </div>
@@ -4056,9 +4018,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
  * There is NO movers strip in here. 7D movers is Section 1's job, and repeating
  * it would make the reader check two places for one answer.
  */
-function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry }) {
+function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWindowKey, onWindowChange, marketAsOfDate, onRetry, sealedState }) {
+  const router = useRouter();
   const [lens, setLens] = useState("cards");
-  const sealedState = useSealedSetMarket(setId);
   const sealedProducts = useMemo(
     () => (Array.isArray(sealedState.payload?.products) ? sealedState.payload.products : []),
     [sealedState.payload]
@@ -4096,6 +4058,34 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
     return selectSegmentTrend({ history, selectedWindowKey, trackedItemNoun: "Cards" });
   }, [lens, marketAsOfDate, selectedCard, selectedWindowKey]);
 
+  // NONE until setSlug and a resolvable card identity both exist — never a
+  // href="#" and never a guessed id. See buildPokemonCardHref for the
+  // identity fallback order (canonicalCardId, then id).
+  const cardDetailHref = lens === "cards" && setSlug && selectedCard
+    ? buildPokemonCardHref(setSlug, selectedCard)
+    : null;
+  // Same one-authority rule as the card lens: a product whose canonical id
+  // does not resolve gets a null href, and image/name/View Product/second-click
+  // navigation all degrade to non-interactive together.
+  const productDetailHref = lens === "sealed" && selectedCard
+    ? buildSealedProductHref(selectedCard.sealedProductId)
+    : null;
+  const detailHref = lens === "cards" ? cardDetailHref : productDetailHref;
+  // First activation of an unselected row only selects it -- switching the
+  // detail pane. A second activation of the row ALREADY selected navigates,
+  // because at that point the reader has already seen the detail pane and is
+  // asking for the full page. This is two ordinary activations, not a
+  // dblclick: a fast double click still lands as two onClick calls.
+  const activateTopTenRow = useCallback(
+    (row) => {
+      if (row.key !== resolvedKey) {
+        setSelectedKey(row.key);
+        return;
+      }
+      if (detailHref) router.push(detailHref);
+    },
+    [resolvedKey, detailHref, router]
+  );
   const heroImageUrl = selectedCard ? readCardHeroImageUrl(selectedCard) : null;
   const windowLabel = getDeltaWindowLabel(cardTrend.effectiveWindowKey || selectedWindowKey) || "Trend";
   const trendDirection =
@@ -4121,8 +4111,8 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
     return (
       <SectionCard title="Top 10">
         <p className="text-sm text-red-300">{effectiveError || "Unable to load this ranking for this set."}</p>
-        {onRetry ? (
-          <button type="button" onClick={onRetry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
+        {(lens === "cards" ? onRetry : sealedState.retry) ? (
+          <button type="button" onClick={lens === "cards" ? onRetry : sealedState.retry} className="mt-2 text-xs font-semibold text-[var(--accent)]">
             Try again
           </button>
         ) : null}
@@ -4137,7 +4127,7 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
     >
       <div className="mb-4 flex gap-1.5" role="tablist" aria-label="Top 10 market lens">
         {["cards", "sealed"].map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[var(--accent)] bg-[var(--accent)]/12 text-[var(--accent)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
             {key === "cards" ? "Cards" : "Sealed"}
           </button>
         ))}
@@ -4153,11 +4143,11 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
                   type="button"
                   data-top-chase-row={row.rank}
                   aria-pressed={active}
-                  onClick={() => setSelectedKey(row.key)}
+                  onClick={() => activateTopTenRow(row)}
                   className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
                     active
-                      ? "border-[var(--accent)] bg-[var(--accent)]/10"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 hover:border-[var(--accent)]/50"
+                      ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.10)]"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-page)]/55 hover:border-[rgba(45,212,191,0.5)]"
                   }`}
                 >
                   <span className="w-6 flex-none text-xs font-semibold tabular-nums text-[var(--text-secondary)]">
@@ -4173,10 +4163,15 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
                   <span className="flex-none text-right">
                     <span className="block text-sm font-semibold text-[var(--text-primary)]">{row.priceText || "—"}</span>
                     {row.hasMovement ? (
-                      <span className={`block text-[11px] ${deltaToneClassName(row.amount ?? row.percent)}`}>
+                      <span className={`flex items-center justify-end gap-1 text-[11px] ${deltaToneClassName(row.amount ?? row.percent)}`}>
+                        <DeltaTrendIcon value={row.amount ?? row.percent} />
                         {[row.amountText, row.percentText].filter(Boolean).join(" ")}
                       </span>
-                    ) : null}
+                    ) : (
+                      // No comparable window for this card — an explicit dash,
+                      // never a fabricated 0.0% and never a false arrow.
+                      <span className="block text-[11px] text-[var(--text-secondary)]">—</span>
+                    )}
                   </span>
                 </button>
               </li>
@@ -4189,17 +4184,81 @@ function TopChaseCardsPanel({ setId, cards, status, error, selectedWindowKey, on
           {/* ZONE A — detail. Artwork left, metadata right. The artwork is
               height-constrained here and appears nowhere else in this column. */}
           <div data-chase-detail-zone className="flex min-w-0 items-start gap-4">
-            <CardArtworkFrame
-              imageUrl={heroImageUrl}
-              alt={selectedRow ? `${selectedRow.name} card artwork` : ""}
-              initials={selectedRow?.initials}
-              className="h-40 flex-none desk:h-48"
-            />
+            {/* IMAGE, NAME and the VIEW CTA all point at the ONE routing
+                authority for the active lens — buildPokemonCardHref for Cards
+                (the same helper the checklist grid uses to reach
+                /TCGs/Pokemon/Sets/[setSlug]/Cards/[cardId]), buildSealedProductHref
+                for Sealed (the same resolver the RIP page's product comparison
+                already uses to reach /sealed-products/[productId]). A row whose
+                identity does not resolve gets a null href from that helper, and
+                every one of the three entry points degrades to non-interactive
+                together rather than three independently-guessed hrefs. */}
+            {detailHref ? (
+              <a
+                href={detailHref}
+                aria-label={`View ${selectedRow?.name || (lens === "cards" ? "card" : "product")} details`}
+                className="flex-none rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+              >
+                <CardArtworkFrame
+                  imageUrl={heroImageUrl}
+                  alt=""
+                  initials={selectedRow?.initials}
+                  className="h-40 flex-none desk:h-48"
+                />
+              </a>
+            ) : (
+              <CardArtworkFrame
+                imageUrl={heroImageUrl}
+                alt={selectedRow ? `${selectedRow.name} artwork` : ""}
+                initials={selectedRow?.initials}
+                className="h-40 flex-none desk:h-48"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-lg font-semibold text-[var(--text-primary)]">{selectedRow?.name || "—"}</p>
+              {detailHref ? (
+                <a
+                  href={detailHref}
+                  className="block truncate text-lg font-semibold text-[var(--text-primary)] hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                >
+                  {selectedRow?.name || "—"}
+                </a>
+              ) : (
+                <p className="truncate text-lg font-semibold text-[var(--text-primary)]">{selectedRow?.name || "—"}</p>
+              )}
               <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
                 {[selectedRow?.rarity, selectedRow?.cardNumber].filter(Boolean).join(" · ") || "—"}
               </p>
+              {(() => {
+                const viewLabel = lens === "cards" ? "View Card" : "View Product";
+                const unavailableTitle =
+                  lens === "cards"
+                    ? "Card details are unavailable for this listing."
+                    : "Product details are unavailable for this listing.";
+                return (
+                <div className="mt-2">
+                  {detailHref ? (
+                    <a
+                      href={detailHref}
+                      data-top-chase-view-card
+                      className="inline-flex min-h-8 items-center rounded-md border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]"
+                    >
+                      {viewLabel}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      data-top-chase-view-card
+                      aria-disabled="true"
+                      disabled
+                      title={unavailableTitle}
+                      className="inline-flex min-h-8 cursor-not-allowed items-center rounded-md border border-[var(--border-subtle)] bg-transparent px-2.5 text-[11px] font-semibold text-[var(--text-secondary)] opacity-60"
+                    >
+                      {viewLabel}
+                    </button>
+                  )}
+                </div>
+                );
+              })()}
               <div className="mt-3">
                 <MarketValueChange
                   value={cardTrend.currentValue ?? selectedRow?.price ?? null}
@@ -11263,6 +11322,26 @@ export default function RipStatisticsPageClient({
     }
     return null;
   }, [activeSetValueHistory.historiesByScope]);
+  // Chase Concentration's OTHER input, read the same independent way. It must
+  // NOT come from the Cards Market Index trend (`cardsTrend.currentValue`):
+  // that figure is gated on the Cards Market Index having a full chain-linked
+  // history, while Chase Concentration only needs the current Standard and
+  // Top 10 set-value scopes to agree on a date. A set whose Cards Market
+  // Index is unavailable can still have both scopes, and Chase Concentration
+  // must render for it — see selectChaseConcentration's independence
+  // contract in setMarketOverviewModel.mjs.
+  const setValueStandardCurrentValue = useMemo(() => {
+    const points = activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history;
+    if (!Array.isArray(points) || points.length === 0) return null;
+    for (let index = points.length - 1; index >= 0; index -= 1) {
+      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+      if (value !== null) return value;
+    }
+    return null;
+  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
+  const desktopSealedMarketState = usePokemonSetSealedMarket(
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null
+  );
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -13846,6 +13925,7 @@ export default function RipStatisticsPageClient({
                     calculationRunId={activeCalculationRunId}
                     setRip={preferredSetRip}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
+                    setSlug={activeSetSlug}
                     chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
                     pullRateAssumptions={pullRateAssumptions}
@@ -13913,6 +13993,7 @@ export default function RipStatisticsPageClient({
                       error: activeSetValueHistory.error,
                       cardsTrackedCount: authoritativeSetCardCount,
                       top10Value: setValueTop10CurrentValue,
+                      standardValue: setValueStandardCurrentValue,
                       moversByWindow: marketMoversByWindow,
                       cardsMarket: activeMarketDashboardDerivedState.setValue.cardsMarket,
                     }}
@@ -13967,9 +14048,21 @@ export default function RipStatisticsPageClient({
                         <SetMarketOverviewSection
                           setId={resolvedSetResourceId}
                           cardsHistory={activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history}
-                          cardsMarket={activeMarketDashboardDerivedState.setValue.cardsMarket}
+                          // THE LIVE SOURCE. `activeMarketDashboardDerivedState` is
+                          // built from the retired monolithic /market/dashboard
+                          // fetch, which nothing on this page calls live any more
+                          // (Top Chase Cards and Market Movers moved to their own
+                          // slim endpoints — see the effect above) — so this prop
+                          // was permanently null except from a stale cache entry
+                          // or an SSR seed that never carries it either.
+                          // `effectiveSetValueDerivedState` is the payload the
+                          // Market tab actually fetches (the slim /overview
+                          // endpoint), which now also serves cardsMarket.
+                          cardsMarket={effectiveSetValueDerivedState.setValue.cardsMarket}
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
+                          standardValue={setValueStandardCurrentValue}
+                          sealedState={desktopSealedMarketState}
                         />
                       </SectionErrorBoundary>
                     </div>
@@ -13980,6 +14073,7 @@ export default function RipStatisticsPageClient({
                       <SectionErrorBoundary sectionName="market-top-chase" resetKeys={[resolvedSetResourceId]} title="Top 10 Chase Cards" minHeightClassName="min-h-[24rem]">
                         <TopChaseCardsPanel
                           setId={resolvedSetResourceId}
+                          setSlug={activeSetSlug}
                           cards={topPricedCards}
                           status={topPricedCardsStatus}
                           error={activeTopMarketCardsState.error}
@@ -13987,6 +14081,7 @@ export default function RipStatisticsPageClient({
                           onWindowChange={setTopMarketCardsWindowKey}
                           marketAsOfDate={marketAsOfDate}
                           onRetry={retryTopChaseModule}
+                          sealedState={desktopSealedMarketState}
                         />
                       </SectionErrorBoundary>
                     </div>

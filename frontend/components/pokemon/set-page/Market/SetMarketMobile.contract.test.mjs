@@ -14,6 +14,7 @@ const movers = read("./SetMarketMobileMovers.jsx");
 const setValue = read("./SetMarketMobileSetValue.jsx");
 const topChase = read("./SetMarketMobileTopChase.jsx");
 const model = read("./setMarketMobileModel.mjs");
+const sealedHook = read("../../../../hooks/pokemon/usePokemonSetSealedMarket.js");
 
 // These files carry long explanatory comments that legitimately discuss prices
 // and metrics the code does not render ("$1k", "market cap"). The assertions
@@ -108,7 +109,8 @@ test("desktop Market mounts its own production modules exactly once, unaffected 
   // — this pass removes only the standalone MOBILE module. useSealedSetMarket
   // is defined once, above the JSX return, and used by both the desktop lens
   // and the mobile Market Snapshot lens.
-  assert.ok(page.includes("function useSealedSetMarket(setId)"), "the shared sealed data hook is untouched");
+  assert.equal((page.match(/usePokemonSetSealedMarket\(/g) || []).length, 1, "desktop has one shared Sealed hook owner");
+  assert.equal((page.match(/sealedState=\{desktopSealedMarketState\}/g) || []).length, 2);
 });
 
 test("mobile reuses the desktop deep-link anchors so ?section= resolves at both widths", () => {
@@ -169,7 +171,7 @@ test("Market Snapshot offers exactly Cards, Sealed, Graded — not ranking scope
   // selector), not a static array, so an unavailable lens can be disabled
   // rather than clickable-then-reverting.
   assert.ok(setValue.includes("buildMarketSegmentRows(trendsByKey)"));
-  assert.ok(setValue.includes("disabled: !row.selectable"));
+  assert.ok(setValue.includes('row.key === "sealed" && sealedState.status === "loading"'));
   assert.equal(/\btop10\b/i.test(code(setValue)), false, "Top 10 is a chase-card rank, not a market lens");
   assert.equal(setValue.includes("SET_VALUE_TREND_VISIBLE_SCOPE_OPTIONS"), false, "the old scope selector is retired here");
 });
@@ -186,23 +188,36 @@ test("an unavailable lens in Market Snapshot never fabricates a value", () => {
   assert.ok(!/\$0\b/.test(body), "no literal $0 is ever rendered");
 });
 
-test("Market Breadth and Chase Concentration are Cards-only micro-stats on mobile", () => {
-  assert.ok(setValue.includes('segmentKey === "cards"'), "breadth/concentration are gated to the Cards lens");
+test("mobile signals are asset-aware and concentration remains Cards-only", () => {
+  assert.ok(setValue.includes('resolvedSegmentKey === "cards" || resolvedSegmentKey === "sealed"'));
+  assert.ok(setValue.includes("setMarket?.marketBreadth"));
+  assert.ok(setValue.includes('resolvedSegmentKey === "cards" ? <ChaseConcentrationSignal'));
   assert.ok(setValue.includes("selectPreparedMarketBreadth"));
   assert.ok(setValue.includes("selectChaseConcentration"));
+  assert.ok(setValue.includes("cardsValue: standardValue"));
 });
 
 test("Market Snapshot supporting details render as a compact micro-stat grid, not cards", () => {
   assert.ok(setValue.includes("data-market-mobile-micro-stats"));
   assert.ok(setValue.includes("grid-cols-2"), "a two-column micro-stat grid, not a stacked card list");
-  assert.ok(setValue.includes("buildSupportingDetails"), "the six fields reuse the shared desktop selector");
+  assert.ok(setValue.includes("buildSupportingDetails"), "the four supporting fields reuse the shared desktop selector");
+  assert.ok(setValue.includes("data-market-mobile-index"), "Market Index is promoted into the primary summary");
+  assert.ok(!setValue.includes('detail.key === "marketIndex"'), "the lower micro-stat grid does not duplicate Market Index");
 });
 
-test("Market Snapshot fetches sealed data itself, the same way the removed standalone module did", () => {
+test("mobile owns one shared Sealed request and passes it to Snapshot and Top 10", () => {
   // The dedicated Sealed Market fetch pattern is preserved — just relocated
   // inside Market Snapshot's own Sealed lens rather than a separate module.
-  assert.ok(setValue.includes("getPokemonSetSealedMarket"), "the same slim sealed request backs the Sealed lens");
-  assert.ok(setValue.includes("useSealedSetMarket"));
+  assert.equal((shell.match(/usePokemonSetSealedMarket\(/g) || []).length, 1);
+  assert.equal((shell.match(/sealedState=\{sealedState\}/g) || []).length, 2);
+  assert.equal(setValue.includes("getPokemonSetSealedMarket"), false);
+  assert.equal(topChase.includes("getPokemonSetSealedMarket"), false);
+  assert.ok(sealedHook.includes("getPokemonSetSealedMarket"));
+  assert.ok(sealedHook.includes("lastGoodRef"));
+  assert.ok(
+    sealedHook.indexOf("NON_RETRYABLE_CONTRACT_CODES.has") < sealedHook.indexOf("error?.retryable === true"),
+    "contract validation failures are rejected before transport retry hints"
+  );
 });
 
 test("7D Movers is fixed to 7D and offers no window control", () => {

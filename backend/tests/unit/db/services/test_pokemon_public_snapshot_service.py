@@ -2863,6 +2863,12 @@ def test_overview_snapshot_columns_do_not_include_payload_json():
         "available_scopes_json",
         "latest_market_date",
         "updated_at",
+        # THE ONE PERMITTED payload_json REACH: a single scoped json-path
+        # projection, not the monolithic column. Cards Market Index and Market
+        # Breadth exist only inside payload_json (no split column for them),
+        # so this is how the Market tab's overview fetch can see them without
+        # paying for the full blob.
+        "cardsMarket:payload_json->cardsMarket",
     }
 
 
@@ -2903,6 +2909,46 @@ def test_overview_payload_returns_performance_history_from_split_column(monkeypa
     assert payload["performanceVsCostHistory"] == [{"date": "2026-06-30", "meanValue": 7.7, "packCost": 4.99}]
     assert "payload_json" not in payload
     assert "payloadJson" not in payload
+
+
+def test_overview_payload_includes_cards_market_when_present(monkeypatch):
+    """THE DATA-COMPLETENESS FIX. Cards Market Index and Market Breadth exist
+    in the canonical snapshot's payload_json but have no split column — before
+    this fix the Market tab's live /overview fetch (the endpoint the client
+    actually calls now that /market/dashboard is legacy-only) silently
+    dropped them, so a set with a real, populated Cards Market Index still
+    rendered "Not enough market data" on every one of Cards, Breadth and
+    Chase Concentration."""
+    row = _overview_dashboard_row(cardsMarket={
+        "available": True,
+        "marketIndex": {"currentValue": 108.9, "history": [{"date": "2026-06-30", "indexValue": 108.9}]},
+        "marketBreadth": {"7D": {"available": True, "eligibleCount": 40, "advancingCount": 25,
+                                  "decliningCount": 12, "unchangedCount": 3,
+                                  "advancingPercent": 62.5, "decliningPercent": 30.0}},
+    })
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
+
+    assert payload["cardsMarket"]["marketIndex"]["currentValue"] == 108.9
+    assert payload["cardsMarket"]["marketBreadth"]["7D"]["advancingPercent"] == 62.5
+    # Same allowlist as the legacy dashboard contract — no constituent inputs.
+    assert "constituents" not in payload["cardsMarket"]
+    assert "cards_market" not in payload
+
+
+def test_overview_payload_omits_cards_market_when_absent(monkeypatch):
+    """A snapshot row built before Cards Market Index existed carries no
+    cardsMarket key at all; the client renders that as unavailable rather
+    than a fabricated market."""
+    row = _overview_dashboard_row(cardsMarket=None)
+    client = _Client({"pokemon_set_market_dashboard_snapshot_latest": lambda _q: [row]})
+    monkeypatch.setattr(pokemon_public_snapshot_service, "public_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_overview_snapshot_payload(_TEST_UUID)
+
+    assert "cardsMarket" not in payload
 
 
 def test_overview_payload_resolves_hyphenated_slug(monkeypatch):

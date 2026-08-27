@@ -19,6 +19,17 @@ test("card href remains canonical when no variant exists", () => {
   );
 });
 
+test("similar card names never affect canonical route identity", () => {
+  assert.equal(
+    buildPokemonCardHref("pitch-black", { canonicalCardId: "gengar-002", cardName: "Gengar ex" }),
+    "/TCGs/Pokemon/Sets/pitch-black/Cards/gengar-002"
+  );
+  assert.equal(
+    buildPokemonCardHref("pitch-black", { canonicalCardId: "gengar-199", cardName: "Gengar ex" }),
+    "/TCGs/Pokemon/Sets/pitch-black/Cards/gengar-199"
+  );
+});
+
 test("normalizer preserves backend-authoritative selection and variants", () => {
   const payload = normalizePokemonCardDetail({
     card: { id: "canonical" },

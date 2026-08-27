@@ -48,6 +48,7 @@ from backend.domain.pokemon.market_index import (
     MARKET_INDEX_BASE_VALUE,
     build_chain_linked_history_with_segments,
     compute_strict_window_movements,
+    resolve_partial_window_coverage,
     resolve_window_baselines,
 )
 
@@ -355,14 +356,27 @@ def compute_market_breadth(
     end_date = available_dates[-1]
     end_prices = by_date[end_date]
     baselines = resolve_window_baselines(available_dates)
+    earliest_date = available_dates[0]
 
     result: Dict[str, Dict[str, Any]] = {}
     for key, resolved in baselines.items():
-        start_date = resolved["startDate"]
+        # Long windows (6M/1Y) report the SAME partial-coverage fallback as the
+        # Cards Market Index for this key, via the one shared resolver, so a
+        # set younger than six months never shows breadth as "unavailable"
+        # while its index reports a truthful partial return for the same span.
+        start_date, coverage, is_since_first_available = resolve_partial_window_coverage(
+            key,
+            target=resolved["targetStartDate"],
+            start=resolved["startDate"],
+            earliest=earliest_date,
+            latest=end_date,
+        )
         base = {
             "startDate": start_date,
             "endDate": end_date,
             "targetStartDate": resolved["targetStartDate"],
+            "coverage": coverage,
+            "isSinceFirstAvailable": is_since_first_available,
             "eligibleCount": 0,
             "advancingCount": None,
             "decliningCount": None,

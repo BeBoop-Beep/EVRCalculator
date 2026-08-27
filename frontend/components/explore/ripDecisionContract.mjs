@@ -176,6 +176,7 @@ function normalizeTopChase(raw) {
 
   return {
     cardId: text(raw.cardId),
+    canonicalCardId: text(raw.canonicalCardId) || text(raw.cardId),
     cardVariantId: text(raw.cardVariantId),
     name,
     rarity: text(raw.rarity),

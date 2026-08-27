@@ -13,44 +13,28 @@ import {
   formatBasketValue,
   formatChangePercent,
   formatIndexValue,
-  getFamilySinceTrackingChange,
   getPricePerformanceChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import styles from "./explore.module.css";
+import { ANALYTICAL_ACTION_CLASS, ANALYTICAL_ROW_LINK_CLASS } from "@/components/ui/analyticalInteraction.mjs";
 
-// TWO dimensions, grouped so a reader never has to guess which question a
-// column answers:
+// FOUR columns: Market, Tracked Value, Market Index, Selected Period.
 //
-//   Tracked Market Value — how many dollars the tracked universe holds today,
-//                          and how that total moved SINCE TRACKING BEGAN
-//                          (cohort changes INCLUDED). This column is fixed.
-//   Price Performance    — the chain-linked base-100 index, plus its movement
-//                          over the CURRENTLY SELECTED window. That column is
-//                          dynamic and follows the chart beside it.
+//   Tracked Value  — how many dollars the tracked universe holds today
+//                    (cohort changes INCLUDED). A level, not a movement.
+//   Market Index   — the chain-linked base-100 price-performance level.
+//   Selected Period— that index's movement over the CURRENTLY SELECTED
+//                    timeframe, measured over this market's OWN history.
 //
-// The two are never collapsed into one.
+// THE FIXED "SINCE TRACKING" COLUMN IS GONE, deliberately. It was grouped
+// under the "Tracked Market Value" heading while printing a PRICE PERFORMANCE
+// number, so the heading described something the cell beneath it was not. And
+// now that All means each market's own tracking start, that column would be an
+// exact duplicate of the period column whenever All is selected. One dynamic
+// period column says the same things without a heading that lies.
 //
-// THE "SINCE TRACKING" COLUMN IS FAMILY-SPECIFIC. It reads `familyChanges` —
-// this market's movement from ITS OWN tracking start — via
-// getFamilySinceTrackingChange. It must NEVER read the shared-comparison
-// `changes`: that series' longest window is the common comparable start shared
-// by the compared markets, which usually begins later, and reporting it under
-// this label is what made a Sealed index of 106.18 sit beside a
-// "Since Tracking" of +4.06% and look self-contradictory.
-//
-// The dynamic period column beside it DOES read the shared series, because it
-// follows the chart's timeframe and the chart is a cross-market comparison.
-//
-// Both come straight from the published payload — `basketChanges` and
-// `changes` respectively. Nothing here divides one basket value by another.
-//
-// FIVE columns, deliberately. An earlier revision printed 1D, 7D, 30D and
-// Since Tracking simultaneously; inside ~42% of the page that table overflowed
-// its pane and painted over the chart. Showing one window at a time — the one
-// the reader selected — is both compact and unambiguous, and leaves room for
-// the Graded and Sealed rows to arrive without another layout pass.
-const SINCE_TRACKING = "All";
-const SINCE_TRACKING_LABEL = "Since Tracking";
+// Every number is read verbatim from the published payload. Nothing here
+// divides one basket value by another.
 
 // The identity swatches and the change tones are deliberately different
 // vocabularies: the swatch says WHICH market a row is, the tone says which way
@@ -97,19 +81,9 @@ function MarketSwatch({ color }) {
 // incidental white text.
 export const MARKET_EXPLORER_HREF = "/Market/Explorer";
 
-const EXPLORER_CTA_CLASS = [
-  "ml-auto inline-flex min-h-9 flex-none items-center gap-1.5 whitespace-nowrap rounded-md",
-  "border border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.16)] px-2.5 text-[11px] font-semibold",
-  "text-[rgb(45,212,191)] transition-colors hover:bg-[rgba(45,212,191,0.26)]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]",
-  "desk:min-h-8",
-].join(" ");
+const EXPLORER_CTA_CLASS = `ml-auto desk:min-h-8 ${ANALYTICAL_ACTION_CLASS}`;
 
-const EXPLORER_ROW_LINK_CLASS = [
-  "text-[11px] font-semibold text-[rgba(45,212,191,0.9)] transition-colors",
-  "hover:text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2",
-  "focus-visible:ring-[rgba(45,212,191,0.65)]",
-].join(" ");
+const EXPLORER_ROW_LINK_CLASS = ANALYTICAL_ROW_LINK_CLASS;
 
 export function marketExplorerHref(marketKey) {
   return marketKey ? `${MARKET_EXPLORER_HREF}?market=${encodeURIComponent(marketKey)}` : MARKET_EXPLORER_HREF;
@@ -152,31 +126,19 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
       <div data-market-overview-table className="hidden desk:block">
         <table className={styles.marketOverviewTable}>
           <caption className="sr-only">
-            Tracked Market Value and chain-linked Price Performance for each tracked Pokémon market, with price performance shown over the selected {periodLabel} window. Tracked Value includes sets entering or leaving the tracked universe; Price Performance neutralizes them.
+            Tracked Market Value, chain-linked Market Index and price performance over the selected {periodLabel} window for each tracked Pokémon market, measured over that market&apos;s own history. Tracked Value includes sets entering or leaving the tracked universe; the index neutralizes them.
           </caption>
           <thead>
-            <tr className={styles.marketOverviewGroupRow}>
-              <td aria-hidden="true" />
-              <th scope="colgroup" colSpan={2} data-market-overview-group="trackedValue" className={styles.marketOverviewGroupHead}>
-                {MARKET_OVERVIEW_GROUPS.trackedValue}
-              </th>
-              <th scope="colgroup" colSpan={2} data-market-overview-group="pricePerformance" className={styles.marketOverviewGroupHead}>
-                {MARKET_OVERVIEW_GROUPS.pricePerformance}
-              </th>
-            </tr>
             <tr>
               <th scope="col">Market</th>
-              <th scope="col" className={styles.marketOverviewGroupStart}>
-                <div className="flex flex-wrap items-center justify-end gap-x-1.5">Tracked Value<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} /></div>
+              <th scope="col" data-market-overview-column="trackedValue" className={styles.marketOverviewGroupStart}>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5">{MARKET_OVERVIEW_GROUPS.trackedValue}<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValue} /></div>
               </th>
-              <th scope="col">
-                <div className="flex flex-wrap items-center justify-end gap-x-1.5">{SINCE_TRACKING_LABEL}<InfoPopover text={MARKET_OVERVIEW_HELP.trackedValueChange} /></div>
-              </th>
-              <th scope="col" className={styles.marketOverviewGroupStart}>
+              <th scope="col" data-market-overview-column="index" className={styles.marketOverviewGroupStart}>
                 <div className="flex flex-wrap items-center justify-end gap-x-1.5">Market Index<InfoPopover text={MARKET_OVERVIEW_HELP.index} /></div>
               </th>
-              <th scope="col" data-market-overview-period-heading={selectedWindow}>
-                <span>{periodLabel}</span>
+              <th scope="col" data-market-overview-column="selectedPeriod" data-market-overview-period-heading={selectedWindow}>
+                <div className="flex flex-wrap items-center justify-end gap-x-1.5">{periodLabel}<InfoPopover text={MARKET_OVERVIEW_HELP.selectedPeriod} /></div>
                 {isSinceFirstAvailable ? <span data-market-overview-period-coverage className="mt-0.5 block text-[8px] font-medium text-[var(--text-secondary)]">Since first available</span> : null}
               </th>
             </tr>
@@ -215,14 +177,6 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                   </Link>
                 </th>
                 <td data-market-overview-metric="trackedValue" className={styles.marketOverviewGroupStart}>{formatBasketValue(family.basketValue)}</td>
-                <td data-market-overview-tracked-change={SINCE_TRACKING}>
-                  <ChangeValue
-                    change={getFamilySinceTrackingChange(family)}
-                    marketLabel={family.label}
-                    windowLabel={SINCE_TRACKING_LABEL}
-                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
-                  />
-                </td>
                 <td data-market-overview-metric="index" className={`${styles.marketOverviewIndex} ${styles.marketOverviewGroupStart}`}>{formatIndexValue(family.indexValue)}</td>
                 <td data-market-overview-change={selectedWindow}>
                   <ChangeValue
@@ -255,7 +209,7 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                     <InfoPopover text={placeholder.reason} />
                   </span>
                 </th>
-                <td colSpan={4} data-market-overview-placeholder-status={placeholder.key} className="text-right text-[var(--text-secondary)]">
+                <td colSpan={3} data-market-overview-placeholder-status={placeholder.key} className="text-right text-[var(--text-secondary)]">
                   {placeholder.status}
                 </td>
               </tr>
@@ -281,16 +235,6 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
                   Tracked Value
                 </div>
                 <p data-market-overview-metric="trackedValue" className="text-[15px] font-semibold leading-tight tabular-nums text-[var(--text-primary)]">{formatBasketValue(family.basketValue)}</p>
-                <p data-market-overview-tracked-change={SINCE_TRACKING} className="text-[10px] text-[var(--text-secondary)]">
-                  <ChangeValue
-                    change={getFamilySinceTrackingChange(family)}
-                    marketLabel={family.label}
-                    windowLabel={SINCE_TRACKING_LABEL}
-                    dimension={MARKET_DIMENSION_LABELS.pricePerformance}
-                    className="font-semibold"
-                  />
-                  <span aria-hidden="true"> since tracking</span>
-                </p>
               </div>
 
               <div data-market-overview-group="pricePerformance">

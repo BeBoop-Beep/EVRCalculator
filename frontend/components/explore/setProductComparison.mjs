@@ -9,6 +9,12 @@ export const SET_PRODUCT_FAMILY_ORDER = [
   "enhanced_booster_box",
 ];
 
+/** One resolver for the recommendation CTA and every comparison row. */
+export function buildSealedProductHref(sealedProductId) {
+  const id = String(sealedProductId ?? "").trim();
+  return id ? `/sealed-products/${encodeURIComponent(id)}` : null;
+}
+
 export function buildFamilyRankLookup(productFamilyRankings) {
   const lookup = new Map();
   const families = productFamilyRankings?.families;

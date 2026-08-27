@@ -236,7 +236,9 @@ test("Set Value Contract scope history is windowed to 30D by default, not the fu
     "scope history must be windowed to roughly 30 days"
   );
   assert.equal(contract.scopes.standard.history.at(-1)?.date, "2026-07-02", "windowed history must end on the latest point");
-  assert.equal(contract.scopes.standard.history[0]?.date, "2026-06-03", "windowed history must start ~30 days before the latest point");
+  // 2026-07-02 minus 30 ELAPSED days. The retired inclusive count landed on
+  // 2026-06-03 and covered only 29 days.
+  assert.equal(contract.scopes.standard.history[0]?.date, "2026-06-02", "windowed history must start 30 elapsed days before the latest point");
   assert.equal(
     contract.historiesByScope.standard.length,
     history.length,

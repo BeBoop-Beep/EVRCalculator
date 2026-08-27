@@ -24,6 +24,7 @@ export function normalizePokemonCardDetail(payload) {
     variantSelection: payload.variantSelection || { state: "unavailable", source: null },
     market: payload.market || {},
     chase: payload.chase || { available: false, reason: "modeled_chase_unavailable" },
+    intelligence: payload.intelligence || { available: false, reason: "card_intelligence_unavailable" },
     meta: payload.meta || {},
   };
 }

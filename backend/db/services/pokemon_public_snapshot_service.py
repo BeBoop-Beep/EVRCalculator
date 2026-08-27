@@ -26,6 +26,7 @@ from backend.desirability.card_appeal import (
 )
 from backend.desirability.set_components import build_card_appeal_correlation_dataset
 from backend.desirability.set_validation import build_opening_set_audit, is_opening_set_row
+from backend.domain.pokemon.rip_decision_metrics import exact_card_probability_contract
 from backend.db.services.explore_page_service import ExplorePageError
 from backend.db.services.explore_rip_statistics_service import (
     ExploreRipStatisticsTargetsError,
@@ -4306,19 +4307,30 @@ def get_pokemon_set_market_dashboard_snapshot_payload(
 
 _OVERVIEW_SNAPSHOT_COLUMNS = (
     "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
-    "available_scopes_json,latest_market_date,updated_at"
+    "available_scopes_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket"
 )
+# The Market tab's Cards Market Index and Market Breadth read this field. It
+# used to be reachable only through the retired monolithic /market/dashboard
+# fetch, which the client stopped calling live when Top Chase Cards/Market
+# Movers moved to their own slim endpoints (see the module docstring above) —
+# so cardsMarket silently stopped reaching the page even though the backend
+# analytics that build it were never broken. Selecting the ONE json path
+# rather than the whole payload_json column keeps the cost concern the split
+# columns exist for: cardsMarket is small (a market index history plus three
+# breadth windows), not the full monolithic payload.
 
 
 def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Build the slim Overview-tab payload (camelCase only) from a
     pokemon_set_market_dashboard_snapshot_latest row.
 
-    Reads only the split JSON columns — payload_json is never selected or read
-    (the large monolithic column would dominate the query cost; current
-    snapshot rows always populate the split columns). A missing split column
-    yields an empty structure, and topChaseCards/topChaseCardHistories/
-    marketMovers/marketMoversByWindow are never built here at all.
+    Reads the split JSON columns plus the single `cardsMarket` json-path
+    projection (see `_OVERVIEW_SNAPSHOT_COLUMNS`) — the monolithic payload_json
+    column itself is never selected (it would dominate the query cost; current
+    snapshot rows always populate the split columns and this one path). A
+    missing split column yields an empty structure, and topChaseCards/
+    topChaseCardHistories/marketMovers/marketMoversByWindow are never built
+    here at all.
     """
     resolved_set_id = _to_optional_str(row.get("set_id"))
     identity_row = set_row or {"id": resolved_set_id}
@@ -4342,7 +4354,11 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
         available_scopes = []
 
     market_as_of_date = _parse_date_key(row.get("latest_market_date"))
-    return {
+    # Same allowlisted projection the legacy dashboard payload uses, so a
+    # Cards Market Index reached through either endpoint carries identical
+    # fields and never leaks constituent inputs.
+    cards_market = _public_cards_market_contract({"cardsMarket": row.get("cardsMarket")})
+    payload = {
         "set": set_identity,
         "window": _to_optional_str(row.get("window_key")),
         "setValueHistoriesByScope": histories_by_scope,
@@ -4359,6 +4375,12 @@ def _build_overview_payload_from_row(row: Dict[str, Any], *, set_row: Optional[D
             },
         },
     }
+    # Optional for backward compatibility: a snapshot row built before Cards
+    # Market Index existed simply omits this, which the frontend renders as
+    # unavailable rather than fabricating a market from nothing.
+    if cards_market is not None:
+        payload["cardsMarket"] = cards_market
+    return payload
 
 
 def _empty_overview_payload(
@@ -4402,14 +4424,17 @@ def get_pokemon_set_overview_snapshot_payload(
     window: str = DEFAULT_DASHBOARD_WINDOW,
 ) -> Dict[str, Any]:
     """Return the slim Overview-tab snapshot (Set Value Trend + Performance vs
-    Cost + scopes/latestMarketDate) for a Pokemon set.
+    Cost + scopes/latestMarketDate + Cards Market Index/Breadth) for a
+    Pokemon set.
 
-    Reads pokemon_set_market_dashboard_snapshot_latest, selecting only the
-    split set_value_histories_json / performance_vs_cost_history_json /
-    available_scopes_json / latest_market_date columns (never payload_json).
-    Never includes topChaseCards, topChaseCardHistories, marketMovers, or
-    marketMoversByWindow — see get_pokemon_set_market_dashboard_snapshot_payload
-    for those. Public contract is camelCase only.
+    Reads pokemon_set_market_dashboard_snapshot_latest, selecting the split
+    set_value_histories_json / performance_vs_cost_history_json /
+    available_scopes_json / latest_market_date columns plus the single
+    `payload_json->cardsMarket` json path (never the whole payload_json
+    column). Never includes topChaseCards, topChaseCardHistories,
+    marketMovers, or marketMoversByWindow — see
+    get_pokemon_set_market_dashboard_snapshot_payload for those. Public
+    contract is camelCase only.
     """
     started = time.perf_counter()
     resolved = _to_optional_str(set_id)
@@ -6637,11 +6662,67 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         if isinstance(payload_json.get("overallRipV10"), dict)
         else {}
     )
+    financial_rip_v4 = (
+        payload_json.get("financialRipV4")
+        if isinstance(payload_json.get("financialRipV4"), dict)
+        else {}
+    )
     public_rip_contract_v10 = (
         payload_json.get("publicRipContractV10")
         if isinstance(payload_json.get("publicRipContractV10"), dict)
         else {}
     )
+    # Rolling-publication repair: early V10 snapshots carried the canonical
+    # rank/tier/cohort contract before leaderNormalizedScore was added to the
+    # packaged headline blocks. The same snapshot already contains the
+    # authoritative V10/V4 top-level objects. Complete only the missing
+    # transport fields from those same-generation objects; never borrow a V9
+    # value and never recompute a score.
+    if public_rip_contract_v10:
+        public_rip_contract_v10 = dict(public_rip_contract_v10)
+        for contract_key, source in (
+            ("overallRip", overall_rip_v10),
+            ("financialRip", financial_rip_v4),
+        ):
+            block = public_rip_contract_v10.get(contract_key)
+            if isinstance(block, dict) and block.get("leaderNormalizedScore") is None:
+                block = dict(block)
+                block["leaderNormalizedScore"] = source.get("leaderNormalizedScore")
+                public_rip_contract_v10[contract_key] = block
+        # Older stored V10 snapshots already publish each subject path's exact
+        # per-pack probability but predate the acquisition-count fields. Enrich
+        # that same canonical path at read time with the established Top Chase
+        # helper so current snapshots and newly built snapshots share one math
+        # authority. The frontend never approximates these counts.
+        collector_block = public_rip_contract_v10.get("collectorAppeal")
+        if isinstance(collector_block, dict) and isinstance(collector_block.get("topSubjects"), list):
+            collector_block = dict(collector_block)
+            enriched_subjects = []
+            for subject in collector_block["topSubjects"]:
+                if not isinstance(subject, dict):
+                    enriched_subjects.append(subject)
+                    continue
+                enriched_subject = dict(subject)
+                for path_key in ("accessiblePath", "elitePath"):
+                    path = enriched_subject.get(path_key)
+                    if not isinstance(path, dict):
+                        continue
+                    enriched_path = dict(path)
+                    probability_contract = exact_card_probability_contract(
+                        enriched_path.get("modeledProbability")
+                    )
+                    enriched_path.setdefault(
+                        "packsFor50PercentChance",
+                        probability_contract["packsFor50PercentChance"],
+                    )
+                    enriched_path.setdefault(
+                        "packsFor90PercentChance",
+                        probability_contract["packsFor90PercentChance"],
+                    )
+                    enriched_subject[path_key] = enriched_path
+                enriched_subjects.append(enriched_subject)
+            collector_block["topSubjects"] = enriched_subjects
+            public_rip_contract_v10["collectorAppeal"] = collector_block
     opening_experience = (
         payload_json.get("openingExperience")
         if isinstance(payload_json.get("openingExperience"), dict)
@@ -6705,6 +6786,7 @@ def get_pokemon_set_insights_critical_snapshot_payload(set_id: str) -> Dict[str,
         "overallRipV9": overall_rip_v9,
         "publicRipContractV9": public_rip_contract_v9,
         "overallRipV10": overall_rip_v10,
+        "financialRipV4": financial_rip_v4,
         "publicRipContractV10": public_rip_contract_v10,
         "openingExperience": opening_experience,
         "publicAnalyticsCohort": public_cohort,

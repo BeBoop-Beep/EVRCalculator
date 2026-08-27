@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
+import { getAuthenticatedUserFromCookies } from "@/lib/authServer";
+import { applySetRipEntitlement } from "@/lib/pokemon/setRipEntitlement.mjs";
 
 const PUBLIC_ANALYTICS_CACHE_CONTROL = "public, s-maxage=300, stale-while-revalidate=3600";
 const FAILED_ANALYTICS_CACHE_CONTROL = "no-store";
@@ -30,6 +32,14 @@ export async function GET(request, { params }) {
   const payload = await proxyResponse.text();
   const contentType = proxyResponse.headers.get("content-type") || "application/json";
   const cacheControl = proxyResponse.ok ? PUBLIC_ANALYTICS_CACHE_CONTROL : FAILED_ANALYTICS_CACHE_CONTROL;
+
+  if (proxyResponse.ok && contentType.includes("application/json")) {
+    const auth = await getAuthenticatedUserFromCookies();
+    return NextResponse.json(applySetRipEntitlement(JSON.parse(payload), auth?.user || null), {
+      status: proxyResponse.status,
+      headers: { "Cache-Control": "no-store", Vary: "Cookie, Authorization" },
+    });
+  }
 
   return new NextResponse(payload, {
     status: proxyResponse.status,

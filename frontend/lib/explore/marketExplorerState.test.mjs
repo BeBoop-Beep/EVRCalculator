@@ -77,11 +77,11 @@ function snapshot({ withSealed = true } = {}) {
     marketDate: "2024-01-05",
     comparisonWindows: COMPARISON_WINDOWS,
     coverage: { eligibleSetCount: 3, rawCardCount: 512, chaseCardCount: 30, sealedProductCount: 44 },
-    raw: { basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: trend(100, 101, 99.5, 101.75, 102.25), basketChanges: changeSet(9.99), changes: changeSet(-0.89) },
-    topChase: { basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: trend(100, 98, 97, 96.75, 96.5), basketChanges: changeSet(8.88), changes: changeSet(-1.09) },
+    raw: { basketValue: 8123.45, indexValue: 102.25, historyStartDate: "2024-01-01", trend: trend(100, 101, 99.5, 101.75, 102.25), basketChanges: changeSet(9.99), changes: changeSet(-0.89), familyChanges: changeSet(2.25) },
+    topChase: { basketValue: 4011.1, indexValue: 96.5, historyStartDate: "2024-01-01", trend: trend(100, 98, 97, 96.75, 96.5), basketChanges: changeSet(8.88), changes: changeSet(-1.09), familyChanges: changeSet(-3.5) },
   };
   if (withSealed) {
-    marketOverview.sealedMarket = { basketValue: 15550.25, indexValue: 106.18, historyStartDate: "2024-01-01", trend: trend(100, 103, 104, 105.5, 106.18), basketChanges: changeSet(7.77), changes: changeSet(-0.38) };
+    marketOverview.sealedMarket = { basketValue: 15550.25, indexValue: 106.18, historyStartDate: "2024-01-01", trend: trend(100, 103, 104, 105.5, 106.18), basketChanges: changeSet(7.77), changes: changeSet(-0.38), familyChanges: changeSet(6.18) };
   }
   return { marketOverview };
 }
@@ -217,9 +217,11 @@ test("published values are passed through verbatim — nothing is recalculated",
   assert.equal(raw.family.basketValue, 8123.45);
   assert.equal(raw.family.indexValue, 102.25);
   assert.equal(raw.family.changes["7D"].percent, -0.89);
+  assert.equal(raw.family.familyChanges["7D"].percent, 2.25);
   assert.equal(chase.family.changes["7D"].percent, -1.09);
   assert.equal(sealed.family.indexValue, 106.18);
   assert.equal(sealed.family.changes["7D"].percent, -0.38);
+  assert.equal(sealed.family.familyChanges["7D"].percent, 6.18);
   // The published index (106.18) and the published tracked-value change (7.77)
   // are different series and must never be conflated.
   assert.equal(sealed.family.basketChanges.SinceTracking.percent, 7.77);
@@ -530,7 +532,7 @@ test("parents, sealed submarkets and card submarkets become one series list", ()
   assert.equal(all.find((entry) => entry.key === "card:raw:illustrationRare").isParent, false);
 });
 
-test("the chart clips card submarkets to the same backend window as everything else", () => {
+test("the chart clips card submarkets to each series' own backend window", () => {
   const all = buildComparableSeries(overview, sealedSeries, cardSeries);
   const selected = all.filter((entry) => [
     "raw", "card:raw:specialIllustrationRare", "card:raw:illustrationRare",
@@ -551,7 +553,8 @@ test("the chart clips card submarkets to the same backend window as everything e
 
 test("the detail strip locks Since Tracking to the family-specific series", () => {
   const byKey = new Map(MARKET_EXPLORER_DETAIL_WINDOWS.map((entry) => [entry.key, entry]));
-  // Every fixed window reads the shared cross-market domain...
+  // Every fixed window reads the same user-facing accessor, which is now the
+  // series' own history for every timeframe...
   for (const key of ["1D", "7D", "30D", "3M"]) {
     assert.equal(byKey.get(key).dimension, "comparison", key);
   }
@@ -801,19 +804,19 @@ test("parents and submarkets become one comparable series list", () => {
   assert.equal(all.find((entry) => entry.key === "sealedMarket").isParent, true);
 });
 
-test("the chart model clips submarkets to the same backend window as parents", () => {
+test("the chart model clips submarkets to their own backend window, like parents", () => {
   const all = buildComparableSeries(overview, sealedSeries);
   const selected = all.filter((entry) => ["raw", "sealedMarket", "sealed:boosterBox"].includes(entry.key));
   const model = buildExplorerChartModel(overview, selected, "7D");
   assert.equal(model.available, true);
   assert.deepEqual(model.series.map((entry) => entry.key), ["raw", "sealedMarket", "sealed:boosterBox"]);
-  // ONE date domain for every line, taken from the published window.
+  // The domain spans the earliest published start to the latest end.
   assert.equal(model.startDate, "2024-01-01");
   assert.equal(model.endDate, "2024-01-05");
   for (const entry of model.series) {
     assert.equal(entry.values.length, model.dates.length, entry.key);
   }
-  // A series with no available shared-comparison change draws no line.
+  // A series with no available own-history change draws no line.
   const unavailable = buildExplorerChartModel(overview, selected, "6M");
   assert.equal(unavailable.available, false);
 });

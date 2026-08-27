@@ -312,6 +312,22 @@ test("normalizeOverviewPayload normalizes performanceVsCostHistory", () => {
   assert.equal(result.performanceVsCostHistory[0].meanValue, 3.6);
 });
 
+test("normalizeOverviewPayload preserves the prepared cards market contract", () => {
+  const result = normalizeOverviewPayload({
+    ...makeOverviewPayload(),
+    cardsMarket: {
+      available: true,
+      marketIndex: { currentValue: 108.5, history: [], movements: {} },
+      marketBreadth: { "7D": { available: true, advancingCount: 12 } },
+    },
+  });
+
+  assert.equal(result.cardsMarket.available, true);
+  assert.equal(result.cardsMarket.marketIndex.currentValue, 108.5);
+  assert.equal(result.cardsMarket.marketBreadth["7D"].advancingCount, 12);
+  assert.equal(result.cards_market, result.cardsMarket);
+});
+
 test("normalizeOverviewPayload normalizes availableScopes and latestMarketDate", () => {
   const result = normalizeOverviewPayload(makeOverviewPayload());
 

@@ -10,11 +10,37 @@ MARKET_INDEX_CONTRACT_VERSION = "pokemon-market-index-v1"
 MARKET_INDEX_METHODOLOGY_VERSION = "chain_linked_common_cohort_v1"
 MARKET_INDEX_BASE_VALUE = 100.0
 MARKET_INDEX_TRACKING_START_DATE = "2026-04-23"
-MARKET_COMPARISON_WINDOW_CONTRACT_VERSION = "common_observation_domain_v4"
+MARKET_COMPARISON_WINDOW_CONTRACT_VERSION = "true_elapsed_lookback_v5"
 RAW_INDEX_KEY = "raw"
 CHASE_INDEX_KEY = "top10"
 INDEX_KEYS = (RAW_INDEX_KEY, CHASE_INDEX_KEY)
 WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 365), ("SinceTracking", None))
+
+#: Window keys whose target may legitimately predate a market's history and
+#: which are therefore allowed to report a truthful "since first available"
+#: partial rather than disappearing from the timeframe control.
+PARTIAL_ELIGIBLE_WINDOW_KEYS = frozenset({"6M", "1Y"})
+
+
+def resolve_market_window_target(market_date: str, window_key: str) -> str | None:
+    """THE one definition of the date a fixed window reaches back to.
+
+    ``market_date - N`` TRUE ELAPSED CALENDAR DAYS. A 7D window ending on
+    2026-08-25 targets 2026-08-18, which is seven elapsed days back — not
+    2026-08-19, which is what an inclusive ``days - 1`` count produces and
+    which is the off-by-one this helper exists to make impossible to
+    reintroduce. ``SinceTracking``/All has no fixed target and returns None.
+
+    Both the family-window resolver (``resolve_window_baselines``) and the
+    shared-comparison domain (``build_comparison_windows``) route through
+    here, so "7D" cannot mean two different spans in one publication again.
+    """
+    lookback = dict(WINDOWS).get(window_key)
+    if window_key not in dict(WINDOWS):
+        raise MarketIndexError(f"unknown market window key: {window_key}")
+    if lookback is None:
+        return None
+    return (date.fromisoformat(str(market_date)[:10]) - timedelta(days=lookback)).isoformat()
 
 
 class MarketIndexError(ValueError):
@@ -78,6 +104,36 @@ def build_chain_linked_history(observations: Iterable[Mapping[str, Any]]) -> lis
     return output
 
 
+def resolve_partial_window_coverage(
+    key: str,
+    *,
+    target: str | None,
+    start: str | None,
+    earliest: str,
+    latest: str,
+) -> tuple[str | None, str, bool]:
+    """Whether a window with no full-length baseline may report a truthful partial.
+
+    Shared by ``compute_strict_window_movements`` (Cards Market Index) and
+    ``compute_market_breadth`` so a 6M/1Y window that predates a market's
+    history reports the SAME effective start, coverage, and
+    ``isSinceFirstAvailable`` flag whether it is asked for an index return or a
+    breadth classification. Short windows never fall back here: only
+    ``PARTIAL_ELIGIBLE_WINDOW_KEYS`` may substitute the earliest observation
+    for a missing baseline.
+
+    Returns ``(effective_start, coverage, is_since_first_available)``.
+    """
+    is_partial = bool(
+        start is None and key in PARTIAL_ELIGIBLE_WINDOW_KEYS and target is not None and earliest > target and earliest < latest
+    )
+    if is_partial:
+        return earliest, "partial", True
+    if start is None:
+        return None, "unavailable", False
+    return start, "full", False
+
+
 def compute_strict_window_movements(points: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
     normalized = sorted(({"date": str(row.get("date") or row.get("marketDate"))[:10],
                           "value": float(row.get("value") if row.get("value") is not None else row.get("normalizedIndexValue"))}
@@ -91,16 +147,31 @@ def compute_strict_window_movements(points: Sequence[Mapping[str, Any]]) -> dict
     value_by_date = {row["date"]: row["value"] for row in normalized}
     baselines = resolve_window_baselines([row["date"] for row in normalized])
     result: dict[str, dict[str, Any]] = {}
+    earliest = normalized[0]["date"]
     for key, resolved in baselines.items():
         target = resolved["targetStartDate"]
         start = resolved["startDate"]
+        # PARTIAL LONG WINDOWS, stated honestly. A market with four months of
+        # history genuinely cannot report a full 1Y, but dropping 6M/1Y from
+        # the control entirely is a worse answer than reporting the real span
+        # and SAYING it is partial. The percentage is still a real return
+        # between two real observations; only its span is shorter than the
+        # label's nominal one, and `isSinceFirstAvailable` says so. Short
+        # windows never fall back: a 7D that silently became "since the start"
+        # would be a fabricated 7D.
+        start, coverage, is_partial = resolve_partial_window_coverage(
+            key, target=target, start=start, earliest=earliest, latest=latest["date"]
+        )
         if start is None:
             result[key] = {"available": False, "percent": None, "startDate": None,
-                           "endDate": latest["date"], "targetStartDate": target, "coverage": "unavailable"}
+                           "endDate": latest["date"], "targetStartDate": target,
+                           "coverage": "unavailable", "isSinceFirstAvailable": False}
         else:
             result[key] = {"available": True, "percent": (latest["value"] / value_by_date[start] - 1.0) * 100.0,
                            "startDate": start, "endDate": latest["date"],
-                           "targetStartDate": target, "coverage": "full"}
+                           "targetStartDate": target,
+                           "coverage": "partial" if is_partial else "full",
+                           "isSinceFirstAvailable": is_partial}
     return result
 
 
@@ -122,9 +193,11 @@ def build_comparison_windows(
     end_key = end.isoformat()
     result: dict[str, dict[str, Any]] = {}
     for key, days in WINDOWS:
-        target = (common_start if days is None else
-                  (end - timedelta(days=1)).isoformat() if key == "1D" else
-                  (end - timedelta(days=days - 1)).isoformat())
+        # TRUE ELAPSED LOOKBACKS, from the one canonical resolver. This used to
+        # compute `end - (days - 1)` inline — an inclusive day COUNT — so 7D
+        # only reached six elapsed days back while the family windows next to
+        # it reached seven. Both now ask the same function.
+        target = common_start if days is None else resolve_market_window_target(end_key, key)
         is_partial_long_window = bool(
             key in {"6M", "1Y"} and target and common_start and common_start > target
         )
@@ -283,7 +356,7 @@ def resolve_window_baselines(ordered_dates: Sequence[str]) -> dict[str, dict[str
         elif days is None:
             target, start = None, str(ordered_dates[0])[:10]
         else:
-            target = (date.fromisoformat(latest) - timedelta(days=days)).isoformat()
+            target = resolve_market_window_target(latest, key)
             start = next((str(value)[:10] for value in reversed(ordered_dates) if str(value)[:10] <= target), None)
             if str(ordered_dates[0])[:10] > target:
                 start = None

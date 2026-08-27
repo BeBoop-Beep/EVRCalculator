@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import fs, { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import vm from "node:vm";
 
 import {
   DELTA_WINDOW_DEFINITIONS,
   computeDeltaWindowsFromHistory,
+  resolveDeltaWindowTargetDate,
   extractDeltaWindows,
   filterHistoryPointsForDeltaWindow,
   getDeltaWindowLabel,
@@ -165,7 +168,10 @@ test("window controls can be based on full loaded history while the rendered sli
   assert.ok(windows.some((window) => window.key === "30D"));
   assert.ok(windows.some((window) => window.key === "6M"));
   assert.ok(windows.some((window) => window.key === "1Y"));
-  assert.equal(renderedSlice.length, 30);
+  // 31 points, not 30: a true 30-day lookback spans the baseline day PLUS the
+  // thirty days that elapsed after it. The retired `days - 1` count rendered
+  // 30 points covering only 29 elapsed days.
+  assert.equal(renderedSlice.length, 31);
 });
 
 test("top chase card price history filters to distinct 7D, 30D, and 3M ranges from 365 loaded points", () => {
@@ -191,12 +197,13 @@ test("top chase card price history filters to distinct 7D, 30D, and 3M ranges fr
   const rows30D = filterHistoryPointsForDeltaWindow(priceHistory, selected30D);
   const rows3M = filterHistoryPointsForDeltaWindow(priceHistory, selected3M);
 
-  assert.equal(rows7D.length, 7);
-  assert.equal(rows30D.length, 30);
-  assert.equal(rows3M.length, 90);
-  assert.equal(rows7D[0].date, "2026-06-18");
-  assert.equal(rows30D[0].date, "2026-05-26");
-  assert.equal(rows3M[0].date, "2026-03-27");
+  // Baseline day + N elapsed days, for a series ending 2026-06-24.
+  assert.equal(rows7D.length, 8);
+  assert.equal(rows30D.length, 31);
+  assert.equal(rows3M.length, 91);
+  assert.equal(rows7D[0].date, "2026-06-17");
+  assert.equal(rows30D[0].date, "2026-05-25");
+  assert.equal(rows3M[0].date, "2026-03-26");
 });
 
 test("30D, 6M, and 1Y windows become available from sufficient loaded history", () => {
@@ -241,16 +248,22 @@ test("top chase raw observation history gives non-flat 30D and partial 3M deltas
   const metrics30D = getVisibleHistoryWindowMetrics(priceHistory, selected30D, { valueKey: "marketPrice" });
   const metrics3M = getVisibleHistoryWindowMetrics(priceHistory, selected3M, { valueKey: "marketPrice" });
 
-  assert.equal(selected30D.startDate, "2026-05-26");
-  assert.equal(metrics30D.deltaAmount, 29);
+  // Ending 2026-06-24, a true 30-day lookback targets 2026-05-25 and the $1/day
+  // series therefore moves 30, not the 29 the retired inclusive count produced.
+  assert.equal(selected30D.startDate, "2026-05-25");
+  assert.equal(selected30D.targetStartDate, "2026-05-25");
+  assert.equal(metrics30D.deltaAmount, 30);
   assert.notEqual(metrics30D.deltaAmount, 0);
+  // 75 days of history still cannot reach a 90-day target, so 3M stays an
+  // explicit since-first-available partial with its TRUE nominal target intact.
   assert.equal(selected3M.startDate, "2026-04-11");
+  assert.equal(selected3M.targetStartDate, "2026-03-26");
   assert.equal(selected3M.isSinceFirstAvailable, true);
   assert.equal(rows3M[0].date, "2026-04-11");
   assert.equal(rows3M.length, 75);
   assert.equal(metrics3M.deltaAmount, 74);
   assert.notEqual(metrics3M.deltaAmount, 0);
-  assert.equal(rows30D.length, 30);
+  assert.equal(rows30D.length, 31);
 });
 
 test("top chase normalization chooses mapped 74-point history over stale embedded 7-point card history", () => {
@@ -317,9 +330,9 @@ test("top chase normalized mapped history renders 30D and partial 3M slices from
   const rows30D = filterHistoryPointsForDeltaWindow(priceHistory, selected30D);
   const rows3M = filterHistoryPointsForDeltaWindow(priceHistory, selected3M);
 
-  assert.equal(selected30D.startDate, "2026-05-26");
-  assert.equal(rows30D.length, 30);
-  assert.equal(rows30D[0].date, "2026-05-26");
+  assert.equal(selected30D.startDate, "2026-05-25");
+  assert.equal(rows30D.length, 31);
+  assert.equal(rows30D[0].date, "2026-05-25");
   assert.equal(rows30D.at(-1).date, "2026-06-24");
   assert.equal(selected3M.startDate, "2026-04-11");
   assert.equal(selected3M.isSinceFirstAvailable, true);
@@ -501,8 +514,9 @@ test("selected-window delta uses the selected period rather than a hardcoded def
   const selected7D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "7D" }).selectedWindow;
   const selected30D = getSelectedDeltaWindowFromHistory(rows, { selectedKey: "30D" }).selectedWindow;
 
-  assert.equal(selected7D.amount, 6);
-  assert.equal(selected30D.amount, 29);
+  // $1 per calendar day, so the amount IS the elapsed span.
+  assert.equal(selected7D.amount, 7);
+  assert.equal(selected30D.amount, 30);
 });
 
 test("visible history metrics recompute current value and delta from the selected window", () => {
@@ -513,9 +527,9 @@ test("visible history metrics recompute current value and delta from the selecte
   const metrics30D = getVisibleHistoryWindowMetrics(rows, selected30D);
 
   assert.equal(metrics7D.currentValue, 130);
-  assert.equal(metrics7D.deltaAmount, 6);
+  assert.equal(metrics7D.deltaAmount, 7);
   assert.equal(metrics30D.currentValue, 130);
-  assert.equal(metrics30D.deltaAmount, 29);
+  assert.equal(metrics30D.deltaAmount, 30);
   assert.notEqual(metrics7D.deltaAmount, metrics30D.deltaAmount);
 });
 
@@ -668,4 +682,79 @@ test("positive windows and unusable baselines are handled without fabricating a 
   assert.equal(resolveDeltaWindowBaselineValue({ amount: null }, 1250), null);
   assert.equal(resolveDeltaWindowBaselineValue({ amount: 1250 }, 1250), null, "a zero baseline has no percent");
   assert.deepEqual(computeChangeFromBaseline(1250, null), { amount: null, percent: null });
+});
+
+// ---------------------------------------------------------------------------
+// Backend parity. The browser cannot import
+// `backend.domain.pokemon.market_index.resolve_market_window_target`, so the
+// mirror is pinned here against the same matrix the backend test pins. If the
+// backend contract version moves off `true_elapsed_lookback_v5`, these numbers
+// must move with it - deliberately, in both places.
+// ---------------------------------------------------------------------------
+
+test("resolveDeltaWindowTargetDate mirrors the backend canonical resolver", () => {
+  const expected = {
+    "7D": "2026-08-18",
+    "30D": "2026-07-26",
+    "3M": "2026-05-27",
+    "6M": "2026-02-26",
+    "1Y": "2025-08-25",
+  };
+  for (const [key, target] of Object.entries(expected)) {
+    assert.equal(resolveDeltaWindowTargetDate("2026-08-25", key), target, key);
+  }
+  // 1D is the previous OBSERVED point, not a calendar date; lifetime has no
+  // fixed target at all. Both must stay null rather than inventing one.
+  assert.equal(resolveDeltaWindowTargetDate("2026-08-25", "1D"), null);
+  assert.equal(resolveDeltaWindowTargetDate("2026-08-25", "lifetime"), null);
+  assert.equal(resolveDeltaWindowTargetDate("not-a-date", "7D"), null);
+});
+
+test("a dense series resolves every fixed window to its exact elapsed target", () => {
+  const rows = buildDailyRows(500, { startDate: "2025-04-13", startValue: 100 });
+  assert.equal(rows.at(-1).date, "2026-08-25");
+  const byKey = new Map(computeDeltaWindowsFromHistory(rows).map((entry) => [entry.key, entry]));
+  const expected = {
+    "1D": "2026-08-24",
+    "7D": "2026-08-18",
+    "30D": "2026-07-26",
+    "3M": "2026-05-27",
+    "6M": "2026-02-26",
+    "1Y": "2025-08-25",
+  };
+  for (const [key, start] of Object.entries(expected)) {
+    assert.equal(byKey.get(key).startDate, start, key);
+    assert.equal(byKey.get(key).isSinceFirstAvailable, false, key);
+  }
+  // FORBIDDEN VALUES, stated explicitly: these are what `days - 1` produced.
+  assert.notEqual(byKey.get("7D").startDate, "2026-08-19");
+  assert.notEqual(byKey.get("30D").startDate, "2026-07-27");
+  assert.notEqual(byKey.get("3M").startDate, "2026-05-28");
+  // lifetime stays the series' own start, never a fixed target.
+  assert.equal(byKey.get("lifetime").startDate, "2025-04-13");
+  assert.equal(byKey.get("lifetime").targetStartDate, null);
+});
+
+test("no set-level window implementation reintroduces a days - 1 lookback", () => {
+  // NARROW BY DESIGN: only the modules that RESOLVE a fixed market window
+  // boundary. Inclusive-count arithmetic is legitimate elsewhere (query
+  // chunking, day-stepping loops), so this guard names its files rather than
+  // sweeping the repo.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const guarded = [
+    path.join(here, "marketDeltaWindows.mjs"),
+    path.join(here, "..", "..", "components", "explore", "setValueTrendSelector.mjs"),
+    path.join(here, "..", "..", "components", "explore", "topChaseWindowState.mjs"),
+    path.join(here, "..", "..", "components", "pokemon", "set-page", "Market", "setMarketOverviewModel.mjs"),
+    path.join(here, "..", "..", "components", "pokemon", "set-page", "Overview", "sealedMarketTrendSelector.mjs"),
+    path.join(here, "..", "..", "components", "pokemon", "set-page", "PokemonSetHero", "compactSetValueSelector.mjs"),
+  ];
+  for (const file of guarded) {
+    const source = fs.readFileSync(file, "utf8");
+    // Strip comments so the explanatory note about the retired formula in
+    // marketDeltaWindows.mjs does not trip its own guard.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    assert.doesNotMatch(code, /days\s*-\s*1\b/, `${path.basename(file)} must not resolve a window with days - 1`);
+    assert.doesNotMatch(code, /spanOffset/, `${path.basename(file)} must not reintroduce an inclusive span offset`);
+  }
 });

@@ -5,6 +5,7 @@ from backend.db.services.pokemon_set_sealed_market_snapshot_service import (
     MOVEMENT_WINDOWS,
     SNAPSHOT_CONTRACT_VERSION,
     build_snapshot,
+    compute_sealed_market_breadth,
     fingerprint,
     movement,
     normalize_daily_history,
@@ -105,7 +106,7 @@ def test_equal_price_tie_break_fingerprint_and_empty_set():
     assert result["payload_json"]["defaultProductId"] == "20"
     assert [item["sealedProductId"] for item in result["payload_json"]["products"]] == ["20", "21"]
     assert fingerprint("s", products, observations) == fingerprint("s", list(reversed(products)), list(reversed(observations)))
-    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v3"
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v4"
     assert result["payload_json"]["meta"]["snapshotContractVersion"] == SNAPSHOT_CONTRACT_VERSION
     assert list(result["payload_json"]["products"][0]["movements"]) == list(MOVEMENT_WINDOWS)
     empty = build_snapshot({"id": "x", "canonical_key": "x", "name": "X"}, [], [])
@@ -613,4 +614,57 @@ def test_read_snapshot_backfills_the_lens_for_pre_existing_payloads():
     payload = snapshot_service.read_snapshot(_Client(), "s")
     assert payload["setMarket"]["currentValue"] == 125.0
     # The contract version is deliberately untouched, so no fingerprint moves.
-    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v3"
+    assert SNAPSHOT_CONTRACT_VERSION == "pokemon-set-sealed-market-v4"
+
+
+def test_sealed_breadth_uses_index_endpoints_and_keeps_missing_baseline_na():
+    products = [
+        {"sealedProductId": "a", "history": _history([("2026-01-01", 100), ("2026-01-08", 110)])},
+        {"sealedProductId": "b", "history": _history([("2026-01-01", 100), ("2026-01-08", 90)])},
+        {"sealedProductId": "c", "history": _history([("2026-01-01", 100), ("2026-01-08", 100)])},
+        {"sealedProductId": "d", "history": _history([("2026-01-08", 80)])},
+    ]
+    movement_entry = {
+        "available": True, "targetStartDate": "2026-01-01", "startDate": "2026-01-01",
+        "endDate": "2026-01-08", "coverage": "full", "isSinceFirstAvailable": False,
+    }
+    breadth = compute_sealed_market_breadth(products, {"7D": movement_entry})["7D"]
+    assert breadth["startDate"] == movement_entry["startDate"]
+    assert breadth["endDate"] == movement_entry["endDate"]
+    assert breadth["eligibleCount"] == 3
+    assert breadth["excludedCount"] == 1
+    assert breadth["totalTrackedCount"] == 4
+    assert (breadth["advancingCount"], breadth["decliningCount"], breadth["unchangedCount"]) == (1, 1, 1)
+    assert sum((breadth["advancingPercent"], breadth["decliningPercent"], breadth["unchangedPercent"])) == 100.0
+
+
+def test_every_available_sealed_breadth_window_has_index_endpoint_parity():
+    start = date(2025, 1, 1)
+    days = (0, 1, 7, 30, 90, 180, 365, 400)
+    products = [
+        {
+            "sealedProductId": product_id,
+            "history": _history([((start + timedelta(days=offset)).isoformat(), base + offset) for offset in days]),
+        }
+        for product_id, base in (("a", 100), ("b", 200), ("c", 300), ("d", 400))
+    ]
+    series = snapshot_service.build_sealed_segment_history(products)
+    movements = series["marketIndex"]["movements"]
+    breadth = series["marketBreadth"]
+    assert set(breadth) == {"1D", "7D", "30D", "3M", "6M", "1Y", "SinceTracking"}
+    for key, entry in breadth.items():
+        if entry["available"]:
+            assert entry["startDate"] == movements[key]["startDate"]
+            assert entry["endDate"] == movements[key]["endDate"]
+            assert entry["targetStartDate"] == movements[key]["targetStartDate"]
+            assert entry["coverage"] == movements[key]["coverage"]
+
+
+def test_all_sealed_breadth_never_crosses_current_chain_segment():
+    series = snapshot_service.build_sealed_segment_history([
+        {"sealedProductId": "old", "history": _history([("2026-01-01", 100), ("2026-01-02", 110)])},
+        {"sealedProductId": "current", "history": _history([("2026-02-01", 50), ("2026-02-02", 55)])},
+    ])
+    all_breadth = series["marketBreadth"]["SinceTracking"]
+    assert all_breadth["startDate"] == series["marketIndex"]["trackingSince"] == "2026-02-01"
+    assert all_breadth["startDate"] == series["marketIndex"]["movements"]["SinceTracking"]["startDate"]

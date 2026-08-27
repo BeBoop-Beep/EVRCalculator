@@ -5,13 +5,15 @@ import test from "node:test";
 
 const source = fs.readFileSync(path.resolve("components/explore/RipDecisionPage.jsx"), "utf8");
 const primitives = fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"), "utf8");
+const resolverSource = fs.readFileSync(path.resolve("components/explore/setProductComparison.mjs"), "utf8");
 const comparison = source.slice(source.indexOf('data-rip-section="compare-products"'), source.indexOf('data-rip-section="chase-summary"'));
 
 test("Set Product Comparison locks the approved nine-column contract", () => {
   const head = comparison.slice(comparison.indexOf("<thead"), comparison.indexOf("</thead>"));
-  const labels = ["Product Rank", ">Product</th>", "RIP Score", ">Tier</RankedProductHeader>", "Market Price", "$ / Pack", "Typical Back", "Entertainment Cost", "Recover Cost"];
+  const compactHead = head.replace(/\s+/g, " ");
+  const labels = ["Product Rank", ">Product</th>", "RIP Score", "Tier", "Market Price", "$ / Pack", "Typical Back", "Entertainment Cost", "Recover Cost"];
   let previous = -1;
-  for (const label of labels) { const current = head.indexOf(label); assert.ok(current > previous, label); previous = current; }
+  for (const label of labels) { const current = compactHead.indexOf(label); assert.ok(current > previous, label); previous = current; }
   assert.equal((head.match(/<th scope="col"/g) || []).length, 9);
   assert.ok(!comparison.includes("Family Rank"));
   assert.ok(!comparison.includes("Overall Rank"));
@@ -43,4 +45,16 @@ test("mobile keeps public identity and market price while locking all analytical
   assert.ok(source.includes("<ProductIdentity"));
   assert.ok(source.includes("<LockedValue canView={canView}"));
   assert.ok(source.includes("{money(product.marketPrice)}"));
+});
+
+test("hero and every product row share the canonical sealed-product resolver", async () => {
+  const moduleUrl = `data:text/javascript;base64,${Buffer.from(resolverSource).toString("base64")}`;
+  const { buildSealedProductHref } = await import(moduleUrl);
+  for (const id of ["booster-pack", "bundle", "etb", "pc-etb", "booster-box"]) {
+    assert.equal(buildSealedProductHref(id), `/sealed-products/${id}`);
+  }
+  assert.ok(source.includes("href={buildSealedProductHref(heroProduct.sealedProductId)}"));
+  assert.ok(source.includes("const href = buildSealedProductHref(product.sealedProductId)"));
+  assert.ok(source.includes('event.key === "Enter"'));
+  assert.ok(source.includes('event.target.closest("a,button,[role=\'button\']")'));
 });

@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
+import Link from "next/link";
+import {
+  CARD_THUMBNAIL_WIDTH,
+  optimizedImageUrl,
+} from "@/lib/images/remoteImageDelivery.mjs";
 import InfoPopover from "@/components/ui/InfoPopover";
+import { buildPokemonCardHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import styles from "./RipDecisionPage.module.css";
 
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+const currency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+});
 
 function numberOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -26,58 +35,191 @@ function CardImage({ src, name, compact = false }) {
         // Existing repository image delivery performs the optimization; this
         // plain image also preserves the compact intrinsic card layout.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={image} alt={`${name || "Card"} card`} loading="lazy" decoding="async" className="h-full w-full object-contain" />
-      ) : <span aria-hidden="true" className="text-xs text-[var(--text-secondary)]">No image</span>}
+        <img
+          src={image}
+          alt={`${name || "Card"} card`}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-contain"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="text-xs text-[var(--text-secondary)]"
+        >
+          No image
+        </span>
+      )}
     </div>
   );
 }
 
-export function SimulationDriverCards({ drivers = [], rankings = [], packPaths = {}, normalStateRows = [] }) {
+export function SimulationDriverCards({
+  drivers = [],
+  rankings = [],
+  packPaths = {},
+  normalStateRows = [],
+}) {
   const [open, setOpen] = useState(false);
   const rows = (Array.isArray(drivers) ? drivers : []).slice(0, 3);
   const rarityRows = (Array.isArray(rankings) ? rankings : [])
-    .map((row) => ({ label: row?.rarity_bucket || row?.rarityBucket, value: numberOrNull(row?.total_sampled_value ?? row?.totalSampledValue) }))
+    .map((row) => ({
+      label: row?.rarity_bucket || row?.rarityBucket,
+      value: numberOrNull(row?.total_sampled_value ?? row?.totalSampledValue),
+    }))
     .filter((row) => row.label && row.value !== null)
     .sort((a, b) => b.value - a.value);
   const maxRarity = Math.max(0, ...rarityRows.map((row) => row.value));
-  const pathRows = Object.entries(packPaths && typeof packPaths === "object" ? packPaths : {}).filter(([, value]) => numberOrNull(value) !== null);
+  const pathRows = Object.entries(
+    packPaths && typeof packPaths === "object" ? packPaths : {},
+  ).filter(([, value]) => numberOrNull(value) !== null);
 
   return (
     <>
       {rows.length ? (
-        <div data-simulation-driver-cards className="mt-4 grid gap-3 md:grid-cols-3">
+        <div
+          data-simulation-driver-cards
+          className="mt-4 grid gap-3 md:grid-cols-3"
+        >
           {rows.map((driver, index) => {
             const name = driver.card_name || "Card name unavailable";
             return (
-              <article key={driver.canonical_card_id || driver.id || `${name}:${index}`} className={styles.driverCard}>
-                <CardImage src={driver.image_url || driver.image_small_url || driver.image_large_url} name={name} />
+              <article
+                key={
+                  driver.canonical_card_id || driver.id || `${name}:${index}`
+                }
+                className={styles.driverCard}
+              >
+                <CardImage
+                  src={
+                    driver.image_url ||
+                    driver.image_small_url ||
+                    driver.image_large_url
+                  }
+                  name={name}
+                />
                 <div className="min-w-0">
-                  <h3 className="truncate font-semibold text-[var(--text-primary)]">{name}</h3>
+                  <h3 className="truncate font-semibold text-[var(--text-primary)]">
+                    {name}
+                  </h3>
                   <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                    <div><dt className="text-[var(--text-secondary)]">Market price</dt><dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">{money(driver.current_near_mint_price)}</dd></div>
-                    <div><dt className="text-[var(--text-secondary)]">EV contribution</dt><dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">{money(driver.ev_contribution)}</dd></div>
+                    <div>
+                      <dt className="text-[var(--text-secondary)]">
+                        Market price
+                      </dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">
+                        {money(driver.current_near_mint_price)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[var(--text-secondary)]">
+                        EV contribution
+                      </dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-[var(--text-primary)]">
+                        {money(driver.ev_contribution)}
+                      </dd>
+                    </div>
                   </dl>
-                  <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">Major contributor to modeled pack value.</p>
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+                    Major contributor to modeled pack value.
+                  </p>
                 </div>
               </article>
             );
           })}
         </div>
-      ) : <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">Simulation driver cards are not available for this set yet.</p>}
+      ) : (
+        <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">
+          Simulation driver cards are not available for this set yet.
+        </p>
+      )}
 
       <div className="mt-4 border-t border-[var(--border-subtle)] pt-3">
-        <button type="button" aria-expanded={open} aria-controls="rip-more-simulation-detail" onClick={() => setOpen((value) => !value)} className={styles.disclosureButton}>
-          <span>View value structure details</span><span aria-hidden="true">{open ? "−" : "+"}</span>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="rip-more-simulation-detail"
+          onClick={() => setOpen((value) => !value)}
+          className={styles.disclosureButton}
+        >
+          <span>View value structure details</span>
+          <span aria-hidden="true">{open ? "−" : "+"}</span>
         </button>
         {open ? (
-          <div id="rip-more-simulation-detail" className="mt-4 grid gap-5 lg:grid-cols-2">
+          <div
+            id="rip-more-simulation-detail"
+            className="mt-4 grid gap-5 lg:grid-cols-2"
+          >
             <section>
-              <h3 className="font-semibold text-[var(--text-primary)]">Value Contribution by Rarity</h3>
-              {rarityRows.length ? <div className="mt-3 space-y-3">{rarityRows.map((row) => <div key={row.label}><div className="flex justify-between gap-3 text-sm"><span className="text-[var(--text-secondary)]">{String(row.label).replaceAll("_", " ")}</span><span className="font-semibold tabular-nums text-[var(--text-primary)]">{money(row.value)}</span></div><div className={styles.detailRail}><span style={{ width: `${maxRarity > 0 ? (row.value / maxRarity) * 100 : 0}%` }} /></div></div>)}</div> : <p className="mt-2 text-sm text-[var(--text-secondary)]">Rarity contribution is unavailable.</p>}
+              <h3 className="font-semibold text-[var(--text-primary)]">
+                Value Contribution by Rarity
+              </h3>
+              {rarityRows.length ? (
+                <div className="mt-3 space-y-3">
+                  {rarityRows.map((row) => (
+                    <div key={row.label}>
+                      <div className="flex justify-between gap-3 text-sm">
+                        <span className="text-[var(--text-secondary)]">
+                          {String(row.label).replaceAll("_", " ")}
+                        </span>
+                        <span className="font-semibold tabular-nums text-[var(--text-primary)]">
+                          {money(row.value)}
+                        </span>
+                      </div>
+                      <div className={styles.detailRail}>
+                        <span
+                          style={{
+                            width: `${maxRarity > 0 ? (row.value / maxRarity) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Rarity contribution is unavailable.
+                </p>
+              )}
             </section>
             <section>
-              <h3 className="font-semibold text-[var(--text-primary)]">Pack Breakdown</h3>
-              {pathRows.length || normalStateRows.length ? <dl className="mt-3 space-y-2">{pathRows.slice(0, 4).map(([label, value]) => <div key={label} className="flex justify-between gap-3 text-sm"><dt className="capitalize text-[var(--text-secondary)]">{label.replaceAll("_", " ")}</dt><dd className="font-semibold tabular-nums text-[var(--text-primary)]">{Number(value).toLocaleString()}</dd></div>)}{normalStateRows.slice(0, 4).map(([label, value]) => <div key={`state:${label}`} className="flex justify-between gap-3 text-sm"><dt className="capitalize text-[var(--text-secondary)]">{String(label).replaceAll("_", " ")}</dt><dd className="font-semibold tabular-nums text-[var(--text-primary)]">{Number(value).toLocaleString()}</dd></div>)}</dl> : <p className="mt-2 text-sm text-[var(--text-secondary)]">Pack breakdown is unavailable.</p>}
+              <h3 className="font-semibold text-[var(--text-primary)]">
+                Pack Breakdown
+              </h3>
+              {pathRows.length || normalStateRows.length ? (
+                <dl className="mt-3 space-y-2">
+                  {pathRows.slice(0, 4).map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex justify-between gap-3 text-sm"
+                    >
+                      <dt className="capitalize text-[var(--text-secondary)]">
+                        {label.replaceAll("_", " ")}
+                      </dt>
+                      <dd className="font-semibold tabular-nums text-[var(--text-primary)]">
+                        {Number(value).toLocaleString()}
+                      </dd>
+                    </div>
+                  ))}
+                  {normalStateRows.slice(0, 4).map(([label, value]) => (
+                    <div
+                      key={`state:${label}`}
+                      className="flex justify-between gap-3 text-sm"
+                    >
+                      <dt className="capitalize text-[var(--text-secondary)]">
+                        {String(label).replaceAll("_", " ")}
+                      </dt>
+                      <dd className="font-semibold tabular-nums text-[var(--text-primary)]">
+                        {Number(value).toLocaleString()}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                  Pack breakdown is unavailable.
+                </p>
+              )}
             </section>
           </div>
         ) : null}
@@ -86,19 +228,39 @@ export function SimulationDriverCards({ drivers = [], rankings = [], packPaths =
   );
 }
 
-function SubjectPath({ label, path }) {
+function SubjectPath({ label, path, setSlug }) {
   if (!path) return null;
+  const href = buildPokemonCardHref(setSlug, path);
+  const image = <CardImage src={path.imageUrl} name={path.cardName} compact />;
   return (
     <div className={styles.subjectPath}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+        {label}
+      </p>
       <div className="mt-2 flex min-w-0 items-center gap-3">
-        <CardImage src={path.imageUrl} name={path.cardName} compact />
+        {href ? (
+          <Link href={href} aria-label={`View ${path.cardName || "card"}`} className={styles.subjectCardLink}>
+            {image}
+          </Link>
+        ) : image}
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{path.cardName || "Card name unavailable"}</p>
-          {path.rarity ? <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{path.rarity}</p> : null}
+          {href ? (
+            <Link href={href} className={`${styles.subjectNameLink} line-clamp-2 text-sm font-semibold`}>
+              {path.cardName || "Card name unavailable"}
+            </Link>
+          ) : <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">{path.cardName || "Card name unavailable"}</p>}
+          {path.rarity ? (
+            <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
+              {path.rarity}
+            </p>
+          ) : null}
           <p className="mt-1 text-xs tabular-nums text-[var(--text-secondary)]">
-            {path.currentMarketPrice !== null ? `${money(path.currentMarketPrice)} · ` : ""}
-            {path.impliedOdds ? `1 in ${Math.round(path.impliedOdds).toLocaleString()} packs` : "Modeled odds unavailable"}
+            {path.currentMarketPrice !== null
+              ? `${money(path.currentMarketPrice)} · `
+              : ""}
+            {path.impliedOdds
+              ? `1 in ${Math.round(path.impliedOdds).toLocaleString()} packs`
+              : "Modeled odds unavailable"}
           </p>
         </div>
       </div>
@@ -106,29 +268,206 @@ function SubjectPath({ label, path }) {
   );
 }
 
-function CollectorDriverSubjectsDesktop({ subjects = [] }) {
-  if (!subjects.length) return <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">Top collector subjects are not available for this set yet.</p>;
-  return <div data-collector-driver-subjects className="mt-4 grid gap-3 xl:grid-cols-3">{subjects.map((subject) => <article key={subject.subjectName} className={styles.subjectCard}><div className="flex items-start justify-between gap-3"><h3 className="text-lg font-semibold text-[var(--text-primary)]">{subject.subjectName}</h3>{subject.demandShareLabel ? <div className="text-right"><p data-demand-share-value className="text-xl font-semibold leading-none tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel}</p><p data-demand-share-label className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]">Set Demand <InfoPopover text="The share of this set's modeled Pokémon-subject demand attributed to this Pokémon. It is not pull probability, market value, or sales share." /></p></div> : null}</div><div className="mt-3"><SubjectPath label="Elite Chase" path={subject.elitePath || subject.accessiblePath} />{subject.elitePath && subject.accessiblePath ? <details className={styles.attainableDisclosure}><summary>More attainable chase</summary><SubjectPath label="More Attainable Chase" path={subject.accessiblePath} /></details> : null}</div></article>)}</div>;
+function SubjectAcquisition({ path, canViewAdvanced, loosePackPrice }) {
+  const rows = [
+    ["50% Chance to Pull", path?.packsFor50PercentChance],
+    ["90% Chance to Pull", path?.packsFor90PercentChance],
+  ];
+  return (
+    <dl
+      className={styles.subjectAcquisition}
+      data-subject-acquisition={canViewAdvanced ? "available" : "locked"}
+    >
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>
+            {canViewAdvanced ? (
+              value ? `${Math.round(value).toLocaleString("en-US")} packs` : "Unavailable"
+            ) : (
+              <>
+                <span aria-hidden="true">&#128274;</span> Index Plus
+              </>
+            )}
+          </dd>
+          {canViewAdvanced && value && loosePackPrice !== null && loosePackPrice !== undefined ? (
+            <p>≈ {money(Number(value) * Number(loosePackPrice))} at today&apos;s loose-pack price</p>
+          ) : null}
+        </div>
+      ))}
+    </dl>
+  );
 }
 
-export function CollectorDriverSubjects({ subjects = [] }) {
+function CollectorDriverSubjectsDesktop({
+  subjects = [],
+  canViewAdvanced = false,
+  setSlug,
+  loosePackPrice = null,
+}) {
+  if (!subjects.length)
+    return (
+      <p className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">
+        Most Desirable Pokémon data is not available for this set yet.
+      </p>
+    );
+  return (
+    <div
+      data-collector-driver-subjects
+      className="mt-4 grid gap-3 xl:grid-cols-3"
+    >
+      {subjects.map((subject) => (
+        <article key={subject.subjectName} className={styles.subjectCard}>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+              {subject.subjectName}
+            </h3>
+            {subject.demandShareLabel ? (
+              <div className="text-right">
+                <p
+                  data-demand-share-value
+                  className="text-xl font-semibold leading-none tabular-nums text-[var(--text-primary)]"
+                >
+                  {subject.demandShareLabel}
+                </p>
+                <p
+                  data-demand-share-label
+                  className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]"
+                >
+                  Set Demand{" "}
+                  <InfoPopover text="The share of this set's modeled Pokémon-subject demand attributed to this Pokémon. It is not pull probability, market value, or sales share." />
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-3">
+            <SubjectPath
+              label="Elite Chase"
+              path={subject.elitePath || subject.accessiblePath}
+              setSlug={setSlug}
+            />
+            <SubjectAcquisition
+              path={subject.elitePath || subject.accessiblePath}
+              canViewAdvanced={canViewAdvanced}
+              loosePackPrice={loosePackPrice}
+            />
+            {subject.elitePath && subject.accessiblePath && subject.elitePath.canonicalCardId !== subject.accessiblePath.canonicalCardId ? (
+              <details className={styles.attainableDisclosure}>
+                <summary>More attainable chase</summary>
+                <SubjectPath
+                  label="More Attainable Chase"
+                  path={subject.accessiblePath}
+                  setSlug={setSlug}
+                />
+                <SubjectAcquisition path={subject.accessiblePath} canViewAdvanced={canViewAdvanced} loosePackPrice={loosePackPrice} />
+              </details>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function CollectorDriverSubjects({
+  subjects = [],
+  canViewAdvanced = false,
+  setSlug,
+  loosePackPrice = null,
+}) {
   const [openSubject, setOpenSubject] = useState(null);
-  if (!subjects.length) return <CollectorDriverSubjectsDesktop subjects={subjects} />;
-  return <div data-collector-driver-subjects-responsive>
-    <div className={styles.subjectDesktopGrid}><CollectorDriverSubjectsDesktop subjects={subjects} /></div>
-    <div className={styles.subjectMobileList}>{subjects.map((subject, index) => {
-      const panelId = `collector-subject-${index}`;
-      const isOpen = openSubject === index;
-      const representative = subject.elitePath || subject.accessiblePath;
-      return <div key={subject.subjectName} className={styles.subjectMobileItem}>
-        <button type="button" aria-expanded={isOpen} aria-controls={panelId} onClick={() => setOpenSubject(isOpen ? null : index)} className={styles.subjectMobileButton}>
-          <span className={styles.subjectMobileImage}><CardImage src={representative?.imageUrl} name={representative?.cardName || subject.subjectName} compact /></span>
-          <span className="min-w-0"><strong className="block truncate text-sm text-[var(--text-primary)]">{subject.subjectName}</strong><small className="text-[11px] text-[var(--text-secondary)]">Top collector subject</small></span>
-          <span className="text-right"><strong data-demand-share-value className="block text-lg tabular-nums text-[var(--text-primary)]">{subject.demandShareLabel || "—"}</strong><small data-demand-share-label className="text-[10px] text-[var(--text-secondary)]">set demand</small></span>
-          <span aria-hidden="true" className={`text-lg text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
-        </button>
-        {isOpen ? <div id={panelId} className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}><SubjectPath label="Elite chase" path={subject.elitePath || subject.accessiblePath} />{subject.elitePath ? <SubjectPath label="More attainable" path={subject.accessiblePath} /> : null}</div> : null}
-      </div>;
-    })}</div>
-  </div>;
+  if (!subjects.length)
+    return (
+      <CollectorDriverSubjectsDesktop
+        subjects={subjects}
+        canViewAdvanced={canViewAdvanced}
+        setSlug={setSlug}
+        loosePackPrice={loosePackPrice}
+      />
+    );
+  return (
+    <div data-collector-driver-subjects-responsive>
+      <div className={styles.subjectDesktopGrid}>
+        <CollectorDriverSubjectsDesktop
+          subjects={subjects}
+          canViewAdvanced={canViewAdvanced}
+          setSlug={setSlug}
+          loosePackPrice={loosePackPrice}
+        />
+      </div>
+      <div className={styles.subjectMobileList}>
+        {subjects.map((subject, index) => {
+          const panelId = `collector-subject-${index}`;
+          const isOpen = openSubject === index;
+          const representative = subject.elitePath || subject.accessiblePath;
+          return (
+            <div key={subject.subjectName} className={styles.subjectMobileItem}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={panelId}
+                onClick={() => setOpenSubject(isOpen ? null : index)}
+                className={styles.subjectMobileButton}
+              >
+                <span className={styles.subjectMobileImage}>
+                  <CardImage
+                    src={representative?.imageUrl}
+                    name={representative?.cardName || subject.subjectName}
+                    compact
+                  />
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-sm text-[var(--text-primary)]">
+                    {subject.subjectName}
+                  </strong>
+                  <small className="text-[11px] text-[var(--text-secondary)]">
+                    Top collector subject
+                  </small>
+                </span>
+                <span className="text-right">
+                  <strong
+                    data-demand-share-value
+                    className="block text-lg tabular-nums text-[var(--text-primary)]"
+                  >
+                    {subject.demandShareLabel || "—"}
+                  </strong>
+                  <small
+                    data-demand-share-label
+                    className="text-[10px] text-[var(--text-secondary)]"
+                  >
+                    set demand
+                  </small>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`text-lg text-[var(--text-secondary)] transition-transform ${isOpen ? "rotate-90" : ""}`}
+                >
+                  ›
+                </span>
+              </button>
+              {isOpen ? (
+                <div
+                  id={panelId}
+                  className={`${styles.subjectMobilePanel} grid gap-2 min-[390px]:grid-cols-2`}
+                >
+                  <SubjectPath label="Elite chase" path={subject.elitePath || subject.accessiblePath} setSlug={setSlug} />
+                  <SubjectAcquisition
+                    path={representative}
+                    canViewAdvanced={canViewAdvanced}
+                    loosePackPrice={loosePackPrice}
+                  />
+                  {subject.elitePath && subject.accessiblePath && subject.elitePath.canonicalCardId !== subject.accessiblePath.canonicalCardId ? (
+                    <>
+                      <SubjectPath label="More attainable" path={subject.accessiblePath} setSlug={setSlug} />
+                      <SubjectAcquisition path={subject.accessiblePath} canViewAdvanced={canViewAdvanced} loosePackPrice={loosePackPrice} />
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

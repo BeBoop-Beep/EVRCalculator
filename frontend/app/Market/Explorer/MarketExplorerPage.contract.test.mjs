@@ -304,7 +304,7 @@ test("the Market Overview exposes one header action plus one link per market row
   assert.match(overview, /\/Market\/Explorer/);
   assert.match(overview, /\?market=\$\{encodeURIComponent\(marketKey\)\}/);
   // The affordance is a link on the existing row, not a new column.
-  assert.equal((overview.match(/<th scope="col"/g) || []).length, 5);
+  assert.equal((overview.match(/<th scope="col"/g) || []).length, 4);
 });
 
 test("the drill-down does not break the existing row-toggle interaction", () => {

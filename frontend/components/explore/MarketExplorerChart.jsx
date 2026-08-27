@@ -5,7 +5,6 @@ import MarketExplorerTimeframeSelector from "./MarketOverviewWindowSelector";
 import MarketPerformanceChart from "./MarketPerformanceChart";
 import {
   MARKET_DIMENSION_LABELS,
-  SHARED_COMPARISON_WINDOW_LABEL,
   changeDirection,
   describeChange,
   describeUnavailableWindow,
@@ -23,9 +22,10 @@ import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interp
 // legend. No second charting library.
 //
 // Parent markets and Sealed submarkets are drawn through ONE model
-// (buildExplorerChartModel), clipped to the SAME backend-owned comparison span,
-// so a submarket line and its parent line can be read against each other. No
-// return on this chart is computed in the browser.
+// (buildExplorerChartModel), each clipped to ITS OWN backend-owned window, so
+// a submarket line and its parent line can be read against each other and each
+// legend number describes exactly the span its line covers. No return on this
+// chart is computed in the browser.
 //
 // The legend names each ACTIVE series and its return over the selected window.
 // Series identity is the market's own color; the return's green/red is
@@ -55,9 +55,11 @@ export default function MarketExplorerChart({
     () => selectedSeries.filter((series) => series.available !== false),
     [selectedSeries]
   );
-  // "All" is the SHARED comparable span, not any one market's tracking start.
-  // Saying so on the chart is what keeps it from being read as "Since Tracking".
-  const spanLabel = timeframe === "All" ? SHARED_COMPARISON_WINDOW_LABEL : timeframeLabel;
+  // "All" is each series' OWN tracked history, so the spoken span label is
+  // simply the selected timeframe. It is deliberately NOT the shared
+  // comparable span any more — that analytic survives in the payload but is
+  // never presented under a timeframe button.
+  const spanLabel = timeframeLabel;
 
   return (
     <section data-market-explorer-chart-pane className="flex min-w-0 flex-col" aria-labelledby="market-explorer-chart-heading">
@@ -68,8 +70,8 @@ export default function MarketExplorerChart({
           </h2>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{CHART_NOTE}</p>
           {timeframe === "All" ? (
-            <p data-market-explorer-shared-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
-              All spans the {SHARED_COMPARISON_WINDOW_LABEL.toLowerCase()} — the longest range every selected market shares.
+            <p data-market-explorer-all-span-note className="mt-1 text-[11px] text-[var(--text-secondary)]">
+              All shows each selected market since its own tracking start, so lines may begin on different dates.
             </p>
           ) : null}
         </div>
@@ -78,7 +80,7 @@ export default function MarketExplorerChart({
             options={timeframeOptions}
             value={timeframe}
             onChange={onTimeframeChange}
-            ariaDescription="Sets the shared comparison window for the chart and every selected-period return on this page."
+            ariaDescription="Sets the timeframe for the chart and every selected-period return on this page. Each market is measured over its own history."
           />
         </div>
       </div>

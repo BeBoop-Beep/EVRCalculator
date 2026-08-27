@@ -42,6 +42,7 @@ from backend.db.services.frontend_proxy_service import (
 )
 from backend.domain.access.index_plan_access import (
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
+    filter_set_market_signal_access,
     has_index_premium_access,
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
@@ -1070,10 +1071,17 @@ def get_pokemon_set_shell(set_id: str):
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/page")
-def get_pokemon_set_page(set_id: str):
+def get_pokemon_set_page(
+    set_id: str,
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
     """Return page-ready public Pokemon set analytics snapshot."""
     try:
-        return get_pokemon_set_page_snapshot_payload(set_id=set_id)
+        return filter_set_market_signal_access(
+            get_pokemon_set_page_snapshot_payload(set_id=set_id),
+            _resolve_index_plan(authorization, token_cookie),
+        )
     except ExplorePageError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1097,10 +1105,15 @@ def get_pokemon_set_market_dashboard(
     set_id: str,
     window: Optional[str] = Query(default=None),
     days: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return page-ready market dashboard snapshot for a Pokemon set."""
     try:
-        return get_pokemon_set_market_dashboard_snapshot_payload(set_id=set_id, window=window or "365d", days=days)
+        return filter_set_market_signal_access(
+            get_pokemon_set_market_dashboard_snapshot_payload(set_id=set_id, window=window or "365d", days=days),
+            _resolve_index_plan(authorization, token_cookie),
+        )
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},
@@ -1121,10 +1134,15 @@ def get_pokemon_set_market_dashboard(
 def get_pokemon_set_overview(
     set_id: str,
     window: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
     """Return the slim Overview-tab snapshot (set value trend + performance vs cost) for a Pokemon set."""
     try:
-        return get_pokemon_set_overview_snapshot_payload(set_id=set_id, window=window or "365d")
+        return filter_set_market_signal_access(
+            get_pokemon_set_overview_snapshot_payload(set_id=set_id, window=window or "365d"),
+            _resolve_index_plan(authorization, token_cookie),
+        )
     except PokemonSetMarketError as exc:
         return JSONResponse(
             content={"message": exc.message, "code": exc.code},

@@ -182,8 +182,9 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick, compact = false 
           key: String(marker?.key || marker?.label || "").trim(),
           label: String(marker?.label || "").trim(),
           value: toNumber(marker?.value),
+          locked: marker?.locked === true,
         }))
-        .filter((marker) => marker.label && marker.value !== null),
+        .filter((marker) => marker.label && (marker.value !== null || marker.locked)),
     [markers]
   );
 
@@ -196,7 +197,7 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick, compact = false 
     return null;
   }
 
-  const activeMarker = markerRows.find((marker) => marker.key === activeMarkerKey) || null;
+  const activeMarker = markerRows.find((marker) => !marker.locked && marker.key === activeMarkerKey) || null;
 
   return (
     <>
@@ -210,19 +211,22 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick, compact = false 
           <button
             key={marker.key}
             type="button"
-            onClick={() => onMarkerClick(marker.key)}
+            onClick={() => marker.locked ? undefined : onMarkerClick(marker.key)}
+            disabled={marker.locked}
             aria-pressed={activeMarkerKey === marker.key}
             // The value stays in the accessible name and the tooltip at every
             // width, so dropping it from the visible face below desktop hides
             // no data from anyone — it only stops each chip from being a card.
-            aria-label={`${marker.label}: ${formatCompactCurrency(marker.value)}`}
-            title={`${marker.label}: ${formatCompactCurrency(marker.value)}`}
+            aria-label={marker.locked ? `${marker.label}, requires Index Plus` : `${marker.label}: ${formatCompactCurrency(marker.value)}`}
+            title={marker.locked ? `${marker.label} · Index Plus` : `${marker.label}: ${formatCompactCurrency(marker.value)}`}
             data-distribution-marker-chip
             // 40px instead of 44px, and centred: in the phone grid the chip is
             // stretched to its column, so the target is the full cell and the
             // height can come down a step without becoming hard to hit.
             className={`inline-flex h-7 items-center rounded-full border px-3 text-xs transition-colors max-desk:h-auto max-desk:min-h-11 max-desk:justify-center max-desk:px-2 max-desk:text-[11px] ${
-              activeMarkerKey === marker.key
+              marker.locked
+                ? "border-[rgba(212,175,55,.42)] bg-[rgba(212,175,55,.06)] text-[#d4af37]"
+                : activeMarkerKey === marker.key
                 ? "border-[var(--brand)] bg-[color:color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--text-primary)]"
                 : "border-[var(--border-subtle)] bg-[var(--surface-page)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             }`}
@@ -230,9 +234,9 @@ function MarkerChips({ markers, activeMarkerKey, onMarkerClick, compact = false 
             {/* Below 1200px the chip is a label-only selector. Six chips that
                 each carried "Label: $0.00" wrapped to three rows of numeric
                 cards under a chart that already plots those numbers. */}
-            <span className="whitespace-nowrap desk:hidden">{marker.label}</span>
+            <span className="whitespace-nowrap desk:hidden">{marker.label}{marker.locked ? " · Plus" : ""}</span>
             <span className="hidden desk:inline">
-              {marker.label}: <span className="ml-1 font-semibold text-[var(--text-primary)]">{formatCompactCurrency(marker.value)}</span>
+              {marker.label}{marker.locked ? <span className="ml-1 text-[#d4af37]" aria-hidden="true">🔒</span> : <>: <span className="ml-1 font-semibold text-[var(--text-primary)]">{formatCompactCurrency(marker.value)}</span></>}
             </span>
           </button>
         ))}
@@ -741,7 +745,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
                     ? "bg-[rgba(94,234,212,0.98)]"
                     : "bg-[rgba(94,234,212,0.25)]"
                 }`} />
-                Chance To Reach
+                Chance of Returning At Least This Much
               </button>
             ) : null}
           </div>
@@ -898,7 +902,7 @@ export default function RipDistributionChart({ bins = [], thresholdBins = [], ma
       <div className="mt-1 min-h-[1rem] max-desk:mt-0 max-desk:min-h-0" aria-hidden="true" />
 
       <MarkerChips
-        markers={markerRows}
+        markers={markers}
         compact={isMobile}
         activeMarkerKey={activeMarkerKey}
         onMarkerClick={(markerKey) => setActiveMarkerKey((current) => (current === markerKey ? null : markerKey))}
