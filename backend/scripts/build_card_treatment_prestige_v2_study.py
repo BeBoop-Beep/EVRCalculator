@@ -247,6 +247,19 @@ def _fit_coefficient(rows, treatment_b, scarcity="linear", mechanics=True, weigh
     return fit["coefficient"] if fit["rank"]==fit["n_columns"] else None
 
 
+def _cluster_sandwich(fit, rows):
+    if fit["rank"]<fit["n_columns"]:return None
+    X,w,resid=fit["X"],fit["weights"],fit["resid"];root=np.sqrt(w);Xw=X*root[:,None]
+    bread=np.linalg.pinv(Xw.T@Xw);clusters=defaultdict(list)
+    for i,r in enumerate(rows):clusters[r["set_id"]].append(i)
+    scores=[]
+    for indices in clusters.values():scores.append(Xw[indices].T@(resid[indices]*root[indices]))
+    meat=sum((np.outer(s,s) for s in scores),np.zeros((X.shape[1],X.shape[1])))
+    g=len(clusters);n=len(rows);k=X.shape[1];correction=(g/(g-1))*((n-1)/(n-k)) if g>1 and n>k else 1
+    se=float(math.sqrt(max(0,(bread@meat@bread*correction)[1,1])));coef=fit["coefficient"]
+    return {"coefficient":coef,"cluster_robust_se":se,"ci_low":coef-1.96*se,"ci_high":coef+1.96*se,"clusters":g}
+
+
 def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
     usable=[]
     for r in mapping_rows:
@@ -264,8 +277,10 @@ def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
             "high" if (era,a,b) in {("Scarlet and Violet","illustration_rare","special_illustration_rare"),
             ("Scarlet and Violet","illustration_rare","ultra_rare"),("Mega Evolution","double_rare","illustration_rare")} else "calibration",
             "overlap_interval_log_odds":[low,high],"n_a":counts[a],"n_b":counts[b],"sets":len(sets),"species":len(species),
+            "inside_overlap_a":counts[a],"inside_overlap_b":counts[b],
             "scarcity_a":distribution([r["log_odds"] for r in rows if r["rarity_designation"]==a]),
-            "scarcity_b":distribution([r["log_odds"] for r in rows if r["rarity_designation"]==b])}
+            "scarcity_b":distribution([r["log_odds"] for r in rows if r["rarity_designation"]==b]),
+            "mechanic_balance":{label:dict(Counter(str(r.get("mechanic_or_card_form") or "__unknown__") for r in rows if r["rarity_designation"]==label)) for label in (a,b)}}
         if not support:
             results.append({**base,"status":"PAIR_SUPPORT_FAILED"});continue
         fit=_pair_design(rows,b);ci=_wild_cluster_ci(fit,rows,draws,seed+index)
@@ -279,7 +294,8 @@ def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
         demand=_fit_coefficient(demand_rows,b)
         loo=[]
         for sid in sets:
-            subset=[r for r in rows if r["set_id"]!=sid];loo.append({"set_id":sid,"coefficient":_fit_coefficient(subset,b)})
+            subset=[r for r in rows if r["set_id"]!=sid];loo_fit=_pair_design(subset,b)
+            loo.append({"set_id":sid,**(_cluster_sandwich(loo_fit,subset) or {"coefficient":None,"reason":"rank_deficient"})})
         bins=np.digitize([r["log_odds"] for r in rows],np.unique(np.quantile([r["log_odds"] for r in rows],[.2,.4,.6,.8])))
         cell=Counter((bins[i],r["rarity_designation"]) for i,r in enumerate(rows));weights=[1/max(1,cell[(bins[i],r["rarity_designation"])]) for i,r in enumerate(rows)]
         balanced=_fit_coefficient(rows,b,weights=weights)

@@ -131,6 +131,10 @@ import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
+import {
+  getPokemonSetRipGlobalContext,
+  selectCompatibleSetRipGlobalContext,
+} from "@/lib/pokemon/pokemonSetRipGlobalContextClient.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -8824,7 +8828,8 @@ export default function RipStatisticsPageClient({
   // receives), so this must merge field-by-field rather than picking one
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
-  const activeCalculationRunId = activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null;
+  const ripBootstrap = initialModuleSnapshots?.ripBootstrapPayload || null;
+  const activeCalculationRunId = ripBootstrap?.calculationRunId ?? activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null;
   const simulationEvidence = useMemo(
     () => selectSameSetSimulationEvidence(initialModuleSnapshots?.simulationEvidencePayload, {
       setId: resolvedSetResourceId,
@@ -8832,7 +8837,7 @@ export default function RipStatisticsPageClient({
     }),
     [initialModuleSnapshots?.simulationEvidencePayload, resolvedSetResourceId, activeCalculationRunId]
   );
-  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(simulationEvidence?.summary || {}) };
+  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(simulationEvidence?.summary || {}), ...(ripBootstrap?.summary || {}) };
   const preferredSetRip = useMemo(
     () => selectPreferredSetRipContract(
       explorePayload?.setRipV1,
@@ -9043,6 +9048,43 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
+  const [ripGlobalContextState, setRipGlobalContextState] = useState({
+    status: "idle",
+    setId: null,
+    expectedCalculationRunId: null,
+    payload: null,
+    error: null,
+  });
+  useEffect(() => {
+    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
+      return undefined;
+    }
+    const setId = resolvedSetResourceId;
+    const expectedCalculationRunId = ripBootstrap.calculationRunId;
+    const controller = new AbortController();
+    setRipGlobalContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
+    getPokemonSetRipGlobalContext(setId, { expectedCalculationRunId, signal: controller.signal })
+      .then((payload) => {
+        const compatible = selectCompatibleSetRipGlobalContext(payload, expectedCalculationRunId);
+        setRipGlobalContextState({
+          status: compatible ? "success" : "stale",
+          setId,
+          expectedCalculationRunId,
+          payload: compatible,
+          error: compatible ? null : "Family rank awaiting current Rankings publication.",
+        });
+      })
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        setRipGlobalContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Global context unavailable." });
+      });
+    return () => controller.abort();
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  const compatibleRipGlobalContext =
+    ripGlobalContextState.setId === resolvedSetResourceId &&
+    ripGlobalContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
+      ? ripGlobalContextState.payload
+      : null;
   // Keep this below the setDetailTab state declaration. Computing it earlier
   // reads setDetailTab during its temporal dead zone and crashes set routes.
   const hasActiveInsightsPayload =
@@ -9083,7 +9125,7 @@ export default function RipStatisticsPageClient({
   // rip_statistics/percentiles/etc. off explorePayload — needs no changes;
   // only what feeds it, and how each section gates on it, changed.
   const insightsFetchEnabled =
-    setDetailMode && setDetailTab === "overview" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
+    setDetailMode && setDetailTab === "insights" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
   const { state: insightsCriticalFetchState, refetch: refetchInsightsCritical } = useSectionFetchState(
     getPokemonSetInsightsCritical,
     { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
@@ -10372,8 +10414,8 @@ export default function RipStatisticsPageClient({
   // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
   // the payload for audit consumers and are read by no public surface here.
   const canonicalRip = useMemo(
-    () => resolveCanonicalRipV7(explorePayload, selectedTarget, summary),
-    [explorePayload, selectedTarget, summary]
+    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary),
+    [ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary]
   );
 
   const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
@@ -12738,7 +12780,7 @@ export default function RipStatisticsPageClient({
       }));
       return undefined;
     }
-    if (setDetailTab !== "pull-rates" && setDetailTab !== "overview") {
+    if (setDetailTab !== "pull-rates") {
       return undefined;
     }
 
@@ -13160,16 +13202,12 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // Top Chase is SHARED data: RIP renders a three-card consumer preview from
-    // it and Market renders the full Top 10 market table. Fetch it for either
-    // tab so a fresh RIP entry never depends on the user visiting Market first.
-    // The request-key guard below still makes RIP<->Market switches share one
-    // fetch per set/window.
+    // Market alone owns the Top 10 Chase market request. RIP uses the exact
+    // modeled top-chase contract already published inside ripDecision.
     const marketCriticalSettled =
       ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
       ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
-    const shouldFetchTopChase =
-      setDetailTab === "overview" || (setDetailTab === "market" && marketCriticalSettled);
+    const shouldFetchTopChase = setDetailTab === "market" && marketCriticalSettled;
     if (!shouldFetchTopChase) {
       return undefined;
     }
@@ -13929,23 +13967,21 @@ export default function RipStatisticsPageClient({
                     // The set-page snapshot already carries the whole decision
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
-                    ripDecision={explorePayload?.ripDecision ?? null}
+                    ripDecision={ripBootstrap?.ripDecision ?? explorePayload?.ripDecision ?? null}
                     // The canonical GLOBAL same-family product ranking
                     // (build_product_family_rankings on the backend) already
                     // flows this far via targetsPayload — it was simply never
                     // read past this point. Passed straight through; the only
                     // new code is the lookup-by-sealedProductId inside
                     // RipDecisionPage, not a second ranking calculation.
-                    productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
-                    evRepresentativeness={activeTarget?.evRepresentativeness ?? null}
-                    openingOutcomeProfile={activeTarget?.openingOutcomeProfile ?? null}
+                    productFamilyRankings={compatibleRipGlobalContext?.productFamilyRankings ?? null}
+                    evRepresentativeness={compatibleRipGlobalContext?.target?.evRepresentativeness ?? null}
+                    openingOutcomeProfile={compatibleRipGlobalContext?.target?.openingOutcomeProfile ?? null}
                     calculationRunId={activeCalculationRunId}
-                    setRip={preferredSetRip}
+                    setRip={compatibleRipGlobalContext?.target?.setRipV1 ?? null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
-                    chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
-                    pullRateAssumptions={pullRateAssumptions}
                     pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
                     productType="booster_pack"
                     productLabel="Booster Pack"
@@ -13957,7 +13993,7 @@ export default function RipStatisticsPageClient({
                     p50={percentileP50}
                     p95={percentileP95}
                     p99={percentileP99}
-                    simulationPending={activeInsightsSecondaryStatus === "idle" || activeInsightsSecondaryStatus === "loading"}
+                    simulationPending={false}
                     simulationDrivers={topHits}
                     rankings={rankings}
                     packPaths={ripStatistics?.pack_paths}

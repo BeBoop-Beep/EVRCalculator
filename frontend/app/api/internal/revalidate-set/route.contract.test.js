@@ -22,6 +22,10 @@ test("revalidate-set route invalidates the overview cache tag per window", () =>
   assert.ok(source.includes("invalidate(`pokemon-set-overview:${setId}:${window}`)"), "must invalidate the overview tag");
 });
 
+test("revalidate-set route invalidates the RIP bootstrap cache tag", () => {
+  assert.ok(source.includes("invalidate(`pokemon-set-rip-bootstrap:${setId}`)"));
+});
+
 test("revalidate-set route invalidates the Market bootstrap tag per window", () => {
   assert.ok(source.includes("invalidate(`pokemon-set-market-bootstrap:${setId}:${window}`)"));
 });

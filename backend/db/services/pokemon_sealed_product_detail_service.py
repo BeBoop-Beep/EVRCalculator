@@ -185,6 +185,7 @@ def _comparison_row(
 ) -> Dict[str, Any]:
     return {
         "sealedProductId": str(product["id"]), "name": product.get("name"),
+        "setName": ranking.get("setName") if ranking else None,
         "productType": product.get("product_type"), "productFamily": family,
         "productFamilyLabel": FAMILY_LABELS.get(family, family.replace("_", " ").title()),
         "imageUrl": product.get("image_large_url") or product.get("image_small_url"),
@@ -229,7 +230,7 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
     if product_ids:
         observations = _rows(
             active.table("sealed_product_price_observations")
-            .select("id,sealed_product_id,market_price,currency,source,observation_date,captured_at")
+            .select("id,sealed_product_id,market_price,currency,source,captured_at")
             .in_("sealed_product_id", product_ids)
         )
     by_product: Dict[str, List[Dict[str, Any]]] = {}

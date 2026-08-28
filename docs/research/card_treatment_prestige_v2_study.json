@@ -1,7 +1,7 @@
 {
   "study": "card_treatment_prestige_v2",
   "study_round": "frozen_cohort_reconciliation_round_4",
-  "generated_at": "2026-08-28T18:38:00.859500+00:00",
+  "generated_at": "2026-08-28T18:45:55.322156+00:00",
   "study_as_of_date": "2026-08-28",
   "decision": "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
   "acceptance_gates": {
@@ -39035,7 +39035,7 @@
     "canonical_mapping_hash": "7e0e9e2719aba8491fa777a1229cff52f23310e7fc49ca59f4a29e42fed29835"
   },
   "round4": {
-    "status": "LOCALLY_VALIDATED_RARITY_EFFECTS_EXIST",
+    "status": "NO_LOCALLY_VALIDATED_RARITY_EFFECTS",
     "historical_status_correction": {
       "previous": "V2_LOCAL_IDENTIFICATION_EXISTS",
       "corrected": "V2_LOCAL_COMMON_SUPPORT_EXISTS",
@@ -39561,6 +39561,8 @@
         "n_b": 126,
         "sets": 6,
         "species": 317,
+        "inside_overlap_a": 422,
+        "inside_overlap_b": 126,
         "scarcity_a": {
           "n": 422,
           "min": 2.8342598914959973,
@@ -39581,6 +39583,18 @@
           "p90": 4.2301299695171695,
           "max": 4.572025587395789
         },
+        "mechanic_balance": {
+          "common": {
+            "basic": 323,
+            "stage_1": 98,
+            "__unknown__": 1
+          },
+          "rare": {
+            "stage_1": 27,
+            "stage_2": 41,
+            "basic": 58
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 325,
@@ -39600,6 +39614,8 @@
         "n_b": 226,
         "sets": 6,
         "species": 359,
+        "inside_overlap_a": 573,
+        "inside_overlap_b": 226,
         "scarcity_a": {
           "n": 573,
           "min": 2.2581568089597,
@@ -39620,6 +39636,18 @@
           "p90": 4.548222910008102,
           "max": 4.568452603052929
         },
+        "mechanic_balance": {
+          "common": {
+            "basic": 433,
+            "stage_1": 138,
+            "__unknown__": 2
+          },
+          "uncommon": {
+            "basic": 58,
+            "stage_1": 135,
+            "stage_2": 33
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 366,
@@ -39639,6 +39667,8 @@
         "n_b": 66,
         "sets": 6,
         "species": 103,
+        "inside_overlap_a": 39,
+        "inside_overlap_b": 66,
         "scarcity_a": {
           "n": 39,
           "min": 5.244018593140658,
@@ -39659,6 +39689,23 @@
           "p90": 5.288470173475936,
           "max": 5.304536666361954
         },
+        "mechanic_balance": {
+          "double_rare": {
+            "ex|stage_1": 5,
+            "basic|ex": 13,
+            "ex|stage_2": 2,
+            "ex|mega|stage_2": 8,
+            "ex|mega|stage_1": 3,
+            "basic|ex|tera": 4,
+            "ex|stage_2|tera": 2,
+            "basic|ex|mega": 2
+          },
+          "illustration_rare": {
+            "stage_1": 26,
+            "basic": 29,
+            "stage_2": 11
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 105,
@@ -39678,6 +39725,8 @@
         "n_b": 48,
         "sets": 6,
         "species": 93,
+        "inside_overlap_a": 49,
+        "inside_overlap_b": 48,
         "scarcity_a": {
           "n": 49,
           "min": 3.8039761013450124,
@@ -39698,6 +39747,21 @@
           "p90": 4.590202775172566,
           "max": 4.600282151915315
         },
+        "mechanic_balance": {
+          "double_rare": {
+            "basic|ex|mega": 11,
+            "ex|stage_2": 5,
+            "ex|stage_1": 6,
+            "basic|ex": 7,
+            "ex|mega|stage_2": 8,
+            "ex|mega|stage_1": 12
+          },
+          "rare": {
+            "stage_2": 11,
+            "basic": 25,
+            "stage_1": 12
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 97,
@@ -39717,6 +39781,8 @@
         "n_b": 70,
         "sets": 6,
         "species": 111,
+        "inside_overlap_a": 49,
+        "inside_overlap_b": 70,
         "scarcity_a": {
           "n": 49,
           "min": 3.8039761013450124,
@@ -39737,6 +39803,21 @@
           "p90": 4.558677898420398,
           "max": 4.568452603052929
         },
+        "mechanic_balance": {
+          "double_rare": {
+            "basic|ex|mega": 11,
+            "ex|stage_2": 5,
+            "ex|stage_1": 6,
+            "basic|ex": 7,
+            "ex|mega|stage_2": 8,
+            "ex|mega|stage_1": 12
+          },
+          "uncommon": {
+            "stage_1": 43,
+            "basic": 17,
+            "stage_2": 10
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 118,
@@ -39756,6 +39837,8 @@
         "n_b": 205,
         "sets": 6,
         "species": 186,
+        "inside_overlap_a": 125,
+        "inside_overlap_b": 205,
         "scarcity_a": {
           "n": 125,
           "min": 2.6238928930954866,
@@ -39776,6 +39859,18 @@
           "p90": 4.5483173743953085,
           "max": 4.568452603052929
         },
+        "mechanic_balance": {
+          "rare": {
+            "stage_1": 27,
+            "stage_2": 41,
+            "basic": 57
+          },
+          "uncommon": {
+            "stage_1": 122,
+            "stage_2": 30,
+            "basic": 53
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 193,
@@ -39795,6 +39890,8 @@
         "n_b": 229,
         "sets": 16,
         "species": 652,
+        "inside_overlap_a": 1013,
+        "inside_overlap_b": 229,
         "scarcity_a": {
           "n": 1013,
           "min": 3.9199543757544264,
@@ -39815,6 +39912,22 @@
           "p90": 5.040271294768921,
           "max": 5.080467803694937
         },
+        "mechanic_balance": {
+          "common": {
+            "basic": 845,
+            "stage_1": 168
+          },
+          "double_rare": {
+            "ex|stage_2": 39,
+            "ex|stage_1": 58,
+            "basic|ex": 54,
+            "ex|stage_1|tera": 27,
+            "basic|ex|tera": 19,
+            "ex|stage_2|tera": 13,
+            "basic|ex|future": 10,
+            "ancient|basic|ex": 9
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 675,
@@ -39834,6 +39947,8 @@
         "n_b": 606,
         "sets": 16,
         "species": 687,
+        "inside_overlap_a": 2268,
+        "inside_overlap_b": 606,
         "scarcity_a": {
           "n": 2268,
           "min": 2.2870070630307273,
@@ -39854,6 +39969,19 @@
           "p90": 5.709750531063058,
           "max": 7.308232845579262
         },
+        "mechanic_balance": {
+          "common": {
+            "basic": 1873,
+            "stage_1": 395
+          },
+          "rare": {
+            "stage_1": 222,
+            "basic": 196,
+            "stage_2": 146,
+            "ancient|basic": 22,
+            "basic|future": 20
+          }
+        },
         "coefficient_log_price_b_vs_a": 0.41737525563487,
         "adjusted_price_association_pct": 51.79720336296712,
         "wild_cluster_inference": {
@@ -39870,74 +39998,126 @@
         "leave_one_set_out": [
           {
             "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
-            "coefficient": 0.41901666735715426
+            "coefficient": 0.41901666735715426,
+            "cluster_robust_se": 0.12026167487329824,
+            "ci_low": 0.1833037846054897,
+            "ci_high": 0.6547295501088188,
+            "clusters": 15
           },
           {
             "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
-            "coefficient": null
+            "coefficient": null,
+            "reason": "rank_deficient"
           },
           {
             "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
-            "coefficient": 0.41558327504150216
+            "coefficient": 0.41558327504150216,
+            "cluster_robust_se": 0.11032265327963525,
+            "ci_low": 0.19935087461341708,
+            "ci_high": 0.6318156754695873,
+            "clusters": 15
           },
           {
             "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
-            "coefficient": null
+            "coefficient": null,
+            "reason": "rank_deficient"
           },
           {
             "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
-            "coefficient": null
+            "coefficient": null,
+            "reason": "rank_deficient"
           },
           {
             "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
-            "coefficient": 0.46232930782541415
+            "coefficient": 0.46232930782541415,
+            "cluster_robust_se": 0.12459229965295272,
+            "ci_low": 0.21812840050562682,
+            "ci_high": 0.7065302151452015,
+            "clusters": 15
           },
           {
             "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
-            "coefficient": 0.4351930282023
+            "coefficient": 0.4351930282023,
+            "cluster_robust_se": 0.1299908059397138,
+            "ci_low": 0.18041104856046097,
+            "ci_high": 0.689975007844139,
+            "clusters": 15
           },
           {
             "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
-            "coefficient": 0.4186520500356148
+            "coefficient": 0.4186520500356148,
+            "cluster_robust_se": 0.11172877190191752,
+            "ci_low": 0.19966365710785647,
+            "ci_high": 0.6376404429633731,
+            "clusters": 15
           },
           {
             "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
-            "coefficient": null
+            "coefficient": null,
+            "reason": "rank_deficient"
           },
           {
             "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
-            "coefficient": 0.41738961811773245
+            "coefficient": 0.41738961811773245,
+            "cluster_robust_se": 0.11156406369051164,
+            "ci_low": 0.19872405328432965,
+            "ci_high": 0.6360551829511353,
+            "clusters": 15
           },
           {
             "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
-            "coefficient": 0.3776319534430722
+            "coefficient": 0.3776319534430722,
+            "cluster_robust_se": 0.0819965201520724,
+            "ci_low": 0.2169187739450103,
+            "ci_high": 0.5383451329411342,
+            "clusters": 15
           },
           {
             "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
-            "coefficient": 0.41187667632477676
+            "coefficient": 0.41187667632477676,
+            "cluster_robust_se": 0.1143005562769299,
+            "ci_low": 0.18784758602199417,
+            "ci_high": 0.6359057666275594,
+            "clusters": 15
           },
           {
             "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
-            "coefficient": 0.38446825884168057
+            "coefficient": 0.38446825884168057,
+            "cluster_robust_se": 0.13022284162994388,
+            "ci_low": 0.12923148924699057,
+            "ci_high": 0.6397050284363706,
+            "clusters": 15
           },
           {
             "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
-            "coefficient": 0.4016795787035189
+            "coefficient": 0.4016795787035189,
+            "cluster_robust_se": 0.13174164496934557,
+            "ci_low": 0.14346595456360156,
+            "ci_high": 0.6598932028434362,
+            "clusters": 15
           },
           {
             "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
-            "coefficient": 0.511478532528586
+            "coefficient": 0.511478532528586,
+            "cluster_robust_se": 0.10457702523594846,
+            "ci_low": 0.30650756306612703,
+            "ci_high": 0.716449501991045,
+            "clusters": 15
           },
           {
             "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
-            "coefficient": 0.44056415236680724
+            "coefficient": 0.44056415236680724,
+            "cluster_robust_se": 0.12816383739385437,
+            "ci_low": 0.1893630310748527,
+            "ci_high": 0.6917652736587618,
+            "clusters": 15
           }
         ],
         "permutation_placebo": {
           "draws": 199,
           "p_value": 0.005
         },
-        "status": "LOCALLY_VALIDATED"
+        "status": "LOCAL_EFFECT_UNCERTAIN"
       },
       {
         "era": "Scarlet and Violet",
@@ -39953,6 +40133,8 @@
         "n_b": 1182,
         "sets": 16,
         "species": 753,
+        "inside_overlap_a": 2297,
+        "inside_overlap_b": 1182,
         "scarcity_a": {
           "n": 2297,
           "min": 2.178289973722439,
@@ -39973,6 +40155,19 @@
           "p90": 5.472266808745305,
           "max": 7.329349769020185
         },
+        "mechanic_balance": {
+          "common": {
+            "basic": 1893,
+            "stage_1": 404
+          },
+          "uncommon": {
+            "stage_2": 149,
+            "stage_1": 730,
+            "basic": 259,
+            "ancient|basic": 27,
+            "basic|future": 17
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 771,
@@ -39992,6 +40187,8 @@
         "n_b": 261,
         "sets": 16,
         "species": 286,
+        "inside_overlap_a": 229,
+        "inside_overlap_b": 261,
         "scarcity_a": {
           "n": 229,
           "min": 3.5837989776634287,
@@ -40012,6 +40209,25 @@
           "p90": 4.605770366060124,
           "max": 4.655411402424838
         },
+        "mechanic_balance": {
+          "double_rare": {
+            "ex|stage_2": 39,
+            "ex|stage_1": 58,
+            "basic|ex": 54,
+            "ex|stage_1|tera": 27,
+            "basic|ex|tera": 19,
+            "ex|stage_2|tera": 13,
+            "basic|ex|future": 10,
+            "ancient|basic|ex": 9
+          },
+          "rare": {
+            "stage_1": 95,
+            "basic": 85,
+            "stage_2": 63,
+            "ancient|basic": 9,
+            "basic|future": 9
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 312,
@@ -40031,6 +40247,8 @@
         "n_b": 531,
         "sets": 16,
         "species": 439,
+        "inside_overlap_a": 229,
+        "inside_overlap_b": 531,
         "scarcity_a": {
           "n": 229,
           "min": 3.5837989776634287,
@@ -40051,6 +40269,25 @@
           "p90": 4.550303284547251,
           "max": 4.609981742985314
         },
+        "mechanic_balance": {
+          "double_rare": {
+            "ex|stage_2": 39,
+            "ex|stage_1": 58,
+            "basic|ex": 54,
+            "ex|stage_1|tera": 27,
+            "basic|ex|tera": 19,
+            "ex|stage_2|tera": 13,
+            "basic|ex|future": 10,
+            "ancient|basic|ex": 9
+          },
+          "uncommon": {
+            "stage_2": 64,
+            "stage_1": 334,
+            "basic": 114,
+            "ancient|basic": 11,
+            "basic|future": 8
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 465,
@@ -40070,6 +40307,8 @@
         "n_b": 51,
         "sets": 15,
         "species": 353,
+        "inside_overlap_a": 329,
+        "inside_overlap_b": 51,
         "scarcity_a": {
           "n": 329,
           "min": 5.256024454357785,
@@ -40090,6 +40329,25 @@
           "p90": 6.566295500849885,
           "max": 6.7380125043950425
         },
+        "mechanic_balance": {
+          "illustration_rare": {
+            "basic": 177,
+            "stage_1": 115,
+            "stage_2": 33,
+            "basic|future": 2,
+            "ancient|basic": 2
+          },
+          "special_illustration_rare": {
+            "basic|ex": 19,
+            "ex|stage_1": 8,
+            "ex|stage_2": 13,
+            "ex|stage_1|tera": 1,
+            "basic|ex|tera": 2,
+            "basic|ex|future": 3,
+            "ex|stage_2|tera": 3,
+            "ancient|basic|ex": 2
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 371,
@@ -40109,6 +40367,8 @@
         "n_b": 155,
         "sets": 14,
         "species": 323,
+        "inside_overlap_a": 212,
+        "inside_overlap_b": 155,
         "scarcity_a": {
           "n": 212,
           "min": 4.868615034075827,
@@ -40129,6 +40389,25 @@
           "p90": 6.060344923394755,
           "max": 6.114762763452475
         },
+        "mechanic_balance": {
+          "illustration_rare": {
+            "stage_1": 72,
+            "basic": 120,
+            "stage_2": 16,
+            "basic|future": 2,
+            "ancient|basic": 2
+          },
+          "ultra_rare": {
+            "ex|stage_2": 29,
+            "ex|stage_1": 40,
+            "basic|ex": 40,
+            "basic|ex|tera": 11,
+            "ex|stage_1|tera": 14,
+            "ex|stage_2|tera": 9,
+            "ancient|basic|ex": 6,
+            "basic|ex|future": 6
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 343,
@@ -40148,6 +40427,8 @@
         "n_b": 1180,
         "sets": 16,
         "species": 476,
+        "inside_overlap_a": 606,
+        "inside_overlap_b": 1180,
         "scarcity_a": {
           "n": 606,
           "min": 2.208266313555609,
@@ -40168,6 +40449,22 @@
           "p90": 5.467778021385369,
           "max": 7.308232845579262
         },
+        "mechanic_balance": {
+          "rare": {
+            "stage_1": 222,
+            "basic": 196,
+            "stage_2": 146,
+            "ancient|basic": 22,
+            "basic|future": 20
+          },
+          "uncommon": {
+            "stage_2": 148,
+            "stage_1": 729,
+            "basic": 259,
+            "ancient|basic": 27,
+            "basic|future": 17
+          }
+        },
         "status": "LOCAL_EFFECT_UNCERTAIN",
         "reason": "rank_deficient_fixed_effect_design",
         "design_rank": 496,
@@ -40176,7 +40473,7 @@
     ],
     "locked_contrast_count": 15,
     "estimated_contrast_count": 15,
-    "locally_validated_count": 1
+    "locally_validated_count": 0
   },
   "regression_results": [
     {
@@ -40200,6 +40497,8 @@
       "n_b": 126,
       "sets": 6,
       "species": 317,
+      "inside_overlap_a": 422,
+      "inside_overlap_b": 126,
       "scarcity_a": {
         "n": 422,
         "min": 2.8342598914959973,
@@ -40220,6 +40519,18 @@
         "p90": 4.2301299695171695,
         "max": 4.572025587395789
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 323,
+          "stage_1": 98,
+          "__unknown__": 1
+        },
+        "rare": {
+          "stage_1": 27,
+          "stage_2": 41,
+          "basic": 58
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 325,
@@ -40239,6 +40550,8 @@
       "n_b": 226,
       "sets": 6,
       "species": 359,
+      "inside_overlap_a": 573,
+      "inside_overlap_b": 226,
       "scarcity_a": {
         "n": 573,
         "min": 2.2581568089597,
@@ -40259,6 +40572,18 @@
         "p90": 4.548222910008102,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 433,
+          "stage_1": 138,
+          "__unknown__": 2
+        },
+        "uncommon": {
+          "basic": 58,
+          "stage_1": 135,
+          "stage_2": 33
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 366,
@@ -40278,6 +40603,8 @@
       "n_b": 66,
       "sets": 6,
       "species": 103,
+      "inside_overlap_a": 39,
+      "inside_overlap_b": 66,
       "scarcity_a": {
         "n": 39,
         "min": 5.244018593140658,
@@ -40298,6 +40625,23 @@
         "p90": 5.288470173475936,
         "max": 5.304536666361954
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_1": 5,
+          "basic|ex": 13,
+          "ex|stage_2": 2,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 3,
+          "basic|ex|tera": 4,
+          "ex|stage_2|tera": 2,
+          "basic|ex|mega": 2
+        },
+        "illustration_rare": {
+          "stage_1": 26,
+          "basic": 29,
+          "stage_2": 11
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 105,
@@ -40317,6 +40661,8 @@
       "n_b": 48,
       "sets": 6,
       "species": 93,
+      "inside_overlap_a": 49,
+      "inside_overlap_b": 48,
       "scarcity_a": {
         "n": 49,
         "min": 3.8039761013450124,
@@ -40337,6 +40683,21 @@
         "p90": 4.590202775172566,
         "max": 4.600282151915315
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "basic|ex|mega": 11,
+          "ex|stage_2": 5,
+          "ex|stage_1": 6,
+          "basic|ex": 7,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 12
+        },
+        "rare": {
+          "stage_2": 11,
+          "basic": 25,
+          "stage_1": 12
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 97,
@@ -40356,6 +40717,8 @@
       "n_b": 70,
       "sets": 6,
       "species": 111,
+      "inside_overlap_a": 49,
+      "inside_overlap_b": 70,
       "scarcity_a": {
         "n": 49,
         "min": 3.8039761013450124,
@@ -40376,6 +40739,21 @@
         "p90": 4.558677898420398,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "basic|ex|mega": 11,
+          "ex|stage_2": 5,
+          "ex|stage_1": 6,
+          "basic|ex": 7,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 12
+        },
+        "uncommon": {
+          "stage_1": 43,
+          "basic": 17,
+          "stage_2": 10
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 118,
@@ -40395,6 +40773,8 @@
       "n_b": 205,
       "sets": 6,
       "species": 186,
+      "inside_overlap_a": 125,
+      "inside_overlap_b": 205,
       "scarcity_a": {
         "n": 125,
         "min": 2.6238928930954866,
@@ -40415,6 +40795,18 @@
         "p90": 4.5483173743953085,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "rare": {
+          "stage_1": 27,
+          "stage_2": 41,
+          "basic": 57
+        },
+        "uncommon": {
+          "stage_1": 122,
+          "stage_2": 30,
+          "basic": 53
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 193,
@@ -40434,6 +40826,8 @@
       "n_b": 229,
       "sets": 16,
       "species": 652,
+      "inside_overlap_a": 1013,
+      "inside_overlap_b": 229,
       "scarcity_a": {
         "n": 1013,
         "min": 3.9199543757544264,
@@ -40454,6 +40848,22 @@
         "p90": 5.040271294768921,
         "max": 5.080467803694937
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 845,
+          "stage_1": 168
+        },
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 675,
@@ -40473,6 +40883,8 @@
       "n_b": 606,
       "sets": 16,
       "species": 687,
+      "inside_overlap_a": 2268,
+      "inside_overlap_b": 606,
       "scarcity_a": {
         "n": 2268,
         "min": 2.2870070630307273,
@@ -40493,6 +40905,19 @@
         "p90": 5.709750531063058,
         "max": 7.308232845579262
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 1873,
+          "stage_1": 395
+        },
+        "rare": {
+          "stage_1": 222,
+          "basic": 196,
+          "stage_2": 146,
+          "ancient|basic": 22,
+          "basic|future": 20
+        }
+      },
       "coefficient_log_price_b_vs_a": 0.41737525563487,
       "adjusted_price_association_pct": 51.79720336296712,
       "wild_cluster_inference": {
@@ -40509,74 +40934,126 @@
       "leave_one_set_out": [
         {
           "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
-          "coefficient": 0.41901666735715426
+          "coefficient": 0.41901666735715426,
+          "cluster_robust_se": 0.12026167487329824,
+          "ci_low": 0.1833037846054897,
+          "ci_high": 0.6547295501088188,
+          "clusters": 15
         },
         {
           "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
-          "coefficient": 0.41558327504150216
+          "coefficient": 0.41558327504150216,
+          "cluster_robust_se": 0.11032265327963525,
+          "ci_low": 0.19935087461341708,
+          "ci_high": 0.6318156754695873,
+          "clusters": 15
         },
         {
           "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
-          "coefficient": 0.46232930782541415
+          "coefficient": 0.46232930782541415,
+          "cluster_robust_se": 0.12459229965295272,
+          "ci_low": 0.21812840050562682,
+          "ci_high": 0.7065302151452015,
+          "clusters": 15
         },
         {
           "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
-          "coefficient": 0.4351930282023
+          "coefficient": 0.4351930282023,
+          "cluster_robust_se": 0.1299908059397138,
+          "ci_low": 0.18041104856046097,
+          "ci_high": 0.689975007844139,
+          "clusters": 15
         },
         {
           "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
-          "coefficient": 0.4186520500356148
+          "coefficient": 0.4186520500356148,
+          "cluster_robust_se": 0.11172877190191752,
+          "ci_low": 0.19966365710785647,
+          "ci_high": 0.6376404429633731,
+          "clusters": 15
         },
         {
           "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
-          "coefficient": 0.41738961811773245
+          "coefficient": 0.41738961811773245,
+          "cluster_robust_se": 0.11156406369051164,
+          "ci_low": 0.19872405328432965,
+          "ci_high": 0.6360551829511353,
+          "clusters": 15
         },
         {
           "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
-          "coefficient": 0.3776319534430722
+          "coefficient": 0.3776319534430722,
+          "cluster_robust_se": 0.0819965201520724,
+          "ci_low": 0.2169187739450103,
+          "ci_high": 0.5383451329411342,
+          "clusters": 15
         },
         {
           "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
-          "coefficient": 0.41187667632477676
+          "coefficient": 0.41187667632477676,
+          "cluster_robust_se": 0.1143005562769299,
+          "ci_low": 0.18784758602199417,
+          "ci_high": 0.6359057666275594,
+          "clusters": 15
         },
         {
           "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
-          "coefficient": 0.38446825884168057
+          "coefficient": 0.38446825884168057,
+          "cluster_robust_se": 0.13022284162994388,
+          "ci_low": 0.12923148924699057,
+          "ci_high": 0.6397050284363706,
+          "clusters": 15
         },
         {
           "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
-          "coefficient": 0.4016795787035189
+          "coefficient": 0.4016795787035189,
+          "cluster_robust_se": 0.13174164496934557,
+          "ci_low": 0.14346595456360156,
+          "ci_high": 0.6598932028434362,
+          "clusters": 15
         },
         {
           "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
-          "coefficient": 0.511478532528586
+          "coefficient": 0.511478532528586,
+          "cluster_robust_se": 0.10457702523594846,
+          "ci_low": 0.30650756306612703,
+          "ci_high": 0.716449501991045,
+          "clusters": 15
         },
         {
           "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
-          "coefficient": 0.44056415236680724
+          "coefficient": 0.44056415236680724,
+          "cluster_robust_se": 0.12816383739385437,
+          "ci_low": 0.1893630310748527,
+          "ci_high": 0.6917652736587618,
+          "clusters": 15
         }
       ],
       "permutation_placebo": {
         "draws": 199,
         "p_value": 0.005
       },
-      "status": "LOCALLY_VALIDATED"
+      "status": "LOCAL_EFFECT_UNCERTAIN"
     },
     {
       "era": "Scarlet and Violet",
@@ -40592,6 +41069,8 @@
       "n_b": 1182,
       "sets": 16,
       "species": 753,
+      "inside_overlap_a": 2297,
+      "inside_overlap_b": 1182,
       "scarcity_a": {
         "n": 2297,
         "min": 2.178289973722439,
@@ -40612,6 +41091,19 @@
         "p90": 5.472266808745305,
         "max": 7.329349769020185
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 1893,
+          "stage_1": 404
+        },
+        "uncommon": {
+          "stage_2": 149,
+          "stage_1": 730,
+          "basic": 259,
+          "ancient|basic": 27,
+          "basic|future": 17
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 771,
@@ -40631,6 +41123,8 @@
       "n_b": 261,
       "sets": 16,
       "species": 286,
+      "inside_overlap_a": 229,
+      "inside_overlap_b": 261,
       "scarcity_a": {
         "n": 229,
         "min": 3.5837989776634287,
@@ -40651,6 +41145,25 @@
         "p90": 4.605770366060124,
         "max": 4.655411402424838
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        },
+        "rare": {
+          "stage_1": 95,
+          "basic": 85,
+          "stage_2": 63,
+          "ancient|basic": 9,
+          "basic|future": 9
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 312,
@@ -40670,6 +41183,8 @@
       "n_b": 531,
       "sets": 16,
       "species": 439,
+      "inside_overlap_a": 229,
+      "inside_overlap_b": 531,
       "scarcity_a": {
         "n": 229,
         "min": 3.5837989776634287,
@@ -40690,6 +41205,25 @@
         "p90": 4.550303284547251,
         "max": 4.609981742985314
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        },
+        "uncommon": {
+          "stage_2": 64,
+          "stage_1": 334,
+          "basic": 114,
+          "ancient|basic": 11,
+          "basic|future": 8
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 465,
@@ -40709,6 +41243,8 @@
       "n_b": 51,
       "sets": 15,
       "species": 353,
+      "inside_overlap_a": 329,
+      "inside_overlap_b": 51,
       "scarcity_a": {
         "n": 329,
         "min": 5.256024454357785,
@@ -40729,6 +41265,25 @@
         "p90": 6.566295500849885,
         "max": 6.7380125043950425
       },
+      "mechanic_balance": {
+        "illustration_rare": {
+          "basic": 177,
+          "stage_1": 115,
+          "stage_2": 33,
+          "basic|future": 2,
+          "ancient|basic": 2
+        },
+        "special_illustration_rare": {
+          "basic|ex": 19,
+          "ex|stage_1": 8,
+          "ex|stage_2": 13,
+          "ex|stage_1|tera": 1,
+          "basic|ex|tera": 2,
+          "basic|ex|future": 3,
+          "ex|stage_2|tera": 3,
+          "ancient|basic|ex": 2
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 371,
@@ -40748,6 +41303,8 @@
       "n_b": 155,
       "sets": 14,
       "species": 323,
+      "inside_overlap_a": 212,
+      "inside_overlap_b": 155,
       "scarcity_a": {
         "n": 212,
         "min": 4.868615034075827,
@@ -40768,6 +41325,25 @@
         "p90": 6.060344923394755,
         "max": 6.114762763452475
       },
+      "mechanic_balance": {
+        "illustration_rare": {
+          "stage_1": 72,
+          "basic": 120,
+          "stage_2": 16,
+          "basic|future": 2,
+          "ancient|basic": 2
+        },
+        "ultra_rare": {
+          "ex|stage_2": 29,
+          "ex|stage_1": 40,
+          "basic|ex": 40,
+          "basic|ex|tera": 11,
+          "ex|stage_1|tera": 14,
+          "ex|stage_2|tera": 9,
+          "ancient|basic|ex": 6,
+          "basic|ex|future": 6
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 343,
@@ -40787,6 +41363,8 @@
       "n_b": 1180,
       "sets": 16,
       "species": 476,
+      "inside_overlap_a": 606,
+      "inside_overlap_b": 1180,
       "scarcity_a": {
         "n": 606,
         "min": 2.208266313555609,
@@ -40806,6 +41384,22 @@
         "p75": 4.480588153369864,
         "p90": 5.467778021385369,
         "max": 7.308232845579262
+      },
+      "mechanic_balance": {
+        "rare": {
+          "stage_1": 222,
+          "basic": 196,
+          "stage_2": 146,
+          "ancient|basic": 22,
+          "basic|future": 20
+        },
+        "uncommon": {
+          "stage_2": 148,
+          "stage_1": 729,
+          "basic": 259,
+          "ancient|basic": 27,
+          "basic|future": 17
+        }
       },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
@@ -40835,6 +41429,8 @@
       "n_b": 126,
       "sets": 6,
       "species": 317,
+      "inside_overlap_a": 422,
+      "inside_overlap_b": 126,
       "scarcity_a": {
         "n": 422,
         "min": 2.8342598914959973,
@@ -40855,6 +41451,18 @@
         "p90": 4.2301299695171695,
         "max": 4.572025587395789
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 323,
+          "stage_1": 98,
+          "__unknown__": 1
+        },
+        "rare": {
+          "stage_1": 27,
+          "stage_2": 41,
+          "basic": 58
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 325,
@@ -40874,6 +41482,8 @@
       "n_b": 226,
       "sets": 6,
       "species": 359,
+      "inside_overlap_a": 573,
+      "inside_overlap_b": 226,
       "scarcity_a": {
         "n": 573,
         "min": 2.2581568089597,
@@ -40894,6 +41504,18 @@
         "p90": 4.548222910008102,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 433,
+          "stage_1": 138,
+          "__unknown__": 2
+        },
+        "uncommon": {
+          "basic": 58,
+          "stage_1": 135,
+          "stage_2": 33
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 366,
@@ -40913,6 +41535,8 @@
       "n_b": 66,
       "sets": 6,
       "species": 103,
+      "inside_overlap_a": 39,
+      "inside_overlap_b": 66,
       "scarcity_a": {
         "n": 39,
         "min": 5.244018593140658,
@@ -40933,6 +41557,23 @@
         "p90": 5.288470173475936,
         "max": 5.304536666361954
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_1": 5,
+          "basic|ex": 13,
+          "ex|stage_2": 2,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 3,
+          "basic|ex|tera": 4,
+          "ex|stage_2|tera": 2,
+          "basic|ex|mega": 2
+        },
+        "illustration_rare": {
+          "stage_1": 26,
+          "basic": 29,
+          "stage_2": 11
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 105,
@@ -40952,6 +41593,8 @@
       "n_b": 48,
       "sets": 6,
       "species": 93,
+      "inside_overlap_a": 49,
+      "inside_overlap_b": 48,
       "scarcity_a": {
         "n": 49,
         "min": 3.8039761013450124,
@@ -40972,6 +41615,21 @@
         "p90": 4.590202775172566,
         "max": 4.600282151915315
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "basic|ex|mega": 11,
+          "ex|stage_2": 5,
+          "ex|stage_1": 6,
+          "basic|ex": 7,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 12
+        },
+        "rare": {
+          "stage_2": 11,
+          "basic": 25,
+          "stage_1": 12
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 97,
@@ -40991,6 +41649,8 @@
       "n_b": 70,
       "sets": 6,
       "species": 111,
+      "inside_overlap_a": 49,
+      "inside_overlap_b": 70,
       "scarcity_a": {
         "n": 49,
         "min": 3.8039761013450124,
@@ -41011,6 +41671,21 @@
         "p90": 4.558677898420398,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "basic|ex|mega": 11,
+          "ex|stage_2": 5,
+          "ex|stage_1": 6,
+          "basic|ex": 7,
+          "ex|mega|stage_2": 8,
+          "ex|mega|stage_1": 12
+        },
+        "uncommon": {
+          "stage_1": 43,
+          "basic": 17,
+          "stage_2": 10
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 118,
@@ -41030,6 +41705,8 @@
       "n_b": 205,
       "sets": 6,
       "species": 186,
+      "inside_overlap_a": 125,
+      "inside_overlap_b": 205,
       "scarcity_a": {
         "n": 125,
         "min": 2.6238928930954866,
@@ -41050,6 +41727,18 @@
         "p90": 4.5483173743953085,
         "max": 4.568452603052929
       },
+      "mechanic_balance": {
+        "rare": {
+          "stage_1": 27,
+          "stage_2": 41,
+          "basic": 57
+        },
+        "uncommon": {
+          "stage_1": 122,
+          "stage_2": 30,
+          "basic": 53
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 193,
@@ -41069,6 +41758,8 @@
       "n_b": 229,
       "sets": 16,
       "species": 652,
+      "inside_overlap_a": 1013,
+      "inside_overlap_b": 229,
       "scarcity_a": {
         "n": 1013,
         "min": 3.9199543757544264,
@@ -41089,6 +41780,22 @@
         "p90": 5.040271294768921,
         "max": 5.080467803694937
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 845,
+          "stage_1": 168
+        },
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 675,
@@ -41108,6 +41815,8 @@
       "n_b": 606,
       "sets": 16,
       "species": 687,
+      "inside_overlap_a": 2268,
+      "inside_overlap_b": 606,
       "scarcity_a": {
         "n": 2268,
         "min": 2.2870070630307273,
@@ -41128,6 +41837,19 @@
         "p90": 5.709750531063058,
         "max": 7.308232845579262
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 1873,
+          "stage_1": 395
+        },
+        "rare": {
+          "stage_1": 222,
+          "basic": 196,
+          "stage_2": 146,
+          "ancient|basic": 22,
+          "basic|future": 20
+        }
+      },
       "coefficient_log_price_b_vs_a": 0.41737525563487,
       "adjusted_price_association_pct": 51.79720336296712,
       "wild_cluster_inference": {
@@ -41144,74 +41866,126 @@
       "leave_one_set_out": [
         {
           "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
-          "coefficient": 0.41901666735715426
+          "coefficient": 0.41901666735715426,
+          "cluster_robust_se": 0.12026167487329824,
+          "ci_low": 0.1833037846054897,
+          "ci_high": 0.6547295501088188,
+          "clusters": 15
         },
         {
           "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
-          "coefficient": 0.41558327504150216
+          "coefficient": 0.41558327504150216,
+          "cluster_robust_se": 0.11032265327963525,
+          "ci_low": 0.19935087461341708,
+          "ci_high": 0.6318156754695873,
+          "clusters": 15
         },
         {
           "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
-          "coefficient": 0.46232930782541415
+          "coefficient": 0.46232930782541415,
+          "cluster_robust_se": 0.12459229965295272,
+          "ci_low": 0.21812840050562682,
+          "ci_high": 0.7065302151452015,
+          "clusters": 15
         },
         {
           "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
-          "coefficient": 0.4351930282023
+          "coefficient": 0.4351930282023,
+          "cluster_robust_se": 0.1299908059397138,
+          "ci_low": 0.18041104856046097,
+          "ci_high": 0.689975007844139,
+          "clusters": 15
         },
         {
           "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
-          "coefficient": 0.4186520500356148
+          "coefficient": 0.4186520500356148,
+          "cluster_robust_se": 0.11172877190191752,
+          "ci_low": 0.19966365710785647,
+          "ci_high": 0.6376404429633731,
+          "clusters": 15
         },
         {
           "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
-          "coefficient": null
+          "coefficient": null,
+          "reason": "rank_deficient"
         },
         {
           "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
-          "coefficient": 0.41738961811773245
+          "coefficient": 0.41738961811773245,
+          "cluster_robust_se": 0.11156406369051164,
+          "ci_low": 0.19872405328432965,
+          "ci_high": 0.6360551829511353,
+          "clusters": 15
         },
         {
           "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
-          "coefficient": 0.3776319534430722
+          "coefficient": 0.3776319534430722,
+          "cluster_robust_se": 0.0819965201520724,
+          "ci_low": 0.2169187739450103,
+          "ci_high": 0.5383451329411342,
+          "clusters": 15
         },
         {
           "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
-          "coefficient": 0.41187667632477676
+          "coefficient": 0.41187667632477676,
+          "cluster_robust_se": 0.1143005562769299,
+          "ci_low": 0.18784758602199417,
+          "ci_high": 0.6359057666275594,
+          "clusters": 15
         },
         {
           "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
-          "coefficient": 0.38446825884168057
+          "coefficient": 0.38446825884168057,
+          "cluster_robust_se": 0.13022284162994388,
+          "ci_low": 0.12923148924699057,
+          "ci_high": 0.6397050284363706,
+          "clusters": 15
         },
         {
           "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
-          "coefficient": 0.4016795787035189
+          "coefficient": 0.4016795787035189,
+          "cluster_robust_se": 0.13174164496934557,
+          "ci_low": 0.14346595456360156,
+          "ci_high": 0.6598932028434362,
+          "clusters": 15
         },
         {
           "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
-          "coefficient": 0.511478532528586
+          "coefficient": 0.511478532528586,
+          "cluster_robust_se": 0.10457702523594846,
+          "ci_low": 0.30650756306612703,
+          "ci_high": 0.716449501991045,
+          "clusters": 15
         },
         {
           "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
-          "coefficient": 0.44056415236680724
+          "coefficient": 0.44056415236680724,
+          "cluster_robust_se": 0.12816383739385437,
+          "ci_low": 0.1893630310748527,
+          "ci_high": 0.6917652736587618,
+          "clusters": 15
         }
       ],
       "permutation_placebo": {
         "draws": 199,
         "p_value": 0.005
       },
-      "status": "LOCALLY_VALIDATED"
+      "status": "LOCAL_EFFECT_UNCERTAIN"
     },
     {
       "era": "Scarlet and Violet",
@@ -41227,6 +42001,8 @@
       "n_b": 1182,
       "sets": 16,
       "species": 753,
+      "inside_overlap_a": 2297,
+      "inside_overlap_b": 1182,
       "scarcity_a": {
         "n": 2297,
         "min": 2.178289973722439,
@@ -41247,6 +42023,19 @@
         "p90": 5.472266808745305,
         "max": 7.329349769020185
       },
+      "mechanic_balance": {
+        "common": {
+          "basic": 1893,
+          "stage_1": 404
+        },
+        "uncommon": {
+          "stage_2": 149,
+          "stage_1": 730,
+          "basic": 259,
+          "ancient|basic": 27,
+          "basic|future": 17
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 771,
@@ -41266,6 +42055,8 @@
       "n_b": 261,
       "sets": 16,
       "species": 286,
+      "inside_overlap_a": 229,
+      "inside_overlap_b": 261,
       "scarcity_a": {
         "n": 229,
         "min": 3.5837989776634287,
@@ -41286,6 +42077,25 @@
         "p90": 4.605770366060124,
         "max": 4.655411402424838
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        },
+        "rare": {
+          "stage_1": 95,
+          "basic": 85,
+          "stage_2": 63,
+          "ancient|basic": 9,
+          "basic|future": 9
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 312,
@@ -41305,6 +42115,8 @@
       "n_b": 531,
       "sets": 16,
       "species": 439,
+      "inside_overlap_a": 229,
+      "inside_overlap_b": 531,
       "scarcity_a": {
         "n": 229,
         "min": 3.5837989776634287,
@@ -41325,6 +42137,25 @@
         "p90": 4.550303284547251,
         "max": 4.609981742985314
       },
+      "mechanic_balance": {
+        "double_rare": {
+          "ex|stage_2": 39,
+          "ex|stage_1": 58,
+          "basic|ex": 54,
+          "ex|stage_1|tera": 27,
+          "basic|ex|tera": 19,
+          "ex|stage_2|tera": 13,
+          "basic|ex|future": 10,
+          "ancient|basic|ex": 9
+        },
+        "uncommon": {
+          "stage_2": 64,
+          "stage_1": 334,
+          "basic": 114,
+          "ancient|basic": 11,
+          "basic|future": 8
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 465,
@@ -41344,6 +42175,8 @@
       "n_b": 51,
       "sets": 15,
       "species": 353,
+      "inside_overlap_a": 329,
+      "inside_overlap_b": 51,
       "scarcity_a": {
         "n": 329,
         "min": 5.256024454357785,
@@ -41364,6 +42197,25 @@
         "p90": 6.566295500849885,
         "max": 6.7380125043950425
       },
+      "mechanic_balance": {
+        "illustration_rare": {
+          "basic": 177,
+          "stage_1": 115,
+          "stage_2": 33,
+          "basic|future": 2,
+          "ancient|basic": 2
+        },
+        "special_illustration_rare": {
+          "basic|ex": 19,
+          "ex|stage_1": 8,
+          "ex|stage_2": 13,
+          "ex|stage_1|tera": 1,
+          "basic|ex|tera": 2,
+          "basic|ex|future": 3,
+          "ex|stage_2|tera": 3,
+          "ancient|basic|ex": 2
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 371,
@@ -41383,6 +42235,8 @@
       "n_b": 155,
       "sets": 14,
       "species": 323,
+      "inside_overlap_a": 212,
+      "inside_overlap_b": 155,
       "scarcity_a": {
         "n": 212,
         "min": 4.868615034075827,
@@ -41403,6 +42257,25 @@
         "p90": 6.060344923394755,
         "max": 6.114762763452475
       },
+      "mechanic_balance": {
+        "illustration_rare": {
+          "stage_1": 72,
+          "basic": 120,
+          "stage_2": 16,
+          "basic|future": 2,
+          "ancient|basic": 2
+        },
+        "ultra_rare": {
+          "ex|stage_2": 29,
+          "ex|stage_1": 40,
+          "basic|ex": 40,
+          "basic|ex|tera": 11,
+          "ex|stage_1|tera": 14,
+          "ex|stage_2|tera": 9,
+          "ancient|basic|ex": 6,
+          "basic|ex|future": 6
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 343,
@@ -41422,6 +42295,8 @@
       "n_b": 1180,
       "sets": 16,
       "species": 476,
+      "inside_overlap_a": 606,
+      "inside_overlap_b": 1180,
       "scarcity_a": {
         "n": 606,
         "min": 2.208266313555609,
@@ -41442,6 +42317,22 @@
         "p90": 5.467778021385369,
         "max": 7.308232845579262
       },
+      "mechanic_balance": {
+        "rare": {
+          "stage_1": 222,
+          "basic": 196,
+          "stage_2": 146,
+          "ancient|basic": 22,
+          "basic|future": 20
+        },
+        "uncommon": {
+          "stage_2": 148,
+          "stage_1": 729,
+          "basic": 259,
+          "ancient|basic": 27,
+          "basic|future": 17
+        }
+      },
       "status": "LOCAL_EFFECT_UNCERTAIN",
       "reason": "rank_deficient_fixed_effect_design",
       "design_rank": 496,
@@ -41459,5 +42350,5 @@
     "study_run_id": null,
     "score_rows": 0
   },
-  "next_task": "review_locally_validated_pairs"
+  "next_task": "additional_local_identification_data"
 }

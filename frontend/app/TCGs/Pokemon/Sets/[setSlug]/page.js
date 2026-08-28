@@ -113,9 +113,8 @@ export default async function TcgSetRipStatisticsPage({
   const activeSetDetailTab = resolveSetDetailTab(resolvedSearchParams?.tab);
 
   const targetsStartedAt = Date.now();
-  // Market routing/header identity comes from the narrow relational directory.
-  // RIP keeps its full analytical targets artifact until its own performance pass.
-  const targetsPayload = activeSetDetailTab === "market"
+  const useSlimSetDirectory = activeSetDetailTab === "overview" || activeSetDetailTab === "market";
+  const targetsPayload = useSlimSetDirectory
     ? await getPokemonSetRouteDirectory({ limit: 150 })
     : await getRipStatisticsTargets({ limit: 150 }).catch(
       (error) => ({
@@ -166,6 +165,7 @@ export default async function TcgSetRipStatisticsPage({
     cardsPayload: null,
     marketDashboardPayload: null,
     simulationEvidencePayload: null,
+    ripBootstrapPayload: null,
     errors: {},
     timings: {},
   };
@@ -261,6 +261,7 @@ export default async function TcgSetRipStatisticsPage({
     initialMarketDashboardSnapshotMs: snapshotTimings.marketDashboardMs ?? null,
     initialOverviewSnapshotMs: snapshotTimings.overviewMs ?? null,
     initialSimulationEvidenceMs: snapshotTimings.simulationEvidenceMs ?? null,
+    initialRipBootstrapMs: snapshotTimings.ripBootstrapMs ?? null,
     initialModuleSnapshotsTotalMs: snapshotTimings.totalMs ?? null,
     snapshotTimedOut,
     routeTotalMs,

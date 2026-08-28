@@ -70,6 +70,7 @@ export async function POST(request) {
   };
 
   invalidate(`pokemon-set-shell:${setId}`);
+  invalidate(`pokemon-set-rip-bootstrap:${setId}`);
   for (const window of requestedWindows) {
     invalidate(`pokemon-set-overview:${setId}:${window}`);
     invalidate(`pokemon-set-market-bootstrap:${setId}:${window}`);
