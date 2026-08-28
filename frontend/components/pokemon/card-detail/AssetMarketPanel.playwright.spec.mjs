@@ -24,12 +24,14 @@ test("card market windows preserve hero geometry", async ({ page }) => {
           document.querySelector(selector)?.getBoundingClientRect();
         const panel = rect("[data-asset-market-panel]");
         const artwork = rect(".card-detail-artwork img");
+        const artworkRow = rect(".card-detail-artwork");
         const identity = rect("[data-card-identity]");
         const back = rect("[data-card-back-navigation] a");
         return {
           window: label,
           panel: panel?.height,
           artwork: artwork?.height,
+          artworkRow: artworkRow?.height,
           artworkBottom: artwork?.bottom,
           panelBottom: panel?.bottom,
           identityLeft: identity?.left,
@@ -52,6 +54,7 @@ test("card market windows preserve hero geometry", async ({ page }) => {
     );
   for (const row of measurements) {
     expect(Math.abs(row.identityLeft - row.artworkLeft)).toBeLessThanOrEqual(4);
+    expect(row.artwork).toBeGreaterThanOrEqual(0.7 * row.artworkRow);
     expect(row.backLeft).toBeLessThan(row.identityLeft - 60);
   }
 });

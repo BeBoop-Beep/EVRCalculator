@@ -218,12 +218,17 @@ test("top and bottom set navigation use the canonical bare set href", () => {
 test("hero aligns identity to artwork in a shared frame without a details panel", () => {
   assert.match(source, /data-card-visual-frame/);
   assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)\]/);
-  assert.match(source, /data-card-identity className="min-w-0 text-left"/);
+  assert.match(source, /data-card-identity[\s\S]*?mx-auto min-w-0 max-w-full justify-self-center text-left/);
   assert.doesNotMatch(source, /data-card-identity className="text-center"/);
+  assert.match(source, /style=\{artworkWidth \? \{ width: `\$\{artworkWidth\}px` \} : undefined\}/);
+  assert.match(source, /Math\.min\(bounds\.width, bounds\.height \* intrinsicRatio\)/);
   assert.match(source, /Market Price As Of \{dateLabel\(detail\.market\.marketDate\)\}/);
   assert.match(source, /card-detail-artwork/);
   assert.match(source, /md:items-end/);
   assert.match(source, /max-w-\[430px\]/);
+  assert.match(source, /md:h-full md:w-auto md:max-w-full/);
+  assert.match(source, /data-card-visual-frame[\s\S]*?h-full min-h-0 w-full/);
+  assert.doesNotMatch(source, /data-card-visual-frame[\s\S]{0,180}?w-fit/);
   assert.match(source, /data-card-market-panel className="h-full"/);
   assert.match(source, /data-card-back-navigation[\s\S]*?max-w-\[1600px\]/);
   assert.match(source, /max-w-\[1400px\] space-y-4/);

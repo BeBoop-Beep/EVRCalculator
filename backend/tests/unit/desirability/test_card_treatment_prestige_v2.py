@@ -8,7 +8,8 @@ from backend.desirability.card_treatment_prestige_v2 import (
     positive_log_price, resolve_treatment_identity,
 )
 from backend.scripts.build_card_treatment_prestige_v2_study import (
-    dimension_table, normalize_dimension, support_audit,
+    dimension_table, graph_summary, matched_experiment_audit,
+    normalize_dimension, pairwise_overlap, support_audit,
 )
 
 
@@ -65,3 +66,28 @@ def test_common_support_audit_fails_when_scarcity_bands_are_separated():
     result = support_audit(rows, "treatment")["global"]
     assert result["common_support_bounds_log_odds"] is None
     assert result["common_support_coverage"] == 0
+
+
+def test_pairwise_gate_can_identify_local_overlap_without_universal_support():
+    rows=[]
+    for treatment,offset in (("a",0),("b",1),("c",100)):
+        for i in range(60):
+            rows.append({"treatment":treatment,"log_odds":offset+i/10,"exact_pull":.01,
+                "set_id":f"s{i%6}","era_id":"e1","canonical_card_id":f"{treatment}{i}",
+                "subject_ids":[f"p{i%25}"]})
+    matrix=pairwise_overlap(rows,"treatment")
+    classes={(x["treatment_a"],x["treatment_b"]):x["classification"] for x in matrix}
+    assert classes[("a","b")]=="directly_identifiable_pair"
+    assert classes[("a","c")]=="unsupported_pair"
+    graph=graph_summary(matrix)
+    assert len(graph["direct_edges"])==1
+    assert ["a","b"] in graph["connected_components"]
+
+
+def test_matched_ratio_windows_do_not_imply_quasi_experiment():
+    base={"canonical_card_id":"c","set_id":"s","subject_ids":["p"],"priced":True,
+          "current_run_id":"r","card_name":"Card","card_number":"1","artist":"A","mechanic_or_card_form":"basic"}
+    result=matched_experiment_audit([{**base,"variant_id":"v1","combined_treatment_key":"normal","exact_pull":.1},
+                                     {**base,"variant_id":"v2","combined_treatment_key":"holo","exact_pull":.095}])
+    assert result["within_10_pct"]==1
+    assert result["quasi_experiment_status"].startswith("diagnostic_candidates_only")

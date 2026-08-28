@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useAuth } from "@/components/AuthContext";
 import InfoPopover from "@/components/ui/InfoPopover";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
@@ -1150,6 +1150,8 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const [detail, setDetail] = useState(initialDetail);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
+  const artworkAreaRef = useRef(null);
+  const [artworkWidth, setArtworkWidth] = useState(null);
   const { user } = useAuth();
   const router = useRouter();
   const entitled = hasIndexPlusAccess(user?.index_plan);
@@ -1191,6 +1193,23 @@ export default function PokemonCardDetailClient({ initialDetail }) {
     detail.selectedVariantId,
   ]);
   const setHref = buildCardParentSetHref(detail.set);
+  useEffect(() => {
+    const image = artworkAreaRef.current?.querySelector("img");
+    if (!image || typeof ResizeObserver === "undefined") return undefined;
+    const syncArtworkWidth = () => {
+      const bounds = image.getBoundingClientRect();
+      const intrinsicRatio = image.naturalWidth / image.naturalHeight;
+      setArtworkWidth(
+        intrinsicRatio > 0
+          ? Math.min(bounds.width, bounds.height * intrinsicRatio)
+          : bounds.width,
+      );
+    };
+    syncArtworkWidth();
+    const observer = new ResizeObserver(syncArtworkWidth);
+    observer.observe(image);
+    return () => observer.disconnect();
+  }, [detail.card.imageLargeUrl, detail.card.imageSmallUrl]);
   const artwork = optimizedImageUrl(
     detail.set.heroImageUrl ||
       detail.set.logoImageUrl ||
@@ -1245,9 +1264,13 @@ export default function PokemonCardDetailClient({ initialDetail }) {
           <div className="order-1 flex min-w-0 justify-center md:h-full md:min-h-0">
             <div
               data-card-visual-frame
-              className="grid h-full min-h-0 w-fit max-w-full gap-4 md:grid-rows-[auto_minmax(0,1fr)]"
+              className="grid h-full min-h-0 w-full gap-4 md:grid-rows-[auto_minmax(0,1fr)]"
             >
-              <header data-card-identity className="min-w-0 text-left">
+              <header
+                data-card-identity
+                className="mx-auto min-w-0 max-w-full justify-self-center text-left"
+                style={artworkWidth ? { width: `${artworkWidth}px` } : undefined}
+              >
                 <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
                   {detail.set.name}
                 </p>
@@ -1271,7 +1294,10 @@ export default function PokemonCardDetailClient({ initialDetail }) {
                   </p>
                 ) : null}
               </header>
-              <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end">
+              <div
+                ref={artworkAreaRef}
+                className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end"
+              >
                 <CardArtwork detail={detail} />
               </div>
             </div>

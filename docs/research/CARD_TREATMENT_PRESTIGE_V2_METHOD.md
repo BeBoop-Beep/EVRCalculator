@@ -55,3 +55,7 @@ Research preserves raw and normalized values independently for `rarity_designati
 The production-aligned pull authority is run scoped. Card Detail first uses the newest published `simulation_card_variant_pull_rates` run for a set and otherwise uses `pokemon_set_page_snapshot_latest.payload_json.ripDecision.sourceCalculationRunId`. `modeled_probability` is exact card-variant pack-presence probability from the authoritative V2 simulator; `effective_pull_rate` is its one-in-N representation. Card-level analytic `simulation_input_cards` values are audited separately and never substitute for missing exact printing scarcity.
 
 The Round 1 timeout came from downloading entire set-page JSON payloads. Round 2 projects only `payload_json->ripDecision->>sourceCalculationRunId` server-side, then batches narrow reads by authoritative run ID. No new view or index is required.
+
+## Final pairwise identification gate
+
+Global failure is not assumed to imply failure of every pair. For each treatment pair, the final audit intersects empirical log-scarcity ranges and requires at least 50 observations per treatment, 25 observations from each side inside the overlap, 25% overlap coverage per side, five sets, and 20 species. The test is repeated within era. Direct graph edges represent only pairs meeting all gates; paths through intermediate nodes are labeled indirect and never treated as direct identification. Matched-card scarcity-ratio windows of 10%, 25%, and 50% are discovery diagnostics, not causal equivalence tests.

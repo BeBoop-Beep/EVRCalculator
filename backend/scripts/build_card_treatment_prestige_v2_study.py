@@ -6,6 +6,7 @@ rejected run; ``--approve`` is separate and is refused unless every gate passes.
 from __future__ import annotations
 
 import argparse, hashlib, json, math, subprocess, time
+import itertools
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -33,6 +34,9 @@ FAILURE_CODES = {
     "insufficient_matched_variant_coverage", "required_controls_unavailable",
     "excessive_canonical_join_failures", "excessive_unmapped_taxonomy_rate",
 }
+
+PAIRWISE_GATES = {"min_per_treatment":50,"min_inside_overlap_each":25,
+                  "min_overlap_pct_each":.25,"min_sets":5,"min_species":20}
 
 
 def paged(query, page=500):
@@ -110,6 +114,92 @@ def support_audit(rows, field, scope_field=None):
     return output
 
 
+def pairwise_overlap(rows, field):
+    groups=defaultdict(list)
+    for row in rows:
+        if row.get("log_odds") is not None and row.get(field):groups[str(row[field])].append(row)
+    matrix=[]
+    for a,b in itertools.combinations(sorted(groups),2):
+        ga,gb=groups[a],groups[b];va=[r["log_odds"] for r in ga];vb=[r["log_odds"] for r in gb]
+        low=max(min(va),min(vb));high=min(max(va),max(vb));has_overlap=low<=high
+        ina=[r for r in ga if has_overlap and low<=r["log_odds"]<=high];inb=[r for r in gb if has_overlap and low<=r["log_odds"]<=high]
+        card_a={r["canonical_card_id"] for r in ga};card_b={r["canonical_card_id"] for r in gb};matched=card_a&card_b
+        sets={r["set_id"] for r in ina+inb};species={x for r in ina+inb for x in r.get("subject_ids",[])}
+        direct=(len(ga)>=PAIRWISE_GATES["min_per_treatment"] and len(gb)>=PAIRWISE_GATES["min_per_treatment"]
+            and len(ina)>=PAIRWISE_GATES["min_inside_overlap_each"] and len(inb)>=PAIRWISE_GATES["min_inside_overlap_each"]
+            and len(ina)/len(ga)>=PAIRWISE_GATES["min_overlap_pct_each"] and len(inb)/len(gb)>=PAIRWISE_GATES["min_overlap_pct_each"]
+            and len(sets)>=PAIRWISE_GATES["min_sets"] and len(species)>=PAIRWISE_GATES["min_species"])
+        local=(not direct and has_overlap and len(ina)>=10 and len(inb)>=10 and len(sets)>=2)
+        matrix.append({"treatment_a":a,"treatment_b":b,"n_a":len(ga),"n_b":len(gb),
+            "distribution_a":distribution(va),"distribution_b":distribution(vb),
+            "sets":len({r["set_id"] for r in ga+gb}),"eras":len({r["era_id"] for r in ga+gb}),
+            "species":len({x for r in ga+gb for x in r.get("subject_ids",[])}),"matched_card_groups":len(matched),
+            "overlap_interval_log_odds":[low,high] if has_overlap else None,"inside_overlap_a":len(ina),"inside_overlap_b":len(inb),
+            "overlap_pct_a":len(ina)/len(ga),"overlap_pct_b":len(inb)/len(gb),
+            "overlap_sets":len(sets),"overlap_species":len(species),
+            "era_scope":sorted({r["era_id"] for r in ina+inb}),
+            "classification":"directly_identifiable_pair" if direct else "locally_identifiable_pair" if local else "unsupported_pair",
+            "depends_on_extrapolation":not direct})
+    return matrix
+
+
+def graph_summary(matrix):
+    nodes=sorted({x[k] for x in matrix for k in ("treatment_a","treatment_b")});adj={n:set() for n in nodes};edges=[]
+    for row in matrix:
+        if row["classification"]=="directly_identifiable_pair":
+            a,b=row["treatment_a"],row["treatment_b"];adj[a].add(b);adj[b].add(a);edges.append(row)
+    components=[];seen=set()
+    for node in nodes:
+        if node in seen:continue
+        stack=[node];component=[];seen.add(node)
+        while stack:
+            cur=stack.pop();component.append(cur)
+            for other in adj[cur]-seen:seen.add(other);stack.append(other)
+        components.append(sorted(component))
+    component_by_node={node:i for i,component in enumerate(components) for node in component}
+    direct_keys={tuple(sorted((x["treatment_a"],x["treatment_b"]))) for x in edges}
+    indirect=[{"treatment_a":a,"treatment_b":b,"classification":"connected_only_through_other_treatments"}
+        for a,b in itertools.combinations(nodes,2) if component_by_node[a]==component_by_node[b] and tuple(sorted((a,b))) not in direct_keys]
+    return {"nodes":nodes,"direct_edges":edges,"connected_components":components,"indirect_only_pairs":indirect,
+        "warning":"Connectivity through intermediate treatments is not a direct A-versus-C identification claim."}
+
+
+def structural_diagnostic(rows, field):
+    usable=[r for r in rows if r.get("log_odds") is not None and r.get(field)]
+    if not usable:return {"n":0}
+    y=np.asarray([r["log_odds"] for r in usable]);mean=float(y.mean());groups=defaultdict(list)
+    for r in usable:groups[str(r[field])].append(r["log_odds"])
+    between=sum(len(v)*(float(np.mean(v))-mean)**2 for v in groups.values());total=float(np.sum((y-mean)**2))
+    return {"n":len(usable),"categories":len(groups),"eta_squared_treatment_to_log_scarcity":between/total if total else 1,
+        "within_category_variance":float(np.mean([np.var(v) for v in groups.values()])),
+        "interpretation":"Values near one indicate scarcity band is structurally determined by treatment."}
+
+
+def matched_experiment_audit(rows):
+    groups=defaultdict(list)
+    for r in rows:
+        if r.get("exact_pull") is not None and r.get("priced"):groups[r["canonical_card_id"]].append(r)
+    pairs=[]
+    for card_id,group in groups.items():
+        for a,b in itertools.combinations(group,2):
+            if a.get("combined_treatment_key")==b.get("combined_treatment_key"):continue
+            ratio=max(a["exact_pull"],b["exact_pull"])/min(a["exact_pull"],b["exact_pull"])
+            pairs.append({"canonical_card_id":card_id,"set_id":a["set_id"],"species_ids":a.get("subject_ids",[]),
+                "card_name":a.get("card_name"),"card_number":a.get("card_number"),"artist":a.get("artist"),
+                "mechanic_or_card_form":a.get("mechanic_or_card_form"),
+                "treatment_a":a.get("combined_treatment_key"),"treatment_b":b.get("combined_treatment_key"),
+                "probability_a":a["exact_pull"],"probability_b":b["exact_pull"],"relative_scarcity_ratio":ratio,
+                "same_release_mechanics":a["current_run_id"]==b["current_run_id"],
+                "assignment_probabilities_independently_known":True})
+    repeated=Counter(tuple(sorted((p["treatment_a"],p["treatment_b"]))) for p in pairs)
+    return {"candidate_pairs":len(pairs),"within_10_pct":sum(p["relative_scarcity_ratio"]<=1.10 for p in pairs),
+        "within_25_pct":sum(p["relative_scarcity_ratio"]<=1.25 for p in pairs),
+        "within_50_pct":sum(p["relative_scarcity_ratio"]<=1.50 for p in pairs),
+        "repeated_comparisons":[{"pair":list(k),"n":v} for k,v in repeated.most_common()],"candidate_examples":pairs[:100],
+        "quasi_experiment_status":"diagnostic_candidates_only_no_random_or_as_if_random_assignment",
+        "note":"Shared canonical identity controls subject, artwork/card identity, set, release, number and mechanics where canonical mapping is correct; it does not make treatment assignment exogenous."}
+
+
 def build_round2_audit(client, as_of):
     sets=paged(client.table("sets").select("id,name,era_id,supports_opening_simulation").eq("supports_opening_simulation",True))
     set_by_id={str(r["id"]):r for r in sets};snapshot_run_by_set=current_run_authority(client,set_by_id)
@@ -140,7 +230,7 @@ def build_round2_audit(client, as_of):
     for part in chunks(legacy_ids,100):variants.extend(paged(client.table("card_variants").select("id,card_id,printing_type,special_type,edition").in_("card_id",part)))
     canonical=[]
     for part in chunks(set_by_id,20):canonical.extend(paged(client.table("pokemon_canonical_cards").select(
-        "id,set_id,pokemon_tcg_api_card_id,name,rarity,supertype,subtypes,artist").in_("set_id",part)))
+        "id,set_id,pokemon_tcg_api_card_id,name,number,printed_number,rarity,supertype,subtypes,artist").in_("set_id",part)))
     canon_by_api={(str(r["set_id"]),str(r.get("pokemon_tcg_api_card_id"))):r for r in canonical}
     market=[]
     for part in chunks(set_by_id,20):market.extend(paged(client.table("pokemon_canonical_card_market_prices_latest").select(
@@ -166,6 +256,7 @@ def build_round2_audit(client, as_of):
             "edition_status_raw":variant.get("edition"),"edition_status":treatment.edition or normalize_dimension(variant.get("edition")),
             "mechanic_or_card_form_raw":card.get("subtypes") or [],
             "mechanic_or_card_form":"|".join(sorted(normalize_dimension(x) for x in card.get("subtypes") or [] if normalize_dimension(x))) or None,
+            "card_name":card.get("name"),"card_number":card.get("printed_number") or card.get("number"),"artist":card.get("artist"),
             "combined_treatment_key":treatment.treatment_key,"unmapped":treatment.status!="mapped",
             "priced":str(variant["id"]) in priced_variants or str(variant["id"]) in exact_prices,
             "price_basis":"trailing_30d_nm" if str(variant["id"]) in exact_prices else ("canonical_latest" if str(variant["id"]) in priced_variants else None),
@@ -216,6 +307,14 @@ def build_round2_audit(client, as_of):
     },sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
     if exact_join_failure_rate>GATES["max_exact_canonical_join_failure_rate"]:failures.append("excessive_canonical_join_failures")
     if unmapped_rate>GATES["max_unmapped_taxonomy_rate"]:failures.append("excessive_unmapped_taxonomy_rate")
+    pairwise={field:pairwise_overlap(rows,field) for field in
+        ("rarity_designation","printing_finish","special_treatment","edition_status","combined_treatment_key")}
+    graphs={field:graph_summary(matrix) for field,matrix in pairwise.items()}
+    era_values=sorted({r["era_id"] for r in rows if r.get("exact_pull") is not None})
+    pairwise_by_era={era:{field:pairwise_overlap([r for r in rows if r["era_id"]==era],field) for field in pairwise}
+        for era in era_values}
+    graphs_by_era={era:{field:graph_summary(matrix) for field,matrix in fields.items()} for era,fields in pairwise_by_era.items()}
+    direct_pairs=sum(len(graph["direct_edges"]) for fields in graphs_by_era.values() for graph in fields.values())
     return {"authoritative_pull_source":{"current_run_relation":"pokemon_set_page_snapshot_latest",
         "current_run_expression":"payload_json.ripDecision.sourceCalculationRunId","card_level_relation":"simulation_input_cards",
         "exact_variant_relation":"simulation_card_variant_pull_rates","probability_field":"modeled_probability",
@@ -240,6 +339,15 @@ def build_round2_audit(client, as_of):
             "rarity_global":support_audit(rows,"rarity_designation"),"rarity_by_era":support_audit(rows,"rarity_designation","era_id"),
             "finish_global":support_audit(rows,"printing_finish"),"finish_by_set":support_audit(rows,"printing_finish","set_id")},
         "matched_variant":{"pull_covered_priced_groups":len(matched_groups),"minimum_gate":GATES["min_finish_matches"]},
+        "pairwise_gates":PAIRWISE_GATES,"pairwise_overlap":pairwise,"support_graphs":graphs,
+        "pairwise_overlap_by_era":pairwise_by_era,"support_graphs_by_era":graphs_by_era,
+        "matched_natural_experiment":matched_experiment_audit(rows),
+        "structural_scarcity":{field:structural_diagnostic(rows,field) for field in
+            ("rarity_designation","printing_finish","special_treatment","combined_treatment_key")},
+        "final_v2_status":"V2_LOCAL_IDENTIFICATION_EXISTS" if direct_pairs else "RETIRE_PURE_TREATMENT_PRESTIGE_V2",
+        "directly_identifiable_pair_count":direct_pairs,
+        "v3_redefinition_gate":{"entered":False if direct_pairs else True,
+            "reason":"Status A requires review before V3" if direct_pairs else "pure V2 retired"},
         "pre_model_gate":{"passed":not failures,"failure_reasons":failures,"regression_executed":False},
         "recommended_specification":{"representation":"decomposed additive effects only where support passes",
             "included":["species fixed effects","log exact pull odds","set fixed effects","mechanic controls"],
@@ -439,7 +547,8 @@ def main():
         "decision":decision,"acceptance_gates":GATES,"data_audit":audit,"round2":round2,
         "regression_results":None,"robustness_results":None,"bootstrap":{"seed":args.seed,"draws_requested":args.bootstrap_draws,"executed":False},
         "publication":{"committed":False,"approved":False,"study_run_id":None,"score_rows":0},
-        "next_task":("additional_pull_rate_data_engineering" if "insufficient_set_diversity" in gate["failure_reasons"]
+        "next_task":("review_local_v2_estimands" if round2["final_v2_status"]=="V2_LOCAL_IDENTIFICATION_EXISTS"
+            else "additional_pull_rate_data_engineering" if "insufficient_set_diversity" in gate["failure_reasons"]
             else "abandonment_or_redefinition" if "insufficient_common_support" in gate["failure_reasons"]
             else "taxonomy_repair" if "excessive_unmapped_taxonomy_rate" in gate["failure_reasons"] else "model_execution")}
     out=Path("docs/research/card_treatment_prestige_v2_study.json");out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(report,indent=2),encoding="utf-8")

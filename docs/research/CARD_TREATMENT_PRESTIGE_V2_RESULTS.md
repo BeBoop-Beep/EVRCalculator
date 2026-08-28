@@ -1,39 +1,35 @@
-# Card Treatment Prestige V2 — Round 2 Results
+# Card Treatment Prestige V2 — Final Identification Results
 
-## Decision
+## Locked Round 2 result
+
+The historical Round 2 result remains `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`: 22 supported sets, two eras, 7,900 joined variants, 4,879 analytic inputs, 3,045 exact rows, 3,043 exact canonical joins, 150 unmapped variants (1.90%), two exact join failures (0.07%), 1,148 pull-covered matched groups, and 0% global/era/meaningful-set common support. No score or database row was approved. This negative universal result is not rewritten by the local audit.
+
+## Final V2 status
+
+`V2_LOCAL_IDENTIFICATION_EXISTS`
+
+Universal Treatment Prestige remains invalid. Pairwise, era-scoped positivity exists for 15 decomposed rarity/designation contrasts. The Scarlet & Violet-era component supports: Common–Double Rare, Common–Rare, Common–Uncommon, Double Rare–Rare, Double Rare–Uncommon, Illustration Rare–Special Illustration Rare, Illustration Rare–Ultra Rare, and Rare–Uncommon. The Mega Evolution-era component supports: Common–Double Rare, Common–Rare, Common–Uncommon, Double Rare–Illustration Rare, Double Rare–Rare, Double Rare–Uncommon, and Rare–Uncommon.
+
+Printing finish, special treatment, and edition status have zero direct era-scoped edges. Combined-signature edges are retained for reproducibility but are not recommended as estimands because they conflate designation and finish. Indirect graph connectivity is not interpreted as a direct contrast.
+
+## Matched-card and structural findings
+
+The final live audit found 2,287 priced exact-scarcity matched candidate pairs. None had scarcity ratios within 10%, 25%, or 50%. They are not natural experiments: exact pull probabilities are known, but treatment assignment is neither random nor plausibly exogenous.
+
+Treatment predicts substantial scarcity variation: eta-squared is approximately 0.39 for rarity/designation, 0.65 for finish, 0.93 for special treatment, and 0.92 for the combined signature. Additional observations under identical mechanics will not plausibly create matched finish equivalence, although pairwise rarity overlap already exists.
+
+## Scope and limitations
+
+The local result applies only to the exact-covered, canonically joined cards inside each listed era and pair's empirical overlap interval. It is not a global hierarchy, does not identify unsupported pairs, and does not authorize transitive A-versus-C inference. The live authority fingerprint is `6e50159a99ba24447d80b121b6e98534cc5f54626bbb14bd0a32c0cab678feb6`.
+
+The latest audit also encountered 826 exact rows without canonical joins while simulation publications were advancing, above the preregistered join-quality gate. Therefore no coefficient is estimated yet: local overlap exists, but the affected authority/canonical cohort must be frozen and reconciled before model execution.
+
+## V3 gate
+
+V3 was not entered. The task specification requires stopping for review when Status A occurs. No V3 cohort, coefficients, score, publication, contract, or frontend change was created.
+
+## Promotion and publication
 
 `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`
 
-The authoritative read path is repaired and raw exact-scarcity coverage clears the count, set, era, taxonomy, join-quality, and matched-card gates. Identification still fails: treatment/designation and finish have no adequate pull-scarcity common support globally, within either represented era, or within statistically meaningful supported sets. No regression, bootstrap, robustness suite, or score was run.
-
-## Authoritative source and timeout repair
-
-Production resolves the newest published exact-variant run for a set from `simulation_card_variant_pull_rates`, falling back to the set-page snapshot's `ripDecision.sourceCalculationRunId`. Exact scarcity is `modeled_probability`; `effective_pull_rate` is one-in-N. The prior timeout downloaded whole `payload_json` values. Round 2 projects only the run ID in PostgREST and batches narrow run-scoped reads. The audit used exact-run precedence for 11 sets; eight exact and snapshot run IDs differed while simulations/publications were advancing.
-
-## Taxonomy decomposition
-
-The 7,900 joined supported-set variants contain 14 rarity/designation values, three printing finishes, six special-treatment values, one edition-status value (unknown throughout), 36 mechanic/card-form combinations, and 28 combined treatment cells. Combined-cell median size is 84.5; 3 cells have fewer than 5 observations, 8 fewer than 10, 9 fewer than 25, and 12 fewer than 50. There are 150 unmapped variants (1.90%), below the 5% gate. The combined key creates avoidable sparsity and conflates designation with finish; the recommended representation is decomposed additive terms without unsupported interactions.
-
-## Coverage
-
-The final audit found 22 supported sets, 4,879 current card-level analytic inputs, 3,045 current exact-variant probability rows, and 3,043 exact rows joined to canonical variants. Exact canonical join failures were 2/3,045 (0.07%); 107 additional catalog variants lacked a canonical join. Exact coverage spans ten sets and two eras. The Scarlet & Violet-era group contains 6,034 variants and 1,880 exact-covered variants; the Mega Evolution-era group contains 1,866 variants and 1,163 exact-covered variants. Authority fingerprint: `6f18e53b239407793a082921463c36cc61a3fb2cbbbd0f91b0089fa9b4d6cb17`.
-
-Exact-covered sets were Phantasmal Flames (214), Black Bolt (97), Destined Rivals (348), Journey Together (181), Obsidian Flames (371), Paldea Evolved (455), Paradox Rift (428), Perfect Order (202), Ascended Heroes (437), and Mega Evolution (310). Complete per-set counts, pricing, subject linkage, treatment diversity, matching, unmapped totals, run IDs, and coverage percentages are in the machine-readable artifact.
-
-## Common support and matched variants
-
-The global p10–p90 intersection is empty for the combined treatment key, rarity/designation alone, and printing finish alone. Both represented eras also have 0% overlap for combined and rarity specifications. Every supported set with at least two adequately sampled finish groups has 0% finish overlap. This is structural scarcity separation, not a query or sample-count problem.
-
-There are 1,148 pull-covered, trailing-30-day Near Mint priced matched-card groups, exceeding the minimum gate of 50. That does not authorize Study B: finish scarcity bands remain non-overlapping, so a treatment intercept would depend on extrapolation.
-
-## Recommended specification and score universe
-
-If a future design creates valid support, use species fixed effects, exact log pull odds, set fixed effects, mechanic controls, and separately supported rarity/designation, finish, and edition terms. Do not use the combined interaction key as a giant categorical ladder. At present the score comparison universe is `not_scoreable_with_current_evidence`; global, era-relative, family-relative, and era×family-relative scores are unsupported.
-
-## Publication and containment
-
-Run ID: none. Database rows persisted: zero. Latest-approved-only semantics remain unchanged. Card Detail continues to show Treatment Prestige as unavailable/researching. V1 Card Appeal, Collector Appeal, Overall/Financial RIP, rankings, and historical research are unchanged.
-
-## Next task
-
-**E. Abandonment/redefinition of the Treatment Prestige metric.** More rows generated by the same pull mechanics will improve precision but will not create missing scarcity overlap. A defensible next design must redefine the estimand around natural experiments or explicitly report total treatment-plus-scarcity value instead of claiming an independently identified treatment premium.
+Local identification is a research finding, not production approval. Regression and robustness were not executed. Database study rows: zero. Score rows: zero. Card Detail remains unavailable/researching; V1 Card Appeal and all RIP/ranking systems remain unchanged.
