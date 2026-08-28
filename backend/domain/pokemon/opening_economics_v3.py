@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -229,6 +230,23 @@ def percentile_key(q: float) -> str:
     return "p" + (str(int(value)).zfill(2) if value.is_integer() else str(value).replace(".", "_"))
 
 
+def persisted_recovery_count(row: Mapping[str, Any]) -> int:
+    """Recover the exact stored numerator, rejecting rounded probabilities."""
+    try:
+        count = int(row["simulation_count"])
+        numerator = Decimal(str(row["chance_to_recover_cost"])) * Decimal(count)
+    except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+        raise OpeningEconomicsV3Error("invalid persisted recovery probability") from exc
+    if count <= 0 or numerator != numerator.to_integral_value():
+        raise OpeningEconomicsV3Error(
+            f"persisted recovery probability is not an exact count over {count} simulations"
+        )
+    result = int(numerator)
+    if not 0 <= result <= count:
+        raise OpeningEconomicsV3Error("persisted recovery count is out of range")
+    return result
+
+
 def aggregate_scalars(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
     weighted = assign_hierarchical_weights(rows)
     avg_cost = sum(row["weight"] * row["cost_per_pack"] for row in weighted)
@@ -238,10 +256,14 @@ def aggregate_scalars(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
     mean_retention = sum(row["weight"] * row["modeled_return_ratio"] for row in weighted)
     probabilities = []
     for row in weighted:
-        try: probability = float(row.get("chance_to_recover_cost"))
-        except (TypeError, ValueError) as exc: raise OpeningEconomicsV3Error("invalid chance_to_recover_cost") from exc
-        if not math.isfinite(probability) or not 0 <= probability <= 1:
-            raise OpeningEconomicsV3Error("invalid chance_to_recover_cost")
+        try:
+            count = int(row["simulation_count"])
+            recovered = int(row["_regenerated_recovery_count"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise OpeningEconomicsV3Error("missing exact regenerated recovery count") from exc
+        if count <= 0 or not 0 <= recovered <= count:
+            raise OpeningEconomicsV3Error("invalid exact regenerated recovery count")
+        probability = recovered / count
         probabilities.append((row["weight"], probability))
     recovery = sum(weight * probability for weight, probability in probabilities)
     if not math.isclose(avg_entertainment, avg_cost - avg_ev, abs_tol=1e-9):
@@ -263,10 +285,9 @@ def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str,
             path, count = component_paths[row["sealed_product_id"]]
             mixture.add_path(path, count=count, weight=row["weight"], cost_per_pack=row["cost_per_pack"])
         empirical_recovery = mixture.recovery_probability()
-        # Persisted product probabilities are numeric database values and the
-        # regenerated ECDF is evaluated from float64 outcomes. Allow only two
-        # parts in 100,000; the current cohort's observed delta is 1.1e-5.
-        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], abs_tol=2e-5):
+        # These are independent computations of the same weighted exact
+        # numerators. Only ordinary floating summation noise is admissible.
+        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], rel_tol=0, abs_tol=1e-12):
             raise OpeningEconomicsV3Error(
                 f"recovery distribution invariant failed: empirical={empirical_recovery} productWeighted={scalars['chanceToRecoverCost']}"
             )
