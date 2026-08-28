@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import SetMarketMobileMovers from "./SetMarketMobileMovers.jsx";
@@ -8,7 +8,7 @@ import SetMarketMobileSetValue from "./SetMarketMobileSetValue.jsx";
 import SetMarketMobileTopChase from "./SetMarketMobileTopChase.jsx";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
 import { useSetMarketSignalAccess } from "./SetMarketSignals.jsx";
-import { getPokemonSetMarketSignals } from "@/lib/pokemon/pokemonSetMarketClient";
+import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 
 // ---------------------------------------------------------------------------
 // The mobile Set Market tab.
@@ -59,23 +59,14 @@ export default function SetMarketMobile({
 }) {
   const sealedState = usePokemonSetSealedMarket(setId, { enabled: false });
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
-  const [paidBreadth, setPaidBreadth] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    setPaidBreadth(null);
-    if (!canViewSetMarketSignals || !setId) return undefined;
-    getPokemonSetMarketSignals(setId).then(
-      (payload) => { if (!cancelled) setPaidBreadth(payload?.marketBreadth || null); },
-      () => { if (!cancelled) setPaidBreadth(null); }
-    );
-    return () => { cancelled = true; };
-  }, [canViewSetMarketSignals, setId]);
+  const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const entitledSetValue = useMemo(() => ({
     ...setValue,
     cardsMarket: setValue?.cardsMarket
-      ? { ...setValue.cardsMarket, ...(paidBreadth ? { marketBreadth: paidBreadth } : {}) }
+      ? { ...setValue.cardsMarket, ...(signalsState.payload?.marketBreadth ? { marketBreadth: signalsState.payload.marketBreadth } : {}) }
       : setValue?.cardsMarket,
-  }), [paidBreadth, setValue]);
+    signalsState,
+  }), [signalsState, setValue]);
 
   return (
     <section id={sectionIds.root} data-market-page data-market-mobile className="min-w-0 space-y-3">

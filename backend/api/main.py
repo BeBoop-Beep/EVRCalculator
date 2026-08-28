@@ -84,6 +84,7 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_simulation_evidence_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_market_bootstrap_snapshot_payload,
+    get_pokemon_set_market_signals_snapshot_payload,
     get_pokemon_set_market_movers_snapshot_payload,
     get_pokemon_set_overview_snapshot_payload,
     get_pokemon_set_page_snapshot_payload,
@@ -1318,19 +1319,13 @@ def get_pokemon_set_market_signals(
             headers={"Cache-Control": "no-store"},
         )
     try:
-        payload = get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d")
-        cards_market = payload.get("cardsMarket") if isinstance(payload.get("cardsMarket"), dict) else {}
+        payload = get_pokemon_set_market_signals_snapshot_payload(set_id=set_id, window=window or "365d")
         return JSONResponse(
-            content={
-                "set": payload.get("set"),
-                "window": payload.get("window"),
-                "marketBreadth": cards_market.get("marketBreadth") or cards_market.get("market_breadth") or {},
-                "latestMarketDate": payload.get("latestMarketDate"),
-            },
+            content=payload,
             headers={"Cache-Control": "no-store", "Vary": "Cookie, Authorization"},
         )
     except PokemonSetMarketError as exc:
-        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code, headers={"Cache-Control": "no-store"})
+        return JSONResponse(content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500}, status_code=exc.status_code, headers={"Cache-Control": "no-store"})
     except Exception:
         logger.exception("/tcgs/pokemon/sets/%s/market/signals unexpected error", set_id)
         return JSONResponse(content={"message": "Unable to load Market signals", "code": "POKEMON_SET_MARKET_SIGNALS_FAILED", "retryable": True}, status_code=503, headers={"Cache-Control": "no-store"})

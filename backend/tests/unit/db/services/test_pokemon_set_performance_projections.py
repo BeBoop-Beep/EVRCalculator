@@ -42,6 +42,7 @@ def test_route_directory_rpc_failure_is_retryable_error_not_reordered_fallback(m
             return FailedRpc()
 
     monkeypatch.setattr(directory, "service_read_client", Client())
+    monkeypatch.setattr(directory, "run_public_read_with_retry", lambda *_args, **_kwargs: FailedRpc().execute())
     with pytest.raises(RuntimeError, match="temporarily unavailable"):
         directory.get_pokemon_set_route_directory_payload()
 
@@ -76,5 +77,5 @@ def test_public_bootstrap_and_paid_signal_boundary_are_separate():
     assert "authorization" not in bootstrap
     assert "has_index_plus_access(plan)" in signals
     assert 'status_code=403' in signals
-    assert '"marketBreadth"' in signals
+    assert "get_pokemon_set_market_signals_snapshot_payload" in signals
     assert '"Cache-Control": "no-store"' in signals

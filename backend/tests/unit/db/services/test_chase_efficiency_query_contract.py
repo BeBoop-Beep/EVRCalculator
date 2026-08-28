@@ -33,7 +33,8 @@ def test_card_payload_derives_buy_price_probability_and_percentile_server_side()
 @pytest.mark.parametrize(
     ("rank", "size", "expected"),
     [(5, 100, "S"), (6, 100, "A"), (15, 100, "A"), (16, 100, "B"),
-     (30, 100, "B"), (50, 100, "C"), (75, 100, "D"), (76, 100, "F"),
+     (30, 100, "B"), (31, 100, "C"), (50, 100, "C"), (51, 100, "D"),
+     (75, 100, "D"), (76, 100, "F"),
      (1, 7, "S"), (2, 7, "A"), (None, 100, None), (1, None, None), (0, 100, None)],
 )
 def test_card_payload_uses_canonical_public_rank_bucket_boundaries(rank, size, expected):

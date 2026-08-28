@@ -24,6 +24,10 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8").repl
 
 const client = read("./ProductFamilyRankingsClient.jsx");
 const overall = read("./OpeningEconomicsOverall.jsx");
+const distribution = read("./OpeningEconomicsDistribution.jsx");
+const chartFrame = read("./ChartFrame.jsx");
+const chartTooltipShell = read("./ChartTooltipShell.jsx");
+const chartVisualSystem = read("./chartVisualSystem.mjs");
 const eras = read("./OpeningEconomicsEras.jsx");
 const page = read("../../app/Explore/page.js");
 const server = read("../../lib/explore/openingEconomicsServer.js");
@@ -125,7 +129,7 @@ test("Typical Opening is read from the published pooled P50, never averaged", ()
 });
 
 test("no view recomputes a statistic in the browser", () => {
-  for (const [name, source] of [["Overall", overall], ["Eras", eras]]) {
+  for (const [name, source] of [["Overall", `${overall}\n${distribution}`], ["Eras", eras]]) {
     // Prose may DESCRIBE a median; nothing may COMPUTE one, sum a population,
     // or divide one published aggregate by another to invent a new statistic.
     assert.ok(!/\.reduce\([^)]*\+/.test(source), `${name} sums values client-side`);
@@ -137,7 +141,7 @@ test("no view recomputes a statistic in the browser", () => {
 test("the interpretation block derives its cents from the live published ratio", () => {
   assert.equal(centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 39);
   assert.equal(100 - centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 61);
-  assert.ok(overall.includes("centsPerDollar(scope.modeledReturnOnSpend)"));
+  assert.ok(distribution.includes("ratioAsPercent(scope.modeledReturnOnSpend)"));
   // No hardcoded figure may stand in for the live value.
   assert.ok(!/\b45¢|\b55¢/.test(overall));
 });
@@ -154,26 +158,58 @@ test("the distribution is not presented as a smooth or normal curve", () => {
 
 test("V3 basis and all P01-P99 values drive distribution geometry", () => {
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
-  assert.ok(overall.includes("Array.from({ length: 99 }"));
-  assert.ok(overall.includes('data-percentile-points="99"'));
-  assert.ok(overall.includes("scope.normalizedReturnPercentiles"));
-  assert.ok(overall.includes("scope.valuePerPackPercentiles"));
-  assert.ok(!/18\s*\+\s*index\s*\*\s*10/.test(overall));
-  assert.ok(!overall.includes("resolveLooseBoosterPackArtwork"));
+  assert.ok(distribution.includes("Array.from({ length: 99 }"));
+  assert.ok(distribution.includes('data-percentile-points="99"'));
+  assert.ok(distribution.includes("scope.normalizedReturnPercentiles"));
+  assert.ok(distribution.includes("scope.valuePerPackPercentiles"));
+  assert.ok(!/18\s*\+\s*index\s*\*\s*10/.test(distribution));
+  assert.ok(!distribution.includes("resolveLooseBoosterPackArtwork"));
 });
 
-test("the active PercentileCurve preserves all four global headline metrics", () => {
-  assert.ok(overall.includes("function PercentileCurve"));
-  assert.ok(overall.includes("<PercentileCurve scope={scope} targets={targets} />"));
-  assert.ok(!overall.includes("function OpeningDistribution"));
-  assert.ok(overall.includes("data-opening-headline-metrics"));
-  assert.ok(overall.includes('scope.modeledReturnOnSpend'));
-  assert.ok(overall.includes('scope.typicalRetention'));
-  assert.ok(overall.includes('scope.chanceToRecoverCost'));
-  assert.ok(overall.includes('scope.averageEntertainmentCostPerPack'));
+test("the active distribution preserves all four global headline metrics", () => {
+  assert.ok(overall.includes("<OpeningEconomicsDistribution scope={scope} targets={targets} />"));
+  assert.ok(distribution.includes("data-opening-headline-metrics"));
+  assert.ok(distribution.includes('scope.modeledReturnOnSpend'));
+  assert.ok(distribution.includes('scope.typicalRetention'));
+  assert.ok(distribution.includes('scope.chanceToRecoverCost'));
+  assert.ok(distribution.includes('scope.averageEntertainmentCostPerPack'));
   for (const label of ["Modeled Return", "Typical Retention", "Chance to Recover", "Entertainment Cost / Pack"]) {
-    assert.ok(overall.includes(label));
+    assert.ok(distribution.includes(label));
   }
+});
+
+test("Overall adds the three-value snapshot and one active distribution", () => {
+  assert.equal((overall.match(/OpeningEconomicsDistribution scope=/g) || []).length, 1);
+  for (const label of ["Average Cost / Pack", "Average Model Break-Even / Pack", "Typical Opening / Pack"]) assert.ok(distribution.includes(label));
+  for (const field of ["averageCostPerPack", "averageModelBreakEvenPerPack", "typicalOpeningPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
+});
+
+test("Overall reuses the inDex frame, shared visual system, area, glow, and tooltip shell", () => {
+  assert.ok(distribution.includes("<ChartFrame"));
+  assert.ok(chartFrame.includes("ResizeObserver"));
+  assert.ok(distribution.includes("chartVisualSystem.mjs"));
+  assert.ok(chartVisualSystem.includes("POSITIVE_VALUE_COLOR"));
+  assert.ok(distribution.includes("<Area"));
+  assert.ok(distribution.includes("linearGradient"));
+  assert.ok(distribution.includes("feGaussianBlur"));
+  assert.ok(distribution.includes("<PercentileTooltip"));
+  assert.ok(distribution.includes("<ChartTooltipShell"));
+  assert.ok(chartTooltipShell.includes("shadow-[0_14px_32px_rgba(0,0,0,0.38)]"));
+  assert.ok(!distribution.includes("contentStyle="));
+});
+
+test("tooltip explains percentile shares and all published landmarks remain direct", () => {
+  assert.ok(distribution.includes("100 - point.percentile"));
+  assert.ok(distribution.includes("% of modeled product-opening outcomes"));
+  assert.ok(distribution.includes("% finish above"));
+  assert.ok(distribution.includes("<ReferenceLine y={1}"));
+  for (const field of ["typicalRetention", "meanOutcomeRetention", "typicalOpeningPerPack", "averageModelBreakEvenPerPack"]) assert.ok(distribution.includes(`scope.${field}`));
+  assert.ok(distribution.includes('lens === "value" && evAboveP75'));
+  assert.ok(distribution.includes("scope.valuePerPackPercentiles?.p75"));
+});
+
+test("Overall removes era preview and every dead legacy presentation", () => {
+  for (const forbidden of ["EraPreview", "How eras compare", "EconomicEquation", "ValueDescent", "EvInsight", "OutcomeRange", "data-view-era-details"]) assert.ok(!overall.includes(forbidden));
 });
 
 test("frontend transport rejects non-V3 available responses", () => {
@@ -312,7 +348,6 @@ test("era sort headers expose aria-sort and real buttons", () => {
 
 test("the era drilldown to Sets is reachable", () => {
   assert.ok(eras.includes("data-era-drilldown"));
-  assert.ok(overall.includes("data-view-era-details"));
   assert.ok(client.includes('onSelectEras={() => selectView("eras")}'));
   // Selecting an era switches to Sets and scopes it, rather than rendering a
   // second set table inside the Eras lens.
@@ -361,9 +396,8 @@ test("percentiles are named as positions, never as probabilities", () => {
 });
 
 test("the range is labeled with its scale and carries a text equivalent", () => {
-  assert.ok(overall.includes("Logarithmic scale"));
-  assert.ok(overall.includes('role="img"'));
-  assert.ok(overall.includes("aria-label"));
+  assert.ok(distribution.includes("logarithmic value axis"));
+  assert.ok(distribution.includes("The logarithmic value axis"));
 });
 
 test("Modeled Return and Typical Retention are never presented as the same thing", () => {
@@ -373,20 +407,20 @@ test("Modeled Return and Typical Retention are never presented as the same thing
   assert.equal(retentionPct, "27.4%");
   assert.notEqual(returnPct, retentionPct);
   // Their help text must distinguish median-of-outcomes from aggregate-of-spend.
-  assert.match(overall, /MEDIAN outcome relative to purchase price/);
-  assert.match(overall, /aggregate value divided by aggregate spend/);
+  assert.match(distribution, /Median of the weighted normalized-return distribution/);
+  assert.match(distribution, /Weighted aggregate EV divided by weighted aggregate cost/);
 });
 
 test("the recover-cost metric is never relabelled as profit", () => {
   for (const source of [overall, eras]) {
     assert.ok(!/chance to profit/i.test(source));
   }
-  assert.ok(overall.includes("Chance to Recover Cost"));
+  assert.ok(distribution.includes("Chance to Recover Cost"));
 });
 
 test("entertainment cost language is descriptive, not moralizing", () => {
   assert.ok(!/wasted|bad decision|gambl|you lose/i.test(overall));
-  assert.match(overall, /given up in exchange for that opening experience/);
+  assert.match(distribution, /Modeled purchase cost not returned as gross card value/);
 });
 
 test("no accent other than teal is introduced", () => {

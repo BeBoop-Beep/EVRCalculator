@@ -7,6 +7,7 @@ const snapshots = fs.readFileSync(new URL("./pokemonSetInitialSnapshotsServer.js
 const client = fs.readFileSync(new URL("../../components/explore/RipStatisticsPageClient.jsx", import.meta.url), "utf8");
 const sealedHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetSealedMarket.js", import.meta.url), "utf8");
 const marketClient = fs.readFileSync(new URL("./pokemonSetMarketClient.js", import.meta.url), "utf8");
+const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMarketSignals.js", import.meta.url), "utf8");
 
 test("Market route uses the slim route directory while RIP retains Rankings targets", () => {
   assert.match(route, /activeSetDetailTab === "market"[\s\S]*getPokemonSetRouteDirectory/);
@@ -39,9 +40,27 @@ test("legacy and consumer Sealed transports remain distinct", () => {
 });
 
 test("paid Market signals use a separate authenticated no-store request", () => {
-  assert.match(client, /getPokemonSetMarketSignals/);
+  assert.match(client, /usePokemonSetMarketSignals/);
+  assert.match(signalsHook, /getPokemonSetMarketSignals/);
   assert.match(marketClient, /market\/signals/);
   assert.match(marketClient, /cache: "no-store"/);
+});
+
+test("desktop and mobile share the bounded Market Signals retry hook", () => {
+  const mobile = fs.readFileSync(new URL("../../components/pokemon/set-page/Market/SetMarketMobile.jsx", import.meta.url), "utf8");
+  assert.match(client, /usePokemonSetMarketSignals\(setId/);
+  assert.match(mobile, /usePokemonSetMarketSignals\(setId/);
+  assert.match(signalsHook, /attempt === 0 && isRetryableMarketSignalsError/);
+  assert.match(signalsHook, /setTimeout\(\(\) => load\(1\)/);
+  assert.match(signalsHook, /status: error\?\.status === 403 \? "forbidden" : "error"/);
+  assert.match(signalsHook, /payload: null/);
+  assert.match(signalsHook, /cancelled/);
+  assert.match(signalsHook, /return \{ \.\.\.state, retry \}/);
+});
+
+test("Market Signals request normalizes window for URL and request key", () => {
+  assert.match(marketClient, /market-signals:\$\{resolvedSetId\}:\$\{normalizedWindow\}/);
+  assert.match(marketClient, /URLSearchParams\(\{ window: normalizedWindow \}\)/);
 });
 
 test("bootstrap concentration summary survives normalization", () => {

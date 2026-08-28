@@ -1,6 +1,7 @@
 "use client";
 
 import MarketValueChange from "@/components/ui/MarketValueChange";
+import ChartTooltipShell from "@/components/explore/ChartTooltipShell";
 
 const formatLongDate = (value) => value
   ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-US", {
@@ -36,12 +37,9 @@ export default function MarketTrendTooltipCard({
   ...props
 }) {
   return (
-    <div
+    <ChartTooltipShell
       {...props}
-      className={[
-        "pointer-events-none z-50 min-w-[9rem] max-w-[min(14rem,calc(100vw-1rem))] rounded-lg border border-[var(--border-subtle)] bg-[rgba(2,6,23,0.96)] px-2.5 py-2 text-left shadow-[0_14px_32px_rgba(0,0,0,0.38)]",
-        className,
-      ].filter(Boolean).join(" ")}
+      className={["max-w-[min(14rem,calc(100vw-1rem))]", className].filter(Boolean).join(" ")}
       style={style}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">{formatLongDate(date)}</p>
@@ -56,6 +54,6 @@ export default function MarketTrendTooltipCard({
       {isCarriedForward && sourceDate ? (
         <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">Carried forward from {formatShortDate(sourceDate)}</p>
       ) : null}
-    </div>
+    </ChartTooltipShell>
   );
 }

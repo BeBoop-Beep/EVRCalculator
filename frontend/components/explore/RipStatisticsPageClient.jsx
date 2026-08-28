@@ -154,11 +154,11 @@ import {
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
-  getPokemonSetMarketSignals,
   getPokemonSetOverview,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
@@ -3728,7 +3728,7 @@ function MarketSegmentRow({ row, active, onSelect }) {
 }
 
 /** SECTION 2B — the right-hand signal rail. */
-function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry }) {
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry, onSignalsRetry }) {
   return (
     <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
       <div className="space-y-4">
@@ -3750,6 +3750,7 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
               windowLabel={windowLabel}
               itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
               title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+              onRetry={activeSegmentKey === "cards" && onSignalsRetry ? onSignalsRetry : null}
               className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
             />
             {activeSegmentKey === "sealed" && sealedError ? (
@@ -3897,21 +3898,11 @@ function MarketValueTrendPanel({
  */
 function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
-  const [paidBreadth, setPaidBreadth] = useState(null);
+  const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
-  useEffect(() => {
-    let cancelled = false;
-    setPaidBreadth(null);
-    if (!canViewSetMarketSignals || !setId) return undefined;
-    getPokemonSetMarketSignals(setId).then(
-      (payload) => { if (!cancelled) setPaidBreadth(payload?.marketBreadth || null); },
-      () => { if (!cancelled) setPaidBreadth(null); }
-    );
-    return () => { cancelled = true; };
-  }, [canViewSetMarketSignals, setId]);
 
   const cardsTrend = useMemo(
     () =>
@@ -3963,7 +3954,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const breadthSource = resolvedSegmentKey === "sealed"
     ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
-    ? paidBreadth
+    ? signalsState.payload?.marketBreadth
+    : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
+    : resolvedSegmentKey === "cards" && ["error", "forbidden"].includes(signalsState.status) ? signalsState.error
     : null;
   const breadth = useMemo(
     () => selectPreparedMarketBreadth({
@@ -4010,6 +4003,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           windowLabel={windowLabel}
           sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
           onSealedRetry={sealedState.retry}
+          onSignalsRetry={["error", "forbidden"].includes(signalsState.status) ? signalsState.retry : null}
         />
       </div>
     </div>

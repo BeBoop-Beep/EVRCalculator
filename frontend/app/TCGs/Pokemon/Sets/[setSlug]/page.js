@@ -115,12 +115,10 @@ export default async function TcgSetRipStatisticsPage({
   const targetsStartedAt = Date.now();
   // Market routing/header identity comes from the narrow relational directory.
   // RIP keeps its full analytical targets artifact until its own performance pass.
-  const targetsPayload = await (
-    activeSetDetailTab === "market"
-      ? getPokemonSetRouteDirectory({ limit: 150 })
-      : getRipStatisticsTargets({ limit: 150 })
-  ).catch(
-    (error) => ({
+  const targetsPayload = activeSetDetailTab === "market"
+    ? await getPokemonSetRouteDirectory({ limit: 150 })
+    : await getRipStatisticsTargets({ limit: 150 }).catch(
+      (error) => ({
       targets: [],
       default_target: null,
       meta: {
@@ -130,8 +128,8 @@ export default async function TcgSetRipStatisticsPage({
           `RIP Statistics targets unavailable; continuing with direct set snapshot fallback. ${error?.message || ""}`.trim(),
         ],
       },
-    }),
-  );
+      }),
+    );
   const targetsMs = Date.now() - targetsStartedAt;
   const targets = Array.isArray(targetsPayload?.targets)
     ? targetsPayload.targets

@@ -104,6 +104,7 @@ export default function SetMarketMobileSetValue({
   moversByWindow = null,
   cardsMarket = null,
   sealedState = IDLE_SEALED_STATE,
+  signalsState = { status: "idle", payload: null, error: null, retry: null },
 }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
@@ -186,6 +187,8 @@ export default function SetMarketMobileSetValue({
     ? "Loading Sealed market…"
     : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
     ? sealedState.error
+    : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
+    : resolvedSegmentKey === "cards" && ["error", "forbidden"].includes(signalsState.status) ? signalsState.error
     : null;
 
   const isLoading = (status === "loading" || status === "idle") && activeTrend.points.length === 0 && activeTrend.currentValue === null;
@@ -264,6 +267,7 @@ export default function SetMarketMobileSetValue({
                 title={resolvedSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
                 itemNoun={resolvedSegmentKey === "sealed" ? "products" : "cards"}
                 statusMessage={sealedStatusMessage}
+                onRetry={resolvedSegmentKey === "cards" && ["error", "forbidden"].includes(signalsState.status) ? signalsState.retry : null}
                 className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
               />
               {resolvedSegmentKey === "cards" ? <ChaseConcentrationSignal

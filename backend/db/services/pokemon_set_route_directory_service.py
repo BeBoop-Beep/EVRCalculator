@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 
 
 ROUTE_DIRECTORY_COLUMNS = (
@@ -22,9 +23,13 @@ def get_pokemon_set_route_directory_payload(limit: int = 150) -> Dict[str, Any]:
     resolved_limit = max(1, min(int(limit or 150), 200))
     try:
         projected = list(
-            service_read_client.rpc(
-                "get_pokemon_set_route_directory", {"p_limit": resolved_limit}
-            ).execute().data
+            run_public_read_with_retry(
+                lambda client: client.rpc(
+                    "get_pokemon_set_route_directory", {"p_limit": resolved_limit}
+                ).execute(),
+                operation_name="pokemon_set_route_directory",
+                initial_client=service_read_client,
+            ).data
             or []
         )
     except Exception as exc:

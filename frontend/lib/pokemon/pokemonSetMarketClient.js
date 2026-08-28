@@ -1297,8 +1297,9 @@ export async function getPokemonSetSealedMarket(setId) {
 export async function getPokemonSetMarketSignals(setId, { window = DEFAULT_MARKET_DASHBOARD_WINDOW } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) throw new Error("Set id is required");
-  const params = new URLSearchParams({ window: normalizeMarketDashboardWindow(window) });
-  return joinSlimModuleRequest(`market-signals:${resolvedSetId}:${window}`, async ({ signal } = {}) => {
+  const normalizedWindow = normalizeMarketDashboardWindow(String(window || "").trim());
+  const params = new URLSearchParams({ window: normalizedWindow });
+  return joinSlimModuleRequest(`market-signals:${resolvedSetId}:${normalizedWindow}`, async ({ signal } = {}) => {
     const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/signals?${params}`, {
       method: "GET", signal, cache: "no-store",
     });

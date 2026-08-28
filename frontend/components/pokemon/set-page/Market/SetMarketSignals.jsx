@@ -112,7 +112,7 @@ export function MarketBreadthDonut({ breadth }) {
   );
 }
 
-export function MarketBreadthSignal({ breadth, windowLabel, itemNoun = "cards", title = "Market Breadth", statusMessage = null, className = "" }) {
+export function MarketBreadthSignal({ breadth, windowLabel, itemNoun = "cards", title = "Market Breadth", statusMessage = null, onRetry = null, className = "" }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   return (
     <div data-market-breadth className={className}>
@@ -123,7 +123,7 @@ export function MarketBreadthSignal({ breadth, windowLabel, itemNoun = "cards", 
       {!canViewSetMarketSignals ? (
         <SetMarketSignalLock description="See whether this Set's market move is broad or concentrated." />
       ) : statusMessage ? (
-        <p data-breadth-status className="mt-2 text-[11px] text-[var(--text-secondary)]">{statusMessage}</p>
+        <div className="mt-2"><p data-breadth-status className="text-[11px] text-[var(--text-secondary)]">{statusMessage}</p>{onRetry ? <button type="button" onClick={onRetry} className="mt-2 min-h-8 rounded-md border border-[var(--border-subtle)] px-3 text-[11px] font-semibold text-[var(--text-primary)]">Retry</button> : null}</div>
       ) : breadth.available ? (
         <>
           <MarketBreadthDonut breadth={breadth} />
