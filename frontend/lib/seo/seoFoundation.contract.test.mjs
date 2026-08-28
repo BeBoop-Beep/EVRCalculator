@@ -152,6 +152,7 @@ const PRIMARY_ROUTES = [
   ["app/Articles/how-financial-rip-works/page.js", "/Articles/how-financial-rip-works"],
   ["app/Articles/how-collector-appeal-works/page.js", "/Articles/how-collector-appeal-works"],
   ["app/Articles/how-representative-is-pokemon-pack-expected-value/page.js", "/Articles/how-representative-is-pokemon-pack-expected-value"],
+  ["app/Articles/how-chase-efficiency-works/page.js", "/Articles/how-chase-efficiency-works"],
   ["app/TCGs/Pokemon/Sets/page.js", "/TCGs/Pokemon/Sets"],
 ];
 
@@ -324,6 +325,7 @@ test("the sitemap contains the canonical hubs and excludes redirects, noindex ro
     "https://www.inthedex.io/Articles",
     "https://www.inthedex.io/Articles/how-rip-score-works",
     "https://www.inthedex.io/Articles/how-representative-is-pokemon-pack-expected-value",
+    "https://www.inthedex.io/Articles/how-chase-efficiency-works",
     "https://www.inthedex.io/TCGs/Pokemon/Sets",
   ]) {
     assert.ok(urls.includes(hub), `${hub} must be in the sitemap`);
@@ -382,6 +384,7 @@ test("a backend failure degrades the sitemap to the canonical hubs rather than e
       "https://www.inthedex.io/Articles/how-financial-rip-works",
       "https://www.inthedex.io/Articles/how-collector-appeal-works",
       "https://www.inthedex.io/Articles/how-representative-is-pokemon-pack-expected-value",
+      "https://www.inthedex.io/Articles/how-chase-efficiency-works",
       "https://www.inthedex.io/TCGs/Pokemon/Sets",
     ]
   );

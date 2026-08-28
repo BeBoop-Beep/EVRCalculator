@@ -11,6 +11,7 @@ const articleData = read("../../lib/articles/articleData.mjs");
 const rip = read("../../components/explore/RipDecisionPage.jsx");
 const nextConfig = read("../../next.config.mjs");
 const ARTICLE_HREF = "/Articles/how-rip-score-works";
+const chase = read("how-chase-efficiency-works/page.js");
 
 test("the RIP methodology article is a standalone shared-layout article", () => {
   assert.ok(article.includes("export default async function HowRipScoreWorksArticle()"));
@@ -23,11 +24,23 @@ test("the article documents the current canonical methodology without protected 
   assert.ok(!article.includes("90% Financial RIP"));
   assert.ok(!article.includes("10% Collector Appeal"));
 });
-test("the Articles hub lists exactly seven real published article routes", () => {
+test("the Articles hub lists exactly eight real published article routes", () => {
   assert.ok(hub.includes('import { ARTICLES }'));
   const listed = [...articleData.matchAll(/\w+: "(\/Articles\/[^"]+)"/g)].map(match => match[1]);
-  assert.equal(listed.length, 7);
+  assert.equal(listed.length, 8);
   for (const href of listed) assert.ok(fs.existsSync(path.join(here, href.replace("/Articles/", ""), "page.js")), href);
+});
+test("the Chase Efficiency methodology article is public without exposing Premium rows", () => {
+  assert.ok(articleData.includes('chaseEfficiency: "/Articles/how-chase-efficiency-works"'));
+  assert.ok(chase.includes("<ArticleShell"));
+  assert.ok(chase.includes("<ArticleJsonLd"));
+  for (const phrase of ["Chase Efficiency", "exact printing", "best verified", "Financial RIP", "Product Chase Economics", "50%", "75%", "90%", "95%", "4,862", "22", "17"]) assert.ok(chase.includes(phrase), phrase);
+  assert.ok(!chase.includes("/api/explore/card-chase-efficiency"));
+  assert.ok(!chase.includes("getPokemonCardChaseEfficiency"));
+  assert.ok(!chase.includes("Top 10"));
+  assert.ok(!chase.includes("Top 100"));
+  const sitemap = read("../../lib/seo/sitemapEntries.mjs");
+  assert.ok(sitemap.includes('"/Articles/how-chase-efficiency-works"'));
 });
 test("the EV representativeness research article is fully registered", () => {
   const research = read("how-representative-is-pokemon-pack-expected-value/page.js");

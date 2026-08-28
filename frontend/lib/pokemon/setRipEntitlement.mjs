@@ -31,6 +31,10 @@ const ADVANCED_PAYLOAD_KEYS = new Set([
   "pack_paths",
   "packPaths",
   "percentiles",
+  "financialRip",
+  "collectorAppeal",
+  "rarityContribution",
+  "setRipV1",
 ]);
 const PUBLIC_SUMMARY_FIELDS = new Set([
   "packCost",

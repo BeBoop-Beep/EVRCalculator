@@ -520,6 +520,7 @@ export default function ProductFamilyRankingsClient({
   loadError,
   openingEconomics = null,
   eraSetStrength = null,
+  rankingsMarketDate = null,
   onUnlockProductRip = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
@@ -635,18 +636,14 @@ export default function ProductFamilyRankingsClient({
         </nav>
       ) : null}
       {(view === "eras" || view === "sets") ? (
-        <SegmentedControl
-          className="mb-3 inline-block text-sm"
-          ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}
-          value={view === "eras" ? eraLens : setLens}
-          onChange={view === "eras" ? setEraLens : setSetLens}
-          options={[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }]}
-        />
+        <nav aria-label={`${view === "eras" ? "Era" : "Set"} analysis`} className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
+          {[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }].map((option) => { const value = view === "eras" ? eraLens : setLens; const setValue = view === "eras" ? setEraLens : setSetLens; return <button key={option.value} type="button" aria-pressed={value === option.value} onClick={() => setValue(option.value)} className={`${styles.productFamilyTab} ${value === option.value ? styles.productFamilyTabActive : ""}`}>{option.label}</button>; })}
+        </nav>
       ) : null}
       {view === "economics" ? (
         <OpeningEconomicsOverall economics={openingEconomics} targets={targets} onSelectEras={() => selectView("eras")} />
       ) : view === "eras" ? (
-        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
+        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} marketDate={rankingsMarketDate} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
           economics={openingEconomics}
           onSelectEra={(era) => {
             setSetLens("economics");
@@ -672,7 +669,7 @@ export default function ProductFamilyRankingsClient({
               </span>
             </div>
           ) : null}
-          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
+          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} onUnlockProductRip={onUnlockProductRip} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} marketDate={rankingsMarketDate} />}
         </>
       ) : view === "cards" ? (
         <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />

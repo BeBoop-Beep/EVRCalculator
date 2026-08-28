@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import InfoPopover from "@/components/ui/InfoPopover";
+import AnalyticsTableShell from "./AnalyticsTableShell";
 import styles from "./explore.module.css";
 import { OpeningEconomicsEmpty, OpeningEconomicsSkeleton } from "./OpeningEconomicsOverall";
 import {
@@ -45,11 +45,13 @@ function valueClass(emphasis) {
 
 export default function OpeningEconomicsEras({ economics, onSelectEra = null }) {
   const [sort, setSort] = useState(DEFAULT_ERA_SORT);
+  const [query, setQuery] = useState("");
 
   const rows = useMemo(() => {
-    const eras = Array.isArray(economics?.eras) ? economics.eras : [];
+    const needle = query.trim().toLowerCase();
+    const eras = (Array.isArray(economics?.eras) ? economics.eras : []).filter((era) => !needle || String(era?.eraName || "").toLowerCase().includes(needle));
     return sortEras(eras, sort.key, sort.direction).map((era) => ({ raw: era, cells: projectEraRow(era) }));
-  }, [economics, sort]);
+  }, [economics, query, sort]);
 
   // Projected through the SAME reader as an era row, so the baseline can never
   // drift into a differently-formatted or differently-sourced number.
@@ -78,33 +80,16 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
   const drilldownLabel = (eraName) => `View the ${eraName} sets`;
 
   return (
+    <AnalyticsTableShell title="Pack Economics by Era" info="All eligible modeled sealed products are normalized per pack. Sets are equally weighted within each Era. Typical Opening and Typical Retention are pooled medians from each era's own combined outcomes; sorting is presentation only." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search eras..." searchLabel="Search eras" context="Select an era for the full Pack Economics breakdown." shown={rows.length} marketDate={economics.marketDate}>
     <section data-opening-economics-eras>
-      <header className="mb-4">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
-          Opening Economics by Era
-        </h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Compare all eligible modeled sealed products normalized per pack across Pokémon eras.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
-          <span>Equal set weighting within each era</span>
-          {economics.marketDate ? (
-            <>
-              <span aria-hidden="true" className="opacity-40">·</span>
-              <span className="tabular-nums">As of {economics.marketDate}</span>
-            </>
-          ) : null}
-          <InfoPopover text="Typical Opening and Typical Retention are pooled medians from each era's own combined outcomes — not an average of its sets' individual medians. Sorting orders the table for reading only; eras are not scored, ranked or tiered." />
-        </div>
-      </header>
 
       {/* Desktop: compact, dense table. */}
-      <div className={`${styles.surface} hidden overflow-x-auto desk:block`}>
+      <div className="hidden overflow-x-auto desk:block">
         <table className={styles.table} data-era-table>
           <caption className="sr-only">
             Opening economics by era. Sortable; sorting changes display order only and does not rank eras.
           </caption>
-          <thead className={styles.head}>
+          <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
             <tr>
               {COLUMNS.map((column) => {
                 const active = sort.key === column.sort;
@@ -191,7 +176,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
       </div>
 
       {/* Mobile: one card per era, primary metrics first, secondary beneath. */}
-      <ul className="space-y-2.5 desk:hidden" data-era-cards>
+      <ul className="space-y-2.5 p-3 desk:hidden" data-era-cards>
         {rows.map(({ raw, cells }) => (
           <li key={cells.eraName} className={`${styles.surface} rounded-xl p-3.5`}>
             <div className="flex items-baseline justify-between gap-2">
@@ -271,10 +256,11 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
         </dl>
       </div>
 
-      <p className="mt-3 text-[0.68rem] leading-relaxed text-[var(--text-secondary)]">
+      <p className="border-t border-[var(--border-subtle)] px-3 py-3 text-[0.68rem] leading-relaxed text-[var(--text-secondary)]">
         Card values reflect modeled gross market value. Selling fees, shipping, liquidity, grading costs, and other
         transaction costs are not deducted.
       </p>
     </section>
+    </AnalyticsTableShell>
   );
 }

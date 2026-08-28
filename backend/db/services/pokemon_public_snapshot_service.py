@@ -6675,6 +6675,80 @@ def get_pokemon_set_simulation_evidence_snapshot_payload(set_id: str) -> Dict[st
     }
 
 
+def _read_set_rip_projection(set_id: str, *, column: str, contract_version: str,
+                             incomplete_code: str, operation_name: str) -> Dict[str, Any]:
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_RIP_ID_REQUIRED")
+    resolved_set_id = resolved if _looks_like_uuid(resolved) else str(_resolve_set_row(resolved)["id"])
+
+    def load(client: Any):
+        return _first_row(
+            client.table("pokemon_set_page_snapshot_latest")
+            .select(f"set_id,updated_at,{column}")
+            .eq("set_id", resolved_set_id).limit(1).execute()
+        )
+
+    try:
+        row = run_public_read_with_retry(
+            load, operation_name=operation_name, initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
+        )
+    except Exception as exc:
+        raise PokemonSetMarketError(503, "Set RIP snapshot is temporarily unavailable", incomplete_code) from exc
+    payload = row.get(column) if isinstance(row, dict) else None
+    if not isinstance(payload, dict) or payload.get("contractVersion") != contract_version:
+        raise PokemonSetMarketError(503, "Set RIP publication is incomplete", incomplete_code)
+    return {**payload, "meta": {**(payload.get("meta") or {}), "updatedAt": row.get("updated_at")}}
+
+
+def get_pokemon_set_rip_bootstrap_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    return _read_set_rip_projection(
+        set_id, column="rip_bootstrap_json", contract_version="pokemon-set-rip-bootstrap-v1",
+        incomplete_code="POKEMON_SET_RIP_BOOTSTRAP_SNAPSHOT_INCOMPLETE",
+        operation_name="pokemon_set_rip_bootstrap_snapshot",
+    )
+
+
+def get_pokemon_set_rip_simulation_evidence_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    return _read_set_rip_projection(
+        set_id, column="rip_simulation_evidence_json",
+        contract_version="pokemon-set-rip-simulation-evidence-v1",
+        incomplete_code="POKEMON_SET_RIP_SIMULATION_SNAPSHOT_INCOMPLETE",
+        operation_name="pokemon_set_rip_simulation_evidence_snapshot",
+    )
+
+
+def get_pokemon_set_rip_advanced_snapshot_payload(set_id: str) -> Dict[str, Any]:
+    return _read_set_rip_projection(
+        set_id, column="rip_advanced_json", contract_version="pokemon-set-rip-advanced-v1",
+        incomplete_code="POKEMON_SET_RIP_ADVANCED_SNAPSHOT_INCOMPLETE",
+        operation_name="pokemon_set_rip_advanced_snapshot",
+    )
+
+
+def get_pokemon_set_rip_global_context_payload(set_id: str, expected_calculation_run_id: Optional[str] = None) -> Dict[str, Any]:
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_RIP_ID_REQUIRED")
+    resolved_set_id = resolved if _looks_like_uuid(resolved) else str(_resolve_set_row(resolved)["id"])
+    params = {"p_set_id": resolved_set_id, "p_expected_calculation_run_id": expected_calculation_run_id}
+    try:
+        result = run_public_read_with_retry(
+            lambda client: client.rpc("get_pokemon_set_rip_global_context", params).execute(),
+            operation_name="pokemon_set_rip_global_context", initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
+        )
+    except Exception as exc:
+        raise PokemonSetMarketError(503, "Set RIP global context is temporarily unavailable",
+                                    "POKEMON_SET_RIP_GLOBAL_CONTEXT_UNAVAILABLE") from exc
+    payload = getattr(result, "data", None)
+    if not isinstance(payload, dict):
+        raise PokemonSetMarketError(503, "Set RIP global context publication is incomplete",
+                                    "POKEMON_SET_RIP_GLOBAL_CONTEXT_INCOMPLETE")
+    return payload
+
+
 def _fetch_insights_snapshot_row(set_id: str):
     """Shared row-fetch step for the full/critical/secondary Insights
     payloads below — one indexed read against pokemon_set_page_snapshot_latest,

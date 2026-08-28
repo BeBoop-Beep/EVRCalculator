@@ -4,6 +4,7 @@ import test from "node:test";
 import { normaliseRipStatisticsPayload } from "../../lib/explore/ripStatisticsNormalizer.mjs";
 import { eraStrengthRows, displayScore } from "./eraSetStrengthSelector.mjs";
 import { displaySetPackFamily, orderSetPackFamilies } from "./setPackFamilyPresentation.mjs";
+import { resolveRankingsPlanAccess } from "../../lib/access/indexPlanAccess.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const page = read("../../app/Explore/page.js");
@@ -11,6 +12,8 @@ const client = read("./ProductFamilyRankingsClient.jsx");
 const eraRankings = read("./EraRankings.jsx");
 const setPack = read("./SetPackMetrics.jsx");
 const eraEconomics = read("./OpeningEconomicsEras.jsx");
+const setRankings = read("./ExploreTableClient.jsx");
+const shell = read("./AnalyticsTableShell.jsx");
 
 const eraContract = {
   methodologyVersion: "era_set_strength_v1_equal_set_mean_of_set_rip_v1",
@@ -35,11 +38,11 @@ test("Explore normalization transports two authoritative Era rows into EraRankin
 });
 
 test("EraRankings uses the Rankings table shell and fails closed without rows", () => {
-  assert.ok(eraRankings.includes("rows.length === 0"));
+  assert.ok(eraRankings.includes("canonicalRows.length === 0"));
   assert.ok(eraRankings.includes("data-era-rankings-unavailable"));
   assert.ok(eraRankings.includes("Era Set Strength could not be loaded"));
   assert.ok(eraRankings.includes("className={styles.table}"));
-  assert.ok(eraRankings.includes("className={styles.head}"));
+  assert.ok(eraRankings.includes("styles.analyticsTableHead"));
   assert.ok(eraRankings.includes("className={styles.row}"));
   for (const label of ["Rank", "Era", "Era Set Strength", "Tier", "Sets", "Strongest Set", "Set Strength Range"]) assert.ok(eraRankings.includes(label));
 });
@@ -50,7 +53,7 @@ test("Set Pack Economics expansion is a sibling full-width table row", () => {
   assert.ok(setPack.includes('className="family-detail-row"'));
   assert.ok(setPack.includes("<td colSpan={TOTAL_COLUMN_COUNT}"));
   assert.ok(setPack.includes("aria-expanded={expanded}"));
-  assert.ok(setPack.includes("aria-controls={`family-economics-${row.setId}`}"));
+  assert.ok(setPack.includes("`family-economics-${row.setId}`"));
   assert.ok(!setPack.includes("<details"));
   assert.ok(!setPack.includes("<th className=\"min-w-64 text-left\"><Identity"));
 });
@@ -70,7 +73,7 @@ test("Pitch Black's six represented families are ordered and never truncated", (
 
 test("Pack Economics keeps canonical aggregates, search, sorting and explicit Set RIP authority", () => {
   assert.ok(setPack.includes("mergeSetEconomics(sets, targets)"));
-  assert.ok(setPack.includes("TableSearchInput"));
+  assert.ok(setPack.includes("AnalyticsTableShell"));
   assert.ok(setPack.includes("Search sets..."));
   assert.ok(setPack.includes("row.eraName"));
   assert.ok(setPack.includes('key: "modeledReturn", direction: "desc"'));
@@ -80,6 +83,39 @@ test("Pack Economics keeps canonical aggregates, search, sorting and explicit Se
 
 test("Era Pack Economics uses the same shared table language", () => {
   assert.ok(eraEconomics.includes("className={styles.table}"));
-  assert.ok(eraEconomics.includes("className={styles.head}"));
+  assert.ok(eraEconomics.includes("styles.analyticsTableHead"));
   assert.ok(eraEconomics.includes("className={styles.row}"));
+});
+
+test("all four Era and Set lenses share the analytics shell and authoritative date contract", () => {
+  for (const source of [eraRankings, eraEconomics, setPack]) assert.ok(source.includes("<AnalyticsTableShell"));
+  assert.ok(setRankings.includes("styles.analyticsTableShell"));
+  assert.ok(setRankings.includes("styles.analyticsToolbar"));
+  assert.ok(shell.includes("data-analytics-table-shell"));
+  assert.ok(page.includes("payload?.meta?.comparisonSnapshots?.currentMarketDate || null"));
+  assert.ok(client.includes("marketDate={openingEconomics?.marketDate}"));
+  for (const token of ["Best Eras to Rip Right Now", "Search eras...", "Select an era for the full RIP breakdown."]) assert.ok(eraRankings.includes(token));
+  for (const token of ["Pack Economics by Era", "Search eras...", "Select an era for the full Pack Economics breakdown."]) assert.ok(eraEconomics.includes(token));
+  for (const token of ["Pack Economics by Set", "Search sets..."]) assert.ok(setPack.includes(token));
+});
+
+test("Rankings and Pack Economics reuse Product-family pill primitives", () => {
+  assert.ok(client.includes("data-analysis-lens-tabs"));
+  assert.ok(client.includes("styles.productFamilyTab"));
+  assert.ok(client.includes("styles.productFamilyTabActive"));
+  assert.ok(!client.includes('ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}'));
+});
+
+test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Basic and Premium inherits Plus", () => {
+  const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
+  assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
+  assert.ok(client.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
+  assert.ok(setPack.includes('const PUBLIC_COLUMN_KEYS = new Set(["products", "packPrice"])'));
+  assert.ok(setPack.includes("canViewRankingsIntelligence || PUBLIC_COLUMN_KEYS.has(key)"));
+  assert.ok(setPack.includes("<PremiumMetricLock />"));
+  assert.ok(setPack.includes("Index Plus required for detailed Pack Economics"));
+  assert.ok(setPack.includes("expanded = canViewRankingsIntelligence"));
+  assert.ok(setPack.includes("expanded ? <tr"), "family values only mount for entitled expansion");
+  assert.ok(!setPack.includes("isAuthenticated"));
+  assert.ok(!setPack.includes("index_plan"));
 });

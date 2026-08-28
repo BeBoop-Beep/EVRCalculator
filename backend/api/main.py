@@ -82,6 +82,10 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_insights_secondary_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_simulation_evidence_snapshot_payload,
+    get_pokemon_set_rip_bootstrap_snapshot_payload,
+    get_pokemon_set_rip_simulation_evidence_snapshot_payload,
+    get_pokemon_set_rip_advanced_snapshot_payload,
+    get_pokemon_set_rip_global_context_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_market_bootstrap_snapshot_payload,
     get_pokemon_set_market_signals_snapshot_payload,
@@ -1114,6 +1118,42 @@ def get_pokemon_set_simulation_evidence(set_id: str):
     except Exception:
         logger.exception("/tcgs/pokemon/sets/%s/simulation-evidence unexpected error", set_id)
         return JSONResponse(content={"message": "Unable to load simulation evidence", "code": "POKEMON_SET_SIMULATION_EVIDENCE_FAILED"}, status_code=500)
+
+
+def _set_rip_response(reader, set_id: str, **kwargs):
+    try:
+        return reader(set_id=set_id, **kwargs)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/rip projection unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load Set RIP data", "code": "POKEMON_SET_RIP_FAILED", "retryable": True}, status_code=500)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/bootstrap")
+def get_pokemon_set_rip_bootstrap(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_bootstrap_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence")
+def get_pokemon_set_rip_simulation_evidence(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/advanced")
+def get_pokemon_set_rip_advanced(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_advanced_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/global-context")
+def get_pokemon_set_rip_global_context(set_id: str, expected_calculation_run_id: str | None = None):
+    return _set_rip_response(
+        get_pokemon_set_rip_global_context_payload, set_id,
+        expected_calculation_run_id=expected_calculation_run_id,
+    )
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights")

@@ -1,5 +1,9 @@
-import { eraStrengthRows, displayScore } from "./eraSetStrengthSelector.mjs";
+"use client";
+
+import { useState } from "react";
+import { eraStrengthRows } from "./eraSetStrengthSelector.mjs";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
+import AnalyticsTableShell from "./AnalyticsTableShell";
 import styles from "./explore.module.css";
 
 function StrengthRange({ era }) {
@@ -14,12 +18,16 @@ function StrengthRange({ era }) {
   </div>;
 }
 
-export default function EraRankings({ contract, onSelectEra }) {
-  const rows = eraStrengthRows(contract);
-  if (!contract || rows.length === 0) return <section className={`${styles.surface} rounded-xl p-5`} data-era-rankings-unavailable><h2 className="text-base font-semibold text-[var(--text-primary)]">Era Set Strength unavailable</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Era Set Strength could not be loaded from the current published Rankings snapshot.</p></section>;
-  return <section data-era-rankings>
-    <header className="mb-3"><h2 className="text-lg font-semibold text-[var(--text-primary)]">Era Set Strength</h2><p className="text-xs text-[var(--text-secondary)]">Equal-weight average of each era&apos;s canonical Set RIP scores. Opening economics do not affect this ranking.</p></header>
-    <div className={`${styles.surface} hidden overflow-x-auto desk:block`}><table className={styles.table}><thead className={styles.head}><tr><th className={styles.numeric}>Rank</th><th>Era</th><th className={styles.numeric}>Era Set Strength</th><th>Tier</th><th className={styles.numeric}>Sets</th><th>Strongest Set</th><th>Set Strength Range</th></tr></thead><tbody>{rows.map((era) => <tr className={styles.row} key={era.eraId || era.eraName} data-era-strength-row={era.eraName}><td className={styles.numeric}>{era.rank ? `#${era.rank}` : "—"}</td><td><button className="font-semibold hover:underline" onClick={() => onSelectEra?.(era)}>{era.eraName}</button></td><td className={styles.numeric}><RipScoreBadge score={era.score} tier={era.tier}/></td><td><RipTierMark tier={era.tier}/></td><td className={styles.numeric}>{era.modeledSetCount}</td><td>{era.strongestSet?.setName || "—"}</td><td><StrengthRange era={era} /></td></tr>)}</tbody></table></div>
-    <ul className="space-y-2.5 desk:hidden">{rows.map(era => <li key={era.eraId || era.eraName} className={`${styles.surface} rounded-xl p-4`} data-era-strength-card={era.eraName}><div className="flex items-start justify-between"><div><span className="text-xs text-[var(--text-secondary)]">{era.rank ? `#${era.rank} of ${era.cohortSize}` : "Unranked"}</span><button className="block text-left font-semibold hover:underline" onClick={() => onSelectEra?.(era)}>{era.eraName}</button></div><div className="flex gap-2"><RipScoreBadge score={era.score} tier={era.tier}/><RipTierMark tier={era.tier}/></div></div><p className="mt-3 text-xs text-[var(--text-secondary)]">{era.modeledSetCount} modeled sets · strongest: <span className="text-[var(--text-primary)]">{era.strongestSet?.setName || "Unavailable"}</span></p><div className="mt-3"><StrengthRange era={era} /></div></li>)}</ul>
-  </section>;
+export default function EraRankings({ contract, marketDate = null, onSelectEra }) {
+  const [query, setQuery] = useState("");
+  const canonicalRows = eraStrengthRows(contract);
+  const needle = query.trim().toLowerCase();
+  const rows = needle ? canonicalRows.filter((era) => `${era.eraName || ""} ${era.strongestSet?.setName || ""}`.toLowerCase().includes(needle)) : canonicalRows;
+  if (!contract || canonicalRows.length === 0) return <section className={`${styles.surface} rounded-xl p-5`} data-era-rankings-unavailable><h2 className="text-base font-semibold text-[var(--text-primary)]">Era Set Strength unavailable</h2><p className="mt-1 text-sm text-[var(--text-secondary)]">Era Set Strength could not be loaded from the current published Rankings snapshot.</p></section>;
+  return <AnalyticsTableShell title="Best Eras to Rip Right Now" info="Era Set Strength is the equal-weight average of each Era's canonical Set RIP scores. Opening Economics does not affect this ranking. Era scores are not leader-curved." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search eras..." searchLabel="Search eras" context="Select an era for the full RIP breakdown." shown={rows.length} ranked={contract.cohortSize ?? canonicalRows.length} marketDate={marketDate}>
+    <section data-era-rankings>
+      <div className="hidden overflow-x-auto desk:block"><table className={styles.table}><thead className={`${styles.head} ${styles.analyticsTableHead}`}><tr><th className={styles.numeric}>Rank</th><th>Era</th><th className={styles.numeric}>Era Set Strength</th><th>Tier</th><th className={styles.numeric}>Sets</th><th>Strongest Set</th><th>Set Strength Range</th></tr></thead><tbody>{rows.map((era) => <tr className={styles.row} key={era.eraId || era.eraName} data-era-strength-row={era.eraName}><td className={styles.numeric}>{era.rank ? `#${era.rank}` : "—"}</td><td><button className="font-semibold hover:underline" onClick={() => onSelectEra?.(era)}>{era.eraName}</button></td><td className={styles.numeric}><RipScoreBadge score={era.score} tier={era.tier}/></td><td><RipTierMark tier={era.tier}/></td><td className={styles.numeric}>{era.modeledSetCount}</td><td>{era.strongestSet?.setName || "—"}</td><td><StrengthRange era={era} /></td></tr>)}</tbody></table></div>
+      <ul className="space-y-2.5 p-3 desk:hidden">{rows.map(era => <li key={era.eraId || era.eraName} className={`${styles.surfaceQuiet} rounded-xl p-4`} data-era-strength-card={era.eraName}><div className="flex items-start justify-between"><div><span className="text-xs text-[var(--text-secondary)]">{era.rank ? `#${era.rank} of ${era.cohortSize || contract.cohortSize}` : "Unranked"}</span><button className="block text-left font-semibold hover:underline" onClick={() => onSelectEra?.(era)}>{era.eraName}</button></div><div className="flex gap-2"><RipScoreBadge score={era.score} tier={era.tier}/><RipTierMark tier={era.tier}/></div></div><p className="mt-3 text-xs text-[var(--text-secondary)]">{era.modeledSetCount} modeled sets · strongest: <span className="text-[var(--text-primary)]">{era.strongestSet?.setName || "Unavailable"}</span></p><div className="mt-3"><StrengthRange era={era} /></div></li>)}</ul>
+    </section>
+  </AnalyticsTableShell>;
 }

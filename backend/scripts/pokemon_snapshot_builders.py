@@ -1638,6 +1638,118 @@ def _apply_simulation_availability_metadata(
     return payload
 
 
+RIP_BOOTSTRAP_CONTRACT_VERSION = "pokemon-set-rip-bootstrap-v1"
+RIP_SIMULATION_EVIDENCE_CONTRACT_VERSION = "pokemon-set-rip-simulation-evidence-v1"
+RIP_ADVANCED_CONTRACT_VERSION = "pokemon-set-rip-advanced-v1"
+
+
+def _rip_publication_identity(payload: Dict[str, Any], *, set_id: str, built_at: str) -> Dict[str, Any]:
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    completeness = meta.get("snapshotCompleteness") if isinstance(meta.get("snapshotCompleteness"), dict) else {}
+    simulation_source = completeness.get("simulation_latest_by_target") if isinstance(completeness.get("simulation_latest_by_target"), dict) else {}
+    run_id = first_non_empty(
+        summary.get("calculation_run_id"), summary.get("calculationRunId"),
+        (payload.get("ripDecision") or {}).get("sourceCalculationRunId"),
+        meta.get("calculationRunId"), meta.get("calculation_run_id"),
+    )
+    market_date = first_non_empty(
+        summary.get("market_date"), summary.get("marketDate"),
+        meta.get("asOfDate"), meta.get("as_of_date"), simulation_source.get("run_at"),
+    )
+    return {
+        "setId": set_id,
+        "calculationRunId": run_id,
+        "marketDate": str(market_date)[:10] if market_date else None,
+        "builtAt": built_at,
+    }
+
+
+def _rip_headline(block: Any) -> Dict[str, Any]:
+    if not isinstance(block, dict):
+        return {}
+    allowed = (
+        "leaderNormalizedScore", "relativeScore", "absoluteScore", "modelScore", "score",
+        "rank", "tier", "rankedSetCount", "cohortSize", "status", "statusReason",
+        "modelVersion", "version", "rankable",
+    )
+    return {key: block[key] for key in allowed if key in block}
+
+
+def build_set_rip_read_models(payload: Dict[str, Any], *, set_id: str, built_at: str) -> Dict[str, Dict[str, Any]]:
+    """Derive the three small Set RIP transports from one canonical payload."""
+    identity = _rip_publication_identity(payload, set_id=set_id, built_at=built_at)
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    contract = payload.get("publicRipContractV10") if isinstance(payload.get("publicRipContractV10"), dict) else {}
+    collector = contract.get("collectorAppeal") if isinstance(contract.get("collectorAppeal"), dict) else {}
+    financial = contract.get("financialRip") if isinstance(contract.get("financialRip"), dict) else {}
+    overall = contract.get("overallRip") if isinstance(contract.get("overallRip"), dict) else {}
+    opening = payload.get("openingExperience") if isinstance(payload.get("openingExperience"), dict) else {}
+    subjects = collector.get("topSubjects") or opening.get("topSubjects") or []
+    summary_fields = (
+        "calculation_run_id", "calculationRunId", "pack_cost", "packCost", "mean_value",
+        "meanValue", "median_value", "medianValue", "prob_profit", "probProfit",
+        "expected_loss_per_pack", "expectedLossPerPack",
+    )
+    bootstrap_summary = {key: summary[key] for key in summary_fields if key in summary}
+    set_identity = payload.get("target") if isinstance(payload.get("target"), dict) else {"id": set_id}
+    common_meta = {
+        "builtAt": built_at,
+        "marketDate": identity["marketDate"],
+        "calculationRunId": identity["calculationRunId"],
+        "source": "pokemon_set_page_snapshot_latest.payload_json",
+    }
+    bootstrap = {
+        "contractVersion": RIP_BOOTSTRAP_CONTRACT_VERSION,
+        "set": set_identity,
+        "calculationRunId": identity["calculationRunId"],
+        "marketDate": identity["marketDate"],
+        "canonicalRip": {
+            "overall": _rip_headline(overall or payload.get("overallRipV10")),
+            "financial": _rip_headline(financial or payload.get("financialRipV4")),
+            "collector": _rip_headline(collector),
+        },
+        "summary": bootstrap_summary,
+        "ripDecision": payload.get("ripDecision") if isinstance(payload.get("ripDecision"), dict) else {},
+        "collectorSubjects": subjects if isinstance(subjects, list) else [],
+        "publicAnalyticsStatus": (payload.get("meta") or {}).get("simulationAvailability") or {},
+        "meta": {**common_meta, "contractVersion": RIP_BOOTSTRAP_CONTRACT_VERSION},
+    }
+    simulation_summary_fields = (
+        "calculation_run_id", "mean_value", "median_value", "max_value", "pack_cost",
+        "p95_value", "p99_value", "coefficient_of_variation", "big_hit_threshold",
+        "tail_value_p05", "p95_value_to_cost_ratio", "p99_value_to_cost_ratio",
+    )
+    simulation_available = bool((payload.get("meta") or {}).get("simulationAvailability", {}).get("available", True))
+    simulation = {
+        "contractVersion": RIP_SIMULATION_EVIDENCE_CONTRACT_VERSION,
+        "setId": set_id,
+        "calculationRunId": identity["calculationRunId"],
+        "marketDate": identity["marketDate"],
+        "summary": {key: summary[key] for key in simulation_summary_fields if key in summary},
+        "percentiles": payload.get("percentiles") if isinstance(payload.get("percentiles"), list) else [],
+        "distributionBins": payload.get("distribution_bins") if isinstance(payload.get("distribution_bins"), list) else [],
+        "thresholdBins": payload.get("threshold_bins") if isinstance(payload.get("threshold_bins"), list) else [],
+        "meta": {**common_meta, "contractVersion": RIP_SIMULATION_EVIDENCE_CONTRACT_VERSION,
+                 "available": simulation_available,
+                 "status": "ready" if simulation_available else "unavailable"},
+    }
+    advanced = {
+        "contractVersion": RIP_ADVANCED_CONTRACT_VERSION,
+        "setId": set_id,
+        "calculationRunId": identity["calculationRunId"],
+        "marketDate": identity["marketDate"],
+        "financialRip": financial,
+        "collectorAppeal": collector,
+        "rarityContribution": (
+            payload.get("rarityContribution") if isinstance(payload.get("rarityContribution"), list)
+            else payload.get("rankings") if isinstance(payload.get("rankings"), list) else []
+        ),
+        "meta": {**common_meta, "contractVersion": RIP_ADVANCED_CONTRACT_VERSION},
+    }
+    return {"bootstrap": bootstrap, "simulation": simulation, "advanced": advanced}
+
+
 def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any] = None) -> Dict[str, Any]:
     built_at = utc_now_iso()
     set_id = str(set_row["id"])
@@ -1881,6 +1993,7 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         summary,
         ("hhi_ev_concentration", "effective_chase_count", "top1_ev_share", "top3_ev_share", "top5_ev_share"),
     )
+    rip_read_models = build_set_rip_read_models(payload, set_id=set_id, built_at=built_at)
 
     return {
         "set_id": set_id,
@@ -1892,6 +2005,9 @@ def build_set_page_snapshot_row(set_row: Dict[str, Any], *, client: Optional[Any
         "concentration_json": concentration,
         "desirability_summary_json": payload.get("openingDesirability") or {},
         "set_intelligence_json": payload.get("interpretation") or {},
+        "rip_bootstrap_json": rip_read_models["bootstrap"],
+        "rip_simulation_evidence_json": rip_read_models["simulation"],
+        "rip_advanced_json": rip_read_models["advanced"],
         "payload_json": payload,
         "as_of": first_non_empty(summary.get("run_at"), payload.get("meta", {}).get("asOfDate"), built_at),
         "source_updated_at": first_non_empty(summary.get("run_at"), built_at),

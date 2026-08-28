@@ -14,6 +14,7 @@ function CardMotif({ type }) {
   if (type === "ev") return <span className="absolute bottom-5 right-5 text-2xl font-black text-[var(--accent)]/60" aria-hidden="true">EV ≈ SIM</span>;
   if (type === "scores") return <div className="absolute bottom-5 right-5 grid grid-cols-3 gap-2 text-[9px] font-bold text-white/75" aria-hidden="true"><span>RIP</span><span>FIN</span><span>CA</span></div>;
   if (type === "research") return <div className="absolute bottom-5 right-5 text-right text-[10px] font-bold uppercase tracking-widest text-[var(--accent)]/70" aria-hidden="true"><span className="block text-2xl">22M</span><span>outcomes</span></div>;
+  if (type === "chase") return <div className="absolute bottom-5 right-5 flex items-center gap-2 text-[10px] font-black tracking-wider text-[var(--accent)]/70" aria-hidden="true"><span className="grid h-9 w-9 place-items-center rounded-full border-2 border-[var(--accent)]"><span className="h-2 w-2 rounded-full bg-[var(--accent)]" /></span><span>CARD ↔ PACK</span></div>;
   return null;
 }
 
