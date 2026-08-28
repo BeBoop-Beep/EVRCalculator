@@ -156,7 +156,38 @@ def _load_card_market_history(client: Any, variant_id: Optional[str], condition_
     return [by_day[key] for key in sorted(by_day)]
 
 
-def _load_card_intelligence(client: Any, card_id: str, rarity: Any) -> Dict[str, Any]:
+def _load_treatment_prestige(client: Any, *, rarity: Any, variant: Mapping[str, Any],
+                             era_id: Any, supertype: Any) -> Dict[str, Any]:
+    from backend.desirability.card_treatment_prestige_v2 import resolve_treatment_identity
+    identity = resolve_treatment_identity(rarity=rarity, printing_type=variant.get("printing_type"),
+        special_type=variant.get("special_type"), edition=variant.get("edition"))
+    unavailable = {"available": False, "status": identity.status, "treatmentKey": identity.treatment_key,
+                   "methodologyVersion": "card_treatment_prestige_v2"}
+    if not identity.treatment_key: return unavailable
+    try:
+        rows = _rows(client.table("pokemon_card_treatment_scores_latest").select("*").eq("treatment_key", identity.treatment_key))
+    except Exception:
+        return {**unavailable, "status": "researching_v2"}
+    era_text, super_text = _text(era_id), _text(supertype)
+    precedence = (("era_supertype", era_text, super_text), ("era", era_text, None),
+                  ("supertype", None, super_text), ("global", None, None))
+    chosen = next((row for scope, era, st in precedence for row in rows if row.get("scope_type") == scope
+                   and _text(row.get("era_id")) == era and _text(row.get("supertype")) == st), None)
+    if not chosen: return {**unavailable, "status": "insufficient_treatment_evidence"}
+    return {"available": True, "status": "approved", "treatmentKey": identity.treatment_key,
+        "score": chosen.get("treatment_score_100"), "score10": chosen.get("treatment_score_10"),
+        "adjustedMarketPremiumPct": chosen.get("adjusted_premium_pct"),
+        "adjustedMarketPremiumCiLow": chosen.get("adjusted_premium_ci_low"),
+        "adjustedMarketPremiumCiHigh": chosen.get("adjusted_premium_ci_high"),
+        "scoreCiLow": chosen.get("score_ci_low"), "scoreCiHigh": chosen.get("score_ci_high"),
+        "cardCount": chosen.get("card_count"), "setCount": chosen.get("set_count"),
+        "matchedPairCount": chosen.get("matched_pair_count"), "scope": chosen.get("scope_type"),
+        "methodologyVersion": chosen.get("methodology_version"), "studyRunId": chosen.get("study_run_id"),
+        "studyAsOfDate": chosen.get("study_as_of_date")}
+
+
+def _load_card_intelligence(client: Any, card_id: str, rarity: Any, *,
+                            variant: Mapping[str, Any], era_id: Any, supertype: Any) -> Dict[str, Any]:
     """Narrow, best-effort projection of production card desirability data."""
     try:
         links = _rows(
@@ -190,9 +221,10 @@ def _load_card_intelligence(client: Any, card_id: str, rarity: Any) -> Dict[str,
             "available": appeal is not None or demand is not None or treatment is not None,
             "cardAppeal": {"score": appeal, "tier": assign_composite_tier(appeal) if appeal is not None else None, "available": appeal is not None},
             "pokemonDemand": {"score": demand, "tier": assign_composite_tier(demand) if demand is not None else None, "available": demand is not None},
-            "treatment": {"score": treatment, "tier": assign_composite_tier(treatment) if treatment is not None else None, "available": treatment is not None},
+            "treatmentV1": {"score": treatment, "tier": assign_composite_tier(treatment) if treatment is not None else None, "available": treatment is not None},
+            "treatmentPrestige": _load_treatment_prestige(client, rarity=rarity, variant=variant, era_id=era_id, supertype=supertype),
             "scarcity": {"score": None, "available": False},
-            "provenance": {"source": "pokemon_card_desirability_links+pokemon_desirability_composite_scores", "formula": "card_appeal_v1"},
+            "provenance": {"source": "pokemon_card_desirability_links+pokemon_desirability_composite_scores", "formula": "card_appeal_v1", "cardAppealTreatmentVersion": "v1"},
         }
     except Exception:
         return {"available": False, "reason": "card_intelligence_unavailable"}
@@ -288,7 +320,7 @@ def get_pokemon_card_detail_payload(
         raise PokemonCardDetailError(exc.status_code, exc.message, exc.code) from exc
     resolved_set_id = str(set_row["id"])
     try:
-        artwork_rows = _rows(active.table("sets").select("id,hero_image_url,logo_image_url,symbol_image_url").eq("id", resolved_set_id).limit(1))
+        artwork_rows = _rows(active.table("sets").select("id,era_id,hero_image_url,logo_image_url,symbol_image_url").eq("id", resolved_set_id).limit(1))
         if artwork_rows:
             set_row = {**set_row, **artwork_rows[0]}
     except Exception:
@@ -548,7 +580,10 @@ def get_pokemon_card_detail_payload(
         })
     market["history"] = history
     market["movements"] = {key: _market_movement(history, key) for key in (*_MARKET_WINDOWS, "lifetime")}
-    intelligence = _load_card_intelligence(active, str(card_id), card.get("rarity"))
+    intelligence = _load_card_intelligence(
+        active, str(card_id), card.get("rarity"), variant=by_id.get(selected or "", {}),
+        era_id=set_row.get("era_id"), supertype=card.get("supertype"),
+    )
 
     return {
         "set": {"id": resolved_set_id, "targetId": _text(set_row.get("canonical_key")), "name": _text(set_row.get("name")), "slug": canonical_set_route_slug(_text(set_row.get("name")) or ""),

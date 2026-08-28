@@ -16,7 +16,7 @@ SCARCITY_MAX_DENOMINATOR = 2000.0
 
 # V1 treatment weights. These are intentionally coarse and should be audited
 # against real market behavior before being used as a ranking product.
-TREATMENT_SCORE_RULES = (
+TREATMENT_SCORE_RULES_V1 = (
     ("special illustration rare", 96.0),
     ("special illustration", 96.0),
     ("illustration rare", 84.0),
@@ -56,10 +56,15 @@ def get_treatment_score(rarity: Any) -> Optional[float]:
     normalized = normalize_rarity_label(rarity)
     if not normalized:
         return None
-    for needle, score in TREATMENT_SCORE_RULES:
+    for needle, score in TREATMENT_SCORE_RULES_V1:
         if needle in normalized:
             return score
     return 30.0
+
+
+# Historical alias.  New code should name V1 explicitly; keeping this export
+# prevents old research notebooks from becoming irreproducible.
+TREATMENT_SCORE_RULES = TREATMENT_SCORE_RULES_V1
 
 
 def normalize_pull_probability(value: Any) -> Optional[float]:

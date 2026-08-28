@@ -1009,12 +1009,18 @@ function ChaseEfficiencySection({ state, detail }) {
   );
 }
 
-function treatmentMethodology(rarity, score) {
-  const current =
-    rarity && finite(score) !== null
-      ? `Current treatment: ${rarity} → ${(finite(score) / 10).toFixed(1)} / 10. `
+function treatmentMethodology(rarity, metric) {
+  const lead =
+    "How much extra value does the market give a card just because of its treatment, once we remove the effects of Pokémon popularity and rarity/pull odds?";
+  if (!metric?.available)
+    return `${lead} Treatment Prestige V2 is currently unavailable for this printing because approved scarcity-adjusted evidence has not been published.`;
+  const premium = finite(metric.adjustedMarketPremiumPct);
+  const score = finite(metric.score10);
+  const evidence =
+    metric.cardCount && metric.setCount
+      ? ` Based on ${metric.cardCount} cards across ${metric.setCount} sets.`
       : "";
-  return `${current}Card Treatment is the current V1 rarity/treatment score for this printing. It does not use market price, pull odds, Pokémon popularity, or artwork quality. Scale: SIR 9.6; IR 8.4; Hyper Rare / Gold 8.2; Ultra Rare 8.0; Ace Spec 6.8; Double Rare 6.2; Rare Holo 4.5; Rare 3.6; Uncommon 2.2; Common 1.8; Other/unmatched 3.0.`;
+  return `${lead} Treatment Prestige V2 estimates the market premium associated with this treatment after controlling for Pokémon identity/popularity, pull scarcity, and set effects. The 0–10 score is derived from how consistently this treatment's adjusted premium exceeds other validated treatments across repeated statistical samples. Scores are measured from market data, not assigned by hand. Current treatment: ${rarity || metric.treatmentKey || "Unavailable"}. Adjusted treatment premium: ${premium === null ? "Unavailable" : `${premium >= 0 ? "+" : ""}${premium.toFixed(1)}%`}. Treatment score: ${score === null ? "Unavailable" : `${score.toFixed(1)} / 10`}. Study: Card Treatment Prestige V2.${evidence}`;
 }
 
 function CollectorIntelligence({ intelligence, rarity }) {
@@ -1097,8 +1103,8 @@ function CollectorIntelligence({ intelligence, rarity }) {
           />
           <Meter
             label="Card Treatment"
-            metric={intelligence?.treatment}
-            info={treatmentMethodology(rarity, intelligence?.treatment?.score)}
+            metric={intelligence?.treatmentPrestige}
+            info={treatmentMethodology(rarity, intelligence?.treatmentPrestige)}
           />
           <Meter
             label="Scarcity"
@@ -1218,7 +1224,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         visibilityClassName="hidden sm:block"
       />
       <div className="relative mx-auto max-w-[1400px] space-y-4">
-        <div className="lg:-ml-6">
+        <div>
           <Link
             href={setHref}
             className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -1230,61 +1236,30 @@ export default function PokemonCardDetailClient({ initialDetail }) {
           data-card-detail-hero
           className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
         >
-          <div className="order-1 grid gap-4 md:h-full md:min-h-0 md:grid-rows-[auto_minmax(0,1fr)_auto]">
-            <header data-card-identity>
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">{detail.set.name}</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{detail.card.name}</h1>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{[detail.card.rarity, detail.card.printedNumber || detail.card.cardNumber].filter(Boolean).join(" · ")}</p>
+          <div className="order-1 grid gap-4 md:h-full md:min-h-0 md:grid-rows-[auto_minmax(0,1fr)]">
+            <header data-card-identity className="text-center">
+              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
+                {detail.set.name}
+              </p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {detail.card.name}
+              </h1>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+                {[
+                  detail.card.rarity,
+                  detail.card.printedNumber || detail.card.cardNumber,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                Market Price As Of {dateLabel(detail.market.marketDate)}
+              </p>
+              {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
             </header>
-            <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0">
+            <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end">
               <CardArtwork detail={detail} />
             </div>
-            <section
-              aria-labelledby="details-title"
-              data-card-details-panel
-              className="set-glass-surface rounded-xl border px-4 py-3"
-            >
-              <h2 id="details-title" className="text-sm font-semibold">
-                Card Details
-              </h2>
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">Set</dt>
-                  <dd className="font-medium">{detail.set.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Card Number
-                  </dt>
-                  <dd className="font-medium">
-                    {detail.card.printedNumber ||
-                      detail.card.cardNumber ||
-                      "Unavailable"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Rarity
-                  </dt>
-                  <dd className="font-medium">
-                    {detail.card.rarity || "Unavailable"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Market Price As Of
-                  </dt>
-                  <dd className="font-medium">
-                    {dateLabel(detail.market.marketDate)}
-                  </dd>
-                </div>
-              </dl>
-              {error ? (
-                <p role="alert" className="mt-3 text-sm text-red-300">
-                  {error}
-                </p>
-              ) : null}
-            </section>
           </div>
           <div className="order-2 min-w-0 md:h-full">
             <div data-card-market-panel className="h-full">

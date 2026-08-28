@@ -1,0 +1,219 @@
+﻿{
+    "study":  "card_treatment_prestige_v2",
+    "generated_at":  "2026-08-28T16:50:02.450737+00:00",
+    "study_as_of_date":  "2026-08-27",
+    "decision":  "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
+    "acceptance_gates":  {
+                             "min_cards":  100,
+                             "min_sets":  5,
+                             "min_species":  20,
+                             "min_finish_matches":  50,
+                             "min_rank_spearman":  0.85,
+                             "max_abs_log_effect_shift":  0.5,
+                             "min_common_support_coverage":  0.5
+                         },
+    "data_audit":  {
+                       "pokemon_canonical_cards":  20651,
+                       "pokemon_canonical_card_market_prices_latest":  null,
+                       "card_variants":  40654,
+                       "sets":  210,
+                       "simulation_card_variant_pull_rates":  933,
+                       "priced_canonical_cards":  19779,
+                       "priced_sets":  163,
+                       "raw_rarity_labels":  46,
+                       "priced_variants":  19778
+                   },
+    "cohort":  {
+                   "n":  366,
+                   "sets":  1,
+                   "species":  175,
+                   "eras":  1,
+                   "dropped":  {
+                                   "canonical_join":  2,
+                                   "unmapped_treatment":  9
+                               },
+                   "fingerprint":  "b7bf10f4c3f53585bab0686da33dec2e0a18ba0ca92c94d45b49e7b9336f09f2"
+               },
+    "common_support":  {
+                           "bounds_log_odds":  null,
+                           "trimmed_n":  0,
+                           "coverage":  0.0
+                       },
+    "rarity_treatment_results":  [
+                                     {
+                                         "treatment_key":  "common",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  71,
+                                         "variant_count":  71,
+                                         "set_count":  1,
+                                         "species_count":  70,
+                                         "median_odds":  20.63046707377455,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "common__reverse_holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  72,
+                                         "variant_count":  72,
+                                         "set_count":  1,
+                                         "species_count":  71,
+                                         "median_odds":  94.20634192123907,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "double_rare__holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  39,
+                                         "variant_count":  39,
+                                         "set_count":  1,
+                                         "species_count":  39,
+                                         "median_odds":  195.7713390759593,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "illustration_rare__holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  33,
+                                         "variant_count":  33,
+                                         "set_count":  1,
+                                         "species_count":  33,
+                                         "median_odds":  305.9039461609055,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "rare__holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  23,
+                                         "variant_count":  23,
+                                         "set_count":  1,
+                                         "species_count":  23,
+                                         "median_odds":  32.03793291256847,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "rare__reverse_holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  25,
+                                         "variant_count":  25,
+                                         "set_count":  1,
+                                         "species_count":  25,
+                                         "median_odds":  97.37098344693278,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "special_illustration_rare__holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  19,
+                                         "variant_count":  19,
+                                         "set_count":  1,
+                                         "species_count":  18,
+                                         "median_odds":  1328.021248339973,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "ultra_rare__holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  3,
+                                         "variant_count":  3,
+                                         "set_count":  1,
+                                         "species_count":  3,
+                                         "median_odds":  295.1593860684769,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "uncommon",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  40,
+                                         "variant_count":  40,
+                                         "set_count":  1,
+                                         "species_count":  40,
+                                         "median_odds":  23.026088668212644,
+                                         "status":  "insufficient_evidence"
+                                     },
+                                     {
+                                         "treatment_key":  "uncommon__reverse_holo",
+                                         "coefficient_log_price":  null,
+                                         "adjusted_premium_pct":  null,
+                                         "adjusted_premium_ci_low":  null,
+                                         "adjusted_premium_ci_high":  null,
+                                         "treatment_score_10":  null,
+                                         "score_ci_low":  null,
+                                         "score_ci_high":  null,
+                                         "card_count":  41,
+                                         "variant_count":  41,
+                                         "set_count":  1,
+                                         "species_count":  41,
+                                         "median_odds":  94.47331128956068,
+                                         "status":  "insufficient_evidence"
+                                     }
+                                 ],
+    "matched_variant_results":  [
+
+                                ],
+    "bootstrap":  {
+                      "seed":  20260828,
+                      "draws":  1000
+                  },
+    "limitations":  [
+                        "Exact-variant pull coverage is currently limited.",
+                        "Study B is not approved unless at least 50 pull-covered matched comparisons are available."
+                    ],
+    "publication":  {
+                        "committed":  false,
+                        "approved":  false
+                    }
+}

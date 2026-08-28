@@ -174,11 +174,13 @@ test("collector hierarchy keeps actual scores and honest unavailable scarcity", 
   assert.match(source, /primary\s*\/>/);
   assert.match(source, /intelligence\?\.cardAppeal/);
   assert.match(source, /intelligence\?\.pokemonDemand/);
-  assert.match(source, /intelligence\?\.treatment/);
+  assert.match(source, /intelligence\?\.treatmentPrestige/);
   assert.match(source, /intelligence\?\.scarcity/);
   assert.match(source, /"Unavailable"/);
   assert.doesNotMatch(source, /0 \/ 10/);
   assert.match(source, /<InfoPopover text=\{info\}/);
+  assert.match(source, /How much extra value does the market give a card just because of its treatment, once we remove the effects of Pokémon popularity and rarity\/pull odds\?/);
+  assert.doesNotMatch(source, /Scale: SIR 9\.6/);
   for (const label of [
     "Card Appeal",
     "Pokémon Demand",
@@ -213,21 +215,23 @@ test("top and bottom set navigation use the canonical bare set href", () => {
   assert.doesNotMatch(detailModel, /\?tab=cards/);
 });
 
-test("hero places identity above unchanged artwork and aligns the Market column", () => {
-  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)_auto\]/);
-  assert.match(source, /data-card-identity/);
+test("hero centers identity above bottom-aligned artwork without a details panel", () => {
+  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)\]/);
+  assert.match(source, /data-card-identity className="text-center"/);
+  assert.match(source, /Market Price As Of \{dateLabel\(detail\.market\.marketDate\)\}/);
   assert.match(source, /card-detail-artwork/);
+  assert.match(source, /md:items-end/);
   assert.match(source, /max-w-\[430px\]/);
   assert.match(source, /data-card-market-panel className="h-full"/);
-  assert.match(source, /lg:-ml-6/);
-  assert.match(source, /data-card-details-panel/);
+  assert.doesNotMatch(source, /lg:-ml-6/);
+  assert.doesNotMatch(source, /data-card-details-panel|Card Details/);
   assert.match(source, /data-card-market-panel/);
   assert.doesNotMatch(source, /max-h-\[46vh\]/);
   const heroEnd = source.indexOf("</section>", source.indexOf("data-card-detail-hero"));
-  const detailsStart = source.indexOf("data-card-details-panel");
-  const variantCall = source.indexOf("<VariantSelector", detailsStart);
+  const identityStart = source.indexOf("data-card-identity");
+  const variantCall = source.indexOf("<VariantSelector", identityStart);
   const intelligenceCall = source.indexOf("<ChaseEfficiencySection", variantCall);
-  assert.ok(detailsStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
+  assert.ok(identityStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
 });
 
 test("market-only variants are selectable while pull modeling remains explicit", () => {
