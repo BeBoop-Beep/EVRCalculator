@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import InfoPopover from "@/components/ui/InfoPopover";
 import styles from "./explore.module.css";
 import local from "./openingEconomics.module.css";
@@ -25,10 +26,11 @@ import {
 
 const METHODOLOGY = [
   "Every eligible modeled sealed product is normalized to an all-in per-pack equivalent.",
-  "Each modeled set counts once, weighted equally, so no set carries more influence than another.",
-  "The statistics come from the stored results of a million simulated openings per set.",
-  "Typical Opening is the median of all those openings pooled together — not the average of each set's own median.",
-  "Card values are gross market values, before any selling costs.",
+  "Within each set, represented product families receive equal weight and SKUs inside each family receive equal weight.",
+  "Every modeled set receives equal weight globally.",
+  "Typical Opening is the median of the weighted empirical product-opening distribution, not an average of product or set medians.",
+  "Guaranteed modeled card components are included exactly once before normalization; accessories have zero modeled value.",
+  "Card values are gross modeled market values before selling fees, shipping, grading, liquidity discounts, and taxes.",
 ];
 
 function Dash() {
@@ -103,7 +105,7 @@ function EconomicEquation({ scope }) {
             <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
               Modeled Return on Spend
             </h3>
-            <InfoPopover text="Long-run modeled gross card-market value relative to the current cost of one loose pack from each participating set. This is aggregate value divided by aggregate spend, not the average of each set's own return." />
+            <InfoPopover text="Long-run modeled gross card-market value relative to spend across every eligible modeled sealed product after verified per-pack normalization and hierarchical weighting." />
           </div>
           <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
             {returnPercent ?? <Dash />}
@@ -125,7 +127,7 @@ function EconomicEquation({ scope }) {
           </div>
           <p className="mt-1 flex items-baseline gap-1.5">
             <span className="text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
-              {money(scope.expectedEntertainmentCost) ?? <Dash />}
+              {money(scope.averageEntertainmentCostPerPack) ?? <Dash />}
             </span>
             <span className="text-xs text-[var(--text-secondary)]">per pack</span>
           </p>
@@ -204,8 +206,8 @@ function ValueDescent({ scope }) {
 /* --------------------------------------------------------------- insight --- */
 
 function EvInsight({ scope }) {
-  const ev = money(scope.expectedValue);
-  const p75 = money(scope.rawDistribution?.p75);
+  const ev = money(scope.averageModelBreakEvenPerPack);
+  const p75 = money(scope.valuePerPackPercentiles?.p75);
   if (!ev || !p75) return null;
   return (
     <section className={`${local.insight} mt-3 p-3.5`} data-opening-economics-insight>
@@ -232,7 +234,7 @@ function EvInsight({ scope }) {
  * measured.
  */
 function OutcomeRange({ scope }) {
-  const range = outcomeRangePositions(scope.rawDistribution, scope.expectedValue);
+  const range = outcomeRangePositions(scope.valuePerPackPercentiles, scope.averageModelBreakEvenPerPack);
   if (!range) return null;
 
   const p05 = range.points.find((point) => point.key === "p05");
@@ -381,7 +383,7 @@ function EraPreview({ eras, onSelectEras }) {
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
               {[
                 ["Modeled Return", ratioAsPercent(era.modeledReturnOnSpend), true],
-                ["Entertainment Cost", money(era.expectedEntertainmentCost), false],
+                ["Entertainment Cost", money(era.averageEntertainmentCostPerPack), false],
                 ["Typical Opening", money(era.typicalOpeningPerPack), false],
                 ["Typical Retention", ratioAsPercent(era.typicalRetention), false],
               ].map(([label, value, strong]) => (

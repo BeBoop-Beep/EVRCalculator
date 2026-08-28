@@ -97,7 +97,7 @@ export function headlineMetrics(scope) {
       key: "modeledReturn",
       label: "Modeled Return on Spend",
       value: ratioAsPercent(scope.modeledReturnOnSpend),
-      help: "Long-run modeled gross card-market value relative to the current cost of one loose pack from each participating set.",
+      help: "Long-run modeled gross card-market value relative to spend across all eligible modeled products after verified per-pack normalization and hierarchical weighting.",
       primary: true,
     },
     {
@@ -288,7 +288,7 @@ export function valueDescent(scope) {
   const share = (value) => (value === null ? null : Math.max(0.5, (value / price) * 100));
   return [
     { key: "price", label: "Average pack price", value: money(price), percent: 100,
-      note: "What one loose pack costs today" },
+      note: "Weighted complete-product cost expressed per verified booster pack" },
     { key: "breakEven", label: "Model break-even", value: money(breakEven), percent: share(breakEven),
       note: "Long-run modeled Expected Value, expressed as a price", sameAsExpectedValue: true },
     { key: "typical", label: "Typical opening", value: money(typical), percent: share(typical),

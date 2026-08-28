@@ -1,6 +1,4 @@
--- Additive route-only projection of the canonical Rankings publication.
--- jsonb_array_elements executes inside Postgres; the 8MB authority never
--- crosses the DB -> backend boundary merely to be trimmed.
+-- Compact, order-preserving routing projection of the canonical Rankings publication.
 create or replace function public.get_pokemon_set_route_directory(p_limit integer default 150)
 returns table (
   ordinal integer,
