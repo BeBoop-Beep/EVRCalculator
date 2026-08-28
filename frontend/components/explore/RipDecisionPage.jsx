@@ -1154,7 +1154,7 @@ export default function RipDecisionPage({
                       : `This set's ${heroFamilyName} at today's prices; a global ${heroFamilyName} rank is not yet published for it.`}
                   </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className={styles.heroBadge}>
+                    <div className={styles.heroBadge}>
                       {heroPick.familyRankInfo ? (
                         <>
                           #{heroPick.familyRankInfo.familyRank} of{" "}
@@ -1168,7 +1168,7 @@ export default function RipDecisionPage({
                       <InfoPopover
                         text={`Ranked against all currently eligible modeled ${heroFamilyName}s in the canonical product-family cohort, across every modeled set — not just this one.`}
                       />
-                    </span>
+                    </div>
                     {heroPick.familyRankInfo?.overallRipLeaderScore == null ? null : (
                       <span className={styles.heroBadge}>
                         {score(heroPick.familyRankInfo.overallRipLeaderScore)} RIP Score

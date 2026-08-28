@@ -8924,8 +8924,6 @@ export default function RipStatisticsPageClient({
   const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
   const initialOverviewPayload = initialModuleSnapshots?.overviewPayload || null;
   const initialMarketMoversPayload = initialModuleSnapshots?.marketMoversPayload || null;
-  const destinationSeedPending =
-    setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
   const initialSetPageDataSeed = useMemo(
     () =>
       buildInitialSetPageDataSeed({
@@ -9064,6 +9062,8 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
+  const destinationSeedPending =
+    setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
   const [ripRankContextState, setRipRankContextState] = useState({
     status: "idle",
     setId: null,
@@ -9280,9 +9280,9 @@ export default function RipStatisticsPageClient({
   const [marketMoversState, dispatchMarketMovers] = useReducer(
     marketDashboardReducer,
     {
-      status: "idle",
+      status: seededMarketMoversPayload ? "success" : "idle",
       setId: resolvedSetResourceId,
-      payload: null,
+      payload: seededMarketMoversPayload || null,
       sourceWindow: MOVERS_TICKER_WINDOW,
     },
     createMarketDashboardState
@@ -9304,6 +9304,13 @@ export default function RipStatisticsPageClient({
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
+  const cardsIntentPrefetchTimerRef = useRef(null);
+  useEffect(() => () => {
+    if (cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+      cardsIntentPrefetchTimerRef.current = null;
+    }
+  }, []);
   // Tracks the last getPokemonSetCardsPage request key this effect actually
   // issued, so leaving Cards and coming back (or any other re-render that
   // re-triggers the effect without the set/page/sort/filter actually
@@ -10013,6 +10020,10 @@ export default function RipStatisticsPageClient({
   const handleSetDetailTabChange = (nextTab) => {
     revealMobileSetContext();
     const normalizedTab = normalizeSetDetailTab(nextTab);
+    if (normalizedTab !== "cards" && cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+      cardsIntentPrefetchTimerRef.current = null;
+    }
     if (normalizedTab === "cards") {
       markSetPagePerformance("cards_tab_first_interactive", { setId: resolvedSetResourceId });
     }
@@ -12304,18 +12315,24 @@ export default function RipStatisticsPageClient({
       activeOverviewState.status,
       activeMarketMoversState.status,
     ].every((status) => ["success", "success_stale", "error", "empty"].includes(status)))) return;
-    window.setTimeout(() => prefetchPokemonSetCardsPage(setId, {
-      page: 1,
-      pageSize: CARDS_PAGE_SIZE,
-      sort: effectiveCardSortMode,
-      sortDirection: cardsRequest.sortDirection,
-      query: cardSearchQuery.trim() || null,
-      rarity: effectiveCardRarityFilter,
-      movementFilter: effectiveCardMovementFilter,
-      movementSort: effectiveCardMovementSort,
-      movementMetric: effectiveCardMovementMetric,
-      section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
-    }), 160);
+    if (cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+    }
+    cardsIntentPrefetchTimerRef.current = window.setTimeout(() => {
+      cardsIntentPrefetchTimerRef.current = null;
+      prefetchPokemonSetCardsPage(setId, {
+        page: 1,
+        pageSize: CARDS_PAGE_SIZE,
+        sort: effectiveCardSortMode,
+        sortDirection: cardsRequest.sortDirection,
+        query: cardSearchQuery.trim() || null,
+        rarity: effectiveCardRarityFilter,
+        movementFilter: effectiveCardMovementFilter,
+        movementSort: effectiveCardMovementSort,
+        movementMetric: effectiveCardMovementMetric,
+        section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
+      });
+    }, 160);
   };
 
   useEffect(() => {

@@ -17,6 +17,7 @@ class Query:
     def in_(self, key, values): self.in_filters.append((key, {str(v) for v in values})); return self
     def limit(self, value): self.maximum = value; return self
     def execute(self):
+        self.client.executed.append((self.table, list(self.filters), list(self.in_filters)))
         rows = [dict(row) for row in self.client.data.get(self.table, [])]
         for key, value in self.filters: rows = [row for row in rows if str(row.get(key)) == value]
         for key, values in self.in_filters: rows = [row for row in rows if str(row.get(key)) in values]
@@ -24,7 +25,7 @@ class Query:
 
 
 class Client:
-    def __init__(self, data): self.data, self.queries = data, []
+    def __init__(self, data): self.data, self.queries, self.executed = data, [], []
     def table(self, name): self.queries.append(name); return Query(self, name)
 
 
@@ -61,6 +62,24 @@ def fixture_data(modeled=True, image="large.png"):
             "guaranteed_component_market_value": 20, "accessory_value_included": False,
             "composition_version": "stage2", "composition_id": "composition", "distribution_model_version": "model",
         }, {"sealed_product_id": "p1", "calculation_run_id": "run-stale", "expected_value": 999}] if modeled else []),
+    }
+
+
+def prepared_product(product_id, name, price, family, history=None):
+    history = history or [
+        {"date": "2026-07-14", "marketPrice": price - 10, "source": "market"},
+        {"date": "2026-08-28", "marketPrice": price, "source": "market"},
+    ]
+    return {
+        "sealedProductId": product_id,
+        "name": name,
+        "productFamily": family,
+        "productFamilyLabel": family.replace("_", " ").title(),
+        "currentPrice": price,
+        "priceAsOf": "2026-08-28",
+        "source": "market",
+        "history": history,
+        "movements": {"30D": {"comparisonStatus": "available"}},
     }
 
 
@@ -112,6 +131,81 @@ def test_unmodeled_and_missing_image_are_valid_without_fake_zeroes():
     assert payload["rip"]["available"] is False
     assert payload["rip"]["overallRipLeaderScore"] is None
     assert payload["comparisons"]["sameFamily"] == []
+
+
+def test_top_ten_multi_product_bundle_reuses_exact_prepared_market_without_rip():
+    data = fixture_data(modeled=False)
+    product = data["sealed_products"][0]
+    product.update({"name": "Ascended Heroes Tin [Set of 3]", "product_type": "Sealed Products"})
+    prepared = prepared_product("p1", product["name"], 224.64, "multi_product_bundle")
+    data["pokemon_set_sealed_market_snapshot_latest"] = [{
+        "set_id": "s1", "payload_json": {
+            "products": [], "setPageConsumerTopProducts": [prepared], "meta": {},
+        },
+        "market_date": "2026-08-28", "product_count": 0, "updated_at": "now",
+    }]
+    data["sealed_product_price_observations"] = []
+
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+
+    assert payload["product"]["id"] == prepared["sealedProductId"]
+    assert payload["market"]["available"] is True
+    assert payload["market"]["currentPrice"] == prepared["currentPrice"]
+    assert payload["market"]["marketDate"] == prepared["priceAsOf"]
+    assert payload["market"]["history"] == prepared["history"]
+    assert payload["market"]["movements"] == prepared["movements"]
+    assert payload["rip"]["available"] is False
+    assert payload["rip"]["reason"] == "unsupported_product_family"
+    assert payload["meta"]["marketSource"] == "pokemon_set_sealed_market_snapshot_latest"
+
+
+@pytest.mark.parametrize(
+    ("name", "family"),
+    [
+        ("Alpha Booster Box", "booster_box"),
+        ("Alpha Elite Trainer Box", "elite_trainer_box"),
+        ("Alpha Collector Tin", "tin"),
+        ("Alpha Collection Box", "collection_product"),
+        ("Alpha Three Pack Blister", "blister"),
+    ],
+)
+def test_prepared_market_is_independent_of_modeling_family(name, family):
+    data = fixture_data(modeled=False)
+    data["sealed_products"][0]["name"] = name
+    prepared = prepared_product("p1", name, 75, family)
+    data["pokemon_set_sealed_market_snapshot_latest"] = [{
+        "set_id": "s1", "payload_json": {
+            "products": [prepared] if family in {"booster_box", "elite_trainer_box"} else [],
+            "setPageConsumerTopProducts": [prepared], "meta": {},
+        },
+        "market_date": "2026-08-28", "product_count": 1, "updated_at": "now",
+    }]
+    data["sealed_product_price_observations"] = []
+
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", Client(data))
+
+    assert payload["market"]["available"] is True
+    assert payload["market"]["history"] == prepared["history"]
+    assert payload["rip"]["available"] is False
+
+
+def test_absent_snapshot_product_uses_only_requested_identity_raw_fallback():
+    data = fixture_data(modeled=False)
+    data["pokemon_set_sealed_market_snapshot_latest"] = [{
+        "set_id": "s1", "payload_json": {
+            "products": [], "setPageConsumerTopProducts": [], "meta": {},
+        },
+        "market_date": None, "product_count": 0, "updated_at": "now",
+    }]
+    client = Client(data)
+
+    payload = service.get_pokemon_sealed_product_detail_payload("p1", client)
+
+    assert payload["market"]["currentPrice"] == 120
+    assert payload["meta"]["marketSource"] == "sealed_product_price_observations"
+    assert "sealed_product_price_observations" in client.queries
+    observation_reads = [query for query in client.executed if query[0] == "sealed_product_price_observations"]
+    assert observation_reads == [("sealed_product_price_observations", [("sealed_product_id", "p1")], [])]
 
 
 def test_comparisons_are_bounded_exclude_current_and_same_family_never_crosses_format():

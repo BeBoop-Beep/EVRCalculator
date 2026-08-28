@@ -14,6 +14,7 @@ from backend.db.services.pokemon_set_sealed_market_snapshot_service import (
     MOVEMENT_WINDOWS,
     normalize_daily_history,
     movement,
+    read_snapshot,
 )
 from backend.db.services.pokemon_sets_catalog_service import _slugify as canonical_set_route_slug
 from backend.domain.pokemon.entertainment_cost import entertainment_cost_contract
@@ -109,6 +110,35 @@ def _market_contract(history: List[Dict[str, Any]]) -> Dict[str, Any]:
         "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
         "reason": None,
     }
+
+
+def _prepared_market_contract(product: Mapping[str, Any]) -> Dict[str, Any]:
+    """Adapt one canonical prepared set-market product without recomputing it."""
+    history = list(product.get("history") or [])
+    if not history:
+        return _market_contract([])
+    return {
+        "available": True,
+        "currentPrice": product.get("currentPrice"),
+        "marketDate": product.get("priceAsOf"),
+        "source": product.get("source"),
+        "history": history,
+        "movements": dict(product.get("movements") or {}),
+        "reason": None,
+    }
+
+
+def _prepared_markets(snapshot: Optional[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Index every prepared product population published by the set snapshot."""
+    indexed: Dict[str, Dict[str, Any]] = {}
+    if not snapshot:
+        return indexed
+    for population in ("products", "setPageConsumerTopProducts"):
+        for product in snapshot.get(population) or []:
+            product_id = _text(product.get("sealedProductId"))
+            if product_id:
+                indexed[product_id] = _prepared_market_contract(product)
+    return indexed
 
 
 def _rip_contract(
@@ -226,19 +256,22 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
         .select("id,set_id,name,product_type,image_small_url,image_large_url")
         .eq("set_id", set_id)
     )
-    product_ids = [str(row["id"]) for row in set_products if row.get("id")]
-    observations = []
-    if product_ids:
+    snapshot = read_snapshot(active, set_id)
+    markets = _prepared_markets(snapshot)
+    canonical_product_id = str(product["id"])
+    market = markets.get(canonical_product_id)
+    market_from_snapshot = market is not None
+    if market is None:
+        # A real catalog product may legitimately be absent from the current
+        # prepared snapshot. Keep this fallback narrow: one identity, never the
+        # former set-wide observation reconstruction.
         observations = _rows(
             active.table("sealed_product_price_observations")
             .select("id,sealed_product_id,market_price,currency,source,captured_at")
-            .in_("sealed_product_id", product_ids)
+            .eq("sealed_product_id", canonical_product_id)
         )
-    by_product: Dict[str, List[Dict[str, Any]]] = {}
-    for row in observations:
-        by_product.setdefault(str(row.get("sealed_product_id")), []).append(row)
-    markets = {key: _market_contract(normalize_daily_history(rows)) for key, rows in by_product.items()}
-    market = markets.get(str(product["id"]), _market_contract([]))
+        market = _market_contract(normalize_daily_history(observations))
+        markets[canonical_product_id] = market
     identity = classify_sealed_product(product.get("name"))
     family = identity["productFamily"]
 
@@ -325,7 +358,11 @@ def get_pokemon_sealed_product_detail_payload(product_id: str, client: Any = Non
         "meta": {
             "contractVersion": CONTRACT_VERSION,
             "canonicalPath": _product_href(product["id"]),
-            "marketSource": "sealed_product_price_observations",
+            "marketSource": (
+                "pokemon_set_sealed_market_snapshot_latest"
+                if market_from_snapshot
+                else "sealed_product_price_observations"
+            ),
             "rankingSource": "pokemon_explore_rankings_snapshot_latest",
             "rankingPublicationCurrent": publication["current"],
             "rankingPublicationUpdatedAt": publication["updatedAt"],
