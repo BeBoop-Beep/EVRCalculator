@@ -1214,12 +1214,12 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
   );
 }
 
-export async function getPokemonSetSealedMarket(setId) {
+export async function getPokemonSetConsumerSealedMarket(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
-  const cacheKey = `sealed:${resolvedSetId}`;
+  const cacheKey = `sealed-consumer:${resolvedSetId}`;
   const cached = consumerSealedCache.get(cacheKey);
   if (cached && Date.now() - cached.storedAt <= CONSUMER_SEALED_CACHE_TTL_MS) {
     consumerSealedCache.delete(cacheKey);
@@ -1282,6 +1282,18 @@ export async function getPokemonSetSealedMarket(setId) {
   });
 }
 
+export async function getPokemonSetSealedMarket(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) throw new Error("Set id is required");
+  return joinSlimModuleRequest(`sealed-legacy:${resolvedSetId}`, async ({ signal } = {}) => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed`,
+      { method: "GET", signal }
+    );
+    return readJsonResponse(response, "Unable to load sealed market history");
+  });
+}
+
 export async function getPokemonSetValueHistory(setId, { days = 365, scope = "standard" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -1338,6 +1350,7 @@ export function normalizeOverviewPayload(payload) {
     payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
   );
   const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
+  const chaseConcentration = payload?.chaseConcentration || payload?.chase_concentration || null;
 
   return {
     set: {
@@ -1352,6 +1365,8 @@ export function normalizeOverviewPayload(payload) {
     performance_vs_cost_history: performanceVsCostHistory,
     cardsMarket,
     cards_market: cardsMarket,
+    chaseConcentration,
+    chase_concentration: chaseConcentration,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),

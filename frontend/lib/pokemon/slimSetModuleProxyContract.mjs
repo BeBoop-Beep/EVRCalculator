@@ -61,6 +61,8 @@ export const UNCACHED_ANALYTICS_CACHE_CONTROL = "no-store";
 const SUCCESS_CACHE_CONTROL_BY_MODULE = Object.freeze({
   overview: UNCACHED_ANALYTICS_CACHE_CONTROL,
   "top-chase": UNCACHED_ANALYTICS_CACHE_CONTROL,
+  "sealed-consumer": UNCACHED_ANALYTICS_CACHE_CONTROL,
+  signals: UNCACHED_ANALYTICS_CACHE_CONTROL,
 });
 
 /**
@@ -113,6 +115,12 @@ export const SLIM_SET_MODULE_PROXY_CONTRACTS = Object.freeze({
     moduleLabel: "set consumer sealed market",
     codePrefix: "POKEMON_SET_CONSUMER_SEALED",
     forwardParams: [],
+  },
+  signals: {
+    backendPath: "market/signals",
+    moduleLabel: "set market signals",
+    codePrefix: "POKEMON_SET_MARKET_SIGNALS",
+    forwardParams: ["window"],
   },
   "value-history": {
     backendPath: "market/value-history",

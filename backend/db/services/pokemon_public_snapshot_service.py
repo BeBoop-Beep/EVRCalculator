@@ -4362,7 +4362,7 @@ def get_pokemon_set_market_bootstrap_snapshot_payload(
         "window": resolved_window,
         # Top10 is a single aligned current point for Chase Concentration, not
         # the full Top10 history carried by the generic /overview contract.
-        "setValueHistoriesByScope": {"standard": standard, "top10": top10[-1:]},
+        "setValueHistoriesByScope": {"standard": standard},
         "chaseConcentration": {
             "standard": standard[-1] if standard else None,
             "top10": top10[-1] if top10 else None,

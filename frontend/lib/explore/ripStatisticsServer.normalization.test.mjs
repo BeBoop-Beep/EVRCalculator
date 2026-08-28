@@ -13,3 +13,29 @@ test("Overall rankings do not travel through RIP statistics normalization", () =
   const normalized = normalisePayload({ targets: [], overallProductRankings: { cohorts: {} } });
   assert.equal(normalized.overallProductRankings, undefined);
 });
+
+test("relational era records are normalized to renderable target fields", () => {
+  const era = {
+    id: "era-1",
+    name: "Scarlet & Violet",
+    canonical_key: "scarlet-and-violet",
+    sort_order: 1,
+  };
+  const normalized = normalisePayload({
+    targets: [{ target_id: "set-1", name: "Test Set", era }],
+    default_target: { target_id: "set-1", name: "Test Set", era },
+  });
+
+  assert.equal(normalized.targets[0].era, "Scarlet & Violet");
+  assert.equal(normalized.targets[0].era_id, "era-1");
+  assert.equal(normalized.default_target.era, "Scarlet & Violet");
+  assert.equal(normalized.default_target.era_id, "era-1");
+});
+
+test("string era fields retain their existing target shape", () => {
+  const target = { target_id: "set-1", era: "Sword & Shield" };
+  const normalized = normalisePayload({ targets: [target] });
+
+  assert.equal(normalized.targets[0], target);
+  assert.equal(normalized.targets[0].era, "Sword & Shield");
+});

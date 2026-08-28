@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
+import { getPokemonSetConsumerSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
 
 const RETRY_DELAY_MS = 300;
 const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
@@ -54,7 +54,7 @@ export default function usePokemonSetSealedMarket(setId, { enabled = true } = {}
 
     const load = async (attempt = 0) => {
       try {
-        const payload = await getPokemonSetSealedMarket(resolvedSetId);
+        const payload = await getPokemonSetConsumerSealedMarket(resolvedSetId);
         if (cancelled) return;
         lastGoodRef.current = { setId: resolvedSetId, payload };
         setState({ status: "success", payload, error: null, isRefreshing: false });

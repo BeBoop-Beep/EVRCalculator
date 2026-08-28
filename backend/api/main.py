@@ -44,6 +44,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     filter_set_market_signal_access,
+    has_index_plus_access,
     has_index_feature_access,
     has_index_premium_access,
 )
@@ -635,8 +636,8 @@ def get_pokemon_set_route_directory(limit: int = Query(default=150, ge=1, le=200
     except Exception:
         logger.exception("/tcgs/pokemon/set-route-directory unexpected error")
         return JSONResponse(
-            content={"message": "Unable to load Pokemon set route directory", "code": "POKEMON_SET_ROUTE_DIRECTORY_FAILED"},
-            status_code=500,
+            content={"message": "Unable to load Pokemon set route directory", "code": "POKEMON_SET_ROUTE_DIRECTORY_FAILED", "retryable": True},
+            status_code=503,
         )
 
 
@@ -1285,15 +1286,11 @@ def get_pokemon_set_overview(
 def get_pokemon_set_market_bootstrap(
     set_id: str,
     window: Optional[str] = Query(default=None),
-    authorization: Optional[str] = Header(default=None, alias="authorization"),
-    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
 ):
-    """Critical default Cards-lens Market data; excludes non-critical modules."""
+    """Public/cacheable critical Market data; paid breadth is excluded."""
     try:
-        return filter_set_market_signal_access(
-            get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d"),
-            _resolve_index_plan(authorization, token_cookie),
-        )
+        payload = get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d")
+        return filter_set_market_signal_access(payload, None)
     except PokemonSetMarketError as exc:
         return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
     except Exception:
@@ -1302,6 +1299,40 @@ def get_pokemon_set_market_bootstrap(
             content={"message": "Unable to load Pokemon set Market bootstrap", "code": "POKEMON_SET_MARKET_BOOTSTRAP_FAILED"},
             status_code=500,
         )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/signals")
+def get_pokemon_set_market_signals(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Tiny authenticated Plus/Premium projection of prepared Market Breadth."""
+    plan = _resolve_index_plan(authorization, token_cookie)
+    if not has_index_plus_access(plan):
+        return JSONResponse(
+            content={"message": "Index Plus is required", "code": "INDEX_PLUS_REQUIRED"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        payload = get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d")
+        cards_market = payload.get("cardsMarket") if isinstance(payload.get("cardsMarket"), dict) else {}
+        return JSONResponse(
+            content={
+                "set": payload.get("set"),
+                "window": payload.get("window"),
+                "marketBreadth": cards_market.get("marketBreadth") or cards_market.get("market_breadth") or {},
+                "latestMarketDate": payload.get("latestMarketDate"),
+            },
+            headers={"Cache-Control": "no-store", "Vary": "Cookie, Authorization"},
+        )
+    except PokemonSetMarketError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code, headers={"Cache-Control": "no-store"})
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/signals unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load Market signals", "code": "POKEMON_SET_MARKET_SIGNALS_FAILED", "retryable": True}, status_code=503, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/market/top-chase")
