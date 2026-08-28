@@ -23,8 +23,14 @@ function LockedCards() {
         <span className="inline-flex rounded-full border border-[rgba(45,212,191,.35)] bg-[rgba(45,212,191,.08)] px-3 py-1 text-[10px] font-bold uppercase tracking-[.16em] text-[var(--accent)]">Index Premium</span>
         <h2 className="mt-4 text-xl font-semibold text-[var(--text-primary)]">Rank every chase by opening efficiency</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--text-secondary)]">Compare exact card printings using current Near Mint value, modeled pull odds, and the cheapest verified pack-equivalent route.</p>
-        <div aria-hidden="true" className="mx-auto mt-6 grid max-w-lg grid-cols-3 gap-2 opacity-55 blur-[2px]">
-          {["#1 · Chase card", "$700 market", "1 in 400 packs", "#2 · Chase card", "$965 market", "$1,400 to 50%", "#3 · Chase card", "2.7× vs buy", "CE 0.0864"].map((item) => <span key={item} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2 py-3 text-[10px] text-[var(--text-secondary)]">{item}</span>)}
+        <div data-card-chase-efficiency-locked-preview aria-hidden="true" className="mx-auto mt-6 grid max-w-lg grid-cols-3 gap-2 opacity-55">
+          {["medium", "short", "long"].map((shape) => (
+            <div key={shape} className="space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] px-3 py-3">
+              <span className="block h-2 w-2/3 rounded-full bg-[var(--surface-hover)]" />
+              <span className="block h-2 w-1/2 rounded-full bg-[rgba(45,212,191,.14)]" />
+              <span className="block h-2 w-full rounded-full bg-[var(--surface-hover)]" />
+            </div>
+          ))}
         </div>
         <p className="mt-5 text-xs font-medium text-[var(--text-secondary)]">Upgrade to Index Premium to unlock rankings, filters, and exact-card chase routes.</p>
       </div>
