@@ -1,17 +1,18 @@
 import { ArticleJsonLd, ArticleShell, DefinitionGrid, EditorialSplit, H2, LiveDistributionFigure, PackArt } from "@/components/articles/ArticlePrimitives";
 import { getLandingPageData } from "@/lib/landing/landingHeroServer";
-import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 
 const title = "How We Simulated One Million Pokémon Pack Openings";
 const description = "How the inDex Pokémon pack simulation builds an outcome distribution, what its percentiles mean, and what one million modeled openings cannot prove.";
+const registeredArticle = articleByKey("simulation");
 export const metadata = buildRouteMetadata({ path: "/Articles/how-we-simulated-one-million-pokemon-pack-openings", title: `${title} | inDex`, description, ogTitle: title });
 
 export default async function Page() {
   const data = await getLandingPageData();
   const set = data.openingSpotlightSet;
-  return <ArticleShell category="Methodology" title={title} deck="One pack gives you a story. A million modeled packs give us a distribution we can actually measure." related={related("validation", "rip", "ev")}>
-    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.simulation} />
+  return <ArticleShell category="Methodology" title={title} deck="One pack gives you a story. A million modeled packs give us a distribution we can actually measure." lastUpdated={registeredArticle.lastUpdated} related={related("validation", "rip", "ev")}>
+    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.simulation} lastUpdated={registeredArticle.lastUpdated} />
     <EditorialSplit media={<PackArt src="/images/pokemon/booster-packs/megaEvolution.webp" alt="Mega Evolution Pokemon booster pack" compact />}>
       <p>One exciting pack tells me almost nothing about a set. I wanted to see every kind of opening the model could produce, including the ordinary losses nobody posts and the rare pulls everybody remembers.</p>
       <p className="mt-4">Expected Value gives me the average. It does not show how often a pack breaks even, what a normal result looks like, or how far away the jackpot sits. That is where simulation became useful.</p>

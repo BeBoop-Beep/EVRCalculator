@@ -29,3 +29,11 @@ The pair coefficient is converted with `100 × (exp(beta) - 1)`. Primary uncerta
 ## Decision rule
 
 Local overlap alone is `V2_LOCAL_COMMON_SUPPORT_EXISTS`. Only a pair passing all estimation and robustness gates may be `LOCALLY_VALIDATED`, and even that would remain pair/era/cohort-specific. Universal V2 production approval remains prohibited when global support fails. Database and production writes are zero for this round.
+
+## Round 5 rank decomposition
+
+Round 5 reuses the Round 4 mapping and hashes without any `latest` lookup. It builds six nested matrices per retained pair: treatment only; treatment plus scarcity; then set FE; species FE; set and species FE; and finally mechanics. Treatment estimability is tested from the residual variance of the treatment indicator after projecting it on every nuisance column. Full-matrix rank deficiency alone is not treated as proof that the treatment coefficient is unidentified.
+
+Aliased nuisance dummies are classified as mathematical redundancy when the treatment residual remains nonzero. When set, species, or mechanic controls reduce treatment residual variation to numerical zero, the result is scientific nesting: deleting that control would change the identifying assumption rather than merely reparameterize the same estimand.
+
+An alternative `V2B_ADJUSTED_DEMAND_ASSOCIATION` is eligible only with at least 90% frozen-cohort coverage from a contemporaneously frozen, price-independent species-demand signal, plus the existing support, balance, estimability, and robustness gates. No such demand snapshot was included in Round 4, so Round 5 does not estimate V2B.

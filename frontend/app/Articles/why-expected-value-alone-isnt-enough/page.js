@@ -1,11 +1,12 @@
 import { ArticleJsonLd, ArticleShell, EvDistributionDiagram, H2 } from "@/components/articles/ArticlePrimitives";
-import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "Why Expected Value Alone Doesn't Tell You Which Pokémon Set Is Best to Open";
 const description = "Why Pokémon pack Expected Value is useful but incomplete, and how median outcomes, break-even probability, losses, and tail concentration change the opening decision.";
+const registeredArticle = articleByKey("ev");
 export const metadata = buildRouteMetadata({ path: "/Articles/why-expected-value-alone-isnt-enough", title: `${title} | inDex`, description, ogTitle: title });
-export default function Page() { return <ArticleShell category="Analysis & Guides" title={title} deck="EV answers a real question. The problem is that it is usually not the only question a person opening packs meant to ask." related={related("financial", "simulation", "validation")}>
-  <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.ev} />
+export default function Page() { return <ArticleShell category="Analysis & Guides" title={title} deck="EV answers a real question. The problem is that it is usually not the only question a person opening packs meant to ask." lastUpdated={registeredArticle.lastUpdated} related={related("financial", "simulation", "validation")}>
+  <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.ev} lastUpdated={registeredArticle.lastUpdated} />
   <p>I started with Expected Value because financially it is the obvious number to calculate. If a pack has an EV of $4, then across a very large number of openings the modeled average value is $4 per pack. I still show it prominently because that is useful information.</p>
   <p>But a person buying one pack does not receive a fraction of every possible card. They receive one outcome from the distribution, and rare cards can pull the mean a long way away from what normally happens.</p>
   <H2>Same average, different opening</H2>
@@ -20,5 +21,5 @@ export default function Page() { return <ArticleShell category="Analysis & Guide
   <p>Break-even probability answers the first question. Loss resilience looks at the second. P95 and the 95th-to-99th percentile band describe strong but non-jackpot upside. P99 and the top 1% describe the exceptional tail.</p>
   <H2>What EV is good at</H2>
   <p>EV is still the cleanest long-run financial reference. It lets me check whether the simulation mean behaves correctly, compare average return with pack cost, and see whether price changes are improving or weakening a set’s modeled economics.</p>
-  <p>I just do not ask it to answer a question it was not built to answer. “What is the average modeled return?” and “Which set is best to open?” overlap, but they are not the same question. Financial RIP is the framework I built for the second one.</p>
+  <p>I just do not ask it to answer a question it was not built to answer. “What is the average modeled return?” and “Which set is best to open?” are not the same question. Financial RIP addresses the financial version of the second question: which opening is financially more favorable? Overall RIP answers the broader comparison by adding Collector Appeal to financial outcome quality.</p>
 </ArticleShell>; }

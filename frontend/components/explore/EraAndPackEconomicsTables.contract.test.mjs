@@ -76,7 +76,7 @@ test("Pack Economics keeps canonical aggregates, search, sorting and explicit Se
   assert.ok(setPack.includes("AnalyticsTableShell"));
   assert.ok(setPack.includes("Search sets..."));
   assert.ok(setPack.includes("row.eraName"));
-  assert.ok(setPack.includes('key: "modeledReturn", direction: "desc"'));
+  assert.ok(setPack.includes('canViewRankingsIntelligence ? "modeledReturn" : "packPrice"'));
   assert.ok(setPack.includes("Set RIP #{row.canonicalRank"));
   assert.ok(!setPack.includes("averageModelBreakEvenPerPack /"));
 });
@@ -106,6 +106,15 @@ test("Rankings and Pack Economics reuse Product-family pill primitives", () => {
   assert.ok(!client.includes('ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}'));
 });
 
+test("top-level Era and Set entry resets to Rankings without breaking economics drilldown", () => {
+  assert.ok(client.includes('const [eraLens, setEraLens] = useState("rankings")'));
+  assert.ok(client.includes('if (next === "eras") setEraLens("rankings")'));
+  assert.ok(client.includes('if (next === "sets") setSetLens("rankings")'));
+  assert.ok(client.includes('setSetLens("economics");'));
+  assert.ok(client.includes('onSelectEra={(era) => {'));
+  assert.ok(client.indexOf('setSetLens("economics");') < client.indexOf('setSelectedEra(era?.eraName || null);', client.indexOf('setSetLens("economics");')));
+});
+
 test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Basic and Premium inherits Plus", () => {
   const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
   assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
@@ -118,4 +127,34 @@ test("Set Pack Economics entitlement treats anonymous and unpaid accounts as Bas
   assert.ok(setPack.includes("expanded ? <tr"), "family values only mount for entitled expansion");
   assert.ok(!setPack.includes("isAuthenticated"));
   assert.ok(!setPack.includes("index_plan"));
+});
+
+test("Era Pack Economics applies the same Plus entitlement matrix without rendering Basic values", () => {
+  const fixtures = [null, { id: "signed-in-basic", index_plan: null }, { id: "plus", index_plan: "plus" }, { id: "premium", index_plan: "premium" }];
+  assert.deepEqual(fixtures.map((user) => resolveRankingsPlanAccess(user).canViewRankingsIntelligence), [false, false, true, true]);
+  assert.ok(client.includes("<OpeningEconomicsEras"));
+  assert.ok(client.includes("canViewRankingsIntelligence={canViewRankingsIntelligence}"));
+  assert.ok(eraEconomics.includes('const PUBLIC_ERA_COLUMN_KEYS = new Set(["eraName", "setCount", "productSkuCount", "meanPackCost"])'));
+  assert.ok(eraEconomics.includes("locked ? <PremiumMetricLock />"));
+  assert.ok(eraEconomics.includes("Index Plus required for full Pack Economics"));
+  assert.ok(!eraEconomics.includes("isAuthenticated"));
+  assert.ok(!eraEconomics.includes("index_plan"));
+});
+
+test("Basic Pack Economics cannot sort by hidden Set or Era intelligence", () => {
+  assert.ok(setPack.includes('canViewRankingsIntelligence ? "modeledReturn" : "packPrice"'));
+  assert.match(setPack, /if \(!canViewRankingsIntelligence && !PUBLIC_COLUMN_KEYS\.has\(key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
+  assert.ok(eraEconomics.includes('canViewRankingsIntelligence ? DEFAULT_ERA_SORT : { key: "eraName", direction: "asc" }'));
+  assert.match(eraEconomics, /if \(!canViewRankingsIntelligence && column && !PUBLIC_ERA_COLUMN_KEYS\.has\(column\.key\)\) \{\s*onUnlockProductRip\?\.\(\);\s*return;/);
+});
+
+test("Era baseline shares one renderer, one colgroup and identical column geometry", () => {
+  assert.equal((eraEconomics.match(/const COLUMNS =/g) || []).length, 1);
+  assert.ok(eraEconomics.includes("function EraEconomicsCell"));
+  assert.ok(eraEconomics.includes("data-era-economics-colgroup"));
+  assert.ok(eraEconomics.includes("COLUMNS.map((column) => <col"));
+  assert.ok(eraEconomics.includes("COLUMNS.map((column) => <EraEconomicsCell"));
+  assert.ok(eraEconomics.includes("baseline canViewRankingsIntelligence"));
+  assert.ok(eraEconomics.includes("column.secondary && cells[column.secondary]"));
+  assert.ok(!/baseline[^\n]*(translateX|margin-left|padding-right)/.test(eraEconomics));
 });

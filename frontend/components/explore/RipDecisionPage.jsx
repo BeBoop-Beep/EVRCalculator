@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -54,6 +54,7 @@ import {
   selectRipDecisionContract,
 } from "./ripDecisionContract.mjs";
 import { familyLabel } from "./SetRipFamilyBreakdown.jsx";
+import { buildRipDistributionMarkers } from "./ripDistributionMarkers.mjs";
 
 const METHODOLOGY_ARTICLE_HREF = "/Articles/how-rip-score-works";
 const currency = new Intl.NumberFormat("en-US", {
@@ -565,7 +566,7 @@ function EvContributionSection({ rankings = [], bare = false }) {
  * chart, market-value chase context, EV drivers) lives here behind its own
  * disclosure, so the page reads as one methodology section rather than six.
  */
-function DeepDiveRow({ id, title, subtitle, defaultOpen = false, children }) {
+function DeepDiveRow({ id, title, subtitle, defaultOpen = false, onActivate, children }) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = `${id}-panel`;
   return (
@@ -574,7 +575,7 @@ function DeepDiveRow({ id, title, subtitle, defaultOpen = false, children }) {
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => { if (!open) onActivate?.(); setOpen((value) => !value); }}
         className={styles.disclosureButton}
       >
         <span>
@@ -828,36 +829,54 @@ export default function RipDecisionPage({
   setRip = null,
   setName = null,
   setSlug = null,
-  chaseCards = [],
   percentiles = [],
-  pullRateAssumptions,
   pullRatesHref,
   productType = "booster_pack",
   productLabel = "Booster Pack",
   productImage = null,
   distributionBins = [],
   thresholdBins = [],
-  chartMarkers = [],
-  p50 = null,
-  p95 = null,
-  p99 = null,
-  simulationPending = false,
-  simulationDrivers = [],
-  rankings = [],
-  packPaths = {},
-  normalStateRows = [],
+  simulationSummary = null,
+  simulationStatus = "idle",
+  simulationError = null,
+  onSimulationApproach = null,
+  onSimulationRetry = null,
+  advancedEvidence = null,
+  advancedStatus = "idle",
+  advancedError = null,
+  onAdvancedApproach = null,
+  onAdvancedRetry = null,
   initialProductId = null,
   familyFilter = null,
   productFamilyRankings = null,
   evRepresentativeness = null,
   openingOutcomeProfile = null,
   calculationRunId = null,
+  globalContextStatus = "idle",
+  globalContextError = null,
+  onGlobalContextRetry = null,
 }) {
   const { canViewRankingsIntelligence: canViewProductRipIntelligence } =
     useRankingsAccess();
   const [overallOpen, setOverallOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
   const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
+  const simulationSectionRef = useRef(null);
+  const advancedSectionRef = useRef(null);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        if (entry.target === simulationSectionRef.current) onSimulationApproach?.();
+        if (entry.target === advancedSectionRef.current && canViewProductRipIntelligence) onAdvancedApproach?.();
+        observer.unobserve(entry.target);
+      }
+    }, { rootMargin: "800px 0px" });
+    if (simulationSectionRef.current) observer.observe(simulationSectionRef.current);
+    if (advancedSectionRef.current && canViewProductRipIntelligence) observer.observe(advancedSectionRef.current);
+    return () => observer.disconnect();
+  }, [calculationRunId, canViewProductRipIntelligence, onSimulationApproach, onAdvancedApproach]);
   // ONE normalization of the canonical decision contract for the whole page, so
   // no section re-reads raw snapshot keys or invents its own fallbacks.
   const decision = useMemo(
@@ -871,20 +890,26 @@ export default function RipDecisionPage({
   const model = buildRipDecisionModel({
     canonical,
     summary,
-    pullRateAssumptions,
   });
+  const analyticalCanonical = useMemo(() => advancedEvidence ? {
+    publicRipContractV10: {
+      ...(canonical?.publicRipContractV10 || {}),
+      financialRip: advancedEvidence.financialRip,
+      collectorAppeal: advancedEvidence.collectorAppeal,
+    },
+  } : null, [advancedEvidence, canonical]);
   const financial = useMemo(
     () =>
-      selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(canonical)),
-    [canonical],
+      selectFinancialRipV3Breakdown(resolveCanonicalFinancialRip(analyticalCanonical)),
+    [analyticalCanonical],
   );
   const financialDrivers = useMemo(
     () => selectFinancialRankDrivers(financial.rows),
     [financial.rows],
   );
   const collectorBreakdown = useMemo(
-    () => selectCollectorAppealBreakdown(canonical),
-    [canonical],
+    () => selectCollectorAppealBreakdown(analyticalCanonical),
+    [analyticalCanonical],
   );
   const collectorDrivers = useMemo(
     () => selectCollectorRankDrivers(collectorBreakdown.rows),
@@ -1000,11 +1025,15 @@ export default function RipDecisionPage({
     ? pctOfPrice(heroProduct.typicalOpening, heroProduct.marketPrice)
     : null;
   const heroFamilyName = heroProduct ? familyLabel(heroProduct.family) : null;
+  const simulationMarkers = useMemo(
+    () => buildRipDistributionMarkers({ summary: simulationSummary || {}, percentiles }),
+    [simulationSummary, percentiles],
+  );
   const chartMarkersForAccess = canViewProductRipIntelligence
-    ? chartMarkers
+    ? simulationMarkers
     : [
-        ...(Array.isArray(chartMarkers)
-          ? chartMarkers.filter((marker) =>
+        ...(Array.isArray(simulationMarkers)
+          ? simulationMarkers.filter((marker) =>
               ["pack-cost", "median", "mean"].includes(marker?.key),
             )
           : []),
@@ -1217,6 +1246,12 @@ export default function RipDecisionPage({
             against other Booster Boxes, never against a Bundle or ETB.
             Cross-format comparison is not yet validated by the model.
           </p>
+          {globalContextStatus === "error" || globalContextStatus === "stale" ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+              <span>{globalContextError || "Current family ranks are unavailable."}</span>
+              <button type="button" onClick={onGlobalContextRetry} className={ANALYTICAL_ACTION_CLASS}>Retry rank context</button>
+            </div>
+          ) : null}
         </article>
       ) : null}
 
@@ -1403,6 +1438,7 @@ export default function RipDecisionPage({
           6. SIMULATION EVIDENCE
           ============================================================ */}
       <article
+        ref={simulationSectionRef}
         id="set-detail-outcome-distribution"
         data-rip-section="simulation-evidence"
         className={`${styles.panel} set-glass-surface scroll-mt-24 md:scroll-mt-28`}
@@ -1426,21 +1462,26 @@ export default function RipDecisionPage({
             />
           ) : (
             <p className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
-              {simulationPending
+              {simulationStatus === "loading"
                 ? "Loading simulated opening evidence…"
-                : "Outcome distribution data is not available for this set yet."}
+                : simulationStatus === "idle"
+                  ? "Simulation evidence loads as you approach this section."
+                  : simulationError || "Outcome distribution data is not available for this set yet."}
             </p>
           )}
         </div>
-        <SimulationFullReport
+        {simulationStatus === "error" || simulationStatus === "stale" ? (
+          <button type="button" onClick={onSimulationRetry} className={`${ANALYTICAL_ACTION_CLASS} mt-3`}>Retry simulation evidence</button>
+        ) : null}
+        {simulationStatus === "success" ? <SimulationFullReport
           canonical={canonical}
-          summary={summary}
+          summary={{ ...summary, ...(simulationSummary || {}) }}
           percentiles={percentiles}
           evRepresentativeness={evRepresentativeness}
           openingOutcomeProfile={openingOutcomeProfile}
           calculationRunId={calculationRunId}
           canViewAdvanced={canViewProductRipIntelligence}
-        />
+        /> : null}
       </article>
 
       {/* ============================================================
@@ -1451,6 +1492,7 @@ export default function RipDecisionPage({
           its own primary-flow section.
           ============================================================ */}
       <article
+        ref={advancedSectionRef}
         data-rip-section="deep-dive"
         className={`${styles.panel} set-glass-surface`}
       >
@@ -1476,7 +1518,20 @@ export default function RipDecisionPage({
           </div>
         ) : null}
 
-        {canViewProductRipIntelligence ? (
+        {canViewProductRipIntelligence && (advancedStatus === "loading" || advancedStatus === "idle") ? (
+          <p className="mt-3 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+            {advancedStatus === "loading" ? "Loading advanced RIP evidence..." : "Advanced evidence loads as you approach this section."}
+            {advancedStatus === "idle" ? <button type="button" onClick={onAdvancedApproach} className={`${ANALYTICAL_ACTION_CLASS} ml-3`}>Load advanced evidence</button> : null}
+          </p>
+        ) : null}
+        {canViewProductRipIntelligence && (advancedStatus === "error" || advancedStatus === "stale") ? (
+          <div className="mt-3 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-4 text-sm text-[var(--text-secondary)]">
+            <p>{advancedError || "Advanced RIP evidence is unavailable."}</p>
+            <button type="button" onClick={onAdvancedRetry} className={`${ANALYTICAL_ACTION_CLASS} mt-3`}>Retry advanced evidence</button>
+          </div>
+        ) : null}
+
+        {canViewProductRipIntelligence && advancedEvidence ? (
           <>
             <DeepDiveRow
               id="deep-dive-ev-realization"
@@ -1508,7 +1563,7 @@ export default function RipDecisionPage({
               title="What Drives Expected Value?"
               subtitle="Expected Value contribution by rarity"
             >
-              <EvContributionSection rankings={rankings} bare />
+              <EvContributionSection rankings={advancedEvidence.rarityContribution} bare />
             </DeepDiveRow>
 
             <DeepDiveRow
@@ -1543,7 +1598,7 @@ export default function RipDecisionPage({
                 <FinancialDriverSummary drivers={financialDrivers} />
                 <div className="mt-3">
                   <FinancialRipV3Breakdown
-                    canonical={canonical}
+                    canonical={analyticalCanonical}
                     requestTimeout={false}
                   />
                 </div>
@@ -1568,7 +1623,7 @@ export default function RipDecisionPage({
                 </p>
                 <FinancialDriverSummary drivers={collectorDrivers} />
                 <div className="mt-3">
-                  <CollectorAppealBreakdown canonical={canonical} />
+                  <CollectorAppealBreakdown canonical={analyticalCanonical} />
                 </div>
               </DeepDiveRow>
             </div>

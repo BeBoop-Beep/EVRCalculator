@@ -135,6 +135,12 @@ import {
   getPokemonSetRipGlobalContext,
   selectCompatibleSetRipGlobalContext,
 } from "@/lib/pokemon/pokemonSetRipGlobalContextClient.mjs";
+import {
+  getPokemonSetRipAdvanced,
+  getPokemonSetRipSimulationEvidence,
+  selectSameRunRipAdvanced,
+  selectSameRunRipSimulation,
+} from "@/lib/pokemon/pokemonSetRipProgressiveClient.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -9055,36 +9061,58 @@ export default function RipStatisticsPageClient({
     payload: null,
     error: null,
   });
+  const [ripSimulationState, setRipSimulationState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
+  const [ripAdvancedState, setRipAdvancedState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
+  const loadRipGlobalContext = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const expectedCalculationRunId = ripBootstrap?.calculationRunId;
+    if (!setId || !expectedCalculationRunId) return;
+    setRipGlobalContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
+    getPokemonSetRipGlobalContext(setId, { expectedCalculationRunId, force })
+      .then((payload) => {
+        const compatible = selectCompatibleSetRipGlobalContext(payload, expectedCalculationRunId);
+        setRipGlobalContextState({ status: compatible ? "success" : "stale", setId, expectedCalculationRunId, payload: compatible, error: compatible ? null : "Family rank awaiting current Rankings publication." });
+      })
+      .catch((error) => setRipGlobalContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Global context unavailable." }));
+  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  const loadRipSimulation = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const calculationRunId = ripBootstrap?.calculationRunId;
+    if (!setId || !calculationRunId) return;
+    setRipSimulationState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
+    getPokemonSetRipSimulationEvidence(setId, calculationRunId, { force })
+      .then((payload) => {
+        const compatible = selectSameRunRipSimulation(payload, { setId, calculationRunId });
+        setRipSimulationState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Simulation evidence is awaiting the current RIP publication." });
+      })
+      .catch((error) => setRipSimulationState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Simulation evidence is unavailable." }));
+  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  const loadRipAdvanced = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const calculationRunId = ripBootstrap?.calculationRunId;
+    if (!setId || !calculationRunId) return;
+    setRipAdvancedState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
+    getPokemonSetRipAdvanced(setId, calculationRunId, { force })
+      .then((payload) => {
+        const compatible = selectSameRunRipAdvanced(payload, { setId, calculationRunId, bootstrapCanonical: ripBootstrap?.canonicalSource });
+        setRipAdvancedState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Advanced evidence is awaiting the current RIP publication." });
+      })
+      .catch((error) => setRipAdvancedState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Advanced evidence is unavailable." }));
+  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId, ripBootstrap?.canonicalSource]);
   useEffect(() => {
     if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
       return undefined;
     }
-    const setId = resolvedSetResourceId;
-    const expectedCalculationRunId = ripBootstrap.calculationRunId;
-    const controller = new AbortController();
-    setRipGlobalContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
-    getPokemonSetRipGlobalContext(setId, { expectedCalculationRunId, signal: controller.signal })
-      .then((payload) => {
-        const compatible = selectCompatibleSetRipGlobalContext(payload, expectedCalculationRunId);
-        setRipGlobalContextState({
-          status: compatible ? "success" : "stale",
-          setId,
-          expectedCalculationRunId,
-          payload: compatible,
-          error: compatible ? null : "Family rank awaiting current Rankings publication.",
-        });
-      })
-      .catch((error) => {
-        if (error?.name === "AbortError") return;
-        setRipGlobalContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Global context unavailable." });
-      });
-    return () => controller.abort();
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+    loadRipGlobalContext();
+    return undefined;
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipGlobalContext]);
   const compatibleRipGlobalContext =
     ripGlobalContextState.setId === resolvedSetResourceId &&
     ripGlobalContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
       ? ripGlobalContextState.payload
       : null;
+  const compatibleRipSimulation = ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.payload : null;
+  const compatibleRipAdvanced = ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.payload : null;
   // Keep this below the setDetailTab state declaration. Computing it earlier
   // reads setDetailTab during its temporal dead zone and crashes set routes.
   const hasActiveInsightsPayload =
@@ -13978,6 +14006,9 @@ export default function RipStatisticsPageClient({
                     evRepresentativeness={compatibleRipGlobalContext?.target?.evRepresentativeness ?? null}
                     openingOutcomeProfile={compatibleRipGlobalContext?.target?.openingOutcomeProfile ?? null}
                     calculationRunId={activeCalculationRunId}
+                    globalContextStatus={ripGlobalContextState.status}
+                    globalContextError={ripGlobalContextState.error}
+                    onGlobalContextRetry={() => loadRipGlobalContext({ force: true })}
                     setRip={compatibleRipGlobalContext?.target?.setRipV1 ?? null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
@@ -13986,18 +14017,19 @@ export default function RipStatisticsPageClient({
                     productType="booster_pack"
                     productLabel="Booster Pack"
                     productImage={resolvePokemonBoosterPackAsset(selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey)}
-                    distributionBins={distributionBins}
-                    thresholdBins={thresholdBins}
-                    chartMarkers={chartMarkers}
-                    percentiles={percentiles}
-                    p50={percentileP50}
-                    p95={percentileP95}
-                    p99={percentileP99}
-                    simulationPending={false}
-                    simulationDrivers={topHits}
-                    rankings={rankings}
-                    packPaths={ripStatistics?.pack_paths}
-                    normalStateRows={normalStateRows}
+                    distributionBins={compatibleRipSimulation?.distributionBins ?? []}
+                    thresholdBins={compatibleRipSimulation?.thresholdBins ?? []}
+                    percentiles={compatibleRipSimulation?.percentiles ?? []}
+                    simulationSummary={compatibleRipSimulation?.summary ?? null}
+                    simulationStatus={compatibleRipSimulation ? "success" : (ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.status : "idle")}
+                    simulationError={ripSimulationState.error}
+                    onSimulationApproach={loadRipSimulation}
+                    onSimulationRetry={() => loadRipSimulation({ force: true })}
+                    advancedEvidence={compatibleRipAdvanced}
+                    advancedStatus={compatibleRipAdvanced ? "success" : (ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.status : "idle")}
+                    advancedError={ripAdvancedState.error}
+                    onAdvancedApproach={loadRipAdvanced}
+                    onAdvancedRetry={() => loadRipAdvanced({ force: true })}
                     initialProductId={searchParams?.get?.("sealedProduct") || null}
                     familyFilter={ripProductFamilyFilter}
                   />

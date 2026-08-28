@@ -526,7 +526,7 @@ export default function ProductFamilyRankingsClient({
   // ExploreTableClient so the Eras lens can set it while navigating, and so
   // leaving the Sets lens does not silently strand an invisible filter.
   const [selectedEra, setSelectedEra] = useState(null);
-  const [eraLens, setEraLens] = useState("economics");
+  const [eraLens, setEraLens] = useState("rankings");
   const [setLens, setSetLens] = useState("rankings");
   const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
@@ -578,8 +578,11 @@ export default function ProductFamilyRankingsClient({
       setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
     },
-    changeView = (next) =>
+    changeView = (next) => {
+      if (next === "eras") setEraLens("rankings");
+      if (next === "sets") setSetLens("rankings");
       selectView(next === "products" ? "allProducts" : next);
+    };
   return (
     <>
       <SegmentedControl
@@ -640,6 +643,8 @@ export default function ProductFamilyRankingsClient({
       ) : view === "eras" ? (
         eraLens === "rankings" ? <EraRankings contract={eraSetStrength} marketDate={rankingsMarketDate} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
           economics={openingEconomics}
+          canViewRankingsIntelligence={canViewRankingsIntelligence}
+          onUnlockProductRip={onUnlockProductRip}
           onSelectEra={(era) => {
             setSetLens("economics");
             selectView("sets");

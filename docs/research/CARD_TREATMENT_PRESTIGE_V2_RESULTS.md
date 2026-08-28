@@ -27,3 +27,13 @@ No contrast passes the complete robustness gate. Thirteen estimated contrasts ar
 The data demonstrate local overlap, not a universal treatment hierarchy. Results apply only inside each era, pair, and frozen scarcity interval. Graph paths do not authorize transitive comparisons. Matched-card candidates are diagnostic only because treatment assignment is not random or plausibly exogenous.
 
 V1 Card Appeal, RIP calculations, rankings, historical snapshots, and Card Detail remain unchanged. V3 was not entered. The next defensible task is additional local-identification data or a redesigned estimand, followed by a new preregistered study—not product promotion.
+
+## Round 5 identification diagnosis
+
+Round 5 preserves every Round 4 result and uses only its immutable cohort. Thirteen full matrices were rank deficient, but the causes differ: five contain redundant nuisance fixed-effect/mechanic columns while retaining an estimable treatment indicator; eight lose treatment variation through genuine set/species/mechanic nesting. The Common–Rare matrix remains full rank. Thus the Round 4 full-rank gate was appropriately conservative, but “rank deficient” was not a sufficiently precise scientific diagnosis.
+
+All three high-product-relevance contrasts remain scientifically confounded. Mega Double Rare–Illustration Rare has two cross-treatment species, no same-species×set cells, and loses identification with set FE. S&V Illustration Rare–Special Illustration Rare has five cross-treatment species, no same-species×set cells, and zero comparable-mechanic species. S&V Illustration Rare–Ultra Rare has 29 cross-treatment species and four mixed species×set cells, but zero comparable-mechanic species; mechanics eliminate its remaining treatment variation.
+
+The independent `pokemon_desirability_composite_v1` signal is based on Favorite Pokémon fan popularity and Google Trends rather than card prices or rarity. It is a plausible future demand control, but no contemporaneous snapshot was frozen in the Round 4 manifest. Current values cannot be mixed into the immutable study. Consequently V2B is ineligible and no V2B coefficient is calculated.
+
+Primary status: `V2_ORIGINAL_ESTIMAND_REMAINS_PLAUSIBLY_IDENTIFIABLE_WITH_NEW_VARIATION`. Future releases could add the required cross-designation observations for the same Pokémon, inside common scarcity support and preferably within the same set and comparable mechanic class. Repeating rows in existing nested cells will not identify the effect. Production status remains `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`; score and database writes remain zero.

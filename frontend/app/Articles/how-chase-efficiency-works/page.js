@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ArticleJsonLd, ArticleShell, DefinitionGrid, EditorialSplit, H2, PackArt } from "@/components/articles/ArticlePrimitives";
 import { ChaseEfficiencyCoverageFigure, ChaseEfficiencyInputsFigure, ChaseEfficiencyRouteCostFigure, ChaseProbabilityMilestonesFigure, ExactPrintingFigure } from "@/components/articles/ChaseEfficiencyFigures";
-import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 
 const title = "How Chase Efficiency Measures the Economics of Chasing a Pokémon Card";
 const description = "How inDex combines exact card value, modeled pull odds, and verified opening costs to measure how economically favorable a specific Pokémon card is to chase through packs.";
+const registeredArticle = articleByKey("chaseEfficiency");
 
 export const metadata = buildRouteMetadata({
   path: "/Articles/how-chase-efficiency-works",
@@ -15,8 +16,8 @@ export const metadata = buildRouteMetadata({
 });
 
 export default function Page() {
-  return <ArticleShell category="Methodology" title={title} deck="I wanted a card-level answer to a question pull odds alone could not answer: if I am opening specifically for this exact printing, how favorable is that chase compared with buying the card—and compared with other chases?" related={related("financial", "ev", "simulation", "rip")}>
-    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.chaseEfficiency} />
+  return <ArticleShell category="Methodology" title={title} deck="I wanted a card-level answer to a question pull odds alone could not answer: if I am opening specifically for this exact printing, how favorable is that chase compared with buying the card—and compared with other chases?" lastUpdated={registeredArticle.lastUpdated} related={related("financial", "ev", "simulation", "rip")}>
+    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.chaseEfficiency} lastUpdated={registeredArticle.lastUpdated} />
 
     <EditorialSplit media={<PackArt src="/images/pokemon/booster-packs/stellarCrown.webp" alt="Stellar Crown Pokémon booster pack" compact />}>
       <p>I already had tools for asking whether a set or product was favorable to open. Once individual card pages existed, I realized there was still a different question I could not answer.</p>

@@ -1,11 +1,12 @@
 import { ArticleJsonLd, ArticleShell, EditorialSplit, H2, MediaFigure, PackArt } from "@/components/articles/ArticlePrimitives";
-import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "How We Validated Our Pokémon Pack Simulation Using Expected Value";
 const description = "How inDex compares analytical Expected Value with simulated mean pack value to validate Pokémon pack simulations, and what matching means cannot prove.";
+const registeredArticle = articleByKey("validation");
 export const metadata = buildRouteMetadata({ path: "/Articles/how-we-validated-our-pokemon-pack-simulation-using-expected-value", title: `${title} | inDex`, description, ogTitle: title });
-export default function Page() { return <ArticleShell category="Methodology" title={title} deck="The simulator looked plausible, but plausible was not enough. Expected Value gave me a result it should reproduce under the same assumptions." related={related("simulation", "ev", "rip")}>
-  <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.validation} />
+export default function Page() { return <ArticleShell category="Methodology" title={title} deck="The simulator looked plausible, but plausible was not enough. Expected Value gave me a result it should reproduce under the same assumptions." lastUpdated={registeredArticle.lastUpdated} related={related("simulation", "ev", "rip")}>
+  <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.validation} lastUpdated={registeredArticle.lastUpdated} />
   <EditorialSplit media={<PackArt src="/images/pokemon/booster-packs/whiteFlare.webp" alt="White Flare Pokemon booster pack" compact />}>
     <p>The simulator looked believable, but that was not a test. I wanted a reference point that did not depend on random sampling.</p>
     <p className="mt-4">If the direct calculation and the simulator read the same pack model and card values, they should reach the same long-run average by different routes. If they do not, something is wrong.</p>

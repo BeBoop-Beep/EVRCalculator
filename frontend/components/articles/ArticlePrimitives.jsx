@@ -2,19 +2,25 @@ import Image from "next/image";
 import Link from "next/link";
 import RipDistributionChart from "@/components/explore/RipDistributionChart";
 
-export function ArticleJsonLd({ title, description, path }) {
+export function ArticleJsonLd({ title, description, path, lastUpdated }) {
   const url = `https://www.inthedex.io${path}`;
-  const data = { "@context": "https://schema.org", "@type": "Article", headline: title, description, url, mainEntityOfPage: url, publisher: { "@type": "Organization", name: "inDex", url: "https://www.inthedex.io" } };
+  const data = { "@context": "https://schema.org", "@type": "Article", headline: title, description, url, mainEntityOfPage: url, ...(lastUpdated ? { dateModified: lastUpdated } : {}), publisher: { "@type": "Organization", name: "inDex", url: "https://www.inthedex.io" } };
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />;
 }
 
-export function ArticleShell({ category, title, deck, children, related = [] }) {
+function formatLastUpdated(lastUpdated) {
+  if (!lastUpdated) return null;
+  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${lastUpdated}T00:00:00Z`));
+}
+
+export function ArticleShell({ category, title, deck, lastUpdated, children, related = [] }) {
   return (
     <article className="mx-auto w-full max-w-5xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
       <header className="mx-auto max-w-3xl">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--accent)]">{category}</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-5xl">{title}</h1>
         {deck ? <p className="mt-5 text-lg leading-8 text-[var(--text-secondary)]">{deck}</p> : null}
+        {lastUpdated ? <time dateTime={lastUpdated} className="mt-3 block text-sm font-medium text-[var(--text-secondary)]">Last updated {formatLastUpdated(lastUpdated)}</time> : null}
       </header>
       <div className="article-copy mx-auto mt-8 max-w-3xl space-y-5 text-[16px] leading-7 text-[var(--text-secondary)]">{children}</div>
       {related.length ? <div className="mx-auto max-w-3xl"><RelatedArticles items={related} /></div> : null}
