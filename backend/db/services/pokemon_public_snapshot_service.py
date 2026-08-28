@@ -4314,6 +4314,132 @@ _OVERVIEW_SNAPSHOT_COLUMNS = (
     "set_id,window_key,set_value_histories_json,performance_vs_cost_history_json,"
     "available_scopes_json,latest_market_date,updated_at,cardsMarket:payload_json->cardsMarket"
 )
+
+_MARKET_BOOTSTRAP_COLUMNS = (
+    "set_id,window_key,latest_market_date,updated_at,"
+    "standardHistory:set_value_histories_json->standard,"
+    "top10History:set_value_histories_json->top10,"
+    "cardsMarket:payload_json->cardsMarket"
+)
+
+_MARKET_SIGNALS_COLUMNS = (
+    "set_id,window_key,latest_market_date,updated_at,"
+    "marketBreadth:payload_json->cardsMarket->marketBreadth"
+)
+
+
+def get_pokemon_set_market_signals_snapshot_payload(
+    set_id: str, window: str = DEFAULT_DASHBOARD_WINDOW
+) -> Dict[str, Any]:
+    """Prepared Plus breadth through a single narrow JSON-path projection."""
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_MARKET_ID_REQUIRED")
+    set_row = None
+    if _looks_like_uuid(resolved):
+        resolved_set_id = resolved
+    else:
+        set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
+        resolved_set_id = str(set_row["id"])
+    resolved_window = _normalize_market_dashboard_window_key(window)
+    result = run_public_read_with_retry(
+        lambda client: client.table("pokemon_set_market_dashboard_snapshot_latest")
+            .select(_MARKET_SIGNALS_COLUMNS)
+            .eq("set_id", resolved_set_id)
+            .eq("window_key", resolved_window)
+            .limit(1)
+            .execute(),
+        operation_name="pokemon_set_market_signals",
+        initial_client=service_read_client,
+    )
+    row = _first_row(result)
+    if not row:
+        raise PokemonSetMarketError(404, "Market signals are unavailable", "POKEMON_SET_MARKET_SIGNALS_UNAVAILABLE")
+    breadth = row.get("marketBreadth")
+    if not isinstance(breadth, dict) or not breadth:
+        raise PokemonSetMarketError(
+            503,
+            "Market signals snapshot is incomplete",
+            "POKEMON_SET_MARKET_SIGNALS_SNAPSHOT_INCOMPLETE",
+        )
+    latest_market_date = _parse_date_key(row.get("latest_market_date"))
+    identity = set_row or {"id": resolved_set_id}
+    return {
+        "set": {
+            "id": _to_optional_str(identity.get("id")) or resolved_set_id,
+            "slug": _to_optional_str(identity.get("canonical_key")),
+        },
+        "window": resolved_window,
+        "marketBreadth": breadth,
+        "latestMarketDate": latest_market_date,
+        "meta": {
+            "source": "pokemon_set_market_dashboard_snapshot_latest_split_projection",
+            "sourceField": "payload_json.cardsMarket.marketBreadth",
+            "updatedAt": _to_optional_str(row.get("updated_at")),
+            "marketAsOfDate": latest_market_date,
+        },
+    }
+
+
+def get_pokemon_set_market_bootstrap_snapshot_payload(
+    set_id: str, window: str = DEFAULT_DASHBOARD_WINDOW
+) -> Dict[str, Any]:
+    """Critical Cards-lens Market data from split/json-path projections only."""
+    resolved = _to_optional_str(set_id)
+    if not resolved:
+        raise PokemonSetMarketError(400, "set_id is required", "POKEMON_SET_MARKET_ID_REQUIRED")
+    set_row = None
+    if _looks_like_uuid(resolved):
+        resolved_set_id = resolved
+    else:
+        set_row = resolve_pokemon_set_identifier(resolved, client=service_read_client)
+        resolved_set_id = str(set_row["id"])
+    resolved_window = _normalize_market_dashboard_window_key(window)
+    result = (
+        service_read_client.table("pokemon_set_market_dashboard_snapshot_latest")
+        .select(_MARKET_BOOTSTRAP_COLUMNS)
+        .eq("set_id", resolved_set_id)
+        .eq("window_key", resolved_window)
+        .limit(1)
+        .execute()
+    )
+    row = _first_row(result)
+    if not row:
+        raise PokemonSetMarketError(404, "Market bootstrap is unavailable", "POKEMON_SET_MARKET_BOOTSTRAP_UNAVAILABLE")
+    standard = row.get("standardHistory") if isinstance(row.get("standardHistory"), list) else []
+    top10 = row.get("top10History") if isinstance(row.get("top10History"), list) else []
+    identity = set_row or {"id": resolved_set_id}
+    latest_market_date = _parse_date_key(row.get("latest_market_date"))
+    payload = {
+        "set": {
+            "id": _to_optional_str(identity.get("id")) or resolved_set_id,
+            "name": _to_optional_str(identity.get("name")),
+            "slug": _to_optional_str(identity.get("canonical_key")),
+            "pokemonApiSetId": _to_optional_str(identity.get("pokemon_api_set_id")),
+        },
+        "window": resolved_window,
+        # Top10 is a single aligned current point for Chase Concentration, not
+        # the full Top10 history carried by the generic /overview contract.
+        "setValueHistoriesByScope": {"standard": standard},
+        "chaseConcentration": {
+            "standard": standard[-1] if standard else None,
+            "top10": top10[-1] if top10 else None,
+            "asOfDate": latest_market_date,
+        },
+        "latestMarketDate": latest_market_date,
+        "meta": {
+            "warnings": [],
+            "snapshot": {
+                "source": "pokemon_set_market_dashboard_snapshot_latest_split_projection",
+                "updatedAt": _to_optional_str(row.get("updated_at")),
+                "marketAsOfDate": latest_market_date,
+            },
+        },
+    }
+    cards_market = _public_cards_market_contract({"cardsMarket": row.get("cardsMarket")})
+    if cards_market is not None:
+        payload["cardsMarket"] = cards_market
+    return payload
 # The Market tab's Cards Market Index and Market Breadth read this field. It
 # used to be reachable only through the retired monolithic /market/dashboard
 # fetch, which the client stopped calling live when Top Chase Cards/Market

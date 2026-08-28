@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -73,7 +74,8 @@ class _Component:
     path: Path
     count: int
     weight: float
-    cost_per_pack: float
+    pack_count: int
+    product_cost: float
     owns_file: bool = True
 
 
@@ -86,26 +88,30 @@ class WeightedEmpiricalMixture:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.components: list[_Component] = []
 
-    def add(self, values: Any, *, weight: float, cost_per_pack: float) -> None:
+    def add(self, values: Any, *, weight: float, pack_count: int, product_cost: float) -> None:
         vector = np.asarray(values, dtype=np.float64)
         if vector.ndim != 1 or not vector.size or not np.isfinite(vector).all() or (vector < 0).any():
             raise OpeningEconomicsV3Error("invalid product outcome vector")
-        if not math.isfinite(weight) or weight <= 0 or not math.isfinite(cost_per_pack) or cost_per_pack <= 0:
+        if (not math.isfinite(weight) or weight <= 0 or int(pack_count) < 1
+                or not math.isfinite(product_cost) or product_cost <= 0):
             raise OpeningEconomicsV3Error("invalid mixture component metadata")
         path = self.directory / f"component-{len(self.components):04d}.npy"
         sorted_values = np.sort(vector)
         np.save(path, sorted_values, allow_pickle=False)
-        self.components.append(_Component(path, vector.size, float(weight), float(cost_per_pack), True))
+        self.components.append(_Component(path, vector.size, float(weight), int(pack_count), float(product_cost), True))
 
-    def add_path(self, path: str | os.PathLike[str], *, count: int, weight: float, cost_per_pack: float) -> None:
-        """Reference an already sorted vector owned by another mixture."""
-        self.components.append(_Component(Path(path), int(count), float(weight), float(cost_per_pack), False))
+    def add_path(self, path: str | os.PathLike[str], *, count: int, weight: float,
+                 pack_count: int, product_cost: float) -> None:
+        """Reference a price-independent sorted total-product vector."""
+        self.components.append(_Component(
+            Path(path), int(count), float(weight), int(pack_count), float(product_cost), False
+        ))
 
     def _cdf(self, value: float, *, normalized: bool, side: str = "right") -> float:
         total = 0.0
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            threshold = value * component.cost_per_pack if normalized else value
+            threshold = value * (component.product_cost if normalized else component.pack_count)
             total += component.weight * int(self._searchsorted(vector, [threshold], side=side)[0]) / component.count
             self._close(vector)
         return total
@@ -141,7 +147,7 @@ class WeightedEmpiricalMixture:
         lows, highs = [], []
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo, hi = min(lows), max(highs)
         for _ in range(64):
@@ -150,9 +156,9 @@ class WeightedEmpiricalMixture:
             else: lo = mid
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            threshold = hi * component.cost_per_pack if normalized else hi
+            threshold = hi * (component.product_cost if normalized else component.pack_count)
             index = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
-            candidates.append(float(vector[index]) / (component.cost_per_pack if normalized else 1.0))
+            candidates.append(float(vector[index]) / (component.product_cost if normalized else component.pack_count))
             self._close(vector)
         valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
         if not valid:
@@ -168,14 +174,14 @@ class WeightedEmpiricalMixture:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             # inf{x:F(x)>=q}: the first 1-indexed rank meeting q.
             positions = np.maximum(0, np.ceil(requested * component.count).astype(np.int64) - 1)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             values = [float(vector[position]) / scale for position in positions]
             self._close(vector)
             return {percentile_key(float(q)): value for q, value in zip(requested, values)}
         lows, highs = [], []
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo = np.full(requested.shape, min(lows)); hi = np.full(requested.shape, max(highs))
         # All percentiles share each component scan. This is ~100x cheaper than
@@ -188,7 +194,7 @@ class WeightedEmpiricalMixture:
             mid = (lo + hi) / 2; cdf = np.zeros(requested.shape)
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-                thresholds = mid * component.cost_per_pack if normalized else mid
+                thresholds = mid * (component.product_cost if normalized else component.pack_count)
                 cdf += component.weight * self._searchsorted(vector, thresholds, side="right") / component.count
                 self._close(vector)
             crossed = cdf >= requested
@@ -198,9 +204,9 @@ class WeightedEmpiricalMixture:
             candidates = []
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-                threshold = hi[index] * component.cost_per_pack if normalized else hi[index]
+                threshold = hi[index] * (component.product_cost if normalized else component.pack_count)
                 position = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
-                candidates.append(float(vector[position]) / (component.cost_per_pack if normalized else 1.0))
+                candidates.append(float(vector[position]) / (component.product_cost if normalized else component.pack_count))
                 self._close(vector)
             valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
             if not valid: raise OpeningEconomicsV3Error("quantile boundary could not be refined")
@@ -225,8 +231,27 @@ class WeightedEmpiricalMixture:
 
 
 def percentile_key(q: float) -> str:
-    value = q * 100
+    # Decimal-looking inputs such as 7/100 are not exact in binary; normalize
+    # the display key so P01..P99 cannot become p7_000000000000001.
+    value = round(q * 100, 10)
     return "p" + (str(int(value)).zfill(2) if value.is_integer() else str(value).replace(".", "_"))
+
+
+def persisted_recovery_count(row: Mapping[str, Any]) -> int:
+    """Recover the exact stored numerator, rejecting rounded probabilities."""
+    try:
+        count = int(row["simulation_count"])
+        numerator = Decimal(str(row["chance_to_recover_cost"])) * Decimal(count)
+    except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+        raise OpeningEconomicsV3Error("invalid persisted recovery probability") from exc
+    if count <= 0 or numerator != numerator.to_integral_value():
+        raise OpeningEconomicsV3Error(
+            f"persisted recovery probability is not an exact count over {count} simulations"
+        )
+    result = int(numerator)
+    if not 0 <= result <= count:
+        raise OpeningEconomicsV3Error("persisted recovery count is out of range")
+    return result
 
 
 def aggregate_scalars(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
@@ -238,10 +263,14 @@ def aggregate_scalars(rows: Sequence[Mapping[str, Any]]) -> dict[str, float]:
     mean_retention = sum(row["weight"] * row["modeled_return_ratio"] for row in weighted)
     probabilities = []
     for row in weighted:
-        try: probability = float(row.get("chance_to_recover_cost"))
-        except (TypeError, ValueError) as exc: raise OpeningEconomicsV3Error("invalid chance_to_recover_cost") from exc
-        if not math.isfinite(probability) or not 0 <= probability <= 1:
-            raise OpeningEconomicsV3Error("invalid chance_to_recover_cost")
+        try:
+            count = int(row["simulation_count"])
+            recovered = int(row["_regenerated_recovery_count"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise OpeningEconomicsV3Error("missing exact regenerated recovery count") from exc
+        if count <= 0 or not 0 <= recovered <= count:
+            raise OpeningEconomicsV3Error("invalid exact regenerated recovery count")
+        probability = recovered / count
         probabilities.append((row["weight"], probability))
     recovery = sum(weight * probability for weight, probability in probabilities)
     if not math.isclose(avg_entertainment, avg_cost - avg_ev, abs_tol=1e-9):
@@ -261,12 +290,18 @@ def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str,
     try:
         for row in weighted:
             path, count = component_paths[row["sealed_product_id"]]
-            mixture.add_path(path, count=count, weight=row["weight"], cost_per_pack=row["cost_per_pack"])
+            mixture.add_path(path, count=count, weight=row["weight"],
+                             pack_count=row["normalization_pack_count"],
+                             product_cost=float(row["product_market_cost"]))
+        empirical_recovery = mixture.recovery_probability()
+        # These are independent computations of the same weighted exact
+        # numerators. Only ordinary floating summation noise is admissible.
+        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], rel_tol=0, abs_tol=1e-12):
+            raise OpeningEconomicsV3Error(
+                f"recovery distribution invariant failed: empirical={empirical_recovery} productWeighted={scalars['chanceToRecoverCost']}"
+            )
         raw = mixture.quantiles(qs)
         returns = mixture.quantiles(qs, normalized=True)
-        empirical_recovery = mixture.recovery_probability()
-        if not math.isclose(empirical_recovery, scalars["chanceToRecoverCost"], abs_tol=1e-6):
-            raise OpeningEconomicsV3Error("recovery distribution invariant failed")
         return {**scalars, "typicalOpeningPerPack": raw["p50"], "typicalRetention": returns["p50"],
                 "valuePerPackPercentiles": raw, "normalizedReturnPercentiles": returns}
     finally:

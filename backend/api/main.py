@@ -26,6 +26,7 @@ from backend.db.services.collection_portfolio_service import (
     get_public_collection_data_by_username,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
@@ -44,6 +45,7 @@ from backend.domain.access.index_plan_access import (
     FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     filter_set_market_signal_access,
+    has_index_plus_access,
     has_index_feature_access,
     has_index_premium_access,
 )
@@ -81,6 +83,8 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_simulation_evidence_snapshot_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
+    get_pokemon_set_market_bootstrap_snapshot_payload,
+    get_pokemon_set_market_signals_snapshot_payload,
     get_pokemon_set_market_movers_snapshot_payload,
     get_pokemon_set_overview_snapshot_payload,
     get_pokemon_set_page_snapshot_payload,
@@ -89,6 +93,9 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_top_chase_snapshot_payload,
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
+)
+from backend.db.services.pokemon_set_route_directory_service import (
+    get_pokemon_set_route_directory_payload,
 )
 from backend.db.services.pokemon_explore_card_movers_service import (
     ExploreCardMoversUnavailable,
@@ -621,6 +628,19 @@ def get_card_chase_efficiency_rankings(
     except Exception:
         logger.exception("/explore/card-chase-efficiency unexpected error")
         return JSONResponse(content={"message": "Unable to load Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
+@app.get("/tcgs/pokemon/set-route-directory")
+def get_pokemon_set_route_directory(limit: int = Query(default=150, ge=1, le=200)):
+    """Slim set-route membership/identity; never reads Rankings publication JSON."""
+    try:
+        return get_pokemon_set_route_directory_payload(limit=limit)
+    except Exception:
+        logger.exception("/tcgs/pokemon/set-route-directory unexpected error")
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set route directory", "code": "POKEMON_SET_ROUTE_DIRECTORY_FAILED", "retryable": True},
+            status_code=503,
+        )
 
 
 @app.get("/explore/opening-economics")
@@ -1264,6 +1284,53 @@ def get_pokemon_set_overview(
         )
 
 
+@app.get("/tcgs/pokemon/sets/{set_id}/market/bootstrap")
+def get_pokemon_set_market_bootstrap(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+):
+    """Public/cacheable critical Market data; paid breadth is excluded."""
+    try:
+        payload = get_pokemon_set_market_bootstrap_snapshot_payload(set_id=set_id, window=window or "365d")
+        return filter_set_market_signal_access(payload, None)
+    except PokemonSetMarketError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/bootstrap unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon set Market bootstrap", "code": "POKEMON_SET_MARKET_BOOTSTRAP_FAILED"},
+            status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/signals")
+def get_pokemon_set_market_signals(
+    set_id: str,
+    window: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    """Tiny authenticated Plus/Premium projection of prepared Market Breadth."""
+    plan = _resolve_index_plan(authorization, token_cookie)
+    if not has_index_plus_access(plan):
+        return JSONResponse(
+            content={"message": "Index Plus is required", "code": "INDEX_PLUS_REQUIRED"},
+            status_code=403,
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        payload = get_pokemon_set_market_signals_snapshot_payload(set_id=set_id, window=window or "365d")
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": "no-store", "Vary": "Cookie, Authorization"},
+        )
+    except PokemonSetMarketError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500}, status_code=exc.status_code, headers={"Cache-Control": "no-store"})
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/signals unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load Market signals", "code": "POKEMON_SET_MARKET_SIGNALS_FAILED", "retryable": True}, status_code=503, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/tcgs/pokemon/sets/{set_id}/market/top-chase")
 def get_pokemon_set_top_chase(
     set_id: str,
@@ -1331,6 +1398,50 @@ def get_pokemon_set_sealed_market(set_id: str):
         return JSONResponse(
             content={"message": "Unable to load sealed market history", "code": "POKEMON_SET_SEALED_MARKET_FAILED"},
             status_code=500,
+        )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/sealed-consumer")
+def get_pokemon_set_consumer_sealed_market(set_id: str):
+    """Set-Market consumer projection; excludes legacy products and setMarket."""
+    try:
+        resolved_set = resolve_pokemon_set_identifier(set_id, client=service_read_client)
+        resolved_set_id = str(resolved_set["id"])
+        result = run_public_read_with_retry(
+            lambda client: client.table("pokemon_set_sealed_market_snapshot_latest")
+                .select(
+                    "set_id,marketDate:payload_json->marketDate,"
+                    "setPageConsumerMarket:payload_json->setPageConsumerMarket,"
+                    "setPageConsumerTopProducts:payload_json->setPageConsumerTopProducts,"
+                    "meta:payload_json->meta"
+                )
+                .eq("set_id", resolved_set_id)
+                .limit(1)
+                .execute(),
+            operation_name="pokemon_set_consumer_sealed_market",
+            initial_client=service_read_client,
+        )
+        row = (result.data or [None])[0]
+        if not row:
+            return JSONResponse(
+                content={"message": "Consumer sealed market is unavailable", "code": "POKEMON_SET_CONSUMER_SEALED_UNAVAILABLE"},
+                status_code=404,
+            )
+        return {
+            "set": {"id": resolved_set_id, "name": resolved_set.get("name"), "slug": resolved_set.get("canonical_key")},
+            "marketDate": row.get("marketDate"),
+            "setPageConsumerMarket": row.get("setPageConsumerMarket"),
+            "setPageConsumerTopProducts": row.get("setPageConsumerTopProducts") or [],
+            "meta": row.get("meta") or {},
+        }
+    except PokemonSetMarketError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/sealed-consumer unexpected error", set_id)
+        return JSONResponse(
+            content={"message": "Unable to load consumer sealed market", "code": "POKEMON_SET_CONSUMER_SEALED_FAILED"},
+            status_code=503,
+            headers={"Cache-Control": "no-store"},
         )
 
 

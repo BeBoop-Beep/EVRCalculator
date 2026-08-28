@@ -278,9 +278,11 @@ def read_pokemon_rip_stats_history(client: Any) -> list[dict[str, Any]]:
 #: so a reader never branches on shape - only on `status`.
 def _unavailable_opening_economics(reason: str, *, market_date: str | None = None) -> dict[str, Any]:
     return {"status": "unavailable", "reason": reason, "marketDate": market_date,
-            "methodologyVersion": LEGACY_METHODOLOGY_VERSION,
-            "weightingMode": "equal_set_weight", "productFamily": "loose_booster_pack",
-            "global": None, "eras": []}
+            "contractVersion": POKEMON_RIP_STATS_CONTRACT_VERSION,
+            "basis": "all_modeled_products_per_pack_equivalent",
+            "methodology": {"version": POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+                            "weightingVersion": POKEMON_RIP_STATS_WEIGHTING_VERSION},
+            "global": None, "eras": [], "sets": [], "familyBenchmarks": []}
 
 
 def read_public_opening_economics(client: Any) -> dict[str, Any]:
@@ -302,8 +304,17 @@ def read_public_opening_economics(client: Any) -> dict[str, Any]:
     payload = row.get("payload_json") or {}
     market_date = str(row.get("market_date") or "")[:10] or None
     economics = payload.get("openingEconomics")
-    if not isinstance(economics, Mapping) or not economics.get("global"):
+    if not isinstance(economics, Mapping):
         return _unavailable_opening_economics("opening_economics_not_published", market_date=market_date)
+    methodology = economics.get("methodology") or {}
+    if (economics.get("contractVersion") != POKEMON_RIP_STATS_CONTRACT_VERSION
+            or economics.get("basis") != "all_modeled_products_per_pack_equivalent"
+            or methodology.get("version") != POKEMON_RIP_STATS_METHODOLOGY_VERSION
+            or methodology.get("weightingVersion") != POKEMON_RIP_STATS_WEIGHTING_VERSION
+            or not economics.get("global")):
+        return _unavailable_opening_economics(
+            "incompatible_opening_economics_contract", market_date=market_date
+        )
     return {**dict(economics), "marketDate": market_date,
             "snapshotSourceRunFingerprint": row.get("source_run_fingerprint"),
             "updatedAt": row.get("updated_at")}

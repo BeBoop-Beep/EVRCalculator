@@ -24,6 +24,10 @@ const marketModel = fs.readFileSync(
   ),
   "utf8",
 );
+const canonicalMarketChart = fs.readFileSync(
+  path.join(process.cwd(), "components/explore/MarketPriceHistoryChart.jsx"),
+  "utf8",
+);
 const page = fs.readFileSync(
   path.join(
     process.cwd(),
@@ -86,7 +90,15 @@ test("market shell exposes raw, disabled graded, canonical windows, chart and tr
     /title="Graded market data is coming soon"[\s\S]*?disabled|disabled[\s\S]*?title="Graded market data is coming soon"/,
   );
   assert.match(market, /MarketWindowSelector/);
-  assert.match(market, /MarketMobileChart/);
+  assert.match(market, /MarketPriceHistoryChart/);
+  assert.match(market, /data-market-coverage-status/);
+  assert.match(market, /data-partial=/);
+  assert.doesNotMatch(market, /text-4xl|sm:text-5xl/);
+  assert.match(market, /<MarketValueChange[\s\S]*?value=\{market\?\.currentPrice\}/);
+  assert.match(canonicalMarketChart, /ChartFrame/);
+  assert.match(canonicalMarketChart, /MarketTrendTooltipCard/);
+  assert.match(canonicalMarketChart, /POSITIVE_VALUE_COLOR/);
+  assert.match(canonicalMarketChart, /NEGATIVE_VALUE_COLOR/);
   assert.doesNotMatch(market, /PSA|BGS|CGC/);
 });
 
@@ -120,7 +132,8 @@ test("probability journey renders its canonical curve and all milestone markers"
     source,
     /aria-label="Cumulative pull probability by packs opened"/,
   );
-  assert.match(source, /label=\{`\$\{label\} Chance to Pull`\}/);
+  assert.match(source, /data-probability-milestone-rail/);
+  assert.doesNotMatch(source, /label=\{`\$\{label\} Chance to Pull`\}/);
   assert.match(source, /custom|role="status"/);
 });
 
@@ -200,19 +213,40 @@ test("top and bottom set navigation use the canonical bare set href", () => {
   assert.doesNotMatch(detailModel, /\?tab=cards/);
 });
 
-test("hero stretches its left column and places variants after the hero", () => {
-  assert.match(source, /md:grid-rows-\[minmax\(0,1fr\)_auto\]/);
+test("hero places identity above unchanged artwork and aligns the Market column", () => {
+  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)_auto\]/);
+  assert.match(source, /data-card-identity/);
+  assert.match(source, /card-detail-artwork/);
+  assert.match(source, /max-w-\[430px\]/);
+  assert.match(source, /data-card-market-panel className="h-full"/);
+  assert.match(source, /lg:-ml-6/);
   assert.match(source, /data-card-details-panel/);
   assert.match(source, /data-card-market-panel/);
   assert.doesNotMatch(source, /max-h-\[46vh\]/);
   const heroEnd = source.indexOf("</section>", source.indexOf("data-card-detail-hero"));
   const detailsStart = source.indexOf("data-card-details-panel");
   const variantCall = source.indexOf("<VariantSelector", detailsStart);
-  const intelligenceCall = source.indexOf("<CardIntelligence", variantCall);
+  const intelligenceCall = source.indexOf("<ChaseEfficiencySection", variantCall);
   assert.ok(detailsStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
 });
 
 test("market-only variants are selectable while pull modeling remains explicit", () => {
   assert.doesNotMatch(source, /disabled=\{!variant\.modeled/);
   assert.match(source, /pullStatusLabel\(variant\.pullModelStatus\)/);
+});
+
+test("Premium pull intelligence and standalone Plus products branch independently", () => {
+  assert.match(source, /data-pull-profile/);
+  assert.match(source, /data-pull-analytics-status/);
+  assert.match(source, /pullStatusExplanation\(detail\.chase\?\.reason\)/);
+  assert.match(source, /<ProductEconomics[\s\S]*?chase=\{chase\}[\s\S]*?pullAnalyticsAvailable=\{pullAnalyticsAvailable\}/);
+  assert.match(source, /<OpeningProductsSection detail=\{detail\}/);
+  assert.doesNotMatch(source, /Card Intelligence|CardIntelligence/);
+  assert.doesNotMatch(source, /if \(!chase\.available\)[\s\S]*?return/);
+  for (const status of [
+    "legacy_run_variant_detail_unavailable",
+    "not_pullable_by_current_model",
+    "pull_model_configuration_missing",
+    "insufficient_observed_pulls",
+  ]) assert.ok(source.includes(status), `missing ${status}`);
 });

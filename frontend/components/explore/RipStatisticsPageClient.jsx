@@ -44,7 +44,7 @@ import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/P
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
-import { ChaseConcentrationSignal, MarketBreadthSignal } from "@/components/pokemon/set-page/Market/SetMarketSignals";
+import { ChaseConcentrationSignal, MarketBreadthSignal, useSetMarketSignalAccess } from "@/components/pokemon/set-page/Market/SetMarketSignals";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -154,6 +154,7 @@ import {
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
@@ -3727,7 +3728,7 @@ function MarketSegmentRow({ row, active, onSelect }) {
 }
 
 /** SECTION 2B — the right-hand signal rail. */
-function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry }) {
+function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadth, breadthStatus, concentration, windowLabel, sealedError, onSealedRetry, onSignalsRetry }) {
   return (
     <SectionCard title="Set Signals" className="h-full" bodySpacingClassName="mt-2">
       <div className="space-y-4">
@@ -3749,6 +3750,7 @@ function SetSignalsRail({ segmentRows, activeSegmentKey, onSegmentChange, breadt
               windowLabel={windowLabel}
               itemNoun={activeSegmentKey === "sealed" ? "products" : "cards"}
               title={activeSegmentKey === "sealed" ? "Sealed Market Breadth" : "Card Market Breadth"}
+              onRetry={activeSegmentKey === "cards" && onSignalsRetry ? onSignalsRetry : null}
               className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)]/55 px-3 py-3"
             />
             {activeSegmentKey === "sealed" && sealedError ? (
@@ -3895,6 +3897,8 @@ function MarketValueTrendPanel({
  * than as two equal cards competing for the eye.
  */
 function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
+  const { canViewSetMarketSignals } = useSetMarketSignalAccess();
+  const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
@@ -3950,7 +3954,9 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const breadthSource = resolvedSegmentKey === "sealed"
     ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
-    ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
+    ? signalsState.payload?.marketBreadth
+    : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
+    : resolvedSegmentKey === "cards" && ["error", "forbidden"].includes(signalsState.status) ? signalsState.error
     : null;
   const breadth = useMemo(
     () => selectPreparedMarketBreadth({
@@ -3980,7 +3986,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           setId={setId}
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={setActiveSegmentKey}
+          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
           trend={activeTrend}
           onWindowChange={setSelectedWindowKey}
           windowLabel={windowLabel}
@@ -3990,13 +3996,14 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
         <SetSignalsRail
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={setActiveSegmentKey}
+          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
           breadth={breadth}
           breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
           sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
           onSealedRetry={sealedState.retry}
+          onSignalsRetry={["error", "forbidden"].includes(signalsState.status) ? signalsState.retry : null}
         />
       </div>
     </div>
@@ -4127,7 +4134,7 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
     >
       <div className="mb-4 flex gap-1.5" role="tablist" aria-label="Top 10 market lens">
         {["cards", "sealed"].map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => { if (key === "sealed") sealedState.load?.(); setLens(key); }} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
             {key === "cards" ? "Cards" : "Sealed"}
           </button>
         ))}
@@ -9162,10 +9169,9 @@ export default function RipStatisticsPageClient({
   // /overview endpoint instead of the multi-MB /market/dashboard payload once
   // it loads; marketDashboardState above is still the fallback until it does,
   // and Top Chase Cards/Market Movers still read marketDashboardState only.
-  // Hydrated from the route-level /overview seed (Overview direct entries)
-  // so both sections render on first paint; the fetch effect below then
-  // refreshes it quietly (the reducer's "loading" case keeps a same-set
-  // payload as success_stale, so no loading panel replaces seeded data).
+  // Hydrated from the route-level Market bootstrap. A valid current seed is
+  // the completed initial resource; the effect below does not immediately
+  // download the identical set/window again.
   const [overviewState, dispatchOverview] = useReducer(
     marketDashboardReducer,
     {
@@ -11315,13 +11321,15 @@ export default function RipStatisticsPageClient({
   // comparable; re-summing today's card prices would not be.
   const setValueTop10CurrentValue = useMemo(() => {
     const points = activeSetValueHistory.historiesByScope?.top10;
-    if (!Array.isArray(points) || points.length === 0) return null;
-    for (let index = points.length - 1; index >= 0; index -= 1) {
-      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
-      if (value !== null) return value;
+    if (Array.isArray(points)) {
+      for (let index = points.length - 1; index >= 0; index -= 1) {
+        const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+        if (value !== null) return value;
+      }
     }
-    return null;
-  }, [activeSetValueHistory.historiesByScope]);
+    const summary = seededOverviewPayload?.chaseConcentration?.top10;
+    return toNumber(summary?.setValue ?? summary?.set_value ?? summary?.value);
+  }, [activeSetValueHistory.historiesByScope, seededOverviewPayload]);
   // Chase Concentration's OTHER input, read the same independent way. It must
   // NOT come from the Cards Market Index trend (`cardsTrend.currentValue`):
   // that figure is gated on the Cards Market Index having a full chain-linked
@@ -11332,15 +11340,18 @@ export default function RipStatisticsPageClient({
   // contract in setMarketOverviewModel.mjs.
   const setValueStandardCurrentValue = useMemo(() => {
     const points = activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history;
-    if (!Array.isArray(points) || points.length === 0) return null;
-    for (let index = points.length - 1; index >= 0; index -= 1) {
-      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
-      if (value !== null) return value;
+    if (Array.isArray(points)) {
+      for (let index = points.length - 1; index >= 0; index -= 1) {
+        const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+        if (value !== null) return value;
+      }
     }
-    return null;
-  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
+    const summary = seededOverviewPayload?.chaseConcentration?.standard;
+    return toNumber(summary?.setValue ?? summary?.set_value ?? summary?.value);
+  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history, seededOverviewPayload]);
   const desktopSealedMarketState = usePokemonSetSealedMarket(
-    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
+    { enabled: false }
   );
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
@@ -13154,7 +13165,11 @@ export default function RipStatisticsPageClient({
     // tab so a fresh RIP entry never depends on the user visiting Market first.
     // The request-key guard below still makes RIP<->Market switches share one
     // fetch per set/window.
-    const shouldFetchTopChase = setDetailTab === "overview" || setDetailTab === "market";
+    const marketCriticalSettled =
+      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
+      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
+    const shouldFetchTopChase =
+      setDetailTab === "overview" || (setDetailTab === "market" && marketCriticalSettled);
     if (!shouldFetchTopChase) {
       return undefined;
     }
@@ -13229,6 +13244,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSlimMarketModules,
+    activeOverviewState.status,
+    activeMarketMoversState.status,
     // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
     topChaseRetryNonce,
   ]);
@@ -13339,13 +13356,7 @@ export default function RipStatisticsPageClient({
     marketMoversRetryNonce,
   ]);
 
-  // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
-  // When the route seeded an /overview snapshot (see seededOverviewPayload),
-  // this effect still runs but refreshes quietly: the reducer's "loading"
-  // case keeps the same-set seeded payload as success_stale, so seeded
-  // sections never regress to a loading panel while the refresh is in
-  // flight, and the request-key guard below keeps tab revisits from
-  // re-fetching the identical set/window.
+  // Live fallback for a missing/invalid Market bootstrap, plus explicit Retry.
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -13375,6 +13386,12 @@ export default function RipStatisticsPageClient({
     if (!shouldRenderMarketOverviewData) {
       // No background fetch for a tab the user isn't on — a tab that needs
       // this data (or a future switch back to one) triggers this effect again.
+      return undefined;
+    }
+
+    if (seededOverviewPayload && overviewRetryNonce === 0) {
+      lastOverviewRequestKeyRef.current = `${setId}|${overviewSourceWindow}`;
+      debugSetPagePerf("overview.seed_satisfied_initial_resource", { resolvedSetId: setId });
       return undefined;
     }
 

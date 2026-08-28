@@ -98,7 +98,7 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
   );
 });
 
-test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Market tab only", () => {
+test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the Market tab only", () => {
   const source = fs.readFileSync(snapshotsServerPath, "utf8");
   const fnStart = source.indexOf("export async function getPokemonSetInitialSnapshots");
   const fnEnd = source.indexOf("\n}\n", fnStart);
@@ -109,8 +109,8 @@ test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Ma
     "the slim market seed must gate on the resolved set-detail tab (aliases + absent-tab default included)"
   );
   assert.ok(
-    fnSource.includes("wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
-    "the slim /overview payload must be fetched only when Market is the active tab, resolving empty otherwise"
+    fnSource.includes("wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
+    "the compact bootstrap payload must be fetched only when Market is the active tab, resolving empty otherwise"
   );
   assert.ok(fnSource.includes('const wantsSimulationEvidence = resolvedTab === "overview"'));
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
@@ -121,8 +121,8 @@ test("getPokemonSetInitialSnapshots seeds the slim /overview snapshot for the Ma
   const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
   assert.deepEqual(
     snapshotCalls,
-    ["getPokemonSetOverviewInitialSnapshot(", "getPokemonSetShellInitialSnapshot(", "getPokemonSetSimulationEvidenceInitialSnapshot("],
-    "only shell, market overview, and simulation evidence initial snapshots may be fetched here"
+    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot(", "getPokemonSetSimulationEvidenceInitialSnapshot("],
+    "only shell, market bootstrap, and simulation evidence initial snapshots may be fetched here"
   );
 });
 
@@ -260,14 +260,13 @@ test("set page route still passes all original props to PokemonSetPageClient aft
 test("set page route snapshot fallback catch block is unchanged by timing instrumentation", () => {
   const source = fs.readFileSync(setRoutePath, "utf8");
   // Anchor on the snapshots catch, not the targets catch which appears first
-  const snapshotsCatchAnchor = source.indexOf("getPokemonSetInitialSnapshots(requestedTargetId, { tab: activeSetDetailTab }).catch");
+  const snapshotsCatchAnchor = source.indexOf("getPokemonSetInitialSnapshots(requestedTargetId, {");
   const catchStart = source.indexOf(".catch((error) => ({", snapshotsCatchAnchor);
-  const catchEnd = source.indexOf("}))", catchStart);
-  const catchSource = source.slice(catchStart, catchEnd);
+  const catchSource = source.slice(catchStart, catchStart + 500);
 
   assert.ok(catchSource.includes("...initialModuleSnapshots"), "catch spreads initialModuleSnapshots");
   assert.ok(catchSource.includes("moduleSnapshots:"), "catch sets moduleSnapshots error key");
-  assert.ok(catchSource.includes("message: error?.message"), "catch preserves error message");
+  assert.ok(catchSource.includes("error?.message || \"Failed to load initial module snapshots.\""), "catch preserves error message");
   assert.ok(!catchSource.includes("routeTotalMs"), "catch block does not contain routeTotalMs (added in merge step)");
   assert.ok(!catchSource.includes("targetsMs"), "catch block does not contain targetsMs (added in merge step)");
 });
@@ -300,8 +299,8 @@ test("set page route snapshot promise is built with the same catch shape as befo
   const source = fs.readFileSync(setRoutePath, "utf8");
 
   // The catch shape must still exist on the snapshotPromise
-  const catchAnchor = source.indexOf("getPokemonSetInitialSnapshots(requestedTargetId, { tab: activeSetDetailTab }).catch");
-  assert.ok(catchAnchor >= 0, "must still have getPokemonSetInitialSnapshots(requestedTargetId, { tab: activeSetDetailTab }).catch");
+  const catchAnchor = source.indexOf("getPokemonSetInitialSnapshots(requestedTargetId, {");
+  assert.ok(catchAnchor >= 0, "must still build the initial snapshots promise");
 
   const catchStart = source.indexOf(".catch((error) => ({", catchAnchor);
   const catchEnd = source.indexOf("}))", catchStart);

@@ -27,6 +27,9 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // in-flight promise (same pattern as marketDashboardInflight above) removes
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
+const consumerSealedCache = new Map();
+const CONSUMER_SEALED_CACHE_MAX_ENTRIES = 8;
+const CONSUMER_SEALED_CACHE_TTL_MS = 5 * 60 * 1000;
 const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
 // Bounded completion policy for the slim module fetches.
@@ -1211,15 +1214,21 @@ export async function getPokemonSetTopChase(setId, { window = "365d", limit = 10
   );
 }
 
-export async function getPokemonSetSealedMarket(setId) {
+export async function getPokemonSetConsumerSealedMarket(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
   }
-  const cacheKey = `sealed:${resolvedSetId}`;
+  const cacheKey = `sealed-consumer:${resolvedSetId}`;
+  const cached = consumerSealedCache.get(cacheKey);
+  if (cached && Date.now() - cached.storedAt <= CONSUMER_SEALED_CACHE_TTL_MS) {
+    consumerSealedCache.delete(cacheKey);
+    consumerSealedCache.set(cacheKey, cached);
+    return cached.payload;
+  }
   return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
-      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed`,
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed-consumer`,
       { method: "GET", signal }
     );
     const payload = await readJsonResponse(response, "Unable to load sealed market history");
@@ -1254,7 +1263,7 @@ export async function getPokemonSetSealedMarket(setId) {
           marketIndex: normalizePreparedMarketIndex(consumerMarket.marketIndex || consumerMarket.market_index),
         }
       : null;
-    return {
+    const normalized = {
       ...payload,
       products: Array.isArray(payload?.products) ? payload.products : [],
       setMarket: normalizedSetMarket,
@@ -1265,6 +1274,36 @@ export async function getPokemonSetSealedMarket(setId) {
         ? payload.setPageConsumerTopProducts
         : Array.isArray(payload?.set_page_consumer_top_products) ? payload.set_page_consumer_top_products : [],
     };
+    consumerSealedCache.set(cacheKey, { storedAt: Date.now(), payload: normalized });
+    while (consumerSealedCache.size > CONSUMER_SEALED_CACHE_MAX_ENTRIES) {
+      consumerSealedCache.delete(consumerSealedCache.keys().next().value);
+    }
+    return normalized;
+  });
+}
+
+export async function getPokemonSetSealedMarket(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) throw new Error("Set id is required");
+  return joinSlimModuleRequest(`sealed-legacy:${resolvedSetId}`, async ({ signal } = {}) => {
+    const response = await fetch(
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed`,
+      { method: "GET", signal }
+    );
+    return readJsonResponse(response, "Unable to load sealed market history");
+  });
+}
+
+export async function getPokemonSetMarketSignals(setId, { window = DEFAULT_MARKET_DASHBOARD_WINDOW } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) throw new Error("Set id is required");
+  const normalizedWindow = normalizeMarketDashboardWindow(String(window || "").trim());
+  const params = new URLSearchParams({ window: normalizedWindow });
+  return joinSlimModuleRequest(`market-signals:${resolvedSetId}:${normalizedWindow}`, async ({ signal } = {}) => {
+    const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/signals?${params}`, {
+      method: "GET", signal, cache: "no-store",
+    });
+    return readJsonResponse(response, "Unable to load Market signals");
   });
 }
 
@@ -1324,6 +1363,7 @@ export function normalizeOverviewPayload(payload) {
     payload?.performanceVsCostHistory || payload?.performance_vs_cost_history || []
   );
   const cardsMarket = normalizePreparedCardsMarket(payload?.cardsMarket || payload?.cards_market);
+  const chaseConcentration = payload?.chaseConcentration || payload?.chase_concentration || null;
 
   return {
     set: {
@@ -1338,6 +1378,8 @@ export function normalizeOverviewPayload(payload) {
     performance_vs_cost_history: performanceVsCostHistory,
     cardsMarket,
     cards_market: cardsMarket,
+    chaseConcentration,
+    chase_concentration: chaseConcentration,
     availableScopes: availableScopes
       .map((scope) => ({
         key: toOptionalString(scope?.key),

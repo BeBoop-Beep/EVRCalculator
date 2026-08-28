@@ -9,7 +9,8 @@ import { revalidateTag } from "next/cache";
 // SHELL/OVERVIEW_SNAPSHOT_REVALIDATE_S stale. This is the "invalidate" half of
 // the publication-freshness contract: a newer published source must not be
 // shadowed by an older cached response (see pokemonSetInitialSnapshotsServer.js
-// tags `pokemon-set-shell:<setId>` and `pokemon-set-overview:<setId>:<window>`).
+// tags `pokemon-set-shell:<setId>`, `pokemon-set-overview:<setId>:<window>`,
+// and `pokemon-set-market-bootstrap:<setId>:<window>`).
 //
 // Guarded by SET_REVALIDATION_SECRET so only the publisher can trigger it.
 
@@ -71,6 +72,7 @@ export async function POST(request) {
   invalidate(`pokemon-set-shell:${setId}`);
   for (const window of requestedWindows) {
     invalidate(`pokemon-set-overview:${setId}:${window}`);
+    invalidate(`pokemon-set-market-bootstrap:${setId}:${window}`);
   }
 
   // Visible publication diagnostics. The backend logs whether invalidation was

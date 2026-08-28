@@ -12,9 +12,11 @@ if str(REPO_ROOT) not in sys.path: sys.path.insert(0, str(REPO_ROOT))
 
 from backend.db.services.opening_simulation_gate import evaluate_opening_simulation_freshness
 from backend.db.services.pack_outcome_artifact_service import load_pack_outcome_artifact
-from backend.db.services.pokemon_rip_stats_service import read_latest_pokemon_rip_stats
-from backend.domain.pokemon.rip_stats import (POKEMON_RIP_STATS_CONTRACT_VERSION,
-    POKEMON_RIP_STATS_METHODOLOGY_VERSION, POKEMON_RIP_STATS_WEIGHTING_VERSION, deterministic_fingerprint)
+from backend.db.services.pokemon_rip_stats_service import (
+    POKEMON_RIP_STATS_CONTRACT_VERSION, POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+    POKEMON_RIP_STATS_WEIGHTING_VERSION, read_latest_pokemon_rip_stats,
+)
+from backend.domain.pokemon.rip_stats import deterministic_fingerprint
 from backend.scripts.pokemon_snapshot_builders import get_client
 
 
@@ -89,7 +91,11 @@ def audit(client: Any, market_date: str) -> dict[str, Any]:
     if abs(float(one.get("totalPackCost", 0)) - float(one.get("totalExpectedValue", 0)) - float(one.get("expectedEntertainmentCost", 0))) > .005: failures.append("onePackPerSet identity mismatch")
     if retention is not None and abs(float(entertainment.get("expectedCostRatio", 0)) - (1 - retention)) > 1e-9: failures.append("Entertainment Cost ratio mismatch")
     if payload.get("contractVersion") != POKEMON_RIP_STATS_CONTRACT_VERSION: failures.append("public contract version mismatch")
-    if methodology.get("version") != POKEMON_RIP_STATS_METHODOLOGY_VERSION or methodology.get("weightingVersion") != POKEMON_RIP_STATS_WEIGHTING_VERSION: failures.append("public methodology/weighting version mismatch")
+    opening = payload.get("openingEconomics") or {}; opening_methodology = opening.get("methodology") or {}
+    if (opening.get("contractVersion") != POKEMON_RIP_STATS_CONTRACT_VERSION
+            or opening_methodology.get("version") != POKEMON_RIP_STATS_METHODOLOGY_VERSION
+            or opening_methodology.get("weightingVersion") != POKEMON_RIP_STATS_WEIGHTING_VERSION):
+        failures.append("public opening-economics methodology/weighting version mismatch")
     return {"status": "passed" if not failures else "failed", "marketDate": market_date, "setCount": len(members),
             "totalOutcomes": total, "sourceRunFingerprint": fingerprint, "failures": failures}
 

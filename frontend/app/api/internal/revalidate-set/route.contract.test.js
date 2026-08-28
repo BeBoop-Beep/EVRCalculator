@@ -11,7 +11,7 @@ test("revalidate-set route invalidates the shell cache tag", () => {
     source.includes("`pokemon-set-shell:${setId}`"),
     "must revalidate the pokemon-set-shell:<setId> tag"
   );
-  assert.ok(source.includes("revalidateTag(shellTag)"), "must call revalidateTag on the shell tag");
+  assert.ok(source.includes("invalidate(`pokemon-set-shell:${setId}`)"), "must invalidate the shell tag");
 });
 
 test("revalidate-set route invalidates the overview cache tag per window", () => {
@@ -19,7 +19,11 @@ test("revalidate-set route invalidates the overview cache tag per window", () =>
     source.includes("`pokemon-set-overview:${setId}:${window}`"),
     "must revalidate the pokemon-set-overview:<setId>:<window> tag"
   );
-  assert.ok(source.includes("revalidateTag(overviewTag)"), "must call revalidateTag on the overview tag");
+  assert.ok(source.includes("invalidate(`pokemon-set-overview:${setId}:${window}`)"), "must invalidate the overview tag");
+});
+
+test("revalidate-set route invalidates the Market bootstrap tag per window", () => {
+  assert.ok(source.includes("invalidate(`pokemon-set-market-bootstrap:${setId}:${window}`)"));
 });
 
 test("revalidate-set route is guarded by a shared secret", () => {

@@ -1,23 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import MarketMobileChart from "@/components/pokemon/set-page/Market/MarketMobileChart";
+import MarketPriceHistoryChart from "@/components/explore/MarketPriceHistoryChart";
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MarketWindowSelector from "@/components/explore/MarketWindowSelector";
 import {
   ASSET_MARKET_WINDOWS,
-  finite,
   movementTone,
   selectAssetMarketWindow,
 } from "./assetMarketModel.mjs";
 
-const money = (value) =>
-  finite(value) === null
-    ? "Unavailable"
-    : finite(value).toLocaleString("en-US", {
-        style: "currency",
-        currency: "USD",
-      });
 const dateLabel = (value) =>
   value
     ? new Intl.DateTimeFormat("en-US", {
@@ -34,8 +26,9 @@ export default function AssetMarketPanel({ market }) {
   const tone = movementTone(selected.movement);
   return (
     <section
+      data-asset-market-panel
       aria-labelledby="market-price-title"
-      className="set-glass-surface min-w-0 rounded-2xl border p-4 sm:p-6"
+      className="set-glass-surface h-full min-w-0 rounded-2xl border p-4 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -45,28 +38,17 @@ export default function AssetMarketPanel({ market }) {
           >
             Current Market Price
           </p>
-          <p className="mt-2 text-4xl font-semibold tracking-tight tabular-nums text-[var(--text-primary)] sm:text-5xl">
-            {money(market?.currentPrice)}
-          </p>
-          <div className="mt-2 min-h-6">
-            {selected.movement?.available ? (
-              <MarketValueChange
-                changeAmount={selected.movement.deltaAmount}
-                changePercent={selected.movement.deltaPercent}
-                windowLabel={
-                  ASSET_MARKET_WINDOWS.find(([key]) => key === windowKey)?.[1]
-                }
-                direction={tone}
-                content="change"
-                variant="chart-summary"
-                accessibleLabel="Raw card market price"
-              />
-            ) : (
-              <span className="text-sm text-[var(--text-secondary)]">
-                Change unavailable for this period
-              </span>
-            )}
-          </div>
+          <MarketValueChange
+            className="mt-2"
+            value={market?.currentPrice}
+            changeAmount={selected.movement?.deltaAmount}
+            changePercent={selected.movement?.deltaPercent}
+            unavailable={!selected.movement?.available}
+            windowLabel={ASSET_MARKET_WINDOWS.find(([key]) => key === windowKey)?.[1]}
+            direction={tone}
+            variant="chart-summary"
+            accessibleLabel="Raw card market price"
+          />
         </div>
         <div className="flex flex-col items-end gap-2">
           <div
@@ -103,21 +85,28 @@ export default function AssetMarketPanel({ market }) {
           />
         </div>
       </div>
+      <div
+        data-market-coverage-status
+        data-partial={selected.partial ? "true" : "false"}
+        aria-live="polite"
+        className="mt-3 flex h-12 items-start text-xs leading-5 text-[var(--text-secondary)] sm:h-10"
+      >
       {selected.partial ? (
-        <p className="mt-3 text-xs text-[var(--text-secondary)]">
+        <p>
           {ASSET_MARKET_WINDOWS.find(([key]) => key === windowKey)?.[1]}{" "}
           requested · Showing history since tracking began (
           {dateLabel(selected.movement.startDate)}–
           {dateLabel(selected.movement.endDate)})
         </p>
-      ) : null}
-      <div className="mt-4">
-        <MarketMobileChart
+      ) : <span aria-hidden="true">&nbsp;</span>}
+      </div>
+      <div>
+        <MarketPriceHistoryChart
           points={selected.history}
           valueKey="marketPrice"
           trendDirection={tone}
           seriesLabel="Raw card market price"
-          heightClassName="h-[clamp(220px,34vw,360px)]"
+          heightClassName="h-[clamp(300px,34vw,420px)]"
           emptyMessage="Price history is not available for this card and printing yet."
         />
       </div>
