@@ -104,14 +104,13 @@ test("market-owned data loads for Market, not for RIP or Analysis", () => {
   // Sealed still owns its own prepared-snapshot request rather than widening
   // the page's shared fetches — it just does so from the Market Overview's
   // sealed lens now instead of from a standalone Sealed Market card.
-  assert.ok(pageSource.includes("function useSealedSetMarket(setId)"), "sealed reads its own prepared snapshot");
-  assert.ok(pageSource.includes("getPokemonSetSealedMarket(setId)"));
+  assert.ok(pageSource.includes("usePokemonSetSealedMarket"), "sealed reads its own prepared snapshot");
   assert.ok(marketSection.includes("<SetMarketOverviewSection"), "the sealed lens renders inside Market Overview");
 });
 
 test("Top Chase is shared by RIP and Market and never Market-only", () => {
   assert.ok(
-    pageSource.includes('const shouldFetchTopChase = setDetailTab === "overview" || setDetailTab === "market"'),
+    pageSource.includes('setDetailTab === "overview" || (setDetailTab === "market" && marketCriticalSettled)'),
     "a fresh RIP entry must not depend on having visited Market first"
   );
   // RIP takes a consumer preview from the same state; Market takes the table.

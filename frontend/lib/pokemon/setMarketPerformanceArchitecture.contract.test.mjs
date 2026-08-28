@@ -31,3 +31,20 @@ test("consumer sealed is opt-in and uses a bounded completed-resource cache", ()
   assert.match(marketClient, /CONSUMER_SEALED_CACHE_MAX_ENTRIES = 8/);
   assert.match(marketClient, /while \(consumerSealedCache\.size > CONSUMER_SEALED_CACHE_MAX_ENTRIES\)/);
 });
+
+test("legacy and consumer Sealed transports remain distinct", () => {
+  assert.match(marketClient, /sealed-legacy:\$\{resolvedSetId\}/);
+  assert.match(marketClient, /sealed-consumer:\$\{resolvedSetId\}/);
+  assert.match(sealedHook, /getPokemonSetConsumerSealedMarket/);
+});
+
+test("paid Market signals use a separate authenticated no-store request", () => {
+  assert.match(client, /getPokemonSetMarketSignals/);
+  assert.match(marketClient, /market\/signals/);
+  assert.match(marketClient, /cache: "no-store"/);
+});
+
+test("bootstrap concentration summary survives normalization", () => {
+  assert.match(marketClient, /chaseConcentration/);
+  assert.match(client, /seededOverviewPayload\?\.chaseConcentration\?\.top10/);
+});

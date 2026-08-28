@@ -28,7 +28,7 @@ export default function AssetMarketPanel({ market }) {
     <section
       data-asset-market-panel
       aria-labelledby="market-price-title"
-      className="set-glass-surface min-w-0 rounded-2xl border p-4 sm:p-6"
+      className="set-glass-surface h-full min-w-0 rounded-2xl border p-4 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -106,7 +106,7 @@ export default function AssetMarketPanel({ market }) {
           valueKey="marketPrice"
           trendDirection={tone}
           seriesLabel="Raw card market price"
-          heightClassName="h-[clamp(220px,34vw,360px)]"
+          heightClassName="h-[clamp(300px,34vw,420px)]"
           emptyMessage="Price history is not available for this card and printing yet."
         />
       </div>

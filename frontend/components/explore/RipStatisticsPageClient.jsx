@@ -44,7 +44,7 @@ import PokemonSetMobileHero from "@/components/pokemon/set-page/PokemonSetHero/P
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
 import SealedMarketTrendCard from "@/components/pokemon/set-page/Overview/SealedMarketTrendCard";
 import SetMarketMobile from "@/components/pokemon/set-page/Market/SetMarketMobile";
-import { ChaseConcentrationSignal, MarketBreadthSignal } from "@/components/pokemon/set-page/Market/SetMarketSignals";
+import { ChaseConcentrationSignal, MarketBreadthSignal, useSetMarketSignalAccess } from "@/components/pokemon/set-page/Market/SetMarketSignals";
 import { selectMobileHeroModel } from "@/components/pokemon/set-page/PokemonSetHero/mobileHeroModel.mjs";
 import PullRateAssumptionsCard from "@/components/pokemon/set-page/PullRates/PullRateAssumptionsCard";
 import PullRatesTab from "@/components/pokemon/set-page/PullRates/PullRatesTab";
@@ -158,6 +158,7 @@ import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshot
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
+  getPokemonSetMarketSignals,
   getPokemonSetOverview,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
@@ -3895,10 +3896,22 @@ function MarketValueTrendPanel({
  * than as two equal cards competing for the eye.
  */
 function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
+  const { canViewSetMarketSignals } = useSetMarketSignalAccess();
+  const [paidBreadth, setPaidBreadth] = useState(null);
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
   // Site convention: every market timeframe control opens on 7D. The reader
   // can still switch away; nothing here re-forces 7D after that.
   const [selectedWindowKey, setSelectedWindowKey] = useState("7D");
+  useEffect(() => {
+    let cancelled = false;
+    setPaidBreadth(null);
+    if (!canViewSetMarketSignals || !setId) return undefined;
+    getPokemonSetMarketSignals(setId).then(
+      (payload) => { if (!cancelled) setPaidBreadth(payload?.marketBreadth || null); },
+      () => { if (!cancelled) setPaidBreadth(null); }
+    );
+    return () => { cancelled = true; };
+  }, [canViewSetMarketSignals, setId]);
 
   const cardsTrend = useMemo(
     () =>
@@ -3950,7 +3963,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   const breadthSource = resolvedSegmentKey === "sealed"
     ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
-    ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
+    ? paidBreadth
     : null;
   const breadth = useMemo(
     () => selectPreparedMarketBreadth({
@@ -11314,13 +11327,15 @@ export default function RipStatisticsPageClient({
   // comparable; re-summing today's card prices would not be.
   const setValueTop10CurrentValue = useMemo(() => {
     const points = activeSetValueHistory.historiesByScope?.top10;
-    if (!Array.isArray(points) || points.length === 0) return null;
-    for (let index = points.length - 1; index >= 0; index -= 1) {
-      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
-      if (value !== null) return value;
+    if (Array.isArray(points)) {
+      for (let index = points.length - 1; index >= 0; index -= 1) {
+        const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+        if (value !== null) return value;
+      }
     }
-    return null;
-  }, [activeSetValueHistory.historiesByScope]);
+    const summary = seededOverviewPayload?.chaseConcentration?.top10;
+    return toNumber(summary?.setValue ?? summary?.set_value ?? summary?.value);
+  }, [activeSetValueHistory.historiesByScope, seededOverviewPayload]);
   // Chase Concentration's OTHER input, read the same independent way. It must
   // NOT come from the Cards Market Index trend (`cardsTrend.currentValue`):
   // that figure is gated on the Cards Market Index having a full chain-linked
@@ -11331,13 +11346,15 @@ export default function RipStatisticsPageClient({
   // contract in setMarketOverviewModel.mjs.
   const setValueStandardCurrentValue = useMemo(() => {
     const points = activeSetValueHistory.historiesByScope?.standard || activeSetValueHistory.history;
-    if (!Array.isArray(points) || points.length === 0) return null;
-    for (let index = points.length - 1; index >= 0; index -= 1) {
-      const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
-      if (value !== null) return value;
+    if (Array.isArray(points)) {
+      for (let index = points.length - 1; index >= 0; index -= 1) {
+        const value = toNumber(points[index]?.setValue ?? points[index]?.set_value ?? points[index]?.value);
+        if (value !== null) return value;
+      }
     }
-    return null;
-  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
+    const summary = seededOverviewPayload?.chaseConcentration?.standard;
+    return toNumber(summary?.setValue ?? summary?.set_value ?? summary?.value);
+  }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history, seededOverviewPayload]);
   const desktopSealedMarketState = usePokemonSetSealedMarket(
     setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
     { enabled: false }

@@ -5,6 +5,8 @@ import math
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from backend.rankings.public_relative import public_rank_tier
+
 SORT_COLUMNS = {
     "chase_efficiency": "chase_efficiency", "rank": "overall_rank",
     "price": "current_near_mint_market_price", "name": "card_name",
@@ -45,6 +47,7 @@ def _public_row(row: Dict[str, Any]) -> Dict[str, Any]:
         "chaseSpend50": row.get("chase_spend_50"), "costMultiple50": row.get("cost_multiple_50"),
         "packsAtBuyPrice": packs_at_buy_price, "chanceAtBuyPrice": chance_at_buy_price,
         "topPercent": (100.0 * int(overall_rank) / int(overall_size)) if overall_rank and overall_size else None,
+        "tier": public_rank_tier(overall_rank, overall_size),
         "ranks": {scope: {"rank": row.get(f"{scope}_rank"), "cohortSize": row.get(f"{scope}_cohort_size")}
                   for scope in ("overall", "era", "set", "rarity")},
     }

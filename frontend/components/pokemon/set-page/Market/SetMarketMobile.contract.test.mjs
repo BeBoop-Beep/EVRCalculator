@@ -212,7 +212,7 @@ test("mobile owns one shared Sealed request and passes it to Snapshot and Top 10
   assert.equal((shell.match(/sealedState=\{sealedState\}/g) || []).length, 2);
   assert.equal(setValue.includes("getPokemonSetSealedMarket"), false);
   assert.equal(topChase.includes("getPokemonSetSealedMarket"), false);
-  assert.ok(sealedHook.includes("getPokemonSetSealedMarket"));
+  assert.ok(sealedHook.includes("getPokemonSetConsumerSealedMarket"));
   assert.ok(sealedHook.includes("lastGoodRef"));
   assert.ok(
     sealedHook.indexOf("NON_RETRYABLE_CONTRACT_CODES.has") < sealedHook.indexOf("error?.retryable === true"),

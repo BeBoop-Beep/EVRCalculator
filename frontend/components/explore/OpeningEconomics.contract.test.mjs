@@ -154,10 +154,26 @@ test("the distribution is not presented as a smooth or normal curve", () => {
 
 test("V3 basis and all P01-P99 values drive distribution geometry", () => {
   assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
-  assert.ok(overall.includes("Array.from({length:99}"));
+  assert.ok(overall.includes("Array.from({ length: 99 }"));
   assert.ok(overall.includes('data-percentile-points="99"'));
-  assert.ok(!overall.includes("18+index*10"));
+  assert.ok(overall.includes("scope.normalizedReturnPercentiles"));
+  assert.ok(overall.includes("scope.valuePerPackPercentiles"));
+  assert.ok(!/18\s*\+\s*index\s*\*\s*10/.test(overall));
   assert.ok(!overall.includes("resolveLooseBoosterPackArtwork"));
+});
+
+test("the active PercentileCurve preserves all four global headline metrics", () => {
+  assert.ok(overall.includes("function PercentileCurve"));
+  assert.ok(overall.includes("<PercentileCurve scope={scope} targets={targets} />"));
+  assert.ok(!overall.includes("function OpeningDistribution"));
+  assert.ok(overall.includes("data-opening-headline-metrics"));
+  assert.ok(overall.includes('scope.modeledReturnOnSpend'));
+  assert.ok(overall.includes('scope.typicalRetention'));
+  assert.ok(overall.includes('scope.chanceToRecoverCost'));
+  assert.ok(overall.includes('scope.averageEntertainmentCostPerPack'));
+  for (const label of ["Modeled Return", "Typical Retention", "Chance to Recover", "Entertainment Cost / Pack"]) {
+    assert.ok(overall.includes(label));
+  }
 });
 
 test("frontend transport rejects non-V3 available responses", () => {

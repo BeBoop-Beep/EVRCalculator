@@ -5,6 +5,10 @@ import { normaliseRipStatisticsTarget } from "@/lib/explore/ripStatisticsNormali
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
 
+// Rankings publication does not yet call the Set-specific revalidation hook.
+// This route therefore has an explicit, bounded 300-second consistency window;
+// it must not be described as immediately coherent with a just-promoted ranking.
+
 const loadDirectory = cache(async (limit = 150) => {
   const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/set-route-directory`);
   url.searchParams.set("limit", String(limit));

@@ -23,6 +23,11 @@ test("Premium composition is Pull Profile, rank, economics, then one journey", (
   assert.ok(section.indexOf("Economics") < section.lastIndexOf("<ProbabilityJourney"));
   assert.doesNotMatch(section, /50% Chase Spend|How rare is this exact printing|Product Chase Economics/);
   assert.match(section, /milestoneDollars=\{dollars\}/);
+  assert.match(section, /getRipTierPresentation\(row\.tier, \{ strength: "hero" \}\)/);
+  assert.doesNotMatch(section, /topPercentToTier/);
+  assert.match(section, /data-rank-context-rail/);
+  assert.match(section, /data-chase-economics-matrix/);
+  assert.match(source, /h-\[230px\].*sm:h-\[300px\]/s);
 });
 
 test("detail and ranking probabilities are validated", () => {
@@ -36,6 +41,20 @@ test("Probability Lavender is centralized and replaces teal series identity", ()
   const journey = source.slice(source.indexOf("function ProbabilityJourney"), source.indexOf("function ProductEconomics"));
   assert.match(journey, /PROBABILITY_ANALYTICS_COLOR/);
   assert.doesNotMatch(journey, /rgb\(45,212,191\)|rgba\(45,212,191/);
+  assert.doesNotMatch(journey, /milestoneDollars[\s\S]*?style=\{\{ color: PROBABILITY_ANALYTICS_COLOR/);
+});
+
+test("selected product separates identity from one analytical price", () => {
+  const product = source.slice(source.indexOf("function ProductEconomics"), source.indexOf("function PullProfile"));
+  assert.match(product, /data-product-analytics-matrix/);
+  assert.equal((product.match(/label="Product Price"/g) || []).length, 2, "supported and unsupported branches each retain one analytical price");
+  assert.doesNotMatch(product.slice(product.indexOf("Selected format"), product.indexOf("!selected.available")), /productDisplayPrice\(selected\)/);
+});
+
+test("Card Treatment explains the dynamic V1 mapping and exclusions", () => {
+  assert.match(source, /Current treatment: \$\{rarity\}/);
+  for (const value of ["SIR 9.6", "IR 8.4", "Hyper Rare \/ Gold 8.2", "Common 1.8", "Other\/unmatched 3.0"]) assert.ok(source.includes(value));
+  for (const excluded of ["market price", "pull odds", "Pokémon popularity", "artwork quality"]) assert.ok(source.includes(excluded));
 });
 
 test("Premium inherits centralized Plus access", () => {

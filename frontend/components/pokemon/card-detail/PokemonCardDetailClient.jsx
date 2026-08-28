@@ -42,7 +42,6 @@ import {
 import {
   PROBABILITY_ANALYTICS_COLOR,
   PROBABILITY_ANALYTICS_SOFT_BORDER,
-  PROBABILITY_ANALYTICS_SOFT_FILL,
   PROBABILITY_ANALYTICS_TEXT_COLOR,
 } from "./cardDetailVisualTokens.mjs";
 
@@ -78,6 +77,20 @@ const dateLabel = (value) =>
 function Metric({ label, info = null, children }) {
   return (
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.35)] p-3.5">
+      <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">
+        <span>{label}</span>
+        {info ? <InfoPopover text={info} /> : null}
+      </dt>
+      <dd className="mt-1.5 text-lg font-semibold tabular-nums sm:text-xl">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+function AnalyticalMetric({ label, info = null, children, className = "" }) {
+  return (
+    <div className={`min-w-0 px-4 py-3 ${className}`}>
       <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">
         <span>{label}</span>
         {info ? <InfoPopover text={info} /> : null}
@@ -247,15 +260,14 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
         <>
           <div
             data-probability-journey-chart
-            className="relative mt-4 overflow-hidden rounded-xl border bg-[rgba(2,8,23,.46)] px-2 py-3 sm:px-4"
-            style={{ borderColor: PROBABILITY_ANALYTICS_SOFT_BORDER }}
+            className="relative mt-4 overflow-hidden border-y border-[var(--border-subtle)] bg-white/[.015] py-3"
           >
             <svg
               role="img"
               aria-label="Cumulative pull probability by packs opened"
               aria-describedby="probability-chart-desc"
               viewBox="0 0 710 235"
-              className="h-[190px] w-full sm:h-[220px]"
+              className="h-[230px] w-full sm:h-[300px]"
             >
               <desc id="probability-chart-desc">
                 Pack counts are positioned proportionally, with milestones at
@@ -434,10 +446,7 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
                     {number(packs)} packs
                     {finite(milestoneDollars?.[label]) !== null ? (
-                      <span
-                        className="mt-1 block text-sm font-semibold"
-                        style={{ color: PROBABILITY_ANALYTICS_COLOR }}
-                      >
+                      <span className="mt-1 block text-sm font-semibold text-[var(--text-primary)]">
                         ≈ {money(milestoneDollars[label])}
                       </span>
                     ) : null}
@@ -457,7 +466,11 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
   );
 }
 
-function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading = true }) {
+function ProductEconomics({
+  chase,
+  pullAnalyticsAvailable = false,
+  showHeading = true,
+}) {
   const products = useMemo(
     () => orderCardProducts(chase.products),
     [chase.products],
@@ -481,7 +494,9 @@ function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading =
   if (!selected)
     return (
       <div>
-        {showHeading ? <h3 className="text-lg font-semibold">Choose How You Open It</h3> : null}
+        {showHeading ? (
+          <h3 className="text-lg font-semibold">Choose How You Open It</h3>
+        ) : null}
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
           Product economics are unavailable for this printing in the current
           simulation run.
@@ -489,8 +504,14 @@ function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading =
       </div>
     );
   return (
-    <section aria-labelledby={showHeading ? "opening-title" : "opening-products-title"}>
-      {showHeading ? <h3 id="opening-title" className="text-lg font-semibold">Choose How You Open It</h3> : null}
+    <section
+      aria-labelledby={showHeading ? "opening-title" : "opening-products-title"}
+    >
+      {showHeading ? (
+        <h3 id="opening-title" className="text-lg font-semibold">
+          Choose How You Open It
+        </h3>
+      ) : null}
       {!pullAnalyticsAvailable ? (
         <p
           data-product-pull-status
@@ -592,11 +613,6 @@ function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading =
                 className="h-16 w-16 rounded-lg object-contain"
               />
             ) : null}
-            <span>
-              {productDisplayPrice(selected) === null
-                ? "Price unavailable"
-                : money(productDisplayPrice(selected))}
-            </span>
             {selectedHref ? (
               <Link
                 href={selectedHref}
@@ -608,12 +624,12 @@ function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading =
           </div>
           {!selected.available ? (
             <>
-              <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-                <Metric label="Product Price">
+              <dl className="mt-4 grid overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.025] sm:grid-cols-2">
+                <AnalyticalMetric label="Product Price">
                   {productDisplayPrice(selected) === null
                     ? "Price unavailable"
                     : money(productDisplayPrice(selected))}
-                </Metric>
+                </AnalyticalMetric>
               </dl>
               <p className="mt-4 rounded-lg border border-dashed border-[var(--border-subtle)] p-4 text-sm text-[var(--text-secondary)]">
                 Card-level opening intelligence is not currently supported for
@@ -627,28 +643,37 @@ function ProductEconomics({ chase, pullAnalyticsAvailable = false, showHeading =
                 {percent(selected.targetProbabilityPerProduct)} chance of
                 pulling this card
               </p>
-              <dl className="mt-4 grid gap-2 sm:grid-cols-2">
-                <Metric
+              <dl
+                data-product-analytics-matrix
+                className="mt-4 grid overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.025] sm:grid-cols-2"
+              >
+                <AnalyticalMetric
+                  className="border-b border-[var(--border-subtle)] sm:border-r"
                   label="Product Price"
                   info={`Market price used by the current product model${selected.priceAsOf ? ` as of ${selected.priceAsOf}` : ""}${selected.priceSource ? ` from ${selected.priceSource}` : ""}.`}
                 >
                   {money(selected.productPrice)}
-                </Metric>
-                <Metric label={expectedCopy.label} info={expectedCopy.tooltip}>
+                </AnalyticalMetric>
+                <AnalyticalMetric
+                  className="border-b border-[var(--border-subtle)]"
+                  label={expectedCopy.label}
+                  info={expectedCopy.tooltip}
+                >
                   {number(selected.expectedProductsToHit, 2)}
-                </Metric>
-                <Metric
+                </AnalyticalMetric>
+                <AnalyticalMetric
+                  className="border-b border-[var(--border-subtle)] sm:border-b-0 sm:border-r"
                   label="Gross Chase Spend"
                   info={`Estimated total spend at the long-run expected number of ${selectedName} products required per copy of this card, before crediting incidental pull value.`}
                 >
                   {money(selected.grossSpend)}
-                </Metric>
-                <Metric
+                </AnalyticalMetric>
+                <AnalyticalMetric
                   label="Recovery-adjusted Cost"
                   info="Gross Chase Spend minus modeled incidental pull recovery, including duplicate targets, at the run's gross Near Mint market-value basis. Fees, shipping, condition discounts, liquidity, and sell-through are not modeled."
                 >
                   {money(selected.ripAcquisitionCost)}
-                </Metric>
+                </AnalyticalMetric>
               </dl>
               <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">
                 Recovery credits modeled incidental pulls at gross Near Mint
@@ -673,11 +698,8 @@ function PullProfile({ chase }) {
       <h3 id="pull-profile-title" className="text-lg font-semibold">
         Pull Profile
       </h3>
-      <dl
-        data-pull-profile
-        className="mt-3 grid overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.025] sm:grid-cols-2"
-      >
-        <div className="border-b border-[var(--border-subtle)] px-4 py-3 sm:border-b-0 sm:border-r">
+      <dl data-pull-profile className="mt-2 grid sm:grid-cols-2">
+        <div className="border-b border-[var(--border-subtle)] py-2 sm:border-b-0 sm:border-r sm:pr-6">
           <dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">
             Pull Odds
           </dt>
@@ -685,7 +707,7 @@ function PullProfile({ chase }) {
             1 in {number(chase.impliedOddsOneInN, 2)} packs
           </dd>
         </div>
-        <div className="px-4 py-3">
+        <div className="py-2 sm:pl-6">
           <dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">
             Expected Packs
           </dt>
@@ -718,7 +740,11 @@ function OpeningProductsSection({ detail }) {
         Choose How You Open It
       </h2>
       <div className="mt-4">
-        <ProductEconomics chase={chase} pullAnalyticsAvailable={pullAnalyticsAvailable} showHeading={false} />
+        <ProductEconomics
+          chase={chase}
+          pullAnalyticsAvailable={pullAnalyticsAvailable}
+          showHeading={false}
+        />
       </div>
     </section>
   );
@@ -849,23 +875,25 @@ function ChaseEfficiencySection({ state, detail }) {
   }
   const rank = row.ranks?.overall || {},
     chosen = row.chosenProduct || {};
+  const chaseTier = getRipTierPresentation(row.tier, { strength: "hero" });
   return (
     <section
       data-chase-efficiency-section
       aria-labelledby="chase-efficiency-title"
-      className="set-glass-surface overflow-hidden rounded-2xl border shadow-[0_18px_55px_hsl(278_72%_70%_/_0.035)]"
-      style={{ borderColor: PROBABILITY_ANALYTICS_SOFT_BORDER }}
+      className="set-glass-surface overflow-hidden rounded-2xl border border-[var(--tier-border)]"
+      style={chaseTier.style}
     >
       <header
         className="border-b p-5 sm:p-6"
         style={{
-          borderColor: PROBABILITY_ANALYTICS_SOFT_BORDER,
-          background: `linear-gradient(135deg, ${PROBABILITY_ANALYTICS_SOFT_FILL}, rgba(2,8,23,.28))`,
+          borderColor: "var(--tier-border)",
+          background:
+            "linear-gradient(135deg, var(--tier-surface), rgba(2,8,23,.28))",
         }}
       >
         <p
           className="text-xs font-bold uppercase tracking-[.18em]"
-          style={{ color: PROBABILITY_ANALYTICS_COLOR }}
+          style={{ color: "var(--tier-color)" }}
         >
           Chase Efficiency · Index Premium
         </p>
@@ -877,7 +905,7 @@ function ChaseEfficiencySection({ state, detail }) {
         </h2>
         <p
           className="mt-1 text-sm font-semibold"
-          style={{ color: PROBABILITY_ANALYTICS_TEXT_COLOR }}
+          style={{ color: "var(--tier-color)" }}
         >
           Top {number(row.topPercent, 1)}%
         </p>
@@ -893,55 +921,86 @@ function ChaseEfficiencySection({ state, detail }) {
         <PullProfile chase={premiumChase} />
         <section>
           <h3 className="text-lg font-semibold">Rank Context</h3>
-          <dl className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <dl
+            data-rank-context-rail
+            className="mt-2 grid grid-cols-2 border-y border-[var(--border-subtle)] lg:grid-cols-4"
+          >
             {[
               ["Overall", row.ranks?.overall],
               ["Era", row.ranks?.era],
               ["Set", row.ranks?.set],
               [rarityRankLabel(row.rarity), row.ranks?.rarity],
             ].map(([label, value]) => (
-              <Metric key={label} label={label}>
+              <AnalyticalMetric
+                key={label}
+                label={label}
+                className="border-b border-r border-[var(--border-subtle)] even:border-r-0 lg:border-b-0 lg:border-r lg:last:border-r-0"
+              >
                 #{number(value?.rank)}{" "}
                 <span className="text-sm font-normal text-[var(--text-secondary)]">
                   / {number(value?.cohortSize)}
                 </span>
-              </Metric>
+              </AnalyticalMetric>
             ))}
           </dl>
         </section>
         <section>
           <h3 className="text-lg font-semibold">Economics</h3>
-          <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Metric label="Card Market Price">
+          <dl
+            data-chase-economics-matrix
+            className="mt-2 grid overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.02] sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <AnalyticalMetric
+              className="border-b border-r border-[var(--border-subtle)]"
+              label="Card Market Price"
+            >
               {money(row.currentNearMintMarketPrice)}
-            </Metric>
-            <Metric label="Best Verified Opening Route">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-b border-[var(--border-subtle)] lg:border-r"
+              label="Best Verified Opening Route"
+            >
               {chosen.name || "Unavailable"}
               <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">
                 {number(chosen.randomPackCount)} random packs ·{" "}
                 {money(chosen.price)}
               </span>
-            </Metric>
-            <Metric label="Effective Pack Cost">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-b border-r border-[var(--border-subtle)]"
+              label="Effective Pack Cost"
+            >
               {money(row.bestVerifiedPackEquivalentCost)}
-            </Metric>
-            <Metric label="Loose Pack Price">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-b border-[var(--border-subtle)]"
+              label="Loose Pack Price"
+            >
               {money(row.looseBoosterPackPrice)}
-            </Metric>
-            <Metric label="Chance at Buy Price">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-b border-r border-[var(--border-subtle)] lg:border-b-0"
+              label="Chance at Buy Price"
+            >
               {percent(row.chanceAtBuyPrice)}
               <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">
                 within {number(row.packsAtBuyPrice)} pack-equivalents
               </span>
-            </Metric>
-            <Metric label="50% Cost Multiple">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-r"
+              label="50% Cost Multiple"
+            >
               {finite(row.costMultiple50) === null
                 ? "Unavailable"
                 : `${number(row.costMultiple50, 1)}× the single`}
-            </Metric>
-            <Metric label="Chase Efficiency">
+            </AnalyticalMetric>
+            <AnalyticalMetric
+              className="border-r border-[var(--border-subtle)]"
+              label="Chase Efficiency"
+            >
               {number(row.chaseEfficiency, 6)}
-            </Metric>
+            </AnalyticalMetric>
           </dl>
         </section>
         <ProbabilityJourney chase={premiumChase} milestoneDollars={dollars} />
@@ -950,7 +1009,15 @@ function ChaseEfficiencySection({ state, detail }) {
   );
 }
 
-function CollectorIntelligence({ intelligence }) {
+function treatmentMethodology(rarity, score) {
+  const current =
+    rarity && finite(score) !== null
+      ? `Current treatment: ${rarity} → ${(finite(score) / 10).toFixed(1)} / 10. `
+      : "";
+  return `${current}Card Treatment is the current V1 rarity/treatment score for this printing. It does not use market price, pull odds, Pokémon popularity, or artwork quality. Scale: SIR 9.6; IR 8.4; Hyper Rare / Gold 8.2; Ultra Rare 8.0; Ace Spec 6.8; Double Rare 6.2; Rare Holo 4.5; Rare 3.6; Uncommon 2.2; Common 1.8; Other/unmatched 3.0.`;
+}
+
+function CollectorIntelligence({ intelligence, rarity }) {
   const Meter = ({ label, metric, info, primary = false }) => {
     const score = scorePercent(metric?.score);
     const available = metric?.available && score !== null;
@@ -1031,7 +1098,7 @@ function CollectorIntelligence({ intelligence }) {
           <Meter
             label="Card Treatment"
             metric={intelligence?.treatment}
-            info="A treatment score derived from this card's published rarity label. Premium illustration and rarity treatments receive different configured scores; no market price or pull rate is used."
+            info={treatmentMethodology(rarity, intelligence?.treatment?.score)}
           />
           <Meter
             label="Scarcity"
@@ -1151,7 +1218,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         visibilityClassName="hidden sm:block"
       />
       <div className="relative mx-auto max-w-[1400px] space-y-4">
-        <div>
+        <div className="lg:-ml-6">
           <Link
             href={setHref}
             className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
@@ -1163,7 +1230,12 @@ export default function PokemonCardDetailClient({ initialDetail }) {
           data-card-detail-hero
           className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
         >
-          <div className="order-2 grid gap-4 md:order-1 md:h-full md:min-h-0 md:grid-rows-[minmax(0,1fr)_auto]">
+          <div className="order-1 grid gap-4 md:h-full md:min-h-0 md:grid-rows-[auto_minmax(0,1fr)_auto]">
+            <header data-card-identity>
+              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">{detail.set.name}</p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{detail.card.name}</h1>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{[detail.card.rarity, detail.card.printedNumber || detail.card.cardNumber].filter(Boolean).join(" · ")}</p>
+            </header>
             <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0">
               <CardArtwork detail={detail} />
             </div>
@@ -1214,24 +1286,8 @@ export default function PokemonCardDetailClient({ initialDetail }) {
               ) : null}
             </section>
           </div>
-          <div className="order-1 min-w-0 space-y-3 md:order-2">
-            <header>
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
-                {detail.set.name}
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-                {detail.card.name}
-              </h1>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-                {[
-                  detail.card.rarity,
-                  detail.card.printedNumber || detail.card.cardNumber,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </header>
-            <div data-card-market-panel>
+          <div className="order-2 min-w-0 md:h-full">
+            <div data-card-market-panel className="h-full">
               <AssetMarketPanel market={detail.market} />
             </div>
           </div>
@@ -1255,7 +1311,10 @@ export default function PokemonCardDetailClient({ initialDetail }) {
           <PlusLock title="Choose How You Open It" />
         )}
         {entitled ? (
-          <CollectorIntelligence intelligence={detail.intelligence} />
+          <CollectorIntelligence
+            intelligence={detail.intelligence}
+            rarity={detail.card.rarity}
+          />
         ) : (
           <PlusLock title="Collector Intelligence" />
         )}

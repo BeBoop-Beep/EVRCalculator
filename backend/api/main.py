@@ -26,6 +26,7 @@ from backend.db.services.collection_portfolio_service import (
     get_public_collection_data_by_username,
 )
 from backend.db.clients.supabase_client import service_read_client
+from backend.db.services.public_read_retry import run_public_read_with_retry
 from backend.db.services.calculation_run_query_service import get_latest_evr_run_snapshot
 from backend.db.services.frontend_proxy_service import (
     decode_token,
@@ -1411,17 +1412,19 @@ def get_pokemon_set_consumer_sealed_market(set_id: str):
     try:
         resolved_set = resolve_pokemon_set_identifier(set_id, client=service_read_client)
         resolved_set_id = str(resolved_set["id"])
-        result = (
-            service_read_client.table("pokemon_set_sealed_market_snapshot_latest")
-            .select(
-                "set_id,marketDate:payload_json->marketDate,"
-                "setPageConsumerMarket:payload_json->setPageConsumerMarket,"
-                "setPageConsumerTopProducts:payload_json->setPageConsumerTopProducts,"
-                "meta:payload_json->meta"
-            )
-            .eq("set_id", resolved_set_id)
-            .limit(1)
-            .execute()
+        result = run_public_read_with_retry(
+            lambda client: client.table("pokemon_set_sealed_market_snapshot_latest")
+                .select(
+                    "set_id,marketDate:payload_json->marketDate,"
+                    "setPageConsumerMarket:payload_json->setPageConsumerMarket,"
+                    "setPageConsumerTopProducts:payload_json->setPageConsumerTopProducts,"
+                    "meta:payload_json->meta"
+                )
+                .eq("set_id", resolved_set_id)
+                .limit(1)
+                .execute(),
+            operation_name="pokemon_set_consumer_sealed_market",
+            initial_client=service_read_client,
         )
         row = (result.data or [None])[0]
         if not row:
@@ -1442,7 +1445,8 @@ def get_pokemon_set_consumer_sealed_market(set_id: str):
         logger.exception("/tcgs/pokemon/sets/%s/market/sealed-consumer unexpected error", set_id)
         return JSONResponse(
             content={"message": "Unable to load consumer sealed market", "code": "POKEMON_SET_CONSUMER_SEALED_FAILED"},
-            status_code=500,
+            status_code=503,
+            headers={"Cache-Control": "no-store"},
         )
 
 

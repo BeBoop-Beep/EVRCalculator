@@ -213,8 +213,13 @@ test("top and bottom set navigation use the canonical bare set href", () => {
   assert.doesNotMatch(detailModel, /\?tab=cards/);
 });
 
-test("hero stretches its left column and places variants after the hero", () => {
-  assert.match(source, /md:grid-rows-\[minmax\(0,1fr\)_auto\]/);
+test("hero places identity above unchanged artwork and aligns the Market column", () => {
+  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)_auto\]/);
+  assert.match(source, /data-card-identity/);
+  assert.match(source, /card-detail-artwork/);
+  assert.match(source, /max-w-\[430px\]/);
+  assert.match(source, /data-card-market-panel className="h-full"/);
+  assert.match(source, /lg:-ml-6/);
   assert.match(source, /data-card-details-panel/);
   assert.match(source, /data-card-market-panel/);
   assert.doesNotMatch(source, /max-h-\[46vh\]/);
