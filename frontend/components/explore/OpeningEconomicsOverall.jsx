@@ -57,6 +57,47 @@ function OpeningDistribution({ scope, targets }) {
   </section>;
 }
 
+function PercentileCurve({ scope, targets }) {
+  const [lens, setLens] = useState("return");
+  const distribution = lens === "return" ? scope.normalizedReturnPercentiles : scope.valuePerPackPercentiles;
+  const formatter = lens === "return" ? ratioAsPercent : money;
+  const points = Array.from({ length: 99 }, (_, index) => {
+    const percentile = index + 1;
+    const key = `p${String(percentile).padStart(2, "0")}`;
+    return { percentile, value: Number(distribution?.[key]) };
+  }).filter((point) => Number.isFinite(point.value) && point.value > 0);
+  const identities = (targets || []).map((target) => ({
+    target,
+    image: target.logo_image_url || target.symbol_image_url,
+  }));
+
+  return <section className={`${styles.surface} rounded-xl p-4 sm:p-5`} data-opening-distribution>
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div><h3 className="text-base font-semibold">Opening Distribution</h3><p className="mt-1 text-xs text-[var(--text-secondary)]">Weighted empirical P01-P99 product-opening percentile curve.</p></div>
+      <div className="flex rounded-lg border border-[var(--ex-line)] p-1"><button type="button" onClick={() => setLens("return")} aria-pressed={lens === "return"} className="px-3 py-1 text-xs">Return %</button><button type="button" onClick={() => setLens("value")} aria-pressed={lens === "value"} className="px-3 py-1 text-xs">Value / Pack</button></div>
+    </div>
+    {points.length === 99 ? <div className="mt-5 h-72 min-w-0" role="img" aria-label={`${lens === "return" ? "Return percentage" : "Value per pack"} P01 through P99 percentile curve`} data-percentile-points="99">
+      <ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 4 }}>
+        <CartesianGrid stroke="var(--ex-line)" strokeDasharray="3 4" />
+        <XAxis dataKey="percentile" type="number" domain={[1, 99]} ticks={[1, 25, 50, 75, 99]} tickFormatter={(value) => `P${String(value).padStart(2, "0")}`} />
+        <YAxis scale={lens === "value" ? "log" : "auto"} domain={lens === "value" ? ["auto", "auto"] : [0, "auto"]} tickFormatter={formatter} width={60} />
+        <Tooltip labelFormatter={(value) => `Percentile P${String(value).padStart(2, "0")}`} formatter={(value) => [formatter(value), lens === "return" ? "Return %" : "Value / Pack"]} />
+        {lens === "return" ? <>
+          <ReferenceLine y={1} stroke="rgb(var(--ex-amber))" strokeWidth={2} label={{ value: "100% recovery", fill: "currentColor", fontSize: 11 }} />
+          <ReferenceLine y={Number(scope.typicalRetention)} stroke="rgb(var(--ex-teal))" strokeDasharray="4 3" />
+          <ReferenceLine y={Number(scope.meanOutcomeRetention)} stroke="var(--text-secondary)" strokeDasharray="4 3" />
+        </> : <>
+          <ReferenceLine y={Number(scope.typicalOpeningPerPack)} stroke="rgb(var(--ex-teal))" strokeDasharray="4 3" />
+          <ReferenceLine y={Number(scope.averageModelBreakEvenPerPack)} stroke="var(--text-secondary)" strokeDasharray="4 3" />
+        </>}
+        <Line type="linear" dataKey="value" stroke="rgb(var(--ex-teal))" strokeWidth={2} dot={false} isAnimationActive={false} />
+      </LineChart></ResponsiveContainer>
+    </div> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The canonical P01-P99 percentile curve is unavailable.</p>}
+    <p className="mt-3 text-xs text-[var(--text-secondary)]">{lens === "return" ? `100% recovery threshold · Typical retention ${ratioAsPercent(scope.typicalRetention)} · Mean outcome retention ${ratioAsPercent(scope.meanOutcomeRetention)} · Chance to recover ${ratioAsPercent(scope.chanceToRecoverCost)}.` : `Typical opening ${money(scope.typicalOpeningPerPack)} · Average model break-even ${money(scope.averageModelBreakEvenPerPack)} · logarithmic value axis.`}</p>
+    {identities.length ? <div className="mt-5 border-t border-[var(--ex-line)] pt-4"><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">Sets represented in this model</p><div className="mt-2 flex h-14 gap-1.5 overflow-hidden opacity-70">{identities.map(({ target, image }) => <span key={target.set_id || target.target_id} title={target.name} className="flex h-14 min-w-0 flex-1 items-center justify-center">{image ? <Image src={image} width={52} height={36} alt="" className="h-9 w-full object-contain" /> : <i className="h-3 w-3 rotate-45 border border-[rgb(var(--ex-teal))]" />}</span>)}</div></div> : null}
+  </section>;
+}
+
 /* ---------------------------------------------------------------- header --- */
 
 function Header({ scope, marketDate }) {
@@ -105,7 +146,7 @@ function EconomicEquation({ scope }) {
             <h3 className="text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
               Modeled Return on Spend
             </h3>
-            <InfoPopover text="Long-run modeled gross card-market value relative to spend across every eligible modeled sealed product after verified per-pack normalization and hierarchical weighting." />
+            <InfoPopover text="Long-run modeled gross card-market value relative to spend across every eligible modeled sealed product after verified per-pack normalization and hierarchical weighting. It is aggregate value divided by aggregate spend, not the average of each set's return." />
           </div>
           <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
             {returnPercent ?? <Dash />}
@@ -477,7 +518,7 @@ export default function OpeningEconomicsOverall({ economics, onSelectEras = null
   return (
     <section data-opening-economics-overall>
       <Header scope={scope} marketDate={economics.marketDate} />
-      <OpeningDistribution scope={scope} targets={targets} />
+      <PercentileCurve scope={scope} targets={targets} />
       <EraPreview eras={economics.eras} onSelectEras={onSelectEras} />
 
       <details className={`${styles.surfaceQuiet} mt-3 rounded-xl px-4 py-3`} data-opening-economics-methodology>
