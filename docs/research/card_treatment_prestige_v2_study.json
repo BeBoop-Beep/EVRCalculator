@@ -1,7 +1,7 @@
 {
   "study": "card_treatment_prestige_v2",
   "study_round": "frozen_cohort_reconciliation_round_4",
-  "generated_at": "2026-08-28T18:25:07.453362+00:00",
+  "generated_at": "2026-08-28T18:38:00.859500+00:00",
   "study_as_of_date": "2026-08-28",
   "decision": "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
   "acceptance_gates": {
@@ -39035,7 +39035,7 @@
     "canonical_mapping_hash": "7e0e9e2719aba8491fa777a1229cff52f23310e7fc49ca59f4a29e42fed29835"
   },
   "round4": {
-    "status": "V2_LOCAL_COMMON_SUPPORT_EXISTS",
+    "status": "LOCALLY_VALIDATED_RARITY_EFFECTS_EXIST",
     "historical_status_correction": {
       "previous": "V2_LOCAL_IDENTIFICATION_EXISTS",
       "corrected": "V2_LOCAL_COMMON_SUPPORT_EXISTS",
@@ -39535,17 +39535,1923 @@
         "overlap_species": 186
       }
     ],
-    "coefficient_estimation_executed": false,
+    "coefficient_estimation_executed": true,
     "coefficient_estimation_stop_reason": null,
     "database_rows_persisted": 0,
-    "production_scores_published": 0
+    "production_scores_published": 0,
+    "pair_results": [
+      {
+        "era": "Mega Evolution",
+        "treatment_a": "common",
+        "treatment_b": "double_rare",
+        "status": "PAIR_SUPPORT_FAILED",
+        "reason": "locked contrast was not retained by the frozen-cohort common-support gate"
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "common",
+        "treatment_b": "rare",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.6238928930954866,
+          4.572122331941891
+        ],
+        "n_a": 422,
+        "n_b": 126,
+        "sets": 6,
+        "species": 317,
+        "scarcity_a": {
+          "n": 422,
+          "min": 2.8342598914959973,
+          "p10": 2.8429425193660744,
+          "p25": 3.0408237876532693,
+          "median": 3.724237274271759,
+          "p75": 4.166576634308881,
+          "p90": 4.546618299038476,
+          "max": 4.572122331941891
+        },
+        "scarcity_b": {
+          "n": 126,
+          "min": 2.6238928930954866,
+          "p10": 2.7259036311872356,
+          "p25": 2.8128318276840507,
+          "median": 3.4699367221254525,
+          "p75": 3.7968545778484684,
+          "p90": 4.2301299695171695,
+          "max": 4.572025587395789
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 325,
+        "design_columns": 326
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "common",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.209778043407839,
+          4.571058656359323
+        ],
+        "n_a": 573,
+        "n_b": 226,
+        "sets": 6,
+        "species": 359,
+        "scarcity_a": {
+          "n": 573,
+          "min": 2.2581568089597,
+          "p10": 2.2920151532865534,
+          "p25": 2.4340728609569595,
+          "median": 3.6457816512112133,
+          "p75": 3.799811014821218,
+          "p90": 4.54033801488709,
+          "max": 4.56874182937454
+        },
+        "scarcity_b": {
+          "n": 226,
+          "min": 2.3611468439923105,
+          "p10": 2.6803818439447156,
+          "p25": 3.1334266108873345,
+          "median": 3.6909620091342035,
+          "p75": 4.168529460411477,
+          "p90": 4.548222910008102,
+          "max": 4.568452603052929
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 366,
+        "design_columns": 368
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "illustration_rare",
+        "product_relevance": "high",
+        "overlap_interval_log_odds": [
+          4.5777495904120995,
+          5.305140591896162
+        ],
+        "n_a": 39,
+        "n_b": 66,
+        "sets": 6,
+        "species": 103,
+        "scarcity_a": {
+          "n": 39,
+          "min": 5.244018593140658,
+          "p10": 5.253229311042658,
+          "p25": 5.262853930497268,
+          "median": 5.270702199515063,
+          "p75": 5.286882993809328,
+          "p90": 5.292136823793177,
+          "max": 5.305140591896162
+        },
+        "scarcity_b": {
+          "n": 66,
+          "min": 4.5777495904120995,
+          "p10": 4.5882147646718305,
+          "p25": 4.594156065642095,
+          "median": 4.67773135180073,
+          "p75": 5.260251665771277,
+          "p90": 5.288470173475936,
+          "max": 5.304536666361954
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 105,
+        "design_columns": 120
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "rare",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          3.8039761013450124,
+          4.600282151915315
+        ],
+        "n_a": 49,
+        "n_b": 48,
+        "sets": 6,
+        "species": 93,
+        "scarcity_a": {
+          "n": 49,
+          "min": 3.8039761013450124,
+          "p10": 3.811571542916552,
+          "p25": 3.904600619612508,
+          "median": 3.9135742079208824,
+          "p75": 3.918594550811185,
+          "p90": 3.922053152526979,
+          "max": 3.929016581804717
+        },
+        "scarcity_b": {
+          "n": 48,
+          "min": 3.808970150372064,
+          "p10": 3.870468514054856,
+          "p25": 4.218789464858741,
+          "median": 4.540182208718754,
+          "p75": 4.582113709624625,
+          "p90": 4.590202775172566,
+          "max": 4.600282151915315
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 97,
+        "design_columns": 108
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          3.8039761013450124,
+          4.571058656359323
+        ],
+        "n_a": 49,
+        "n_b": 70,
+        "sets": 6,
+        "species": 111,
+        "scarcity_a": {
+          "n": 49,
+          "min": 3.8039761013450124,
+          "p10": 3.811571542916552,
+          "p25": 3.904600619612508,
+          "median": 3.9135742079208824,
+          "p75": 3.918594550811185,
+          "p90": 3.922053152526979,
+          "max": 3.929016581804717
+        },
+        "scarcity_b": {
+          "n": 70,
+          "min": 3.8042005228994,
+          "p10": 4.1662251798023995,
+          "p25": 4.1730793759574984,
+          "median": 4.539335683760197,
+          "p75": 4.551250397851348,
+          "p90": 4.558677898420398,
+          "max": 4.568452603052929
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 118,
+        "design_columns": 126
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "rare",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.6238928930954866,
+          4.571058656359323
+        ],
+        "n_a": 125,
+        "n_b": 205,
+        "sets": 6,
+        "species": 186,
+        "scarcity_a": {
+          "n": 125,
+          "min": 2.6238928930954866,
+          "p10": 2.72589141502218,
+          "p25": 2.8125610778054586,
+          "median": 3.469808183289949,
+          "p75": 3.7961529093857327,
+          "p90": 4.228750338526214,
+          "max": 4.569706521712522
+        },
+        "scarcity_b": {
+          "n": 205,
+          "min": 2.679579369126516,
+          "p10": 2.6878270749266573,
+          "p25": 3.1367890538700913,
+          "median": 3.7245895367480153,
+          "p75": 4.173128063029475,
+          "p90": 4.5483173743953085,
+          "max": 4.568452603052929
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 193,
+        "design_columns": 195
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "double_rare",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          3.5837989776634287,
+          5.080467803694937
+        ],
+        "n_a": 1013,
+        "n_b": 229,
+        "sets": 16,
+        "species": 652,
+        "scarcity_a": {
+          "n": 1013,
+          "min": 3.9199543757544264,
+          "p10": 3.9544507065217274,
+          "p25": 4.311158189841441,
+          "median": 4.433319929061432,
+          "p75": 4.521472626966524,
+          "p90": 4.5546862305865945,
+          "max": 4.617647707499204
+        },
+        "scarcity_b": {
+          "n": 229,
+          "min": 3.5837989776634287,
+          "p10": 4.146836777458768,
+          "p25": 4.435680608009515,
+          "median": 4.516884621120731,
+          "p75": 4.804231066786344,
+          "p90": 5.040271294768921,
+          "max": 5.080467803694937
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 675,
+        "design_columns": 678
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "rare",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.208266313555609,
+          7.308232845579262
+        ],
+        "n_a": 2268,
+        "n_b": 606,
+        "sets": 16,
+        "species": 687,
+        "scarcity_a": {
+          "n": 2268,
+          "min": 2.2870070630307273,
+          "p10": 2.8934482858659534,
+          "p25": 3.033823624717182,
+          "median": 3.952636688313443,
+          "p75": 4.470683003145117,
+          "p90": 4.603601418196383,
+          "max": 7.3067414209925925
+        },
+        "scarcity_b": {
+          "n": 606,
+          "min": 2.208266313555609,
+          "p10": 2.9738640537598204,
+          "p25": 3.2699257284092624,
+          "median": 4.201779916888282,
+          "p75": 4.51264181031686,
+          "p90": 5.709750531063058,
+          "max": 7.308232845579262
+        },
+        "coefficient_log_price_b_vs_a": 0.41737525563487,
+        "adjusted_price_association_pct": 51.79720336296712,
+        "wild_cluster_inference": {
+          "draws": 1000,
+          "cluster_unit": "set",
+          "cluster_count": 16,
+          "ci_low": 0.24437893175986583,
+          "ci_high": 0.6063067580367039
+        },
+        "scarcity_functional_form_coefficient": 0.4201416323751126,
+        "mechanic_sensitivity_coefficient": 0.429326901540815,
+        "demand_outlier_sensitivity_coefficient": 0.41254763835083197,
+        "overlap_balance_sensitivity_coefficient": 0.4531657872509902,
+        "leave_one_set_out": [
+          {
+            "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+            "coefficient": 0.41901666735715426
+          },
+          {
+            "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "coefficient": null
+          },
+          {
+            "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "coefficient": 0.41558327504150216
+          },
+          {
+            "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "coefficient": null
+          },
+          {
+            "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "coefficient": null
+          },
+          {
+            "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "coefficient": 0.46232930782541415
+          },
+          {
+            "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "coefficient": 0.4351930282023
+          },
+          {
+            "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "coefficient": 0.4186520500356148
+          },
+          {
+            "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "coefficient": null
+          },
+          {
+            "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "coefficient": 0.41738961811773245
+          },
+          {
+            "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "coefficient": 0.3776319534430722
+          },
+          {
+            "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "coefficient": 0.41187667632477676
+          },
+          {
+            "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+            "coefficient": 0.38446825884168057
+          },
+          {
+            "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "coefficient": 0.4016795787035189
+          },
+          {
+            "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+            "coefficient": 0.511478532528586
+          },
+          {
+            "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "coefficient": 0.44056415236680724
+          }
+        ],
+        "permutation_placebo": {
+          "draws": 199,
+          "p_value": 0.005
+        },
+        "status": "LOCALLY_VALIDATED"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.178289973722439,
+          7.329349769020185
+        ],
+        "n_a": 2297,
+        "n_b": 1182,
+        "sets": 16,
+        "species": 753,
+        "scarcity_a": {
+          "n": 2297,
+          "min": 2.178289973722439,
+          "p10": 2.8306620368293496,
+          "p25": 3.03032371832361,
+          "median": 3.9471839705217353,
+          "p75": 4.468107535599752,
+          "p90": 4.603511563461264,
+          "max": 7.31722840848784
+        },
+        "scarcity_b": {
+          "n": 1182,
+          "min": 2.3617514036632614,
+          "p10": 2.6682377153354695,
+          "p25": 3.0315408361064855,
+          "median": 4.067909563063914,
+          "p75": 4.481913359121485,
+          "p90": 5.472266808745305,
+          "max": 7.329349769020185
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 771,
+        "design_columns": 774
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "double_rare",
+        "treatment_b": "rare",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          3.5837989776634287,
+          5.080467803694937
+        ],
+        "n_a": 229,
+        "n_b": 261,
+        "sets": 16,
+        "species": 286,
+        "scarcity_a": {
+          "n": 229,
+          "min": 3.5837989776634287,
+          "p10": 4.146836777458768,
+          "p25": 4.435680608009515,
+          "median": 4.516884621120731,
+          "p75": 4.804231066786344,
+          "p90": 5.040271294768921,
+          "max": 5.080467803694937
+        },
+        "scarcity_b": {
+          "n": 261,
+          "min": 3.632045537361918,
+          "p10": 4.032553562065893,
+          "p25": 4.252402866880376,
+          "median": 4.433993840299135,
+          "p75": 4.524143347345718,
+          "p90": 4.605770366060124,
+          "max": 4.655411402424838
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 312,
+        "design_columns": 315
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "double_rare",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          3.5837989776634287,
+          5.080467803694937
+        ],
+        "n_a": 229,
+        "n_b": 531,
+        "sets": 16,
+        "species": 439,
+        "scarcity_a": {
+          "n": 229,
+          "min": 3.5837989776634287,
+          "p10": 4.146836777458768,
+          "p25": 4.435680608009515,
+          "median": 4.516884621120731,
+          "p75": 4.804231066786344,
+          "p90": 5.040271294768921,
+          "max": 5.080467803694937
+        },
+        "scarcity_b": {
+          "n": 531,
+          "min": 3.908280019149312,
+          "p10": 3.953313859846027,
+          "p25": 4.317888218890413,
+          "median": 4.438300733753058,
+          "p75": 4.532431060305067,
+          "p90": 4.550303284547251,
+          "max": 4.609981742985314
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 465,
+        "design_columns": 468
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "illustration_rare",
+        "treatment_b": "special_illustration_rare",
+        "product_relevance": "high",
+        "overlap_interval_log_odds": [
+          5.2529616648272395,
+          6.743088657426903
+        ],
+        "n_a": 329,
+        "n_b": 51,
+        "sets": 15,
+        "species": 353,
+        "scarcity_a": {
+          "n": 329,
+          "min": 5.256024454357785,
+          "p10": 5.6146732995844255,
+          "p25": 5.6958143050070245,
+          "median": 6.128889223019654,
+          "p75": 6.672683156802654,
+          "p90": 6.708248951130249,
+          "max": 6.743088657426903
+        },
+        "scarcity_b": {
+          "n": 51,
+          "min": 5.2529616648272395,
+          "p10": 5.407239773772224,
+          "p25": 5.782664002961643,
+          "median": 6.167724512523341,
+          "p75": 6.2888022762317535,
+          "p90": 6.566295500849885,
+          "max": 6.7380125043950425
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 371,
+        "design_columns": 381
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "illustration_rare",
+        "treatment_b": "ultra_rare",
+        "product_relevance": "high",
+        "overlap_interval_log_odds": [
+          4.371126260205593,
+          6.114762763452475
+        ],
+        "n_a": 212,
+        "n_b": 155,
+        "sets": 14,
+        "species": 323,
+        "scarcity_a": {
+          "n": 212,
+          "min": 4.868615034075827,
+          "p10": 5.062648975674884,
+          "p25": 5.244210674699678,
+          "median": 5.63155484065932,
+          "p75": 5.719988297000208,
+          "p90": 6.078461797915258,
+          "max": 6.113858195322049
+        },
+        "scarcity_b": {
+          "n": 155,
+          "min": 4.960132311923149,
+          "p10": 5.1242968890244995,
+          "p25": 5.593762974065381,
+          "median": 5.764169624671296,
+          "p75": 5.9043706635927204,
+          "p90": 6.060344923394755,
+          "max": 6.114762763452475
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 343,
+        "design_columns": 350
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "rare",
+        "treatment_b": "uncommon",
+        "product_relevance": "calibration",
+        "overlap_interval_log_odds": [
+          2.208266313555609,
+          7.308232845579262
+        ],
+        "n_a": 606,
+        "n_b": 1180,
+        "sets": 16,
+        "species": 476,
+        "scarcity_a": {
+          "n": 606,
+          "min": 2.208266313555609,
+          "p10": 2.9738640537598204,
+          "p25": 3.2699257284092624,
+          "median": 4.201779916888282,
+          "p75": 4.51264181031686,
+          "p90": 5.709750531063058,
+          "max": 7.308232845579262
+        },
+        "scarcity_b": {
+          "n": 1180,
+          "min": 2.3617514036632614,
+          "p10": 2.667926053755174,
+          "p25": 3.031328376642362,
+          "median": 3.9642812150429942,
+          "p75": 4.480588153369864,
+          "p90": 5.467778021385369,
+          "max": 7.308232845579262
+        },
+        "status": "LOCAL_EFFECT_UNCERTAIN",
+        "reason": "rank_deficient_fixed_effect_design",
+        "design_rank": 496,
+        "design_columns": 497
+      }
+    ],
+    "locked_contrast_count": 15,
+    "estimated_contrast_count": 15,
+    "locally_validated_count": 1
   },
-  "regression_results": null,
-  "robustness_results": null,
+  "regression_results": [
+    {
+      "era": "Mega Evolution",
+      "treatment_a": "common",
+      "treatment_b": "double_rare",
+      "status": "PAIR_SUPPORT_FAILED",
+      "reason": "locked contrast was not retained by the frozen-cohort common-support gate"
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "common",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.6238928930954866,
+        4.572122331941891
+      ],
+      "n_a": 422,
+      "n_b": 126,
+      "sets": 6,
+      "species": 317,
+      "scarcity_a": {
+        "n": 422,
+        "min": 2.8342598914959973,
+        "p10": 2.8429425193660744,
+        "p25": 3.0408237876532693,
+        "median": 3.724237274271759,
+        "p75": 4.166576634308881,
+        "p90": 4.546618299038476,
+        "max": 4.572122331941891
+      },
+      "scarcity_b": {
+        "n": 126,
+        "min": 2.6238928930954866,
+        "p10": 2.7259036311872356,
+        "p25": 2.8128318276840507,
+        "median": 3.4699367221254525,
+        "p75": 3.7968545778484684,
+        "p90": 4.2301299695171695,
+        "max": 4.572025587395789
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 325,
+      "design_columns": 326
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "common",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.209778043407839,
+        4.571058656359323
+      ],
+      "n_a": 573,
+      "n_b": 226,
+      "sets": 6,
+      "species": 359,
+      "scarcity_a": {
+        "n": 573,
+        "min": 2.2581568089597,
+        "p10": 2.2920151532865534,
+        "p25": 2.4340728609569595,
+        "median": 3.6457816512112133,
+        "p75": 3.799811014821218,
+        "p90": 4.54033801488709,
+        "max": 4.56874182937454
+      },
+      "scarcity_b": {
+        "n": 226,
+        "min": 2.3611468439923105,
+        "p10": 2.6803818439447156,
+        "p25": 3.1334266108873345,
+        "median": 3.6909620091342035,
+        "p75": 4.168529460411477,
+        "p90": 4.548222910008102,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 366,
+      "design_columns": 368
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "illustration_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        4.5777495904120995,
+        5.305140591896162
+      ],
+      "n_a": 39,
+      "n_b": 66,
+      "sets": 6,
+      "species": 103,
+      "scarcity_a": {
+        "n": 39,
+        "min": 5.244018593140658,
+        "p10": 5.253229311042658,
+        "p25": 5.262853930497268,
+        "median": 5.270702199515063,
+        "p75": 5.286882993809328,
+        "p90": 5.292136823793177,
+        "max": 5.305140591896162
+      },
+      "scarcity_b": {
+        "n": 66,
+        "min": 4.5777495904120995,
+        "p10": 4.5882147646718305,
+        "p25": 4.594156065642095,
+        "median": 4.67773135180073,
+        "p75": 5.260251665771277,
+        "p90": 5.288470173475936,
+        "max": 5.304536666361954
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 105,
+      "design_columns": 120
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.8039761013450124,
+        4.600282151915315
+      ],
+      "n_a": 49,
+      "n_b": 48,
+      "sets": 6,
+      "species": 93,
+      "scarcity_a": {
+        "n": 49,
+        "min": 3.8039761013450124,
+        "p10": 3.811571542916552,
+        "p25": 3.904600619612508,
+        "median": 3.9135742079208824,
+        "p75": 3.918594550811185,
+        "p90": 3.922053152526979,
+        "max": 3.929016581804717
+      },
+      "scarcity_b": {
+        "n": 48,
+        "min": 3.808970150372064,
+        "p10": 3.870468514054856,
+        "p25": 4.218789464858741,
+        "median": 4.540182208718754,
+        "p75": 4.582113709624625,
+        "p90": 4.590202775172566,
+        "max": 4.600282151915315
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 97,
+      "design_columns": 108
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.8039761013450124,
+        4.571058656359323
+      ],
+      "n_a": 49,
+      "n_b": 70,
+      "sets": 6,
+      "species": 111,
+      "scarcity_a": {
+        "n": 49,
+        "min": 3.8039761013450124,
+        "p10": 3.811571542916552,
+        "p25": 3.904600619612508,
+        "median": 3.9135742079208824,
+        "p75": 3.918594550811185,
+        "p90": 3.922053152526979,
+        "max": 3.929016581804717
+      },
+      "scarcity_b": {
+        "n": 70,
+        "min": 3.8042005228994,
+        "p10": 4.1662251798023995,
+        "p25": 4.1730793759574984,
+        "median": 4.539335683760197,
+        "p75": 4.551250397851348,
+        "p90": 4.558677898420398,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 118,
+      "design_columns": 126
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.6238928930954866,
+        4.571058656359323
+      ],
+      "n_a": 125,
+      "n_b": 205,
+      "sets": 6,
+      "species": 186,
+      "scarcity_a": {
+        "n": 125,
+        "min": 2.6238928930954866,
+        "p10": 2.72589141502218,
+        "p25": 2.8125610778054586,
+        "median": 3.469808183289949,
+        "p75": 3.7961529093857327,
+        "p90": 4.228750338526214,
+        "max": 4.569706521712522
+      },
+      "scarcity_b": {
+        "n": 205,
+        "min": 2.679579369126516,
+        "p10": 2.6878270749266573,
+        "p25": 3.1367890538700913,
+        "median": 3.7245895367480153,
+        "p75": 4.173128063029475,
+        "p90": 4.5483173743953085,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 193,
+      "design_columns": 195
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "double_rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 1013,
+      "n_b": 229,
+      "sets": 16,
+      "species": 652,
+      "scarcity_a": {
+        "n": 1013,
+        "min": 3.9199543757544264,
+        "p10": 3.9544507065217274,
+        "p25": 4.311158189841441,
+        "median": 4.433319929061432,
+        "p75": 4.521472626966524,
+        "p90": 4.5546862305865945,
+        "max": 4.617647707499204
+      },
+      "scarcity_b": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 675,
+      "design_columns": 678
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.208266313555609,
+        7.308232845579262
+      ],
+      "n_a": 2268,
+      "n_b": 606,
+      "sets": 16,
+      "species": 687,
+      "scarcity_a": {
+        "n": 2268,
+        "min": 2.2870070630307273,
+        "p10": 2.8934482858659534,
+        "p25": 3.033823624717182,
+        "median": 3.952636688313443,
+        "p75": 4.470683003145117,
+        "p90": 4.603601418196383,
+        "max": 7.3067414209925925
+      },
+      "scarcity_b": {
+        "n": 606,
+        "min": 2.208266313555609,
+        "p10": 2.9738640537598204,
+        "p25": 3.2699257284092624,
+        "median": 4.201779916888282,
+        "p75": 4.51264181031686,
+        "p90": 5.709750531063058,
+        "max": 7.308232845579262
+      },
+      "coefficient_log_price_b_vs_a": 0.41737525563487,
+      "adjusted_price_association_pct": 51.79720336296712,
+      "wild_cluster_inference": {
+        "draws": 1000,
+        "cluster_unit": "set",
+        "cluster_count": 16,
+        "ci_low": 0.24437893175986583,
+        "ci_high": 0.6063067580367039
+      },
+      "scarcity_functional_form_coefficient": 0.4201416323751126,
+      "mechanic_sensitivity_coefficient": 0.429326901540815,
+      "demand_outlier_sensitivity_coefficient": 0.41254763835083197,
+      "overlap_balance_sensitivity_coefficient": 0.4531657872509902,
+      "leave_one_set_out": [
+        {
+          "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+          "coefficient": 0.41901666735715426
+        },
+        {
+          "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "coefficient": null
+        },
+        {
+          "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "coefficient": 0.41558327504150216
+        },
+        {
+          "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "coefficient": null
+        },
+        {
+          "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "coefficient": null
+        },
+        {
+          "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "coefficient": 0.46232930782541415
+        },
+        {
+          "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "coefficient": 0.4351930282023
+        },
+        {
+          "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "coefficient": 0.4186520500356148
+        },
+        {
+          "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "coefficient": null
+        },
+        {
+          "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "coefficient": 0.41738961811773245
+        },
+        {
+          "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "coefficient": 0.3776319534430722
+        },
+        {
+          "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "coefficient": 0.41187667632477676
+        },
+        {
+          "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+          "coefficient": 0.38446825884168057
+        },
+        {
+          "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+          "coefficient": 0.4016795787035189
+        },
+        {
+          "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+          "coefficient": 0.511478532528586
+        },
+        {
+          "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+          "coefficient": 0.44056415236680724
+        }
+      ],
+      "permutation_placebo": {
+        "draws": 199,
+        "p_value": 0.005
+      },
+      "status": "LOCALLY_VALIDATED"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.178289973722439,
+        7.329349769020185
+      ],
+      "n_a": 2297,
+      "n_b": 1182,
+      "sets": 16,
+      "species": 753,
+      "scarcity_a": {
+        "n": 2297,
+        "min": 2.178289973722439,
+        "p10": 2.8306620368293496,
+        "p25": 3.03032371832361,
+        "median": 3.9471839705217353,
+        "p75": 4.468107535599752,
+        "p90": 4.603511563461264,
+        "max": 7.31722840848784
+      },
+      "scarcity_b": {
+        "n": 1182,
+        "min": 2.3617514036632614,
+        "p10": 2.6682377153354695,
+        "p25": 3.0315408361064855,
+        "median": 4.067909563063914,
+        "p75": 4.481913359121485,
+        "p90": 5.472266808745305,
+        "max": 7.329349769020185
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 771,
+      "design_columns": 774
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "double_rare",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 229,
+      "n_b": 261,
+      "sets": 16,
+      "species": 286,
+      "scarcity_a": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "scarcity_b": {
+        "n": 261,
+        "min": 3.632045537361918,
+        "p10": 4.032553562065893,
+        "p25": 4.252402866880376,
+        "median": 4.433993840299135,
+        "p75": 4.524143347345718,
+        "p90": 4.605770366060124,
+        "max": 4.655411402424838
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 312,
+      "design_columns": 315
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "double_rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 229,
+      "n_b": 531,
+      "sets": 16,
+      "species": 439,
+      "scarcity_a": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "scarcity_b": {
+        "n": 531,
+        "min": 3.908280019149312,
+        "p10": 3.953313859846027,
+        "p25": 4.317888218890413,
+        "median": 4.438300733753058,
+        "p75": 4.532431060305067,
+        "p90": 4.550303284547251,
+        "max": 4.609981742985314
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 465,
+      "design_columns": 468
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "illustration_rare",
+      "treatment_b": "special_illustration_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        5.2529616648272395,
+        6.743088657426903
+      ],
+      "n_a": 329,
+      "n_b": 51,
+      "sets": 15,
+      "species": 353,
+      "scarcity_a": {
+        "n": 329,
+        "min": 5.256024454357785,
+        "p10": 5.6146732995844255,
+        "p25": 5.6958143050070245,
+        "median": 6.128889223019654,
+        "p75": 6.672683156802654,
+        "p90": 6.708248951130249,
+        "max": 6.743088657426903
+      },
+      "scarcity_b": {
+        "n": 51,
+        "min": 5.2529616648272395,
+        "p10": 5.407239773772224,
+        "p25": 5.782664002961643,
+        "median": 6.167724512523341,
+        "p75": 6.2888022762317535,
+        "p90": 6.566295500849885,
+        "max": 6.7380125043950425
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 371,
+      "design_columns": 381
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "illustration_rare",
+      "treatment_b": "ultra_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        4.371126260205593,
+        6.114762763452475
+      ],
+      "n_a": 212,
+      "n_b": 155,
+      "sets": 14,
+      "species": 323,
+      "scarcity_a": {
+        "n": 212,
+        "min": 4.868615034075827,
+        "p10": 5.062648975674884,
+        "p25": 5.244210674699678,
+        "median": 5.63155484065932,
+        "p75": 5.719988297000208,
+        "p90": 6.078461797915258,
+        "max": 6.113858195322049
+      },
+      "scarcity_b": {
+        "n": 155,
+        "min": 4.960132311923149,
+        "p10": 5.1242968890244995,
+        "p25": 5.593762974065381,
+        "median": 5.764169624671296,
+        "p75": 5.9043706635927204,
+        "p90": 6.060344923394755,
+        "max": 6.114762763452475
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 343,
+      "design_columns": 350
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.208266313555609,
+        7.308232845579262
+      ],
+      "n_a": 606,
+      "n_b": 1180,
+      "sets": 16,
+      "species": 476,
+      "scarcity_a": {
+        "n": 606,
+        "min": 2.208266313555609,
+        "p10": 2.9738640537598204,
+        "p25": 3.2699257284092624,
+        "median": 4.201779916888282,
+        "p75": 4.51264181031686,
+        "p90": 5.709750531063058,
+        "max": 7.308232845579262
+      },
+      "scarcity_b": {
+        "n": 1180,
+        "min": 2.3617514036632614,
+        "p10": 2.667926053755174,
+        "p25": 3.031328376642362,
+        "median": 3.9642812150429942,
+        "p75": 4.480588153369864,
+        "p90": 5.467778021385369,
+        "max": 7.308232845579262
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 496,
+      "design_columns": 497
+    }
+  ],
+  "robustness_results": [
+    {
+      "era": "Mega Evolution",
+      "treatment_a": "common",
+      "treatment_b": "double_rare",
+      "status": "PAIR_SUPPORT_FAILED",
+      "reason": "locked contrast was not retained by the frozen-cohort common-support gate"
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "common",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.6238928930954866,
+        4.572122331941891
+      ],
+      "n_a": 422,
+      "n_b": 126,
+      "sets": 6,
+      "species": 317,
+      "scarcity_a": {
+        "n": 422,
+        "min": 2.8342598914959973,
+        "p10": 2.8429425193660744,
+        "p25": 3.0408237876532693,
+        "median": 3.724237274271759,
+        "p75": 4.166576634308881,
+        "p90": 4.546618299038476,
+        "max": 4.572122331941891
+      },
+      "scarcity_b": {
+        "n": 126,
+        "min": 2.6238928930954866,
+        "p10": 2.7259036311872356,
+        "p25": 2.8128318276840507,
+        "median": 3.4699367221254525,
+        "p75": 3.7968545778484684,
+        "p90": 4.2301299695171695,
+        "max": 4.572025587395789
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 325,
+      "design_columns": 326
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "common",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.209778043407839,
+        4.571058656359323
+      ],
+      "n_a": 573,
+      "n_b": 226,
+      "sets": 6,
+      "species": 359,
+      "scarcity_a": {
+        "n": 573,
+        "min": 2.2581568089597,
+        "p10": 2.2920151532865534,
+        "p25": 2.4340728609569595,
+        "median": 3.6457816512112133,
+        "p75": 3.799811014821218,
+        "p90": 4.54033801488709,
+        "max": 4.56874182937454
+      },
+      "scarcity_b": {
+        "n": 226,
+        "min": 2.3611468439923105,
+        "p10": 2.6803818439447156,
+        "p25": 3.1334266108873345,
+        "median": 3.6909620091342035,
+        "p75": 4.168529460411477,
+        "p90": 4.548222910008102,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 366,
+      "design_columns": 368
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "illustration_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        4.5777495904120995,
+        5.305140591896162
+      ],
+      "n_a": 39,
+      "n_b": 66,
+      "sets": 6,
+      "species": 103,
+      "scarcity_a": {
+        "n": 39,
+        "min": 5.244018593140658,
+        "p10": 5.253229311042658,
+        "p25": 5.262853930497268,
+        "median": 5.270702199515063,
+        "p75": 5.286882993809328,
+        "p90": 5.292136823793177,
+        "max": 5.305140591896162
+      },
+      "scarcity_b": {
+        "n": 66,
+        "min": 4.5777495904120995,
+        "p10": 4.5882147646718305,
+        "p25": 4.594156065642095,
+        "median": 4.67773135180073,
+        "p75": 5.260251665771277,
+        "p90": 5.288470173475936,
+        "max": 5.304536666361954
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 105,
+      "design_columns": 120
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.8039761013450124,
+        4.600282151915315
+      ],
+      "n_a": 49,
+      "n_b": 48,
+      "sets": 6,
+      "species": 93,
+      "scarcity_a": {
+        "n": 49,
+        "min": 3.8039761013450124,
+        "p10": 3.811571542916552,
+        "p25": 3.904600619612508,
+        "median": 3.9135742079208824,
+        "p75": 3.918594550811185,
+        "p90": 3.922053152526979,
+        "max": 3.929016581804717
+      },
+      "scarcity_b": {
+        "n": 48,
+        "min": 3.808970150372064,
+        "p10": 3.870468514054856,
+        "p25": 4.218789464858741,
+        "median": 4.540182208718754,
+        "p75": 4.582113709624625,
+        "p90": 4.590202775172566,
+        "max": 4.600282151915315
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 97,
+      "design_columns": 108
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "double_rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.8039761013450124,
+        4.571058656359323
+      ],
+      "n_a": 49,
+      "n_b": 70,
+      "sets": 6,
+      "species": 111,
+      "scarcity_a": {
+        "n": 49,
+        "min": 3.8039761013450124,
+        "p10": 3.811571542916552,
+        "p25": 3.904600619612508,
+        "median": 3.9135742079208824,
+        "p75": 3.918594550811185,
+        "p90": 3.922053152526979,
+        "max": 3.929016581804717
+      },
+      "scarcity_b": {
+        "n": 70,
+        "min": 3.8042005228994,
+        "p10": 4.1662251798023995,
+        "p25": 4.1730793759574984,
+        "median": 4.539335683760197,
+        "p75": 4.551250397851348,
+        "p90": 4.558677898420398,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 118,
+      "design_columns": 126
+    },
+    {
+      "era": "Mega Evolution",
+      "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+      "treatment_a": "rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.6238928930954866,
+        4.571058656359323
+      ],
+      "n_a": 125,
+      "n_b": 205,
+      "sets": 6,
+      "species": 186,
+      "scarcity_a": {
+        "n": 125,
+        "min": 2.6238928930954866,
+        "p10": 2.72589141502218,
+        "p25": 2.8125610778054586,
+        "median": 3.469808183289949,
+        "p75": 3.7961529093857327,
+        "p90": 4.228750338526214,
+        "max": 4.569706521712522
+      },
+      "scarcity_b": {
+        "n": 205,
+        "min": 2.679579369126516,
+        "p10": 2.6878270749266573,
+        "p25": 3.1367890538700913,
+        "median": 3.7245895367480153,
+        "p75": 4.173128063029475,
+        "p90": 4.5483173743953085,
+        "max": 4.568452603052929
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 193,
+      "design_columns": 195
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "double_rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 1013,
+      "n_b": 229,
+      "sets": 16,
+      "species": 652,
+      "scarcity_a": {
+        "n": 1013,
+        "min": 3.9199543757544264,
+        "p10": 3.9544507065217274,
+        "p25": 4.311158189841441,
+        "median": 4.433319929061432,
+        "p75": 4.521472626966524,
+        "p90": 4.5546862305865945,
+        "max": 4.617647707499204
+      },
+      "scarcity_b": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 675,
+      "design_columns": 678
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.208266313555609,
+        7.308232845579262
+      ],
+      "n_a": 2268,
+      "n_b": 606,
+      "sets": 16,
+      "species": 687,
+      "scarcity_a": {
+        "n": 2268,
+        "min": 2.2870070630307273,
+        "p10": 2.8934482858659534,
+        "p25": 3.033823624717182,
+        "median": 3.952636688313443,
+        "p75": 4.470683003145117,
+        "p90": 4.603601418196383,
+        "max": 7.3067414209925925
+      },
+      "scarcity_b": {
+        "n": 606,
+        "min": 2.208266313555609,
+        "p10": 2.9738640537598204,
+        "p25": 3.2699257284092624,
+        "median": 4.201779916888282,
+        "p75": 4.51264181031686,
+        "p90": 5.709750531063058,
+        "max": 7.308232845579262
+      },
+      "coefficient_log_price_b_vs_a": 0.41737525563487,
+      "adjusted_price_association_pct": 51.79720336296712,
+      "wild_cluster_inference": {
+        "draws": 1000,
+        "cluster_unit": "set",
+        "cluster_count": 16,
+        "ci_low": 0.24437893175986583,
+        "ci_high": 0.6063067580367039
+      },
+      "scarcity_functional_form_coefficient": 0.4201416323751126,
+      "mechanic_sensitivity_coefficient": 0.429326901540815,
+      "demand_outlier_sensitivity_coefficient": 0.41254763835083197,
+      "overlap_balance_sensitivity_coefficient": 0.4531657872509902,
+      "leave_one_set_out": [
+        {
+          "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+          "coefficient": 0.41901666735715426
+        },
+        {
+          "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+          "coefficient": null
+        },
+        {
+          "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+          "coefficient": 0.41558327504150216
+        },
+        {
+          "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+          "coefficient": null
+        },
+        {
+          "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+          "coefficient": null
+        },
+        {
+          "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+          "coefficient": 0.46232930782541415
+        },
+        {
+          "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+          "coefficient": 0.4351930282023
+        },
+        {
+          "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+          "coefficient": 0.4186520500356148
+        },
+        {
+          "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+          "coefficient": null
+        },
+        {
+          "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+          "coefficient": 0.41738961811773245
+        },
+        {
+          "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+          "coefficient": 0.3776319534430722
+        },
+        {
+          "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+          "coefficient": 0.41187667632477676
+        },
+        {
+          "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+          "coefficient": 0.38446825884168057
+        },
+        {
+          "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+          "coefficient": 0.4016795787035189
+        },
+        {
+          "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+          "coefficient": 0.511478532528586
+        },
+        {
+          "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+          "coefficient": 0.44056415236680724
+        }
+      ],
+      "permutation_placebo": {
+        "draws": 199,
+        "p_value": 0.005
+      },
+      "status": "LOCALLY_VALIDATED"
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "common",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.178289973722439,
+        7.329349769020185
+      ],
+      "n_a": 2297,
+      "n_b": 1182,
+      "sets": 16,
+      "species": 753,
+      "scarcity_a": {
+        "n": 2297,
+        "min": 2.178289973722439,
+        "p10": 2.8306620368293496,
+        "p25": 3.03032371832361,
+        "median": 3.9471839705217353,
+        "p75": 4.468107535599752,
+        "p90": 4.603511563461264,
+        "max": 7.31722840848784
+      },
+      "scarcity_b": {
+        "n": 1182,
+        "min": 2.3617514036632614,
+        "p10": 2.6682377153354695,
+        "p25": 3.0315408361064855,
+        "median": 4.067909563063914,
+        "p75": 4.481913359121485,
+        "p90": 5.472266808745305,
+        "max": 7.329349769020185
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 771,
+      "design_columns": 774
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "double_rare",
+      "treatment_b": "rare",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 229,
+      "n_b": 261,
+      "sets": 16,
+      "species": 286,
+      "scarcity_a": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "scarcity_b": {
+        "n": 261,
+        "min": 3.632045537361918,
+        "p10": 4.032553562065893,
+        "p25": 4.252402866880376,
+        "median": 4.433993840299135,
+        "p75": 4.524143347345718,
+        "p90": 4.605770366060124,
+        "max": 4.655411402424838
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 312,
+      "design_columns": 315
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "double_rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        3.5837989776634287,
+        5.080467803694937
+      ],
+      "n_a": 229,
+      "n_b": 531,
+      "sets": 16,
+      "species": 439,
+      "scarcity_a": {
+        "n": 229,
+        "min": 3.5837989776634287,
+        "p10": 4.146836777458768,
+        "p25": 4.435680608009515,
+        "median": 4.516884621120731,
+        "p75": 4.804231066786344,
+        "p90": 5.040271294768921,
+        "max": 5.080467803694937
+      },
+      "scarcity_b": {
+        "n": 531,
+        "min": 3.908280019149312,
+        "p10": 3.953313859846027,
+        "p25": 4.317888218890413,
+        "median": 4.438300733753058,
+        "p75": 4.532431060305067,
+        "p90": 4.550303284547251,
+        "max": 4.609981742985314
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 465,
+      "design_columns": 468
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "illustration_rare",
+      "treatment_b": "special_illustration_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        5.2529616648272395,
+        6.743088657426903
+      ],
+      "n_a": 329,
+      "n_b": 51,
+      "sets": 15,
+      "species": 353,
+      "scarcity_a": {
+        "n": 329,
+        "min": 5.256024454357785,
+        "p10": 5.6146732995844255,
+        "p25": 5.6958143050070245,
+        "median": 6.128889223019654,
+        "p75": 6.672683156802654,
+        "p90": 6.708248951130249,
+        "max": 6.743088657426903
+      },
+      "scarcity_b": {
+        "n": 51,
+        "min": 5.2529616648272395,
+        "p10": 5.407239773772224,
+        "p25": 5.782664002961643,
+        "median": 6.167724512523341,
+        "p75": 6.2888022762317535,
+        "p90": 6.566295500849885,
+        "max": 6.7380125043950425
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 371,
+      "design_columns": 381
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "illustration_rare",
+      "treatment_b": "ultra_rare",
+      "product_relevance": "high",
+      "overlap_interval_log_odds": [
+        4.371126260205593,
+        6.114762763452475
+      ],
+      "n_a": 212,
+      "n_b": 155,
+      "sets": 14,
+      "species": 323,
+      "scarcity_a": {
+        "n": 212,
+        "min": 4.868615034075827,
+        "p10": 5.062648975674884,
+        "p25": 5.244210674699678,
+        "median": 5.63155484065932,
+        "p75": 5.719988297000208,
+        "p90": 6.078461797915258,
+        "max": 6.113858195322049
+      },
+      "scarcity_b": {
+        "n": 155,
+        "min": 4.960132311923149,
+        "p10": 5.1242968890244995,
+        "p25": 5.593762974065381,
+        "median": 5.764169624671296,
+        "p75": 5.9043706635927204,
+        "p90": 6.060344923394755,
+        "max": 6.114762763452475
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 343,
+      "design_columns": 350
+    },
+    {
+      "era": "Scarlet and Violet",
+      "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+      "treatment_a": "rare",
+      "treatment_b": "uncommon",
+      "product_relevance": "calibration",
+      "overlap_interval_log_odds": [
+        2.208266313555609,
+        7.308232845579262
+      ],
+      "n_a": 606,
+      "n_b": 1180,
+      "sets": 16,
+      "species": 476,
+      "scarcity_a": {
+        "n": 606,
+        "min": 2.208266313555609,
+        "p10": 2.9738640537598204,
+        "p25": 3.2699257284092624,
+        "median": 4.201779916888282,
+        "p75": 4.51264181031686,
+        "p90": 5.709750531063058,
+        "max": 7.308232845579262
+      },
+      "scarcity_b": {
+        "n": 1180,
+        "min": 2.3617514036632614,
+        "p10": 2.667926053755174,
+        "p25": 3.031328376642362,
+        "median": 3.9642812150429942,
+        "p75": 4.480588153369864,
+        "p90": 5.467778021385369,
+        "max": 7.308232845579262
+      },
+      "status": "LOCAL_EFFECT_UNCERTAIN",
+      "reason": "rank_deficient_fixed_effect_design",
+      "design_rank": 496,
+      "design_columns": 497
+    }
+  ],
   "bootstrap": {
     "seed": 20260828,
     "draws_requested": 1000,
-    "executed": false
+    "executed": true
   },
   "publication": {
     "committed": false,
@@ -39553,5 +41459,5 @@
     "study_run_id": null,
     "score_rows": 0
   },
-  "next_task": "local_pair_estimation"
+  "next_task": "review_locally_validated_pairs"
 }

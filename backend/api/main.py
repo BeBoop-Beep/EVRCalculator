@@ -98,6 +98,10 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
 )
+from backend.db.services.pokemon_sealed_product_detail_service import (
+    PokemonSealedProductDetailError,
+    get_pokemon_sealed_product_detail_payload,
+)
 from backend.db.services.pokemon_set_route_directory_service import (
     get_pokemon_set_route_directory_payload,
 )
@@ -1089,6 +1093,24 @@ def get_pokemon_card_chase_efficiency(
     except Exception:
         logger.exception("card Chase Efficiency failed set=%s card=%s", set_id, card_id)
         return JSONResponse(content={"message": "Unable to load card Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
+@app.get("/tcgs/pokemon/sealed-products/{product_id}")
+def get_pokemon_sealed_product_detail(product_id: str):
+    """Return one real sealed-product identity, market history, and published RIP contract."""
+    try:
+        return get_pokemon_sealed_product_detail_payload(product_id)
+    except PokemonSealedProductDetailError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sealed-products/%s unexpected error", product_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon sealed product", "code": "POKEMON_SEALED_PRODUCT_DETAIL_FAILED"},
+            status_code=500,
+        )
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/pull-rates")

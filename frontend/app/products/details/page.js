@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 
 export default async function LegacyProductDetailsPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
@@ -8,8 +9,9 @@ export default async function LegacyProductDetailsPage({ searchParams }) {
     try {
       const decoded = JSON.parse(decodeURIComponent(rawData));
       const productId = decoded?._id || decoded?.id;
-      if (productId) {
-        redirect(`/sealed-products/${encodeURIComponent(String(productId))}`);
+      const href = buildSealedProductHref(productId);
+      if (href) {
+        redirect(href);
       }
     } catch {
       // Fall through to default redirect.

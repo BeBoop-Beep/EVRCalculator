@@ -284,7 +284,9 @@ def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
         cell=Counter((bins[i],r["rarity_designation"]) for i,r in enumerate(rows));weights=[1/max(1,cell[(bins[i],r["rarity_designation"])]) for i,r in enumerate(rows)]
         balanced=_fit_coefficient(rows,b,weights=weights)
         rng=np.random.default_rng(seed+1000+index);permuted=[]
-        for _ in range(min(draws,500)):
+        # 199 randomizations gives an exact-style Monte Carlo p-value with
+        # 0.005 resolution while keeping the 1,000-draw cluster bootstrap intact.
+        for _ in range(min(draws,199)):
             copy=[dict(r) for r in rows]
             strata=defaultdict(list)
             for i,r in enumerate(copy):strata[(r["set_id"],bins[i])].append(i)
@@ -296,17 +298,24 @@ def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
         coefficient=fit["coefficient"];sensitivity=[x for x in (flexible,no_mechanics,demand,balanced) if x is not None]
         loo_values=[x["coefficient"] for x in loo if x["coefficient"] is not None]
         sign=lambda x:0 if x==0 else (1 if x>0 else -1)
+        complete_loo=len(loo_values)==len(sets)
         stable=bool(sensitivity and all(sign(x)==sign(coefficient) and abs(x-coefficient)<=GATES["max_abs_log_effect_shift"] for x in sensitivity)
-            and loo_values and all(sign(x)==sign(coefficient) for x in loo_values))
+            and complete_loo and all(sign(x)==sign(coefficient) for x in loo_values))
         excludes_zero=ci["ci_low"]>0 or ci["ci_high"]<0
         placebo_p=(1+sum(abs(x)>=abs(coefficient) for x in permuted))/(1+len(permuted)) if permuted else None
-        status="LOCALLY_VALIDATED" if stable and excludes_zero and placebo_p is not None and placebo_p<.05 else "LOCAL_EFFECT_UNCERTAIN" if stable else "LOCAL_EFFECT_UNSTABLE"
+        status="LOCALLY_VALIDATED" if stable and excludes_zero and placebo_p is not None and placebo_p<.05 else "LOCAL_EFFECT_UNCERTAIN" if not complete_loo else "LOCAL_EFFECT_UNSTABLE"
         results.append({**base,"coefficient_log_price_b_vs_a":coefficient,"adjusted_price_association_pct":100*math.expm1(coefficient),
             "wild_cluster_inference":{k:v for k,v in ci.items() if k!="samples"},"scarcity_functional_form_coefficient":flexible,
             "mechanic_sensitivity_coefficient":no_mechanics,"demand_outlier_sensitivity_coefficient":demand,
             "overlap_balance_sensitivity_coefficient":balanced,"leave_one_set_out":loo,"permutation_placebo":{"draws":len(permuted),"p_value":placebo_p},
             "status":status})
-    return results
+    observed={(r["era"],tuple(sorted((r["treatment_a"],r["treatment_b"])))) for r in results}
+    for era,pairs in LOCKED_LOCAL_CONTRASTS.items():
+        for a,b in sorted(pairs):
+            if (era,(a,b)) not in observed:
+                results.append({"era":era,"treatment_a":a,"treatment_b":b,"status":"PAIR_SUPPORT_FAILED",
+                    "reason":"locked contrast was not retained by the frozen-cohort common-support gate"})
+    return sorted(results,key=lambda r:(r["era"],r["treatment_a"],r["treatment_b"]))
 
 
 def build_round2_audit(client, as_of, freeze_dir=None):

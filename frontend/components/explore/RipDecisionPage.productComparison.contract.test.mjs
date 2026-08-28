@@ -5,7 +5,6 @@ import test from "node:test";
 
 const source = fs.readFileSync(path.resolve("components/explore/RipDecisionPage.jsx"), "utf8");
 const primitives = fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"), "utf8");
-const resolverSource = fs.readFileSync(path.resolve("components/explore/setProductComparison.mjs"), "utf8");
 const comparison = source.slice(source.indexOf('data-rip-section="compare-products"'), source.indexOf('data-rip-section="chase-summary"'));
 
 test("Set Product Comparison locks the approved nine-column contract", () => {
@@ -48,8 +47,7 @@ test("mobile keeps public identity and market price while locking all analytical
 });
 
 test("hero and every product row share the canonical sealed-product resolver", async () => {
-  const moduleUrl = `data:text/javascript;base64,${Buffer.from(resolverSource).toString("base64")}`;
-  const { buildSealedProductHref } = await import(moduleUrl);
+  const { buildSealedProductHref } = await import("./setProductComparison.mjs");
   for (const id of ["booster-pack", "bundle", "etb", "pc-etb", "booster-box"]) {
     assert.equal(buildSealedProductHref(id), `/sealed-products/${id}`);
   }

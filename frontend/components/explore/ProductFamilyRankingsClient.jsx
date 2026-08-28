@@ -14,7 +14,7 @@ import TableSearchInput from "@/components/ui/TableSearchInput";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import { PremiumMetricLock, RankedProductHeader, RankedProductIdentity } from "./RankedProductTablePrimitives.jsx";
-import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
@@ -159,12 +159,7 @@ const recovery = (v) => {
     : `${(100 * (n > 1 ? n / 100 : n)).toFixed(1)}%`;
 };
 function productHref(p) {
-  const base = buildTcgSetHrefFromTarget({
-    target_type: "set",
-    target_id: p.setId,
-    name: p.setName,
-  });
-  return `${base}?sealedProduct=${encodeURIComponent(p.sealedProductId)}`;
+  return buildSealedProductHref(p);
 }
 export function productFormatStrength(p) {
   const rank = number(p?.familyRank),

@@ -1,3 +1,5 @@
+import { buildSealedProductHref as buildCanonicalSealedProductHref } from "../../../lib/pokemon/sealedProductRoutes.mjs";
+
 const EXPECTED_LABELS = {
   loose_booster_pack: ["Expected Packs to Pull", "eligible packs"],
   sleeved_booster_pack: [
@@ -61,6 +63,5 @@ export function expectedProductsCopy(product) {
 }
 
 export function buildSealedProductHref(product) {
-  const id = String(product?.productPageId || "").trim();
-  return id ? `/sealed-products/${encodeURIComponent(id)}` : null;
+  return buildCanonicalSealedProductHref(product?.productPageId);
 }
