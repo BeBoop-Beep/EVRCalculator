@@ -4,6 +4,7 @@ import { normalizePokemonSetCardsPayload } from "@/lib/pokemon/pokemonSetCardsCl
 import {
   normalizeMarketDashboardPayload,
   normalizeMarketDashboardWindow,
+  normalizeMarketMoversPayload,
   normalizeOverviewPayload,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
@@ -198,6 +199,27 @@ export async function getPokemonSetMarketBootstrapInitialSnapshot(setId, { windo
   });
 }
 
+export async function getPokemonSetMarketMoversInitialSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers`);
+  url.searchParams.set("window", "7D");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("movement", "all");
+  url.searchParams.set("surface", "set-page");
+  url.searchParams.set("metric", "absolute-percent");
+  url.searchParams.set("snapshot_contract", "pricing-v4");
+  return loadInitialSnapshot(url, {
+    moduleName: "market movers",
+    normalizePayload: normalizeMarketMoversPayload,
+    nextCacheOptions: {
+      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
+      tags: [`pokemon-set-market-movers:${resolvedSetId}:7D:all:absolute-percent`],
+    },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
 export async function getPokemonSetCardsInitialSnapshot(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -312,11 +334,12 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   const resolvedTab = resolveSetDetailTab(tab);
   const wantsMarketSeed = resolvedTab === "market";
   const wantsRipBootstrap = resolvedTab === "overview";
-  const [shell, cards, marketDashboard, overview, ripBootstrap] = await Promise.all([
+  const [shell, cards, marketDashboard, overview, marketMovers, ripBootstrap] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsMarketSeed ? getPokemonSetMarketMoversInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsRipBootstrap ? getPokemonSetRipBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
@@ -334,6 +357,7 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   if (overview.error) {
     errors.overview = overview.error;
   }
+  if (marketMovers.error) errors.marketMovers = marketMovers.error;
   if (ripBootstrap.error) errors.ripBootstrap = ripBootstrap.error;
 
   console.info("[set-snapshots-server] snapshots_loaded", {
@@ -349,15 +373,19 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     marketDashboardError: Boolean(marketDashboard.error),
     overviewError: Boolean(overview.error),
     overviewSeeded: Boolean(overview.payload),
+    marketMoversMs: marketMovers.elapsedMs,
+    marketMoversSeeded: Boolean(marketMovers.payload),
     ripBootstrapMs: ripBootstrap.elapsedMs,
     ripBootstrapSeeded: Boolean(ripBootstrap.payload),
   });
 
   return {
+    resolvedTab,
     shellPayload: shell.payload,
     cardsPayload: cards.payload,
     marketDashboardPayload: marketDashboard.payload,
     overviewPayload: overview.payload,
+    marketMoversPayload: marketMovers.payload,
     simulationEvidencePayload: null,
     ripBootstrapPayload: ripBootstrap.payload,
     errors,
@@ -366,6 +394,7 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
       cardsMs: cards.elapsedMs,
       marketDashboardMs: marketDashboard.elapsedMs,
       overviewMs: overview.elapsedMs,
+      marketMoversMs: marketMovers.elapsedMs,
       simulationEvidenceMs: 0,
       ripBootstrapMs: ripBootstrap.elapsedMs,
       totalMs,

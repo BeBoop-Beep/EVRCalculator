@@ -324,7 +324,7 @@ function ChaseReality({
       ? null
       : money(packs * loosePackPrice);
   const cardHref = buildPokemonCardHref(setSlug, {
-    canonicalCardId: chase.canonicalCardId || chase.cardId,
+    canonicalCardId: chase.canonicalCardId,
     cardVariantId: chase.cardVariantId,
   });
 
@@ -346,7 +346,7 @@ function ChaseReality({
       )}
       <div className={styles.chaseLayout}>
         {chase.imageUrl ? (
-          <div className={styles.chaseImage}>
+          cardHref ? <Link href={cardHref} className={styles.chaseImage} aria-label={`View ${chase.name || "top chase card"}`}>
             <Image
               src={chase.imageUrl}
               alt={chase.name || "Top chase card"}
@@ -354,6 +354,8 @@ function ChaseReality({
               sizes="(max-width: 767px) 76px, 130px"
               className="object-contain"
             />
+          </Link> : <div className={styles.chaseImage}>
+            <Image src={chase.imageUrl} alt={chase.name || "Top chase card"} fill sizes="(max-width: 767px) 76px, 130px" className="object-contain" />
           </div>
         ) : null}
         <div className="min-w-0">
@@ -361,7 +363,7 @@ function ChaseReality({
             Top Chase
           </p>
           <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
-            {chase.name || "Top chase card"}
+            {cardHref ? <Link href={cardHref}>{chase.name || "Top chase card"}</Link> : (chase.name || "Top chase card")}
           </h3>
           {chase.rarity ? (
             <p className="mt-0.5 text-[11px] uppercase tracking-[0.08em] text-[var(--text-secondary)]">

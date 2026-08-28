@@ -168,6 +168,7 @@ import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshot
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
+  getPokemonSetConsumerSealedMarket,
   getPokemonSetOverview,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
@@ -876,7 +877,9 @@ function buildInitialSetPageDataSeed({
     explorePayload: source,
     cardsPayload: cardPayload,
   });
-  const setValue = marketDashboardSource
+  const setValue = overviewSource
+    ? adaptSetValueHistoriesFromSources({ marketSnapshotPayload: overviewSource })
+    : marketDashboardSource
     ? adaptSetValueHistoriesFromSources({ marketSnapshotPayload: marketDashboardSource })
     : adaptSetValueHistoriesFromSources({ explorePayload: source });
   const market = marketDashboardSource
@@ -8920,6 +8923,9 @@ export default function RipStatisticsPageClient({
   const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;
   const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
   const initialOverviewPayload = initialModuleSnapshots?.overviewPayload || null;
+  const initialMarketMoversPayload = initialModuleSnapshots?.marketMoversPayload || null;
+  const destinationSeedPending =
+    setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
   const initialSetPageDataSeed = useMemo(
     () =>
       buildInitialSetPageDataSeed({
@@ -8944,6 +8950,10 @@ export default function RipStatisticsPageClient({
     }
     return seed;
   }, [initialSetPageDataSeed, resolvedSetResourceId]);
+  const seededMarketMoversPayload = useMemo(() => {
+    if (!initialMarketMoversPayload || !setIdentityMatchesTarget(initialMarketMoversPayload.set, resolvedSetResourceId)) return null;
+    return initialMarketMoversPayload.window === MOVERS_TICKER_WINDOW ? initialMarketMoversPayload : null;
+  }, [initialMarketMoversPayload, resolvedSetResourceId]);
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -9451,7 +9461,17 @@ export default function RipStatisticsPageClient({
       explorePayload: initialExplorePayload || {},
       cardsPayload: initialCardsPayload,
       marketDashboardPayload: initialMarketDashboardPayload,
+      overviewPayload: initialOverviewPayload,
     });
+    if (seededMarketMoversPayload) {
+      lastMarketMoversRequestKeyRef.current = `${resolvedSetResourceId}|${MOVERS_TICKER_WINDOW}|${MOVERS_TICKER_FETCH_LIMIT}`;
+      dispatchMarketMovers({
+        type: "success",
+        setId: resolvedSetResourceId,
+        payload: seededMarketMoversPayload,
+        sourceWindow: MOVERS_TICKER_WINDOW,
+      });
+    }
     const seededCards = routeSeed.cards;
     setChecklistState((previous) => {
       const seededCorrelation = resolvePreferredCardAppealCorrelation({
@@ -9503,6 +9523,8 @@ export default function RipStatisticsPageClient({
     initialExplorePayload,
     initialCardsPayload,
     initialMarketDashboardPayload,
+    initialOverviewPayload,
+    seededMarketMoversPayload,
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
@@ -9921,21 +9943,25 @@ export default function RipStatisticsPageClient({
     window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
   };
 
-  const scrollToSetDetailElement = (targetId = "set-detail-content") => {
+  const scrollToSetDetailElement = (targetId = "set-detail-content", behavior = "smooth") => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
     }
 
-    window.requestAnimationFrame(() => {
+    let attempts = 0;
+    const findAndScroll = () => {
       const target = getVisibleSectionElement(targetId);
       if (!target) {
+        attempts += 1;
+        if (attempts < 12) window.requestAnimationFrame(findAndScroll);
         return;
       }
 
       const stickyOffset = getExploreStickyOffset();
       const targetTop = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
-      window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
-    });
+      window.scrollTo({ top: Math.max(0, targetTop), behavior });
+    };
+    window.requestAnimationFrame(findAndScroll);
   };
 
   const handleSectionSelect = (sectionId) => {
@@ -9996,6 +10022,7 @@ export default function RipStatisticsPageClient({
       setActiveSection("outcome-distribution");
     }
     pushSetDetailRouteState({ tab: normalizedTab });
+    scrollToSetDetailElement(getSetDetailFallbackTargetId(normalizedTab), "auto");
   };
 
   const handleSetDetailNavSelect = ({ tab, section, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
@@ -11434,6 +11461,39 @@ export default function RipStatisticsPageClient({
       ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
     if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) loadDesktopSealedSummary();
   }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, loadDesktopSealedSummary]);
+  useEffect(() => {
+    const settled = (status) => ["success", "success_stale", "error", "empty", "unavailable"].includes(status);
+    if (
+      setDetailTab !== "market" ||
+      isTabNavPending ||
+      !resolvedSetResourceId ||
+      globalThis.navigator?.connection?.saveData === true ||
+      !settled(activeOverviewState.status) ||
+      !settled(activeMarketMoversState.status) ||
+      !settled(activeTopChaseState.status) ||
+      !settled(desktopSealedSummaryState.status)
+    ) return undefined;
+    let cancelled = false;
+    const warm = () => {
+      if (!cancelled) getPokemonSetConsumerSealedMarket(resolvedSetResourceId).catch(() => {});
+    };
+    const idleId = typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback(warm, { timeout: 1500 })
+      : window.setTimeout(warm, 500);
+    return () => {
+      cancelled = true;
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleId);
+      else window.clearTimeout(idleId);
+    };
+  }, [
+    setDetailTab,
+    isTabNavPending,
+    resolvedSetResourceId,
+    activeOverviewState.status,
+    activeMarketMoversState.status,
+    activeTopChaseState.status,
+    desktopSealedSummaryState.status,
+  ]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -12240,7 +12300,11 @@ export default function RipStatisticsPageClient({
     if (!setId || !canFetchSetDetailModules) {
       return;
     }
-    prefetchPokemonSetCardsPage(setId, {
+    if (isTabNavPending || destinationSeedPending || (setDetailTab === "market" && ![
+      activeOverviewState.status,
+      activeMarketMoversState.status,
+    ].every((status) => ["success", "success_stale", "error", "empty"].includes(status)))) return;
+    window.setTimeout(() => prefetchPokemonSetCardsPage(setId, {
       page: 1,
       pageSize: CARDS_PAGE_SIZE,
       sort: effectiveCardSortMode,
@@ -12251,7 +12315,7 @@ export default function RipStatisticsPageClient({
       movementSort: effectiveCardMovementSort,
       movementMetric: effectiveCardMovementMetric,
       section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
-    });
+    }), 160);
   };
 
   useEffect(() => {
@@ -12954,6 +13018,7 @@ export default function RipStatisticsPageClient({
       });
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
 
     // The only component that renders the 365-day series is Market's
     // SetValueTrendCard, and it is rendered exclusively inside the
@@ -13140,6 +13205,7 @@ export default function RipStatisticsPageClient({
     // "activeMarketDashboardDerivedState,\n  ]);" as its end anchor, so that
     // entry must stay last.
     shellSetValueVisiblePoints.length,
+    destinationSeedPending,
     activeMarketDashboardDerivedState,
   ]);
 
@@ -13358,6 +13424,8 @@ export default function RipStatisticsPageClient({
     if (!isMarketMoversConsumer) {
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
+    if (seededMarketMoversPayload && marketMoversRetryNonce === 0) return undefined;
 
     const marketMoversRequestKey = `${setId}|${moversSourceWindow}|${moversFetchLimit}`;
     const marketMoversStateIsRenderable =
@@ -13431,6 +13499,8 @@ export default function RipStatisticsPageClient({
     canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
     marketMoversRetryNonce,
+    destinationSeedPending,
+    seededMarketMoversPayload,
   ]);
 
   // Live fallback for a missing/invalid Market bootstrap, plus explicit Retry.
@@ -13465,6 +13535,7 @@ export default function RipStatisticsPageClient({
       // this data (or a future switch back to one) triggers this effect again.
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
 
     if (seededOverviewPayload && overviewRetryNonce === 0) {
       lastOverviewRequestKeyRef.current = `${setId}|${overviewSourceWindow}`;
@@ -13543,6 +13614,7 @@ export default function RipStatisticsPageClient({
     canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryOverviewModule).
     overviewRetryNonce,
+    destinationSeedPending,
   ]);
 
   const desktopSidebarContent = (

@@ -91,7 +91,7 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
   // Cards and market-dashboard slots resolve empty unconditionally; the
   // overview slot falls back to the empty placeholder off the Market tab.
   const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
-  assert.equal(emptyPlaceholderCount, 4);
+  assert.equal(emptyPlaceholderCount, 5);
 });
 
 test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the Market tab only", () => {
@@ -112,13 +112,15 @@ test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the M
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
   assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");
   assert.ok(fnSource.includes("overviewMs: overview.elapsedMs"), "must return overviewMs in timings");
+  assert.ok(fnSource.includes("marketMoversPayload: marketMovers.payload"), "must return the independent 7D Movers seed");
+  assert.ok(fnSource.includes("resolvedTab,"), "must identify which destination owns the returned seeds");
   // Only the shell and overview snapshots are server-seeded — top chase,
   // movers, cards, pull rates, and insights stay client-fetched.
   const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
   assert.deepEqual(
     snapshotCalls,
-    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetRipBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
-    "only shell, market bootstrap, and RIP bootstrap initial snapshots may be fetched here"
+    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetMarketMoversInitialSnapshot(", "getPokemonSetRipBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
+    "only shell, market bootstrap, independent Movers, and RIP bootstrap initial snapshots may be fetched here"
   );
 });
 
