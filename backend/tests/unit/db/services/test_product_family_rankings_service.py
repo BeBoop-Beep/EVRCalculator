@@ -217,6 +217,17 @@ def test_public_tier_uses_leader_score_while_absolute_model_tiers_are_preserved(
     assert projected["publicTier"] == "S"
 
 
+def test_collector_appeal_tier_uses_absolute_composite_scale_not_public_leader_scale():
+    projected = service._project(
+        row("collector-scale", collector_appeal_score=80), {}, 1, 1,
+        overall_leader=90, financial_leader=90,
+    )
+    assert projected["collectorAppealScore"] == 80
+    assert projected["collectorAppealTier"] == "A"
+    # The same numeric value interpreted as a leader score would be B (8.0/10).
+    assert service.public_leader_rip_tier(80) == "B"
+
+
 def test_missing_target_run_authority_fails_closed():
     import pytest
     with pytest.raises(ValueError, match="calculation_run_id is missing"):

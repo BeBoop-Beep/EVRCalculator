@@ -1199,7 +1199,12 @@ export default function PokemonCardDetailClient({ initialDetail }) {
     const syncArtworkAlignment = () => {
       const bounds = image.getBoundingClientRect();
       const areaBounds = artworkAreaRef.current.getBoundingClientRect();
-      setArtworkAlignment({ width: bounds.width, left: bounds.left - areaBounds.left });
+      const intrinsicRatio = image.naturalWidth / image.naturalHeight;
+      const paintedWidth = intrinsicRatio > 0
+        ? Math.min(bounds.width, bounds.height * intrinsicRatio)
+        : bounds.width;
+      const paintedLeft = bounds.left + Math.max(0, (bounds.width - paintedWidth) / 2);
+      setArtworkAlignment({ width: paintedWidth, left: paintedLeft - areaBounds.left });
     };
     syncArtworkAlignment();
     const observer = new ResizeObserver(syncArtworkAlignment);
@@ -1345,8 +1350,8 @@ export default function PokemonCardDetailClient({ initialDetail }) {
               Opening outcomes are independent under the model assumptions.
             </li>
             <li>
-              Market source: {detail.market.source || "Unavailable"}; recovery
-              model: {detail.chase?.recoveryModel || "Unavailable"}.
+              Market prices are derived from tracked market observations;
+              recovery model: {detail.chase?.recoveryModel || "Unavailable"}.
             </li>
           </ul>
         </details>

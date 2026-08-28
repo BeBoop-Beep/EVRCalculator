@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 const source = fs.readFileSync(path.resolve("components/explore/RipDecisionPage.jsx"), "utf8");
+const parent = fs.readFileSync(path.resolve("components/explore/RipStatisticsPageClient.jsx"), "utf8");
 const primitives = fs.readFileSync(path.resolve("components/explore/RankedProductTablePrimitives.jsx"), "utf8");
 const comparison = source.slice(source.indexOf('data-rip-section="compare-products"'), source.indexOf('data-rip-section="chase-summary"'));
 
@@ -21,8 +22,9 @@ test("Set Product Comparison locks the approved nine-column contract", () => {
 });
 
 test("Set Product Comparison reuses canonical Rankings presentation and access primitives", () => {
-  for (const token of ["RipScoreBadge", "RipTierMark", "PublicRipTierInfo", "PremiumMetricLock", "RankedProductIdentity", "RankedProductHeader", "useRankingsAccess"]) assert.ok(source.includes(token), token);
-  assert.ok(source.includes("canViewRankingsIntelligence: canViewProductRipIntelligence"));
+  for (const token of ["RipScoreBadge", "RipTierMark", "PublicRipTierInfo", "PremiumMetricLock", "RankedProductIdentity", "RankedProductHeader"]) assert.ok(source.includes(token), token);
+  assert.ok(parent.includes("useRankingsAccess"));
+  assert.ok(parent.includes("canViewRankingsIntelligence: canViewProductRipIntelligence"));
   assert.ok(source.includes("familyRankInfo?.overallRipLeaderScore"));
   assert.ok(source.includes("familyRankInfo?.publicTier"));
   assert.ok(source.includes("#${familyRankInfo.familyRank} / ${familyRankInfo.familySize}"));

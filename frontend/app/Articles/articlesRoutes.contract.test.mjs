@@ -88,7 +88,7 @@ test("the Chase Efficiency methodology article is public without exposing Premiu
   assert.ok(chase.includes("<ArticleShell"));
   assert.ok(chase.includes("<ArticleJsonLd"));
   for (const phrase of ["Chase Efficiency", "exact printing", "best verified", "Financial RIP", "Product Chase Economics", "50%", "75%", "90%", "95%", "4,862", "22", "17"]) assert.ok(chase.includes(phrase), phrase);
-  for (const phrase of ["ref-tcgplayer-market-price", "ref-openstax-geometric", "original inDex methodology", "Source: inDex Chase Efficiency production publication", "August 27, 2026"]) assert.ok(chase.includes(phrase), phrase);
+  for (const phrase of ["ref-openstax-geometric", "original inDex methodology", "Source: inDex Chase Efficiency production publication", "August 27, 2026"]) assert.ok(chase.includes(phrase), phrase);
   assert.ok(!chase.includes("/api/explore/card-chase-efficiency"));
   assert.ok(!chase.includes("getPokemonCardChaseEfficiency"));
   assert.ok(!chase.includes("Top 10"));

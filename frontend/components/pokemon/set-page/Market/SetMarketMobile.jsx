@@ -60,10 +60,11 @@ export default function SetMarketMobile({
 }) {
   const sealedProductsState = usePokemonSetSealedMarket(setId, { enabled: false });
   const sealedSummaryState = usePokemonSetSealedSummary(setId, { enabled: false });
+  const loadSealedSummary = sealedSummaryState.load;
   useEffect(() => {
     const settled = (status) => ["success", "success_stale", "error", "empty"].includes(status);
-    if (settled(setValue?.status) && settled(movers?.status)) sealedSummaryState.load();
-  }, [setId, setValue?.status, movers?.status, sealedSummaryState.load]);
+    if (settled(setValue?.status) && settled(movers?.status)) loadSealedSummary();
+  }, [setId, setValue?.status, movers?.status, loadSealedSummary]);
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const entitledSetValue = useMemo(() => ({

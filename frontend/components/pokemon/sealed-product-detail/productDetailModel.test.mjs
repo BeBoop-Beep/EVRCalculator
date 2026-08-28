@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildProductParentSetHref, comparisonRows, formatStrength, pluralFamilyLabel, selectProductMarketWindow } from "./productDetailModel.mjs";
+import { buildProductParentSetHref, comparisonRows, formatStrength, pluralFamilyLabel, productCompositionSummary, selectProductMarketWindow } from "./productDetailModel.mjs";
 
 test("product market windows consume backend movement authority", () => {
   const market = { history: [{ date: "2026-01-01", marketPrice: 10 }, { date: "2026-01-10", marketPrice: 12 }], movements: { "30D": { status: "available", amount: 2, percent: 20, actualStartDate: "2026-01-01", endDate: "2026-01-10", fullWindowCoverage: false } } };
@@ -9,6 +9,12 @@ test("product market windows consume backend movement authority", () => {
   assert.equal(selected.movement.deltaPercent, 20);
   assert.equal(selected.partial, true);
   assert.equal(selected.history.length, 2);
+});
+
+test("composition summaries stay concise for simple products and enrich guaranteed products", () => {
+  assert.deepEqual(productCompositionSummary({ packCount: 11, randomPackCount: 11, guaranteedComponentCount: 0 }), { available: true, summary: "11 Packs", guaranteedValue: null });
+  assert.deepEqual(productCompositionSummary({ packCount: 11, randomPackCount: 11, guaranteedComponentCount: 2, guaranteedComponentMarketValue: 18.5 }), { available: true, summary: "11 Packs + 2 Modeled Guaranteed Components", guaranteedValue: 18.5 });
+  assert.deepEqual(productCompositionSummary({}), { available: false, summary: "", guaranteedValue: null });
 });
 
 test("comparison selection excludes current, duplicates, and cross-family rows", () => {

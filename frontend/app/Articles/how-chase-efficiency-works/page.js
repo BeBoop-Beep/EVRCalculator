@@ -8,7 +8,6 @@ const title = "How Chase Efficiency Measures the Economics of Chasing a Pokémon
 const description = "How inDex combines exact card value, modeled pull odds, and verified opening costs to measure how economically favorable a specific Pokémon card is to chase through packs.";
 const registeredArticle = articleByKey("chaseEfficiency");
 const references = [
-  { id: "ref-tcgplayer-market-price", href: "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean", citation: "TCGplayer. “What do the different price points on TCGplayer.com mean?”", note: "Defines TCGplayer Market Price from recent completed transactions and explains its printing- and condition-specific context." },
   { id: "ref-openstax-geometric", href: "https://openstax.org/books/introductory-statistics-2e/pages/4-key-terms", citation: "OpenStax. Introductory Statistics 2e. Chapter 4: Geometric Distribution.", note: "Supports the Bernoulli/geometric probability concepts used to distinguish expected wait from cumulative hit probability." },
 ];
 
@@ -35,7 +34,7 @@ export default function Page() {
     <H2>The three things a chase actually depends on</H2>
     <ChaseEfficiencyInputsFigure />
     <DefinitionGrid columns="md:grid-cols-3" items={[
-      ["Current card value", <>The current Near Mint market value of the exact printing. TCGplayer explains that its Market Price is compiled from recent completed transactions and updates as transactions occur; selected printing and condition filters matter. <Citation href="https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean">TCGplayer’s price-point documentation</Citation> supports this price-data definition, not the Chase Efficiency metric.</>],
+      ["Current card value", "The current Near Mint market value of the exact printing, based on tracked market observations. Selected printing and condition filters matter."],
       ["Exact modeled pull probability", "The current modeled per-pack probability for that exact printing. A better hit probability improves the chase, but it does not decide the answer alone."],
       ["Best verified opening cost", "The cheapest current pack-equivalent cost across supported products whose random-pack composition is known. Lower opening cost improves the chase."],
     ]} />
@@ -109,7 +108,7 @@ export default function Page() {
     <p>Separating those questions makes the card layer more useful—and, more importantly, more honest.</p>
 
     <H2>References</H2>
-    <p>Chase Efficiency itself is original inDex methodology. The external references below support the probability mathematics and market-data definitions used by the model; they do not propose or validate the Chase Efficiency metric itself. Source: inDex Chase Efficiency production publication, August 27, 2026, for the frozen production statistics above.</p>
+    <p>Chase Efficiency itself is original inDex methodology. The external reference below supports the probability mathematics used by the model; it does not propose or validate the Chase Efficiency metric itself. Source: inDex Chase Efficiency production publication, August 27, 2026, for the frozen production statistics above.</p>
     <ReferenceList items={references} />
   </ArticleShell>;
 }

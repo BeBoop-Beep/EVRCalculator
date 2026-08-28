@@ -33,7 +33,7 @@ def ranking(product_id="p1", run_id="run-current", rank=2, family="booster_box")
         "sealedProductId": product_id, "productName": product_id, "productFamily": family,
         "calculationRunId": run_id, "familyRank": rank, "familySize": 4,
         "publicTier": "A", "overallRipLeaderScore": 88, "financialRipLeaderScore": 77,
-        "collectorAppealScore": 66, "overallRipVersion": "overall-rip-v10",
+        "collectorAppealScore": 80, "collectorAppealTier": "A", "overallRipVersion": "overall-rip-v10",
         "financialRipVersion": "financial-rip-v4", "collectorAppealVersion": "collector-v4",
     }
 
@@ -88,6 +88,8 @@ def test_published_run_is_exact_and_canonical_v10_v4_fields_win():
     assert rip["expectedValue"] == 80  # never the stale run's 999
     assert rip["overallRipVersion"] == "overall-rip-v10"
     assert rip["financialRipVersion"] == "financial-rip-v4"
+    assert rip["collectorAppealScore"] == 80
+    assert rip["collectorAppealTier"] == "A"
     assert rip["entertainmentCost"]["expectedValue"] == 80
     assert rip["entertainmentCost"]["entertainmentCost"] == 40  # guaranteed value was not added twice
 

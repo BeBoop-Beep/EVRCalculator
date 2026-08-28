@@ -28,6 +28,7 @@ import {
 } from "./ripStorySelectors.mjs";
 import { CollectorDriverSubjects } from "./RipStoryEvidence.jsx";
 import { getRipTierPresentation } from "./ripTierPresentation.mjs";
+import RipScoreSurface from "./RipScoreSurface.jsx";
 import styles from "./RipDecisionPage.module.css";
 import { ANALYTICAL_ACTION_CLASS } from "@/components/ui/analyticalInteraction.mjs";
 import ProductOpeningValue, {
@@ -40,7 +41,6 @@ import {
   RankedProductHeader,
   RankedProductIdentity,
 } from "./RankedProductTablePrimitives.jsx";
-import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import rankingStyles from "./explore.module.css";
 import {
   buildFamilyRankLookup,
@@ -134,15 +134,12 @@ function ScoreSurface({
   controls,
   productContext = null,
 }) {
-  const tier = getRipTierPresentation(metric.tier, {
-    strength: prominent ? "hero" : "supporting",
-  });
   return (
-    <div
-      data-rip-score={metric.key}
-      data-score-tier={tier.tier || "unavailable"}
+    <RipScoreSurface
+      tier={metric.tier}
+      prominent={prominent}
+      metricKey={metric.key}
       className={`${styles.scoreSurface} ${prominent ? styles.scoreSurfaceOverall : ""}`}
-      style={tier.style}
     >
       <div className={styles.scoreContent}>
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[var(--text-primary)]">
@@ -194,7 +191,7 @@ function ScoreSurface({
           />
         </div>
       ) : null}
-    </div>
+    </RipScoreSurface>
   );
 }
 
@@ -694,7 +691,7 @@ function ComparisonMobileRow({
       tabIndex={href ? 0 : undefined}
       aria-label={href ? `View ${product.label}` : undefined}
       onClick={(event) => { if (href && !event.target.closest("a,button,[role='button']")) router.push(href); }}
-      onKeyDown={(event) => { if (href && event.key === "Enter") router.push(href); }}
+      onKeyDown={(event) => { if (href && event.key === "Enter" && !event.target.closest("a,button,[role='button']")) router.push(href); }}
       data-product-key={product.key}
       data-best-in-family={isBest ? "true" : undefined}
     >
@@ -760,7 +757,7 @@ function ComparisonTableRow({
       tabIndex={href ? 0 : undefined}
       aria-label={href ? `View ${product.label}` : undefined}
       onClick={(event) => { if (href && !event.target.closest("a,button,[role='button']")) router.push(href); }}
-      onKeyDown={(event) => { if (href && event.key === "Enter") router.push(href); }}
+      onKeyDown={(event) => { if (href && event.key === "Enter" && !event.target.closest("a,button,[role='button']")) router.push(href); }}
       data-product-key={product.key}
       data-sealed-product-id={product.sealedProductId}
       data-best-in-family={isBest ? "true" : undefined}
@@ -863,9 +860,8 @@ export default function RipDecisionPage({
   rankContextStatus = "idle",
   rankContextError = null,
   onRankContextRetry = null,
+  canViewProductRipIntelligence = false,
 }) {
-  const { canViewRankingsIntelligence: canViewProductRipIntelligence } =
-    useRankingsAccess();
   const [overallOpen, setOverallOpen] = useState(false);
   const [financialDeepDiveOpen, setFinancialDeepDiveOpen] = useState(false);
   const [collectorDeepDiveOpen, setCollectorDeepDiveOpen] = useState(false);
@@ -1171,9 +1167,9 @@ export default function RipDecisionPage({
                         text={`Ranked against all currently eligible modeled ${heroFamilyName}s in the canonical product-family cohort, across every modeled set — not just this one.`}
                       />
                     </span>
-                    {heroProduct.overallRipScore === null ? null : (
+                    {heroPick.familyRankInfo?.overallRipLeaderScore == null ? null : (
                       <span className={styles.heroBadge}>
-                        {score(heroProduct.overallRipScore)} RIP Score
+                        {score(heroPick.familyRankInfo.overallRipLeaderScore)} RIP Score
                       </span>
                     )}
                   </div>
@@ -1259,7 +1255,7 @@ export default function RipDecisionPage({
               Product Rank, RIP Score and Tier use the latest global Rankings publication{rankContextDate(rankContextUpdatedAt) ? ` · data as of ${rankContextDate(rankContextUpdatedAt)}` : ""}. Current opening economics use today&apos;s Set calculation.
             </p>
           ) : null}
-          {rankContextStatus === "error" ? (
+          {canViewProductRipIntelligence && rankContextStatus === "error" ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
               <span>{rankContextError || "Published family ranks are unavailable."}</span>
               <button type="button" onClick={onRankContextRetry} className={ANALYTICAL_ACTION_CLASS}>Retry rank context</button>

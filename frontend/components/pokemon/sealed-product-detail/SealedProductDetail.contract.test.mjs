@@ -8,6 +8,10 @@ const client = read("./SealedProductDetailClient.jsx");
 const market = read("./SealedProductMarketPanel.jsx");
 const rip = read("./ProductRipSection.jsx");
 const comparisons = read("./ProductComparisonSection.jsx");
+const sharedScoreSurface = read("../../explore/RipScoreSurface.jsx");
+const setRip = read("../../explore/RipDecisionPage.jsx");
+const cardDetail = read("../card-detail/PokemonCardDetailClient.jsx");
+const chaseArticle = read("../../../app/Articles/how-chase-efficiency-works/page.js");
 
 test("route stays thin, real, canonical, and has availability-aware SEO", () => {
   assert.match(page, /getSealedProductDetailServer/);
@@ -52,8 +56,13 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(rip, /data-product-rip-score/);
   assert.match(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
   assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
-  assert.match(rip, /publicLeaderScoreTier\(rip\.collectorAppealScore\)/);
+  assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
+  assert.doesNotMatch(rip, /publicLeaderScoreTier\(rip\.collectorAppealScore\)/);
   assert.equal((rip.match(/Format Rank/g) || []).length, 1);
+  assert.match(rip, /RipScoreSurface/);
+  assert.match(setRip, /RipScoreSurface/);
+  assert.match(sharedScoreSurface, /getRipTierPresentation/);
+  assert.match(sharedScoreSurface, /data-score-surface/);
 });
 
 test("Opening Outcome Profile has exactly the six approved primary measurements", () => {
@@ -61,8 +70,29 @@ test("Opening Outcome Profile has exactly the six approved primary measurements"
   assert.deepEqual(keys, ["expectedValue", "medianValue", "chanceToRecoverCost", "entertainmentCost", "p95Value", "p99Value"]);
   assert.match(rip, /gross modeled market value/);
   assert.match(rip, /fees, shipping, liquidation friction, bid\/ask spread, and grading/);
-  assert.match(rip, /data-outcome-range-rail/);
-  for (const label of ["P05", "Typical", "EV", "Price", "P95", "P99"]) assert.match(rip, new RegExp(`\\["${label}"`));
+  assert.match(rip, /data-opening-value-milestones/);
+  assert.doesNotMatch(rip, /data-outcome-range-rail/);
+  for (const key of ["p05", "typical", "ev", "price", "p95", "p99"]) assert.match(rip, new RegExp(`\\["${key}"`));
+  assert.match(rip, /aria-pressed=\{selected\}/);
+  assert.match(rip, /onFocus=/);
+  assert.match(rip, /onMouseEnter=/);
+  assert.match(rip, /data-active-milestone/);
+  assert.doesNotMatch(rip, /histogram|density|smoothed/i);
+});
+
+test("composition is summarized instead of dumping redundant raw fields", () => {
+  assert.match(rip, /productCompositionSummary\(composition\)/);
+  assert.match(rip, /data-product-composition/);
+  assert.doesNotMatch(rip, />Random Packs</);
+});
+
+test("audited user-facing market surfaces use source-agnostic wording", () => {
+  for (const source of [client, cardDetail, chaseArticle, market]) {
+    assert.doesNotMatch(source, /TCG\s*player/i);
+    assert.doesNotMatch(source, /Market source:/i);
+  }
+  assert.match(client, /Market prices are derived from tracked market observations/);
+  assert.match(cardDetail, /Market prices are derived from tracked market observations/);
 });
 
 test("Basic entitlement keeps Product RIP and opening outcomes behind the lock", () => {

@@ -33,6 +33,20 @@ export function formatStrength(rip) {
   return "Ranks within format";
 }
 
+export function productCompositionSummary(composition) {
+  const packs = finite(composition?.packCount);
+  const guaranteed = finite(composition?.guaranteedComponentCount);
+  const guaranteedValue = finite(composition?.guaranteedComponentMarketValue);
+  const parts = [];
+  if (packs !== null && packs > 0) parts.push(`${packs} ${packs === 1 ? "Pack" : "Packs"}`);
+  if (guaranteed !== null && guaranteed > 0) parts.push(`${guaranteed} Modeled Guaranteed ${guaranteed === 1 ? "Component" : "Components"}`);
+  return {
+    available: parts.length > 0 || guaranteedValue !== null,
+    summary: parts.join(" + "),
+    guaranteedValue: guaranteed !== null && guaranteed > 0 ? guaranteedValue : null,
+  };
+}
+
 export function selectProductMarketWindow(market, key) {
   const movement = market?.movements?.[key] || {};
   const history = Array.isArray(market?.history) ? market.history : [];

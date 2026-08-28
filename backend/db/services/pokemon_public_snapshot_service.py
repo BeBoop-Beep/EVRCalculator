@@ -6746,14 +6746,14 @@ def get_pokemon_set_rip_simulation_evidence_snapshot_payload(set_id: str) -> Dic
         return {
             **payload,
             "openingOutcomeProfile": None,
-            "meta": {**(payload.get("meta") or {}), "warnings": ["Exact-run opening outcome research is unavailable."]},
+            "meta": {**(payload.get("meta") or {}), "warnings": [*((payload.get("meta") or {}).get("warnings") or []), "Exact-run opening outcome research is unavailable."]},
         }
     except Exception:
         logger.exception("Optional same-run outcome profile unavailable run_id=%s", run_id)
         return {
             **payload,
             "openingOutcomeProfile": None,
-            "meta": {**(payload.get("meta") or {}), "warnings": ["Exact-run opening outcome research is temporarily unavailable."]},
+            "meta": {**(payload.get("meta") or {}), "warnings": [*((payload.get("meta") or {}).get("warnings") or []), "Exact-run opening outcome research is temporarily unavailable."]},
         }
 
 
@@ -6790,6 +6790,14 @@ def get_pokemon_set_rip_global_context_payload(set_id: str, expected_calculation
 def get_pokemon_set_rip_rank_context_payload(set_id: str) -> Dict[str, Any]:
     """Latest published cross-set product ranks, isolated from same-run research."""
     payload = get_pokemon_set_rip_global_context_payload(set_id, expected_calculation_run_id=None)
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    ranking_run_id = payload.get("rankingCalculationRunId") or meta.get("rankingCalculationRunId")
+    ranking_updated_at = payload.get("rankingUpdatedAt") or meta.get("rankingUpdatedAt") or meta.get("updatedAt")
+    if not ranking_run_id:
+        raise PokemonSetMarketError(
+            503, "Set RIP rank context publication is incomplete",
+            "POKEMON_SET_RIP_RANK_CONTEXT_INCOMPLETE",
+        )
     families = ((payload.get("productFamilyRankings") or {}).get("families") or {})
     if not isinstance(families, dict):
         families = {}
@@ -6797,8 +6805,8 @@ def get_pokemon_set_rip_rank_context_payload(set_id: str) -> Dict[str, Any]:
         "contractVersion": "pokemon-set-rip-rank-context-v1",
         "setId": payload.get("setId") or set_id,
         "productFamilyRankings": {"families": families},
-        "rankingCalculationRunId": payload.get("rankingCalculationRunId"),
-        "rankingUpdatedAt": (payload.get("meta") or {}).get("rankingUpdatedAt"),
+        "rankingCalculationRunId": ranking_run_id,
+        "rankingUpdatedAt": ranking_updated_at,
         "meta": {"source": "get_pokemon_set_rip_global_context"},
     }
 

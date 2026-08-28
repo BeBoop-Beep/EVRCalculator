@@ -132,6 +132,7 @@ import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelect
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import { getPokemonSetRipRankContext, selectSetRipRankContext } from "@/lib/pokemon/pokemonSetRipRankContextClient.mjs";
+import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
 import {
   getPokemonSetRipAdvanced,
   getPokemonSetRipSimulationEvidence,
@@ -8751,6 +8752,7 @@ export default function RipStatisticsPageClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { canViewRankingsIntelligence: canViewProductRipIntelligence } = useRankingsAccess();
   const [isPending, startTransition] = useTransition();
   // Dedicated transition for same-set tab/section navigation, separate from
   // isPending/startTransition above (which only covers the set-switcher).
@@ -9064,7 +9066,7 @@ export default function RipStatisticsPageClient({
   const loadRipRankContext = useCallback(({ force = false } = {}) => {
     const setId = resolvedSetResourceId;
     const expectedCalculationRunId = ripBootstrap?.calculationRunId;
-    if (!setId || !expectedCalculationRunId) return;
+    if (!canViewProductRipIntelligence || !setId || !expectedCalculationRunId) return;
     setRipRankContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
     getPokemonSetRipRankContext(setId, expectedCalculationRunId, { force })
       .then((payload) => {
@@ -9072,7 +9074,7 @@ export default function RipStatisticsPageClient({
         setRipRankContextState({ status: rankContext ? "success" : "error", setId, expectedCalculationRunId, payload: rankContext, error: rankContext ? null : "Rank context response was malformed." });
       })
       .catch((error) => setRipRankContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Rank context unavailable." }));
-  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  }, [canViewProductRipIntelligence, resolvedSetResourceId, ripBootstrap?.calculationRunId]);
   const loadRipSimulation = useCallback(({ force = false } = {}) => {
     const setId = resolvedSetResourceId;
     const calculationRunId = ripBootstrap?.calculationRunId;
@@ -9098,12 +9100,12 @@ export default function RipStatisticsPageClient({
       .catch((error) => setRipAdvancedState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Advanced evidence is unavailable." }));
   }, [resolvedSetResourceId, ripBootstrap?.calculationRunId, ripBootstrap?.canonicalSource]);
   useEffect(() => {
-    if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
+    if (!canViewProductRipIntelligence || !setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
       return undefined;
     }
     loadRipRankContext();
     return undefined;
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipRankContext]);
+  }, [canViewProductRipIntelligence, setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipRankContext]);
   const ripRankContext =
     ripRankContextState.setId === resolvedSetResourceId &&
     ripRankContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
@@ -11425,12 +11427,13 @@ export default function RipStatisticsPageClient({
     setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
     { enabled: false }
   );
+  const loadDesktopSealedSummary = desktopSealedSummaryState.load;
   useEffect(() => {
     const marketCriticalSettled =
       ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
       ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
-    if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) desktopSealedSummaryState.load();
-  }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, desktopSealedSummaryState.load]);
+    if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) loadDesktopSealedSummary();
+  }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, loadDesktopSealedSummary]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -14019,6 +14022,7 @@ export default function RipStatisticsPageClient({
                     rankContextStatus={ripRankContextState.status}
                     rankContextError={ripRankContextState.error}
                     onRankContextRetry={() => loadRipRankContext({ force: true })}
+                    canViewProductRipIntelligence={canViewProductRipIntelligence}
                     setRip={null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
