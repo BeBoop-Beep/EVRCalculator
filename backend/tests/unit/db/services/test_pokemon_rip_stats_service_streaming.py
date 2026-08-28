@@ -69,3 +69,22 @@ def test_service_processes_artifacts_sequentially_without_retaining_set_vectors(
     # No cross-era contamination: Alpha holds only run-a's $5 pack, Beta only run-b's $10.
     assert eras[0]["meanPackCost"] == 5.0
     assert eras[1]["meanPackCost"] == 10.0
+
+
+def test_public_reader_accepts_only_complete_v3_contract(monkeypatch):
+    economics = {"status": "available", "contractVersion": "pokemon-rip-stats-v3",
+        "basis": "all_modeled_products_per_pack_equivalent", "global": {"setCount": 22},
+        "methodology": {"version": "hierarchical_product_per_pack_empirical_v1",
+                        "weightingVersion": "equal-set_equal-family_equal-sku-v1"}}
+    monkeypatch.setattr(service, "read_latest_pokemon_rip_stats", lambda _client:
+        {"market_date": "2026-08-27", "payload_json": {"openingEconomics": economics}})
+    assert service.read_public_opening_economics(object())["basis"] == "all_modeled_products_per_pack_equivalent"
+    for mutation in ({"contractVersion": "pokemon-rip-stats-v2"}, {"basis": None},
+                     {"methodology": {"version": "old", "weightingVersion": "old"}}):
+        incompatible = {**economics, **mutation}
+        monkeypatch.setattr(service, "read_latest_pokemon_rip_stats", lambda _client, value=incompatible:
+            {"market_date": "2026-08-27", "payload_json": {"openingEconomics": value}})
+        result = service.read_public_opening_economics(object())
+        assert result["status"] == "unavailable"
+        assert result["reason"] == "incompatible_opening_economics_contract"
+        assert result["contractVersion"] == "pokemon-rip-stats-v3"

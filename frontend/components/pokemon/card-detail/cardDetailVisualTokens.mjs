@@ -1,0 +1,4 @@
+export const PROBABILITY_ANALYTICS_COLOR = "hsl(278 72% 70%)";
+export const PROBABILITY_ANALYTICS_TEXT_COLOR = "hsl(278 82% 82%)";
+export const PROBABILITY_ANALYTICS_SOFT_BORDER = "hsl(278 72% 70% / 0.2)";
+export const PROBABILITY_ANALYTICS_SOFT_FILL = "hsl(278 72% 70% / 0.1)";

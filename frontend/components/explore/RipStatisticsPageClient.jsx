@@ -3980,7 +3980,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           setId={setId}
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={setActiveSegmentKey}
+          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
           trend={activeTrend}
           onWindowChange={setSelectedWindowKey}
           windowLabel={windowLabel}
@@ -3990,7 +3990,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
         <SetSignalsRail
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={setActiveSegmentKey}
+          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
           breadth={breadth}
           breadthStatus={breadthStatus}
           concentration={concentration}
@@ -4127,7 +4127,7 @@ function TopChaseCardsPanel({ setId, setSlug, cards, status, error, selectedWind
     >
       <div className="mb-4 flex gap-1.5" role="tablist" aria-label="Top 10 market lens">
         {["cards", "sealed"].map((key) => (
-          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => setLens(key)} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
+          <button key={key} type="button" role="tab" aria-selected={lens === key} onClick={() => { if (key === "sealed") sealedState.load?.(); setLens(key); }} className={`min-h-9 rounded-lg border px-3 text-xs font-semibold ${lens === key ? "border-[rgb(45,212,191)] bg-[rgba(45,212,191,0.12)] text-[rgb(45,212,191)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"}`}>
             {key === "cards" ? "Cards" : "Sealed"}
           </button>
         ))}
@@ -9162,10 +9162,9 @@ export default function RipStatisticsPageClient({
   // /overview endpoint instead of the multi-MB /market/dashboard payload once
   // it loads; marketDashboardState above is still the fallback until it does,
   // and Top Chase Cards/Market Movers still read marketDashboardState only.
-  // Hydrated from the route-level /overview seed (Overview direct entries)
-  // so both sections render on first paint; the fetch effect below then
-  // refreshes it quietly (the reducer's "loading" case keeps a same-set
-  // payload as success_stale, so no loading panel replaces seeded data).
+  // Hydrated from the route-level Market bootstrap. A valid current seed is
+  // the completed initial resource; the effect below does not immediately
+  // download the identical set/window again.
   const [overviewState, dispatchOverview] = useReducer(
     marketDashboardReducer,
     {
@@ -11340,7 +11339,8 @@ export default function RipStatisticsPageClient({
     return null;
   }, [activeSetValueHistory.historiesByScope, activeSetValueHistory.history]);
   const desktopSealedMarketState = usePokemonSetSealedMarket(
-    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
+    { enabled: false }
   );
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
@@ -13154,7 +13154,11 @@ export default function RipStatisticsPageClient({
     // tab so a fresh RIP entry never depends on the user visiting Market first.
     // The request-key guard below still makes RIP<->Market switches share one
     // fetch per set/window.
-    const shouldFetchTopChase = setDetailTab === "overview" || setDetailTab === "market";
+    const marketCriticalSettled =
+      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
+      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
+    const shouldFetchTopChase =
+      setDetailTab === "overview" || (setDetailTab === "market" && marketCriticalSettled);
     if (!shouldFetchTopChase) {
       return undefined;
     }
@@ -13229,6 +13233,8 @@ export default function RipStatisticsPageClient({
     selectedTarget,
     resolvedSetResourceId,
     canFetchSlimMarketModules,
+    activeOverviewState.status,
+    activeMarketMoversState.status,
     // Section-local Retry: re-runs this effect only (see retryTopChaseModule).
     topChaseRetryNonce,
   ]);
@@ -13339,13 +13345,7 @@ export default function RipStatisticsPageClient({
     marketMoversRetryNonce,
   ]);
 
-  // Slim /overview fetch for Set Value Trend/Performance vs Cost only.
-  // When the route seeded an /overview snapshot (see seededOverviewPayload),
-  // this effect still runs but refreshes quietly: the reducer's "loading"
-  // case keeps the same-set seeded payload as success_stale, so seeded
-  // sections never regress to a loading panel while the refresh is in
-  // flight, and the request-key guard below keeps tab revisits from
-  // re-fetching the identical set/window.
+  // Live fallback for a missing/invalid Market bootstrap, plus explicit Retry.
   useEffect(() => {
     if (!setDetailMode) {
       return undefined;
@@ -13375,6 +13375,12 @@ export default function RipStatisticsPageClient({
     if (!shouldRenderMarketOverviewData) {
       // No background fetch for a tab the user isn't on — a tab that needs
       // this data (or a future switch back to one) triggers this effect again.
+      return undefined;
+    }
+
+    if (seededOverviewPayload && overviewRetryNonce === 0) {
+      lastOverviewRequestKeyRef.current = `${setId}|${overviewSourceWindow}`;
+      debugSetPagePerf("overview.seed_satisfied_initial_resource", { resolvedSetId: setId });
       return undefined;
     }
 

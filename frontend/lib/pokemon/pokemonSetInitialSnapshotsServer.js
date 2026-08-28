@@ -168,6 +168,23 @@ export async function getPokemonSetOverviewInitialSnapshot(setId, { window = "36
   });
 }
 
+export async function getPokemonSetMarketBootstrapInitialSnapshot(setId, { window = "365d" } = {}) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const normalizedWindow = normalizeMarketDashboardWindow(window);
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/bootstrap`);
+  url.searchParams.set("window", normalizedWindow);
+  return loadInitialSnapshot(url, {
+    moduleName: "market bootstrap",
+    normalizePayload: normalizeOverviewPayload,
+    nextCacheOptions: {
+      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
+      tags: [`pokemon-set-market-bootstrap:${resolvedSetId}:${normalizedWindow}`],
+    },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
 export async function getPokemonSetCardsInitialSnapshot(setId) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
@@ -285,7 +302,7 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsMarketSeed ? getPokemonSetOverviewInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsSimulationEvidence ? getPokemonSetSimulationEvidenceInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 

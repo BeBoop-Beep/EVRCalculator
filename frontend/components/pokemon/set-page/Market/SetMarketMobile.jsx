@@ -55,7 +55,7 @@ export default function SetMarketMobile({
   setValue,
   topChase,
 }) {
-  const sealedState = usePokemonSetSealedMarket(setId);
+  const sealedState = usePokemonSetSealedMarket(setId, { enabled: false });
 
   return (
     <section id={sectionIds.root} data-market-page data-market-mobile className="min-w-0 space-y-3">

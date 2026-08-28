@@ -205,10 +205,10 @@ export default function SetMarketMobileSetValue({
         <div className="space-y-3">
           {/* Compact segmented lens switch — a small analytical toggle, not a
               content module. Cards is the default selection. */}
-          <SegmentedControl
+        <SegmentedControl
             options={segmentOptions}
             value={resolvedSegmentKey}
-            onChange={setActiveSegmentKey}
+          onChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
             ariaLabel="Market segment"
             equalWidth
             mobileFullWidth

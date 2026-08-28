@@ -1,6 +1,7 @@
 import PokemonSetPageClient from "@/components/pokemon/set-page/PokemonSetPageClient";
 import { getExplorePagePayload } from "@/lib/explore/explorePageServer";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
+import { getPokemonSetRouteDirectory } from "@/lib/pokemon/pokemonSetRouteDirectoryServer";
 import { getPokemonSetInitialSnapshots } from "@/lib/pokemon/pokemonSetInitialSnapshotsServer";
 import {
   buildTargetHrefById,
@@ -59,7 +60,7 @@ export async function generateMetadata({ params }) {
   // getRipStatisticsTargets is wrapped in React `cache()` AND a process-level
   // TTL cache, so this resolves from the same in-flight/cached payload the page
   // body below awaits. Metadata costs no extra backend request.
-  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(
+  const targetsPayload = await getPokemonSetRouteDirectory({ limit: 150 }).catch(
     () => null,
   );
   const selectedTarget = findTargetBySetSlug(
@@ -112,7 +113,13 @@ export default async function TcgSetRipStatisticsPage({
   const activeSetDetailTab = resolveSetDetailTab(resolvedSearchParams?.tab);
 
   const targetsStartedAt = Date.now();
-  const targetsPayload = await getRipStatisticsTargets({ limit: 150 }).catch(
+  // Market routing/header identity comes from the narrow relational directory.
+  // RIP keeps its full analytical targets artifact until its own performance pass.
+  const targetsPayload = await (
+    activeSetDetailTab === "market"
+      ? getPokemonSetRouteDirectory({ limit: 150 })
+      : getRipStatisticsTargets({ limit: 150 })
+  ).catch(
     (error) => ({
       targets: [],
       default_target: null,

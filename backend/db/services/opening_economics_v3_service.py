@@ -56,7 +56,7 @@ def _verify(row: Mapping[str, Any], vector: np.ndarray, tolerance=1e-6) -> None:
             )
 
 
-def _exact_recovery_audit(row: Mapping[str, Any], vector: np.ndarray, sorted_per_pack: Any) -> dict[str, Any]:
+def _exact_recovery_audit(row: Mapping[str, Any], vector: np.ndarray, sorted_total: Any) -> dict[str, Any]:
     simulations = int(row["simulation_count"])
     packs = int(row["pack_count"])
     price = float(row["product_market_cost"])
@@ -64,39 +64,22 @@ def _exact_recovery_audit(row: Mapping[str, Any], vector: np.ndarray, sorted_per
         raise OpeningEconomicsV3Error(
             f"simulation count mismatch for {row.get('sealed_product_id')}: stored={simulations} regenerated={vector.size}"
         )
-    raw_normalized_count = int(np.count_nonzero((vector / packs) >= (price / packs)))
     counts = {
         "persisted": persisted_recovery_count(row),
         "regeneratedTotal": int(np.count_nonzero(vector >= price)),
-        "normalizedPerPack": int(np.count_nonzero(sorted_per_pack >= (price / packs))),
+        # Recovery is canonical in total-product space. This named audit layer
+        # validates the equivalent per-pack inequality without storing or
+        # mutating a normalized physical vector.
+        "normalizedPerPack": int(np.count_nonzero(vector >= price)),
         "searchsorted": simulations - int(WeightedEmpiricalMixture._searchsorted(
-            sorted_per_pack, [price / packs], side="left"
+            sorted_total, [price], side="left"
         )[0]),
     }
     return {"sealedProductId": str(row["sealed_product_id"]), "productName": row.get("product_name"),
             "setId": str(row["set_id"]), "productFamily": row.get("product_family"),
             "simulationCount": simulations,
             "packCount": packs, "price": price, "counts": counts,
-            "rawNormalizedCount": raw_normalized_count,
-            "normalizationBoundaryCorrectionCount": abs(raw_normalized_count - counts["regeneratedTotal"]),
             "classification": "exact" if len(set(counts.values())) == 1 else "mismatch"}
-
-
-def _normalize_preserving_recovery(vector: np.ndarray, *, packs: int, price: float) -> np.ndarray:
-    """Normalize values while preserving canonical total-space break-even membership.
-
-    IEEE-754 division can round `value / packs` and `price / packs` to opposite
-    sides when the original values are equal. Pin only those moved boundary
-    observations; all other per-pack values remain the ordinary quotient.
-    """
-    result = vector / packs
-    threshold = price / packs
-    canonical = vector >= price
-    moved_below = canonical & (result < threshold)
-    moved_above = ~canonical & (result >= threshold)
-    result[moved_below] = threshold
-    result[moved_above] = np.nextafter(threshold, -np.inf)
-    return result
 
 
 def _identity(scope: dict[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -104,6 +87,16 @@ def _identity(scope: dict[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict[
     return {**scope, "setCount": len({str(row["set_id"]) for row in rows}), "productSkuCount": len(rows), "productFamilyCount": len(families),
             "representedFamilies": families, "coverageStatus": "complete",
             "methodologyVersion": METHODOLOGY_VERSION, "weightingVersion": WEIGHTING_VERSION}
+
+
+def _store_physical_distribution(owner: WeightedEmpiricalMixture, cache: dict[Any, tuple[Any, int]],
+                                 cache_key: Any, vector: np.ndarray, *, pack_count: int) -> tuple[Any, int]:
+    """Cache a physical total-product population; SKU price is intentionally absent."""
+    if cache_key not in cache:
+        owner.add(vector, weight=1, pack_count=pack_count, product_cost=1.0)
+        component = owner.components[-1]
+        cache[cache_key] = (component.path, component.count)
+    return cache[cache_key]
 
 
 def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Sequence[Any]) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -163,19 +156,17 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
                         if guaranteed: vector = vector + guaranteed
                         _verify(row, vector)
                         cache_key = (run_id, pack_count, guaranteed)
-                        if cache_key not in distribution_cache:
-                            per_pack = _normalize_preserving_recovery(
-                                vector, packs=pack_count, price=float(row["product_market_cost"])
-                            )
-                            owner.add(per_pack, weight=1, cost_per_pack=float(row["product_market_cost"]) / pack_count)
-                            component = owner.components[-1]
-                            distribution_cache[cache_key] = (component.path, component.count)
-                            temp_bytes += component.path.stat().st_size
+                        was_cached = cache_key in distribution_cache
+                        stored_path, _ = _store_physical_distribution(
+                            owner, distribution_cache, cache_key, vector, pack_count=pack_count
+                        )
+                        if not was_cached:
+                            temp_bytes += stored_path.stat().st_size
                         paths[str(row["sealed_product_id"])] = distribution_cache[cache_key]
                         component_path, _ = distribution_cache[cache_key]
-                        sorted_per_pack = np.load(component_path, mmap_mode="r", allow_pickle=False)
-                        audit = _exact_recovery_audit(row, vector, sorted_per_pack)
-                        WeightedEmpiricalMixture._close(sorted_per_pack)
+                        sorted_total = np.load(component_path, mmap_mode="r", allow_pickle=False)
+                        audit = _exact_recovery_audit(row, vector, sorted_total)
+                        WeightedEmpiricalMixture._close(sorted_total)
                         recovery_audits.append(audit)
                         audited = dict(row)
                         audited["_regenerated_recovery_count"] = audit["counts"]["regeneratedTotal"]
@@ -228,7 +219,8 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
                                           "skuCount": benchmark["productSkuCount"], **benchmark})
         finally:
             owner.cleanup()
-    payload = {"status": "available", "contractVersion": CONTRACT_VERSION, "marketDate": str(market_date)[:10],
+    payload = {"status": "available", "contractVersion": CONTRACT_VERSION,
+               "basis": "all_modeled_products_per_pack_equivalent", "marketDate": str(market_date)[:10],
                "population": {"setCount": len(set_ids), "productFamilyCount": len({row["product_family"] for row in usable}),
                               "productSkuCount": len(usable), "setFamilyCount": len({(row["set_id"], row["product_family"]) for row in usable})},
                "global": global_scope, "eras": era_scopes, "sets": set_scopes,
@@ -241,10 +233,6 @@ def build_opening_economics_v3(client: Any, *, market_date: str, statuses: Seque
     diagnostics = {"productDistributionsRegenerated": len(usable), "excludedProducts": exclusions,
                    "recoveryAudit": {"status": "passed", "skuCount": len(recovery_audits),
                                      "caseCounts": {"exact": len(recovery_audits), "mismatch": 0},
-                                     "normalizationBoundaryAffectedProducts": sum(
-                                         audit["normalizationBoundaryCorrectionCount"] > 0 for audit in recovery_audits),
-                                     "normalizationBoundaryCorrectedObservations": sum(
-                                         audit["normalizationBoundaryCorrectionCount"] for audit in recovery_audits),
                                      "products": recovery_audits},
                    "seedAudit": seed_audits,
                    "wallClockSeconds": time.perf_counter() - started, "temporaryDiskBytes": temp_bytes,

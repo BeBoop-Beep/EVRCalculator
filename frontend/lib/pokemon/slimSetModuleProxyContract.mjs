@@ -108,6 +108,12 @@ export const SLIM_SET_MODULE_PROXY_CONTRACTS = Object.freeze({
     codePrefix: "POKEMON_SET_SEALED_MARKET",
     forwardParams: [],
   },
+  "sealed-consumer": {
+    backendPath: "market/sealed-consumer",
+    moduleLabel: "set consumer sealed market",
+    codePrefix: "POKEMON_SET_CONSUMER_SEALED",
+    forwardParams: [],
+  },
   "value-history": {
     backendPath: "market/value-history",
     moduleLabel: "set value history",

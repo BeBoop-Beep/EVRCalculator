@@ -21,10 +21,10 @@ export function isUnavailableSealedMarketError(error) {
   return Number(error?.status) === 404;
 }
 
-export default function usePokemonSetSealedMarket(setId) {
+export default function usePokemonSetSealedMarket(setId, { enabled = true } = {}) {
   const resolvedSetId = String(setId || "").trim();
   const lastGoodRef = useRef({ setId: null, payload: null });
-  const [requestVersion, setRequestVersion] = useState(0);
+  const [requestVersion, setRequestVersion] = useState(enabled ? 1 : 0);
   const [state, setState] = useState({
     status: "idle",
     payload: null,
@@ -32,10 +32,11 @@ export default function usePokemonSetSealedMarket(setId) {
     isRefreshing: false,
   });
 
-  const retry = useCallback(() => setRequestVersion((version) => version + 1), []);
+  const load = useCallback(() => setRequestVersion((version) => version + 1), []);
+  const retry = load;
 
   useEffect(() => {
-    if (!resolvedSetId) {
+    if (!resolvedSetId || requestVersion === 0) {
       lastGoodRef.current = { setId: null, payload: null };
       setState({ status: "idle", payload: null, error: null, isRefreshing: false });
       return undefined;
@@ -84,5 +85,5 @@ export default function usePokemonSetSealedMarket(setId) {
     };
   }, [requestVersion, resolvedSetId]);
 
-  return { ...state, retry };
+  return { ...state, retry, load };
 }

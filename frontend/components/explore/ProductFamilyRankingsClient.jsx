@@ -672,7 +672,7 @@ export default function ProductFamilyRankingsClient({
               </span>
             </div>
           ) : null}
-          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
+          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
         </>
       ) : view === "cards" ? (
         <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />

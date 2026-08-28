@@ -177,7 +177,7 @@ export default function SetMarketMobileTopChase({
       action={lens === "cards" ? <MarketMobileSectionLink href={hasCards ? viewAllHref : null} label="All cards" /> : null}
     >
       <div className="mb-3">
-        <SegmentedControl options={[{ value: "cards", label: "Cards" }, { value: "sealed", label: "Sealed" }]} value={lens} onChange={setLens} ariaLabel="Top 10 market lens" equalWidth mobileFullWidth />
+        <SegmentedControl options={[{ value: "cards", label: "Cards" }, { value: "sealed", label: "Sealed" }]} value={lens} onChange={(key) => { if (key === "sealed") sealedState.load?.(); setLens(key); }} ariaLabel="Top 10 market lens" equalWidth mobileFullWidth />
       </div>
       {((lens === "cards" ? status : sealedState.status) === "loading" || (lens === "cards" ? status : sealedState.status) === "idle") && !hasRows ? (
         <div className="space-y-2" aria-hidden="true">

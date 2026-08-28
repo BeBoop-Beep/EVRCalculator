@@ -28,38 +28,25 @@ const eras = read("./OpeningEconomicsEras.jsx");
 const page = read("../../app/Explore/page.js");
 const server = read("../../lib/explore/openingEconomicsServer.js");
 
-/** The published 2026-08-26 cohort, trimmed to the fields the views read. */
+/** Representative published V3 cohort, trimmed to fields the views read. */
 const PUBLISHED = {
   status: "available",
-  marketDate: "2026-08-26",
-  weightingMode: "equal_set_weight",
-  productFamily: "loose_booster_pack",
+  marketDate: "2026-08-27", contractVersion: "pokemon-rip-stats-v3",
+  basis: "all_modeled_products_per_pack_equivalent",
+  methodology: {version:"hierarchical_product_per_pack_empirical_v1",weightingVersion:"equal-set_equal-family_equal-sku-v1"},
   global: {
-    setCount: 22,
-    meanPackCost: 11.896363636363638,
-    expectedValue: 5.404382489090909,
-    chanceToBeatCost: 0.07195186363636363,
-    typicalOpening: { value: 1.84, retention: 0.19812206572769955, quantile: 0.5 },
-    modeledReturnOnSpend: 0.4542886090478374,
-    entertainmentCostShare: 0.5457113909521626,
-    expectedEntertainmentCost: 6.491981147272727,
-    rawDistribution: { p05: 1.25, p25: 1.54, p50: 1.84, p75: 2.88, p95: 15.94, p99: 60.39 },
-    normalizedReturnDistribution: {
-      p05: 0.08785529715762275, p25: 0.13649425287356323, p50: 0.19812206572769955,
-      p75: 0.28648648648648645, p95: 1.4180180180180182, p99: 4.710488651581117,
+    setCount:22,productSkuCount:138,productFamilyCount:8,
+    averageCostPerPack:17.8818,averageModelBreakEvenPerPack:6.9946,chanceToRecoverCost:.050652,
+    typicalOpeningPerPack:3.5886,typicalRetention:.273823,meanOutcomeRetention:.424644,
+    modeledReturnOnSpend:.391157,entertainmentCostShare:.608843,averageEntertainmentCostPerPack:10.8872,
+    valuePerPackPercentiles:{p05:1.3853,p25:2.0103,p50:3.5886,p75:7.0103,p95:21.5769,p99:50.8709},
+    normalizedReturnPercentiles: {
+      p05:.103550,p25:.173094,p50:.273823,p75:.434844,p95:1.007092,p99:2.793935,
     },
   },
   eras: [
-    { eraName: "Mega Evolution", setCount: 6, meanPackCost: 8.391666666666667,
-      expectedValue: 4.5461129499999995, chanceToBeatCost: 0.0635595,
-      typicalOpening: { value: 1.71, retention: 0.2433392539964476 },
-      modeledReturnOnSpend: 0.541741364448858, entertainmentCostShare: 0.458258635551142,
-      expectedEntertainmentCost: 3.8455537166666667 },
-    { eraName: "Scarlet and Violet", setCount: 16, meanPackCost: 13.210625,
-      expectedValue: 5.726233566250015, chanceToBeatCost: 0.075099,
-      typicalOpening: { value: 1.87, retention: 0.1758849557522124 },
-      modeledReturnOnSpend: 0.4334566734162843, entertainmentCostShare: 0.5665433265837156,
-      expectedEntertainmentCost: 7.484391433749999 },
+    {eraName:"Mega Evolution",setCount:6,averageCostPerPack:11.5962,averageModelBreakEvenPerPack:5.4479,chanceToRecoverCost:.061167,typicalOpeningPerPack:2.8869,typicalRetention:.298182,modeledReturnOnSpend:.469794,entertainmentCostShare:.530206,averageEntertainmentCostPerPack:6.1484},
+    {eraName:"Scarlet and Violet",setCount:16,averageCostPerPack:20.2388,averageModelBreakEvenPerPack:7.5746,chanceToRecoverCost:.046709,typicalOpeningPerPack:3.8853,typicalRetention:.260587,modeledReturnOnSpend:.374261,entertainmentCostShare:.625739,averageEntertainmentCostPerPack:12.6642},
   ],
 };
 
@@ -72,7 +59,7 @@ test("the top-level control offers exactly four lenses in hierarchy order", () =
   const block = options.slice(0, options.indexOf("/>"));
   assert.deepEqual(
     [...block.matchAll(/\{ value: "([a-zA-Z]+)", label: "([^"]+)" \}/g)].map((match) => [match[1], match[2]]),
-    [["economics", "Overall"], ["eras", "Eras"], ["sets", "Sets"], ["products", "Products"]],
+    [["economics", "Overall"], ["eras", "Eras"], ["sets", "Sets"], ["products", "Products"], ["cards", "Cards"]],
   );
 });
 
@@ -117,14 +104,14 @@ test("Overall renders all six headline metrics from published fields", () => {
     "Average Model Break-Even",
   ]);
   const byKey = Object.fromEntries(metrics.map((metric) => [metric.key, metric]));
-  assert.equal(byKey.modeledReturn.value, "45.4%");
-  assert.equal(byKey.entertainmentCost.value, "$6.49");
-  assert.equal(byKey.entertainmentCost.secondary, "54.6% of pack spend");
-  assert.equal(byKey.typicalOpening.value, "$1.84");
-  assert.equal(byKey.typicalOpening.secondary, "19.8% typical retention");
-  assert.equal(byKey.chanceToRecover.value, "7.2%");
-  assert.equal(byKey.averagePackPrice.value, "$11.90");
-  assert.equal(byKey.modelBreakEven.value, "$5.40");
+  assert.equal(byKey.modeledReturn.value, "39.1%");
+  assert.equal(byKey.entertainmentCost.value, "$10.89");
+  assert.equal(byKey.entertainmentCost.secondary, "60.9% of pack spend");
+  assert.equal(byKey.typicalOpening.value, "$3.59");
+  assert.equal(byKey.typicalOpening.secondary, "27.4% typical retention");
+  assert.equal(byKey.chanceToRecover.value, "5.1%");
+  assert.equal(byKey.averagePackPrice.value, "$17.88");
+  assert.equal(byKey.modelBreakEven.value, "$6.99");
 });
 
 test("Typical Opening is read from the published pooled P50, never averaged", () => {
@@ -132,7 +119,7 @@ test("Typical Opening is read from the published pooled P50, never averaged", ()
   // A reader that reconstructed the value would produce the former.
   const metrics = headlineMetrics(PUBLISHED.global);
   const typical = metrics.find((metric) => metric.key === "typicalOpening");
-  assert.equal(typical.value, "$1.84");
+  assert.equal(typical.value, "$3.59");
   assert.notEqual(typical.value, "$1.92");
   assert.match(typical.help, /not an average of each set's median/);
 });
@@ -148,21 +135,35 @@ test("no view recomputes a statistic in the browser", () => {
 });
 
 test("the interpretation block derives its cents from the live published ratio", () => {
-  assert.equal(centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 45);
-  assert.equal(100 - centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 55);
+  assert.equal(centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 39);
+  assert.equal(100 - centsPerDollar(PUBLISHED.global.modeledReturnOnSpend), 61);
   assert.ok(overall.includes("centsPerDollar(scope.modeledReturnOnSpend)"));
   // No hardcoded figure may stand in for the live value.
   assert.ok(!/\b45¢|\b55¢/.test(overall));
 });
 
 test("the pooled distribution exposes all six percentiles", () => {
-  const rows = distributionRows(PUBLISHED.global.rawDistribution, (value) => money(value));
+  const rows = distributionRows(PUBLISHED.global.valuePerPackPercentiles, (value) => money(value));
   assert.deepEqual(rows.map((row) => row.label), ["P05", "P25", "P50", "P75", "P95", "P99"]);
-  assert.deepEqual(rows.map((row) => row.display), ["$1.25", "$1.54", "$1.84", "$2.88", "$15.94", "$60.39"]);
+  assert.deepEqual(rows.map((row) => row.display), ["$1.39", "$2.01", "$3.59", "$7.01", "$21.58", "$50.87"]);
 });
 
 test("the distribution is not presented as a smooth or normal curve", () => {
   assert.ok(!/gaussian|normal curve|bell/i.test(overall));
+});
+
+test("V3 basis and all P01-P99 values drive distribution geometry", () => {
+  assert.equal(PUBLISHED.basis, "all_modeled_products_per_pack_equivalent");
+  assert.ok(overall.includes("Array.from({length:99}"));
+  assert.ok(overall.includes('data-percentile-points="99"'));
+  assert.ok(!overall.includes("18+index*10"));
+  assert.ok(!overall.includes("resolveLooseBoosterPackArtwork"));
+});
+
+test("frontend transport rejects non-V3 available responses", () => {
+  assert.ok(server.includes("isOpeningEconomicsV3"));
+  assert.ok(server.includes("incompatible_opening_economics_contract"));
+  assert.ok(server.includes("all_modeled_products_per_pack_equivalent"));
 });
 
 // ---------------------------------------------------------------------------
@@ -172,13 +173,13 @@ test("the distribution is not presented as a smooth or normal curve", () => {
 test("era rows read the published per-era fields", () => {
   const [mega, sv] = PUBLISHED.eras.map(projectEraRow);
   assert.deepEqual(mega, {
-    eraName: "Mega Evolution", setCount: 6, meanPackCost: "$8.39", expectedValue: "$4.55",
-    typicalOpening: "$1.71", typicalRetention: "24.3%", modeledReturn: "54.2%",
-    entertainmentCost: "$3.85", entertainmentCostShare: "45.8%", chanceToRecover: "6.4%",
+    eraName: "Mega Evolution", setCount: 6, meanPackCost: "$11.60", expectedValue: "$5.45",
+    typicalOpening: "$2.89", typicalRetention: "29.8%", modeledReturn: "47.0%",
+    entertainmentCost: "$6.15", entertainmentCostShare: "53.0%", chanceToRecover: "6.1%",
   });
-  assert.equal(sv.modeledReturn, "43.3%");
-  assert.equal(sv.typicalOpening, "$1.87");
-  assert.equal(sv.entertainmentCost, "$7.48");
+  assert.equal(sv.modeledReturn, "37.4%");
+  assert.equal(sv.typicalOpening, "$3.89");
+  assert.equal(sv.entertainmentCost, "$12.66");
 });
 
 test("eras default to Modeled Return descending", () => {
@@ -230,7 +231,7 @@ test("missing values render unavailable, never zero", () => {
 
 test("a negative Entertainment Cost survives rather than being clamped", () => {
   assert.equal(money(-1.25), "-$1.25");
-  const metric = headlineMetrics({ ...PUBLISHED.global, expectedEntertainmentCost: -1.25 })
+  const metric = headlineMetrics({ ...PUBLISHED.global, averageEntertainmentCostPerPack: -1.25 })
     .find((item) => item.key === "entertainmentCost");
   assert.equal(metric.value, "-$1.25");
 });
@@ -311,24 +312,23 @@ test("the era drilldown to Sets is reachable", () => {
 
 test("the descent presents price, break-even and typical as one progression", () => {
   const stages = valueDescent(PUBLISHED.global);
-  assert.deepEqual(stages.map((stage) => stage.value), ["$11.90", "$5.40", "$1.84"]);
+  assert.deepEqual(stages.map((stage) => stage.value), ["$17.88", "$6.99", "$3.59"]);
   // Bar length is the value's share of the pack price, so the collapse is read
   // as distance. The price stage is the full-width reference.
   assert.equal(stages[0].percent, 100);
   assert.ok(stages[1].percent > stages[2].percent);
-  assert.ok(stages[2].percent < 20);
+  assert.ok(stages[2].percent < 25);
   // Break-Even must declare that it IS Expected Value, not a second statistic.
   assert.equal(stages[1].sameAsExpectedValue, true);
 });
 
 test("the outcome range places EV to the right of the typical band", () => {
-  const range = outcomeRangePositions(PUBLISHED.global.rawDistribution, PUBLISHED.global.expectedValue);
+  const range = outcomeRangePositions(PUBLISHED.global.valuePerPackPercentiles, PUBLISHED.global.averageModelBreakEvenPerPack);
   assert.equal(range.scale, "logarithmic");
   const at = Object.fromEntries(range.points.map((point) => [point.key, point.percent]));
-  // The whole point of the section: EV sits beyond P75, near the sparse tail.
-  assert.ok(range.expectedValue.percent > at.p75, "EV must plot right of the 75th percentile");
-  assert.ok(range.expectedValue.percent < at.p95, "EV must plot left of the 95th percentile");
-  assert.equal(range.expectedValue.display, "$5.40");
+  assert.ok(range.expectedValue.percent > at.p50, "EV must plot right of the median");
+  assert.ok(range.expectedValue.percent < at.p75, "EV must plot left of the 75th percentile");
+  assert.equal(range.expectedValue.display, "$6.99");
   // Ticks ascend and stay inside the axis.
   const ordered = ["p05", "p25", "p50", "p75", "p95", "p99"].map((key) => at[key]);
   assert.deepEqual(ordered, [...ordered].sort((a, b) => a - b));
@@ -352,9 +352,9 @@ test("the range is labeled with its scale and carries a text equivalent", () => 
 
 test("Modeled Return and Typical Retention are never presented as the same thing", () => {
   const returnPct = ratioAsPercent(PUBLISHED.global.modeledReturnOnSpend);
-  const retentionPct = ratioAsPercent(PUBLISHED.global.typicalOpening.retention);
-  assert.equal(returnPct, "45.4%");
-  assert.equal(retentionPct, "19.8%");
+  const retentionPct = ratioAsPercent(PUBLISHED.global.typicalRetention);
+  assert.equal(returnPct, "39.1%");
+  assert.equal(retentionPct, "27.4%");
   assert.notEqual(returnPct, retentionPct);
   // Their help text must distinguish median-of-outcomes from aggregate-of-spend.
   assert.match(overall, /MEDIAN outcome relative to purchase price/);

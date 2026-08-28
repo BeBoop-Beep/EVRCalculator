@@ -18,9 +18,22 @@ import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 
 const BACKEND_URL = getBackendApiBaseUrl();
 const REVALIDATE_SECONDS = 120;
+const V3_CONTRACT = "pokemon-rip-stats-v3";
+const V3_METHODOLOGY = "hierarchical_product_per_pack_empirical_v1";
+const V3_WEIGHTING = "equal-set_equal-family_equal-sku-v1";
+const V3_BASIS = "all_modeled_products_per_pack_equivalent";
 
 function unavailable(reason) {
-  return { status: "unavailable", reason, global: null, eras: [] };
+  return { status: "unavailable", reason, contractVersion: V3_CONTRACT, basis: V3_BASIS,
+    methodology: { version: V3_METHODOLOGY, weightingVersion: V3_WEIGHTING },
+    global: null, eras: [], sets: [], familyBenchmarks: [] };
+}
+
+export function isOpeningEconomicsV3(payload) {
+  return Boolean(payload && payload.status === "available" && payload.global
+    && payload.contractVersion === V3_CONTRACT && payload.basis === V3_BASIS
+    && payload.methodology?.version === V3_METHODOLOGY
+    && payload.methodology?.weightingVersion === V3_WEIGHTING);
 }
 
 async function fetchOpeningEconomics() {
@@ -38,10 +51,12 @@ async function fetchOpeningEconomics() {
     // The backend is the only authority on availability. A payload that says
     // "available" without a global scope is treated as unavailable rather than
     // rendered with blank tiles.
-    if (payload.status === "available" && payload.global) {
+    if (isOpeningEconomicsV3(payload)) {
       return payload;
     }
-    return unavailable(payload.reason || "opening_economics_unavailable");
+    return unavailable(payload.status === "available"
+      ? "incompatible_opening_economics_contract"
+      : payload.reason || "opening_economics_unavailable");
   } catch {
     return unavailable("request_failed");
   }

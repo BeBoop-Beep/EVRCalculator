@@ -27,6 +27,9 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // in-flight promise (same pattern as marketDashboardInflight above) removes
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
+const consumerSealedCache = new Map();
+const CONSUMER_SEALED_CACHE_MAX_ENTRIES = 8;
+const CONSUMER_SEALED_CACHE_TTL_MS = 5 * 60 * 1000;
 const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
 
 // Bounded completion policy for the slim module fetches.
@@ -1217,9 +1220,15 @@ export async function getPokemonSetSealedMarket(setId) {
     throw new Error("Set id is required");
   }
   const cacheKey = `sealed:${resolvedSetId}`;
+  const cached = consumerSealedCache.get(cacheKey);
+  if (cached && Date.now() - cached.storedAt <= CONSUMER_SEALED_CACHE_TTL_MS) {
+    consumerSealedCache.delete(cacheKey);
+    consumerSealedCache.set(cacheKey, cached);
+    return cached.payload;
+  }
   return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
-      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed`,
+      `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed-consumer`,
       { method: "GET", signal }
     );
     const payload = await readJsonResponse(response, "Unable to load sealed market history");
@@ -1254,7 +1263,7 @@ export async function getPokemonSetSealedMarket(setId) {
           marketIndex: normalizePreparedMarketIndex(consumerMarket.marketIndex || consumerMarket.market_index),
         }
       : null;
-    return {
+    const normalized = {
       ...payload,
       products: Array.isArray(payload?.products) ? payload.products : [],
       setMarket: normalizedSetMarket,
@@ -1265,6 +1274,11 @@ export async function getPokemonSetSealedMarket(setId) {
         ? payload.setPageConsumerTopProducts
         : Array.isArray(payload?.set_page_consumer_top_products) ? payload.set_page_consumer_top_products : [],
     };
+    consumerSealedCache.set(cacheKey, { storedAt: Date.now(), payload: normalized });
+    while (consumerSealedCache.size > CONSUMER_SEALED_CACHE_MAX_ENTRIES) {
+      consumerSealedCache.delete(consumerSealedCache.keys().next().value);
+    }
+    return normalized;
   });
 }
 

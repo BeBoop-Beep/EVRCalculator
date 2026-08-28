@@ -74,7 +74,8 @@ class _Component:
     path: Path
     count: int
     weight: float
-    cost_per_pack: float
+    pack_count: int
+    product_cost: float
     owns_file: bool = True
 
 
@@ -87,26 +88,30 @@ class WeightedEmpiricalMixture:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.components: list[_Component] = []
 
-    def add(self, values: Any, *, weight: float, cost_per_pack: float) -> None:
+    def add(self, values: Any, *, weight: float, pack_count: int, product_cost: float) -> None:
         vector = np.asarray(values, dtype=np.float64)
         if vector.ndim != 1 or not vector.size or not np.isfinite(vector).all() or (vector < 0).any():
             raise OpeningEconomicsV3Error("invalid product outcome vector")
-        if not math.isfinite(weight) or weight <= 0 or not math.isfinite(cost_per_pack) or cost_per_pack <= 0:
+        if (not math.isfinite(weight) or weight <= 0 or int(pack_count) < 1
+                or not math.isfinite(product_cost) or product_cost <= 0):
             raise OpeningEconomicsV3Error("invalid mixture component metadata")
         path = self.directory / f"component-{len(self.components):04d}.npy"
         sorted_values = np.sort(vector)
         np.save(path, sorted_values, allow_pickle=False)
-        self.components.append(_Component(path, vector.size, float(weight), float(cost_per_pack), True))
+        self.components.append(_Component(path, vector.size, float(weight), int(pack_count), float(product_cost), True))
 
-    def add_path(self, path: str | os.PathLike[str], *, count: int, weight: float, cost_per_pack: float) -> None:
-        """Reference an already sorted vector owned by another mixture."""
-        self.components.append(_Component(Path(path), int(count), float(weight), float(cost_per_pack), False))
+    def add_path(self, path: str | os.PathLike[str], *, count: int, weight: float,
+                 pack_count: int, product_cost: float) -> None:
+        """Reference a price-independent sorted total-product vector."""
+        self.components.append(_Component(
+            Path(path), int(count), float(weight), int(pack_count), float(product_cost), False
+        ))
 
     def _cdf(self, value: float, *, normalized: bool, side: str = "right") -> float:
         total = 0.0
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            threshold = value * component.cost_per_pack if normalized else value
+            threshold = value * (component.product_cost if normalized else component.pack_count)
             total += component.weight * int(self._searchsorted(vector, [threshold], side=side)[0]) / component.count
             self._close(vector)
         return total
@@ -142,7 +147,7 @@ class WeightedEmpiricalMixture:
         lows, highs = [], []
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo, hi = min(lows), max(highs)
         for _ in range(64):
@@ -151,9 +156,9 @@ class WeightedEmpiricalMixture:
             else: lo = mid
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            threshold = hi * component.cost_per_pack if normalized else hi
+            threshold = hi * (component.product_cost if normalized else component.pack_count)
             index = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
-            candidates.append(float(vector[index]) / (component.cost_per_pack if normalized else 1.0))
+            candidates.append(float(vector[index]) / (component.product_cost if normalized else component.pack_count))
             self._close(vector)
         valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
         if not valid:
@@ -169,14 +174,14 @@ class WeightedEmpiricalMixture:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
             # inf{x:F(x)>=q}: the first 1-indexed rank meeting q.
             positions = np.maximum(0, np.ceil(requested * component.count).astype(np.int64) - 1)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             values = [float(vector[position]) / scale for position in positions]
             self._close(vector)
             return {percentile_key(float(q)): value for q, value in zip(requested, values)}
         lows, highs = [], []
         for component in self.components:
             vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-            scale = component.cost_per_pack if normalized else 1.0
+            scale = component.product_cost if normalized else component.pack_count
             lows.append(float(vector[0]) / scale); highs.append(float(vector[-1]) / scale); self._close(vector)
         lo = np.full(requested.shape, min(lows)); hi = np.full(requested.shape, max(highs))
         # All percentiles share each component scan. This is ~100x cheaper than
@@ -189,7 +194,7 @@ class WeightedEmpiricalMixture:
             mid = (lo + hi) / 2; cdf = np.zeros(requested.shape)
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-                thresholds = mid * component.cost_per_pack if normalized else mid
+                thresholds = mid * (component.product_cost if normalized else component.pack_count)
                 cdf += component.weight * self._searchsorted(vector, thresholds, side="right") / component.count
                 self._close(vector)
             crossed = cdf >= requested
@@ -199,9 +204,9 @@ class WeightedEmpiricalMixture:
             candidates = []
             for component in self.components:
                 vector = np.load(component.path, mmap_mode="r", allow_pickle=False)
-                threshold = hi[index] * component.cost_per_pack if normalized else hi[index]
+                threshold = hi[index] * (component.product_cost if normalized else component.pack_count)
                 position = min(int(self._searchsorted(vector, [threshold], side="left")[0]), component.count - 1)
-                candidates.append(float(vector[position]) / (component.cost_per_pack if normalized else 1.0))
+                candidates.append(float(vector[position]) / (component.product_cost if normalized else component.pack_count))
                 self._close(vector)
             valid = sorted(value for value in candidates if self._cdf(value, normalized=normalized) >= q)
             if not valid: raise OpeningEconomicsV3Error("quantile boundary could not be refined")
@@ -285,7 +290,9 @@ def build_scope(rows: Sequence[Mapping[str, Any]], component_paths: Mapping[str,
     try:
         for row in weighted:
             path, count = component_paths[row["sealed_product_id"]]
-            mixture.add_path(path, count=count, weight=row["weight"], cost_per_pack=row["cost_per_pack"])
+            mixture.add_path(path, count=count, weight=row["weight"],
+                             pack_count=row["normalization_pack_count"],
+                             product_cost=float(row["product_market_cost"]))
         empirical_recovery = mixture.recovery_probability()
         # These are independent computations of the same weighted exact
         # numerators. Only ordinary floating summation noise is admissible.

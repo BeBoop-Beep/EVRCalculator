@@ -3,8 +3,6 @@ import math
 import numpy as np
 import pytest
 
-from backend.db.services.opening_economics_v3_service import _normalize_preserving_recovery
-
 from backend.domain.pokemon.opening_economics_v3 import (
     OpeningEconomicsV3Error, WeightedEmpiricalMixture, aggregate_scalars,
     assign_hierarchical_weights, normalize_product, persisted_recovery_count,
@@ -49,8 +47,8 @@ def test_hierarchy_balances_sets_families_and_duplicate_skus():
 def test_weighted_inverse_ecdf_and_cleanup(tmp_path):
     directory = tmp_path / "mix"
     with WeightedEmpiricalMixture(directory) as mixture:
-        mixture.add(np.array([1, 2, 9]), weight=.5, cost_per_pack=2)
-        mixture.add(np.array([3, 4]), weight=.5, cost_per_pack=4)
+        mixture.add(np.array([1, 2, 9]), weight=.5, pack_count=1, product_cost=2)
+        mixture.add(np.array([3, 4]), weight=.5, pack_count=1, product_cost=4)
         # Brute-force atoms: .5/3 each at 1,2,9 and .5/2 each at 3,4.
         assert mixture.quantile(.05) == 1
         assert mixture.quantile(.50) == 3
@@ -71,12 +69,10 @@ def test_ratio_of_weighted_means_is_not_mean_ratio():
 def test_recovery_boundary_is_identical_before_and_after_pack_normalization(tmp_path, packs):
     price = 99.0
     vector = np.array([0.0, price - 1e-9, price, price, price + 1e-9])
-    per_pack = vector / packs
     mixture = WeightedEmpiricalMixture(tmp_path / str(packs))
-    mixture.add(per_pack, weight=1, cost_per_pack=price / packs)
+    mixture.add(vector, weight=1, pack_count=packs, product_cost=price)
     try:
         assert np.count_nonzero(vector >= price) == 3
-        assert np.count_nonzero(per_pack >= price / packs) == 3
         assert mixture.recovery_probability() == pytest.approx(3 / 5, abs=1e-15)
     finally:
         mixture.cleanup()
@@ -92,10 +88,10 @@ def test_persisted_probability_must_encode_an_exact_integer_count():
 
 def test_shared_distribution_uses_each_skus_own_price(tmp_path):
     mixture = WeightedEmpiricalMixture(tmp_path)
-    mixture.add(np.array([1.0, 2.0, 3.0, 4.0]), weight=1.0, cost_per_pack=2.0)
+    mixture.add(np.array([1.0, 2.0, 3.0, 4.0]), weight=1.0, pack_count=1, product_cost=2.0)
     path, count = mixture.components[0].path, mixture.components[0].count
     second = WeightedEmpiricalMixture(tmp_path)
-    second.add_path(path, count=count, weight=1.0, cost_per_pack=3.0)
+    second.add_path(path, count=count, weight=1.0, pack_count=1, product_cost=3.0)
     try:
         assert mixture.recovery_probability() == .75
         assert second.recovery_probability() == .5
@@ -119,8 +115,8 @@ def test_weighted_exact_counts_match_independent_ecdf(tmp_path):
     rows[0].update(simulation_count=4, _regenerated_recovery_count=3)
     rows[1].update(simulation_count=4, _regenerated_recovery_count=2)
     mixture = WeightedEmpiricalMixture(tmp_path)
-    mixture.add(np.array([1., 2., 2., 3.]), weight=.5, cost_per_pack=2.)
-    mixture.add(np.array([5., 5., 6., 7.]), weight=.5, cost_per_pack=6.)
+    mixture.add(np.array([1., 2., 2., 3.]), weight=.5, pack_count=1, product_cost=2.)
+    mixture.add(np.array([5., 5., 6., 7.]), weight=.5, pack_count=1, product_cost=6.)
     try:
         assert aggregate_scalars(rows)["chanceToRecoverCost"] == .625
         assert mixture.recovery_probability() == pytest.approx(.625, abs=1e-15)
@@ -128,11 +124,17 @@ def test_weighted_exact_counts_match_independent_ecdf(tmp_path):
         mixture.cleanup()
 
 
-def test_normalization_pins_only_observations_moved_across_break_even():
-    # 122.24 / 11 has a different rounding history from an outcome assembled
-    # by summing binary floats, which was the production incident.
-    price, packs = 122.24, 11
-    below = np.nextafter(price, -np.inf)
-    vector = np.array([below, price, np.nextafter(price, np.inf)])
-    normalized = _normalize_preserving_recovery(vector, packs=packs, price=price)
-    assert (normalized >= price / packs).tolist() == (vector >= price).tolist()
+def test_physical_vector_and_value_quantiles_are_price_independent(tmp_path):
+    vector = np.array([11., 22., 33., 44.])
+    owner = WeightedEmpiricalMixture(tmp_path)
+    owner.add(vector, weight=1, pack_count=11, product_cost=22.)
+    path, count = owner.components[0].path, owner.components[0].count
+    expensive = WeightedEmpiricalMixture(tmp_path)
+    expensive.add_path(path, count=count, weight=1, pack_count=11, product_cost=44.)
+    try:
+        assert np.load(path).tolist() == vector.tolist()
+        assert owner.quantiles([.5]) == expensive.quantiles([.5]) == {"p50": 2.0}
+        assert owner.quantiles([.5], normalized=True) == {"p50": 1.0}
+        assert expensive.quantiles([.5], normalized=True) == {"p50": .5}
+    finally:
+        expensive.cleanup(); owner.cleanup()

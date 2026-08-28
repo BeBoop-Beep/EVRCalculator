@@ -221,7 +221,7 @@ test("hero stretches its left column and places variants after the hero", () => 
   const heroEnd = source.indexOf("</section>", source.indexOf("data-card-detail-hero"));
   const detailsStart = source.indexOf("data-card-details-panel");
   const variantCall = source.indexOf("<VariantSelector", detailsStart);
-  const intelligenceCall = source.indexOf("<CardIntelligence", variantCall);
+  const intelligenceCall = source.indexOf("<ChaseEfficiencySection", variantCall);
   assert.ok(detailsStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
 });
 
@@ -230,11 +230,13 @@ test("market-only variants are selectable while pull modeling remains explicit",
   assert.match(source, /pullStatusLabel\(variant\.pullModelStatus\)/);
 });
 
-test("card intelligence branches by subsection and always reaches products", () => {
+test("Premium pull intelligence and standalone Plus products branch independently", () => {
   assert.match(source, /data-pull-profile/);
   assert.match(source, /data-pull-analytics-status/);
-  assert.match(source, /pullStatusExplanation\(chase\.reason\)/);
-  assert.match(source, /<ProductEconomics chase=\{chase\} pullAnalyticsAvailable=\{pullAnalyticsAvailable\}/);
+  assert.match(source, /pullStatusExplanation\(detail\.chase\?\.reason\)/);
+  assert.match(source, /<ProductEconomics[\s\S]*?chase=\{chase\}[\s\S]*?pullAnalyticsAvailable=\{pullAnalyticsAvailable\}/);
+  assert.match(source, /<OpeningProductsSection detail=\{detail\}/);
+  assert.doesNotMatch(source, /Card Intelligence|CardIntelligence/);
   assert.doesNotMatch(source, /if \(!chase\.available\)[\s\S]*?return/);
   for (const status of [
     "legacy_run_variant_detail_unavailable",

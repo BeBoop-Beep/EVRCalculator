@@ -5,7 +5,6 @@ import Image from "next/image";
 import InfoPopover from "@/components/ui/InfoPopover";
 import styles from "./explore.module.css";
 import local from "./openingEconomics.module.css";
-import { resolveLooseBoosterPackArtwork } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
 import {
   UNAVAILABLE_LABEL,
   centsPerDollar,
@@ -39,13 +38,9 @@ function Dash() {
 function OpeningDistribution({ scope, targets }) {
   const [lens, setLens] = useState("return");
   const distribution = lens === "return" ? scope.normalizedReturnPercentiles : scope.valuePerPackPercentiles;
-  const points = ["p01","p05","p10","p25","p50","p75","p90","p95","p99"].map(key => ({ key, value: distribution?.[key] })).filter(point => Number.isFinite(Number(point.value)));
+  const points = Array.from({length:99},(_,index)=>{const percentile=index+1;const key=`p${String(percentile).padStart(2,"0")}`;return {key,percentile,value:Number(distribution?.[key])};}).filter(point=>Number.isFinite(point.value)&&point.value>0);
   const formatter = lens === "return" ? ratioAsPercent : money;
-  const packs = (targets || []).map(target => ({
-    target,
-    art: resolveLooseBoosterPackArtwork({ setCanonicalKey: target.canonical_key }),
-    fallback: target.logo_image_url || target.symbol_image_url,
-  }));
+  const packs = (targets || []).map(target => ({target,fallback:target.logo_image_url||target.symbol_image_url}));
   const metrics = [
     ["Modeled Return", ratioAsPercent(scope.modeledReturnOnSpend)],
     ["Typical Retention", ratioAsPercent(scope.typicalRetention)],
@@ -55,8 +50,8 @@ function OpeningDistribution({ scope, targets }) {
   return <section className={`${styles.surface} rounded-xl p-4 sm:p-5`} data-opening-distribution>
     <div className="grid grid-cols-2 gap-4 border-b border-[var(--ex-line)] pb-4 lg:grid-cols-4">{metrics.map(([label,value]) => <div key={label}><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value || <Dash/>}</p></div>)}</div>
     <div className="mt-5 flex items-end justify-between gap-3"><div><h3 className="text-base font-semibold">Opening Distribution</h3><p className="mt-1 text-xs text-[var(--text-secondary)]">Weighted empirical percentile / outcome curve across the modeled product cohort.</p></div><div className="flex rounded-lg border border-[var(--ex-line)] p-1"><button onClick={()=>setLens("return")} aria-pressed={lens==="return"} className="px-3 py-1 text-xs">Return %</button><button onClick={()=>setLens("value")} aria-pressed={lens==="value"} className="px-3 py-1 text-xs">Value / Pack</button></div></div>
-    {points.length ? <div className="mt-6" role="img" aria-label={`${lens === "return" ? "Normalized return" : "Value per pack"} weighted empirical percentile curve`}><div className="flex items-end gap-1 border-b border-[var(--ex-line-strong)] pb-2">{points.map((point,index)=><div key={point.key} className="min-w-0 flex-1 text-center"><div className="mx-auto w-1.5 rounded-full bg-[rgb(var(--ex-teal))]" style={{height:`${18+index*10}px`}}/><b className="mt-2 block text-[.68rem] tabular-nums">{formatter(point.value)}</b><span className="text-[.6rem] text-[var(--text-secondary)]">{point.key.toUpperCase()}</span></div>)}</div><p className="mt-4 text-xs text-[var(--text-secondary)]">{lens === "return" ? `P50 ${ratioAsPercent(scope.typicalRetention)} · Mean outcome retention ${ratioAsPercent(scope.meanOutcomeRetention)} · 100% recovery threshold · ${ratioAsPercent(scope.chanceToRecoverCost)} recover cost.` : `P50 ${money(scope.typicalOpeningPerPack)} · Distribution mean / break-even ${money(scope.averageModelBreakEvenPerPack)}.`}</p></div> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The canonical weighted percentile curve is unavailable.</p>}
-    {packs.length ? <div className="mt-5 border-t border-[var(--ex-line)] pt-4"><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">Sets represented in this model</p><div className="mt-2 flex h-14 gap-1.5 overflow-hidden opacity-70">{packs.map(({target,art,fallback})=><span key={target.set_id || target.target_id} title={target.name} className="flex h-14 min-w-0 flex-1 items-center justify-center">{art || fallback ? <Image src={art?.src || fallback} width={34} height={50} alt="" className="h-14 w-full object-contain" /> : <i className="h-3 w-3 rotate-45 border border-[rgb(var(--ex-teal))]" />}</span>)}</div></div>:null}
+    {points.length===99 ? <div className="mt-6" role="img" aria-label={`${lens === "return" ? "Normalized return" : "Value per pack"} P01 through P99 percentile curve`} data-percentile-points="99"><div className="flex h-52 items-end gap-px border-b border-[var(--ex-line-strong)]">{points.map(point=><div key={point.key} title={`${point.key.toUpperCase()} ${formatter(point.value)}`} className="min-w-0 flex-1 bg-[rgb(var(--ex-teal))]" style={{height:`${Math.max(1,Math.log1p(point.value)/Math.log1p(Math.max(...points.map(p=>p.value)))*100)}%`}}/>)}</div><div className="mt-2 flex justify-between text-[.65rem] text-[var(--text-secondary)]"><span>P01 {formatter(points[0].value)}</span><span>P50 {formatter(points[49].value)}</span><span>P99 {formatter(points[98].value)}</span></div><p className="mt-4 text-xs text-[var(--text-secondary)]">{lens === "return" ? `100% recovery threshold · P50 ${ratioAsPercent(scope.typicalRetention)} · Mean outcome retention ${ratioAsPercent(scope.meanOutcomeRetention)} · ${ratioAsPercent(scope.chanceToRecoverCost)} recover cost.` : `P50 ${money(scope.typicalOpeningPerPack)} · Distribution mean / break-even ${money(scope.averageModelBreakEvenPerPack)} · logarithmic value geometry.`}</p></div> : <p className="mt-5 text-sm text-[var(--text-secondary)]">The canonical P01-P99 percentile curve is unavailable.</p>}
+    {packs.length ? <div className="mt-5 border-t border-[var(--ex-line)] pt-4"><p className="text-[.65rem] uppercase tracking-wide text-[var(--text-secondary)]">Sets represented in this model</p><div className="mt-2 flex h-14 gap-1.5 overflow-hidden opacity-70">{packs.map(({target,fallback})=><span key={target.set_id || target.target_id} title={target.name} className="flex h-14 min-w-0 flex-1 items-center justify-center">{fallback ? <Image src={fallback} width={52} height={36} alt="" className="h-9 w-full object-contain" /> : <i className="h-3 w-3 rotate-45 border border-[rgb(var(--ex-teal))]" />}</span>)}</div></div>:null}
   </section>;
 }
 
@@ -337,14 +332,14 @@ function SupportingMetrics({ scope }) {
     {
       key: "typicalRetention",
       label: "Typical Retention",
-      value: ratioAsPercent(scope.typicalOpening?.retention),
+      value: ratioAsPercent(scope.typicalRetention),
       note: "The median modeled opening returns about this share of its purchase price in gross card value.",
       help: "Typical Retention is the MEDIAN outcome relative to purchase price. Modeled Return on Spend is the long-run aggregate Expected Value relative to aggregate spend. The two answer different questions and are not interchangeable.",
     },
     {
       key: "chanceToRecover",
       label: "Chance to Recover Cost",
-      value: ratioAsPercent(scope.chanceToBeatCost),
+      value: ratioAsPercent(scope.chanceToRecoverCost),
       note: "How often a modeled opening reaches or exceeds what the pack cost.",
       help: "The modeled probability that an opening's card value reaches or exceeds the current pack price for its set.",
     },
@@ -387,8 +382,8 @@ function EraPreview({ eras, onSelectEras }) {
               {[
                 ["Modeled Return", ratioAsPercent(era.modeledReturnOnSpend), true],
                 ["Entertainment Cost", money(era.expectedEntertainmentCost), false],
-                ["Typical Opening", money(era.typicalOpening?.value), false],
-                ["Typical Retention", ratioAsPercent(era.typicalOpening?.retention), false],
+                ["Typical Opening", money(era.typicalOpeningPerPack), false],
+                ["Typical Retention", ratioAsPercent(era.typicalRetention), false],
               ].map(([label, value, strong]) => (
                 <div key={label}>
                   <dt className="text-[0.65rem] uppercase tracking-wide text-[var(--text-secondary)]">{label}</dt>
