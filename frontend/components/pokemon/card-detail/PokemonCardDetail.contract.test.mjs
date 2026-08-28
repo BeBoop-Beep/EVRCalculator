@@ -24,6 +24,10 @@ const marketModel = fs.readFileSync(
   ),
   "utf8",
 );
+const canonicalMarketChart = fs.readFileSync(
+  path.join(process.cwd(), "components/explore/MarketPriceHistoryChart.jsx"),
+  "utf8",
+);
 const page = fs.readFileSync(
   path.join(
     process.cwd(),
@@ -86,7 +90,15 @@ test("market shell exposes raw, disabled graded, canonical windows, chart and tr
     /title="Graded market data is coming soon"[\s\S]*?disabled|disabled[\s\S]*?title="Graded market data is coming soon"/,
   );
   assert.match(market, /MarketWindowSelector/);
-  assert.match(market, /MarketMobileChart/);
+  assert.match(market, /MarketPriceHistoryChart/);
+  assert.match(market, /data-market-coverage-status/);
+  assert.match(market, /data-partial=/);
+  assert.doesNotMatch(market, /text-4xl|sm:text-5xl/);
+  assert.match(market, /<MarketValueChange[\s\S]*?value=\{market\?\.currentPrice\}/);
+  assert.match(canonicalMarketChart, /ChartFrame/);
+  assert.match(canonicalMarketChart, /MarketTrendTooltipCard/);
+  assert.match(canonicalMarketChart, /POSITIVE_VALUE_COLOR/);
+  assert.match(canonicalMarketChart, /NEGATIVE_VALUE_COLOR/);
   assert.doesNotMatch(market, /PSA|BGS|CGC/);
 });
 
@@ -120,7 +132,8 @@ test("probability journey renders its canonical curve and all milestone markers"
     source,
     /aria-label="Cumulative pull probability by packs opened"/,
   );
-  assert.match(source, /label=\{`\$\{label\} Chance to Pull`\}/);
+  assert.match(source, /data-probability-milestone-rail/);
+  assert.doesNotMatch(source, /label=\{`\$\{label\} Chance to Pull`\}/);
   assert.match(source, /custom|role="status"/);
 });
 
@@ -215,4 +228,18 @@ test("hero stretches its left column and places variants after the hero", () => 
 test("market-only variants are selectable while pull modeling remains explicit", () => {
   assert.doesNotMatch(source, /disabled=\{!variant\.modeled/);
   assert.match(source, /pullStatusLabel\(variant\.pullModelStatus\)/);
+});
+
+test("card intelligence branches by subsection and always reaches products", () => {
+  assert.match(source, /data-pull-profile/);
+  assert.match(source, /data-pull-analytics-status/);
+  assert.match(source, /pullStatusExplanation\(chase\.reason\)/);
+  assert.match(source, /<ProductEconomics chase=\{chase\} pullAnalyticsAvailable=\{pullAnalyticsAvailable\}/);
+  assert.doesNotMatch(source, /if \(!chase\.available\)[\s\S]*?return/);
+  for (const status of [
+    "legacy_run_variant_detail_unavailable",
+    "not_pullable_by_current_model",
+    "pull_model_configuration_missing",
+    "insufficient_observed_pulls",
+  ]) assert.ok(source.includes(status), `missing ${status}`);
 });

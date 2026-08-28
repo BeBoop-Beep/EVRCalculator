@@ -86,7 +86,15 @@ const PULL_STATUS_LABELS = Object.freeze({
   insufficient_observed_pulls: "Insufficient observed simulation pulls",
 });
 
+const PULL_STATUS_EXPLANATIONS = Object.freeze({
+  not_pullable_by_current_model: "Pull analytics are not available because this printing is not currently part of the modeled pack configuration.",
+  pull_model_configuration_missing: "The set model does not currently contain enough configuration to publish pull odds for this printing.",
+  legacy_run_variant_detail_unavailable: "Exact printing-level pull intelligence will be available after this set is recalculated with the current simulation model.",
+  insufficient_observed_pulls: "This printing is part of the model, but the current simulation did not observe enough pulls to publish a reliable exact rate.",
+});
+
 const pullStatusLabel = (status) => PULL_STATUS_LABELS[status] || "Pull intelligence unavailable";
+const pullStatusExplanation = (status) => PULL_STATUS_EXPLANATIONS[status] || "Pull analytics are unavailable for this printing in the current model.";
 
 function VariantSelector({ detail, onSelect, pending }) {
   if (detail.availableVariants.length < 2) return null;
@@ -201,7 +209,7 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
   return (
     <section
       aria-labelledby="probability-title"
-      className="rounded-2xl border border-[var(--border-subtle)] bg-[rgba(2,8,23,.42)] p-4"
+      className="border-t border-[var(--border-subtle)] pt-5"
     >
       <h3
         id="probability-title"
@@ -212,10 +220,8 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
       </h3>
       <p className="mt-1.5 max-w-4xl text-sm leading-relaxed text-[var(--text-secondary)]">
         Your cumulative chance of pulling this exact printing at least once as
-        you open more eligible packs. Each milestone shows approximately how
-        many packs correspond to that chance. Pull odds are modeled
-        probabilities, not guarantees; “1 in N” describes a long-run rate, not a
-        promise that the card appears within N packs.
+        you open more eligible packs. “1 in N” is a long-run rate, not a
+        guarantee that the card appears within N packs.
       </p>
       {usable ? (
         <>
@@ -388,16 +394,22 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
               </div>
             ) : null}
           </div>
-          <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {milestones.map(({ label, packs }) => (
-              <Metric key={label} label={`${label} Chance to Pull`}>
-                {number(packs)} packs
-                {finite(milestoneDollars?.[label]) !== null ? (
-                  <span className="mt-1 block text-sm font-semibold text-[var(--accent)]">≈ {money(milestoneDollars[label])}</span>
-                ) : null}
-              </Metric>
-            ))}
-          </dl>
+          <div className="mt-4">
+            <h4 className="text-xs font-semibold uppercase tracking-[.1em] text-[var(--text-secondary)]">Probability Milestones</h4>
+            <dl data-probability-milestone-rail className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.025] sm:grid-cols-4">
+              {milestones.map(({ label, packs }) => (
+                <div key={label} className="border-b border-r border-[var(--border-subtle)] px-3 py-3 even:border-r-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+                  <dt className="text-[11px] font-semibold uppercase tracking-[.06em] text-[var(--text-secondary)]">{label} chance to pull</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums text-[var(--text-primary)]">
+                    {number(packs)} packs
+                    {finite(milestoneDollars?.[label]) !== null ? (
+                      <span className="mt-1 block text-sm font-semibold text-[var(--accent)]">≈ {money(milestoneDollars[label])}</span>
+                    ) : null}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </>
       ) : (
         <div className="mt-4 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-6 text-sm text-[var(--text-secondary)]">
@@ -409,7 +421,7 @@ function ProbabilityJourney({ chase, milestoneDollars = null }) {
   );
 }
 
-function ProductEconomics({ chase }) {
+function ProductEconomics({ chase, pullAnalyticsAvailable = false }) {
   const products = useMemo(
     () => orderCardProducts(chase.products),
     [chase.products],
@@ -445,6 +457,11 @@ function ProductEconomics({ chase }) {
       <h3 id="opening-title" className="text-lg font-semibold">
         Choose How You Open It
       </h3>
+      {!pullAnalyticsAvailable ? (
+        <p data-product-pull-status className="mt-2 max-w-4xl text-sm text-[var(--text-secondary)]">
+          Card-level pull economics cannot be calculated for this printing until pull intelligence is available. Product market information remains available.
+        </p>
+      ) : null}
       <div className="mt-3 grid gap-3 md:grid-cols-[minmax(15rem,19rem)_minmax(0,1fr)]">
         <div>
           <label htmlFor="product-select" className="sr-only">
@@ -609,31 +626,12 @@ function ProductEconomics({ chase }) {
 
 function CardIntelligence({ detail }) {
   const chase = detail.chase || {};
-  if (!chase.available)
-    return (
-      <section
-        aria-labelledby="card-intelligence-title"
-        className="set-glass-surface rounded-2xl border p-4 sm:p-5"
-      >
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
-          Index Plus
-        </p>
-        <h2
-          id="card-intelligence-title"
-          className="mt-1 text-2xl font-semibold"
-        >
-          Card Intelligence
-        </h2>
-        <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          {pullStatusLabel(chase.reason)}. Its available market data remains
-          usable above.
-        </p>
-      </section>
-    );
+  const pullAnalyticsAvailable = chase.available === true;
   const expectedChance = cumulativePullProbability(
     chase.modeledProbability,
     chase.expectedPacksToHit,
   );
+  const expectedSpend = finite(chase.expectedSpend);
   return (
     <section
       aria-labelledby="card-intelligence-title"
@@ -646,30 +644,42 @@ function CardIntelligence({ detail }) {
         Card Intelligence
       </h2>
       <div className="mt-4 space-y-4">
-        <dl className="grid gap-2 sm:grid-cols-3">
-          <Metric
-            label="Pull Odds"
-            info="Long-run modeled probability of pulling this exact card printing from one eligible pack."
-          >
-            1 in {number(chase.impliedOddsOneInN, 2)} packs
-          </Metric>
-          <Metric
-            label="Expected Packs"
-            info="The long-run average number of eligible packs per copy. This is not the number of packs required to guarantee a pull."
-          >
-            {number(chase.expectedPacksToHit, 2)}
-            {expectedChance !== null ? (
-              <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">
-                ≈{percent(expectedChance, 0)} chance by then
-              </span>
-            ) : null}
-          </Metric>
-          {finite(chase.expectedSpend) !== null ? (
-            <Metric label="Expected Spend">{money(chase.expectedSpend)}</Metric>
-          ) : null}
-        </dl>
-        <ProbabilityJourney chase={chase} />
-        <ProductEconomics chase={chase} />
+        {pullAnalyticsAvailable ? (
+          <section aria-labelledby="pull-profile-title">
+            <h3 id="pull-profile-title" className="text-lg font-semibold">
+              Pull Profile
+            </h3>
+            <dl
+              data-pull-profile
+              className={`mt-3 grid overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-white/[.025] ${expectedSpend === null ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+            >
+              <div className="border-b border-[var(--border-subtle)] px-4 py-3 sm:border-b-0 sm:border-r">
+                <dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">Pull Odds</dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums">1 in {number(chase.impliedOddsOneInN, 2)} packs</dd>
+              </div>
+              <div className={`border-b border-[var(--border-subtle)] px-4 py-3 sm:border-b-0 ${expectedSpend === null ? "" : "sm:border-r"}`}>
+                <dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">Expected Packs</dt>
+                <dd className="mt-1 text-lg font-semibold tabular-nums">
+                  {number(chase.expectedPacksToHit, 2)}
+                  {expectedChance !== null ? <span className="mt-1 block text-xs font-normal text-[var(--text-secondary)]">≈{percent(expectedChance, 0)} chance by then</span> : null}
+                </dd>
+              </div>
+              {expectedSpend !== null ? (
+                <div className="px-4 py-3">
+                  <dt className="text-xs font-semibold uppercase tracking-[.08em] text-[var(--text-secondary)]">Expected Spend</dt>
+                  <dd className="mt-1 text-lg font-semibold tabular-nums">{money(expectedSpend)}</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
+        ) : (
+          <section data-pull-analytics-status aria-labelledby="pull-analytics-status-title" className="rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-4">
+            <h3 id="pull-analytics-status-title" className="text-sm font-semibold">Pull Analytics</h3>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{pullStatusExplanation(chase.reason)}</p>
+          </section>
+        )}
+        {pullAnalyticsAvailable ? <ProbabilityJourney chase={chase} /> : null}
+        <ProductEconomics chase={chase} pullAnalyticsAvailable={pullAnalyticsAvailable} />
       </div>
     </section>
   );
