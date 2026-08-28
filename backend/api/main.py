@@ -41,9 +41,15 @@ from backend.db.services.frontend_proxy_service import (
     update_profile,
 )
 from backend.domain.access.index_plan_access import (
+    FEATURE_CARD_CHASE_EFFICIENCY,
     FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
     filter_set_market_signal_access,
+    has_index_feature_access,
     has_index_premium_access,
+)
+from backend.db.services.chase_efficiency_query_service import (
+    get_card_chase_efficiency as read_card_chase_efficiency,
+    query_chase_efficiency,
 )
 from backend.db.services.public_profile_page_service import PublicProfilePageError, get_public_profile_page_payload
 from backend.db.services.explore_page_service import ExplorePageError, get_explore_page_payload
@@ -104,6 +110,7 @@ from backend.db.services.pokemon_market_explorer_query_service import (
     run_market_explorer_query,
 )
 from backend.db.services.public_overall_product_rankings_service import read_public_overall_product_rankings
+from backend.db.services.pokemon_rip_stats_service import read_public_opening_economics
 from backend.domain.pokemon.market_explorer_query import (
     ASSET_SEALED,
     SUPPORTED_ASSETS,
@@ -111,6 +118,7 @@ from backend.domain.pokemon.market_explorer_query import (
     normalize_query_spec,
     query_fingerprint,
 )
+from backend.api.market_request_metrics import build_identity, market_request_metrics_middleware
 
 
 app = FastAPI(title="EVR Collection API")
@@ -118,6 +126,7 @@ app = FastAPI(title="EVR Collection API")
 logger = logging.getLogger(__name__)
 
 _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS = 300
+_MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES = 128
 _market_explorer_query_cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
 
 _DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000"]
@@ -235,6 +244,27 @@ def _require_market_explorer_custom_markets(
     return user_id
 
 
+def _require_card_chase_efficiency(
+    *, authorization: Optional[str], token_cookie: Optional[str]
+) -> str:
+    """Authenticate and resolve Premium from the canonical profile server-side."""
+    user_id = _require_authenticated_user_id(
+        authorization=authorization, token_cookie=token_cookie
+    )
+    if not has_index_feature_access(
+        _resolve_index_plan(authorization, token_cookie), FEATURE_CARD_CHASE_EFFICIENCY
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Chase Efficiency requires Index Premium.",
+                "code": "CARD_CHASE_EFFICIENCY_PREMIUM_REQUIRED",
+                "requiredFeature": FEATURE_CARD_CHASE_EFFICIENCY,
+            },
+        )
+    return user_id
+
+
 def _require_authenticated_user_id(
     *,
     authorization: Optional[str],
@@ -292,6 +322,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.middleware("http")(market_request_metrics_middleware)
+
+
+@app.get("/health")
+def get_health():
+    """Deployment identity for operators; contains no configuration secrets."""
+    return {"status": "ok", "build": build_identity()}
 
 
 @app.get("/collection/dashboard")
@@ -561,6 +598,55 @@ def get_overall_product_rankings(budget: str = Query(default="full_market")):
         return JSONResponse(content={"available": False, "reason": "backend_error", "rows": []}, status_code=503)
 
 
+@app.get("/explore/card-chase-efficiency")
+def get_card_chase_efficiency_rankings(
+    page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=100),
+    search: Optional[str] = Query(default=None), era: Optional[str] = Query(default=None),
+    set_id: Optional[str] = Query(default=None, alias="set"), rarity: Optional[str] = Query(default=None),
+    min_price: Optional[float] = Query(default=None), max_price: Optional[float] = Query(default=None),
+    sort: str = Query(default="rank"), direction: str = Query(default="asc"),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    # Gate before touching the latest pointer: row ordering is Premium data.
+    _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    try:
+        return query_chase_efficiency(
+            service_read_client, page=page, page_size=page_size, search=search, era=era,
+            set_id=set_id, rarity=rarity, min_price=min_price, max_price=max_price,
+            sort=sort, direction=direction,
+        )
+    except ValueError as exc:
+        return JSONResponse(content={"message": str(exc), "code": "CARD_CHASE_EFFICIENCY_QUERY_INVALID"}, status_code=400)
+    except Exception:
+        logger.exception("/explore/card-chase-efficiency unexpected error")
+        return JSONResponse(content={"message": "Unable to load Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
+@app.get("/explore/opening-economics")
+def get_explore_opening_economics():
+    """Global and per-era loose-pack opening economics from the canonical snapshot.
+
+    PUBLIC. These are high-level educational market statistics and carry no
+    per-product RIP intelligence, so no entitlement is resolved here; the paid
+    product surfaces keep their existing database-backed gating untouched.
+
+    Compact by construction - finalized scalars and two six-point ladders per
+    scope. Failure is reported as an explicit unavailable contract rather than
+    a 5xx, so the Overall lens can degrade on its own without taking Sets or
+    Products down with it.
+    """
+    try:
+        return read_public_opening_economics(service_read_client)
+    except Exception:
+        logger.exception("/explore/opening-economics unexpected error")
+        return JSONResponse(
+            content={"status": "unavailable", "reason": "backend_error",
+                     "global": None, "eras": []},
+            status_code=503,
+        )
+
+
 @app.get("/explore/card-market-movers")
 def get_explore_card_market_movers(limit: Optional[str] = Query(default=None)):
     """Serve the prepared, fixed-window global Explore card-movers snapshot."""
@@ -665,6 +751,8 @@ def post_market_explorer_query(
             time.monotonic() + _MARKET_EXPLORER_QUERY_CACHE_TTL_SECONDS,
             result,
         )
+        while len(_market_explorer_query_cache) > _MARKET_EXPLORER_QUERY_CACHE_MAX_ENTRIES:
+            _market_explorer_query_cache.pop(next(iter(_market_explorer_query_cache)), None)
         return result
     except MarketExplorerQueryError as exc:
         return JSONResponse(content={"message": str(exc), "code": "MARKET_EXPLORER_QUERY_INVALID"}, status_code=400)
@@ -962,6 +1050,23 @@ def get_pokemon_card_detail(
         )
 
 
+@app.get("/tcgs/pokemon/sets/{set_id}/cards/{card_id}/chase-efficiency")
+def get_pokemon_card_chase_efficiency(
+    set_id: str, card_id: str, variant_id: Optional[str] = Query(default=None),
+    authorization: Optional[str] = Header(default=None, alias="authorization"),
+    token_cookie: Optional[str] = Cookie(default=None, alias="token"),
+):
+    _require_card_chase_efficiency(authorization=authorization, token_cookie=token_cookie)
+    try:
+        result = read_card_chase_efficiency(
+            service_read_client, set_id=set_id, card_id=card_id, variant_id=variant_id
+        )
+        return result if result.get("available") else JSONResponse(content=result, status_code=404)
+    except Exception:
+        logger.exception("card Chase Efficiency failed set=%s card=%s", set_id, card_id)
+        return JSONResponse(content={"message": "Unable to load card Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
+
+
 @app.get("/tcgs/pokemon/sets/{set_id}/pull-rates")
 def get_pokemon_set_pull_rates(set_id: str):
     """Return the slim Pull Rates-tab snapshot (pull rate assumptions only) for a Pokemon set."""
@@ -1235,19 +1340,23 @@ def get_pokemon_set_market_movers(
     window: Optional[str] = Query(default=None),
     limit: Optional[str] = Query(default=None),
     movement: Optional[str] = Query(default=None),
+    surface: Optional[str] = Query(default=None),
+    metric: Optional[str] = Query(default=None),
 ):
     """Return market movers for a single requested window for a Pokemon set.
 
-    Shares the canonical Cards filter/sort contract:
-    section=market-movers, movement=all|heating|cooling, sort=largest-dollar-move.
+    Default consumers share the canonical largest-dollar-move contract. The
+    explicit Set-page 7D absolute-percent request reads its isolated published
+    projection and fails closed while that projection is incomplete.
     """
     try:
         return get_pokemon_set_market_movers_snapshot_payload(
-            set_id=set_id, window=window or "30D", limit=limit, movement=movement
+            set_id=set_id, window=window or "30D", limit=limit, movement=movement,
+            surface=surface, metric=metric,
         )
     except PokemonSetMarketError as exc:
         return JSONResponse(
-            content={"message": exc.message, "code": exc.code},
+            content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500},
             status_code=exc.status_code,
         )
     except Exception:

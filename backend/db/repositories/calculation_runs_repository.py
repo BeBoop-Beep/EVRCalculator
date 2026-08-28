@@ -1136,6 +1136,42 @@ def create_simulation_input_cards(run_id: Any, input_cards_rows: List[Dict[str, 
     return inserted_rows
 
 
+def create_simulation_card_variant_pull_rates(
+    run_id: Any, set_id: Any, rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Persist the additive exact-variant Monte Carlo publication."""
+    inserted_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        payload = {
+            "calculation_run_id": _require_present(run_id, "calculation_run_id"),
+            "set_id": _require_present(set_id, "set_id"),
+            "card_id": _require_present(row.get("cardId"), "card_id"),
+            "card_variant_id": _require_present(row.get("cardVariantId"), "card_variant_id"),
+            "condition_id": row.get("conditionId"),
+            "printing_type": _coerce_optional_str(row.get("printingType")),
+            "special_type": _coerce_optional_str(row.get("specialType")),
+            "pull_count": _require_int(row.get("pullCount"), "pull_count"),
+            "pack_presence_count": _require_int(row.get("packPresenceCount"), "pack_presence_count"),
+            "simulation_count": _require_int(row.get("simulationCount"), "simulation_count"),
+            "modeled_probability": row.get("modeledProbability"),
+            "effective_pull_rate": row.get("effectivePullRate"),
+            "price_used": _require_float(row.get("priceUsed"), "price_used"),
+            "price_source": _coerce_optional_str(row.get("priceSource")),
+            "price_captured_at": _coerce_optional_str(row.get("priceCapturedAt")),
+            "model_source": _require_non_empty_str(row.get("modelSource"), "model_source"),
+            "model_version": _require_non_empty_str(row.get("modelVersion"), "model_version"),
+            "status": _require_non_empty_str(row.get("status"), "status"),
+        }
+        inserted_rows.append(_insert_required_payload(
+            "simulation_card_variant_pull_rates",
+            payload,
+            f"Exact variant pull-rate insert (variant:{payload['card_variant_id']})",
+            identity_columns=["calculation_run_id", "card_variant_id"],
+            operation_name="simulation_card_variant_pull_rates_insert",
+        ))
+    return inserted_rows
+
+
 def map_simulation_etb_summary_row(run_id: Any, etb_metrics: Mapping[str, Any]) -> Dict[str, Any]:
     """Map ETB metrics to a canonical payload shape for persistence."""
     if not isinstance(etb_metrics, Mapping):

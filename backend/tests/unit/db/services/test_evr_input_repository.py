@@ -247,3 +247,5 @@ def test_load_card_payload_filters_excluded_variant_ids(
     assert len(payload) == 2
     assert payload[0]["variants"] == []
     assert payload[1]["variants"][0]["variant_id"] == included_variant_id
+    assert payload[1]["variants"][0]["printing_type"] == "holo"
+    assert "edition" in payload[1]["variants"][0]

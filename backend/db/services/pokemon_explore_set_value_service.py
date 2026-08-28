@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -10,6 +12,7 @@ from backend.domain.pokemon.market_index import resolve_market_window_target
 from backend.desirability.public_analytics_policy import is_public_analytics_eligible
 
 TABLE = "pokemon_explore_set_value_snapshot_latest"
+logger = logging.getLogger("market.performance")
 # The Set Market's window vocabulary. The last key is named "lifetime" rather
 # than "SinceTracking" because a Set Value series has no chain segments to
 # track from - it is simply that Set's own complete published history - but the
@@ -22,6 +25,11 @@ WINDOWS = (("1D", 1), ("7D", 7), ("30D", 30), ("3M", 90), ("6M", 180), ("1Y", 36
 _CANONICAL_WINDOW_KEY = {"1D": "1D", "7D": "7D", "30D": "30D", "3M": "3M", "6M": "6M", "1Y": "1Y"}
 MAX_TREND_POINTS = 48
 MAX_RECENT_DAILY_TREND_POINTS = 30
+MARKET_PAGE_OVERVIEW_FIELDS = (
+    "raw", "topChase", "sealedMarket", "marketDate", "coverage",
+    "contractVersion", "windowSemantics", "comparisonWindows",
+    "comparisonWindowContractVersion", "sourceGenerationFingerprint",
+)
 
 
 class ExploreSetValueUnavailable(Exception):
@@ -145,6 +153,7 @@ def build_global_set_value_row(
     target_market_date: str,
     built_at: Optional[str] = None,
     market_overview: Optional[Mapping[str, Any]] = None,
+    publisher_build_sha: Optional[str] = None,
 ) -> Dict[str, Any]:
     eligible = [dict(row) for row in sets if row.get("supports_opening_simulation", True) is True and is_public_analytics_eligible(row)]
     # UI windows are slices, never snapshot row selectors. Ignore stale short
@@ -155,6 +164,8 @@ def build_global_set_value_row(
         if str(row.get("window_key") or "365d").lower() == "365d"
     }
     missing, stale, mismatched, published = [], [], [], []
+    dashboard_index_available_ids: List[str] = []
+    missing_market_index_ids: List[str] = []
     generation = []
     for pokemon_set in eligible:
         set_id = str(pokemon_set.get("id") or pokemon_set.get("set_id") or "")
@@ -174,6 +185,12 @@ def build_global_set_value_row(
             continue
         cards_market = dashboard.get("cardsMarket") if isinstance(dashboard.get("cardsMarket"), Mapping) else {}
         prepared_index = cards_market.get("marketIndex") if isinstance(cards_market.get("marketIndex"), Mapping) else None
+        if prepared_index is not None:
+            dashboard_index_available_ids.append(set_id)
+            if (_number(prepared_index.get("currentValue")) is None
+                    or not isinstance(prepared_index.get("movements"), Mapping)):
+                missing_market_index_ids.append(set_id)
+                continue
         if prepared_index is not None and _text(prepared_index.get("asOf")) != target_market_date:
             stale.append({"setId": set_id, "dashboardDate": dashboard_date,
                           "indexDate": _text(prepared_index.get("asOf"))})
@@ -210,28 +227,52 @@ def build_global_set_value_row(
                 "asOf": prepared_index.get("asOf"),
                 "movements": prepared_index.get("movements") if isinstance(prepared_index.get("movements"), Mapping) else {},
             }
+            if not isinstance(published_row.get("marketIndex"), Mapping):
+                missing_market_index_ids.append(set_id)
         published.append(published_row)
         index_value = prepared_index.get("currentValue") if prepared_index is not None else None
         generation.append(f"{set_id}|{current['date']}|{current['value']:.6f}|{len(canonical)}|{index_value}")
-    diagnostics = {"eligibleSetCount": len(eligible), "publishedSetCount": len(published), "missingSets": missing, "staleSets": stale, "mismatchedSets": mismatched}
-    if missing or stale or mismatched or len(published) != len(eligible):
+    published_index_count = sum(1 for row in published if isinstance(row.get("marketIndex"), Mapping))
+    diagnostics = {
+        "eligibleSetCount": len(eligible), "publishedSetCount": len(published),
+        "dashboardMarketIndexAvailableCount": len(dashboard_index_available_ids),
+        "publishedMarketIndexCount": published_index_count,
+        "missingMarketIndexSetIds": sorted(set(missing_market_index_ids)),
+        "missingSets": missing, "staleSets": stale, "mismatchedSets": mismatched,
+        "marketDate": target_market_date,
+        "publisherBuildSha": _text(publisher_build_sha) or "unknown",
+    }
+    if (missing or stale or mismatched or missing_market_index_ids
+            or published_index_count != len(dashboard_index_available_ids)
+            or len(published) != len(eligible)):
         raise ExploreSetValueUnavailable("eligible Market Set Value sources are incomplete or disagree", diagnostics=diagnostics)
     published.sort(key=lambda row: (-row["currentSetValue"], str(row["name"] or row["setId"])))
     built_at = built_at or datetime.now(timezone.utc).isoformat()
     index_generation = str((market_overview or {}).get("sourceGenerationFingerprint") or "")
     fingerprint = hashlib.sha256("\n".join([target_market_date, *sorted(generation), index_generation]).encode()).hexdigest()
     payload = {"marketOverview": dict(market_overview) if market_overview is not None else None,
-               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "trendPointLimit": MAX_TREND_POINTS, "recentDailyTrendPointLimit": MAX_RECENT_DAILY_TREND_POINTS, "warnings": []}}
+               "sets": published, "meta": {"snapshot": {"builtAt": built_at, "marketDate": target_market_date}, "source": "canonical_standard_set_value_history", "windowSemantics": "marketDeltaWindows_v1", "publisherBuildSha": diagnostics["publisherBuildSha"], "publicationDiagnostics": {key: diagnostics[key] for key in ("eligibleSetCount", "dashboardMarketIndexAvailableCount", "publishedMarketIndexCount", "missingMarketIndexSetIds", "marketDate", "publisherBuildSha")}, "trendPointLimit": MAX_TREND_POINTS, "recentDailyTrendPointLimit": MAX_RECENT_DAILY_TREND_POINTS, "warnings": []}}
     return {"tcg": "pokemon", "scope": "market", "payload_json": payload, "market_date": target_market_date, "set_count": len(published), "source_generation_fingerprint": fingerprint, "payload_size_bytes": len(json.dumps(payload, separators=(",", ":")).encode()), "_diagnostics": diagnostics}
 
 
 def read_explore_set_value_snapshot(*, client: Any = None) -> Dict[str, Any]:
     active = client or service_read_client
+    started = time.perf_counter()
     rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,payload_size_bytes").eq("tcg", "pokemon").eq("scope", "market").limit(1).execute()).data or [])
+    db_ms = round((time.perf_counter() - started) * 1000, 2)
     if not rows:
         raise ExploreSetValueUnavailable("global Market Set Value snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
+    overview = payload.get("marketOverview")
+    if isinstance(overview, Mapping):
+        # The persisted publication also contains deep card/sealed segment
+        # explorer data. /Market renders only the three parent families; do not
+        # materialize those unused nested structures into the HTTP response.
+        payload["marketOverview"] = {
+            key: overview[key] for key in MARKET_PAGE_OVERVIEW_FIELDS if key in overview
+        }
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE, "payloadSizeBytes": rows[0].get("payload_size_bytes")}
+    logger.info("market_read route=/explore/set-value-market dbDurationMs=%s majorReads=1 payloadBytes=%s", db_ms, rows[0].get("payload_size_bytes"))
     return payload
 
 

@@ -33,3 +33,30 @@ def test_loose_pack_excludes_multi_pack_and_container_products():
     assert family("Sleeved Booster Pack") == "sleeved_booster_pack"
     for name in ("Booster Pack Art Bundle", "Set of 4 Booster Packs", "Booster Pack Case", "Booster Pack Display"):
         assert family(name) != "loose_booster_pack"
+
+
+def test_set_page_consumer_policy_includes_retail_products_and_other_family():
+    names = (
+        "Booster Bundle", "Elite Trainer Box", "Pokemon Center Elite Trainer Box",
+        "Ascended Heroes Mega ex Box", "Premium Collection", "Mini Tins 5-Pack",
+        "Tin Set of 3", "Costco Retail Bundle", "Booster Pack", "Sleeved Booster Pack",
+    )
+    for name in names:
+        identity = classify_sealed_product(name)
+        assert identity["isSetPageConsumerMarketEligible"], name
+        assert not identity["isBulkContainer"], name
+    assert family("Ascended Heroes Mega ex Box") == "other"
+
+
+def test_set_page_consumer_policy_excludes_bulk_containers_without_changing_legacy_family():
+    names = (
+        "Booster Bundle Case", "Booster Bundle Display", "Elite Trainer Box Case",
+        "Mini Tin Display", "Mini Tin Display Case", "Stellar Crown Sleeved Booster Master Carton",
+    )
+    for name in names:
+        identity = classify_sealed_product(name)
+        assert identity["isBulkContainer"], name
+        assert not identity["isSetPageConsumerMarketEligible"], name
+    carton = classify_sealed_product("Stellar Crown Sleeved Booster Master Carton")
+    assert carton["productFamily"] == "other"
+    assert carton["isOverviewEligible"] is False

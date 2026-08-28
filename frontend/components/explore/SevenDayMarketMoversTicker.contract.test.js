@@ -7,6 +7,8 @@ const source = fs.readFileSync(
   path.resolve(__dirname, "SevenDayMarketMoversTicker.jsx"),
   "utf8"
 );
+const setPageSource = fs.readFileSync(path.resolve(__dirname, "RipStatisticsPageClient.jsx"), "utf8");
+const clientSource = fs.readFileSync(path.resolve(__dirname, "../../lib/pokemon/pokemonSetMarketClient.js"), "utf8");
 
 test("both modes retain compact item width while Explore alone receives extra height", () => {
   assert.ok(!source.includes("w-[13.5rem]"));
@@ -58,12 +60,15 @@ test("set action uses one responsive accessible anchor and Explore still omits i
   assert.ok(!mobileChild.includes("View all movers"));
 });
 
-test("Explore cards use canonical shared set routing and ignore false setSlug values", () => {
-  assert.ok(source.includes('import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting"'));
-  assert.ok(source.includes("const setName = card?.setName || card?.set_name;"));
-  assert.ok(source.includes("if (!targetId || !setName) return fallback;"));
-  assert.ok(source.includes('{ target_type: "set", target_id: targetId, name: setName }'));
-  assert.ok(source.includes('{ tab: "cards", section: "market-movers", window: "7D" }'));
-  assert.ok(!source.includes("card?.setSlug"));
-  assert.ok(source.includes("href={crossSet ? hrefFor(card, viewAllHref) : viewAllHref}"));
+test("every mover card uses the canonical shared Card Detail route", () => {
+  assert.ok(source.includes('import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient"'));
+  assert.ok(source.includes("const hrefFor = (card) => buildPokemonCardDetailHref(card);"));
+  assert.ok(source.includes("href={hrefFor(card)}"));
+  assert.ok(!source.includes("buildTcgSetHrefFromTarget"));
+});
+
+test("the individual set page explicitly requests its isolated absolute-percent policy", () => {
+  assert.ok(setPageSource.includes('surface: "set-page", metric: "absolute-percent"'));
+  assert.ok(clientSource.includes('params.set("surface", String(surface))'));
+  assert.ok(clientSource.includes('params.set("metric", String(metric))'));
 });

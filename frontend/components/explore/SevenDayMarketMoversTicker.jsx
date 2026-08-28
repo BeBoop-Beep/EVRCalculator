@@ -2,20 +2,11 @@
 import MarketValueChange from "@/components/ui/MarketValueChange";
 import MoversTickerViewport from "./MoversTickerViewport";
 import { selectMoversTickerItems } from "./moversTickerSelector.mjs";
-import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
 
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
-const hrefFor = (card, fallback) => {
-  const targetId = card?.setId || card?.set_id || card?.setCanonicalKey || card?.set_canonical_key;
-  const setName = card?.setName || card?.set_name;
-  if (!targetId || !setName) return fallback;
-  const href = buildTcgSetHrefFromTarget(
-    { target_type: "set", target_id: targetId, name: setName },
-    { tab: "cards", section: "market-movers", window: "7D" }
-  );
-  return href || fallback;
-};
+const hrefFor = (card) => buildPokemonCardDetailHref(card);
 
 function Item({ card, movement, href, hidden, crossSet, thumbnailSize }) {
   const image = optimizedImageUrl(card?.imageSmallUrl || card?.imageLargeUrl || card?.imageUrl, CARD_THUMBNAIL_WIDTH);
@@ -46,7 +37,7 @@ export default function SevenDayMarketMoversTicker({ entry, maxItems = 10, scope
   const renderSequence = (hidden, ref) => <div ref={ref} aria-hidden={hidden ? "true" : undefined}
     className={`flex items-center gap-1 pr-1 ${hidden ? "index-ticker-duplicate" : ""}`.trim()}>
     {items.map(({ card, movement }) => <Item key={`${hidden ? "dup:" : ""}${identity(card)}`} card={card} movement={movement}
-      href={crossSet ? hrefFor(card, viewAllHref) : viewAllHref} hidden={hidden} crossSet={crossSet} thumbnailSize={thumbnailSize} />)}
+      href={hrefFor(card)} hidden={hidden} crossSet={crossSet} thumbnailSize={thumbnailSize} />)}
   </div>;
   const fallback = status === "loading" ? <div className="h-6 w-full max-w-[28rem] animate-pulse rounded-md bg-[rgba(148,163,184,0.10)]" /> :
     status === "error" ? <span className="truncate text-xs text-red-300">{error || "Market movers are unavailable."}{onRetry ? <button onClick={onRetry}> Retry</button> : null}</span> :

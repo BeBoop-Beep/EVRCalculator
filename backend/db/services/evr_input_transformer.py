@@ -42,6 +42,12 @@ class EVRInputTransformer:
         "condition_id",
         "price_source",
         "captured_at",
+        "printing_type",
+        "reverse_variant_id",
+        "reverse_condition_id",
+        "reverse_printing_type",
+        "reverse_price_source",
+        "reverse_captured_at",
     ]
 
     GENERIC_RARITY_KEYS = {"common", "uncommon", "rare"}
@@ -375,6 +381,10 @@ class EVRInputTransformer:
             "printing_type": candidate.get("printing_type") or "",
             "base_variant_id": base_candidate.get("variant_id"),
             "reverse_variant_id": (reverse_candidate or {}).get("variant_id"),
+            "reverse_condition_id": (reverse_candidate or {}).get("condition_id"),
+            "reverse_printing_type": (reverse_candidate or {}).get("printing_type") or "",
+            "reverse_price_source": (reverse_candidate or {}).get("price_source") or "unknown",
+            "reverse_captured_at": (reverse_candidate or {}).get("captured_at"),
             "edition": candidate.get("edition") or "",
             "base_price": base_price,
             "reverse_price": reverse_price,
@@ -660,6 +670,12 @@ class EVRInputTransformer:
                     "condition_id": row.get("condition_id"),
                     "price_source": row.get("price_source"),
                     "captured_at": row.get("captured_at"),
+                    "printing_type": row.get("printing_type"),
+                    "reverse_variant_id": row.get("reverse_variant_id"),
+                    "reverse_condition_id": row.get("reverse_condition_id"),
+                    "reverse_printing_type": row.get("reverse_printing_type"),
+                    "reverse_price_source": row.get("reverse_price_source"),
+                    "reverse_captured_at": row.get("reverse_captured_at"),
                 }
             )
 

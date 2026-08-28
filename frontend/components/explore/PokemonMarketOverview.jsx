@@ -16,7 +16,7 @@ import {
   getPricePerformanceChange,
 } from "@/lib/explore/marketOverviewPresentation.mjs";
 import styles from "./explore.module.css";
-import { ANALYTICAL_ACTION_CLASS, ANALYTICAL_ROW_LINK_CLASS } from "@/components/ui/analyticalInteraction.mjs";
+import { ANALYTICAL_ROW_LINK_CLASS, MARKET_EXPLORER_HREF } from "@/components/ui/analyticalInteraction.mjs";
 
 // FOUR columns: Market, Tracked Value, Market Index, Selected Period.
 //
@@ -79,10 +79,6 @@ function MarketSwatch({ color }) {
 // The per-row links survive as SECONDARY navigation and now share the green
 // family, so they read as the same affordance at a lower level rather than as
 // incidental white text.
-export const MARKET_EXPLORER_HREF = "/Market/Explorer";
-
-const EXPLORER_CTA_CLASS = `ml-auto desk:min-h-8 ${ANALYTICAL_ACTION_CLASS}`;
-
 const EXPLORER_ROW_LINK_CLASS = ANALYTICAL_ROW_LINK_CLASS;
 
 export function marketExplorerHref(marketKey) {
@@ -112,14 +108,6 @@ export default function PokemonMarketOverview({ overview, selectedWindow, select
     <section data-market-overview-pane className="flex min-w-0 flex-col" aria-labelledby="market-overview-heading">
       <div className={`${styles.divider} flex items-center gap-2 px-3 py-3 sm:px-4`}>
         <h2 id="market-overview-heading" className="text-[18px] font-semibold text-[var(--text-primary)] desk:text-[15px]">Market Overview</h2>
-        <Link
-          href={MARKET_EXPLORER_HREF}
-          data-market-explore-link="all"
-          data-market-explorer-cta
-          className={EXPLORER_CTA_CLASS}
-        >
-          Open Market Explorer <span aria-hidden="true">&rarr;</span>
-        </Link>
       </div>
 
       {/* Desktop: one compact finance-first table with two real column groups. */}

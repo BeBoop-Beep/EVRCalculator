@@ -1,0 +1,242 @@
+﻿{
+  "marketDate": "2026-08-27",
+  "candidateAudit": "PASS",
+  "failures": [],
+  "examples": [
+    {
+      "category": "high_chase_efficiency",
+      "cardVariantId": "10672867-df6e-43d2-9a91-df01cb89e9d6",
+      "cardName": "Mega Charizard X ex",
+      "rarity": "Special Illustration Rare",
+      "setId": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+      "currentCardPrice": 700.2,
+      "exactModeledProbability": 0.0025,
+      "selectedRoutePrice": 394.54,
+      "selectedRandomPackCount": 36,
+      "effectivePackCost": 10.959444444444,
+      "persistedCandidateChaseEfficiency": 0.159925239606,
+      "reproducedChaseEfficiency": 0.159925239606,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 1,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 3156.32,
+          "minimumRouteSpend": 3156.32,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 6312.64,
+          "minimumRouteSpend": 6312.64,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 10258.04,
+          "minimumRouteSpend": 10258.04,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 13414.36,
+          "minimumRouteSpend": 13414.36,
+          "matches": true
+        }
+      }
+    },
+    {
+      "category": "sir",
+      "cardVariantId": "b0753c05-a01f-419a-a0a4-7b0b1e1592b1",
+      "cardName": "Mew ex",
+      "rarity": "Special Illustration Rare",
+      "setId": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+      "currentCardPrice": 964.98,
+      "exactModeledProbability": 0.002150537634408602,
+      "selectedRoutePrice": 23.18,
+      "selectedRandomPackCount": 1,
+      "effectivePackCost": 23.18,
+      "persistedCandidateChaseEfficiency": 0.089622969646,
+      "reproducedChaseEfficiency": 0.089622969646,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 2,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 7463.96,
+          "minimumRouteSpend": 7463.96,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 14927.92,
+          "minimumRouteSpend": 14927.92,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 24802.6,
+          "minimumRouteSpend": 24802.6,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 32266.56,
+          "minimumRouteSpend": 32266.56,
+          "matches": true
+        }
+      }
+    },
+    {
+      "category": "ir",
+      "cardVariantId": "ff4b6490-14df-4d25-b2f4-5ee8501a2c79",
+      "cardName": "Squirtle",
+      "rarity": "Illustration Rare",
+      "setId": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+      "currentCardPrice": 112.84,
+      "exactModeledProbability": 0.005988023952095809,
+      "selectedRoutePrice": 313.96,
+      "selectedRandomPackCount": 36,
+      "effectivePackCost": 8.721111111111,
+      "persistedCandidateChaseEfficiency": 0.077710253467,
+      "reproducedChaseEfficiency": 0.077710253467,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 4,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 1221.48,
+          "minimumRouteSpend": 1221.48,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 2197.72,
+          "minimumRouteSpend": 2197.72,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 3453.56,
+          "minimumRouteSpend": 3453.56,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 4395.44,
+          "minimumRouteSpend": 4395.44,
+          "matches": true
+        }
+      }
+    },
+    {
+      "category": "low_chase_efficiency",
+      "cardVariantId": "4da7bbfa-17ae-4e05-b00c-6e1ffab00559",
+      "cardName": "Hippopotas",
+      "rarity": "Common",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "currentCardPrice": 0.99,
+      "exactModeledProbability": 0.0007462686567164179,
+      "selectedRoutePrice": 14.93,
+      "selectedRandomPackCount": 1,
+      "effectivePackCost": 14.93,
+      "persistedCandidateChaseEfficiency": 4.9503133e-05,
+      "reproducedChaseEfficiency": 4.9503133e-05,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 4862,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 13869.97,
+          "minimumRouteSpend": 13869.97,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 27725.01,
+          "minimumRouteSpend": 27725.01,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 46059.049999999996,
+          "minimumRouteSpend": 46059.049999999996,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 59914.09,
+          "minimumRouteSpend": 59914.09,
+          "matches": true
+        }
+      }
+    },
+    {
+      "category": "specialty_route_set",
+      "cardVariantId": "9874f528-8009-43af-bd45-74095b43410f",
+      "cardName": "Umbreon ex",
+      "rarity": "Special Illustration Rare",
+      "setId": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+      "currentCardPrice": 1472.79,
+      "exactModeledProbability": 0.0006944444444444445,
+      "selectedRoutePrice": 14.93,
+      "selectedRandomPackCount": 1,
+      "effectivePackCost": 14.93,
+      "persistedCandidateChaseEfficiency": 0.068528206738,
+      "reproducedChaseEfficiency": 0.068528206738,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 7,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 14900.14,
+          "minimumRouteSpend": 14900.14,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 29800.28,
+          "minimumRouteSpend": 29800.28,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 49492.95,
+          "minimumRouteSpend": 49492.95,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 64393.09,
+          "minimumRouteSpend": 64393.09,
+          "matches": true
+        }
+      }
+    },
+    {
+      "category": "normal_booster_box_set",
+      "cardVariantId": "9ad0c133-f133-45ab-9b3f-494199354e20",
+      "cardName": "Mega Darkrai ex",
+      "rarity": "Special Illustration Rare",
+      "setId": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+      "currentCardPrice": 214.15,
+      "exactModeledProbability": 0.0020833333333333333,
+      "selectedRoutePrice": 186.03,
+      "selectedRandomPackCount": 36,
+      "effectivePackCost": 5.1675,
+      "persistedCandidateChaseEfficiency": 0.086426940504,
+      "reproducedChaseEfficiency": 0.086426940504,
+      "ceMatches": true,
+      "publishedCandidateGlobalRank": 3,
+      "rankMatchesCandidateOrder": true,
+      "thresholds": {
+        "50": {
+          "persistedCandidateSpend": 1860.3,
+          "minimumRouteSpend": 1860.3,
+          "matches": true
+        },
+        "75": {
+          "persistedCandidateSpend": 3534.57,
+          "minimumRouteSpend": 3534.57,
+          "matches": true
+        },
+        "90": {
+          "persistedCandidateSpend": 5766.93,
+          "minimumRouteSpend": 5766.93,
+          "matches": true
+        },
+        "95": {
+          "persistedCandidateSpend": 7441.2,
+          "minimumRouteSpend": 7441.2,
+          "matches": true
+        }
+      }
+    }
+  ],
+  "note": "Candidate authority only until Chase Efficiency migrations are deployed and atomically published."
+}

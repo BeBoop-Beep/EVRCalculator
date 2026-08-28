@@ -33,9 +33,10 @@ import styles from "./explore.module.css";
 // DATA
 // ----
 // The compact global snapshot remains authoritative for ranking, current Set
-// Value and window movements. The one visible detail chart lazily loads the
-// selected set's normalized daily value-history and clips it with those same
-// canonical window dates. Top movers remains its own per-selection request.
+// Value and window movements. The visible detail chart uses bootstrap
+// recentDailyTrend for 1D/7D/30D; longer windows lazily load the selected set's
+// normalized daily value-history. Both paths clip to canonical window dates.
+// Top movers remains its own per-selection request.
 // ---------------------------------------------------------------------------
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -154,7 +155,7 @@ export function shouldResetSetMarketResults({ control, sortKey }) {
   return control === "query" || control === "era" || control === "sort" || (control === "timeframe" && sortKey === "change");
 }
 
-export default function SetMarketExplorer({ targets = [], loadError = false, navigate = null }) {
+export default function SetMarketExplorer({ targets = [], initialSelectedSetMovers = null, loadError = false, navigate = null }) {
   const navigationStartedRef = useRef(false);
   const sectionTopRef = useRef(null);
   const resultsTopRef = useRef(null);
@@ -271,6 +272,8 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
 
   const detailValueMovement = selected?.target?.windows?.[activeDetailWindowKey] || null;
   const detailMovement = selected ? movementWithIndexReturn(selected.target, activeDetailWindowKey) : null;
+  const bootstrapDetailTrend = selected ? selectSetMarketMiniTrend(selected.target, activeDetailWindowKey) : [];
+  const usesBootstrapDetailTrend = ["1D", "7D", "30D"].includes(activeDetailWindowKey);
   useEffect(() => {
     const browserIsDesktop = typeof window === "undefined" || typeof window.matchMedia !== "function"
       ? isMasterDetail
@@ -278,6 +281,7 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
     if (!isMasterDetail || !browserIsDesktop) return undefined;
     const setId = selected?.setId;
     if (!setId) return undefined;
+    if (["1D", "7D", "30D"].includes(activeDetailWindowKey)) return undefined;
 
     const cached = detailHistoryCache.current.get(setId) || null;
     const needsAll = cached && needsLifetimeSetMarketHistory({
@@ -307,9 +311,11 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
     return () => { cancelled = true; };
   }, [isMasterDetail, selected?.setId, selected?.target?.historyStartDate, activeDetailWindowKey, historyRetryToken]);
 
-  const detailTrend = selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
-    ? clipSetMarketDetailHistory(detailHistoryState.history, detailValueMovement)
-    : [];
+  const detailTrend = usesBootstrapDetailTrend
+    ? bootstrapDetailTrend
+    : selected && detailHistoryState.setId === selected.setId && detailHistoryState.status === "success"
+      ? clipSetMarketDetailHistory(detailHistoryState.history, detailValueMovement)
+      : [];
   const detailDirection = directionOf(detailMovement?.amount);
   const detailHref = selected
     ? buildTcgSetHrefFromTarget(
@@ -426,13 +432,13 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
       </div>
 
       <div className="mt-3 min-w-0">
-        {detailHistoryState.setId !== selected.setId || detailHistoryState.status === "idle" || detailHistoryState.status === "loading" ? (
+        {!usesBootstrapDetailTrend && (detailHistoryState.setId !== selected.setId || detailHistoryState.status === "idle" || detailHistoryState.status === "loading") ? (
           <div
             data-set-market-detail-skeleton
             aria-hidden="true"
             className="h-44 animate-pulse rounded-lg border border-[var(--border-subtle)] bg-[rgba(148,163,184,0.08)] motion-reduce:animate-none desk:h-[15rem]"
           />
-        ) : detailHistoryState.status === "error" ? (
+        ) : !usesBootstrapDetailTrend && detailHistoryState.status === "error" ? (
           <div role="alert" className="flex h-44 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)]/42 px-4 text-center text-xs text-[var(--text-secondary)] desk:h-[15rem]">
             <span>Set Value history is temporarily unavailable.</span>
             <button type="button" onClick={() => setHistoryRetryToken((token) => token + 1)} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry</button>
@@ -452,7 +458,14 @@ export default function SetMarketExplorer({ targets = [], loadError = false, nav
         )}
       </div>
 
-      <SetMarketTopMovers key={selected.setId} setId={selected.setId} setName={selected.name} viewAllHref={moversHref} />
+      <SetMarketTopMovers
+        key={selected.setId}
+        setId={selected.setId}
+        setCanonicalKey={selected.target?.canonicalKey}
+        setName={selected.name}
+        viewAllHref={moversHref}
+        initialPayload={initialSelectedSetMovers?.setId === selected.setId ? initialSelectedSetMovers : null}
+      />
     </div>
   ) : null;
 

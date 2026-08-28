@@ -12,9 +12,16 @@ from backend.db.services.pack_outcome_artifact_service import (
 from backend.db.services.pokemon_market_index_service import resolve_eligible_sets
 from backend.db.services.publication_gate import MODE_REQUIRED, evaluate_publication_gate
 from backend.domain.pokemon.rip_stats import (
-    POKEMON_RIP_STATS_CONTRACT_VERSION, POKEMON_RIP_STATS_METHODOLOGY_VERSION,
-    POKEMON_RIP_STATS_WEIGHTING_VERSION, calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
+    POKEMON_RIP_STATS_METHODOLOGY_VERSION as LEGACY_METHODOLOGY_VERSION,
+    POKEMON_RIP_STATS_WEIGHTING_VERSION as LEGACY_WEIGHTING_VERSION,
+    calculate_pokemon_rip_stats_streaming, deterministic_fingerprint,
 )
+from backend.domain.pokemon.opening_economics_v3 import (
+    CONTRACT_VERSION as POKEMON_RIP_STATS_CONTRACT_VERSION,
+    METHODOLOGY_VERSION as POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+    WEIGHTING_VERSION as POKEMON_RIP_STATS_WEIGHTING_VERSION,
+)
+from backend.db.services.opening_economics_v3_service import build_opening_economics_v3
 
 HISTORY_TABLE = "pokemon_rip_stats_snapshots"
 LATEST_TABLE = "pokemon_rip_stats_snapshot_latest"
@@ -25,7 +32,68 @@ class PokemonRipStatsUnavailable(RuntimeError):
     pass
 
 
-def _build_payload(metrics: Mapping[str, Any], *, market_date: str, cohort_fingerprint: str, source_fingerprint: str) -> dict[str, Any]:
+#: Era rows live INSIDE payload_json rather than in their own table or a scope
+#: column. An era is a partition of a cohort the snapshot already owns, not a
+#: separate publication: giving it its own row would let an era be published,
+#: refreshed or rolled back independently of the global figure it must always
+#: reconcile with, and the atomic RPC would no longer be able to guarantee they
+#: describe the same 22 runs on the same market date.
+UNASSIGNED_ERA_NAME = "Unassigned"
+
+
+def _resolve_era_names(client: Any, set_ids: list[str]) -> dict[str, str]:
+    """``set_id -> era name`` for the canonical cohort.
+
+    Two queries rather than one embedded select: PostgREST embedding silently
+    drops rows whose foreign key is null, which would make a set with no era
+    vanish from the cohort instead of being reported as unassigned.
+    """
+    rows = list(client.table("sets").select("id,era_id").in_("id", set_ids).execute().data or [])
+    era_ids = sorted({str(row["era_id"]) for row in rows if row.get("era_id")})
+    names: dict[str, str] = {}
+    if era_ids:
+        era_rows = list(client.table("eras").select("id,name").in_("id", era_ids).execute().data or [])
+        names = {str(row["id"]): str(row["name"]) for row in era_rows}
+    resolved = {}
+    for row in rows:
+        era_id = str(row["era_id"]) if row.get("era_id") else None
+        resolved[str(row["id"])] = names.get(era_id, UNASSIGNED_ERA_NAME) if era_id else UNASSIGNED_ERA_NAME
+    missing = set(set_ids) - set(resolved)
+    if missing:
+        raise PokemonRipStatsUnavailable(f"cohort sets missing from sets table: {sorted(missing)}")
+    return resolved
+
+
+def _distribution_block(metrics: Mapping[str, Any], suffix: str) -> dict[str, Any]:
+    """The six-point exact-outcome ladder for one distribution."""
+    return {"p05": metrics[f"p05{suffix}"], "p25": metrics[f"p25{suffix}"],
+            "p50": metrics[f"typicalOpeningValue"] if suffix == "Value" else metrics["typicalRetention"],
+            "p75": metrics[f"p75{suffix}"], "p95": metrics[f"p95{suffix}"], "p99": metrics[f"p99{suffix}"]}
+
+
+def _scope_metrics_block(metrics: Mapping[str, Any]) -> dict[str, Any]:
+    """The metric surface shared by the global scope and every era scope.
+
+    One shape for both so a reader never branches on scope to find a field.
+    """
+    return {
+        "setCount": metrics["setCount"],
+        "meanPackCost": metrics["meanPackCost"],
+        "medianPackCost": metrics["medianPackCost"],
+        "expectedValue": metrics["expectedValue"],
+        "chanceToBeatCost": metrics["chanceToBeatCost"],
+        "typicalOpening": {"value": metrics["typicalOpeningValue"], "retention": metrics["typicalRetention"], "quantile": .50},
+        "modeledReturnOnSpend": metrics["modeledReturnOnSpend"],
+        "entertainmentCostShare": metrics["entertainmentCostShare"],
+        "expectedEntertainmentCost": metrics["expectedEntertainmentCost"],
+        "rawDistribution": _distribution_block(metrics, "Value"),
+        "normalizedReturnDistribution": _distribution_block(metrics, "Retention"),
+        "normalizedReturnBins": metrics.get("normalizedReturnBins"),
+        "onePackPerSet": metrics["onePackPerSet"],
+    }
+
+
+def _build_payload(metrics: Mapping[str, Any], *, market_date: str, cohort_fingerprint: str, source_fingerprint: str, eras: list[dict[str, Any]]) -> dict[str, Any]:
     return {"contractVersion": POKEMON_RIP_STATS_CONTRACT_VERSION, "marketDate": market_date,
         "population": {"definition": "uniform_random_supported_set_one_pack", "weighting": "equal_set",
             "setCount": metrics["setCount"], "outcomeCountPerSet": metrics["outcomeCountPerSet"],
@@ -39,8 +107,23 @@ def _build_payload(metrics: Mapping[str, Any], *, market_date: str, cohort_finge
         "entertainmentCost": {"expectedCost": metrics["expectedEntertainmentCost"], "expectedCostRatio": metrics["expectedEntertainmentCostRatio"],
             "recoveryModel": "gross_market_value", "accessoryValueIncluded": False, "contractVersion": "entertainment-cost-v1"},
         "onePackPerSet": metrics["onePackPerSet"],
-        "methodology": {"version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weightingVersion": POKEMON_RIP_STATS_WEIGHTING_VERSION,
-            "quantilesBuiltFromExactOutcomes": True, "score": False}}
+        "methodology": {"version": LEGACY_METHODOLOGY_VERSION, "weightingVersion": LEGACY_WEIGHTING_VERSION,
+            "quantilesBuiltFromExactOutcomes": True, "score": False},
+        # The read contract for the Overall and Eras lenses. Additive: every
+        # legacy block above keeps its original fields and meanings, because
+        # `expectedRetention` and `expectedCostRatio` are equal-weighted means of
+        # per-set ratios and existing consumers read them as such. The
+        # spend-weighted headline ratios live here instead of replacing them.
+        "openingEconomics": {
+            "status": "available",
+            "marketDate": market_date,
+            "methodologyVersion": POKEMON_RIP_STATS_METHODOLOGY_VERSION,
+            "weightingMode": "equal_set_weight",
+            "productFamily": "loose_booster_pack",
+            "recoveryModel": "gross_market_value",
+            "quantilesBuiltFromExactOutcomes": True,
+            "global": _scope_metrics_block(metrics),
+            "eras": eras}}
 
 
 def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[str, Any]:
@@ -100,14 +183,45 @@ def build_pokemon_rip_stats_snapshot(client: Any, *, market_date: str) -> dict[s
         return loaded.outcomes
 
     metrics = calculate_pokemon_rip_stats_streaming(inputs, load_validated_outcomes)
-    payload = _build_payload(metrics, market_date=day, cohort_fingerprint=cohort_fp, source_fingerprint=source_fp)
+
+    # Eras partition the SAME canonical cohort, computed with the SAME exact
+    # outcome methodology and the same equal-set weighting - a set is simply
+    # weighted 1/len(era) within its era instead of 1/22. Each set belongs to
+    # exactly one era, so this reloads every artifact twice more (once per
+    # streaming pass), not once per era.
+    era_by_set = _resolve_era_names(client, [str(item["set_id"]) for item in inputs])
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for item in inputs:
+        grouped.setdefault(era_by_set[str(item["set_id"])], []).append(item)
+    eras: list[dict[str, Any]] = []
+    for era_name in sorted(grouped):
+        subset = grouped[era_name]
+        era_metrics = calculate_pokemon_rip_stats_streaming(subset, load_validated_outcomes)
+        eras.append({"eraName": era_name,
+                     "cohortFingerprint": deterministic_fingerprint([{"set_id": item["set_id"]} for item in subset]),
+                     **_scope_metrics_block(era_metrics)})
+    # An era cohort that does not re-add to the global cohort means a set was
+    # dropped or double-counted; publishing that would put two irreconcilable
+    # populations in one payload.
+    era_total = sum(int(block["setCount"]) for block in eras)
+    if era_total != int(metrics["setCount"]):
+        raise PokemonRipStatsUnavailable(
+            f"era partition did not reconcile with the global cohort: eras={era_total} global={metrics['setCount']}"
+        )
+
+    payload = _build_payload(metrics, market_date=day, cohort_fingerprint=cohort_fp, source_fingerprint=source_fp, eras=eras)
+    opening_economics_v3, v3_diagnostics = build_opening_economics_v3(
+        client, market_date=day, statuses=statuses,
+    )
+    payload["openingEconomics"] = opening_economics_v3
     now = datetime.now(timezone.utc).isoformat()
     private = {"market_date": day, "built_at": now, "contract_version": POKEMON_RIP_STATS_CONTRACT_VERSION,
         "methodology_version": POKEMON_RIP_STATS_METHODOLOGY_VERSION, "weighting_version": POKEMON_RIP_STATS_WEIGHTING_VERSION,
         "eligible_cohort_count": len(statuses), "exact_outcome_set_count": len(constituents),
         "total_source_outcome_count": metrics["totalSourceOutcomeCount"], "cohort_fingerprint": cohort_fp,
         "source_run_fingerprint": source_fp, "payload_json": payload,
-        "diagnostics_json": {"artifactRawBytes": sum(int(load.get("artifact_outcome_count")) * 8 for load in constituents)}}
+        "diagnostics_json": {"artifactRawBytes": sum(int(load.get("artifact_outcome_count")) * 8 for load in constituents),
+                             "openingEconomicsV3": v3_diagnostics}}
     return {"snapshot": private, "constituents": constituents, "payload": payload, "metrics": metrics,
             "payloadSizeBytes": len(json.dumps(payload, separators=(",", ":")).encode())}
 
@@ -156,3 +270,40 @@ def read_latest_pokemon_rip_stats(client: Any) -> dict[str, Any]:
 
 def read_pokemon_rip_stats_history(client: Any) -> list[dict[str, Any]]:
     return list(client.table(HISTORY_TABLE).select("market_date,payload_json,source_run_fingerprint,published_at").order("market_date", desc=False).execute().data or [])
+
+
+#: Returned when the canonical snapshot exists but predates the opening
+#: economics methodology, or when no snapshot is published at all. The shape
+#: matches the available case field-for-field except that the scopes are null,
+#: so a reader never branches on shape - only on `status`.
+def _unavailable_opening_economics(reason: str, *, market_date: str | None = None) -> dict[str, Any]:
+    return {"status": "unavailable", "reason": reason, "marketDate": market_date,
+            "methodologyVersion": LEGACY_METHODOLOGY_VERSION,
+            "weightingMode": "equal_set_weight", "productFamily": "loose_booster_pack",
+            "global": None, "eras": []}
+
+
+def read_public_opening_economics(client: Any) -> dict[str, Any]:
+    """The compact public read for the Overall and Eras lenses.
+
+    Serves ONLY finalized aggregate scalars and the two six-point quantile
+    ladders. No simulation artifact, no per-outcome array and no per-set row
+    crosses this boundary: the pooled statistics are already final in the
+    snapshot, and recomputing any of them downstream is exactly how a
+    mean-of-medians reappears.
+
+    An unpublished or pre-methodology snapshot is reported as explicitly
+    unavailable rather than being back-filled from per-set scalars.
+    """
+    try:
+        row = read_latest_pokemon_rip_stats(client)
+    except PokemonRipStatsUnavailable:
+        return _unavailable_opening_economics("snapshot_unavailable")
+    payload = row.get("payload_json") or {}
+    market_date = str(row.get("market_date") or "")[:10] or None
+    economics = payload.get("openingEconomics")
+    if not isinstance(economics, Mapping) or not economics.get("global"):
+        return _unavailable_opening_economics("opening_economics_not_published", market_date=market_date)
+    return {**dict(economics), "marketDate": market_date,
+            "snapshotSourceRunFingerprint": row.get("source_run_fingerprint"),
+            "updatedAt": row.get("updated_at")}

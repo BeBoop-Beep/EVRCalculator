@@ -50,6 +50,7 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
         .select("id,sealed_product_id,market_price,source,currency,captured_at")
         .in_("sealed_product_id", product_ids)
         .order("captured_at")
+        .order("id")
     ) if product_ids else []
     row = build_snapshot(set_row, products, observations)
     existing = _rows(
@@ -64,6 +65,7 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
     identities = [classify_sealed_product(product["name"]) for product in products]
     payload = row["payload_json"]
     set_market = payload.get("setMarket") or {}
+    consumer_market = payload.get("setPageConsumerMarket") or {}
     market_index = set_market.get("marketIndex") or {}
     market_breadth = set_market.get("marketBreadth") or {}
     report = {
@@ -87,6 +89,15 @@ def build_one(set_row: Dict[str, Any], commit: bool) -> Dict[str, Any]:
         "setMarketCurrentValue": set_market.get("currentValue"),
         "setMarketIndexCurrentValue": market_index.get("currentValue"),
         "setMarketBreadthKeys": list(market_breadth.keys()),
+        "setPageConsumerPolicyVersion": payload["meta"].get("setPageConsumerPolicyVersion"),
+        "setPageConsumerProductCount": consumer_market.get("productCount"),
+        "setPageConsumerContributingProductCount": consumer_market.get("contributingProductCount"),
+        "setPageConsumerCurrentValue": consumer_market.get("currentValue"),
+        "setPageConsumerExcludedCaseDisplayCount": payload["meta"].get("setPageConsumerExcludedCaseDisplayCount"),
+        "setPageConsumerExcludedBulkContainerCount": payload["meta"].get("setPageConsumerExcludedBulkContainerCount"),
+        "setPageConsumerProductsWithoutHistoryCount": payload["meta"].get("setPageConsumerProductsWithoutHistoryCount"),
+        "setPageConsumerTopProducts": [product["name"] for product in payload.get("setPageConsumerTopProducts") or []],
+        "setPageConsumer7DBreadth": (consumer_market.get("marketBreadth") or {}).get("7D"),
         "fingerprint": row["source_generation_fingerprint"],
         "warnings": payload["meta"]["warnings"],
         "action": action,

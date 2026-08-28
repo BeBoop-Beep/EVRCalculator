@@ -129,6 +129,40 @@ export function readModelBreakEven(target) {
 }
 
 /**
+ * Modeled Return: `EV / pack price x 100`.
+ *
+ * The same two published numbers the Model Break-Even and Market Price columns
+ * already show, expressed as a ratio. Both must be present and the price must
+ * be positive — a set missing either stays unavailable rather than sorting as
+ * zero.
+ */
+export function readModeledReturnPercent(target) {
+  const expectedValue = readModelBreakEven(target);
+  const price = toNumber(target?.pack_cost);
+  if (expectedValue === null || price === null || price <= 0) return null;
+  return (expectedValue / price) * 100;
+}
+
+/**
+ * Entertainment Cost: `pack price - EV`.
+ *
+ * Deliberately NOT the same metric as Average Loss When Losing, which this
+ * table also exposes. Entertainment Cost is the UNCONDITIONAL gap between price
+ * and long-run modeled value; Average Loss When Losing is the CONDITIONAL
+ * average shortfall of the openings that fail to recover cost. Both are kept.
+ *
+ * A negative result is returned unchanged: a set whose modeled contents are
+ * worth more than its pack price has a negative entertainment cost, and
+ * clamping it would erase the most interesting rows.
+ */
+export function readEntertainmentCost(target) {
+  const expectedValue = readModelBreakEven(target);
+  const price = toNumber(target?.pack_cost);
+  if (expectedValue === null || price === null || price <= 0) return null;
+  return price - expectedValue;
+}
+
+/**
  * The canonical PUBLIC Collector Appeal for a target.
  *
  * Read through `canonicalRipV7`, the one reader for the current public RIP
@@ -175,6 +209,16 @@ export const RANKINGS_SORT_COLUMNS = {
     id: "modelBreakEven",
     label: "Model Break-Even",
     read: readModelBreakEven,
+  },
+  modeledReturn: {
+    id: "modeledReturn",
+    label: "Modeled Return",
+    read: readModeledReturnPercent,
+  },
+  entertainmentCost: {
+    id: "entertainmentCost",
+    label: "Entertainment Cost",
+    read: readEntertainmentCost,
   },
   marketPrice: {
     id: "marketPrice",

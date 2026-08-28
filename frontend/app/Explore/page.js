@@ -1,5 +1,6 @@
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { getOverallProductRankings } from "@/lib/explore/overallProductRankingsServer";
+import { getOpeningEconomics } from "@/lib/explore/openingEconomicsServer";
 import ProductFamilyRankingsClient from "@/components/explore/ProductFamilyRankingsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import { getExploreBackground } from "@/lib/explore/exploreBackgrounds.mjs";
@@ -62,9 +63,14 @@ function rankTargets(targets) {
 export default async function ExplorePage({ searchParams }) {
   const resolvedSearchParams = (await searchParams) || {};
   const backgroundUrl = getExploreBackground("pokemon");
-  const [payload, initialOverallProductRankings] = await Promise.all([
+  // Fetched in parallel with the rankings targets, not after them: the Overall
+  // lens is the default view, so a serial fetch would put its latency directly
+  // in front of first paint. `getOpeningEconomics` never rejects — it resolves
+  // to an explicit unavailable contract — so it cannot fail the whole page.
+  const [payload, initialOverallProductRankings, openingEconomics] = await Promise.all([
     getRipStatisticsTargets({ limit: 60 }).catch(() => null),
     getOverallProductRankings("full_market"),
+    getOpeningEconomics(),
   ]);
   const targets = Array.isArray(payload?.targets) ? payload.targets : [];
   // Sword & Shield's simulator-era data is not yet validated for public
@@ -124,7 +130,7 @@ export default async function ExplorePage({ searchParams }) {
         {/* First ordinary section after the global 7D Movers ticker, so it
             takes the quiet 1px rule rather than the luminous divider. */}
         <div data-mobile-section>
-          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} initialOverallProductRankings={initialOverallProductRankings} loadError={rankingsLoadError} />
+          <ProductFamilyRankingsClient targets={leaderboardTargets} productFamilyRankings={payload?.productFamilyRankings} initialOverallProductRankings={initialOverallProductRankings} openingEconomics={openingEconomics} eraSetStrength={payload?.eraSetStrengthV1} loadError={rankingsLoadError} />
         </div>
       </div>
     </div>

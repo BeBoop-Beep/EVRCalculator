@@ -30,18 +30,21 @@ const trend = [["2024-01-01", 100], ["2024-01-04", 96], ["2024-01-08", 94]];
 const TARGETS = [
   {
     setId: "set-a", canonicalKey: "ascended-heroes", name: "Ascended Heroes", era: "Mega Evolution",
-    logoUrl: "https://example.test/a.png", currentSetValue: 6000.55, trend,
+    logoUrl: "https://example.test/a.png", currentSetValue: 6000.55, trend, recentDailyTrend: trend,
     windows: { "1D": movement(-12.5, -0.2), "7D": movement(-800.1, -11.8), "30D": movement(-40, -0.7), lifetime: movement(120, 2.1) },
+    marketIndex: { movements: { "1D": movement(-12.5, -0.2), "7D": movement(-800.1, -11.8), "30D": movement(-40, -0.7), SinceTracking: movement(120, 2.1) } },
   },
   {
     setId: "set-b", canonicalKey: "prismatic-evolutions", name: "Prismatic Evolutions", era: "Scarlet & Violet",
-    logoUrl: "https://example.test/b.png", currentSetValue: 5023.63, trend,
+    logoUrl: "https://example.test/b.png", currentSetValue: 5023.63, trend, recentDailyTrend: trend,
     windows: { "1D": movement(3.1, 0.1), "7D": movement(-201.4, -3.9), "30D": movement(11, 0.2), lifetime: movement(80, 1.6) },
+    marketIndex: { movements: { "1D": movement(3.1, 0.1), "7D": movement(-201.4, -3.9), "30D": movement(11, 0.2), SinceTracking: movement(80, 1.6) } },
   },
   {
     setId: "set-c", canonicalKey: "black-bolt", name: "Black Bolt", era: "Scarlet & Violet",
-    logoUrl: "", currentSetValue: 3589.7, trend,
+    logoUrl: "", currentSetValue: 3589.7, trend, recentDailyTrend: trend,
     windows: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), lifetime: movement(50, 1.4) },
+    marketIndex: { movements: { "1D": movement(1.2, 0.03), "7D": movement(-73.2, -2.0), "30D": movement(5, 0.1), SinceTracking: movement(50, 1.4) } },
   },
   // Unpriced targets are not sets the market can rank, and must not appear.
   { setId: "set-d", canonicalKey: "no-value", name: "Unpriced Set", era: "Sword & Shield", currentSetValue: null, trend: [], windows: {} },
@@ -85,8 +88,8 @@ test("detail mounts at most one chart while the selected history loads — never
   const renderer = render();
   assert.ok(charts(renderer).length <= 1, "a 167-set catalogue must not mount 167 charts");
   const skeletons = renderer.root.findAll((node) => node.props?.["data-set-market-detail-skeleton"] !== undefined);
-  assert.equal(skeletons.length, 1, "the selected-set request reserves one silent chart skeleton");
-  assert.equal(skeletons[0].props["aria-hidden"], "true");
+  assert.equal(charts(renderer).length, 1, "the default 7D chart uses the bootstrap trend");
+  assert.equal(skeletons.length, 0, "the default 7D chart does not wait for value history");
 });
 
 test("the #1 set is selected by default and its analysis is populated", () => {
@@ -234,7 +237,7 @@ test("the shared timeframe moves the list AND the selected set together", () => 
   assert.match(textOf(rows(renderer)[0]), /▼0\.7%/, "the row now reports its 30D delta");
   const pane = textOf(renderer.root.findAll((node) => node.props?.["data-set-market-detail"] !== undefined)[0]);
   assert.match(pane, /-\$40\.00 \(-0\.7%\)/, "the selected set's own 30D movement");
-  assert.match(pane, /Set Value · 30D/);
+  assert.match(pane, /· 30D/);
 });
 
 test("changing the selected set preserves the shared timeframe", () => {
@@ -258,7 +261,7 @@ test("every window re-reads the published movement, never a derived one", () => 
   TestRenderer.act(() => { renderer.root.find((node) => node.props?.["data-time-range-value"] === "lifetime").props.onClick(); });
   const pane = textOf(detail(renderer));
   assert.match(pane, /\+\$120\.00 \(\+2\.1%\)/, "the lifetime movement is the backend's own amount and percent");
-  assert.match(pane, /Set Value · All/);
+  assert.match(pane, /· All/);
 });
 
 test("an empty or failed snapshot says so instead of rendering an empty shell", () => {

@@ -5,6 +5,7 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import { selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { getPokemonSetMarketMovers } from "@/lib/pokemon/pokemonSetMarketClient";
 import { CARD_THUMBNAIL_WIDTH, optimizedImageUrl } from "@/lib/images/remoteImageDelivery.mjs";
+import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import styles from "./explore.module.css";
 
 // Top Movers for the SELECTED set — a fixed-height horizontal carousel at the
@@ -34,6 +35,25 @@ const WINDOW = "7D";
 const LIMIT = 10;
 
 const cache = new Map();
+const CACHE_MAX_ENTRIES = 48;
+
+function cacheResult(setId, value) {
+  cache.delete(setId);
+  cache.set(setId, value);
+  while (cache.size > CACHE_MAX_ENTRIES) cache.delete(cache.keys().next().value);
+}
+
+function preloadedState(setId, initialPayload) {
+  if (!setId || initialPayload?.setId !== setId || initialPayload?.window !== WINDOW || !Array.isArray(initialPayload?.items)) {
+    return null;
+  }
+  const next = {
+    status: "success",
+    entry: { ...initialPayload, all: initialPayload.items, heatingUp: [], coolingOff: [] },
+  };
+  cacheResult(setId, next);
+  return next;
+}
 
 const identity = (card) => [card?.canonicalCardId || card?.cardId || card?.id, card?.cardVariantId || "", card?.conditionId || ""].join(":");
 
@@ -42,7 +62,7 @@ function MoverCard({ card, movement, href }) {
   const name = card?.name || "Unknown card";
   const price = Number(card?.marketPrice ?? card?.currentPrice);
   return (
-    <a href={href} className={styles.moverCard} title={`${name} — view market movers`}>
+    <a href={href} className={styles.moverCard} title={`${name} — view card details`}>
       <span className="flex h-[3.25rem] w-[2.3rem] flex-none items-center justify-center overflow-hidden rounded border border-[rgba(255,255,255,0.08)]">
         {image
           ? <img src={image} alt="" className="h-full w-full object-contain" loading="lazy" decoding="async" />
@@ -82,17 +102,18 @@ function StepButton({ direction, disabled, onClick, setName }) {
   );
 }
 
-export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
-  const [state, setState] = useState(() => (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
+export default function SetMarketTopMovers({ setId, setCanonicalKey, setName, viewAllHref, initialPayload = null }) {
+  const [state, setState] = useState(() => preloadedState(setId, initialPayload) || (setId && cache.has(setId) ? cache.get(setId) : { status: "idle", entry: null }));
   const trackRef = useRef(null);
   const [edges, setEdges] = useState({ atStart: true, atEnd: true });
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!setId) {
       setState({ status: "idle", entry: null });
       return undefined;
     }
-    if (cache.has(setId)) {
+    if (cache.has(setId) && retryToken === 0) {
       setState(cache.get(setId));
       return undefined;
     }
@@ -101,7 +122,7 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
     getPokemonSetMarketMovers(setId, { window: WINDOW, limit: LIMIT })
       .then((payload) => {
         const next = { status: "success", entry: payload };
-        cache.set(setId, next);
+        cacheResult(setId, next);
         if (!cancelled) setState(next);
       })
       .catch(() => {
@@ -112,7 +133,7 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
     return () => {
       cancelled = true;
     };
-  }, [setId]);
+  }, [setId, retryToken]);
 
   const items = selectMoversTickerItems(state.entry, { maxItems: LIMIT });
 
@@ -171,9 +192,10 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
       </div>
 
       {state.status === "error" ? (
-        <p role="status" className="py-3 text-xs text-[var(--text-secondary)]">
-          {`7-day movers for ${setName || "this set"} are currently unavailable.`}
-        </p>
+        <div role="status" className="flex items-center justify-between gap-3 py-3 text-xs text-[var(--text-secondary)]">
+          <span>{`7-day movers for ${setName || "this set"} are currently unavailable.`}</span>
+          <button type="button" onClick={() => { cache.delete(setId); setRetryToken((token) => token + 1); }} className="rounded-md border border-[rgba(45,212,191,0.40)] px-3 py-1.5 font-semibold text-[rgb(45,212,191)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(45,212,191,0.65)]">Retry movers</button>
+        </div>
       ) : state.status !== "success" ? (
         <div aria-hidden="true" className="h-[4.5rem] animate-pulse rounded-[10px] bg-[rgba(148,163,184,0.08)] max-desk:h-[4.75rem]" />
       ) : items.length === 0 ? (
@@ -190,7 +212,12 @@ export default function SetMarketTopMovers({ setId, setName, viewAllHref }) {
             className={styles.moverTrack}
           >
             {items.map(({ card, movement }) => (
-              <MoverCard key={identity(card)} card={card} movement={movement} href={viewAllHref || "#"} />
+              <MoverCard
+                key={identity(card)}
+                card={card}
+                movement={movement}
+                href={buildPokemonCardDetailHref({ ...card, setCanonicalKey, setId })}
+              />
             ))}
           </div>
           <StepButton direction="forward" disabled={edges.atEnd} onClick={() => page(1)} setName={setName} />

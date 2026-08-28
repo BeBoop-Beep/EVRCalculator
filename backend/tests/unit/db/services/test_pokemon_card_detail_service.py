@@ -41,6 +41,7 @@ def fixture(*, variants=("v1",), canonical_selected=None, price=True):
              "special_type": "master ball" if i else None}
             for i, variant in enumerate(variants)
         ],
+        "conditions": [{"id": "nm", "name": "Near Mint"}],
         "pokemon_set_page_snapshot_latest": [{
             "set_id": "set-1", "payload_json": {"ripDecision": {"sourceCalculationRunId": "run-1"}}
         }],
@@ -96,9 +97,10 @@ def test_multiple_variants_require_selection_without_provable_default():
     payload = build(fixture(variants=("v1", "v2")))
     assert payload["selectedVariantId"] is None
     assert payload["variantSelection"]["state"] == "selection_required"
-    assert payload["chase"] == {
-        "available": False, "reason": "variant_selection_required", "sourceCalculationRunId": "run-1"
-    }
+    assert payload["chase"]["available"] is False
+    assert payload["chase"]["reason"] == "variant_selection_required"
+    assert payload["chase"]["sourceCalculationRunId"] == "run-1"
+    assert payload["chase"]["products"] == []
 
 
 def test_valid_explicit_variant_preserves_variant_identity_and_math():
@@ -106,6 +108,32 @@ def test_valid_explicit_variant_preserves_variant_identity_and_math():
     assert payload["selectedVariantId"] == "v2"
     assert payload["variantSelection"]["source"] == "query"
     assert payload["chase"]["impliedOddsOneInN"] == 960
+
+
+def test_market_only_variant_is_selectable_without_reusing_modeled_pull_rate():
+    client = fixture(variants=("v1", "v2"))
+    client.tables["simulation_input_cards"] = client.tables["simulation_input_cards"][:1]
+    client.tables["simulation_input_cards_with_near_mint_price"] = client.tables["simulation_input_cards_with_near_mint_price"][:1]
+    client.tables["card_variant_price_observations"] = [{
+        "card_variant_id": "v2", "condition_id": "nm", "market_price": 31,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
+    client.tables["sealed_products"] = [{
+        "id": "catalog-only", "set_id": "set-1", "name": "Example Three-Pack Blister",
+        "product_type": "Sealed Products", "image_small_url": "product.jpg",
+    }]
+    client.tables["sealed_product_price_observations"] = [{
+        "sealed_product_id": "catalog-only", "market_price": 34.99,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
+    payload = build(client, "v2")
+    assert payload["selectedVariantId"] == "v2"
+    assert payload["market"]["currentPrice"] == 31
+    assert payload["chase"]["available"] is False
+    assert payload["chase"]["reason"] == "legacy_run_variant_detail_unavailable"
+    assert "modeledProbability" not in payload["chase"]
+    assert payload["chase"]["products"][0]["productName"] == "Example Three-Pack Blister"
+    assert payload["chase"]["products"][0]["currentPrice"] == 34.99
 
 
 def test_foreign_or_unknown_explicit_variant_is_never_used_and_falls_back_deterministically():
@@ -126,7 +154,33 @@ def test_canonical_card_without_usable_chase_still_returns_identity():
     payload = build(client)
     assert payload["card"]["canonicalCardId"] == "canonical"
     assert payload["variantSelection"]["state"] == "unavailable"
-    assert payload["chase"]["reason"] == "modeled_chase_unavailable"
+    assert payload["chase"]["reason"] == "pull_model_configuration_missing"
+
+
+def test_exact_reverse_frequency_fallback_enables_existing_chase_economics():
+    client = fixture(variants=("v1", "v2"))
+    client.tables["simulation_input_cards"] = client.tables["simulation_input_cards"][:1]
+    client.tables["simulation_input_cards_with_near_mint_price"] = client.tables["simulation_input_cards_with_near_mint_price"][:1]
+    client.tables["simulation_card_variant_pull_rates"] = [{
+        "calculation_run_id": "run-1", "card_id": "legacy", "card_variant_id": "v2",
+        "condition_id": "nm", "printing_type": "reverse-holo", "special_type": None,
+        "pull_count": 50, "pack_presence_count": 50, "simulation_count": 10000,
+        "modeled_probability": 0.005, "effective_pull_rate": 200,
+        "price_used": 1.25, "price_source": "TCGPlayer", "price_captured_at": "2026-08-18T00:00:00Z",
+        "model_source": "monte_carlo_exact_variant_frequency_v1",
+        "model_version": "exact_variant_pull_frequency_v1", "status": "modeled",
+    }]
+    client.tables["card_variant_price_observations"] = [{
+        "card_variant_id": "v2", "condition_id": "nm", "market_price": 2.5,
+        "source": "TCGPlayer", "captured_at": "2026-08-20T00:00:00Z",
+    }]
+    payload = build(client, "v2")
+    assert payload["chase"]["available"] is True
+    assert payload["chase"]["impliedOddsOneInN"] == 200
+    assert payload["chase"]["pullRateSource"] == "monte_carlo_exact_variant_frequency_v1"
+    reverse = next(row for row in payload["availableVariants"] if row["cardVariantId"] == "v2")
+    assert reverse["pullModelStatus"] == "modeled"
+    assert reverse["simulationCount"] == 10000
 
 
 def test_wrong_card_set_combination_is_404():
@@ -164,6 +218,26 @@ def test_product_economics_are_the_existing_chase_output(monkeypatch):
     assert payload["chase"]["recoveryModel"] == "gross_market_value"
 
 
+def test_supported_products_keep_model_order_before_sorted_catalog_only_products(monkeypatch):
+    supported = [
+        {"sealed_product_id": "bundle", "product_name": "Bundle", "product_family": "booster_bundle",
+         "product_market_cost": 30, "pack_count": 6, "expected_value": 20},
+        {"sealed_product_id": "etb", "product_name": "ETB", "product_family": "elite_trainer_box",
+         "product_market_cost": 55, "pack_count": 9, "expected_value": 30},
+    ]
+    monkeypatch.setattr(service, "_load_current_run_product_rows", lambda **_kwargs: supported)
+    monkeypatch.setattr(service, "_load_sealed_product_catalog", lambda *_args: [
+        {"sealedProductId": "z", "productName": "Zulu Blister", "available": False, "currentPrice": 19.99},
+        {"sealedProductId": "etb", "productName": "Example ETB", "available": False, "currentPrice": 54.99},
+        {"sealedProductId": "a", "productName": "Alpha Blister", "available": False, "currentPrice": 12.99},
+        {"sealedProductId": "bundle", "productName": "Example Bundle", "available": False, "currentPrice": 29.99},
+    ])
+    products = build(fixture())["chase"]["products"]
+    assert [item["sealedProductId"] for item in products] == ["bundle", "etb", "a", "z"]
+    assert all(item["available"] for item in products[:2])
+    assert all(not item["available"] for item in products[2:])
+
+
 def test_market_history_is_variant_condition_scoped_sorted_and_deduplicated():
     client = fixture()
     client.tables["card_variant_price_observations"] = [
@@ -189,3 +263,39 @@ def test_long_requested_window_truthfully_reports_partial_coverage():
     assert movement["fullCoverage"] is False
     assert movement["effectiveWindow"] == "lifetime"
     assert movement["deltaAmount"] == 5
+
+
+def test_catalog_products_preserve_identity_media_latest_price_and_page_id():
+    client = fixture()
+    client.tables["sealed_products"] = [
+        {"id": "p1", "set_id": "set-1", "name": "Example Set Booster Bundle", "product_type": "Sealed Products", "image_small_url": "small.jpg", "image_large_url": "large.jpg"},
+        {"id": "p1", "set_id": "set-1", "name": "Duplicate", "product_type": "Sealed Products"},
+    ]
+    client.tables["sealed_product_price_observations"] = [
+        {"sealed_product_id": "p1", "market_price": 80, "captured_at": "2026-08-20", "source": "TCGPlayer"},
+        {"sealed_product_id": "p1", "market_price": 86.23, "captured_at": "2026-08-26", "source": "TCGPlayer"},
+    ]
+    products = service._load_sealed_product_catalog(client, "set-1")
+    assert len(products) == 1
+    assert products[0] == {
+        "sealedProductId": "p1", "productName": "Example Set Booster Bundle", "catalogProductType": "Sealed Products",
+        "productFamily": "booster_bundle", "productFamilyLabel": "Booster Bundle", "imageUrl": "small.jpg",
+        "imageSmallUrl": "small.jpg", "imageLargeUrl": "large.jpg", "productPageId": "p1", "currentPrice": 86.23,
+        "priceAsOf": "2026-08-26", "priceSource": "TCGPlayer", "available": False,
+        "reason": "chase_economics_not_supported",
+    }
+
+
+def test_set_contract_separates_internal_target_id_from_canonical_route_slug():
+    payload = build(fixture())
+    assert payload["set"]["targetId"] == "example-set"
+    assert payload["set"]["slug"] == "example-set"
+
+
+def test_camel_case_internal_set_key_never_becomes_route_slug(monkeypatch):
+    monkeypatch.setattr(service, "resolve_pokemon_set_identifier", lambda _value, client=None: {
+        "id": "set-1", "name": "Ascended Heroes", "canonical_key": "ascendedHeroes"
+    })
+    payload = build(fixture())
+    assert payload["set"]["targetId"] == "ascendedHeroes"
+    assert payload["set"]["slug"] == "ascended-heroes"

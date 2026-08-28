@@ -12,6 +12,7 @@ from backend.db.repositories.calculation_runs_repository import (
     create_simulation_derived_metrics,
     create_simulation_etb_summary,
     create_simulation_input_cards,
+    create_simulation_card_variant_pull_rates,
     create_simulation_percentiles,
     create_simulation_pull_summary,
     create_simulation_run_summary,
@@ -1051,3 +1052,13 @@ def persist_simulation_inputs(
         "top_hits_count": 0,
         "input_cards_count": len(input_cards_inserted),
     }
+
+
+def persist_simulation_card_variant_pull_rates(
+    *, run_id: Any, set_id: Any, sim_results: Mapping[str, Any]
+) -> Dict[str, Any]:
+    rows = sim_results.get("variant_pull_summary")
+    if not isinstance(rows, list):
+        return {"persisted": False, "reason": "legacy_run_variant_detail_unavailable", "row_count": 0}
+    inserted = create_simulation_card_variant_pull_rates(run_id, set_id, rows)
+    return {"persisted": True, "row_count": len(inserted)}

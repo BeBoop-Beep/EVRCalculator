@@ -78,6 +78,10 @@ const legendToggle = (renderer, key) => renderer.root.find((node) => node.props?
 
 test("the section carries the locked heading and its accessible sub-label", () => {
   const renderer = render();
+  const cta = renderer.root.find((node) => node.props?.["data-market-explorer-cta"] !== undefined);
+  assert.equal(cta.props.href, "/Market/Explorer");
+  assert.match(textOf(cta), /Open Market Explorer/);
+  assert.match(String(cta.props.className), /45,212,191/);
   assert.equal(textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-heading")[0]), "Pokémon Market Performance");
   const description = textOf(renderer.root.findAll((node) => node.props?.id === "market-performance-description")[0]);
   // Shortened so it cannot collide with the pane's controls, with its factual

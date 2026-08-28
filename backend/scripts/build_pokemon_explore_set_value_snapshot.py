@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +28,63 @@ from backend.db.services.canonical_market_overview import (
     resolve_canonical_overview_sets,
 )
 from backend.scripts.pokemon_snapshot_builders import get_client
+
+
+INITIAL_SELECTED_SET_MOVERS_LIMIT = 10
+INITIAL_SELECTED_SET_MOVER_FIELDS = (
+    "canonicalCardId", "cardVariantId", "conditionId", "setId", "name",
+    "rarity", "cardNumber", "imageSmallUrl", "marketPrice", "changeAmount",
+    "changePercent", "window", "windowDays", "startDate", "endDate",
+    "reliable", "reliability", "fullWindowCoverage", "isPartialWindow",
+)
+
+
+def _attach_initial_selected_set_movers(client, row: dict) -> None:
+    """Publish the #1 Set Value target's canonical 7D movers, never full Cards."""
+    payload = row.get("payload_json") or {}
+    published_sets = payload.get("sets") or []
+    if not published_sets:
+        return
+    selected = published_sets[0]
+    set_id = str(selected.get("setId") or "")
+    result = (client.table("pokemon_set_cards_snapshot_latest")
+        .select("updated_at,snapshot_meta:payload_json->meta->snapshot,items:payload_json->canonicalMarketMoversByWindow->7D->all")
+        .eq("set_id", set_id).execute())
+    source = (result.data or [{}])[0]
+    items = [
+        {key: card.get(key) for key in INITIAL_SELECTED_SET_MOVER_FIELDS if card.get(key) is not None}
+        for card in (source.get("items") or [])[:INITIAL_SELECTED_SET_MOVERS_LIMIT]
+        if isinstance(card, dict)
+    ]
+    snapshot = source.get("snapshot_meta") if isinstance(source.get("snapshot_meta"), dict) else {}
+    payload["initialSelectedSetMovers"] = {
+        "setId": set_id,
+        "window": "7D",
+        "marketDate": snapshot.get("marketAsOfDate") or selected.get("setValueAsOf"),
+        "items": items,
+        "meta": {"source": "canonical_cards_published_movers"},
+    }
+    encoded = json.dumps(payload, separators=(",", ":")).encode()
+    row["payload_size_bytes"] = len(encoded)
+    mover_identity = "\n".join(
+        f"{card.get('canonicalCardId')}|{card.get('cardVariantId')}|{card.get('conditionId')}"
+        for card in items
+    )
+    row["source_generation_fingerprint"] = hashlib.sha256(
+        f"{row.get('source_generation_fingerprint')}\n{mover_identity}".encode()
+    ).hexdigest()
+
+
+def publisher_build_sha() -> str:
+    configured = (os.getenv("PUBLICATION_BUILD_SHA") or os.getenv("GIT_SHA") or "").strip()
+    if configured:
+        return configured[:40]
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True, timeout=5
+        ).strip()[:40]
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 def parser() -> argparse.ArgumentParser:
@@ -92,7 +152,11 @@ def build(*, client, market_date: str, commit: bool, market_index_history=None, 
         overview = build_canonical_market_overview(
             client, market_date=market_date, history=history, set_ids=set_ids,
         )
-    row = build_global_set_value_row(sets, dashboards, histories, target_market_date=market_date, market_overview=overview)
+    row = build_global_set_value_row(
+        sets, dashboards, histories, target_market_date=market_date,
+        market_overview=overview, publisher_build_sha=publisher_build_sha(),
+    )
+    _attach_initial_selected_set_movers(client, row)
     if commit:
         upsert_explore_set_value_snapshot(row, client=client)
     return row

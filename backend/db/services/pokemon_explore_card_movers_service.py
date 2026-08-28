@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -13,6 +15,7 @@ from backend.db.services.pokemon_card_market_delta_contract import (
 from backend.db.services.pokemon_set_market_service import canonical_card_movement_sort_key
 
 TABLE = "pokemon_explore_card_movers_snapshot_latest"
+logger = logging.getLogger("market.performance")
 LIMIT = 30
 class ExploreCardMoversUnavailable(Exception):
     def __init__(self, message: str, *, diagnostics: Optional[Dict[str, Any]] = None) -> None:
@@ -221,8 +224,10 @@ def build_global_card_movers_row(
 
 def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None) -> Dict[str, Any]:
     active = client or service_read_client
-    rows = list((active.table(TABLE).select("*").eq("tcg", "pokemon").eq("scope", "explore")
+    started = time.perf_counter()
+    rows = list((active.table(TABLE).select("payload_json,market_date,updated_at,card_count").eq("tcg", "pokemon").eq("scope", "explore")
                  .eq("window_key", "7D").limit(1).execute()).data or [])
+    db_ms = round((time.perf_counter() - started) * 1000, 2)
     if not rows:
         raise ExploreCardMoversUnavailable("global Explore card movers snapshot is unavailable")
     payload = dict(rows[0].get("payload_json") or {})
@@ -234,6 +239,7 @@ def read_explore_card_movers_snapshot(*, limit: Any = LIMIT, client: Any = None)
     entry["all"] = list(entry.get("all") or [])[:sanitized]
     payload["marketMovers"] = entry
     payload["meta"] = {**(payload.get("meta") or {}), "source": TABLE}
+    logger.info("market_read route=/explore/card-market-movers dbDurationMs=%s majorReads=1 cardCount=%s", db_ms, rows[0].get("card_count"))
     return payload
 
 

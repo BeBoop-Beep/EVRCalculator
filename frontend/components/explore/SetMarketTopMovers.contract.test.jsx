@@ -103,9 +103,13 @@ test("the carousel renders the published mover order, never a re-ranked one", as
   const titles = cardsIn(renderer).map((node) => node.props.title);
   assert.equal(titles.length, 10, "the full top ten is available to navigate");
   assert.deepEqual(titles.slice(0, 3), [
-    "Mover 0 — view market movers",
-    "Mover 1 — view market movers",
-    "Mover 2 — view market movers",
+    "Mover 0 — view card details",
+    "Mover 1 — view card details",
+    "Mover 2 — view card details",
+  ]);
+  assert.deepEqual(cardsIn(renderer).slice(0, 2).map((node) => node.props.href), [
+    "/TCGs/Pokemon/Sets/set-order/Cards/card-0",
+    "/TCGs/Pokemon/Sets/set-order/Cards/card-1",
   ]);
 });
 
@@ -166,9 +170,29 @@ test("a failed request says so and stays retryable rather than caching the failu
   respond = () => Promise.reject(new Error("boom"));
   const renderer = await render({ setId: "set-fail", setName: "Paradox Rift", viewAllHref: "/x" });
   assert.match(jsonOf(renderer), /currently unavailable/);
+  const retry = renderer.root.find((node) => node.type === "button" && node.children?.includes("Retry movers"));
 
   respond = () => Promise.resolve(payloadWith(2));
-  const retried = await render({ setId: "set-fail", setName: "Paradox Rift", viewAllHref: "/x" });
+  await TestRenderer.act(async () => retry.props.onClick());
   assert.equal(calls.length, 2, "the failure was not cached as this set's answer");
-  assert.equal(cardsIn(retried).length, 2);
+  assert.equal(cardsIn(renderer).length, 2);
+});
+
+test("a valid initial payload renders immediately without a duplicate request", async () => {
+  calls.length = 0;
+  const initialPayload = {
+    setId: "set-preloaded",
+    window: "7D",
+    marketDate: "2026-08-27",
+    items: Array.from({ length: 5 }, (_, index) => mover(index)),
+  };
+  const renderer = await render({
+    setId: "set-preloaded",
+    setName: "Ascended Heroes",
+    viewAllHref: "/x",
+    initialPayload,
+  });
+  assert.equal(calls.length, 0, "the default selected set must not issue a client movers request");
+  assert.equal(cardsIn(renderer).length, 5);
+  assert.ok(!jsonOf(renderer).includes("animate-pulse"), "preloaded movers never enter the skeleton branch");
 });

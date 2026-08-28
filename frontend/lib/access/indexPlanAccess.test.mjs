@@ -2,14 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  FEATURE_CARD_CHASE_EFFICIENCY,
   FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS,
   INDEX_PLAN_LABELS,
   hasIndexPlusAccess,
   hasIndexPremiumAccess,
+  hasIndexFeatureAccess,
   resolveMarketExplorerPlanAccess,
   normalizeIndexPlan,
   resolveRankingsPlanAccess,
 } from "./indexPlanAccess.mjs";
+
+test("Card Chase Efficiency is Premium-only", () => {
+  assert.equal(FEATURE_CARD_CHASE_EFFICIENCY, "card_chase_efficiency");
+  assert.equal(hasIndexFeatureAccess(null, FEATURE_CARD_CHASE_EFFICIENCY), false);
+  assert.equal(hasIndexFeatureAccess("plus", FEATURE_CARD_CHASE_EFFICIENCY), false);
+  assert.equal(hasIndexFeatureAccess("premium", FEATURE_CARD_CHASE_EFFICIENCY), true);
+});
 
 const cases = [
   [null, null, false, false],

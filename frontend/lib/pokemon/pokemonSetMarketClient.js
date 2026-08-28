@@ -1244,11 +1244,26 @@ export async function getPokemonSetSealedMarket(setId) {
           marketIndex: normalizePreparedMarketIndex(setMarket.marketIndex || setMarket.market_index),
         }
       : null;
+    const consumerMarket = payload?.setPageConsumerMarket || payload?.set_page_consumer_market || null;
+    const normalizedConsumerMarket = consumerMarket
+      ? {
+          ...consumerMarket,
+          history: consumerMarket.history || [],
+          productCount: consumerMarket.productCount ?? consumerMarket.product_count ?? null,
+          marketBreadth: consumerMarket.marketBreadth || consumerMarket.market_breadth || {},
+          marketIndex: normalizePreparedMarketIndex(consumerMarket.marketIndex || consumerMarket.market_index),
+        }
+      : null;
     return {
       ...payload,
       products: Array.isArray(payload?.products) ? payload.products : [],
       setMarket: normalizedSetMarket,
       set_market: normalizedSetMarket,
+      setPageConsumerMarket: normalizedConsumerMarket,
+      set_page_consumer_market: normalizedConsumerMarket,
+      setPageConsumerTopProducts: Array.isArray(payload?.setPageConsumerTopProducts)
+        ? payload.setPageConsumerTopProducts
+        : Array.isArray(payload?.set_page_consumer_top_products) ? payload.set_page_consumer_top_products : [],
     };
   });
 }
@@ -1370,7 +1385,7 @@ export async function getPokemonSetOverview(setId, { window = DEFAULT_MARKET_DAS
   });
 }
 
-export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all" } = {}) {
+export async function getPokemonSetMarketMovers(setId, { window = "30D", limit = 10, movement = "all", surface = null, metric = null } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) {
     throw new Error("Set id is required");
@@ -1385,12 +1400,15 @@ export async function getPokemonSetMarketMovers(setId, { window = "30D", limit =
     params.set("limit", String(limit));
   }
   // Shared canonical Cards query contract: section=market-movers,
-  // movement=all|heating|cooling, sort=largest-dollar-move (backend-implied).
+  // Default requests use largest-dollar-move. The Set page explicitly opts
+  // into its isolated 7D absolute-percent published contract.
   if (movement) {
     params.set("movement", String(movement));
   }
+  if (surface) params.set("surface", String(surface));
+  if (metric) params.set("metric", String(metric));
 
-  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}`;
+  const cacheKey = `movers:${resolvedSetId}:${window || ""}:${limit || ""}:${movement || ""}:${surface || ""}:${metric || ""}`;
   return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
     const response = await fetch(
       `/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers${params.toString() ? `?${params}` : ""}`,

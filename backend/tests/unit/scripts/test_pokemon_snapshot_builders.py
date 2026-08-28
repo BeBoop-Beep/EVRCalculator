@@ -1102,6 +1102,10 @@ def test_build_market_dashboard_snapshot_row_builds_market_movers_for_1d_7d_30d(
     assert dashboard_snapshot["movementContractVersion"] == "pokemon_card_movement_v1"
     assert dashboard_snapshot["windowConvention"] == "inclusive_calendar_dates_v1"
     assert dashboard_snapshot["movementAsOfDate"] == "2026-06-02"
+    assert dashboard_snapshot["marketDate"] == "2026-06-02"
+    assert "publisherBuildSha" in dashboard_snapshot
+    assert "publisherGitHeadSha" in dashboard_snapshot
+    assert "publisherWorktreeDirty" in dashboard_snapshot
     assert dashboard_snapshot["generationId"]
     assert dashboard_snapshot["builtAt"]
     by_window = payload["marketMoversByWindow"]

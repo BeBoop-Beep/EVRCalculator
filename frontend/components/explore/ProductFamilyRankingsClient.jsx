@@ -3,6 +3,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ExploreTableClient from "./ExploreTableClient";
 import SegmentedControl from "@/components/ui/SegmentedControl";
+import OpeningEconomicsOverall from "./OpeningEconomicsOverall";
+import OpeningEconomicsEras from "./OpeningEconomicsEras";
+import EraRankings from "./EraRankings";
+import SetPackMetrics from "./SetPackMetrics";
+import CardChaseEfficiencyRankings from "./CardChaseEfficiencyRankings";
 import DarkSelect from "@/components/ui/DarkSelect";
 import SortMenuButton from "@/components/ui/SortMenuButton";
 import TableSearchInput from "@/components/ui/TableSearchInput";
@@ -513,13 +518,21 @@ export default function ProductFamilyRankingsClient({
   productFamilyRankings,
   initialOverallProductRankings,
   loadError,
+  openingEconomics = null,
+  eraSetStrength = null,
   onUnlockProductRip = null,
 }) {
-  const { canViewRankingsIntelligence } = useRankingsAccess();
+  const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
   const canViewProductRipIntelligence = canViewRankingsIntelligence;
   const families = productFamilyRankings?.families || {},
     entries = orderProductFamilyEntries(families);
-  const [view, setView] = useState("sets"),
+  // The era a drilldown scoped the Sets lens to. Held here rather than inside
+  // ExploreTableClient so the Eras lens can set it while navigating, and so
+  // leaving the Sets lens does not silently strand an invisible filter.
+  const [selectedEra, setSelectedEra] = useState(null);
+  const [eraLens, setEraLens] = useState("economics");
+  const [setLens, setSetLens] = useState("rankings");
+  const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
     [sortDirection, setSortDirection] = useState(canViewProductRipIntelligence ? "desc" : "asc"),
     [query, setQuery] = useState(""),
@@ -557,25 +570,35 @@ export default function ProductFamilyRankingsClient({
       () => filterAndSortProducts(selected?.products, query, sortKey, sortDirection),
       [selected, query, sortKey, sortDirection],
     ),
-    productsActive = view !== "sets";
+    // Four top-level lenses. `view` still carries the product family key when a
+    // family is selected, so the lens is derived from it rather than tracked in
+    // a second piece of state that could disagree with it.
+    productsActive = view !== "sets" && view !== "economics" && view !== "eras" && view !== "cards";
+  const lens = view === "economics" ? "economics" : view === "eras" ? "eras" : view === "sets" ? "sets" : view === "cards" ? "cards" : "products";
   const selectView = (next) => {
       setQuery("");
+      setSelectedEra(null);
       setSortKey(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical");
       setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
     },
-    changeView = (next) => selectView(next === "products" ? "overall" : "sets");
+    changeView = (next) =>
+      selectView(next === "products" ? "allProducts" : next);
   return (
     <>
       <SegmentedControl
         className="mb-3 inline-block"
         ariaLabel="Ranking view"
         variant="primary"
-        value={productsActive ? "products" : "sets"}
+        value={lens}
         onChange={changeView}
+        mobileScroll
         options={[
+          { value: "economics", label: "Overall" },
+          { value: "eras", label: "Eras" },
           { value: "sets", label: "Sets" },
           { value: "products", label: "Products" },
+          { value: "cards", label: "Cards" },
         ]}
       />
       {productsActive ? (
@@ -585,10 +608,10 @@ export default function ProductFamilyRankingsClient({
         >
           <button
             type="button"
-            onClick={() => selectView("overall")}
-            aria-pressed={view === "overall"}
+            onClick={() => selectView("allProducts")}
+            aria-pressed={view === "allProducts"}
             data-overall-product-tab
-            className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${view === "overall" ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}
+            className={`${styles.productFamilyTab} ${styles.productFamilyTabOverall} ${view === "allProducts" ? `${styles.productFamilyTabActive} ${styles.productFamilyTabOverallActive}` : ""}`}
           >
             <span
               aria-hidden="true"
@@ -596,7 +619,7 @@ export default function ProductFamilyRankingsClient({
             >
               ◇
             </span>
-            Overall
+            All Products
           </button>
           {entries.map(([family, b]) => (
             <button
@@ -611,9 +634,49 @@ export default function ProductFamilyRankingsClient({
           ))}
         </nav>
       ) : null}
-      {view === "sets" ? (
-        <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} />
-      ) : view === "overall" ? (
+      {(view === "eras" || view === "sets") ? (
+        <SegmentedControl
+          className="mb-3 inline-block text-sm"
+          ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}
+          value={view === "eras" ? eraLens : setLens}
+          onChange={view === "eras" ? setEraLens : setSetLens}
+          options={[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }]}
+        />
+      ) : null}
+      {view === "economics" ? (
+        <OpeningEconomicsOverall economics={openingEconomics} targets={targets} onSelectEras={() => selectView("eras")} />
+      ) : view === "eras" ? (
+        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
+          economics={openingEconomics}
+          onSelectEra={(era) => {
+            setSetLens("economics");
+            selectView("sets");
+            setSelectedEra(era?.eraName || null);
+          }}
+        />
+      ) : view === "sets" ? (
+        <>
+          {selectedEra ? (
+            <div className="mb-3 flex flex-wrap items-center gap-2" data-era-filter-chip>
+              <span className="text-xs text-[var(--text-secondary)]">Showing sets from</span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]">
+                {selectedEra}
+                <button
+                  type="button"
+                  onClick={() => setSelectedEra(null)}
+                  aria-label={`Clear the ${selectedEra} filter and show all sets`}
+                  className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </span>
+            </div>
+          ) : null}
+          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
+        </>
+      ) : view === "cards" ? (
+        <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />
+      ) : view === "allProducts" ? (
         <OverallProductRankings
           result={overallResult}
           query={query}

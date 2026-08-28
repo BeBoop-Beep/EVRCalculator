@@ -91,14 +91,16 @@ export function buildTcgSetHrefFromTarget(target, options = {}) {
 }
 
 export function buildTcgSetHrefFromSlug(setSlug, options = {}) {
-  const slug = normaliseString(setSlug);
+  const slug = toSetSlug(setSlug);
   return slug
     ? appendSetDetailParams(`${TCG_SETS_BASE_PATH}/${encodeURIComponent(slug)}`, options)
     : TCG_SETS_BASE_PATH;
 }
 
 export function findTargetBySetSlug(targets, setSlug) {
-  const resolvedSlug = normaliseString(setSlug).toLowerCase();
+  const rawSetSegment = normaliseString(setSlug);
+  const resolvedSlug = toSetSlug(rawSetSegment);
+  const normalizedAlias = rawSetSegment.toLowerCase();
   if (!resolvedSlug) {
     return null;
   }
@@ -121,7 +123,7 @@ export function findTargetBySetSlug(targets, setSlug) {
     collection.find(
       (target) =>
         normaliseString(target?.target_type).toLowerCase() === "set" &&
-        normaliseString(target?.target_id).toLowerCase() === resolvedSlug
+        normaliseString(target?.target_id).toLowerCase() === normalizedAlias
     ) || null
   );
 }

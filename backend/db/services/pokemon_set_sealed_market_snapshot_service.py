@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from backend.domain.pokemon.sealed_product_classifier import (
     CLASSIFICATION_VERSION,
+    SET_PAGE_CONSUMER_POLICY_VERSION,
     classify_sealed_product,
 )
 from backend.domain.pokemon.market_index import (
@@ -18,7 +19,7 @@ from backend.domain.pokemon.market_index import (
     compute_strict_window_movements,
 )
 
-SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v4"
+SNAPSHOT_CONTRACT_VERSION = "pokemon-set-sealed-market-v5-consumer-lens"
 WINDOW_DAYS = {"7D": 7, "30D": 30, "3M": 90, "6M": 180, "1Y": 365}
 MOVEMENT_WINDOWS = ("1D", "7D", "30D", "3M", "6M", "1Y", "lifetime")
 # Retained as product-family metadata for consumers; product ordering itself is
@@ -520,7 +521,10 @@ def fingerprint(set_id: str, products: List[Dict[str, Any]], observation_rows: I
         if product_id in eligible_ids:
             token = (str(row.get("captured_at") or ""), str(row.get("id") or ""))
             latest[product_id] = max(latest.get(product_id, ("", "")), token)
-    canonical = [str(set_id), CLASSIFICATION_VERSION, SNAPSHOT_CONTRACT_VERSION]
+    canonical = [
+        str(set_id), CLASSIFICATION_VERSION, SNAPSHOT_CONTRACT_VERSION,
+        SET_PAGE_CONSUMER_POLICY_VERSION,
+    ]
     canonical.extend(sorted(eligible_ids))
     canonical.extend(f"{key}:{value[0]}:{value[1]}" for key, value in sorted(latest.items()))
     return hashlib.sha256("|".join(canonical).encode()).hexdigest()
@@ -529,32 +533,66 @@ def fingerprint(set_id: str, products: List[Dict[str, Any]], observation_rows: I
 def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], observations: List[Dict[str, Any]]) -> Dict[str, Any]:
     classified = [(product, classify_sealed_product(product.get("name"))) for product in raw_products]
     eligible = [(product, identity) for product, identity in classified if identity["isOverviewEligible"]]
+    consumer_candidates = [
+        (product, identity)
+        for product, identity in classified
+        if identity["isSetPageConsumerMarketEligible"]
+    ]
     observations_by_product: Dict[str, List[Dict[str, Any]]] = {}
     for row in observations:
         observations_by_product.setdefault(str(row.get("sealed_product_id")), []).append(row)
-    payload_products = []
-    for product, identity in eligible:
-        history = normalize_daily_history(observations_by_product.get(str(product["id"]), []))
-        if not history:
-            continue
-        current = history[-1]
-        payload_products.append(
-            {
-                "sealedProductId": str(product["id"]),
-                "name": product.get("name"),
-                **{key: identity[key] for key in ("productFamily", "productFamilyLabel", "variantLabel")},
-                "currentPrice": current["marketPrice"],
-                "priceAsOf": current["date"],
-                "source": current["source"],
-                "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
-                "history": history,
-            }
-        )
-    payload_products.sort(key=product_sort_key)
+    def prepared_products(candidates: List[tuple]) -> List[Dict[str, Any]]:
+        prepared = []
+        for product, identity in candidates:
+            history = normalize_daily_history(observations_by_product.get(str(product["id"]), []))
+            if not history:
+                continue
+            current = history[-1]
+            prepared.append(
+                {
+                    "sealedProductId": str(product["id"]),
+                    "name": product.get("name"),
+                    **{key: identity[key] for key in ("productFamily", "productFamilyLabel", "variantLabel")},
+                    "currentPrice": current["marketPrice"],
+                    "priceAsOf": current["date"],
+                    "source": current["source"],
+                    "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+                    "history": history,
+                }
+            )
+        prepared.sort(key=product_sort_key)
+        return prepared
+
+    payload_products = prepared_products(eligible)
+    consumer_products = prepared_products(consumer_candidates)
     now = datetime.now(timezone.utc).isoformat()
     market_date = max((item["priceAsOf"] for item in payload_products), default=None)
-    eligible_products = [product for product, _ in eligible]
-    source_fingerprint = fingerprint(str(set_row["id"]), eligible_products, observations)
+    # The broader Set-page lens is still one member of this canonical sealed
+    # snapshot. It may not advance beyond the legacy basket's marketDate.
+    # Recompute every current price and movement from the clipped history so
+    # Top 10, aggregate value, breadth, and movement endpoints all agree.
+    if market_date:
+        clipped_consumer_products = []
+        for product in consumer_products:
+            history = [point for point in product["history"] if point["date"] <= market_date]
+            if not history:
+                continue
+            current = history[-1]
+            clipped_consumer_products.append(
+                {
+                    **product,
+                    "currentPrice": current["marketPrice"],
+                    "priceAsOf": current["date"],
+                    "source": current["source"],
+                    "movements": {key: movement(history, key) for key in MOVEMENT_WINDOWS},
+                    "history": history,
+                }
+            )
+        consumer_products = sorted(clipped_consumer_products, key=product_sort_key)
+    else:
+        consumer_products = []
+    fingerprint_products = {str(product["id"]): product for product, _ in eligible + consumer_candidates}
+    source_fingerprint = fingerprint(str(set_row["id"]), list(fingerprint_products.values()), observations)
     payload = {
         "set": {"id": str(set_row["id"]), "canonicalKey": set_row.get("canonical_key"), "name": set_row.get("name")},
         "marketDate": market_date,
@@ -566,6 +604,8 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
         # reads the same canonical aggregate instead of each one summing the
         # per-product histories its own way.
         "setMarket": build_sealed_segment_history(payload_products),
+        "setPageConsumerMarket": build_sealed_segment_history(consumer_products),
+        "setPageConsumerTopProducts": consumer_products[:10],
         "meta": {
             "snapshotContractVersion": SNAPSHOT_CONTRACT_VERSION,
             "classificationVersion": CLASSIFICATION_VERSION,
@@ -573,6 +613,14 @@ def build_snapshot(set_row: Dict[str, Any], raw_products: List[Dict[str, Any]], 
             "builtAt": now,
             "eligibleProductCount": len(eligible),
             "excludedProductCount": len(raw_products) - len(eligible),
+            "setPageConsumerPolicyVersion": SET_PAGE_CONSUMER_POLICY_VERSION,
+            "setPageConsumerCandidateCount": len(consumer_candidates),
+            "setPageConsumerProductCount": len(consumer_products),
+            "setPageConsumerExcludedBulkContainerCount": len(classified) - len(consumer_candidates),
+            # Compatibility alias retained for v1 readers. In v2 the count
+            # also includes cartons and other classifier-owned bulk identities.
+            "setPageConsumerExcludedCaseDisplayCount": len(classified) - len(consumer_candidates),
+            "setPageConsumerProductsWithoutHistoryCount": len(consumer_candidates) - len(consumer_products),
             "warnings": [],
         },
     }

@@ -89,6 +89,7 @@ class PublicationSummary:
     latest_simulation_date_by_set: Dict[str, Optional[str]] = field(default_factory=dict)
     snapshot_publication_status: str = "not_attempted"
     chase_snapshot_publication_status: str = "not_attempted"
+    chase_efficiency_publication_status: str = "not_attempted"
     chase_audit_status: str = "not_attempted"
     chase_audit_failures: List[str] = field(default_factory=list)
     verification_passed: bool = False
@@ -144,6 +145,7 @@ class PublicationSummary:
             )
         out.append(f"{TAG} snapshot_publication_status={self.snapshot_publication_status}")
         out.append(f"{TAG} chase_snapshot_publication_status={self.chase_snapshot_publication_status}")
+        out.append(f"{TAG} chase_efficiency_publication_status={self.chase_efficiency_publication_status}")
         out.append(f"{TAG} chase_audit_status={self.chase_audit_status}")
         for failure in self.chase_audit_failures:
             out.append(f"{TAG}   chase_audit_failed={failure}")
@@ -264,6 +266,28 @@ def _chase_capability_expected(client: Any) -> bool:
     if tables is None:
         tables = getattr(client, "tables", None)
     return not isinstance(tables, dict) or "pokemon_set_chase_economics_snapshot_latest" in tables
+
+
+def _chase_efficiency_capability_expected(client: Any) -> bool:
+    """Allow old schemas/test doubles to run until migration 20260827090000."""
+    tables = getattr(client, "_tables", None)
+    if tables is None:
+        tables = getattr(client, "tables", None)
+    return not isinstance(tables, dict) or "pokemon_card_chase_efficiency_latest" in tables
+
+
+def publish_chase_efficiency(*, client: Any, market_date: str, dry_run: bool) -> str:
+    if not _chase_efficiency_capability_expected(client):
+        return "skipped_schema_unavailable"
+    from backend.db.services.chase_efficiency_service import load_candidate, publish_candidate, validate_candidate
+    candidate = load_candidate(client, market_date=market_date)
+    failures = validate_candidate(candidate)
+    if failures:
+        raise RuntimeError("Chase Efficiency candidate audit failed: " + "; ".join(failures))
+    if dry_run:
+        return "validated_dry_run"
+    publish_candidate(client, candidate)
+    return "published"
 
 
 def _run_chase_audit(
@@ -440,6 +464,7 @@ def orchestrate(
     if skip_snapshots:
         summary.snapshot_publication_status = "skipped"
         summary.chase_snapshot_publication_status = "skipped"
+        summary.chase_efficiency_publication_status = "skipped"
     else:
         refresh_code = refresh_public_snapshots(
             python_executable=python_executable,
@@ -471,6 +496,18 @@ def orchestrate(
             summary.error = "Chase Economics snapshot rebuild failed"
             return summary
         summary.chase_snapshot_publication_status = "published"
+
+        # This normalized exact-printing ranking consumes the same established
+        # run/price authority but publishes independently from legacy Chase.
+        try:
+            summary.chase_efficiency_publication_status = publish_chase_efficiency(
+                client=client, market_date=resolved_market_date, dry_run=dry_run,
+            )
+        except Exception as exc:
+            summary.chase_efficiency_publication_status = f"failed:{exc}"
+            summary.exit_code = EXIT_FAILED
+            summary.error = "Chase Efficiency publication failed; previous latest remains unchanged"
+            return summary
 
     # ---- Step 5: refuse to claim freshness we do not have ------------------
     if summary.simulation_failed or not summary.verification_passed:

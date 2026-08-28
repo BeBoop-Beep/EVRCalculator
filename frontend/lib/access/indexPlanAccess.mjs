@@ -44,6 +44,14 @@ export function hasIndexPremiumAccess(plan) {
  * plan name at every call site is what makes repackaging a rewrite.
  */
 export const FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS = "market_explorer_custom_markets";
+export const FEATURE_CARD_CHASE_EFFICIENCY = "card_chase_efficiency";
+
+export function hasIndexFeatureAccess(plan, feature) {
+  if (feature === FEATURE_MARKET_EXPLORER_CUSTOM_MARKETS || feature === FEATURE_CARD_CHASE_EFFICIENCY) {
+    return hasIndexPremiumAccess(plan);
+  }
+  return false;
+}
 
 /** Plan display names. The product language, in one place. */
 export const INDEX_PLAN_LABELS = Object.freeze({
@@ -83,6 +91,7 @@ export function resolveRankingsPlanAccess(user) {
   const indexPlan = normalizeIndexPlan(user?.index_plan);
   return {
     canViewRankingsIntelligence: hasIndexPlusAccess(indexPlan),
+    canViewCardChaseEfficiency: hasIndexFeatureAccess(indexPlan, FEATURE_CARD_CHASE_EFFICIENCY),
     accessMode: indexPlan || "basic",
   };
 }

@@ -1,7 +1,7 @@
 """Canonical Market Movers contract tests.
 
-Market Movers is a filtered/sorted view of the complete Cards dataset
-(pokemon_set_cards_snapshot_latest.cards_json), never a separate
+Market Movers is a publication-time projection of the complete Cards dataset,
+never a separate
 reliability-qualified subset. Membership is hasValidMovement + nonzero
 movement; ranking is absolute dollar move desc, then absolute percent desc,
 then canonical card id. Reliability stays metadata only. The Overview banner
@@ -47,9 +47,12 @@ class _Query:
 class _Client:
     def __init__(self, handlers):
         self.handlers = handlers
+        self.queries = []
 
     def table(self, table_name):
-        return _Query(table_name, self.handlers)
+        query = _Query(table_name, self.handlers)
+        self.queries.append(query)
+        return query
 
 
 @pytest.fixture(autouse=True)
@@ -118,15 +121,33 @@ def _movement_card(
 
 
 def _cards_snapshot_client(cards, extra_handlers=None):
-    handlers = {
-        "pokemon_set_cards_snapshot_latest": lambda _q: [
-            {
+    read_model = pokemon_public_snapshot_service.build_canonical_market_movers_read_model(cards)
+    set_page_read_model = pokemon_public_snapshot_service.build_set_page_market_movers_read_model(cards)
+
+    def cards_handler(query):
+        if "canonical_movers:" in query.select_fields:
+            window = "30D" if "->30D" in query.select_fields else "7D"
+            selected_model = (
+                set_page_read_model
+                if "setPageMarketMoversByWindow" in query.select_fields
+                else read_model
+            )
+            return [{
                 "set_id": _TEST_UUID,
-                "cards_json": cards,
+                "canonical_movers": selected_model[window],
                 "card_count": len(cards),
                 "updated_at": "2026-07-14T02:00:00+00:00",
-            }
-        ],
+                "snapshot_meta": dict(_CARDS_MOVEMENT_METADATA),
+            }]
+        return [{
+            "set_id": _TEST_UUID,
+            "cards_json": cards,
+            "card_count": len(cards),
+            "updated_at": "2026-07-14T02:00:00+00:00",
+        }]
+
+    handlers = {
+        "pokemon_set_cards_snapshot_latest": cards_handler,
     }
     handlers.update(extra_handlers or {})
     return _Client(handlers)
@@ -586,7 +607,7 @@ def test_market_movers_endpoint_is_first_n_of_canonical_cards_query(monkeypatch)
         assert banner_card["startDate"] == cards_card["movement7d"]["startDate"]
         assert banner_card["endDate"] == cards_card["movement7d"]["endDate"]
 
-    assert movers["meta"]["snapshot"]["source"] == "canonical_cards_filter"
+    assert movers["meta"]["snapshot"]["source"] == "canonical_cards_published_movers"
     assert movers["meta"]["snapshot"]["usedLegacyMoverList"] is False
     assert movers["meta"]["snapshot"]["marketAsOfDate"] == "2026-07-13"
     assert movers["meta"]["query"] == {
@@ -599,6 +620,88 @@ def test_market_movers_endpoint_is_first_n_of_canonical_cards_query(monkeypatch)
     # Slim projection: no heavy checklist fields ride along.
     assert "priceHistory" not in banner[0]
     assert "movementMetadata" not in banner[0]
+    mover_query = next(query for query in client.queries if "canonical_movers:" in query.select_fields)
+    assert "cards_json" not in mover_query.select_fields
+    assert "payload_json->canonicalMarketMoversByWindow->7D" in mover_query.select_fields
+
+
+def test_set_page_movers_rank_complete_set_by_absolute_percent_and_stable_ties(monkeypatch):
+    cards = [
+        _movement_card("expensive", amount=50.0, percent=5.0, price=1000.0),
+        _movement_card("plus-20", amount=1.0, percent=20.0, price=6.0),
+        _movement_card("minus-30", amount=-0.3, percent=-30.0, price=0.7),
+        _movement_card("tie-low-dollar", amount=1.0, percent=40.0),
+        _movement_card("z-tie", amount=2.0, percent=-40.0),
+        _movement_card("a-tie", amount=-2.0, percent=40.0),
+        _movement_card("zero", amount=99.0, percent=0.0),
+        _movement_card("missing", amount=99.0, percent=None),
+    ]
+    model = pokemon_public_snapshot_service.build_set_page_market_movers_read_model(cards)["7D"]
+
+    assert model["checklistCardCount"] == 8
+    assert model["cardsWithCalculableMovement"] == 8
+    assert model["nonzeroPercentMovementCount"] == 6
+    assert [card["canonicalCardId"] for card in model["all"]] == [
+        "a-tie", "z-tie", "tie-low-dollar", "minus-30", "plus-20", "expensive"
+    ]
+
+
+def test_set_page_movers_projection_caps_ten_and_endpoint_reads_only_compact_path(monkeypatch):
+    cards = [
+        _movement_card(f"card-{index:02d}", amount=float(index), percent=float(index), price=1000 - index)
+        for index in range(1, 14)
+    ]
+    client = _cards_snapshot_client(cards)
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", limit=10, surface="set-page", metric="absolute-percent"
+    )
+
+    assert len(payload["marketMovers"]["all"]) == 10
+    assert [card["canonicalCardId"] for card in payload["marketMovers"]["all"][:3]] == ["card-13", "card-12", "card-11"]
+    assert payload["meta"]["query"]["surface"] == "set-page"
+    assert payload["meta"]["query"]["metric"] == "absolute-percent"
+    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.setPageMarketMoversByWindow.7D"
+    query = next(query for query in client.queries if "setPageMarketMoversByWindow" in query.select_fields)
+    assert "cards_json" not in query.select_fields
+
+
+def test_set_page_absolute_percent_request_fails_closed_when_projection_missing(monkeypatch):
+    def missing_projection(query):
+        return [{"set_id": _TEST_UUID, "canonical_movers": None, "card_count": 1,
+                 "updated_at": "2026-07-14T02:00:00+00:00", "snapshot_meta": dict(_CARDS_MOVEMENT_METADATA)}]
+
+    client = _cards_snapshot_client(
+        [_movement_card("legacy", amount=99.0, percent=1.0)],
+        extra_handlers={
+            "pokemon_set_cards_snapshot_latest": missing_projection,
+            "pokemon_set_market_dashboard_snapshot_latest": _legacy_dashboard_handler({"365d": _legacy_dashboard_row()}),
+        },
+    )
+    monkeypatch.setattr(pokemon_public_snapshot_service, "service_read_client", client)
+
+    with pytest.raises(pokemon_public_snapshot_service.PokemonSetMarketError) as raised:
+        pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+            _TEST_UUID, window="7D", limit=10, surface="set-page", metric="absolute-percent"
+        )
+    assert raised.value.status_code == 503
+    assert raised.value.code == "POKEMON_SET_PAGE_MARKET_MOVERS_SNAPSHOT_INCOMPLETE"
+    assert not any(query.table_name == "pokemon_set_market_dashboard_snapshot_latest" for query in client.queries)
+
+
+def test_set_page_absolute_percent_source_metadata_is_explicit(monkeypatch):
+    monkeypatch.setattr(
+        pokemon_public_snapshot_service,
+        "service_read_client",
+        _cards_snapshot_client([_movement_card("mover", amount=1.0, percent=20.0)]),
+    )
+    payload = pokemon_public_snapshot_service.get_pokemon_set_market_movers_snapshot_payload(
+        _TEST_UUID, window="7D", surface="set-page", metric="absolute-percent"
+    )
+    assert payload["meta"]["snapshot"]["source"] == "set_page_absolute_percent_published_movers"
+    assert payload["meta"]["snapshot"]["sourceTable"] == "pokemon_set_cards_snapshot_latest"
+    assert payload["meta"]["snapshot"]["sourceField"] == "payload_json.setPageMarketMoversByWindow.7D"
 
 
 def test_market_movers_endpoint_banner_can_be_ten_negatives_and_is_not_five_five_capped(monkeypatch):
