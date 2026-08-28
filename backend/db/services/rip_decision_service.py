@@ -683,12 +683,54 @@ def build_top_chase_contract(*, run_id: Any, client: Any) -> Optional[Dict[str, 
 
     card_id = _optional_str(chosen.get("card_id"))
     variant_id = _optional_str(chosen.get("card_variant_id"))
+    canonical_card_id = None
+    pokemon_tcg_api_card_id = None
+    try:
+        legacy_rows = (
+            client.table("cards")
+            .select("id,set_id,pokemon_tcg_api_id")
+            .eq("id", card_id)
+            .limit(2)
+            .execute()
+            .data
+            or []
+        ) if card_id else []
+        if len(legacy_rows) == 1:
+            legacy_card = legacy_rows[0]
+            legacy_set_id = _optional_str(legacy_card.get("set_id"))
+            pokemon_tcg_api_card_id = _optional_str(legacy_card.get("pokemon_tcg_api_id"))
+            if legacy_set_id and pokemon_tcg_api_card_id:
+                canonical_rows = (
+                    client.table("pokemon_canonical_cards")
+                    .select("id,set_id,pokemon_tcg_api_card_id")
+                    .eq("set_id", legacy_set_id)
+                    .eq("pokemon_tcg_api_card_id", pokemon_tcg_api_card_id)
+                    .limit(2)
+                    .execute()
+                    .data
+                    or []
+                )
+                if len(canonical_rows) == 1:
+                    canonical_card_id = _optional_str(canonical_rows[0].get("id"))
+                else:
+                    logger.error(
+                        "top chase canonical mapping is not unique legacy_card_id=%s set_id=%s pokemon_tcg_api_card_id=%s matches=%s",
+                        card_id, legacy_set_id, pokemon_tcg_api_card_id, len(canonical_rows),
+                    )
+        if card_id and canonical_card_id is None:
+            logger.error("top chase canonical mapping unavailable legacy_card_id=%s", card_id)
+    except Exception as exc:
+        if is_transient_data_service_error(exc):
+            raise
+        logger.exception("top chase canonical mapping failed legacy_card_id=%s", card_id)
     return {
         "cardId": card_id,
-        # simulation_input_cards.card_id is the canonical cards.id foreign key;
-        # publish the semantic name so routing never has to infer that fact.
-        "canonicalCardId": card_id,
+        # simulation_input_cards.card_id points to the legacy cards catalog.
+        # Card Detail routing crosses the explicit (set, pokemon_tcg_api_id)
+        # identity boundary into pokemon_canonical_cards and never guesses.
+        "canonicalCardId": canonical_card_id,
         "cardVariantId": variant_id,
+        "pokemonTcgApiCardId": pokemon_tcg_api_card_id,
         "cardName": _optional_str(chosen.get("card_name")),
         "rarity": _optional_str(chosen.get("rarity_bucket")),
         **_chase_image_fields(client, card_id=card_id, variant_id=variant_id),

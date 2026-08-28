@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import InfoPopover from "@/components/ui/InfoPopover";
+import AnalyticsTableShell from "./AnalyticsTableShell";
+import { PremiumMetricLock } from "./RankedProductTablePrimitives.jsx";
 import styles from "./explore.module.css";
-import local from "./openingEconomics.module.css";
 import { OpeningEconomicsEmpty, OpeningEconomicsSkeleton } from "./OpeningEconomicsOverall";
 import {
   DEFAULT_ERA_SORT,
@@ -33,6 +33,7 @@ const COLUMNS = [
   { key: "meanPackCost", label: "Avg Cost / Pack", sort: "meanPackCost", emphasis: "quiet" },
   { key: "expectedValue", label: "Break-Even / Pack", sort: "expectedValue", emphasis: "quiet" },
 ];
+const PUBLIC_ERA_COLUMN_KEYS = new Set(["eraName", "setCount", "productSkuCount", "meanPackCost"]);
 
 function Dash() {
   return <span className="text-[var(--text-secondary)] opacity-60">—</span>;
@@ -44,20 +45,34 @@ function valueClass(emphasis) {
   return "text-xs text-[var(--text-primary)]";
 }
 
-export default function OpeningEconomicsEras({ economics, onSelectEra = null }) {
-  const [sort, setSort] = useState(DEFAULT_ERA_SORT);
+function EraEconomicsCell({ column, cells, raw = null, onSelectEra = null, baseline = false, canViewRankingsIntelligence }) {
+  const identity = column.key === "eraName";
+  const Cell = identity ? "th" : "td";
+  const locked = !canViewRankingsIntelligence && !PUBLIC_ERA_COLUMN_KEYS.has(column.key);
+  const sharedClass = `${styles.eraEconomicsCell} ${identity ? "text-left" : "text-right tabular-nums"} ${baseline ? "text-[var(--text-secondary)]" : ""}`;
+  let content = locked ? <PremiumMetricLock /> : <><span className={valueClass(column.emphasis)}>{cells[column.key] ?? <Dash />}</span>{column.secondary && cells[column.secondary] ? <span className="ml-1 text-[0.65rem] text-[var(--text-secondary)]">{cells[column.secondary]}</span> : null}</>;
+  if (identity) content = !baseline && onSelectEra ? <button type="button" onClick={() => onSelectEra(raw)} data-era-drilldown aria-label={`View the ${cells.eraName} sets`} className="text-sm font-medium text-[var(--text-primary)] underline-offset-2 hover:underline">{cells.eraName}</button> : <span className={`text-sm ${baseline ? "font-semibold text-[var(--text-secondary)]" : "font-medium text-[var(--text-primary)]"}`}>{cells.eraName}</span>;
+  return <Cell key={column.key} scope={identity ? "row" : undefined} className={sharedClass} data-era-economics-cell={column.key}>{content}</Cell>;
+}
+
+export default function OpeningEconomicsEras({ economics, onSelectEra = null, canViewRankingsIntelligence = false, onUnlockProductRip = null }) {
+  const [sort, setSort] = useState(() => canViewRankingsIntelligence ? DEFAULT_ERA_SORT : { key: "eraName", direction: "asc" });
+  const [query, setQuery] = useState("");
+  const selectedSortColumn = COLUMNS.find((column) => column.sort === sort.key);
+  const effectiveSort = canViewRankingsIntelligence || PUBLIC_ERA_COLUMN_KEYS.has(selectedSortColumn?.key) ? sort : { key: "eraName", direction: "asc" };
 
   const rows = useMemo(() => {
-    const eras = Array.isArray(economics?.eras) ? economics.eras : [];
-    return sortEras(eras, sort.key, sort.direction).map((era) => ({ raw: era, cells: projectEraRow(era) }));
-  }, [economics, sort]);
+    const needle = query.trim().toLowerCase();
+    const eras = (Array.isArray(economics?.eras) ? economics.eras : []).filter((era) => !needle || String(era?.eraName || "").toLowerCase().includes(needle));
+    return sortEras(eras, effectiveSort.key, effectiveSort.direction).map((era) => ({ raw: era, cells: projectEraRow(era) }));
+  }, [economics, effectiveSort.direction, effectiveSort.key, query]);
 
   // Projected through the SAME reader as an era row, so the baseline can never
   // drift into a differently-formatted or differently-sourced number.
   const baseline = projectEraRow({ ...(economics?.global || {}), eraName: "All modeled sets" });
 
   if (economics?.status === "loading") return <OpeningEconomicsSkeleton />;
-  if (!isAvailable(economics) || rows.length === 0) {
+  if (!isAvailable(economics) || !Array.isArray(economics?.eras) || economics.eras.length === 0) {
     return (
       <OpeningEconomicsEmpty
         economics={economics}
@@ -69,6 +84,11 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
 
   const toggleSort = (key) => {
     if (!key) return;
+    const column = COLUMNS.find((candidate) => candidate.sort === key);
+    if (!canViewRankingsIntelligence && column && !PUBLIC_ERA_COLUMN_KEYS.has(column.key)) {
+      onUnlockProductRip?.();
+      return;
+    }
     setSort((current) =>
       current.key === key
         ? { key, direction: current.direction === "desc" ? "asc" : "desc" }
@@ -76,39 +96,23 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
     );
   };
 
-  const drilldownLabel = (eraName) => `View the ${eraName} sets`;
-
   return (
-    <section data-opening-economics-eras>
-      <header className="mb-4">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-2xl">
-          Opening Economics by Era
-        </h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Compare all eligible modeled sealed products normalized per pack across Pokémon eras.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
-          <span>Equal set weighting within each era</span>
-          {economics.marketDate ? (
-            <>
-              <span aria-hidden="true" className="opacity-40">·</span>
-              <span className="tabular-nums">As of {economics.marketDate}</span>
-            </>
-          ) : null}
-          <InfoPopover text="Typical Opening and Typical Retention are pooled medians from each era's own combined outcomes — not an average of its sets' individual medians. Sorting orders the table for reading only; eras are not scored, ranked or tiered." />
-        </div>
-      </header>
+    <AnalyticsTableShell title="Pack Economics by Era" info="Every eligible modeled sealed product is normalized to a per-pack equivalent. Sets receive equal weight within each Era. Typical values come from each Era's published weighted empirical product-opening distribution." query={query} onQueryChange={(event) => setQuery(event.target.value)} searchPlaceholder="Search eras..." searchLabel="Search eras" context="Select an era for the full Pack Economics breakdown." shown={rows.length} marketDate={economics.marketDate}>
+    <section data-opening-economics-eras data-pack-economics-entitled={canViewRankingsIntelligence ? "true" : "false"}>
 
       {/* Desktop: compact, dense table. */}
-      <div className={`${styles.surface} hidden overflow-x-auto rounded-xl px-1 py-1 desk:block`}>
-        <table className={`${local.eraTable} text-sm`} data-era-table>
+      <div className="hidden overflow-x-auto desk:block">
+        <table className={styles.table} data-era-table>
           <caption className="sr-only">
             Opening economics by era. Sortable; sorting changes display order only and does not rank eras.
           </caption>
-          <thead>
+          <colgroup data-era-economics-colgroup>
+            {COLUMNS.map((column) => <col key={column.key} style={{ width: column.key === "eraName" ? "17%" : column.key === "setCount" || column.key === "productSkuCount" ? "6%" : "10.125%" }} />)}
+          </colgroup>
+          <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
             <tr>
               {COLUMNS.map((column) => {
-                const active = sort.key === column.sort;
+                const active = effectiveSort.key === column.sort;
                 return (
                   <th
                     key={column.key}
@@ -116,7 +120,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
                     className={`text-[0.68rem] uppercase tracking-wide text-[var(--text-secondary)] ${
                       column.align === "left" ? "text-left" : "text-right"
                     }`}
-                    aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+                    aria-sort={active ? (effectiveSort.direction === "asc" ? "ascending" : "descending") : "none"}
                   >
                     {column.sort ? (
                       <button
@@ -127,7 +131,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
                       >
                         {column.label}
                         <span aria-hidden="true" className={active ? "opacity-100" : "opacity-0"}>
-                          {sort.direction === "asc" ? "↑" : "↓"}
+                          {effectiveSort.direction === "asc" ? "↑" : "↓"}
                         </span>
                       </button>
                     ) : (
@@ -140,59 +144,22 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
           </thead>
           <tbody>
             {rows.map(({ raw, cells }) => (
-              <tr key={cells.eraName} data-era-row={cells.eraName}>
-                <th scope="row" className="text-left">
-                  {onSelectEra ? (
-                    <button
-                      type="button"
-                      onClick={() => onSelectEra(raw)}
-                      data-era-drilldown
-                      aria-label={drilldownLabel(cells.eraName)}
-                      className="text-sm font-medium text-[var(--text-primary)] underline-offset-2 hover:underline"
-                    >
-                      {cells.eraName}
-                    </button>
-                  ) : (
-                    <span className="text-sm font-medium text-[var(--text-primary)]">{cells.eraName}</span>
-                  )}
-                </th>
-                {COLUMNS.slice(1).map((column) => (
-                  <td key={column.key} className="text-right tabular-nums">
-                    <span className={valueClass(column.emphasis)}>{cells[column.key] ?? <Dash />}</span>
-                    {column.secondary && cells[column.secondary] ? (
-                      <span className="ml-1 text-[0.65rem] text-[var(--text-secondary)]">
-                        {cells[column.secondary]}
-                      </span>
-                    ) : null}
-                  </td>
-                ))}
+              <tr key={cells.eraName} className={styles.row} data-era-row={cells.eraName}>
+                {COLUMNS.map((column) => <EraEconomicsCell key={column.key} column={column} cells={cells} raw={raw} onSelectEra={onSelectEra} canViewRankingsIntelligence={canViewRankingsIntelligence} />)}
               </tr>
             ))}
-          </tbody>
-          {/* The all-sets baseline, so an era's numbers are read against the
-              whole modeled market rather than only against each other. It is
-              the SAME published global scope the Overall lens renders — not a
-              total recomputed from the era rows above. */}
-          <tfoot>
-            <tr data-era-baseline-row>
-              <th scope="row" className="border-t border-[var(--ex-line-strong)] text-left text-xs font-medium text-[var(--text-secondary)]">
-                All modeled sets
-              </th>
-              {COLUMNS.slice(1).map((column) => (
-                <td
-                  key={column.key}
-                  className="border-t border-[var(--ex-line-strong)] text-right text-xs tabular-nums text-[var(--text-secondary)]"
-                >
-                  {baseline[column.key] ?? <Dash />}
-                </td>
-              ))}
+            {/* The all-sets baseline is a peer data row, separated only by a
+                stronger top rule. It uses the same cells and colgroup as every
+                Era above, so its geometry cannot drift. */}
+            <tr className={`${styles.row} ${styles.eraGlobalBaselineRow}`} data-era-baseline-row>
+              {COLUMNS.map((column) => <EraEconomicsCell key={column.key} column={column} cells={baseline} baseline canViewRankingsIntelligence={canViewRankingsIntelligence} />)}
             </tr>
-          </tfoot>
+          </tbody>
         </table>
       </div>
 
       {/* Mobile: one card per era, primary metrics first, secondary beneath. */}
-      <ul className="space-y-2.5 desk:hidden" data-era-cards>
+      <ul className="space-y-2.5 p-3 desk:hidden" data-era-cards>
         {rows.map(({ raw, cells }) => (
           <li key={cells.eraName} className={`${styles.surface} rounded-xl p-3.5`}>
             <div className="flex items-baseline justify-between gap-2">
@@ -200,7 +167,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
                 <button
                   type="button"
                   onClick={() => onSelectEra(raw)}
-                  aria-label={drilldownLabel(cells.eraName)}
+                  aria-label={`View the ${cells.eraName} sets`}
                   className="text-sm font-semibold text-[var(--text-primary)] underline-offset-2 hover:underline"
                 >
                   {cells.eraName}
@@ -213,7 +180,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
               </span>
             </div>
 
-            <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
+            {canViewRankingsIntelligence ? <dl className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
               {[
                 ["Modeled Return", cells.modeledReturn, true],
                 ["Typical Retention", cells.typicalRetention, false],
@@ -233,9 +200,9 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
                   </dd>
                 </div>
               ))}
-            </dl>
+            </dl> : null}
 
-            <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--ex-line)] pt-2 text-[0.68rem] text-[var(--text-secondary)]">
+            {canViewRankingsIntelligence ? <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--ex-line)] pt-2 text-[0.68rem] text-[var(--text-secondary)]">
               {[
                 ["Typical Opening", cells.typicalOpening],
                 ["Avg Pack Price", cells.meanPackCost],
@@ -246,7 +213,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
                   <dd className="tabular-nums text-[var(--text-primary)]">{value ?? <Dash />}</dd>
                 </div>
               ))}
-            </dl>
+            </dl> : <div className="mt-2.5 border-t border-[var(--ex-line)] pt-2 text-xs"><p className="tabular-nums text-[var(--text-primary)]">{cells.productSkuCount ?? <Dash />} products · {cells.meanPackCost ?? <Dash />} avg cost / pack</p><button type="button" onClick={() => onUnlockProductRip?.()} className="mt-2 text-left text-[rgb(var(--ex-teal))]">Index Plus required for full Pack Economics</button></div>}
           </li>
         ))}
       </ul>
@@ -258,7 +225,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
             {baseline.setCount ?? <Dash />} sets
           </span>
         </div>
-        <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.68rem] text-[var(--text-secondary)]">
+        {canViewRankingsIntelligence ? <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.68rem] text-[var(--text-secondary)]">
           {[
             ["Modeled Return", baseline.modeledReturn],
             ["Typical Retention", baseline.typicalRetention],
@@ -269,13 +236,14 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
               <dd className="tabular-nums text-[var(--text-primary)]">{value ?? <Dash />}</dd>
             </div>
           ))}
-        </dl>
+        </dl> : <p className="mt-2 text-[0.68rem] tabular-nums text-[var(--text-secondary)]">{baseline.productSkuCount ?? <Dash />} products · {baseline.meanPackCost ?? <Dash />} avg cost / pack</p>}
       </div>
 
-      <p className="mt-3 text-[0.68rem] leading-relaxed text-[var(--text-secondary)]">
+      <p className="border-t border-[var(--border-subtle)] px-3 py-3 text-[0.68rem] leading-relaxed text-[var(--text-secondary)]">
         Card values reflect modeled gross market value. Selling fees, shipping, liquidity, grading costs, and other
         transaction costs are not deducted.
       </p>
     </section>
+    </AnalyticsTableShell>
   );
 }

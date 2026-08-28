@@ -1,0 +1,809 @@
+"""Build the preregistered Card Treatment Prestige V2 study.
+
+The default is a non-publishing dry run.  ``--commit`` persists a research or
+rejected run; ``--approve`` is separate and is refused unless every gate passes.
+"""
+from __future__ import annotations
+
+import argparse, hashlib, json, math, subprocess, time
+import itertools
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Iterable
+
+import numpy as np
+from dotenv import load_dotenv
+
+from backend.desirability.card_treatment_prestige_v2 import (
+    METHODOLOGY_VERSION, TAXONOMY_VERSION, common_support_bounds,
+    log_pull_odds, pairwise_superiority_scores, positive_log_price,
+    resolve_treatment_identity,
+)
+
+SEED = 20260828
+GATES = {"min_cards": 100, "min_sets": 5, "min_species": 20,
+         "min_finish_matches": 50, "min_rank_spearman": .85,
+         "max_abs_log_effect_shift": .50, "min_common_support_coverage": .50,
+         "max_exact_canonical_join_failure_rate": .05, "max_unmapped_taxonomy_rate": .05}
+
+FAILURE_CODES = {
+    "authoritative_pull_source_unavailable", "insufficient_exact_scarcity_coverage",
+    "insufficient_common_support", "insufficient_treatment_sample",
+    "insufficient_set_diversity", "insufficient_era_diversity",
+    "insufficient_matched_variant_coverage", "required_controls_unavailable",
+    "excessive_canonical_join_failures", "excessive_unmapped_taxonomy_rate",
+}
+
+PAIRWISE_GATES = {"min_per_treatment":50,"min_inside_overlap_each":25,
+                  "min_overlap_pct_each":.25,"min_sets":5,"min_species":20}
+LOCKED_LOCAL_CONTRASTS = {
+    "Scarlet and Violet": {tuple(sorted(x)) for x in (("common","double_rare"),("common","rare"),("common","uncommon"),
+        ("double_rare","rare"),("double_rare","uncommon"),("illustration_rare","special_illustration_rare"),
+        ("illustration_rare","ultra_rare"),("rare","uncommon"))},
+    "Mega Evolution": {tuple(sorted(x)) for x in (("common","double_rare"),("common","rare"),("common","uncommon"),
+        ("double_rare","illustration_rare"),("double_rare","rare"),("double_rare","uncommon"),("rare","uncommon"))},
+}
+
+
+def paged(query, page=500):
+    out=[]
+    for start in range(0, 10_000_000, page):
+        error=None
+        for attempt in range(3):
+            try: rows=list(query.range(start,start+page-1).execute().data or []); break
+            except Exception as exc:
+                error=exc
+                if attempt<2: time.sleep(2*(attempt+1))
+        else: raise RuntimeError(f"database read failed at offset {start}") from error
+        out.extend(rows)
+        if len(rows)<page: break
+    return out
+
+
+def chunks(values, n=150):
+    values=list(values)
+    for i in range(0,len(values),n): yield values[i:i+n]
+
+
+def fetch_in(client, table, columns, key, values):
+    return [row for part in chunks(values) for row in paged(client.table(table).select(columns).in_(key,part))]
+
+
+def normalize_dimension(value):
+    import re, unicodedata
+    raw=unicodedata.normalize("NFKD",str(value or "")).encode("ascii","ignore").decode()
+    text=re.sub(r"[^a-z0-9]+","_",raw.strip().lower()).strip("_")
+    return text or None
+
+
+def current_run_authority(client, supported_set_ids):
+    """Narrow JSON projection; never downloads the large snapshot payload."""
+    rows=[]
+    for part in chunks(supported_set_ids,50):
+        rows.extend(paged(client.table("pokemon_set_page_snapshot_latest").select(
+            "set_id,source_run_id:payload_json->ripDecision->>sourceCalculationRunId"
+        ).in_("set_id",part)))
+    return {str(r["set_id"]):str(r["source_run_id"]) for r in rows if r.get("source_run_id")}
+
+
+def distribution(values):
+    if not values:return None
+    a=np.asarray(values,float)
+    return {"n":len(a),"min":float(a.min()),"p10":float(np.quantile(a,.10)),
+        "p25":float(np.quantile(a,.25)),"median":float(np.median(a)),
+        "p75":float(np.quantile(a,.75)),"p90":float(np.quantile(a,.90)),"max":float(a.max())}
+
+
+def dimension_table(rows, field):
+    groups=defaultdict(list)
+    for row in rows:groups[str(row.get(field) or "__unknown__")].append(row)
+    return [{"value":key,"observations":len(group),"pull_covered":sum(bool(r.get("exact_pull")) for r in group),
+             "priced":sum(bool(r.get("priced")) for r in group),
+             "unmapped":sum(bool(r.get("unmapped")) for r in group)} for key,group in sorted(groups.items())]
+
+
+def support_audit(rows, field, scope_field=None):
+    scopes=defaultdict(list)
+    for row in rows:
+        if row.get("exact_pull") is not None:scopes[str(row.get(scope_field) or "global")].append(row)
+    output={}
+    for scope,group in scopes.items():
+        by=defaultdict(list)
+        for row in group:by[str(row.get(field) or "__unknown__")].append(row["log_odds"])
+        eligible={k:v for k,v in by.items() if len(v)>=5}
+        bounds=common_support_bounds(eligible) if len(eligible)>=2 else None
+        covered=sum(bounds[0]<=x<=bounds[1] for values in eligible.values() for x in values) if bounds else 0
+        denominator=sum(map(len,eligible.values()))
+        output[scope]={"groups":{k:distribution(v) for k,v in sorted(by.items())},
+            "eligible_group_count":len(eligible),"common_support_bounds_log_odds":bounds,
+            "common_support_coverage":covered/denominator if denominator else 0}
+    return output
+
+
+def pairwise_overlap(rows, field):
+    groups=defaultdict(list)
+    for row in rows:
+        if row.get("log_odds") is not None and row.get(field):groups[str(row[field])].append(row)
+    matrix=[]
+    for a,b in itertools.combinations(sorted(groups),2):
+        ga,gb=groups[a],groups[b];va=[r["log_odds"] for r in ga];vb=[r["log_odds"] for r in gb]
+        low=max(min(va),min(vb));high=min(max(va),max(vb));has_overlap=low<=high
+        ina=[r for r in ga if has_overlap and low<=r["log_odds"]<=high];inb=[r for r in gb if has_overlap and low<=r["log_odds"]<=high]
+        card_a={r["canonical_card_id"] for r in ga};card_b={r["canonical_card_id"] for r in gb};matched=card_a&card_b
+        sets={r["set_id"] for r in ina+inb};species={x for r in ina+inb for x in r.get("subject_ids",[])}
+        direct=(len(ga)>=PAIRWISE_GATES["min_per_treatment"] and len(gb)>=PAIRWISE_GATES["min_per_treatment"]
+            and len(ina)>=PAIRWISE_GATES["min_inside_overlap_each"] and len(inb)>=PAIRWISE_GATES["min_inside_overlap_each"]
+            and len(ina)/len(ga)>=PAIRWISE_GATES["min_overlap_pct_each"] and len(inb)/len(gb)>=PAIRWISE_GATES["min_overlap_pct_each"]
+            and len(sets)>=PAIRWISE_GATES["min_sets"] and len(species)>=PAIRWISE_GATES["min_species"])
+        local=(not direct and has_overlap and len(ina)>=10 and len(inb)>=10 and len(sets)>=2)
+        matrix.append({"treatment_a":a,"treatment_b":b,"n_a":len(ga),"n_b":len(gb),
+            "distribution_a":distribution(va),"distribution_b":distribution(vb),
+            "sets":len({r["set_id"] for r in ga+gb}),"eras":len({r["era_id"] for r in ga+gb}),
+            "species":len({x for r in ga+gb for x in r.get("subject_ids",[])}),"matched_card_groups":len(matched),
+            "overlap_interval_log_odds":[low,high] if has_overlap else None,"inside_overlap_a":len(ina),"inside_overlap_b":len(inb),
+            "overlap_pct_a":len(ina)/len(ga),"overlap_pct_b":len(inb)/len(gb),
+            "overlap_sets":len(sets),"overlap_species":len(species),
+            "era_scope":sorted({r["era_id"] for r in ina+inb}),
+            "classification":"directly_identifiable_pair" if direct else "locally_identifiable_pair" if local else "unsupported_pair",
+            "depends_on_extrapolation":not direct})
+    return matrix
+
+
+def graph_summary(matrix):
+    nodes=sorted({x[k] for x in matrix for k in ("treatment_a","treatment_b")});adj={n:set() for n in nodes};edges=[]
+    for row in matrix:
+        if row["classification"]=="directly_identifiable_pair":
+            a,b=row["treatment_a"],row["treatment_b"];adj[a].add(b);adj[b].add(a);edges.append(row)
+    components=[];seen=set()
+    for node in nodes:
+        if node in seen:continue
+        stack=[node];component=[];seen.add(node)
+        while stack:
+            cur=stack.pop();component.append(cur)
+            for other in adj[cur]-seen:seen.add(other);stack.append(other)
+        components.append(sorted(component))
+    component_by_node={node:i for i,component in enumerate(components) for node in component}
+    direct_keys={tuple(sorted((x["treatment_a"],x["treatment_b"]))) for x in edges}
+    indirect=[{"treatment_a":a,"treatment_b":b,"classification":"connected_only_through_other_treatments"}
+        for a,b in itertools.combinations(nodes,2) if component_by_node[a]==component_by_node[b] and tuple(sorted((a,b))) not in direct_keys]
+    return {"nodes":nodes,"direct_edges":edges,"connected_components":components,"indirect_only_pairs":indirect,
+        "warning":"Connectivity through intermediate treatments is not a direct A-versus-C identification claim."}
+
+
+def structural_diagnostic(rows, field):
+    usable=[r for r in rows if r.get("log_odds") is not None and r.get(field)]
+    if not usable:return {"n":0}
+    y=np.asarray([r["log_odds"] for r in usable]);mean=float(y.mean());groups=defaultdict(list)
+    for r in usable:groups[str(r[field])].append(r["log_odds"])
+    between=sum(len(v)*(float(np.mean(v))-mean)**2 for v in groups.values());total=float(np.sum((y-mean)**2))
+    return {"n":len(usable),"categories":len(groups),"eta_squared_treatment_to_log_scarcity":between/total if total else 1,
+        "within_category_variance":float(np.mean([np.var(v) for v in groups.values()])),
+        "interpretation":"Values near one indicate scarcity band is structurally determined by treatment."}
+
+
+def matched_experiment_audit(rows):
+    groups=defaultdict(list)
+    for r in rows:
+        if r.get("exact_pull") is not None and r.get("priced"):groups[r["canonical_card_id"]].append(r)
+    pairs=[]
+    for card_id,group in groups.items():
+        for a,b in itertools.combinations(group,2):
+            if a.get("combined_treatment_key")==b.get("combined_treatment_key"):continue
+            ratio=max(a["exact_pull"],b["exact_pull"])/min(a["exact_pull"],b["exact_pull"])
+            pairs.append({"canonical_card_id":card_id,"set_id":a["set_id"],"species_ids":a.get("subject_ids",[]),
+                "card_name":a.get("card_name"),"card_number":a.get("card_number"),"artist":a.get("artist"),
+                "mechanic_or_card_form":a.get("mechanic_or_card_form"),
+                "treatment_a":a.get("combined_treatment_key"),"treatment_b":b.get("combined_treatment_key"),
+                "probability_a":a["exact_pull"],"probability_b":b["exact_pull"],"relative_scarcity_ratio":ratio,
+                "same_release_mechanics":a["current_run_id"]==b["current_run_id"],
+                "assignment_probabilities_independently_known":True})
+    repeated=Counter(tuple(sorted((p["treatment_a"],p["treatment_b"]))) for p in pairs)
+    return {"candidate_pairs":len(pairs),"within_10_pct":sum(p["relative_scarcity_ratio"]<=1.10 for p in pairs),
+        "within_25_pct":sum(p["relative_scarcity_ratio"]<=1.25 for p in pairs),
+        "within_50_pct":sum(p["relative_scarcity_ratio"]<=1.50 for p in pairs),
+        "repeated_comparisons":[{"pair":list(k),"n":v} for k,v in repeated.most_common()],"candidate_examples":pairs[:100],
+        "quasi_experiment_status":"diagnostic_candidates_only_no_random_or_as_if_random_assignment",
+        "note":"Shared canonical identity controls subject, artwork/card identity, set, release, number and mechanics where canonical mapping is correct; it does not make treatment assignment exogenous."}
+
+
+def _pair_design(rows, treatment_b, scarcity="linear", mechanics=True, weights=None):
+    sets=sorted({r["set_id"] for r in rows});species=sorted({r["subject_ids"][0] for r in rows})
+    forms=sorted({r.get("mechanic_or_card_form") for r in rows if r.get("mechanic_or_card_form")}) if mechanics else []
+    columns=["intercept","treatment_b"]
+    scarcity_values=np.asarray([r["log_odds"] for r in rows])
+    if scarcity=="linear":columns.append("log_odds");cutpoints=[]
+    else:
+        cutpoints=list(np.unique(np.quantile(scarcity_values,[.25,.5,.75])))
+        columns.extend([f"scarcity_bin_{i}" for i in range(1,len(cutpoints)+1)])
+    columns += ["set:"+x for x in sets[1:]]+["species:"+x for x in species[1:]]+["mechanic:"+x for x in forms[1:]]
+    X=[]
+    for r in rows:
+        base=[1.0,float(r["rarity_designation"]==treatment_b)]
+        if scarcity=="linear":base.append(r["log_odds"])
+        else:
+            bucket=sum(r["log_odds"]>cut for cut in cutpoints);base.extend(float(bucket==i) for i in range(1,len(cutpoints)+1))
+        base.extend(float(r["set_id"]==x) for x in sets[1:]);base.extend(float(r["subject_ids"][0]==x) for x in species[1:])
+        base.extend(float(r.get("mechanic_or_card_form")==x) for x in forms[1:]);X.append(base)
+    X=np.asarray(X,float);y=np.asarray([math.log(r["price"]) for r in rows],float);w=np.ones(len(rows)) if weights is None else np.asarray(weights,float)
+    root=np.sqrt(w);Xw=X*root[:,None];yw=y*root;beta=np.linalg.lstsq(Xw,yw,rcond=None)[0];resid=y-X@beta
+    return {"X":X,"y":y,"weights":w,"beta":beta,"resid":resid,"columns":columns,"coefficient":float(beta[1]),
+        "rank":int(np.linalg.matrix_rank(Xw)),"n_columns":X.shape[1]}
+
+
+def _wild_cluster_ci(fit, rows, draws, seed):
+    X,y,w,beta,resid=fit["X"],fit["y"],fit["weights"],fit["beta"],fit["resid"]
+    root=np.sqrt(w);Xw=X*root[:,None];bread=np.linalg.pinv(Xw.T@Xw);clusters=sorted({r["set_id"] for r in rows})
+    rng=np.random.default_rng(seed);samples=[]
+    for _ in range(draws):
+        signs={c:rng.choice((-1.0,1.0)) for c in clusters};u=np.asarray([resid[i]*signs[r["set_id"]] for i,r in enumerate(rows)])*root
+        samples.append(float((beta+bread@(Xw.T@u))[1]))
+    return {"draws":draws,"cluster_unit":"set","cluster_count":len(clusters),
+        "ci_low":float(np.quantile(samples,.025)),"ci_high":float(np.quantile(samples,.975)),"samples":samples}
+
+
+def _fit_coefficient(rows, treatment_b, scarcity="linear", mechanics=True, weights=None):
+    fit=_pair_design(rows,treatment_b,scarcity=scarcity,mechanics=mechanics,weights=weights)
+    return fit["coefficient"] if fit["rank"]==fit["n_columns"] else None
+
+
+def _cluster_sandwich(fit, rows):
+    if fit["rank"]<fit["n_columns"]:return None
+    X,w,resid=fit["X"],fit["weights"],fit["resid"];root=np.sqrt(w);Xw=X*root[:,None]
+    bread=np.linalg.pinv(Xw.T@Xw);clusters=defaultdict(list)
+    for i,r in enumerate(rows):clusters[r["set_id"]].append(i)
+    scores=[]
+    for indices in clusters.values():scores.append(Xw[indices].T@(resid[indices]*root[indices]))
+    meat=sum((np.outer(s,s) for s in scores),np.zeros((X.shape[1],X.shape[1])))
+    g=len(clusters);n=len(rows);k=X.shape[1];correction=(g/(g-1))*((n-1)/(n-k)) if g>1 and n>k else 1
+    se=float(math.sqrt(max(0,(bread@meat@bread*correction)[1,1])));coef=fit["coefficient"]
+    return {"coefficient":coef,"cluster_robust_se":se,"ci_low":coef-1.96*se,"ci_high":coef+1.96*se,"clusters":g}
+
+
+def estimate_locked_local_pairs(mapping_rows, candidates, draws, seed):
+    usable=[]
+    for r in mapping_rows:
+        if positive_log_price(r.get("price")) is not None and r.get("log_odds") is not None and len(r.get("subject_ids") or [])==1:
+            usable.append(r)
+    results=[]
+    for index,candidate in enumerate(candidates):
+        era=candidate.get("era");a,b=candidate["treatment_a"],candidate["treatment_b"]
+        if tuple(sorted((a,b))) not in LOCKED_LOCAL_CONTRASTS.get(era,set()):continue
+        low,high=candidate["overlap_interval_log_odds"]
+        rows=[r for r in usable if r["era_id"]==candidate["era_id"] and r["rarity_designation"] in {a,b} and low<=r["log_odds"]<=high]
+        counts=Counter(r["rarity_designation"] for r in rows);sets=sorted({r["set_id"] for r in rows});species={r["subject_ids"][0] for r in rows}
+        support=counts[a]>=25 and counts[b]>=25 and len(sets)>=5 and len(species)>=20
+        base={"era":era,"era_id":candidate["era_id"],"treatment_a":a,"treatment_b":b,"product_relevance":
+            "high" if (era,a,b) in {("Scarlet and Violet","illustration_rare","special_illustration_rare"),
+            ("Scarlet and Violet","illustration_rare","ultra_rare"),("Mega Evolution","double_rare","illustration_rare")} else "calibration",
+            "overlap_interval_log_odds":[low,high],"n_a":counts[a],"n_b":counts[b],"sets":len(sets),"species":len(species),
+            "inside_overlap_a":counts[a],"inside_overlap_b":counts[b],
+            "scarcity_a":distribution([r["log_odds"] for r in rows if r["rarity_designation"]==a]),
+            "scarcity_b":distribution([r["log_odds"] for r in rows if r["rarity_designation"]==b]),
+            "mechanic_balance":{label:dict(Counter(str(r.get("mechanic_or_card_form") or "__unknown__") for r in rows if r["rarity_designation"]==label)) for label in (a,b)}}
+        if not support:
+            results.append({**base,"status":"PAIR_SUPPORT_FAILED"});continue
+        fit=_pair_design(rows,b);ci=_wild_cluster_ci(fit,rows,draws,seed+index)
+        if fit["rank"]<fit["n_columns"]:
+            results.append({**base,"status":"LOCAL_EFFECT_UNCERTAIN","reason":"rank_deficient_fixed_effect_design",
+                "design_rank":fit["rank"],"design_columns":fit["n_columns"]});continue
+        flexible=_fit_coefficient(rows,b,scarcity="strata");no_mechanics=_fit_coefficient(rows,b,mechanics=False)
+        species_prices=defaultdict(list)
+        for r in rows:species_prices[r["subject_ids"][0]].append(r["price"])
+        cutoff=float(np.quantile([np.median(v) for v in species_prices.values()],.95));demand_rows=[r for r in rows if np.median(species_prices[r["subject_ids"][0]])<=cutoff]
+        demand=_fit_coefficient(demand_rows,b)
+        loo=[]
+        for sid in sets:
+            subset=[r for r in rows if r["set_id"]!=sid];loo_fit=_pair_design(subset,b)
+            loo.append({"set_id":sid,**(_cluster_sandwich(loo_fit,subset) or {"coefficient":None,"reason":"rank_deficient"})})
+        bins=np.digitize([r["log_odds"] for r in rows],np.unique(np.quantile([r["log_odds"] for r in rows],[.2,.4,.6,.8])))
+        cell=Counter((bins[i],r["rarity_designation"]) for i,r in enumerate(rows));weights=[1/max(1,cell[(bins[i],r["rarity_designation"])]) for i,r in enumerate(rows)]
+        balanced=_fit_coefficient(rows,b,weights=weights)
+        rng=np.random.default_rng(seed+1000+index);permuted=[]
+        # 199 randomizations gives an exact-style Monte Carlo p-value with
+        # 0.005 resolution while keeping the 1,000-draw cluster bootstrap intact.
+        for _ in range(min(draws,199)):
+            copy=[dict(r) for r in rows]
+            strata=defaultdict(list)
+            for i,r in enumerate(copy):strata[(r["set_id"],bins[i])].append(i)
+            for indices in strata.values():
+                labels=[copy[i]["rarity_designation"] for i in indices];rng.shuffle(labels)
+                for i,label in zip(indices,labels):copy[i]["rarity_designation"]=label
+            value=_fit_coefficient(copy,b)
+            if value is not None:permuted.append(value)
+        coefficient=fit["coefficient"];sensitivity=[x for x in (flexible,no_mechanics,demand,balanced) if x is not None]
+        loo_values=[x["coefficient"] for x in loo if x["coefficient"] is not None]
+        sign=lambda x:0 if x==0 else (1 if x>0 else -1)
+        complete_loo=len(loo_values)==len(sets)
+        stable=bool(sensitivity and all(sign(x)==sign(coefficient) and abs(x-coefficient)<=GATES["max_abs_log_effect_shift"] for x in sensitivity)
+            and complete_loo and all(sign(x)==sign(coefficient) for x in loo_values))
+        excludes_zero=ci["ci_low"]>0 or ci["ci_high"]<0
+        placebo_p=(1+sum(abs(x)>=abs(coefficient) for x in permuted))/(1+len(permuted)) if permuted else None
+        status="LOCALLY_VALIDATED" if stable and excludes_zero and placebo_p is not None and placebo_p<.05 else "LOCAL_EFFECT_UNCERTAIN" if not complete_loo else "LOCAL_EFFECT_UNSTABLE"
+        results.append({**base,"coefficient_log_price_b_vs_a":coefficient,"adjusted_price_association_pct":100*math.expm1(coefficient),
+            "wild_cluster_inference":{k:v for k,v in ci.items() if k!="samples"},"scarcity_functional_form_coefficient":flexible,
+            "mechanic_sensitivity_coefficient":no_mechanics,"demand_outlier_sensitivity_coefficient":demand,
+            "overlap_balance_sensitivity_coefficient":balanced,"leave_one_set_out":loo,"permutation_placebo":{"draws":len(permuted),"p_value":placebo_p},
+            "status":status})
+    observed={(r["era"],tuple(sorted((r["treatment_a"],r["treatment_b"])))) for r in results}
+    for era,pairs in LOCKED_LOCAL_CONTRASTS.items():
+        for a,b in sorted(pairs):
+            if (era,(a,b)) not in observed:
+                results.append({"era":era,"treatment_a":a,"treatment_b":b,"status":"PAIR_SUPPORT_FAILED",
+                    "reason":"locked contrast was not retained by the frozen-cohort common-support gate"})
+    return sorted(results,key=lambda r:(r["era"],r["treatment_a"],r["treatment_b"]))
+
+
+def build_round2_audit(client, as_of, freeze_dir=None):
+    frozen_at=datetime.now(timezone.utc).isoformat()
+    sets=paged(client.table("sets").select("id,name,canonical_key,era_id,supports_opening_simulation").eq("supports_opening_simulation",True))
+    set_by_id={str(r["id"]):r for r in sets};snapshot_run_by_set=current_run_authority(client,set_by_id)
+    eras={str(r["id"]):r.get("name") for r in paged(client.table("eras").select("id,name"))}
+    published_exact=paged(client.table("simulation_card_variant_pull_rates").select("set_id,calculation_run_id,created_at"))
+    newest_exact={}
+    for row in published_exact:
+        sid=str(row.get("set_id"));stamp=str(row.get("created_at") or "")
+        if sid in set_by_id and (sid not in newest_exact or stamp>newest_exact[sid][0]):
+            newest_exact[sid]=(stamp,str(row.get("calculation_run_id")))
+    # Mirrors Card Detail: newest published exact run, then set-page snapshot.
+    run_by_set={sid:(newest_exact.get(sid) or (None,snapshot_run_by_set.get(sid)))[1] for sid in set_by_id
+                if (newest_exact.get(sid) or (None,snapshot_run_by_set.get(sid)))[1]}
+    run_ids=list(run_by_set.values()); exact=[]; inputs=[]
+    for part in chunks(run_ids,50):
+        exact.extend(paged(client.table("simulation_card_variant_pull_rates").select(
+            "calculation_run_id,set_id,card_id,card_variant_id,printing_type,special_type,modeled_probability,effective_pull_rate,status,model_source,model_version"
+        ).in_("calculation_run_id",part)))
+        inputs.extend(paged(client.table("simulation_input_cards").select(
+            "calculation_run_id,card_id,card_variant_id,condition_id,effective_pull_rate,rarity_bucket"
+        ).in_("calculation_run_id",part)))
+    exact_by_variant={str(r["card_variant_id"]):r for r in exact if r.get("card_variant_id") and log_pull_odds(r.get("modeled_probability") or r.get("effective_pull_rate")) is not None}
+    conditions=paged(client.table("conditions").select("id,name").eq("name","Near Mint"))
+    exact_prices=stable_prices(client,exact_by_variant,str(conditions[0]["id"]),as_of,30) if conditions else {}
+    variants=[]
+    legacy=[]
+    for part in chunks(set_by_id,20):legacy.extend(paged(client.table("cards").select("id,set_id,pokemon_tcg_api_id,name,rarity").in_("set_id",part)))
+    legacy_by_id={str(r["id"]):r for r in legacy};legacy_ids=list(legacy_by_id)
+    for part in chunks(legacy_ids,100):variants.extend(paged(client.table("card_variants").select("id,card_id,printing_type,special_type,edition").in_("card_id",part)))
+    # The broad reverse join is useful for taxonomy frequencies, but it is not
+    # an authority join.  Guarantee complete frozen exact coverage with direct
+    # primary-key reads before taking the mapping hash.
+    variant_by_id={str(r["id"]):r for r in variants}
+    missing_exact_variant_ids=set(exact_by_variant)-set(variant_by_id)
+    for row in fetch_in(client,"card_variants","id,card_id,printing_type,special_type,edition","id",missing_exact_variant_ids):
+        variant_by_id[str(row["id"])]=row
+    missing_exact_card_ids={str(r["card_id"]) for vid,r in variant_by_id.items() if vid in exact_by_variant
+        and r.get("card_id") and str(r["card_id"]) not in legacy_by_id}
+    for row in fetch_in(client,"cards","id,set_id,pokemon_tcg_api_id,name,rarity","id",missing_exact_card_ids):
+        legacy_by_id[str(row["id"])]=row
+    variants=list(variant_by_id.values())
+    canonical=[]
+    for part in chunks(set_by_id,20):canonical.extend(paged(client.table("pokemon_canonical_cards").select(
+        "id,set_id,pokemon_tcg_api_card_id,name,number,printed_number,rarity,supertype,subtypes,artist").in_("set_id",part)))
+    canon_by_api={(str(r["set_id"]),str(r.get("pokemon_tcg_api_card_id"))):r for r in canonical}
+    exact_api_by_set=defaultdict(set)
+    for variant_id,exact_row in exact_by_variant.items():
+        variant=variant_by_id.get(variant_id);old=legacy_by_id.get(str((variant or {}).get("card_id")))
+        if old and old.get("pokemon_tcg_api_id"):
+            exact_api_by_set[str(old["set_id"])].add(str(old["pokemon_tcg_api_id"]))
+    for sid,api_ids in exact_api_by_set.items():
+        missing=[api_id for api_id in api_ids if (sid,api_id) not in canon_by_api]
+        for part in chunks(missing,100):
+            for row in paged(client.table("pokemon_canonical_cards").select(
+                "id,set_id,pokemon_tcg_api_card_id,name,number,printed_number,rarity,supertype,subtypes,artist"
+            ).eq("set_id",sid).in_("pokemon_tcg_api_card_id",part)):
+                canon_by_api[(str(row["set_id"]),str(row.get("pokemon_tcg_api_card_id")))]=row
+    market=[]
+    for part in chunks(set_by_id,20):market.extend(paged(client.table("pokemon_canonical_card_market_prices_latest").select(
+        "canonical_card_id,card_variant_id,market_price,condition_id,set_id").in_("set_id",part)))
+    priced_variants={str(r["card_variant_id"]) for r in market if r.get("card_variant_id") and positive_log_price(r.get("market_price")) is not None}
+    market_price_by_variant={str(r["card_variant_id"]):float(r["market_price"]) for r in market
+        if r.get("card_variant_id") and positive_log_price(r.get("market_price")) is not None}
+    links=paged(client.table("pokemon_card_desirability_links").select("pokemon_canonical_card_id,pokemon_reference_id"));link_by_card=defaultdict(list)
+    for link in links:link_by_card[str(link["pokemon_canonical_card_id"])].append(link)
+    rows=[];join_failures=Counter()
+    for variant in variants:
+        old=legacy_by_id.get(str(variant.get("card_id")))
+        card=canon_by_api.get((str((old or {}).get("set_id")),str((old or {}).get("pokemon_tcg_api_id")))) if old else None
+        if not old:join_failures["variant_to_legacy"]+=1;continue
+        if not card:join_failures["legacy_to_canonical"]+=1;continue
+        treatment=resolve_treatment_identity(rarity=card.get("rarity") or old.get("rarity"),printing_type=variant.get("printing_type"),
+            special_type=variant.get("special_type"),edition=variant.get("edition"))
+        exact_row=exact_by_variant.get(str(variant["id"]));probability=(exact_row or {}).get("modeled_probability") or (exact_row or {}).get("effective_pull_rate")
+        rows.append({"set_id":str(old["set_id"]),"set_name":set_by_id[str(old["set_id"])]["name"],
+            "era_id":str(set_by_id[str(old["set_id"])].get("era_id") or ""),"variant_id":str(variant["id"]),
+            "canonical_card_id":str(card["id"]),"rarity_raw":card.get("rarity") or old.get("rarity"),
+            "rarity_designation":treatment.rarity_key or normalize_dimension(card.get("rarity") or old.get("rarity")),
+            "printing_finish_raw":variant.get("printing_type"),"printing_finish":treatment.printing_type or normalize_dimension(variant.get("printing_type")),
+            "special_treatment_raw":variant.get("special_type"),"special_treatment":treatment.special_type or normalize_dimension(variant.get("special_type")),
+            "edition_status_raw":variant.get("edition"),"edition_status":treatment.edition or normalize_dimension(variant.get("edition")),
+            "mechanic_or_card_form_raw":card.get("subtypes") or [],
+            "mechanic_or_card_form":"|".join(sorted(normalize_dimension(x) for x in card.get("subtypes") or [] if normalize_dimension(x))) or None,
+            "card_name":card.get("name"),"card_number":card.get("printed_number") or card.get("number"),"artist":card.get("artist"),
+            "combined_treatment_key":treatment.treatment_key,"unmapped":treatment.status!="mapped",
+            "priced":str(variant["id"]) in priced_variants or str(variant["id"]) in exact_prices,
+            "price_basis":"trailing_30d_nm" if str(variant["id"]) in exact_prices else ("canonical_latest" if str(variant["id"]) in priced_variants else None),
+            "price":exact_prices.get(str(variant["id"]),market_price_by_variant.get(str(variant["id"]))),
+            "exact_pull":probability if log_pull_odds(probability) is not None else None,
+            "log_odds":log_pull_odds(probability),"subject_ids":[str(x["pokemon_reference_id"]) for x in link_by_card.get(str(card["id"]),[])],
+            "current_run_id":run_by_set.get(str(old["set_id"])),
+            "snapshot_run_id":snapshot_run_by_set.get(str(old["set_id"])),
+            "exact_run_precedence_used":str(old["set_id"]) in newest_exact})
+    exact_joined={r["variant_id"] for r in rows if r.get("exact_pull") is not None}
+    join_failures["exact_variant_without_canonical_join"]=len(set(exact_by_variant)-exact_joined)
+    failed_ids=sorted(set(exact_by_variant)-exact_joined);failure_breakdown=Counter();failure_examples=defaultdict(list)
+    failed_variants={str(r["id"]):r for r in fetch_in(client,"card_variants","id,card_id,printing_type,special_type,edition","id",failed_ids)} if failed_ids else {}
+    failed_card_ids={str(r.get("card_id")) for r in failed_variants.values() if r.get("card_id")}
+    failed_cards={str(r["id"]):r for r in fetch_in(client,"cards","id,set_id,pokemon_tcg_api_id,name,rarity","id",failed_card_ids)} if failed_card_ids else {}
+    for variant_id in failed_ids:
+        exact_row=exact_by_variant[variant_id];sid=str(exact_row.get("set_id") or "")
+        variant=failed_variants.get(variant_id);old=failed_cards.get(str((variant or {}).get("card_id")))
+        if not variant:category="missing_canonical_variant_mapping"
+        elif not old:category="stale_historical_variant"
+        elif str(old.get("set_id")) not in set_by_id:category="intentionally_unsupported_or_catalog_only"
+        elif (str(old.get("set_id")),str(old.get("pokemon_tcg_api_id"))) not in canon_by_api:category="canonical_id_drift_or_missing_canonical_card"
+        else:category="other_verified_join_failure"
+        failure_breakdown[category]+=1
+        if len(failure_examples[category])<10:failure_examples[category].append({"variant_id":variant_id,"set_id":sid,"run_id":exact_row.get("calculation_run_id")})
+    per_set=[]
+    for sid,s in set_by_id.items():
+        group=[r for r in rows if r["set_id"]==sid];covered=[r for r in group if r.get("exact_pull") is not None]
+        multi=defaultdict(set)
+        for r in covered:multi[r["canonical_card_id"]].add(r["combined_treatment_key"])
+        per_set.append({"set_id":sid,"set_name":s["name"],"era_id":str(s.get("era_id") or ""),"current_run_id":run_by_set.get(sid),
+            "snapshot_run_id":snapshot_run_by_set.get(sid),"exact_run_precedence_used":sid in newest_exact,
+            "run_ids_differ":bool(sid in newest_exact and newest_exact[sid][1]!=snapshot_run_by_set.get(sid)),
+            "canonical_priced_cards":len({r["canonical_card_id"] for r in group if r["priced"]}),"canonical_variants":len(group),
+            "exact_pull_covered_variants":len(covered),"pull_coverage_pct":100*len(covered)/len(group) if group else 0,
+            "subject_linked_observations":sum(bool(r["subject_ids"]) for r in group),
+            "treatment_classes":len({r["combined_treatment_key"] for r in group if r["combined_treatment_key"]}),
+            "species_in_multiple_treatments":len({sp for sp in {x for r in covered for x in r["subject_ids"]}
+                if len({r["combined_treatment_key"] for r in covered if sp in r["subject_ids"]})>1}),
+            "matched_cards":sum(len(v)>=2 for v in multi.values()),"unmapped_treatment_count":sum(r["unmapped"] for r in group)})
+    dimensions={field:{"unique_values":len({r.get(field) for r in rows}),"frequency":dimension_table(rows,field)} for field in
+        ("rarity_designation","printing_finish","special_treatment","edition_status","mechanic_or_card_form","combined_treatment_key")}
+    cells=Counter(r.get("combined_treatment_key") or "__unmapped__" for r in rows);sizes=list(cells.values())
+    matched=defaultdict(list)
+    for r in rows:
+        if r.get("exact_pull") is not None and r["priced"]:matched[r["canonical_card_id"]].append(r)
+    matched_groups={k:v for k,v in matched.items() if len({r["variant_id"] for r in v})>=2 and len({r["combined_treatment_key"] for r in v})>=2}
+    failures=[]
+    exact_sets=len({r["set_id"] for r in rows if r.get("exact_pull") is not None});exact_eras=len({r["era_id"] for r in rows if r.get("exact_pull") is not None})
+    if len(run_by_set)<len(set_by_id):failures.append("authoritative_pull_source_unavailable")
+    if exact_sets<5:failures.append("insufficient_set_diversity")
+    if exact_eras<2:failures.append("insufficient_era_diversity")
+    if len(exact_by_variant)<100:failures.append("insufficient_exact_scarcity_coverage")
+    combined_support=support_audit(rows,"combined_treatment_key").get("global",{})
+    if combined_support.get("common_support_coverage",0)<GATES["min_common_support_coverage"]:failures.append("insufficient_common_support")
+    if len(matched_groups)<GATES["min_finish_matches"]:failures.append("insufficient_matched_variant_coverage")
+    exact_join_failure_rate=join_failures["exact_variant_without_canonical_join"]/len(exact_by_variant) if exact_by_variant else 1
+    unmapped_rate=sum(r["unmapped"] for r in rows)/len(rows) if rows else 1
+    authority_fingerprint=hashlib.sha256(json.dumps({
+        "runs":sorted(run_by_set.items()),
+        "exact_variants":sorted((variant_id,str(row.get("calculation_run_id")),row.get("modeled_probability"),row.get("effective_pull_rate"))
+            for variant_id,row in exact_by_variant.items()),
+    },sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
+    mapping_records=sorted(({key:r.get(key) for key in ("set_id","era_id","current_run_id","canonical_card_id","variant_id",
+        "subject_ids","rarity_raw","rarity_designation","printing_finish_raw","printing_finish","special_treatment_raw",
+        "special_treatment","edition_status_raw","edition_status","mechanic_or_card_form_raw","mechanic_or_card_form",
+        "card_name","card_number","artist","price_basis","price","exact_pull","log_odds")}
+        for r in rows if r.get("exact_pull") is not None),key=lambda x:(x["set_id"],x["variant_id"]))
+    mapping_hash=hashlib.sha256(json.dumps(mapping_records,sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
+    manifest_sets=[]
+    for sid,s in sorted(set_by_id.items()):
+        manifest_sets.append({"set_id":sid,"set_slug":s.get("canonical_key"),"set_name":s.get("name"),
+            "era_id":s.get("era_id"),"era":eras.get(str(s.get("era_id"))),"selected_calculation_run_id":run_by_set.get(sid),
+            "authority_source":"newest_published_exact_run" if sid in newest_exact else "set_page_source_calculation_run_id",
+            "snapshot_run_id":snapshot_run_by_set.get(sid),"pull_row_count":sum(str(x.get("set_id"))==sid for x in exact),
+            "canonical_mapping_snapshot_count":sum(x["set_id"]==sid for x in mapping_records)})
+    source_sha=subprocess.run(["git","rev-parse","HEAD"],capture_output=True,text=True,check=False).stdout.strip() or "unknown"
+    manifest_core={"frozen_at":frozen_at,"market_reference_date":as_of.isoformat(),"pricing_semantics":"trailing_30_day_median_positive_near_mint_for_exact_variants",
+        "code_model_version":METHODOLOGY_VERSION,"source_git_sha":source_sha,"authority_cohort_hash":authority_fingerprint,"canonical_mapping_hash":mapping_hash,"sets":manifest_sets}
+    manifest_hash=hashlib.sha256(json.dumps(manifest_core,sort_keys=True,separators=(",",":"),default=str).encode()).hexdigest()
+    study_id=f"card-treatment-b2-r4-{manifest_hash[:16]}";manifest={"study_id":study_id,"manifest_hash":manifest_hash,**manifest_core}
+    if freeze_dir:
+        frozen_path=Path(freeze_dir);frozen_path.mkdir(parents=True,exist_ok=True)
+        (frozen_path/"manifest.json").write_text(json.dumps(manifest,indent=2,default=str),encoding="utf-8")
+        (frozen_path/"canonical_mapping.json").write_text(json.dumps({"study_id":study_id,"canonical_mapping_hash":mapping_hash,"rows":mapping_records},indent=2,default=str),encoding="utf-8")
+    if exact_join_failure_rate>GATES["max_exact_canonical_join_failure_rate"]:failures.append("excessive_canonical_join_failures")
+    if unmapped_rate>GATES["max_unmapped_taxonomy_rate"]:failures.append("excessive_unmapped_taxonomy_rate")
+    pairwise={field:pairwise_overlap(rows,field) for field in
+        ("rarity_designation","printing_finish","special_treatment","edition_status","combined_treatment_key")}
+    graphs={field:graph_summary(matrix) for field,matrix in pairwise.items()}
+    era_values=sorted({r["era_id"] for r in rows if r.get("exact_pull") is not None})
+    pairwise_by_era={era:{field:pairwise_overlap([r for r in rows if r["era_id"]==era],field) for field in pairwise}
+        for era in era_values}
+    graphs_by_era={era:{field:graph_summary(matrix) for field,matrix in fields.items()} for era,fields in pairwise_by_era.items()}
+    direct_pairs=sum(len(graph["direct_edges"]) for fields in graphs_by_era.values() for graph in fields.values())
+    audit={"authoritative_pull_source":{"current_run_relation":"pokemon_set_page_snapshot_latest",
+        "current_run_expression":"payload_json.ripDecision.sourceCalculationRunId","card_level_relation":"simulation_input_cards",
+        "exact_variant_relation":"simulation_card_variant_pull_rates","probability_field":"modeled_probability",
+        "denominator_field":"effective_pull_rate","identity_keys":["calculation_run_id","set_id","card_id","card_variant_id"],
+        "semantics":"run-scoped exact card-variant pack-presence frequency from authoritative V2 simulator"},
+        "read_path":{"status":"repaired","root_cause":"entire large snapshot payload_json downloaded to extract one run id",
+        "repair":"PostgREST projects the snapshot run id server-side and mirrors Card Detail precedence: newest published exact-variant run, then snapshot run",
+        "sets_using_exact_run_precedence":len(newest_exact),"sets_where_exact_and_snapshot_run_differ":sum(newest_exact[s][1]!=snapshot_run_by_set.get(s) for s in newest_exact)},
+        "authority_cohort_fingerprint":authority_fingerprint,
+        "data_state":{"authoritative_run_ids":"available","exact_variant_data":"available_but_incomplete_by_set",
+            "card_level_data":"available_at_insufficient_printing_granularity","query_path":"repaired"},
+        "supported_sets":len(set_by_id),"current_run_ids":len(run_by_set),"card_level_input_rows":len(inputs),
+        "exact_variant_rows":len(exact_by_variant),"taxonomy_rows":len(rows),"dimensions":dimensions,
+        "combined_cell_sparsity":{"cells":len(cells),"median_observations":float(np.median(sizes)) if sizes else 0,
+            "below_5":sum(n<5 for n in sizes),"below_10":sum(n<10 for n in sizes),"below_25":sum(n<25 for n in sizes),"below_50":sum(n<50 for n in sizes)},
+        "per_set":per_set,"per_era":[{"era_id":era,"sets":len({x["set_id"] for x in per_set if x["era_id"]==era}),
+            "canonical_variants":sum(x["canonical_variants"] for x in per_set if x["era_id"]==era),
+            "exact_pull_covered_variants":sum(x["exact_pull_covered_variants"] for x in per_set if x["era_id"]==era)} for era in sorted({x["era_id"] for x in per_set})],
+        "join_failures":dict(join_failures),"exact_canonical_join_failure_rate":exact_join_failure_rate,
+        "join_failure_reconciliation":{"counts":dict(failure_breakdown),"percentages":{k:v/len(failed_ids) if failed_ids else 0 for k,v in failure_breakdown.items()},
+            "examples":dict(failure_examples),"frozen_failure_total":len(failed_ids)},
+        "prior_moving_cohort_root_cause":{"status":"verified_research_loader_and_publication_race_combination",
+            "detail":"Moving latest-run resolution changed the cohort between reads; the broad reverse catalog join also omitted exact variants that direct primary-key reconciliation recovers."},
+        "unmapped_total":sum(r["unmapped"] for r in rows),"unmapped_rate":unmapped_rate,
+        "common_support":{"combined_global":support_audit(rows,"combined_treatment_key"),"combined_by_era":support_audit(rows,"combined_treatment_key","era_id"),
+            "rarity_global":support_audit(rows,"rarity_designation"),"rarity_by_era":support_audit(rows,"rarity_designation","era_id"),
+            "finish_global":support_audit(rows,"printing_finish"),"finish_by_set":support_audit(rows,"printing_finish","set_id")},
+        "matched_variant":{"pull_covered_priced_groups":len(matched_groups),"minimum_gate":GATES["min_finish_matches"]},
+        "pairwise_gates":PAIRWISE_GATES,"pairwise_overlap":pairwise,"support_graphs":graphs,
+        "pairwise_overlap_by_era":pairwise_by_era,"support_graphs_by_era":graphs_by_era,
+        "matched_natural_experiment":matched_experiment_audit(rows),
+        "structural_scarcity":{field:structural_diagnostic(rows,field) for field in
+            ("rarity_designation","printing_finish","special_treatment","combined_treatment_key")},
+        "final_v2_status":"V2_LOCAL_IDENTIFICATION_EXISTS" if direct_pairs else "RETIRE_PURE_TREATMENT_PRESTIGE_V2",
+        "directly_identifiable_pair_count":direct_pairs,
+        "v3_redefinition_gate":{"entered":False if direct_pairs else True,
+            "reason":"Status A requires review before V3" if direct_pairs else "pure V2 retired"},
+        "pre_model_gate":{"passed":not failures,"failure_reasons":failures,"regression_executed":False},
+        "recommended_specification":{"representation":"decomposed additive effects only where support passes",
+            "included":["species fixed effects","log exact pull odds","set fixed effects","mechanic controls"],
+            "candidate_dimensions":["rarity_designation","printing_finish","edition_status"],
+            "excluded":"special/edition interactions until cell and common-support gates pass"},
+        "recommended_score_universe":"not_scoreable_with_current_evidence"}
+    # Round 4 freeze metadata is attached last so downstream code cannot mistake
+    # a moving authority fingerprint for an immutable manifest.
+    audit["frozen_study"]=manifest
+    audit["canonical_mapping_hash"]=mapping_hash
+    return audit
+
+
+def latest_exact_rates(client):
+    rows=paged(client.table("simulation_card_variant_pull_rates").select("*"))
+    newest={}
+    for row in rows:
+        sid=str(row.get("set_id")); stamp=str(row.get("created_at") or "")
+        if sid not in newest or stamp>newest[sid][0]: newest[sid]=(stamp,str(row.get("calculation_run_id")))
+    return [r for r in rows if newest.get(str(r.get("set_id")),("",None))[1]==str(r.get("calculation_run_id"))
+            and log_pull_odds(r.get("modeled_probability") or r.get("effective_pull_rate")) is not None]
+
+
+def stable_prices(client, variant_ids, condition_id, as_of, days):
+    start=(as_of-timedelta(days=days-1)).isoformat(); end=(as_of+timedelta(days=1)).isoformat()
+    values=defaultdict(list)
+    for part in chunks(variant_ids,75):
+        q=client.table("card_variant_price_observations").select("card_variant_id,condition_id,market_price,captured_at") \
+            .in_("card_variant_id",part).eq("condition_id",condition_id).gte("captured_at",start).lt("captured_at",end)
+        for row in paged(q):
+            price=row.get("market_price")
+            if positive_log_price(price) is not None: values[str(row["card_variant_id"])].append(float(price))
+    return {key:float(np.median(prices)) for key,prices in values.items() if prices}
+
+
+def build_cohort(client, as_of, window=30):
+    conditions=paged(client.table("conditions").select("id,name").eq("name","Near Mint"))
+    if not conditions: raise RuntimeError("Near Mint condition is unavailable")
+    condition_id=str(conditions[0]["id"]); rates=latest_exact_rates(client)
+    variant_ids={str(r["card_variant_id"]) for r in rates if r.get("card_variant_id")}
+    variants={str(r["id"]):r for r in fetch_in(client,"card_variants","id,card_id,printing_type,special_type,edition", "id",variant_ids)}
+    card_ids={str(r["card_id"]) for r in variants.values() if r.get("card_id")}
+    legacy={str(r["id"]):r for r in fetch_in(client,"cards","id,set_id,pokemon_tcg_api_id,name,rarity", "id",card_ids)}
+    sets={str(r["id"]):r for r in paged(client.table("sets").select("id,name,era_id,release_date,supports_opening_simulation"))}
+    canonical=paged(client.table("pokemon_canonical_cards").select("id,set_id,pokemon_tcg_api_card_id,name,rarity,supertype,subtypes,artist"))
+    canonical_by_api={(str(r.get("set_id")),str(r.get("pokemon_tcg_api_card_id"))):r for r in canonical}
+    links=paged(client.table("pokemon_card_desirability_links").select("pokemon_canonical_card_id,pokemon_reference_id,contribution_weight"))
+    by_canon=defaultdict(list)
+    for link in links: by_canon[str(link["pokemon_canonical_card_id"])].append(link)
+    prices=stable_prices(client,variant_ids,condition_id,as_of,window)
+    rows=[]; dropped=Counter()
+    for rate in rates:
+        vid=str(rate.get("card_variant_id")); variant=variants.get(vid); old=legacy.get(str((variant or {}).get("card_id")))
+        if not variant or not old: dropped["identity_join"]+=1; continue
+        card=canonical_by_api.get((str(old.get("set_id")),str(old.get("pokemon_tcg_api_id"))))
+        if not card: dropped["canonical_join"]+=1; continue
+        identity=resolve_treatment_identity(rarity=card.get("rarity") or old.get("rarity"),
+            printing_type=variant.get("printing_type"),special_type=variant.get("special_type"),edition=variant.get("edition"))
+        if not identity.treatment_key: dropped[identity.status]+=1; continue
+        price=prices.get(vid); lp=positive_log_price(price); odds=log_pull_odds(rate.get("modeled_probability") or rate.get("effective_pull_rate"))
+        subjects=by_canon.get(str(card["id"]),[])
+        if lp is None: dropped["no_30d_nm_price"]+=1; continue
+        if odds is None: dropped["no_exact_pull_probability"]+=1; continue
+        rows.append({"variant_id":vid,"legacy_card_id":str(old["id"]),"canonical_card_id":str(card["id"]),
+            "set_id":str(old["set_id"]),"era_id":str((sets.get(str(old["set_id"])) or {}).get("era_id") or ""),
+            "treatment":identity.treatment_key,"rarity_key":identity.rarity_key,"printing_type":identity.printing_type,
+            "special_type":identity.special_type,"edition":identity.edition,"supertype":card.get("supertype"),
+            "species":str(subjects[0].get("pokemon_reference_id")) if len(subjects)==1 else None,
+            "subject_count":len(subjects),"subtypes":card.get("subtypes") or [],"artist":card.get("artist"),
+            "price":price,"log_price":lp,"log_odds":odds,"probability":math.exp(-odds),
+            "run_id":str(rate.get("calculation_run_id")),"price_observations":None})
+    return rows,dict(dropped),{"condition_id":condition_id,"rates":len(rates),"prices":len(prices),"sets":sets}
+
+
+def build_primary_cohort(client, as_of, window=30):
+    """Study A: canonical cards with analytic set/rarity pull assumptions."""
+    conditions=paged(client.table("conditions").select("id,name").eq("name","Near Mint"))
+    condition_id=str(conditions[0]["id"])
+    supported=paged(client.table("sets").select("id").eq("supports_opening_simulation",True))
+    snapshots=[]
+    for item in supported:
+        snapshots.extend(paged(client.table("pokemon_set_page_snapshot_latest").select("set_id,payload_json").eq("set_id",item["id"]),page=5))
+    odds_by_set={}; raw_assumptions=0
+    for snap in snapshots:
+        payload=snap.get("payload_json") or {}; assumptions=payload.get("pull_rate_assumptions") or payload.get("pullRateAssumptions") or {}
+        mapping={}
+        for entry in assumptions.get("rows") or []:
+            rarity=resolve_treatment_identity(rarity=entry.get("rarity")).rarity_key
+            denominator=entry.get("specific_card_odds_denominator")
+            try: denominator=float(denominator)
+            except (TypeError,ValueError): continue
+            if rarity and denominator>0: mapping.setdefault(rarity,1/denominator);raw_assumptions+=1
+        if mapping:odds_by_set[str(snap["set_id"])]=mapping
+    set_ids=set(odds_by_set); cards=[]
+    for part in chunks(set_ids,30):cards.extend(paged(client.table("pokemon_canonical_cards").select("id,set_id,name,rarity,supertype,subtypes,artist").in_("set_id",part)))
+    market=[]
+    for part in chunks(set_ids,10):market.extend(paged(client.table("pokemon_canonical_card_market_prices_latest").select("canonical_card_id,card_variant_id,condition_id,set_id").in_("set_id",part)))
+    market_by_card={str(r["canonical_card_id"]):r for r in market if r.get("card_variant_id")}
+    variant_ids={str(r["card_variant_id"]) for r in market_by_card.values()}; prices=stable_prices(client,variant_ids,condition_id,as_of,window)
+    links=paged(client.table("pokemon_card_desirability_links").select("pokemon_canonical_card_id,pokemon_reference_id,contribution_weight"));by_canon=defaultdict(list)
+    for link in links:by_canon[str(link["pokemon_canonical_card_id"])].append(link)
+    sets={str(r["id"]):r for r in paged(client.table("sets").select("id,era_id"))};rows=[];dropped=Counter()
+    for card in cards:
+        identity=resolve_treatment_identity(rarity=card.get("rarity"))
+        if not identity.treatment_key:dropped[identity.status]+=1;continue
+        probability=(odds_by_set.get(str(card["set_id"])) or {}).get(identity.rarity_key)
+        market_row=market_by_card.get(str(card["id"]));price=prices.get(str((market_row or {}).get("card_variant_id")))
+        if positive_log_price(price) is None:dropped["no_30d_nm_price"]+=1;continue
+        if log_pull_odds(probability) is None:dropped["no_analytic_pull_probability"]+=1;continue
+        subjects=by_canon.get(str(card["id"]),[])
+        rows.append({"variant_id":str(market_row["card_variant_id"]),"canonical_card_id":str(card["id"]),"legacy_card_id":None,
+            "set_id":str(card["set_id"]),"era_id":str((sets.get(str(card["set_id"])) or {}).get("era_id") or ""),
+            "treatment":identity.treatment_key,"rarity_key":identity.rarity_key,"printing_type":None,"special_type":None,"edition":None,
+            "supertype":card.get("supertype"),"species":str(subjects[0]["pokemon_reference_id"]) if len(subjects)==1 else None,
+            "subject_count":len(subjects),"subtypes":card.get("subtypes") or [],"artist":card.get("artist"),"price":price,
+            "log_price":positive_log_price(price),"log_odds":log_pull_odds(probability),"probability":probability,
+            "run_id":"pokemon_set_page_snapshot_latest","price_observations":None})
+    return rows,dict(dropped),{"condition_id":condition_id,"assumption_rows":raw_assumptions,"sets":len(set_ids),"prices":len(prices)}
+
+
+def design(rows, *, treatment_keys=None, artist=False):
+    treatments=treatment_keys or sorted({r["treatment"] for r in rows}); base=treatments[0]
+    sets=sorted({r["set_id"] for r in rows}); species=sorted({r["species"] for r in rows if r.get("species")})
+    mechanics=sorted({str(x).lower() for r in rows for x in r.get("subtypes",[]) if str(x).lower() in {"ex","v","vmax","vstar","gx"}})
+    artists=sorted({str(r.get("artist")) for r in rows if r.get("artist")}) if artist else []
+    columns=["intercept","log_odds"]+["t:"+x for x in treatments[1:]]+["set:"+x for x in sets[1:]]+["species:"+x for x in species[1:]]+["mechanic:"+x for x in mechanics]+["artist:"+x for x in artists[1:]]
+    X=[]
+    for r in rows:
+        X.append([1,r["log_odds"]]+[int(r["treatment"]==x) for x in treatments[1:]]+
+            [int(r["set_id"]==x) for x in sets[1:]]+[int(r.get("species")==x) for x in species[1:]]+
+            [int(x in {str(v).lower() for v in r.get("subtypes",[])}) for x in mechanics]+[int(str(r.get("artist"))==x) for x in artists[1:]])
+    return np.asarray(X,float),np.asarray([r["log_price"] for r in rows]),columns,base,treatments
+
+
+def fit(rows, **kwargs):
+    if len(rows)<3:return None
+    X,y,columns,base,treatments=design(rows,**kwargs); beta=np.linalg.lstsq(X,y,rcond=None)[0]
+    coefs={base:0.0}; coefs.update({name[2:]:float(beta[i]) for i,name in enumerate(columns) if name.startswith("t:")})
+    return {"coefficients":coefs,"rank":int(np.linalg.matrix_rank(X)),"columns":len(columns),"n":len(rows)}
+
+
+def bootstrap(rows, draws, seed):
+    rng=np.random.default_rng(seed); by_set=defaultdict(list)
+    for r in rows:by_set[r["set_id"]].append(r)
+    set_ids=sorted(by_set); treatment_keys=sorted({r["treatment"] for r in rows}); samples={k:[] for k in treatment_keys}
+    for _ in range(draws):
+        sample=[]
+        for i,sid in enumerate(rng.choice(set_ids,len(set_ids),replace=True)):
+            sample.extend({**r,"set_id":f"{sid}__{i}"} for r in by_set[sid])
+        model=fit(sample,treatment_keys=treatment_keys)
+        if model:
+            for key in treatment_keys:samples[key].append(model["coefficients"].get(key,0.0))
+    return samples
+
+
+def summarize(rows, samples):
+    point=fit(rows); scores=pairwise_superiority_scores(samples); output=[]
+    by_t=defaultdict(list)
+    for r in rows:by_t[r["treatment"]].append(r)
+    for key,group in sorted(by_t.items()):
+        draws=np.asarray(samples.get(key,[])); beta=point["coefficients"].get(key,0.0)
+        other_keys=[x for x in samples if x!=key]; score_draws=np.asarray([10*np.mean([draws[i]>samples[o][i] for o in other_keys]) for i in range(len(draws))]) if other_keys and len(draws) else np.array([])
+        output.append({"treatment_key":key,"coefficient_log_price":beta,"adjusted_premium_pct":100*math.expm1(beta),
+            "adjusted_premium_ci_low":100*math.expm1(float(np.quantile(draws,.025))) if len(draws) else None,
+            "adjusted_premium_ci_high":100*math.expm1(float(np.quantile(draws,.975))) if len(draws) else None,
+            "treatment_score_10":scores.get(key),"score_ci_low":float(np.quantile(score_draws,.025)) if len(score_draws) else None,
+            "score_ci_high":float(np.quantile(score_draws,.975)) if len(score_draws) else None,
+            "card_count":len({r["canonical_card_id"] for r in group}),"variant_count":len(group),
+            "set_count":len({r["set_id"] for r in group}),"species_count":len({r["species"] for r in group if r.get("species")}),
+            "median_odds":float(np.median([math.exp(r["log_odds"]) for r in group]))})
+    return output
+
+
+def audit_counts(client):
+    result={}
+    for table in ("pokemon_canonical_cards","pokemon_canonical_card_market_prices_latest","card_variants","sets","simulation_card_variant_pull_rates"):
+        try:result[table]=client.table(table).select("id",count="exact").limit(1).execute().count
+        except Exception:result[table]=None
+    priced=paged(client.table("pokemon_canonical_card_market_prices_latest").select("set_id,canonical_card_id,card_variant_id"))
+    cards=paged(client.table("pokemon_canonical_cards").select("id,rarity"))
+    result.update({"priced_canonical_cards":len(priced),"priced_sets":len({r["set_id"] for r in priced}),
+        "raw_rarity_labels":len({r.get("rarity") for r in cards}),"priced_variants":len({r.get("card_variant_id") for r in priced if r.get("card_variant_id")})})
+    return result
+
+
+def fingerprint(rows):
+    payload=[(r["variant_id"],r["treatment"],round(r["price"],6),round(r["probability"],12),r["run_id"]) for r in sorted(rows,key=lambda x:x["variant_id"])]
+    return hashlib.sha256(json.dumps(payload,separators=(",",":"),ensure_ascii=True).encode()).hexdigest()
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument("--study-as-of",type=date.fromisoformat,default=date.today())
+    p.add_argument("--bootstrap-draws",type=int,default=1000);p.add_argument("--seed",type=int,default=SEED)
+    p.add_argument("--commit",action="store_true");p.add_argument("--approve",action="store_true");p.add_argument("--dry-run",action="store_true")
+    p.add_argument("--freeze-dir",default="docs/research/card_treatment_prestige_v2_frozen_cohort")
+    p.add_argument("--use-existing-freeze",action="store_true",help="Estimate from the immutable cohort already captured by this study")
+    args=p.parse_args(); load_dotenv(Path("backend/.env"))
+    from backend.db.clients.supabase_client import create_service_role_client
+    client=create_service_role_client()
+    if args.use_existing_freeze:
+        prior=json.loads(Path("docs/research/card_treatment_prestige_v2_study.json").read_text(encoding="utf-8"))
+        audit=prior["data_audit"];round2=prior["round2"]
+        if round2["frozen_study"]["manifest_hash"]!=json.loads((Path(args.freeze_dir)/"manifest.json").read_text(encoding="utf-8"))["manifest_hash"]:
+            raise SystemExit("Existing frozen cohort does not match the recorded study manifest")
+    else:
+        audit=audit_counts(client);round2=build_round2_audit(client,args.study_as_of,args.freeze_dir)
+    gate=round2["pre_model_gate"]
+    decision="APPROVE_CARD_TREATMENT_PRESTIGE_V2" if gate["passed"] else "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2"
+    frozen=round2["frozen_study"]
+    join_gate_passed=round2["exact_canonical_join_failure_rate"]<=GATES["max_exact_canonical_join_failure_rate"]
+    era_names={str(x["era_id"]):x["era"] for x in frozen["sets"]}
+    retained=[]
+    for era,fields in round2["support_graphs_by_era"].items():
+        for edge in fields["rarity_designation"]["direct_edges"]:
+            retained.append({"era_id":era,"era":era_names.get(era),"treatment_a":edge["treatment_a"],
+                "treatment_b":edge["treatment_b"],"status":"COMMON_SUPPORT_RETAINED",**{k:edge[k] for k in
+                ("n_a","n_b","overlap_interval_log_odds","inside_overlap_a","inside_overlap_b","overlap_pct_a","overlap_pct_b","overlap_sets","overlap_species")}})
+    round4_status="FROZEN_COHORT_CANONICAL_RECONCILIATION_FAILED" if not join_gate_passed else "V2_LOCAL_COMMON_SUPPORT_EXISTS"
+    round4={"status":round4_status,"historical_status_correction":{"previous":"V2_LOCAL_IDENTIFICATION_EXISTS",
+        "corrected":"V2_LOCAL_COMMON_SUPPORT_EXISTS","reason":"common support is necessary but not a validated coefficient"},
+        "frozen_study_id":frozen["study_id"],"frozen_manifest_hash":frozen["manifest_hash"],
+        "canonical_mapping_hash":round2["canonical_mapping_hash"],"manifest_path":str(Path(args.freeze_dir)/"manifest.json"),
+        "canonical_mapping_path":str(Path(args.freeze_dir)/"canonical_mapping.json"),
+        "join_gate":{"passed":join_gate_passed,"threshold":GATES["max_exact_canonical_join_failure_rate"],
+            "failure_rate":round2["exact_canonical_join_failure_rate"],"failure_count":round2["join_failure_reconciliation"]["frozen_failure_total"],
+            "cause_breakdown":round2["join_failure_reconciliation"]},
+        "candidate_contrasts_recomputed":retained,"coefficient_estimation_executed":False,
+        "coefficient_estimation_stop_reason":None if join_gate_passed else "frozen canonical join gate failed",
+        "database_rows_persisted":0,"production_scores_published":0}
+    if join_gate_passed:
+        mapping=json.loads((Path(args.freeze_dir)/"canonical_mapping.json").read_text(encoding="utf-8"))
+        pair_results=estimate_locked_local_pairs(mapping["rows"],retained,args.bootstrap_draws,args.seed)
+        round4["coefficient_estimation_executed"]=True
+        round4["pair_results"]=pair_results
+        round4["locked_contrast_count"]=sum(len(x) for x in LOCKED_LOCAL_CONTRASTS.values())
+        round4["estimated_contrast_count"]=len(pair_results)
+        validated=sum(x["status"]=="LOCALLY_VALIDATED" for x in pair_results)
+        round4["locally_validated_count"]=validated
+        round4["status"]="LOCALLY_VALIDATED_RARITY_EFFECTS_EXIST" if validated else "NO_LOCALLY_VALIDATED_RARITY_EFFECTS"
+    report={"study":METHODOLOGY_VERSION,"study_round":"frozen_cohort_reconciliation_round_4",
+        "generated_at":datetime.now(timezone.utc).isoformat(),"study_as_of_date":args.study_as_of.isoformat(),
+        "decision":decision,"acceptance_gates":GATES,"data_audit":audit,"round2":round2,"round4":round4,
+        "regression_results":round4.get("pair_results"),"robustness_results":round4.get("pair_results"),
+        "bootstrap":{"seed":args.seed,"draws_requested":args.bootstrap_draws,"executed":join_gate_passed},
+        "publication":{"committed":False,"approved":False,"study_run_id":None,"score_rows":0},
+        "next_task":("canonical_reconciliation_engineering" if not join_gate_passed
+            else "review_locally_validated_pairs" if round4["status"]=="LOCALLY_VALIDATED_RARITY_EFFECTS_EXIST"
+            else "additional_local_identification_data")}
+    out=Path("docs/research/card_treatment_prestige_v2_study.json");out.parent.mkdir(parents=True,exist_ok=True);out.write_text(json.dumps(report,indent=2),encoding="utf-8")
+    if args.approve and decision!="APPROVE_CARD_TREATMENT_PRESTIGE_V2": raise SystemExit("Approval refused: preregistered gates did not pass")
+    if args.commit: raise SystemExit("Migration must be applied before database publication; no partial run was written")
+    print(json.dumps({"decision":decision,"pre_model_gate":gate,"supported_sets":round2["supported_sets"],
+        "exact_variant_rows":round2["exact_variant_rows"],"matched_variant":round2["matched_variant"],
+        "next_task":report["next_task"]},indent=2));return 0
+
+if __name__=="__main__":raise SystemExit(main())

@@ -26,6 +26,7 @@ export function normaliseRipStatisticsPayload(payload) {
       : [],
     default_target: normaliseRipStatisticsTarget(payload?.default_target || null),
     productFamilyRankings: payload?.productFamilyRankings || null,
+    eraSetStrengthV1: payload?.eraSetStrengthV1 || null,
     meta: {
       ...sourceMeta,
       stale: Boolean(sourceMeta.stale || snapshotFallback),

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArticleJsonLd, ArticleShell, Citation, DefinitionGrid, EditorialSplit, H2, H3, MediaFigure, MetricStory, PackArt, ReferenceList } from "@/components/articles/ArticlePrimitives";
 import { OutcomeProbabilityFigure, TailConvergenceFigure, TypicalVsEvFigure } from "@/components/articles/EvRepresentativenessResearchFigures";
 import { LivePrismaticDistribution, LivePrismaticEvRepresentativeness, LivePrismaticOutcomeProfile } from "@/components/articles/EvResearchLiveExamples";
-import { ARTICLE_PATHS, related } from "@/lib/articles/articleData.mjs";
+import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { selectPrismaticResearchLiveExample } from "@/lib/articles/evResearchLiveExample.mjs";
 import { getRipStatisticsTargets } from "@/lib/explore/ripStatisticsServer";
 import { getPokemonSetSimulationEvidenceInitialSnapshot } from "@/lib/pokemon/pokemonSetInitialSnapshotsServer";
@@ -11,6 +11,7 @@ import { toSetSlug } from "@/utils/slugify";
 
 const title = "How Well Does Expected Value Describe a Pokémon Pack Opening?";
 const description = "We analyzed 22 million modeled Pokémon pack outcomes across 22 sets to measure how closely Expected Value reflects typical openings, how much EV depends on rare outcomes, and how many packs it can take for realized averages to converge.";
+const registeredArticle = articleByKey("evRepresentativeness");
 
 export const metadata = buildRouteMetadata({
   path: "/Articles/how-representative-is-pokemon-pack-expected-value",
@@ -44,8 +45,8 @@ async function loadLivePrismaticExample() {
 
 export default async function Page() {
   const livePrismatic = await loadLivePrismaticExample();
-  return <ArticleShell category="Research" title={title} deck="I simulated one million pack outcomes for each of 22 Pokémon sets, then asked a different question: not whether Expected Value was mathematically correct, but how closely it actually describes what a real opener experiences." related={related("ev", "simulation", "validation", "financial")}>
-    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.evRepresentativeness} />
+  return <ArticleShell category="Research" title={title} deck="I simulated one million pack outcomes for each of 22 Pokémon sets, then asked a different question: not whether Expected Value was mathematically correct, but how closely it actually describes what a real opener experiences." lastUpdated={registeredArticle.lastUpdated} related={related("ev", "simulation", "validation", "financial")}>
+    <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.evRepresentativeness} lastUpdated={registeredArticle.lastUpdated} />
 
     <EditorialSplit media={<PackArt src="/images/pokemon/booster-packs/prismaticEvolutions.webp" alt="Prismatic Evolutions Pokémon booster pack" compact />}>
       <p>I simulated a million Pokémon pack openings because I wanted to know what you actually get when you open one. The first obvious answer was Expected Value.</p>
@@ -134,6 +135,7 @@ export default async function Page() {
     <p>The contrasts matter. Prismatic Evolutions had more 5×+ tail probability than Journey Together, but far more openings below half cost. Temporal Forces had the strongest at-least-cost probability among these four examples. Phantasmal Flames had a large top-card EV contribution, yet relatively little 2×+ or 5×+ mass at its same-run cost. One average cannot expose all of those shapes.</p>
 
     <H2>Financial RIP already captures some of this</H2>
+    <p>These frozen comparisons use Financial RIP V3, the financial model used by the August 22, 2026 study cohort. The current production model has since advanced to Financial RIP V4; I have not recomputed or silently re-versioned the study statistics below.</p>
     <p>I tested whether I had merely rediscovered information already present in <Link href={ARTICLE_PATHS.financial}>Financial RIP</Link>. Representativeness horizons were moderately negatively associated with the score: Spearman ρ was approximately −0.597 for the ±20% horizon and −0.596 for the 80% EV Horizon. Top-1% outcome share was about −0.600. Financial RIP already recognizes part of distribution quality, but it does not fully subsume representativeness.</p>
     <p>The Outcome Profile overlap was stronger. Probability below half cost correlated with Financial RIP at −0.848. At-least-cost probability correlated at 0.762; 2×+ at 0.671; and 5×+ at 0.491. Some overlap is expected because Financial RIP already reads true-win and hard-loss behavior.</p>
 

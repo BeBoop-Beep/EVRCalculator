@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 import { getPokemonCardDetailServer } from "@/lib/pokemon/pokemonCardDetailServer";
+import { buildPokemonCardDetailHref } from "@/lib/pokemon/pokemonCardDetailClient";
 import PokemonCardDetailClient from "@/components/pokemon/card-detail/PokemonCardDetailClient";
 
 async function load(params, searchParams) {
@@ -16,7 +17,10 @@ async function load(params, searchParams) {
 export async function generateMetadata({ params, searchParams }) {
   try {
     const detail = await load(params, searchParams);
-    const path = `/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}`;
+    const path = buildPokemonCardDetailHref({
+      setSlug: detail.set.slug,
+      canonicalCardId: detail.card.id,
+    });
     const cardNumber = detail.card.printedNumber || detail.card.cardNumber;
     return buildRouteMetadata({
       path,
@@ -43,11 +47,12 @@ export default async function PokemonCardPage({ params, searchParams }) {
     throw error;
   }
   if (detail?.set?.slug && String(route.setSlug) !== detail.set.slug) {
-    const canonical = `/TCGs/Pokemon/Sets/${encodeURIComponent(detail.set.slug)}/Cards/${encodeURIComponent(detail.card.id)}`;
     redirect(
-      query.variant
-        ? `${canonical}?variant=${encodeURIComponent(query.variant)}`
-        : canonical,
+      buildPokemonCardDetailHref({
+        setSlug: detail.set.slug,
+        canonicalCardId: detail.card.id,
+        cardVariantId: query.variant || null,
+      }),
     );
   }
   return <PokemonCardDetailClient initialDetail={detail} />;

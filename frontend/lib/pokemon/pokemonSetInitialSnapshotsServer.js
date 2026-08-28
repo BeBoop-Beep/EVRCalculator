@@ -4,10 +4,12 @@ import { normalizePokemonSetCardsPayload } from "@/lib/pokemon/pokemonSetCardsCl
 import {
   normalizeMarketDashboardPayload,
   normalizeMarketDashboardWindow,
+  normalizeMarketMoversPayload,
   normalizeOverviewPayload,
 } from "@/lib/pokemon/pokemonSetMarketClient";
 import { getBackendApiBaseUrl } from "@/lib/runtimeUrls";
 import { normalizePokemonSetSimulationEvidence } from "@/lib/pokemon/pokemonSetSimulationEvidence.mjs";
+import { normalizePokemonSetRipBootstrap } from "@/lib/pokemon/pokemonSetRipBootstrapNormalizer.mjs";
 
 const BACKEND_API_BASE_URL = getBackendApiBaseUrl();
 const SHELL_SNAPSHOT_REVALIDATE_S = 300;
@@ -168,6 +170,18 @@ export async function getPokemonSetOverviewInitialSnapshot(setId, { window = "36
   });
 }
 
+export async function getPokemonSetRipBootstrapInitialSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/rip/bootstrap`);
+  return loadInitialSnapshot(url, {
+    moduleName: "RIP bootstrap",
+    normalizePayload: normalizePokemonSetRipBootstrap,
+    nextCacheOptions: { revalidate: 300, tags: [`pokemon-set-rip-bootstrap:${resolvedSetId}`] },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
 export async function getPokemonSetMarketBootstrapInitialSnapshot(setId, { window = "365d" } = {}) {
   const resolvedSetId = String(setId || "").trim();
   if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
@@ -180,6 +194,27 @@ export async function getPokemonSetMarketBootstrapInitialSnapshot(setId, { windo
     nextCacheOptions: {
       revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
       tags: [`pokemon-set-market-bootstrap:${resolvedSetId}:${normalizedWindow}`],
+    },
+    timeoutMs: getOverviewTimeoutMs(),
+  });
+}
+
+export async function getPokemonSetMarketMoversInitialSnapshot(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) return { ...EMPTY_INITIAL_SNAPSHOT, error: { message: "Set id is required", code: "SET_ID_REQUIRED" } };
+  const url = new URL(`${BACKEND_API_BASE_URL}/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/movers`);
+  url.searchParams.set("window", "7D");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("movement", "all");
+  url.searchParams.set("surface", "set-page");
+  url.searchParams.set("metric", "absolute-percent");
+  url.searchParams.set("snapshot_contract", "pricing-v4");
+  return loadInitialSnapshot(url, {
+    moduleName: "market movers",
+    normalizePayload: normalizeMarketMoversPayload,
+    nextCacheOptions: {
+      revalidate: OVERVIEW_SNAPSHOT_REVALIDATE_S,
+      tags: [`pokemon-set-market-movers:${resolvedSetId}:7D:all:absolute-percent`],
     },
     timeoutMs: getOverviewTimeoutMs(),
   });
@@ -237,8 +272,9 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * getPokemonSetOverviewInitialSnapshot — so Market's above-the-fold Set Value
  * section renders without a client-side loading panel. The seed is
  * best-effort: on error/timeout the client's own /overview fetch takes over
- * unchanged. RIP (internal route value `overview`) is deliberately NOT seeded:
- * it renders no part of that payload.
+ * unchanged. RIP (internal route value `overview`) seeds only its small
+ * publication-prepared RIP bootstrap; simulation and advanced evidence remain
+ * outside the route-critical promise.
  *
  * The full /cards snapshot is never route-seeded here for any tab anymore.
  * Cards uses its own slim, paginated contract (getPokemonSetCardsPage,
@@ -252,8 +288,8 @@ export async function getPokemonSetMarketDashboardInitialSnapshot(setId, { windo
  * full /cards payload server-side; getPokemonSetInitialSnapshots itself
  * never calls it.
  *
- * Market uses /overview (+ /market/movers) and shares /market/top-chase with
- * RIP, which renders a three-card chase preview from it. Cards uses
+ * Market uses /overview (+ /market/movers and /market/top-chase). RIP reads
+ * its modeled chase directly from the bootstrap's ripDecision. Cards uses
  * /cards/page. Pull Rates uses /pull-rates (Phase 4A). Insights uses
  * /insights (Phase 4B) plus /cards/validation for its card validation
  * section — all are fetched client-side from RipStatisticsPageClient.jsx.
@@ -289,21 +325,22 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   // The slim /overview snapshot IS seeded, but only for the Market tab.
   // `overview` is the internal route value for the user-facing RIP tab, and
   // RIP renders none of this payload — its Set Value Trend moved to Market
-  // (see RipStatisticsPageClient's Market section), and RIP's own modules read
-  // the canonical RIP bundle, top-chase and pull-rates instead. Seeding it for
+  // (see RipStatisticsPageClient's Market section), and RIP's opening modules
+  // read the dedicated RIP bootstrap instead. Seeding market overview data for
   // RIP would buy a large market payload nothing on that tab consumes, so the
   // seed follows the consumer. resolveSetDetailTab applies the same aliasing
   // and absent-tab default as the route/client. Note the backend endpoint is
   // still named /overview — that is a transport name, not a UI tab name.
   const resolvedTab = resolveSetDetailTab(tab);
   const wantsMarketSeed = resolvedTab === "market";
-  const wantsSimulationEvidence = resolvedTab === "overview";
-  const [shell, cards, marketDashboard, overview, simulationEvidence] = await Promise.all([
+  const wantsRipBootstrap = resolvedTab === "overview";
+  const [shell, cards, marketDashboard, overview, marketMovers, ripBootstrap] = await Promise.all([
     getPokemonSetShellInitialSnapshot(setId),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
     wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
-    wantsSimulationEvidence ? getPokemonSetSimulationEvidenceInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsMarketSeed ? getPokemonSetMarketMoversInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
+    wantsRipBootstrap ? getPokemonSetRipBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT),
   ]);
 
   const totalMs = Date.now() - startedAt;
@@ -320,7 +357,8 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
   if (overview.error) {
     errors.overview = overview.error;
   }
-  if (simulationEvidence.error) errors.simulationEvidence = simulationEvidence.error;
+  if (marketMovers.error) errors.marketMovers = marketMovers.error;
+  if (ripBootstrap.error) errors.ripBootstrap = ripBootstrap.error;
 
   console.info("[set-snapshots-server] snapshots_loaded", {
     setId,
@@ -335,23 +373,30 @@ export async function getPokemonSetInitialSnapshots(setId, { tab } = {}) {
     marketDashboardError: Boolean(marketDashboard.error),
     overviewError: Boolean(overview.error),
     overviewSeeded: Boolean(overview.payload),
-    simulationEvidenceMs: simulationEvidence.elapsedMs,
-    simulationEvidenceSeeded: Boolean(simulationEvidence.payload),
+    marketMoversMs: marketMovers.elapsedMs,
+    marketMoversSeeded: Boolean(marketMovers.payload),
+    ripBootstrapMs: ripBootstrap.elapsedMs,
+    ripBootstrapSeeded: Boolean(ripBootstrap.payload),
   });
 
   return {
+    resolvedTab,
     shellPayload: shell.payload,
     cardsPayload: cards.payload,
     marketDashboardPayload: marketDashboard.payload,
     overviewPayload: overview.payload,
-    simulationEvidencePayload: simulationEvidence.payload,
+    marketMoversPayload: marketMovers.payload,
+    simulationEvidencePayload: null,
+    ripBootstrapPayload: ripBootstrap.payload,
     errors,
     timings: {
       shellMs: shell.elapsedMs,
       cardsMs: cards.elapsedMs,
       marketDashboardMs: marketDashboard.elapsedMs,
       overviewMs: overview.elapsedMs,
-      simulationEvidenceMs: simulationEvidence.elapsedMs,
+      marketMoversMs: marketMovers.elapsedMs,
+      simulationEvidenceMs: 0,
+      ripBootstrapMs: ripBootstrap.elapsedMs,
       totalMs,
     },
   };

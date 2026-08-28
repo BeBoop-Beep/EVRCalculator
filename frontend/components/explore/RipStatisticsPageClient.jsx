@@ -131,6 +131,14 @@ import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
+import { getPokemonSetRipRankContext, selectSetRipRankContext } from "@/lib/pokemon/pokemonSetRipRankContextClient.mjs";
+import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
+import {
+  getPokemonSetRipAdvanced,
+  getPokemonSetRipSimulationEvidence,
+  selectSameRunRipAdvanced,
+  selectSameRunRipSimulation,
+} from "@/lib/pokemon/pokemonSetRipProgressiveClient.mjs";
 import { RIP_SCORE_HELPER, selectRipHeroScoreMode } from "./ripHeroScoreMode.mjs";
 // `selectOpeningExperiencePresentation` / `selectSetDesirabilityPresentation`
 // were imported from Insights/openingExperienceSelector.mjs for the removed
@@ -154,11 +162,13 @@ import {
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
   getCachedPokemonSetMarketDashboard,
   getPokemonSetMarketMovers,
+  getPokemonSetConsumerSealedMarket,
   getPokemonSetOverview,
   getPokemonSetTopChase,
   getPokemonSetValueHistory,
@@ -867,7 +877,9 @@ function buildInitialSetPageDataSeed({
     explorePayload: source,
     cardsPayload: cardPayload,
   });
-  const setValue = marketDashboardSource
+  const setValue = overviewSource
+    ? adaptSetValueHistoriesFromSources({ marketSnapshotPayload: overviewSource })
+    : marketDashboardSource
     ? adaptSetValueHistoriesFromSources({ marketSnapshotPayload: marketDashboardSource })
     : adaptSetValueHistoriesFromSources({ explorePayload: source });
   const market = marketDashboardSource
@@ -3896,7 +3908,7 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedSummaryState }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
@@ -3917,7 +3929,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   );
 
   const sealedTrend = useMemo(() => {
-    const setMarket = sealedState.payload?.setPageConsumerMarket || null;
+    const setMarket = sealedSummaryState.payload?.setPageConsumerMarket || null;
     if (!setMarket?.history?.length) {
       return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
     }
@@ -3928,7 +3940,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
       trackedItemCount: setMarket.productCount,
       trackedItemNoun: "Sealed Products",
     });
-  }, [sealedState.payload, selectedWindowKey]);
+  }, [sealedSummaryState.payload, selectedWindowKey]);
 
   // GRADED. The product publishes no graded market series for a set — the only
   // graded prices that exist anywhere are per-user collection valuations, which
@@ -3940,19 +3952,19 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedSummaryState.status)
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
   const segmentRows = useMemo(
-    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedState.status === "loading" ? { ...row, selectable: true } : row),
-    [sealedState.status, trendsByKey]
+    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedSummaryState.status === "loading" ? { ...row, selectable: true } : row),
+    [sealedSummaryState.status, trendsByKey]
   );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
   const breadthSource = resolvedSegmentKey === "sealed"
-    ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
+    ? sealedSummaryState.payload?.setPageConsumerMarket?.marketBreadth || sealedSummaryState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
     ? signalsState.payload?.marketBreadth
     : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
@@ -3966,10 +3978,10 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     }),
     [activeTrend.trackedItemCount, breadthSource, effectiveWindowKey]
   );
-  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+  const breadthStatus = resolvedSegmentKey === "sealed" && sealedSummaryState.status === "loading" && !sealedSummaryState.payload
     ? "Loading Sealed market…"
-    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
-    ? sealedState.error || "Unable to load sealed market breadth"
+    : resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" && !sealedSummaryState.payload
+    ? sealedSummaryState.error || "Unable to load sealed market breadth"
     : null;
   // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
   // Standard and Top 10 set-value scopes, not a full Cards Market Index
@@ -3986,7 +3998,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           setId={setId}
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
+          onSegmentChange={(key) => { if (key === "sealed") sealedSummaryState.load?.(); setActiveSegmentKey(key); }}
           trend={activeTrend}
           onWindowChange={setSelectedWindowKey}
           windowLabel={windowLabel}
@@ -3996,13 +4008,13 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
         <SetSignalsRail
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
+          onSegmentChange={(key) => { if (key === "sealed") sealedSummaryState.load?.(); setActiveSegmentKey(key); }}
           breadth={breadth}
           breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
-          sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
-          onSealedRetry={sealedState.retry}
+          sealedError={resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" ? sealedSummaryState.error : null}
+          onSealedRetry={sealedSummaryState.retry}
           onSignalsRetry={["error", "forbidden"].includes(signalsState.status) ? signalsState.retry : null}
         />
       </div>
@@ -8743,6 +8755,7 @@ export default function RipStatisticsPageClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { canViewRankingsIntelligence: canViewProductRipIntelligence } = useRankingsAccess();
   const [isPending, startTransition] = useTransition();
   // Dedicated transition for same-set tab/section navigation, separate from
   // isPending/startTransition above (which only covers the set-switcher).
@@ -8824,7 +8837,8 @@ export default function RipStatisticsPageClient({
   // receives), so this must merge field-by-field rather than picking one
   // payload's summary exclusively — an OR here silently drops whichever
   // payload lost, even when it's the only one carrying a given field.
-  const activeCalculationRunId = activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null;
+  const ripBootstrap = initialModuleSnapshots?.ripBootstrapPayload || null;
+  const activeCalculationRunId = ripBootstrap?.calculationRunId ?? activeTarget?.calculation_run_id ?? activeTarget?.calculationRunId ?? null;
   const simulationEvidence = useMemo(
     () => selectSameSetSimulationEvidence(initialModuleSnapshots?.simulationEvidencePayload, {
       setId: resolvedSetResourceId,
@@ -8832,7 +8846,7 @@ export default function RipStatisticsPageClient({
     }),
     [initialModuleSnapshots?.simulationEvidencePayload, resolvedSetResourceId, activeCalculationRunId]
   );
-  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(simulationEvidence?.summary || {}) };
+  const summary = { ...(effectiveShellPayload?.summary || {}), ...(explorePayload?.summary || {}), ...(simulationEvidence?.summary || {}), ...(ripBootstrap?.summary || {}) };
   const preferredSetRip = useMemo(
     () => selectPreferredSetRipContract(
       explorePayload?.setRipV1,
@@ -8909,6 +8923,7 @@ export default function RipStatisticsPageClient({
   const initialCardsPayload = initialModuleSnapshots?.cardsPayload || null;
   const initialMarketDashboardPayload = initialModuleSnapshots?.marketDashboardPayload || null;
   const initialOverviewPayload = initialModuleSnapshots?.overviewPayload || null;
+  const initialMarketMoversPayload = initialModuleSnapshots?.marketMoversPayload || null;
   const initialSetPageDataSeed = useMemo(
     () =>
       buildInitialSetPageDataSeed({
@@ -8933,6 +8948,10 @@ export default function RipStatisticsPageClient({
     }
     return seed;
   }, [initialSetPageDataSeed, resolvedSetResourceId]);
+  const seededMarketMoversPayload = useMemo(() => {
+    if (!initialMarketMoversPayload || !setIdentityMatchesTarget(initialMarketMoversPayload.set, resolvedSetResourceId)) return null;
+    return initialMarketMoversPayload.window === MOVERS_TICKER_WINDOW ? initialMarketMoversPayload : null;
+  }, [initialMarketMoversPayload, resolvedSetResourceId]);
   const initialCardAppealMarketPriceCorrelation = initialSetPageDataSeed.cardAppealMarketPriceCorrelation;
   const initialCardAppealRows = useMemo(() => {
     const rows = Array.isArray(initialCardAppealMarketPriceCorrelation?.plotRows)
@@ -9043,6 +9062,67 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
+  const destinationSeedPending =
+    setDetailTab === "market" && isTabNavPending && initialModuleSnapshots?.resolvedTab !== "market";
+  const [ripRankContextState, setRipRankContextState] = useState({
+    status: "idle",
+    setId: null,
+    expectedCalculationRunId: null,
+    payload: null,
+    error: null,
+  });
+  const [ripSimulationState, setRipSimulationState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
+  const [ripAdvancedState, setRipAdvancedState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
+  const loadRipRankContext = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const expectedCalculationRunId = ripBootstrap?.calculationRunId;
+    if (!canViewProductRipIntelligence || !setId || !expectedCalculationRunId) return;
+    setRipRankContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
+    getPokemonSetRipRankContext(setId, expectedCalculationRunId, { force })
+      .then((payload) => {
+        const rankContext = selectSetRipRankContext(payload, { setId, calculationRunId: expectedCalculationRunId });
+        setRipRankContextState({ status: rankContext ? "success" : "error", setId, expectedCalculationRunId, payload: rankContext, error: rankContext ? null : "Rank context response was malformed." });
+      })
+      .catch((error) => setRipRankContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Rank context unavailable." }));
+  }, [canViewProductRipIntelligence, resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  const loadRipSimulation = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const calculationRunId = ripBootstrap?.calculationRunId;
+    if (!setId || !calculationRunId) return;
+    setRipSimulationState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
+    getPokemonSetRipSimulationEvidence(setId, calculationRunId, { force })
+      .then((payload) => {
+        const compatible = selectSameRunRipSimulation(payload, { setId, calculationRunId });
+        setRipSimulationState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Simulation evidence is awaiting the current RIP publication." });
+      })
+      .catch((error) => setRipSimulationState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Simulation evidence is unavailable." }));
+  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
+  const loadRipAdvanced = useCallback(({ force = false } = {}) => {
+    const setId = resolvedSetResourceId;
+    const calculationRunId = ripBootstrap?.calculationRunId;
+    if (!setId || !calculationRunId) return;
+    setRipAdvancedState((current) => current.status === "loading" && !force ? current : { status: "loading", setId, calculationRunId, payload: null, error: null });
+    getPokemonSetRipAdvanced(setId, calculationRunId, { force })
+      .then((payload) => {
+        const compatible = selectSameRunRipAdvanced(payload, { setId, calculationRunId, bootstrapCanonical: ripBootstrap?.canonicalSource });
+        setRipAdvancedState({ status: compatible ? "success" : "stale", setId, calculationRunId, payload: compatible, error: compatible ? null : "Advanced evidence is awaiting the current RIP publication." });
+      })
+      .catch((error) => setRipAdvancedState({ status: "error", setId, calculationRunId, payload: null, error: error?.message || "Advanced evidence is unavailable." }));
+  }, [resolvedSetResourceId, ripBootstrap?.calculationRunId, ripBootstrap?.canonicalSource]);
+  useEffect(() => {
+    if (!canViewProductRipIntelligence || !setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
+      return undefined;
+    }
+    loadRipRankContext();
+    return undefined;
+  }, [canViewProductRipIntelligence, setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipRankContext]);
+  const ripRankContext =
+    ripRankContextState.setId === resolvedSetResourceId &&
+    ripRankContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
+      ? ripRankContextState.payload
+      : null;
+  const compatibleRipSimulation = ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.payload : null;
+  const compatibleRipAdvanced = ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.payload : null;
   // Keep this below the setDetailTab state declaration. Computing it earlier
   // reads setDetailTab during its temporal dead zone and crashes set routes.
   const hasActiveInsightsPayload =
@@ -9083,7 +9163,7 @@ export default function RipStatisticsPageClient({
   // rip_statistics/percentiles/etc. off explorePayload — needs no changes;
   // only what feeds it, and how each section gates on it, changed.
   const insightsFetchEnabled =
-    setDetailMode && setDetailTab === "overview" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
+    setDetailMode && setDetailTab === "insights" && canFetchSetDetailModules && Boolean(resolvedSetResourceId);
   const { state: insightsCriticalFetchState, refetch: refetchInsightsCritical } = useSectionFetchState(
     getPokemonSetInsightsCritical,
     { setId: resolvedSetResourceId, enabled: insightsFetchEnabled }
@@ -9200,9 +9280,9 @@ export default function RipStatisticsPageClient({
   const [marketMoversState, dispatchMarketMovers] = useReducer(
     marketDashboardReducer,
     {
-      status: "idle",
+      status: seededMarketMoversPayload ? "success" : "idle",
       setId: resolvedSetResourceId,
-      payload: null,
+      payload: seededMarketMoversPayload || null,
       sourceWindow: MOVERS_TICKER_WINDOW,
     },
     createMarketDashboardState
@@ -9224,6 +9304,13 @@ export default function RipStatisticsPageClient({
   const pendingNavSelectionRef = useRef(null);
   const pendingNavTimeoutRef = useRef(null);
   const pendingNavStartedAtRef = useRef(0);
+  const cardsIntentPrefetchTimerRef = useRef(null);
+  useEffect(() => () => {
+    if (cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+      cardsIntentPrefetchTimerRef.current = null;
+    }
+  }, []);
   // Tracks the last getPokemonSetCardsPage request key this effect actually
   // issued, so leaving Cards and coming back (or any other re-render that
   // re-triggers the effect without the set/page/sort/filter actually
@@ -9381,7 +9468,17 @@ export default function RipStatisticsPageClient({
       explorePayload: initialExplorePayload || {},
       cardsPayload: initialCardsPayload,
       marketDashboardPayload: initialMarketDashboardPayload,
+      overviewPayload: initialOverviewPayload,
     });
+    if (seededMarketMoversPayload) {
+      lastMarketMoversRequestKeyRef.current = `${resolvedSetResourceId}|${MOVERS_TICKER_WINDOW}|${MOVERS_TICKER_FETCH_LIMIT}`;
+      dispatchMarketMovers({
+        type: "success",
+        setId: resolvedSetResourceId,
+        payload: seededMarketMoversPayload,
+        sourceWindow: MOVERS_TICKER_WINDOW,
+      });
+    }
     const seededCards = routeSeed.cards;
     setChecklistState((previous) => {
       const seededCorrelation = resolvePreferredCardAppealCorrelation({
@@ -9433,6 +9530,8 @@ export default function RipStatisticsPageClient({
     initialExplorePayload,
     initialCardsPayload,
     initialMarketDashboardPayload,
+    initialOverviewPayload,
+    seededMarketMoversPayload,
     requestedTargetId,
     selectedTarget,
     resolvedSetResourceId,
@@ -9851,21 +9950,25 @@ export default function RipStatisticsPageClient({
     window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
   };
 
-  const scrollToSetDetailElement = (targetId = "set-detail-content") => {
+  const scrollToSetDetailElement = (targetId = "set-detail-content", behavior = "smooth") => {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
     }
 
-    window.requestAnimationFrame(() => {
+    let attempts = 0;
+    const findAndScroll = () => {
       const target = getVisibleSectionElement(targetId);
       if (!target) {
+        attempts += 1;
+        if (attempts < 12) window.requestAnimationFrame(findAndScroll);
         return;
       }
 
       const stickyOffset = getExploreStickyOffset();
       const targetTop = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
-      window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
-    });
+      window.scrollTo({ top: Math.max(0, targetTop), behavior });
+    };
+    window.requestAnimationFrame(findAndScroll);
   };
 
   const handleSectionSelect = (sectionId) => {
@@ -9917,6 +10020,10 @@ export default function RipStatisticsPageClient({
   const handleSetDetailTabChange = (nextTab) => {
     revealMobileSetContext();
     const normalizedTab = normalizeSetDetailTab(nextTab);
+    if (normalizedTab !== "cards" && cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+      cardsIntentPrefetchTimerRef.current = null;
+    }
     if (normalizedTab === "cards") {
       markSetPagePerformance("cards_tab_first_interactive", { setId: resolvedSetResourceId });
     }
@@ -9926,6 +10033,7 @@ export default function RipStatisticsPageClient({
       setActiveSection("outcome-distribution");
     }
     pushSetDetailRouteState({ tab: normalizedTab });
+    scrollToSetDetailElement(getSetDetailFallbackTargetId(normalizedTab), "auto");
   };
 
   const handleSetDetailNavSelect = ({ tab, section, cardsSubTab: nextCardsSubTab, graphMode: nextGraphMode, targetId } = {}) => {
@@ -10372,8 +10480,8 @@ export default function RipStatisticsPageClient({
   // label. The legacy `rip` / `ripCore` / V5 / V6 objects are still served in
   // the payload for audit consumers and are read by no public surface here.
   const canonicalRip = useMemo(
-    () => resolveCanonicalRipV7(explorePayload, selectedTarget, summary),
-    [explorePayload, selectedTarget, summary]
+    () => resolveCanonicalRipV7(ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary),
+    [ripBootstrap?.canonicalSource, explorePayload, selectedTarget, summary]
   );
 
   const heroScoreSelection = selectRipHeroScoreMode({ canonical: canonicalRip });
@@ -11353,6 +11461,50 @@ export default function RipStatisticsPageClient({
     setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
     { enabled: false }
   );
+  const desktopSealedSummaryState = usePokemonSetSealedSummary(
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
+    { enabled: false }
+  );
+  const loadDesktopSealedSummary = desktopSealedSummaryState.load;
+  useEffect(() => {
+    const marketCriticalSettled =
+      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
+      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
+    if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) loadDesktopSealedSummary();
+  }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, loadDesktopSealedSummary]);
+  useEffect(() => {
+    const settled = (status) => ["success", "success_stale", "error", "empty", "unavailable"].includes(status);
+    if (
+      setDetailTab !== "market" ||
+      isTabNavPending ||
+      !resolvedSetResourceId ||
+      globalThis.navigator?.connection?.saveData === true ||
+      !settled(activeOverviewState.status) ||
+      !settled(activeMarketMoversState.status) ||
+      !settled(activeTopChaseState.status) ||
+      !settled(desktopSealedSummaryState.status)
+    ) return undefined;
+    let cancelled = false;
+    const warm = () => {
+      if (!cancelled) getPokemonSetConsumerSealedMarket(resolvedSetResourceId).catch(() => {});
+    };
+    const idleId = typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback(warm, { timeout: 1500 })
+      : window.setTimeout(warm, 500);
+    return () => {
+      cancelled = true;
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleId);
+      else window.clearTimeout(idleId);
+    };
+  }, [
+    setDetailTab,
+    isTabNavPending,
+    resolvedSetResourceId,
+    activeOverviewState.status,
+    activeMarketMoversState.status,
+    activeTopChaseState.status,
+    desktopSealedSummaryState.status,
+  ]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -12159,18 +12311,28 @@ export default function RipStatisticsPageClient({
     if (!setId || !canFetchSetDetailModules) {
       return;
     }
-    prefetchPokemonSetCardsPage(setId, {
-      page: 1,
-      pageSize: CARDS_PAGE_SIZE,
-      sort: effectiveCardSortMode,
-      sortDirection: cardsRequest.sortDirection,
-      query: cardSearchQuery.trim() || null,
-      rarity: effectiveCardRarityFilter,
-      movementFilter: effectiveCardMovementFilter,
-      movementSort: effectiveCardMovementSort,
-      movementMetric: effectiveCardMovementMetric,
-      section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
-    });
+    if (isTabNavPending || destinationSeedPending || (setDetailTab === "market" && ![
+      activeOverviewState.status,
+      activeMarketMoversState.status,
+    ].every((status) => ["success", "success_stale", "error", "empty"].includes(status)))) return;
+    if (cardsIntentPrefetchTimerRef.current !== null) {
+      window.clearTimeout(cardsIntentPrefetchTimerRef.current);
+    }
+    cardsIntentPrefetchTimerRef.current = window.setTimeout(() => {
+      cardsIntentPrefetchTimerRef.current = null;
+      prefetchPokemonSetCardsPage(setId, {
+        page: 1,
+        pageSize: CARDS_PAGE_SIZE,
+        sort: effectiveCardSortMode,
+        sortDirection: cardsRequest.sortDirection,
+        query: cardSearchQuery.trim() || null,
+        rarity: effectiveCardRarityFilter,
+        movementFilter: effectiveCardMovementFilter,
+        movementSort: effectiveCardMovementSort,
+        movementMetric: effectiveCardMovementMetric,
+        section: cardsSection === "market-movers" ? "market-movers" : "all-cards",
+      });
+    }, 160);
   };
 
   useEffect(() => {
@@ -12738,7 +12900,7 @@ export default function RipStatisticsPageClient({
       }));
       return undefined;
     }
-    if (setDetailTab !== "pull-rates" && setDetailTab !== "overview") {
+    if (setDetailTab !== "pull-rates") {
       return undefined;
     }
 
@@ -12873,6 +13035,7 @@ export default function RipStatisticsPageClient({
       });
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
 
     // The only component that renders the 365-day series is Market's
     // SetValueTrendCard, and it is rendered exclusively inside the
@@ -13059,6 +13222,7 @@ export default function RipStatisticsPageClient({
     // "activeMarketDashboardDerivedState,\n  ]);" as its end anchor, so that
     // entry must stay last.
     shellSetValueVisiblePoints.length,
+    destinationSeedPending,
     activeMarketDashboardDerivedState,
   ]);
 
@@ -13160,16 +13324,12 @@ export default function RipStatisticsPageClient({
       return undefined;
     }
 
-    // Top Chase is SHARED data: RIP renders a three-card consumer preview from
-    // it and Market renders the full Top 10 market table. Fetch it for either
-    // tab so a fresh RIP entry never depends on the user visiting Market first.
-    // The request-key guard below still makes RIP<->Market switches share one
-    // fetch per set/window.
+    // Market alone owns the Top 10 Chase market request. RIP uses the exact
+    // modeled top-chase contract already published inside ripDecision.
     const marketCriticalSettled =
       ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
       ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
-    const shouldFetchTopChase =
-      setDetailTab === "overview" || (setDetailTab === "market" && marketCriticalSettled);
+    const shouldFetchTopChase = setDetailTab === "market" && marketCriticalSettled;
     if (!shouldFetchTopChase) {
       return undefined;
     }
@@ -13281,6 +13441,8 @@ export default function RipStatisticsPageClient({
     if (!isMarketMoversConsumer) {
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
+    if (seededMarketMoversPayload && marketMoversRetryNonce === 0) return undefined;
 
     const marketMoversRequestKey = `${setId}|${moversSourceWindow}|${moversFetchLimit}`;
     const marketMoversStateIsRenderable =
@@ -13354,6 +13516,8 @@ export default function RipStatisticsPageClient({
     canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryMarketMoversModule).
     marketMoversRetryNonce,
+    destinationSeedPending,
+    seededMarketMoversPayload,
   ]);
 
   // Live fallback for a missing/invalid Market bootstrap, plus explicit Retry.
@@ -13388,6 +13552,7 @@ export default function RipStatisticsPageClient({
       // this data (or a future switch back to one) triggers this effect again.
       return undefined;
     }
+    if (destinationSeedPending) return undefined;
 
     if (seededOverviewPayload && overviewRetryNonce === 0) {
       lastOverviewRequestKeyRef.current = `${setId}|${overviewSourceWindow}`;
@@ -13466,6 +13631,7 @@ export default function RipStatisticsPageClient({
     canFetchSlimMarketModules,
     // Section-local Retry: re-runs this effect only (see retryOverviewModule).
     overviewRetryNonce,
+    destinationSeedPending,
   ]);
 
   const desktopSidebarContent = (
@@ -13929,39 +14095,44 @@ export default function RipStatisticsPageClient({
                     // The set-page snapshot already carries the whole decision
                     // contract, so the page needs no second client fetch. It is
                     // passed straight through and normalized once inside.
-                    ripDecision={explorePayload?.ripDecision ?? null}
+                    ripDecision={ripBootstrap?.ripDecision ?? explorePayload?.ripDecision ?? null}
                     // The canonical GLOBAL same-family product ranking
                     // (build_product_family_rankings on the backend) already
                     // flows this far via targetsPayload — it was simply never
                     // read past this point. Passed straight through; the only
                     // new code is the lookup-by-sealedProductId inside
                     // RipDecisionPage, not a second ranking calculation.
-                    productFamilyRankings={targetsPayload?.productFamilyRankings ?? null}
-                    evRepresentativeness={activeTarget?.evRepresentativeness ?? null}
-                    openingOutcomeProfile={activeTarget?.openingOutcomeProfile ?? null}
+                    productFamilyRankings={ripRankContext?.productFamilyRankings ?? null}
+                    rankContextFreshness={ripRankContext?.freshness ?? null}
+                    rankContextUpdatedAt={ripRankContext?.rankingUpdatedAt ?? null}
+                    evRepresentativeness={compatibleRipSimulation?.evRepresentativeness ?? null}
+                    openingOutcomeProfile={compatibleRipSimulation?.openingOutcomeProfile ?? null}
                     calculationRunId={activeCalculationRunId}
-                    setRip={preferredSetRip}
+                    rankContextStatus={ripRankContextState.status}
+                    rankContextError={ripRankContextState.error}
+                    onRankContextRetry={() => loadRipRankContext({ force: true })}
+                    canViewProductRipIntelligence={canViewProductRipIntelligence}
+                    setRip={null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
-                    chaseCards={topPricedCards}
                     cardCount={authoritativeSetCardCount}
-                    pullRateAssumptions={pullRateAssumptions}
                     pullRatesHref={updateSetDetailQueryParams({ pathname, searchParams, tab: "pull-rates" })}
                     productType="booster_pack"
                     productLabel="Booster Pack"
                     productImage={resolvePokemonBoosterPackAsset(selectedTarget?.canonical_key ?? selectedTarget?.canonicalKey)}
-                    distributionBins={distributionBins}
-                    thresholdBins={thresholdBins}
-                    chartMarkers={chartMarkers}
-                    percentiles={percentiles}
-                    p50={percentileP50}
-                    p95={percentileP95}
-                    p99={percentileP99}
-                    simulationPending={activeInsightsSecondaryStatus === "idle" || activeInsightsSecondaryStatus === "loading"}
-                    simulationDrivers={topHits}
-                    rankings={rankings}
-                    packPaths={ripStatistics?.pack_paths}
-                    normalStateRows={normalStateRows}
+                    distributionBins={compatibleRipSimulation?.distributionBins ?? []}
+                    thresholdBins={compatibleRipSimulation?.thresholdBins ?? []}
+                    percentiles={compatibleRipSimulation?.percentiles ?? []}
+                    simulationSummary={compatibleRipSimulation?.summary ?? null}
+                    simulationStatus={compatibleRipSimulation ? "success" : (ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.status : "idle")}
+                    simulationError={ripSimulationState.error}
+                    onSimulationApproach={loadRipSimulation}
+                    onSimulationRetry={() => loadRipSimulation({ force: true })}
+                    advancedEvidence={compatibleRipAdvanced}
+                    advancedStatus={compatibleRipAdvanced ? "success" : (ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.status : "idle")}
+                    advancedError={ripAdvancedState.error}
+                    onAdvancedApproach={loadRipAdvanced}
+                    onAdvancedRetry={() => loadRipAdvanced({ force: true })}
                     initialProductId={searchParams?.get?.("sealedProduct") || null}
                     familyFilter={ripProductFamilyFilter}
                   />
@@ -14079,7 +14250,7 @@ export default function RipStatisticsPageClient({
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
                           standardValue={setValueStandardCurrentValue}
-                          sealedState={desktopSealedMarketState}
+                          sealedSummaryState={desktopSealedSummaryState}
                         />
                       </SectionErrorBoundary>
                     </div>

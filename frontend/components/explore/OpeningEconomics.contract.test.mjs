@@ -323,10 +323,11 @@ test("opening economics is fetched in parallel with the existing rankings reads"
 // Entitlements
 // ---------------------------------------------------------------------------
 
-test("Overall and Eras are public and resolve no entitlement", () => {
-  for (const source of [overall, eras]) {
-    assert.ok(!/useRankingsAccess|canViewProductRipIntelligence|onUnlockProductRip|IndexPlus|Premium/i.test(source));
-  }
+test("Overall remains public while Era Pack Economics consumes delegated Rankings entitlement", () => {
+  assert.ok(!/useRankingsAccess|canViewProductRipIntelligence|onUnlockProductRip|IndexPlus|Premium/i.test(overall));
+  assert.ok(eras.includes("canViewRankingsIntelligence"));
+  assert.ok(eras.includes("onUnlockProductRip"));
+  assert.ok(!eras.includes("useRankingsAccess"));
 });
 
 test("the Products lens keeps its existing entitlement gating", () => {
@@ -342,7 +343,7 @@ test("the Products lens keeps its existing entitlement gating", () => {
 test("era sort headers expose aria-sort and real buttons", () => {
   assert.ok(eras.includes("aria-sort="));
   assert.ok(eras.includes('scope="col"'));
-  assert.ok(eras.includes('scope="row"'));
+  assert.ok(eras.includes('scope={identity ? "row" : undefined}'));
   assert.ok(eras.includes('type="button"'));
 });
 

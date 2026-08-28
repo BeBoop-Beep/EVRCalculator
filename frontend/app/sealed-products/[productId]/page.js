@@ -1,23 +1,30 @@
 import { notFound } from "next/navigation";
-import MarketModule from "@/components/Collectibles/MarketModule";
-import { getSealedProductMarketPageData } from "@/lib/collectibles/marketDataLoader";
+import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
+import { getSealedProductDetailServer } from "@/lib/pokemon/sealedProductDetailServer";
+import SealedProductDetailClient from "@/components/pokemon/sealed-product-detail/SealedProductDetailClient";
+
+async function load(params) {
+  const { productId } = (await params) || {};
+  return getSealedProductDetailServer(productId);
+}
+
+export async function generateMetadata({ params }) {
+  try {
+    const detail = await load(params);
+    return buildRouteMetadata({
+      path: buildSealedProductHref(detail.product.id),
+      title: `${detail.product.name} — ${detail.set.name} RIP & Market Analysis | inDex`,
+      description: detail.rip.available
+        ? `${detail.product.name} from ${detail.set.name}: current sealed market price, price history, Product RIP, opening outcomes, and comparable sealed products.`
+        : `${detail.product.name} from ${detail.set.name}: current sealed market price, price history, and comparable sealed products.`,
+    });
+  } catch { return {}; }
+}
 
 export default async function SealedProductCanonicalPage({ params }) {
-  const { productId } = await params;
-  const data = await getSealedProductMarketPageData(productId);
-
-  if (!data?.metadata) {
-    notFound();
-  }
-
-  return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-      <header className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">Canonical Sealed Product Page</p>
-        <h1 className="mt-1 text-2xl font-bold text-[var(--text-primary)]">{data.metadata.name}</h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">{data.metadata.product_type} • {data.metadata.set_name}</p>
-      </header>
-      <MarketModule market={data.market} />
-    </section>
-  );
+  let detail;
+  try { detail = await load(params); }
+  catch (error) { if (error?.status === 404) notFound(); throw error; }
+  return <SealedProductDetailClient initialDetail={detail} />;
 }

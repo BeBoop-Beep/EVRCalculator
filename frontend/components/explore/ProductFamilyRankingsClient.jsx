@@ -14,7 +14,7 @@ import TableSearchInput from "@/components/ui/TableSearchInput";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import { RipScoreBadge, RipTierMark } from "./RipScoreBadge.jsx";
 import { PremiumMetricLock, RankedProductHeader, RankedProductIdentity } from "./RankedProductTablePrimitives.jsx";
-import { buildTcgSetHrefFromTarget } from "@/lib/explore/ripStatisticsRouting";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import { getTierTone } from "@/lib/explore/interpretationTone";
 import { formatPublicRipScore } from "@/constants/exploreRankingConfig";
 import { useRankingsAccess } from "@/lib/rankings/useRankingsAccess";
@@ -159,12 +159,7 @@ const recovery = (v) => {
     : `${(100 * (n > 1 ? n / 100 : n)).toFixed(1)}%`;
 };
 function productHref(p) {
-  const base = buildTcgSetHrefFromTarget({
-    target_type: "set",
-    target_id: p.setId,
-    name: p.setName,
-  });
-  return `${base}?sealedProduct=${encodeURIComponent(p.sealedProductId)}`;
+  return buildSealedProductHref(p);
 }
 export function productFormatStrength(p) {
   const rank = number(p?.familyRank),
@@ -520,6 +515,7 @@ export default function ProductFamilyRankingsClient({
   loadError,
   openingEconomics = null,
   eraSetStrength = null,
+  rankingsMarketDate = null,
   onUnlockProductRip = null,
 }) {
   const { canViewRankingsIntelligence, canViewCardChaseEfficiency } = useRankingsAccess();
@@ -530,7 +526,7 @@ export default function ProductFamilyRankingsClient({
   // ExploreTableClient so the Eras lens can set it while navigating, and so
   // leaving the Sets lens does not silently strand an invisible filter.
   const [selectedEra, setSelectedEra] = useState(null);
-  const [eraLens, setEraLens] = useState("economics");
+  const [eraLens, setEraLens] = useState("rankings");
   const [setLens, setSetLens] = useState("rankings");
   const [view, setView] = useState("economics"),
     [sortKey, setSortKey] = useState(canViewProductRipIntelligence ? "overallRipLeaderScore" : "alphabetical"),
@@ -582,8 +578,11 @@ export default function ProductFamilyRankingsClient({
       setSortDirection(canViewProductRipIntelligence ? "desc" : "asc");
       setView(next);
     },
-    changeView = (next) =>
+    changeView = (next) => {
+      if (next === "eras") setEraLens("rankings");
+      if (next === "sets") setSetLens("rankings");
       selectView(next === "products" ? "allProducts" : next);
+    };
   return (
     <>
       <SegmentedControl
@@ -635,19 +634,17 @@ export default function ProductFamilyRankingsClient({
         </nav>
       ) : null}
       {(view === "eras" || view === "sets") ? (
-        <SegmentedControl
-          className="mb-3 inline-block text-sm"
-          ariaLabel={`${view === "eras" ? "Era" : "Set"} analysis`}
-          value={view === "eras" ? eraLens : setLens}
-          onChange={view === "eras" ? setEraLens : setSetLens}
-          options={[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }]}
-        />
+        <nav aria-label={`${view === "eras" ? "Era" : "Set"} analysis`} className="mb-3 flex gap-2 overflow-x-auto pb-1" data-analysis-lens-tabs>
+          {[{ value: "rankings", label: "Rankings" }, { value: "economics", label: "Pack Economics" }].map((option) => { const value = view === "eras" ? eraLens : setLens; const setValue = view === "eras" ? setEraLens : setSetLens; return <button key={option.value} type="button" aria-pressed={value === option.value} onClick={() => setValue(option.value)} className={`${styles.productFamilyTab} ${value === option.value ? styles.productFamilyTabActive : ""}`}>{option.label}</button>; })}
+        </nav>
       ) : null}
       {view === "economics" ? (
         <OpeningEconomicsOverall economics={openingEconomics} targets={targets} onSelectEras={() => selectView("eras")} />
       ) : view === "eras" ? (
-        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
+        eraLens === "rankings" ? <EraRankings contract={eraSetStrength} marketDate={rankingsMarketDate} onSelectEra={(era) => { setSetLens("rankings"); selectView("sets"); setSelectedEra(era?.eraName || null); }} /> : <OpeningEconomicsEras
           economics={openingEconomics}
+          canViewRankingsIntelligence={canViewRankingsIntelligence}
+          onUnlockProductRip={onUnlockProductRip}
           onSelectEra={(era) => {
             setSetLens("economics");
             selectView("sets");
@@ -672,7 +669,7 @@ export default function ProductFamilyRankingsClient({
               </span>
             </div>
           ) : null}
-          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} />}
+          {setLens === "economics" ? <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} onUnlockProductRip={onUnlockProductRip} /> : <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewProductRipIntelligence} onUnlockProductRip={onUnlockProductRip} eraFilter={selectedEra} marketDate={rankingsMarketDate} />}
         </>
       ) : view === "cards" ? (
         <CardChaseEfficiencyRankings entitled={canViewCardChaseEfficiency} targets={targets} />

@@ -3,7 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useAuth } from "@/components/AuthContext";
 import InfoPopover from "@/components/ui/InfoPopover";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
@@ -39,6 +47,7 @@ import {
   scorePercent,
   validPullProbability,
 } from "./cardDetailModel.mjs";
+import { getObjectContainPaintedRect } from "./cardDetailImageGeometry.mjs";
 import {
   PROBABILITY_ANALYTICS_COLOR,
   PROBABILITY_ANALYTICS_SOFT_BORDER,
@@ -167,18 +176,19 @@ function PlusLock({ title }) {
   const id = title.replace(/\s/g, "-").toLowerCase();
   return (
     <section
+      data-plus-lock
       aria-labelledby={id}
-      className="set-glass-surface relative overflow-hidden rounded-2xl border p-5"
+      className="set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border"
     >
       <div
         aria-hidden="true"
-        className="grid grid-cols-3 gap-3 opacity-20 blur-sm"
+        className="absolute inset-0 grid grid-cols-3 gap-3 p-5 opacity-20 blur-sm"
       >
         <span className="h-16 rounded-xl bg-white/10" />
         <span className="h-16 rounded-xl bg-white/10" />
         <span className="h-16 rounded-xl bg-white/10" />
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.62)] text-center">
+      <div className="relative z-10 flex min-h-36 flex-col items-center justify-center bg-[rgba(2,6,23,.62)] px-5 py-6 text-center">
         <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">
           🔒 Index Plus
         </p>
@@ -751,24 +761,26 @@ function OpeningProductsSection({ detail }) {
 }
 
 function PremiumLock() {
+  const premiumTier = getRipTierPresentation("S", { strength: "hero" });
   return (
     <section
       data-chase-efficiency-lock
-      className="set-glass-surface relative overflow-hidden rounded-2xl border border-[rgba(45,212,191,.2)] p-5"
+      className="set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border border-[var(--tier-border)]"
+      style={premiumTier.style}
     >
       <div
         aria-hidden="true"
-        className="grid grid-cols-4 gap-2 opacity-20 blur-sm"
+        className="absolute inset-0 grid grid-cols-4 gap-2 p-5 opacity-20 blur-sm"
       >
         {[1, 2, 3, 4].map((key) => (
           <span
             key={key}
-            className="h-16 rounded-xl bg-[rgba(45,212,191,.18)]"
+            className="h-16 rounded-xl bg-[var(--tier-surface)]"
           />
         ))}
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.72)] text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
+      <div className="relative z-10 flex min-h-44 flex-col items-center justify-center bg-[rgba(2,6,23,.72)] px-5 py-6 text-center">
+        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--tier-color)]">
           Index Premium
         </p>
         <h2 className="mt-2 text-xl font-semibold">Unlock Chase Efficiency</h2>
@@ -778,7 +790,7 @@ function PremiumLock() {
         </p>
         <Link
           href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[rgba(45,212,191,.42)] bg-[rgba(45,212,191,.1)] px-4 text-sm font-semibold text-[var(--accent)]"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--tier-border)] bg-[var(--tier-surface)] px-4 text-sm font-semibold text-[var(--tier-color)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tier-color)]"
         >
           Explore Index Premium
         </Link>
@@ -1009,12 +1021,18 @@ function ChaseEfficiencySection({ state, detail }) {
   );
 }
 
-function treatmentMethodology(rarity, score) {
-  const current =
-    rarity && finite(score) !== null
-      ? `Current treatment: ${rarity} → ${(finite(score) / 10).toFixed(1)} / 10. `
+function treatmentMethodology(rarity, metric) {
+  const lead =
+    "How much extra value does the market give a card just because of its treatment, once we remove the effects of Pokémon popularity and rarity/pull odds?";
+  if (!metric?.available)
+    return `${lead} Treatment Prestige V2 is currently unavailable for this printing because approved scarcity-adjusted evidence has not been published.`;
+  const premium = finite(metric.adjustedMarketPremiumPct);
+  const score = finite(metric.score10);
+  const evidence =
+    metric.cardCount && metric.setCount
+      ? ` Based on ${metric.cardCount} cards across ${metric.setCount} sets.`
       : "";
-  return `${current}Card Treatment is the current V1 rarity/treatment score for this printing. It does not use market price, pull odds, Pokémon popularity, or artwork quality. Scale: SIR 9.6; IR 8.4; Hyper Rare / Gold 8.2; Ultra Rare 8.0; Ace Spec 6.8; Double Rare 6.2; Rare Holo 4.5; Rare 3.6; Uncommon 2.2; Common 1.8; Other/unmatched 3.0.`;
+  return `${lead} Treatment Prestige V2 estimates the market premium associated with this treatment after controlling for Pokémon identity/popularity, pull scarcity, and set effects. The 0–10 score is derived from how consistently this treatment's adjusted premium exceeds other validated treatments across repeated statistical samples. Scores are measured from market data, not assigned by hand. Current treatment: ${rarity || metric.treatmentKey || "Unavailable"}. Adjusted treatment premium: ${premium === null ? "Unavailable" : `${premium >= 0 ? "+" : ""}${premium.toFixed(1)}%`}. Treatment score: ${score === null ? "Unavailable" : `${score.toFixed(1)} / 10`}. Study: Card Treatment Prestige V2.${evidence}`;
 }
 
 function CollectorIntelligence({ intelligence, rarity }) {
@@ -1097,8 +1115,8 @@ function CollectorIntelligence({ intelligence, rarity }) {
           />
           <Meter
             label="Card Treatment"
-            metric={intelligence?.treatment}
-            info={treatmentMethodology(rarity, intelligence?.treatment?.score)}
+            metric={intelligence?.treatmentPrestige}
+            info={treatmentMethodology(rarity, intelligence?.treatmentPrestige)}
           />
           <Meter
             label="Scarcity"
@@ -1111,7 +1129,7 @@ function CollectorIntelligence({ intelligence, rarity }) {
   );
 }
 
-function CardArtwork({ detail }) {
+function CardArtwork({ detail, imageRef, onLoad }) {
   const source = detail.card.imageLargeUrl || detail.card.imageSmallUrl;
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [source]);
@@ -1126,11 +1144,13 @@ function CardArtwork({ detail }) {
     );
   return (
     <Image
+      ref={imageRef}
       src={source}
       alt={`${detail.card.name} card artwork`}
       width={734}
       height={1024}
       priority
+      onLoad={onLoad}
       onError={() => setFailed(true)}
       className="h-auto w-full max-w-[430px] object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)] md:h-full md:w-auto md:max-w-full"
     />
@@ -1141,6 +1161,9 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const [detail, setDetail] = useState(initialDetail);
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
+  const artworkAreaRef = useRef(null);
+  const artworkImageRef = useRef(null);
+  const [artworkAlignment, setArtworkAlignment] = useState(null);
   const { user } = useAuth();
   const router = useRouter();
   const entitled = hasIndexPlusAccess(user?.index_plan);
@@ -1182,6 +1205,52 @@ export default function PokemonCardDetailClient({ initialDetail }) {
     detail.selectedVariantId,
   ]);
   const setHref = buildCardParentSetHref(detail.set);
+  const cardImageSource =
+    detail.card.imageLargeUrl || detail.card.imageSmallUrl;
+  const syncArtworkAlignment = useCallback(() => {
+    const image = artworkImageRef.current;
+    const area = artworkAreaRef.current;
+    if (
+      !image ||
+      !area ||
+      !image.complete ||
+      image.naturalWidth <= 0 ||
+      image.naturalHeight <= 0
+    )
+      return;
+    const painted = getObjectContainPaintedRect({
+      imageRect: image.getBoundingClientRect(),
+      naturalWidth: image.naturalWidth,
+      naturalHeight: image.naturalHeight,
+    });
+    if (!painted) return;
+    const areaBounds = area.getBoundingClientRect();
+    setArtworkAlignment({
+      width: painted.width,
+      left: painted.left - areaBounds.left,
+    });
+  }, []);
+  useLayoutEffect(() => {
+    setArtworkAlignment(null);
+    const image = artworkImageRef.current;
+    const area = artworkAreaRef.current;
+    if (!image || !area) return undefined;
+    syncArtworkAlignment();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(syncArtworkAlignment);
+    observer.observe(image);
+    observer.observe(area);
+    window.addEventListener("resize", syncArtworkAlignment);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncArtworkAlignment);
+    };
+  }, [
+    cardImageSource,
+    detail.card.id,
+    detail.selectedVariantId,
+    syncArtworkAlignment,
+  ]);
   const artwork = optimizedImageUrl(
     detail.set.heroImageUrl ||
       detail.set.logoImageUrl ||
@@ -1217,74 +1286,73 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         dataAttribute="data-card-set-ambient-artwork"
         visibilityClassName="hidden sm:block"
       />
+      <nav
+        data-card-back-navigation
+        className="relative mx-auto mb-4 max-w-[1600px]"
+      >
+        <Link
+          href={setHref}
+          className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          ← Back to {detail.set.name}
+        </Link>
+      </nav>
       <div className="relative mx-auto max-w-[1400px] space-y-4">
-        <div className="lg:-ml-6">
-          <Link
-            href={setHref}
-            className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
-            ← Back to {detail.set.name}
-          </Link>
-        </div>
         <section
           data-card-detail-hero
           className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
         >
-          <div className="order-1 grid gap-4 md:h-full md:min-h-0 md:grid-rows-[auto_minmax(0,1fr)_auto]">
-            <header data-card-identity>
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">{detail.set.name}</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{detail.card.name}</h1>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{[detail.card.rarity, detail.card.printedNumber || detail.card.cardNumber].filter(Boolean).join(" · ")}</p>
-            </header>
-            <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0">
-              <CardArtwork detail={detail} />
-            </div>
-            <section
-              aria-labelledby="details-title"
-              data-card-details-panel
-              className="set-glass-surface rounded-xl border px-4 py-3"
+          <div className="order-1 flex min-w-0 justify-center md:h-full md:min-h-0">
+            <div
+              data-card-visual-frame
+              className="grid h-full min-h-0 w-full gap-4 md:grid-rows-[auto_minmax(0,1fr)]"
             >
-              <h2 id="details-title" className="text-sm font-semibold">
-                Card Details
-              </h2>
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">Set</dt>
-                  <dd className="font-medium">{detail.set.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Card Number
-                  </dt>
-                  <dd className="font-medium">
-                    {detail.card.printedNumber ||
-                      detail.card.cardNumber ||
-                      "Unavailable"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Rarity
-                  </dt>
-                  <dd className="font-medium">
-                    {detail.card.rarity || "Unavailable"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-[var(--text-secondary)]">
-                    Market Price As Of
-                  </dt>
-                  <dd className="font-medium">
-                    {dateLabel(detail.market.marketDate)}
-                  </dd>
-                </div>
-              </dl>
-              {error ? (
-                <p role="alert" className="mt-3 text-sm text-red-300">
-                  {error}
+              <header
+                data-card-identity
+                className="min-w-0 max-w-full justify-self-start text-left"
+                style={
+                  artworkAlignment
+                    ? {
+                        width: `${artworkAlignment.width}px`,
+                        marginLeft: `${artworkAlignment.left}px`,
+                      }
+                    : undefined
+                }
+              >
+                <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
+                  {detail.set.name}
                 </p>
-              ) : null}
-            </section>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  {detail.card.name}
+                </h1>
+                <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+                  {[
+                    detail.card.rarity,
+                    detail.card.printedNumber || detail.card.cardNumber,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Market Price As Of {dateLabel(detail.market.marketDate)}
+                </p>
+                {error ? (
+                  <p role="alert" className="mt-2 text-sm text-red-300">
+                    {error}
+                  </p>
+                ) : null}
+              </header>
+              <div
+                ref={artworkAreaRef}
+                className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end"
+              >
+                <CardArtwork
+                  detail={detail}
+                  imageRef={artworkImageRef}
+                  onLoad={syncArtworkAlignment}
+                />
+              </div>
+            </div>
           </div>
           <div className="order-2 min-w-0 md:h-full">
             <div data-card-market-panel className="h-full">
@@ -1333,8 +1401,8 @@ export default function PokemonCardDetailClient({ initialDetail }) {
               Opening outcomes are independent under the model assumptions.
             </li>
             <li>
-              Market source: {detail.market.source || "Unavailable"}; recovery
-              model: {detail.chase?.recoveryModel || "Unavailable"}.
+              Market prices are derived from tracked market observations;
+              recovery model: {detail.chase?.recoveryModel || "Unavailable"}.
             </li>
           </ul>
         </details>

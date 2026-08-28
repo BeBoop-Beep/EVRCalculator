@@ -91,11 +91,7 @@ test("Phase 3C: getPokemonSetInitialSnapshots no longer fetches full cards for t
   // Cards and market-dashboard slots resolve empty unconditionally; the
   // overview slot falls back to the empty placeholder off the Market tab.
   const emptyPlaceholderCount = (fnSource.match(/Promise\.resolve\(EMPTY_INITIAL_SNAPSHOT\)/g) || []).length;
-  assert.equal(
-    emptyPlaceholderCount,
-    4,
-    "cards and market-dashboard stay empty while market and simulation-evidence seeds fall back empty off their owning tabs"
-  );
+  assert.equal(emptyPlaceholderCount, 5);
 });
 
 test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the Market tab only", () => {
@@ -112,17 +108,19 @@ test("getPokemonSetInitialSnapshots seeds the compact market bootstrap for the M
     fnSource.includes("wantsMarketSeed ? getPokemonSetMarketBootstrapInitialSnapshot(setId) : Promise.resolve(EMPTY_INITIAL_SNAPSHOT)"),
     "the compact bootstrap payload must be fetched only when Market is the active tab, resolving empty otherwise"
   );
-  assert.ok(fnSource.includes('const wantsSimulationEvidence = resolvedTab === "overview"'));
+  assert.ok(fnSource.includes('const wantsRipBootstrap = resolvedTab === "overview"'));
   assert.ok(fnSource.includes("errors.overview"), "must surface errors.overview on overview seed failure");
   assert.ok(fnSource.includes("overviewPayload: overview.payload"), "must return overviewPayload");
   assert.ok(fnSource.includes("overviewMs: overview.elapsedMs"), "must return overviewMs in timings");
+  assert.ok(fnSource.includes("marketMoversPayload: marketMovers.payload"), "must return the independent 7D Movers seed");
+  assert.ok(fnSource.includes("resolvedTab,"), "must identify which destination owns the returned seeds");
   // Only the shell and overview snapshots are server-seeded — top chase,
   // movers, cards, pull rates, and insights stay client-fetched.
   const snapshotCalls = [...new Set(fnSource.match(/getPokemonSet\w+InitialSnapshot\(/g) || [])].sort();
   assert.deepEqual(
     snapshotCalls,
-    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot(", "getPokemonSetSimulationEvidenceInitialSnapshot("],
-    "only shell, market bootstrap, and simulation evidence initial snapshots may be fetched here"
+    ["getPokemonSetMarketBootstrapInitialSnapshot(", "getPokemonSetMarketMoversInitialSnapshot(", "getPokemonSetRipBootstrapInitialSnapshot(", "getPokemonSetShellInitialSnapshot("],
+    "only shell, market bootstrap, independent Movers, and RIP bootstrap initial snapshots may be fetched here"
   );
 });
 
@@ -150,14 +148,14 @@ test("getPokemonSetOverviewInitialSnapshot uses the Next data cache with a per-s
 // page.js route – timing instrumentation
 // ---------------------------------------------------------------------------
 
-test("set page route captures targetsMs with bookend timestamps around getRipStatisticsTargets", () => {
+test("set page route captures directory/targets timing with bookend timestamps", () => {
   const source = fs.readFileSync(setRoutePath, "utf8");
   const targetsStartIndex = source.indexOf("const targetsStartedAt = Date.now()");
-  const targetsCallIndex = source.indexOf("getRipStatisticsTargets(", targetsStartIndex);
+  const targetsCallIndex = source.indexOf("const targetsPayload = useSlimSetDirectory", targetsStartIndex);
   const targetsMsIndex = source.indexOf("const targetsMs = Date.now() - targetsStartedAt", targetsCallIndex);
 
   assert.ok(targetsStartIndex >= 0, "must have targetsStartedAt");
-  assert.ok(targetsCallIndex > targetsStartIndex, "getRipStatisticsTargets must be called after targetsStartedAt");
+  assert.ok(targetsCallIndex > targetsStartIndex, "directory/targets selection must follow targetsStartedAt");
   assert.ok(targetsMsIndex > targetsCallIndex, "targetsMs must be computed after getRipStatisticsTargets");
 });
 

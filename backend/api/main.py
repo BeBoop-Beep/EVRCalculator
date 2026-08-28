@@ -82,6 +82,11 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_insights_secondary_snapshot_payload,
     get_pokemon_set_insights_snapshot_payload,
     get_pokemon_set_simulation_evidence_snapshot_payload,
+    get_pokemon_set_rip_bootstrap_snapshot_payload,
+    get_pokemon_set_rip_simulation_evidence_snapshot_payload,
+    get_pokemon_set_rip_advanced_snapshot_payload,
+    get_pokemon_set_rip_global_context_payload,
+    get_pokemon_set_rip_rank_context_payload,
     get_pokemon_set_market_dashboard_snapshot_payload,
     get_pokemon_set_market_bootstrap_snapshot_payload,
     get_pokemon_set_market_signals_snapshot_payload,
@@ -93,6 +98,10 @@ from backend.db.services.pokemon_public_snapshot_service import (
     get_pokemon_set_top_chase_snapshot_payload,
     get_pokemon_set_top_market_cards_snapshot_payload,
     get_pokemon_set_value_history_snapshot_payload,
+)
+from backend.db.services.pokemon_sealed_product_detail_service import (
+    PokemonSealedProductDetailError,
+    get_pokemon_sealed_product_detail_payload,
 )
 from backend.db.services.pokemon_set_route_directory_service import (
     get_pokemon_set_route_directory_payload,
@@ -1087,6 +1096,24 @@ def get_pokemon_card_chase_efficiency(
         return JSONResponse(content={"message": "Unable to load card Chase Efficiency", "code": "CARD_CHASE_EFFICIENCY_FAILED"}, status_code=500)
 
 
+@app.get("/tcgs/pokemon/sealed-products/{product_id}")
+def get_pokemon_sealed_product_detail(product_id: str):
+    """Return one real sealed-product identity, market history, and published RIP contract."""
+    try:
+        return get_pokemon_sealed_product_detail_payload(product_id)
+    except PokemonSealedProductDetailError as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sealed-products/%s unexpected error", product_id)
+        return JSONResponse(
+            content={"message": "Unable to load Pokemon sealed product", "code": "POKEMON_SEALED_PRODUCT_DETAIL_FAILED"},
+            status_code=500,
+        )
+
+
 @app.get("/tcgs/pokemon/sets/{set_id}/pull-rates")
 def get_pokemon_set_pull_rates(set_id: str):
     """Return the slim Pull Rates-tab snapshot (pull rate assumptions only) for a Pokemon set."""
@@ -1114,6 +1141,47 @@ def get_pokemon_set_simulation_evidence(set_id: str):
     except Exception:
         logger.exception("/tcgs/pokemon/sets/%s/simulation-evidence unexpected error", set_id)
         return JSONResponse(content={"message": "Unable to load simulation evidence", "code": "POKEMON_SET_SIMULATION_EVIDENCE_FAILED"}, status_code=500)
+
+
+def _set_rip_response(reader, set_id: str, **kwargs):
+    try:
+        return reader(set_id=set_id, **kwargs)
+    except (PokemonSetMarketError, ExploreRipStatisticsTargetsError) as exc:
+        return JSONResponse(
+            content={"message": exc.message, "code": exc.code, "retryable": exc.status_code >= 500},
+            status_code=exc.status_code,
+        )
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/rip projection unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load Set RIP data", "code": "POKEMON_SET_RIP_FAILED", "retryable": True}, status_code=500)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/bootstrap")
+def get_pokemon_set_rip_bootstrap(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_bootstrap_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/simulation-evidence")
+def get_pokemon_set_rip_simulation_evidence(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_simulation_evidence_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/advanced")
+def get_pokemon_set_rip_advanced(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_advanced_snapshot_payload, set_id)
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/global-context")
+def get_pokemon_set_rip_global_context(set_id: str, expected_calculation_run_id: str | None = None):
+    return _set_rip_response(
+        get_pokemon_set_rip_global_context_payload, set_id,
+        expected_calculation_run_id=expected_calculation_run_id,
+    )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/rip/rank-context")
+def get_pokemon_set_rip_rank_context(set_id: str):
+    return _set_rip_response(get_pokemon_set_rip_rank_context_payload, set_id)
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/insights")
@@ -1443,6 +1511,41 @@ def get_pokemon_set_consumer_sealed_market(set_id: str):
             status_code=503,
             headers={"Cache-Control": "no-store"},
         )
+
+
+@app.get("/tcgs/pokemon/sets/{set_id}/market/sealed-summary")
+def get_pokemon_set_consumer_sealed_summary(set_id: str):
+    """Aggregate-only consumer Sealed contract; top products remain deferred."""
+    try:
+        resolved_set = resolve_pokemon_set_identifier(set_id, client=service_read_client)
+        resolved_set_id = str(resolved_set["id"])
+        result = run_public_read_with_retry(
+            lambda client: client.table("pokemon_set_sealed_market_snapshot_latest")
+                .select(
+                    "set_id,updated_at,marketDate:payload_json->marketDate,"
+                    "setPageConsumerMarket:payload_json->setPageConsumerMarket,"
+                    "meta:payload_json->meta"
+                )
+                .eq("set_id", resolved_set_id).limit(1).execute(),
+            operation_name="pokemon_set_consumer_sealed_summary",
+            initial_client=service_read_client,
+        )
+        row = (result.data or [None])[0]
+        if not row:
+            return JSONResponse(content={"message": "Consumer sealed summary is unavailable", "code": "POKEMON_SET_CONSUMER_SEALED_SUMMARY_UNAVAILABLE"}, status_code=404)
+        if not isinstance(row.get("setPageConsumerMarket"), dict):
+            return JSONResponse(content={"message": "Consumer sealed summary publication is incomplete", "code": "POKEMON_SET_CONSUMER_SEALED_SUMMARY_INCOMPLETE", "retryable": True}, status_code=503, headers={"Cache-Control": "no-store"})
+        return {
+            "set": {"id": resolved_set_id, "name": resolved_set.get("name"), "slug": resolved_set.get("canonical_key")},
+            "marketDate": row.get("marketDate"),
+            "setPageConsumerMarket": row.get("setPageConsumerMarket"),
+            "meta": {**(row.get("meta") or {}), "updatedAt": row.get("updated_at")},
+        }
+    except PokemonSetMarketError as exc:
+        return JSONResponse(content={"message": exc.message, "code": exc.code}, status_code=exc.status_code)
+    except Exception:
+        logger.exception("/tcgs/pokemon/sets/%s/market/sealed-summary unexpected error", set_id)
+        return JSONResponse(content={"message": "Unable to load consumer sealed summary", "code": "POKEMON_SET_CONSUMER_SEALED_SUMMARY_FAILED", "retryable": True}, status_code=503, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/tcgs/pokemon/sets/{set_id}/market/movers")

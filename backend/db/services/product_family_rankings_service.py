@@ -155,6 +155,10 @@ def _project(row: Mapping[str, Any], identity: Mapping[str, Any], rank: int, siz
         "financialRipLeaderScore": financial_leader,
         "financialRipVersion": row.get("financial_rip_v4_version"),
         "collectorAppealScore": row.get("collector_appeal_score"),
+        "collectorAppealTier": (
+            assign_composite_tier(_number(row.get("collector_appeal_score"), 0.0))
+            if row.get("collector_appeal_score") is not None else None
+        ),
         "collectorAppealVersion": row.get("collector_appeal_version"),
         "expectedValue": row.get("expected_value"),
         "medianValue": row.get("median_value"),

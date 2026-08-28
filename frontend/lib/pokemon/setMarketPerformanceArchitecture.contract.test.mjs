@@ -9,9 +9,9 @@ const sealedHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetSea
 const marketClient = fs.readFileSync(new URL("./pokemonSetMarketClient.js", import.meta.url), "utf8");
 const signalsHook = fs.readFileSync(new URL("../../hooks/pokemon/usePokemonSetMarketSignals.js", import.meta.url), "utf8");
 
-test("Market route uses the slim route directory while RIP retains Rankings targets", () => {
-  assert.match(route, /activeSetDetailTab === "market"[\s\S]*getPokemonSetRouteDirectory/);
-  assert.match(route, /:[\s\S]*getRipStatisticsTargets/);
+test("Market and RIP routes use the slim route directory", () => {
+  assert.match(route, /activeSetDetailTab === "overview" \|\| activeSetDetailTab === "market"/);
+  assert.match(route, /useSlimSetDirectory[\s\S]*getPokemonSetRouteDirectory/);
 });
 
 test("Market server seed uses the dedicated bootstrap projection", () => {

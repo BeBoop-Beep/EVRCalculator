@@ -247,14 +247,16 @@
   transition: background-color 140ms ease, box-shadow 140ms ease;
 }
 
-.row td {
+.row td,
+.row th[scope="row"] {
   border-bottom: 1px solid rgba(255, 255, 255, 0.035);
   padding: 7px 10px;
   vertical-align: middle;
   background-color: rgba(255, 255, 255, 0.008);
 }
 
-.row:last-child td {
+.row:last-child td,
+.row:last-child th[scope="row"] {
   border-bottom: 0;
 }
 
@@ -262,7 +264,9 @@
    Background lift + a faint left-to-right wash + a 2px inset accent edge.
    Inset shadow (not a border) so nothing reflows on hover. */
 .row:hover td,
-.row:focus-within td {
+.row:hover th[scope="row"],
+.row:focus-within td,
+.row:focus-within th[scope="row"] {
   background-color: rgba(255, 255, 255, 0.03);
   background-image: linear-gradient(90deg, rgba(var(--ex-teal), 0.075) 0%, transparent 42%);
   color: var(--text-primary);
@@ -271,14 +275,27 @@
 /* Lead rows keep their tier tint while hovered; everything else picks up the
    brand teal edge. One accent per row, never two competing colors. */
 .row:hover td:first-child,
-.row:focus-within td:first-child {
+.row:hover th[scope="row"]:first-child,
+.row:focus-within td:first-child,
+.row:focus-within th[scope="row"]:first-child {
   box-shadow: inset 2px 0 0 var(--ex-rank-accent, rgba(var(--ex-teal), 0.7));
 }
 
 /* Top of the ladder: a narrow tier-tinted edge instead of a medal. The tier
    letter and the rank numeral carry the same meaning in text. */
-.row td:first-child {
+.row td:first-child,
+.row th[scope="row"]:first-child {
   box-shadow: inset 2px 0 0 var(--ex-rank-accent, rgba(var(--ex-teal), 0.55));
+}
+
+.eraEconomicsCell {
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+
+.eraGlobalBaselineRow > td,
+.eraGlobalBaselineRow > th[scope="row"] {
+  border-top: 1px solid var(--ex-line-strong);
 }
 
 /* Full-row click target driven by the single real link in the row. Keeps one
@@ -892,6 +909,10 @@
 .productFamilyTabOverall { border-color: rgba(45,212,191,.42); background: linear-gradient(180deg, rgba(45,212,191,.09), rgba(45,212,191,.025)), var(--surface-page); font-weight: 700; box-shadow: inset 0 1px rgba(153,246,228,.10); }
 .productFamilyTabOverallIcon { display: inline-block; margin-right: .35rem; color: rgba(94,234,212,.9); font-size: .82rem; }
 .productFamilyTabOverallActive { background: linear-gradient(180deg, rgba(45,212,191,.19), rgba(45,212,191,.08)); box-shadow: inset 0 1px rgba(204,251,241,.2), inset 0 0 12px rgba(45,212,191,.08), 0 0 14px rgba(45,212,191,.1); }
+
+.analyticsTableShell { border-radius: .75rem; }
+.analyticsToolbar { border-bottom: 1px solid var(--border-subtle); background: linear-gradient(115deg, rgba(14,116,144,.10), rgba(13,148,136,.055) 55%, rgba(255,255,255,.012)); }
+.analyticsTableHead { background: linear-gradient(180deg, rgba(14,116,144,.11), rgba(13,148,136,.045)); }
 
 :global([data-theme="light"]) .setMarketControl {
   color-scheme: light;

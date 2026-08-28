@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 
 import SectionErrorBoundary from "@/components/ui/SectionErrorBoundary";
 import SetMarketMobileMovers from "./SetMarketMobileMovers.jsx";
 import SetMarketMobileSetValue from "./SetMarketMobileSetValue.jsx";
 import SetMarketMobileTopChase from "./SetMarketMobileTopChase.jsx";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import { useSetMarketSignalAccess } from "./SetMarketSignals.jsx";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 
@@ -57,7 +58,13 @@ export default function SetMarketMobile({
   setValue,
   topChase,
 }) {
-  const sealedState = usePokemonSetSealedMarket(setId, { enabled: false });
+  const sealedProductsState = usePokemonSetSealedMarket(setId, { enabled: false });
+  const sealedSummaryState = usePokemonSetSealedSummary(setId, { enabled: false });
+  const loadSealedSummary = sealedSummaryState.load;
+  useEffect(() => {
+    const settled = (status) => ["success", "success_stale", "error", "empty"].includes(status);
+    if (settled(setValue?.status) && settled(movers?.status)) loadSealedSummary();
+  }, [setId, setValue?.status, movers?.status, loadSealedSummary]);
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const entitledSetValue = useMemo(() => ({
@@ -76,11 +83,11 @@ export default function SetMarketMobile({
 
       <SectionErrorBoundary sectionName="market-mobile-set-value" resetKeys={[setId]} title="Market Snapshot" minHeightClassName="min-h-[16rem]">
         <span id={sectionIds.sealed} aria-hidden="true" className="block" />
-        <SetMarketMobileSetValue id={sectionIds.setValue} setId={setId} sealedState={sealedState} {...entitledSetValue} />
+        <SetMarketMobileSetValue id={sectionIds.setValue} setId={setId} sealedSummaryState={sealedSummaryState} {...entitledSetValue} />
       </SectionErrorBoundary>
 
       <SectionErrorBoundary sectionName="market-mobile-top-chase" resetKeys={[setId]} title="Top Chase Cards" minHeightClassName="min-h-[14rem]">
-        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} sealedState={sealedState} {...topChase} />
+        <SetMarketMobileTopChase id={sectionIds.topChase} setId={setId} sealedState={sealedProductsState} {...topChase} />
       </SectionErrorBoundary>
     </section>
   );

@@ -13,9 +13,9 @@ key, ``publicRipContractV10``, and nothing else. Public metric names do not move
 with a model version - the whole point of the contract layer is that they do
 not.
 
-NOT YET CANONICAL. ``canonical_public_rip_contract_version()`` still resolves to
-V9. This module exists so V10 is computable and testable ahead of a deliberate
-promotion; see the cutover note in ``scoring_config``.
+V10 is the current canonical public contract. Its stable projection shape keeps
+the prior contract's public names while version-forwarding the canonical V10/V4
+objects.
 """
 
 from __future__ import annotations

@@ -489,7 +489,7 @@ function SortableHeader({ columnId, label, sort, onSort, note, infoText = null, 
   );
 }
 
-export default function ExploreTableClient({ targets = [], loadError = false, canViewProductRipIntelligence = false, onUnlockProductRip = null, eraFilter = null, onClearEraFilter = null }) {
+export default function ExploreTableClient({ targets = [], loadError = false, canViewProductRipIntelligence = false, onUnlockProductRip = null, eraFilter = null, onClearEraFilter = null, marketDate = null }) {
   const [selectedMode, setSelectedMode] = useState(DEFAULT_MODE);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAllMobileRows, setShowAllMobileRows] = useState(false);
@@ -642,7 +642,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
 
   return (
     <RankColumnModeContext.Provider value={selectedMode}>
-    <section className={`${styles.surface} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets">
+    <section className={`${styles.surface} ${styles.analyticsTableShell} set-glass-surface flex min-w-0 flex-col`} aria-label="Compare all sets" data-analytics-table-shell>
       <div className={`${styles.divider} px-3 py-3 sm:px-4 md:hidden`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="min-w-0 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">Compare all sets</h2>
@@ -672,10 +672,11 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
           </div>
         </div>
         <p className="mt-2 text-xs font-semibold text-[var(--text-secondary)]"><span className="text-[var(--text-primary)]">{activeSortLabel}</span><span aria-hidden="true" className="px-2">•</span><span className="tabular-nums">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked</p>
+        {marketDate ? <p className="mt-1 text-[11px] tabular-nums text-[var(--text-secondary)]">As of {marketDate}</p> : null}
         <TableSearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search sets..." ariaLabel="Search sets" containerClassName="mt-3" />
       </div>
       {/* One compact control row: title menu, definition, hint, cohort size. */}
-      <div className={`${styles.divider} hidden gap-3 px-3 py-3 desk:py-2.5 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_16rem_minmax(0,1fr)] md:items-center`}>
+      <div className={`${styles.divider} ${styles.analyticsToolbar} hidden gap-3 px-3 py-3 desk:py-2.5 sm:px-4 md:grid md:grid-cols-[minmax(0,1fr)_16rem_minmax(0,1fr)] md:items-center`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <div className="relative min-w-0" ref={dropdownContainerRef}>
             <h2
@@ -816,6 +817,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
           <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--text-secondary)]">
             <span className="tabular-nums text-[var(--text-primary)]">{displayedTargets.length}</span> shown · {canonicalTargets.length} ranked
           </span>
+          {marketDate ? <span className="whitespace-nowrap text-[11px] tabular-nums text-[var(--text-secondary)]">As of {marketDate}</span> : null}
         </div>
       </div>
 
@@ -843,7 +845,7 @@ export default function ExploreTableClient({ targets = [], loadError = false, ca
                 {RANKINGS_FAMILY_COLUMNS.map((column) => <col key={column.key} style={{ width: "5.7%" }} />)}
                 <col style={{ width: "14%" }} />
               </colgroup>
-              <thead className={styles.head}>
+              <thead className={`${styles.head} ${styles.analyticsTableHead}`}>
                 <tr>
                   <th scope="col" className={styles.numeric}>
                     <span aria-hidden="true">#</span>

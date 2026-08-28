@@ -323,13 +323,14 @@ def test_top_chase_is_unavailable_when_no_card_has_both_a_price_and_a_probabilit
 # Top chase contract (read path)
 # ---------------------------------------------------------------------------
 
-def _top_chase_client(price_rows, input_rows, variant_rows=(), card_rows=()):
+def _top_chase_client(price_rows, input_rows, variant_rows=(), card_rows=(), canonical_rows=()):
     return _Client(
         {
             "simulation_input_cards_with_near_mint_price": lambda query: list(price_rows),
             "simulation_input_cards": lambda query: list(input_rows),
             "card_variants": lambda query: list(variant_rows),
             "cards": lambda query: list(card_rows),
+            "pokemon_canonical_cards": lambda query: list(canonical_rows),
         }
     )
 
@@ -351,12 +352,15 @@ def test_top_chase_contract_shape_and_modeled_odds():
             "image_large_url": None,
         }
     ]
-    client = _top_chase_client(price_rows, input_rows, variant_rows)
+    card_rows = [{"id": "card-b", "set_id": "set-a", "pokemon_tcg_api_id": "api-b"}]
+    canonical_rows = [{"id": "canonical-b", "set_id": "set-a", "pokemon_tcg_api_card_id": "api-b"}]
+    client = _top_chase_client(price_rows, input_rows, variant_rows, card_rows, canonical_rows)
 
     chase = build_top_chase_contract(run_id=RUN_A, client=client)
 
     assert chase["cardId"] == "card-b"
-    assert chase["canonicalCardId"] == "card-b"
+    assert chase["canonicalCardId"] == "canonical-b"
+    assert chase["pokemonTcgApiCardId"] == "api-b"
     assert chase["cardVariantId"] == "variant-b"
     assert chase["cardName"] == "Card B"
     assert chase["rarity"] == "ultra_rare"
@@ -434,7 +438,32 @@ def test_top_chase_reads_a_bounded_number_of_queries_for_a_full_set():
     # chosen card. Never one query per card.
     assert len(client.table_calls("simulation_input_cards")) == 1
     assert len(client.table_calls("simulation_input_cards_with_near_mint_price")) == 1
-    assert len(client.queries) <= 4
+    assert len(client.queries) <= 6
+
+
+def test_top_chase_canonical_mapping_requires_set_and_external_card_id():
+    client = _top_chase_client(
+        [_price_row(card_id="legacy", card_variant_id="variant-a")],
+        [{"card_variant_id": "variant-a", "effective_pull_rate": 100}],
+        card_rows=[{"id": "legacy", "set_id": "set-a", "pokemon_tcg_api_id": "api-1"}],
+        canonical_rows=[{"id": "canonical", "set_id": "set-a", "pokemon_tcg_api_card_id": "api-1"}],
+    )
+    chase = build_top_chase_contract(run_id=RUN_A, client=client)
+    canonical_query = client.table_calls("pokemon_canonical_cards")[0]
+    assert ("set_id", "set-a") in canonical_query.eq_filters
+    assert ("pokemon_tcg_api_card_id", "api-1") in canonical_query.eq_filters
+    assert chase["cardId"] == "legacy"
+    assert chase["canonicalCardId"] == "canonical"
+
+
+def test_top_chase_ambiguous_canonical_mapping_publishes_no_guessed_id():
+    client = _top_chase_client(
+        [_price_row(card_id="legacy", card_variant_id="variant-a")],
+        [{"card_variant_id": "variant-a", "effective_pull_rate": 100}],
+        card_rows=[{"id": "legacy", "set_id": "set-a", "pokemon_tcg_api_id": "api-1"}],
+        canonical_rows=[{"id": "canonical-a"}, {"id": "canonical-b"}],
+    )
+    assert build_top_chase_contract(run_id=RUN_A, client=client)["canonicalCardId"] is None
 
 
 def test_both_top_chase_reads_are_scoped_to_the_same_run():

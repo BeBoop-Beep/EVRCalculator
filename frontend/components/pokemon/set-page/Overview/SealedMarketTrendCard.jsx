@@ -13,6 +13,8 @@ import MarketValueChange from "@/components/ui/MarketValueChange";
 import usePointerMode, { POINTER_MODE_COARSE } from "@/hooks/usePointerMode";
 import { NEGATIVE_VALUE_COLOR, POSITIVE_VALUE_COLOR } from "@/lib/explore/interpretationTone";
 import { getPokemonSetSealedMarket } from "@/lib/pokemon/pokemonSetMarketClient";
+import Link from "next/link";
+import { buildSealedProductHref } from "@/lib/pokemon/sealedProductRoutes";
 import SealedProductPicker from "./SealedProductPicker";
 import { SEALED_MARKET_WINDOWS, getDisplayedTrendDirection, selectSealedProduct, selectSealedWindow, sortSealedProductsByCurrentPrice } from "./sealedMarketTrendSelector.mjs";
 
@@ -143,6 +145,9 @@ export default function SealedMarketTrendCard({ setId }) {
             onChange={setSelectedId}
             onOpenChange={setPickerOpen}
           />
+          <Link href={buildSealedProductHref(product)} className="mt-2 inline-flex text-xs font-semibold text-[var(--accent)] hover:underline">
+            View Product <span aria-hidden="true" className="ml-1">→</span>
+          </Link>
           <MarketWindowSelector
             windows={SEALED_MARKET_WINDOWS}
             value={windowKey}

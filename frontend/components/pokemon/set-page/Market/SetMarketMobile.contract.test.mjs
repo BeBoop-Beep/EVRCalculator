@@ -15,6 +15,7 @@ const setValue = read("./SetMarketMobileSetValue.jsx");
 const topChase = read("./SetMarketMobileTopChase.jsx");
 const model = read("./setMarketMobileModel.mjs");
 const sealedHook = read("../../../../hooks/pokemon/usePokemonSetSealedMarket.js");
+const sealedSummaryHook = read("../../../../hooks/pokemon/usePokemonSetSealedSummary.js");
 
 // These files carry long explanatory comments that legitimately discuss prices
 // and metrics the code does not render ("$1k", "market cap"). The assertions
@@ -110,7 +111,8 @@ test("desktop Market mounts its own production modules exactly once, unaffected 
   // is defined once, above the JSX return, and used by both the desktop lens
   // and the mobile Market Snapshot lens.
   assert.equal((page.match(/usePokemonSetSealedMarket\(/g) || []).length, 1, "desktop has one shared Sealed hook owner");
-  assert.equal((page.match(/sealedState=\{desktopSealedMarketState\}/g) || []).length, 2);
+  assert.equal((page.match(/sealedSummaryState=\{desktopSealedSummaryState\}/g) || []).length, 1);
+  assert.equal((page.match(/sealedState=\{desktopSealedMarketState\}/g) || []).length, 1);
 });
 
 test("mobile reuses the desktop deep-link anchors so ?section= resolves at both widths", () => {
@@ -171,7 +173,7 @@ test("Market Snapshot offers exactly Cards, Sealed, Graded — not ranking scope
   // selector), not a static array, so an unavailable lens can be disabled
   // rather than clickable-then-reverting.
   assert.ok(setValue.includes("buildMarketSegmentRows(trendsByKey)"));
-  assert.ok(setValue.includes('row.key === "sealed" && sealedState.status === "loading"'));
+  assert.ok(setValue.includes('row.key === "sealed" && sealedSummaryState.status === "loading"'));
   assert.equal(/\btop10\b/i.test(code(setValue)), false, "Top 10 is a chase-card rank, not a market lens");
   assert.equal(setValue.includes("SET_VALUE_TREND_VISIBLE_SCOPE_OPTIONS"), false, "the old scope selector is retired here");
 });
@@ -209,10 +211,13 @@ test("mobile owns one shared Sealed request and passes it to Snapshot and Top 10
   // The dedicated Sealed Market fetch pattern is preserved — just relocated
   // inside Market Snapshot's own Sealed lens rather than a separate module.
   assert.equal((shell.match(/usePokemonSetSealedMarket\(/g) || []).length, 1);
-  assert.equal((shell.match(/sealedState=\{sealedState\}/g) || []).length, 2);
+  assert.equal((shell.match(/usePokemonSetSealedSummary\(/g) || []).length, 1);
+  assert.equal((shell.match(/sealedSummaryState=\{sealedSummaryState\}/g) || []).length, 1);
+  assert.equal((shell.match(/sealedState=\{sealedProductsState\}/g) || []).length, 1);
   assert.equal(setValue.includes("getPokemonSetSealedMarket"), false);
   assert.equal(topChase.includes("getPokemonSetSealedMarket"), false);
   assert.ok(sealedHook.includes("getPokemonSetConsumerSealedMarket"));
+  assert.ok(sealedSummaryHook.includes("getPokemonSetConsumerSealedSummary"));
   assert.ok(sealedHook.includes("lastGoodRef"));
   assert.ok(
     sealedHook.indexOf("NON_RETRYABLE_CONTRACT_CODES.has") < sealedHook.indexOf("error?.retryable === true"),

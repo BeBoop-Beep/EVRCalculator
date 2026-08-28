@@ -330,13 +330,13 @@ function CollectorDriverSubjectsDesktop({
                 >
                   {subject.demandShareLabel}
                 </p>
-                <p
+                <div
                   data-demand-share-label
                   className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--text-secondary)]"
                 >
                   Set Demand{" "}
                   <InfoPopover text="The share of this set's modeled Pokémon-subject demand attributed to this Pokémon. It is not pull probability, market value, or sales share." />
-                </p>
+                </div>
               </div>
             ) : null}
           </div>

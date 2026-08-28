@@ -42,6 +42,10 @@ const detailModel = fs.readFileSync(
   ),
   "utf8",
 );
+const imageGeometry = fs.readFileSync(
+  path.join(process.cwd(), "components/pokemon/card-detail/cardDetailImageGeometry.mjs"),
+  "utf8",
+);
 const styles = fs.readFileSync(
   path.join(process.cwd(), "app/styles/globals.css"),
   "utf8",
@@ -174,11 +178,13 @@ test("collector hierarchy keeps actual scores and honest unavailable scarcity", 
   assert.match(source, /primary\s*\/>/);
   assert.match(source, /intelligence\?\.cardAppeal/);
   assert.match(source, /intelligence\?\.pokemonDemand/);
-  assert.match(source, /intelligence\?\.treatment/);
+  assert.match(source, /intelligence\?\.treatmentPrestige/);
   assert.match(source, /intelligence\?\.scarcity/);
   assert.match(source, /"Unavailable"/);
   assert.doesNotMatch(source, /0 \/ 10/);
   assert.match(source, /<InfoPopover text=\{info\}/);
+  assert.match(source, /How much extra value does the market give a card just because of its treatment, once we remove the effects of Pokémon popularity and rarity\/pull odds\?/);
+  assert.doesNotMatch(source, /Scale: SIR 9\.6/);
   for (const label of [
     "Card Appeal",
     "Pokémon Demand",
@@ -196,9 +202,11 @@ test("product economics use the shared supported-first display price rule", () =
 test("canonical metadata excludes variant query", () => {
   assert.match(
     page,
-    /const path = `\/TCGs\/Pokemon\/Sets\/\$\{encodeURIComponent\(detail\.set\.slug\)\}\/Cards\/\$\{encodeURIComponent\(detail\.card\.id\)\}`/,
+    /const path = buildPokemonCardDetailHref\(\{[\s\S]*?setSlug: detail\.set\.slug,[\s\S]*?canonicalCardId: detail\.card\.id,[\s\S]*?\}\)/,
   );
   assert.doesNotMatch(page, /path.*variant/);
+  assert.match(page, /redirect\(\s*buildPokemonCardDetailHref/);
+  assert.equal((page.match(/`\/TCGs\/Pokemon\/Sets\//g) || []).length, 0);
   assert.match(page, /notFound\(\)/);
   assert.match(page, / — /);
   assert.doesNotMatch(page, /Ã|â€|Â/);
@@ -213,21 +221,39 @@ test("top and bottom set navigation use the canonical bare set href", () => {
   assert.doesNotMatch(detailModel, /\?tab=cards/);
 });
 
-test("hero places identity above unchanged artwork and aligns the Market column", () => {
-  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)_auto\]/);
-  assert.match(source, /data-card-identity/);
+test("hero aligns identity to artwork in a shared frame without a details panel", () => {
+  assert.match(source, /data-card-visual-frame/);
+  assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)\]/);
+  assert.match(source, /data-card-identity[\s\S]*?min-w-0 max-w-full justify-self-start text-left/);
+  assert.doesNotMatch(source, /data-card-identity className="text-center"/);
+  assert.match(source, /getObjectContainPaintedRect/);
+  assert.match(source, /artworkImageRef/);
+  assert.match(source, /image\.complete/);
+  assert.match(source, /observer\.observe\(image\)/);
+  assert.match(source, /observer\.observe\(area\)/);
+  assert.match(source, /setArtworkAlignment\(null\)/);
+  assert.match(source, /onLoad=\{onLoad\}/);
+  assert.match(imageGeometry, /Math\.min\([\s\S]*?elementWidth \/ sourceWidth,[\s\S]*?elementHeight \/ sourceHeight/);
+  assert.doesNotMatch(source, /Pikachu|Pidgeot|Squirtle/);
+  assert.match(source, /Market Price As Of \{dateLabel\(detail\.market\.marketDate\)\}/);
   assert.match(source, /card-detail-artwork/);
+  assert.match(source, /md:items-end/);
   assert.match(source, /max-w-\[430px\]/);
+  assert.match(source, /md:h-full md:w-auto md:max-w-full/);
+  assert.match(source, /data-card-visual-frame[\s\S]*?h-full min-h-0 w-full/);
+  assert.doesNotMatch(source, /data-card-visual-frame[\s\S]{0,180}?w-fit/);
   assert.match(source, /data-card-market-panel className="h-full"/);
-  assert.match(source, /lg:-ml-6/);
-  assert.match(source, /data-card-details-panel/);
+  assert.match(source, /data-card-back-navigation[\s\S]*?max-w-\[1600px\]/);
+  assert.match(source, /max-w-\[1400px\] space-y-4/);
+  assert.doesNotMatch(source, /lg:-ml-6/);
+  assert.doesNotMatch(source, /data-card-details-panel|Card Details/);
   assert.match(source, /data-card-market-panel/);
   assert.doesNotMatch(source, /max-h-\[46vh\]/);
   const heroEnd = source.indexOf("</section>", source.indexOf("data-card-detail-hero"));
-  const detailsStart = source.indexOf("data-card-details-panel");
-  const variantCall = source.indexOf("<VariantSelector", detailsStart);
+  const identityStart = source.indexOf("data-card-identity");
+  const variantCall = source.indexOf("<VariantSelector", identityStart);
   const intelligenceCall = source.indexOf("<ChaseEfficiencySection", variantCall);
-  assert.ok(detailsStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
+  assert.ok(identityStart < heroEnd && heroEnd < variantCall && variantCall < intelligenceCall);
 });
 
 test("market-only variants are selectable while pull modeling remains explicit", () => {

@@ -103,7 +103,7 @@ export default function SetMarketMobileSetValue({
   standardValue = null,
   moversByWindow = null,
   cardsMarket = null,
-  sealedState = IDLE_SEALED_STATE,
+  sealedSummaryState = IDLE_SEALED_STATE,
   signalsState = { status: "idle", payload: null, error: null, retry: null },
 }) {
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
@@ -123,7 +123,7 @@ export default function SetMarketMobileSetValue({
   );
 
   const sealedTrend = useMemo(() => {
-    const setMarket = sealedState.payload?.setPageConsumerMarket || null;
+    const setMarket = sealedSummaryState.payload?.setPageConsumerMarket || null;
     if (!setMarket?.history?.length) return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
     return selectPreparedSegmentTrend({
       valueHistory: setMarket.history,
@@ -132,7 +132,7 @@ export default function SetMarketMobileSetValue({
       trackedItemCount: setMarket.productCount,
       trackedItemNoun: "Sealed Products",
     });
-  }, [sealedState.payload, selectedWindowKey]);
+  }, [sealedSummaryState.payload, selectedWindowKey]);
 
   // GRADED. No set-level graded market series is published anywhere in the
   // product — the only graded prices in the system are per-user collection
@@ -143,7 +143,7 @@ export default function SetMarketMobileSetValue({
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedSummaryState.status)
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
@@ -156,9 +156,9 @@ export default function SetMarketMobileSetValue({
       buildMarketSegmentRows(trendsByKey).map((row) => ({
         value: row.key,
         label: row.label,
-        disabled: row.key === "sealed" && sealedState.status === "loading" ? false : !row.selectable,
+        disabled: row.key === "sealed" && sealedSummaryState.status === "loading" ? false : !row.selectable,
       })),
-    [sealedState.status, trendsByKey]
+    [sealedSummaryState.status, trendsByKey]
   );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = effectiveWindowKey ? getDeltaWindowLabel(effectiveWindowKey) : "Trend";
@@ -166,7 +166,7 @@ export default function SetMarketMobileSetValue({
     activeTrend.deltaAmount === null ? "neutral" : activeTrend.deltaAmount < 0 ? "negative" : activeTrend.deltaAmount > 0 ? "positive" : "neutral";
 
   const breadthSource = resolvedSegmentKey === "sealed"
-    ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
+    ? sealedSummaryState.payload?.setPageConsumerMarket?.marketBreadth || sealedSummaryState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
     ? cardsMarket?.marketBreadth || cardsMarket?.market_breadth
     : null;
@@ -183,10 +183,10 @@ export default function SetMarketMobileSetValue({
     () => selectChaseConcentration({ top10Value, cardsValue: standardValue }),
     [standardValue, top10Value]
   );
-  const sealedStatusMessage = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+  const sealedStatusMessage = resolvedSegmentKey === "sealed" && sealedSummaryState.status === "loading" && !sealedSummaryState.payload
     ? "Loading Sealed market…"
-    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
-    ? sealedState.error
+    : resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" && !sealedSummaryState.payload
+    ? sealedSummaryState.error
     : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
     : resolvedSegmentKey === "cards" && ["error", "forbidden"].includes(signalsState.status) ? signalsState.error
     : null;
@@ -211,7 +211,7 @@ export default function SetMarketMobileSetValue({
         <SegmentedControl
             options={segmentOptions}
             value={resolvedSegmentKey}
-          onChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
+          onChange={(key) => { if (key === "sealed") sealedSummaryState.load?.(); setActiveSegmentKey(key); }}
             ariaLabel="Market segment"
             equalWidth
             mobileFullWidth
@@ -275,8 +275,8 @@ export default function SetMarketMobileSetValue({
                 formatMoney={formatCompactMoney}
                 className="rounded-xl border border-[var(--border-subtle)] bg-[rgba(8,17,31,0.34)] px-3 py-3"
               /> : null}
-              {resolvedSegmentKey === "sealed" && sealedState.status === "error" ? (
-                <button type="button" onClick={sealedState.retry} className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)]">Retry</button>
+              {resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" ? (
+                <button type="button" onClick={sealedSummaryState.retry} className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-3 text-xs font-semibold text-[var(--text-primary)]">Retry</button>
               ) : null}
             </div>
           ) : null}
