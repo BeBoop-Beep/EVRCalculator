@@ -11,7 +11,9 @@ const comparisons = read("./ProductComparisonSection.jsx");
 const sharedScoreSurface = read("../../explore/RipScoreSurface.jsx");
 const setRip = read("../../explore/RipDecisionPage.jsx");
 const cardDetail = read("../card-detail/PokemonCardDetailClient.jsx");
-const chaseArticle = read("../../../app/Articles/how-chase-efficiency-works/page.js");
+const chaseArticle = read(
+  "../../../app/Articles/how-chase-efficiency-works/page.js",
+);
 
 test("route stays thin, real, canonical, and has availability-aware SEO", () => {
   assert.match(page, /getSealedProductDetailServer/);
@@ -36,8 +38,12 @@ test("hero mirrors current Card Detail atmosphere, navigation, and image states"
 });
 
 test("sealed market is public, has all approved windows, and no card mode toggle", () => {
-  assert.ok(client.indexOf("SealedProductMarketPanel") < client.indexOf("detail.rip.available ?"));
-  for (const token of ["1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"]) assert.match(read("./productDetailModel.mjs"), new RegExp(`"${token}"`));
+  assert.ok(
+    client.indexOf("SealedProductMarketPanel") <
+      client.indexOf("detail.rip.available ?"),
+  );
+  for (const token of ["1D", "7D", "30D", "3M", "6M", "1Y", "lifetime"])
+    assert.match(read("./productDetailModel.mjs"), new RegExp(`"${token}"`));
   assert.doesNotMatch(market, /Raw|Graded|Asset mode/);
   assert.match(market, /Price history is not available for this product yet/);
   assert.match(market, /sealed market price/);
@@ -57,7 +63,10 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
   assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
   assert.match(rip, /const collectorTier = rip\.collectorAppealTier/);
-  assert.doesNotMatch(rip, /publicLeaderScoreTier\(rip\.collectorAppealScore\)/);
+  assert.doesNotMatch(
+    rip,
+    /publicLeaderScoreTier\(rip\.collectorAppealScore\)/,
+  );
   assert.equal((rip.match(/Format Rank/g) || []).length, 1);
   assert.match(rip, /RipScoreSurface/);
   assert.match(setRip, /RipScoreSurface/);
@@ -65,18 +74,41 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(sharedScoreSurface, /data-score-surface/);
 });
 
-test("Opening Outcome Profile has exactly the six approved primary measurements", () => {
-  const keys = [...rip.matchAll(/\["(?:Expected Value|Typical Opening|Chance to Recover Cost|Entertainment Cost|Realistic Upside|Jackpot Upside)", "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(keys, ["expectedValue", "medianValue", "chanceToRecoverCost", "entertainmentCost", "p95Value", "p99Value"]);
+test("Opening Outcome Profile keeps value milestones primary and only two supporting measurements", () => {
+  const keys = [
+    ...rip.matchAll(
+      /\[\s*"(?:Chance to Recover Cost|Entertainment Cost)",\s*"([^"]+)"/g,
+    ),
+  ].map((match) => match[1]);
+  assert.deepEqual(keys, ["chanceToRecoverCost", "entertainmentCost"]);
   assert.match(rip, /gross modeled market value/);
-  assert.match(rip, /fees, shipping, liquidation friction, bid\/ask spread, and grading/);
+  assert.match(
+    rip,
+    /fees,\s*shipping, liquidation friction, bid\/ask spread, and\s*grading/,
+  );
   assert.match(rip, /data-opening-value-milestones/);
   assert.doesNotMatch(rip, /data-outcome-range-rail/);
-  for (const key of ["p05", "typical", "ev", "price", "p95", "p99"]) assert.match(rip, new RegExp(`\\["${key}"`));
+  for (const key of ["p05", "typical", "ev", "price", "p95", "p99"])
+    assert.match(rip, new RegExp(`"${key}"`));
   assert.match(rip, /aria-pressed=\{selected\}/);
   assert.match(rip, /onFocus=/);
   assert.match(rip, /onMouseEnter=/);
   assert.match(rip, /data-active-milestone/);
+  for (const title of [
+    "Low-End Opening",
+    "Typical Opening",
+    "Expected Value",
+    "Current Product Price",
+    "Realistic Upside",
+    "Jackpot Upside",
+  ])
+    assert.match(rip, new RegExp(`"${title}"`));
+  assert.match(rip, /data-supporting-outcome-metrics/);
+  assert.doesNotMatch(rip, /data-primary-outcome-metrics/);
+  assert.doesNotMatch(
+    rip,
+    /data-supporting-outcome=\{"(?:expectedValue|medianValue|p95Value|p99Value)"\}/,
+  );
   assert.doesNotMatch(rip, /histogram|density|smoothed/i);
 });
 
@@ -91,13 +123,25 @@ test("audited user-facing market surfaces use source-agnostic wording", () => {
     assert.doesNotMatch(source, /TCG\s*player/i);
     assert.doesNotMatch(source, /Market source:/i);
   }
-  assert.match(client, /Market prices are derived from tracked market observations/);
-  assert.match(cardDetail, /Market prices are derived from tracked market observations/);
+  assert.match(
+    client,
+    /Market prices are derived from tracked market observations/,
+  );
+  assert.match(
+    cardDetail,
+    /Market prices are derived from tracked market observations/,
+  );
 });
 
 test("Basic entitlement keeps Product RIP and opening outcomes behind the lock", () => {
-  assert.match(client, /detail\.rip\.available \? entitled \? <><ProductRipSection/);
-  assert.ok(client.indexOf("<ProductRipLock />") < client.indexOf(": <ProductRipSection detail={detail} />"));
+  assert.match(
+    client,
+    /detail\.rip\.available \? entitled \? <><ProductRipSection/,
+  );
+  assert.ok(
+    client.indexOf("<ProductRipLock />") <
+      client.indexOf(": <ProductRipSection detail={detail} />"),
+  );
 });
 
 test("comparisons and final CTA stay canonical without duplicate Set RIP metrics", () => {
@@ -107,5 +151,8 @@ test("comparisons and final CTA stay canonical without duplicate Set RIP metrics
   assert.match(comparisons, /Same Format/);
   assert.match(client, /data-set-rip-cta/);
   assert.match(client, /href=\{setHref\}/);
-  assert.doesNotMatch(client, /Set Overall RIP|Set Financial RIP|Set Collector Appeal/);
+  assert.doesNotMatch(
+    client,
+    /Set Overall RIP|Set Financial RIP|Set Collector Appeal/,
+  );
 });

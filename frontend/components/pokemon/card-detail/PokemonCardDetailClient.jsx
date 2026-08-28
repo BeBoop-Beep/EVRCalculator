@@ -3,7 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useAuth } from "@/components/AuthContext";
 import InfoPopover from "@/components/ui/InfoPopover";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
@@ -39,6 +47,7 @@ import {
   scorePercent,
   validPullProbability,
 } from "./cardDetailModel.mjs";
+import { getObjectContainPaintedRect } from "./cardDetailImageGeometry.mjs";
 import {
   PROBABILITY_ANALYTICS_COLOR,
   PROBABILITY_ANALYTICS_SOFT_BORDER,
@@ -1120,7 +1129,7 @@ function CollectorIntelligence({ intelligence, rarity }) {
   );
 }
 
-function CardArtwork({ detail }) {
+function CardArtwork({ detail, imageRef, onLoad }) {
   const source = detail.card.imageLargeUrl || detail.card.imageSmallUrl;
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [source]);
@@ -1135,11 +1144,13 @@ function CardArtwork({ detail }) {
     );
   return (
     <Image
+      ref={imageRef}
       src={source}
       alt={`${detail.card.name} card artwork`}
       width={734}
       height={1024}
       priority
+      onLoad={onLoad}
       onError={() => setFailed(true)}
       className="h-auto w-full max-w-[430px] object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,.48)] md:h-full md:w-auto md:max-w-full"
     />
@@ -1151,6 +1162,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const artworkAreaRef = useRef(null);
+  const artworkImageRef = useRef(null);
   const [artworkAlignment, setArtworkAlignment] = useState(null);
   const { user } = useAuth();
   const router = useRouter();
@@ -1193,24 +1205,52 @@ export default function PokemonCardDetailClient({ initialDetail }) {
     detail.selectedVariantId,
   ]);
   const setHref = buildCardParentSetHref(detail.set);
-  useEffect(() => {
-    const image = artworkAreaRef.current?.querySelector("img");
-    if (!image || typeof ResizeObserver === "undefined") return undefined;
-    const syncArtworkAlignment = () => {
-      const bounds = image.getBoundingClientRect();
-      const areaBounds = artworkAreaRef.current.getBoundingClientRect();
-      const intrinsicRatio = image.naturalWidth / image.naturalHeight;
-      const paintedWidth = intrinsicRatio > 0
-        ? Math.min(bounds.width, bounds.height * intrinsicRatio)
-        : bounds.width;
-      const paintedLeft = bounds.left + Math.max(0, (bounds.width - paintedWidth) / 2);
-      setArtworkAlignment({ width: paintedWidth, left: paintedLeft - areaBounds.left });
-    };
+  const cardImageSource =
+    detail.card.imageLargeUrl || detail.card.imageSmallUrl;
+  const syncArtworkAlignment = useCallback(() => {
+    const image = artworkImageRef.current;
+    const area = artworkAreaRef.current;
+    if (
+      !image ||
+      !area ||
+      !image.complete ||
+      image.naturalWidth <= 0 ||
+      image.naturalHeight <= 0
+    )
+      return;
+    const painted = getObjectContainPaintedRect({
+      imageRect: image.getBoundingClientRect(),
+      naturalWidth: image.naturalWidth,
+      naturalHeight: image.naturalHeight,
+    });
+    if (!painted) return;
+    const areaBounds = area.getBoundingClientRect();
+    setArtworkAlignment({
+      width: painted.width,
+      left: painted.left - areaBounds.left,
+    });
+  }, []);
+  useLayoutEffect(() => {
+    setArtworkAlignment(null);
+    const image = artworkImageRef.current;
+    const area = artworkAreaRef.current;
+    if (!image || !area) return undefined;
     syncArtworkAlignment();
+    if (typeof ResizeObserver === "undefined") return undefined;
     const observer = new ResizeObserver(syncArtworkAlignment);
     observer.observe(image);
-    return () => observer.disconnect();
-  }, [detail.card.imageLargeUrl, detail.card.imageSmallUrl]);
+    observer.observe(area);
+    window.addEventListener("resize", syncArtworkAlignment);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncArtworkAlignment);
+    };
+  }, [
+    cardImageSource,
+    detail.card.id,
+    detail.selectedVariantId,
+    syncArtworkAlignment,
+  ]);
   const artwork = optimizedImageUrl(
     detail.set.heroImageUrl ||
       detail.set.logoImageUrl ||
@@ -1270,7 +1310,14 @@ export default function PokemonCardDetailClient({ initialDetail }) {
               <header
                 data-card-identity
                 className="min-w-0 max-w-full justify-self-start text-left"
-                style={artworkAlignment ? { width: `${artworkAlignment.width}px`, marginLeft: `${artworkAlignment.left}px` } : undefined}
+                style={
+                  artworkAlignment
+                    ? {
+                        width: `${artworkAlignment.width}px`,
+                        marginLeft: `${artworkAlignment.left}px`,
+                      }
+                    : undefined
+                }
               >
                 <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
                   {detail.set.name}
@@ -1299,7 +1346,11 @@ export default function PokemonCardDetailClient({ initialDetail }) {
                 ref={artworkAreaRef}
                 className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end"
               >
-                <CardArtwork detail={detail} />
+                <CardArtwork
+                  detail={detail}
+                  imageRef={artworkImageRef}
+                  onLoad={syncArtworkAlignment}
+                />
               </div>
             </div>
           </div>

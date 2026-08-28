@@ -42,6 +42,10 @@ const detailModel = fs.readFileSync(
   ),
   "utf8",
 );
+const imageGeometry = fs.readFileSync(
+  path.join(process.cwd(), "components/pokemon/card-detail/cardDetailImageGeometry.mjs"),
+  "utf8",
+);
 const styles = fs.readFileSync(
   path.join(process.cwd(), "app/styles/globals.css"),
   "utf8",
@@ -198,9 +202,11 @@ test("product economics use the shared supported-first display price rule", () =
 test("canonical metadata excludes variant query", () => {
   assert.match(
     page,
-    /const path = `\/TCGs\/Pokemon\/Sets\/\$\{encodeURIComponent\(detail\.set\.slug\)\}\/Cards\/\$\{encodeURIComponent\(detail\.card\.id\)\}`/,
+    /const path = buildPokemonCardDetailHref\(\{[\s\S]*?setSlug: detail\.set\.slug,[\s\S]*?canonicalCardId: detail\.card\.id,[\s\S]*?\}\)/,
   );
   assert.doesNotMatch(page, /path.*variant/);
+  assert.match(page, /redirect\(\s*buildPokemonCardDetailHref/);
+  assert.equal((page.match(/`\/TCGs\/Pokemon\/Sets\//g) || []).length, 0);
   assert.match(page, /notFound\(\)/);
   assert.match(page, / — /);
   assert.doesNotMatch(page, /Ã|â€|Â/);
@@ -218,10 +224,17 @@ test("top and bottom set navigation use the canonical bare set href", () => {
 test("hero aligns identity to artwork in a shared frame without a details panel", () => {
   assert.match(source, /data-card-visual-frame/);
   assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)\]/);
-  assert.match(source, /data-card-identity[\s\S]*?mx-auto min-w-0 max-w-full justify-self-center text-left/);
+  assert.match(source, /data-card-identity[\s\S]*?min-w-0 max-w-full justify-self-start text-left/);
   assert.doesNotMatch(source, /data-card-identity className="text-center"/);
-  assert.match(source, /style=\{artworkWidth \? \{ width: `\$\{artworkWidth\}px` \} : undefined\}/);
-  assert.match(source, /Math\.min\(bounds\.width, bounds\.height \* intrinsicRatio\)/);
+  assert.match(source, /getObjectContainPaintedRect/);
+  assert.match(source, /artworkImageRef/);
+  assert.match(source, /image\.complete/);
+  assert.match(source, /observer\.observe\(image\)/);
+  assert.match(source, /observer\.observe\(area\)/);
+  assert.match(source, /setArtworkAlignment\(null\)/);
+  assert.match(source, /onLoad=\{onLoad\}/);
+  assert.match(imageGeometry, /Math\.min\([\s\S]*?elementWidth \/ sourceWidth,[\s\S]*?elementHeight \/ sourceHeight/);
+  assert.doesNotMatch(source, /Pikachu|Pidgeot|Squirtle/);
   assert.match(source, /Market Price As Of \{dateLabel\(detail\.market\.marketDate\)\}/);
   assert.match(source, /card-detail-artwork/);
   assert.match(source, /md:items-end/);
