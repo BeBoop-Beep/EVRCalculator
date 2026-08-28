@@ -49,6 +49,11 @@ test("Product RIP uses Plus entitlement and only leader-normalized ranking field
   assert.match(rip, /rip\.familySize/);
   assert.match(rip, /formatPublicRipScore/);
   assert.doesNotMatch(rip, /of 138|Overall Rank|overallRipAbsoluteScore/);
+  assert.match(rip, /data-product-rip-score/);
+  assert.match(rip, /Overall RIP = 90% Financial RIP \+ 10% Collector Appeal/);
+  assert.match(rip, /publicLeaderScoreTier\(rip\.financialRipLeaderScore\)/);
+  assert.match(rip, /publicLeaderScoreTier\(rip\.collectorAppealScore\)/);
+  assert.equal((rip.match(/Format Rank/g) || []).length, 1);
 });
 
 test("Opening Outcome Profile has exactly the six approved primary measurements", () => {
@@ -56,6 +61,13 @@ test("Opening Outcome Profile has exactly the six approved primary measurements"
   assert.deepEqual(keys, ["expectedValue", "medianValue", "chanceToRecoverCost", "entertainmentCost", "p95Value", "p99Value"]);
   assert.match(rip, /gross modeled market value/);
   assert.match(rip, /fees, shipping, liquidation friction, bid\/ask spread, and grading/);
+  assert.match(rip, /data-outcome-range-rail/);
+  for (const label of ["P05", "Typical", "EV", "Price", "P95", "P99"]) assert.match(rip, new RegExp(`\\["${label}"`));
+});
+
+test("Basic entitlement keeps Product RIP and opening outcomes behind the lock", () => {
+  assert.match(client, /detail\.rip\.available \? entitled \? <><ProductRipSection/);
+  assert.ok(client.indexOf("<ProductRipLock />") < client.indexOf(": <ProductRipSection detail={detail} />"));
 });
 
 test("comparisons and final CTA stay canonical without duplicate Set RIP metrics", () => {

@@ -1151,7 +1151,7 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   const [error, setError] = useState(null);
   const [pending, startTransition] = useTransition();
   const artworkAreaRef = useRef(null);
-  const [artworkWidth, setArtworkWidth] = useState(null);
+  const [artworkAlignment, setArtworkAlignment] = useState(null);
   const { user } = useAuth();
   const router = useRouter();
   const entitled = hasIndexPlusAccess(user?.index_plan);
@@ -1196,17 +1196,13 @@ export default function PokemonCardDetailClient({ initialDetail }) {
   useEffect(() => {
     const image = artworkAreaRef.current?.querySelector("img");
     if (!image || typeof ResizeObserver === "undefined") return undefined;
-    const syncArtworkWidth = () => {
+    const syncArtworkAlignment = () => {
       const bounds = image.getBoundingClientRect();
-      const intrinsicRatio = image.naturalWidth / image.naturalHeight;
-      setArtworkWidth(
-        intrinsicRatio > 0
-          ? Math.min(bounds.width, bounds.height * intrinsicRatio)
-          : bounds.width,
-      );
+      const areaBounds = artworkAreaRef.current.getBoundingClientRect();
+      setArtworkAlignment({ width: bounds.width, left: bounds.left - areaBounds.left });
     };
-    syncArtworkWidth();
-    const observer = new ResizeObserver(syncArtworkWidth);
+    syncArtworkAlignment();
+    const observer = new ResizeObserver(syncArtworkAlignment);
     observer.observe(image);
     return () => observer.disconnect();
   }, [detail.card.imageLargeUrl, detail.card.imageSmallUrl]);
@@ -1268,8 +1264,8 @@ export default function PokemonCardDetailClient({ initialDetail }) {
             >
               <header
                 data-card-identity
-                className="mx-auto min-w-0 max-w-full justify-self-center text-left"
-                style={artworkWidth ? { width: `${artworkWidth}px` } : undefined}
+                className="min-w-0 max-w-full justify-self-start text-left"
+                style={artworkAlignment ? { width: `${artworkAlignment.width}px`, marginLeft: `${artworkAlignment.left}px` } : undefined}
               >
                 <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
                   {detail.set.name}

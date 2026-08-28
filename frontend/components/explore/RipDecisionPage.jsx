@@ -17,7 +17,6 @@ import RipDistributionChart from "./RipDistributionChart";
 import SimulationFullReport, {
   SimulationDiagnostics,
 } from "./SimulationFullReport.jsx";
-import EvRepresentativenessSection from "./simulation-evidence/EvRepresentativenessSection.jsx";
 import InfoPopover, { PublicRipTierInfo } from "@/components/ui/InfoPopover";
 import RankBadge from "@/components/ui/RankBadge";
 import SetPageIcon from "@/components/pokemon/set-page/SetPageIcon";
@@ -95,6 +94,11 @@ function probability(value) {
   if (value === null || value === undefined) return "—";
   const normalized = Number(value) <= 1 ? Number(value) * 100 : Number(value);
   return `${normalized.toFixed(1).replace(/\.0$/, "")}%`;
+}
+function rankContextDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 /** Percentage of price, derived losslessly from two already-published numbers. */
 function pctOfPrice(part, whole_) {
@@ -633,7 +637,8 @@ function ProductIdentity({ product, familyRankInfo, setName, isBest }) {
     productImageUrl: familyRankInfo?.productImageUrl,
     setCanonicalKey: familyRankInfo?.setCanonicalKey,
   };
-  return (
+  const href = buildSealedProductHref(product.sealedProductId);
+  const content = (
     <RankedProductIdentity
       product={identity}
       secondary={`${setName || "This set"} · ${familyRankInfo?.productFamilyLabel || familyLabel(product.family)}`}
@@ -643,6 +648,7 @@ function ProductIdentity({ product, familyRankInfo, setName, isBest }) {
       ) : null}
     </RankedProductIdentity>
   );
+  return href ? <Link href={href} aria-label={`View ${product.label}`}>{content}</Link> : content;
 }
 
 function LockedValue({ canView, children }) {
@@ -852,9 +858,11 @@ export default function RipDecisionPage({
   evRepresentativeness = null,
   openingOutcomeProfile = null,
   calculationRunId = null,
-  globalContextStatus = "idle",
-  globalContextError = null,
-  onGlobalContextRetry = null,
+  rankContextFreshness = null,
+  rankContextUpdatedAt = null,
+  rankContextStatus = "idle",
+  rankContextError = null,
+  onRankContextRetry = null,
 }) {
   const { canViewRankingsIntelligence: canViewProductRipIntelligence } =
     useRankingsAccess();
@@ -1125,7 +1133,7 @@ export default function RipDecisionPage({
             <div className={styles.heroLayout}>
               <div className={styles.heroIdentity}>
                 {productImage ? (
-                  <div className={styles.heroProductArt}>
+                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} className={styles.heroProductArt} aria-label={`View ${heroProduct.label}`}>
                     <Image
                       src={productImage.src || productImage}
                       alt={`${heroProduct.label} artwork`}
@@ -1133,15 +1141,15 @@ export default function RipDecisionPage({
                       sizes="(max-width: 767px) 96px, 148px"
                       className="object-contain"
                     />
-                  </div>
+                  </Link>
                 ) : null}
                 <div className="min-w-0">
                   <h1 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
                     Best in {heroFamilyName}
                   </h1>
-                  <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                  <Link href={buildSealedProductHref(heroProduct.sealedProductId)} className="mt-1 block text-lg font-semibold text-[var(--text-primary)] hover:text-teal-200">
                     {heroProduct.label}
-                  </p>
+                  </Link>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     {heroPick.familyRankInfo
                       ? `Ranked against every currently eligible modeled ${heroFamilyName} across modeled sets.`
@@ -1246,10 +1254,15 @@ export default function RipDecisionPage({
             against other Booster Boxes, never against a Bundle or ETB.
             Cross-format comparison is not yet validated by the model.
           </p>
-          {globalContextStatus === "error" || globalContextStatus === "stale" ? (
+          {rankContextFreshness === "latest_published" ? (
+            <p className="mt-3 text-xs text-[var(--text-secondary)]">
+              Product Rank, RIP Score and Tier use the latest global Rankings publication{rankContextDate(rankContextUpdatedAt) ? ` · data as of ${rankContextDate(rankContextUpdatedAt)}` : ""}. Current opening economics use today&apos;s Set calculation.
+            </p>
+          ) : null}
+          {rankContextStatus === "error" ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
-              <span>{globalContextError || "Current family ranks are unavailable."}</span>
-              <button type="button" onClick={onGlobalContextRetry} className={ANALYTICAL_ACTION_CLASS}>Retry rank context</button>
+              <span>{rankContextError || "Published family ranks are unavailable."}</span>
+              <button type="button" onClick={onRankContextRetry} className={ANALYTICAL_ACTION_CLASS}>Retry rank context</button>
             </div>
           ) : null}
         </article>
@@ -1533,19 +1546,6 @@ export default function RipDecisionPage({
 
         {canViewProductRipIntelligence && advancedEvidence ? (
           <>
-            <DeepDiveRow
-              id="deep-dive-ev-realization"
-              title="When Does EV Start Looking Real?"
-              subtitle="EV realization and convergence for real-sized opening runs"
-            >
-              <EvRepresentativenessSection
-                evRepresentativeness={evRepresentativeness}
-                calculationRunId={calculationRunId}
-                headingId="deep-dive-ev-realization-heading"
-                products={decision.products}
-              />
-            </DeepDiveRow>
-
             <DeepDiveRow
               id="deep-dive-downside-upside"
               title="Downside & Upside"

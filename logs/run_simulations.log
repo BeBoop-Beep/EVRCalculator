@@ -27173,3 +27173,1203 @@ INFO HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulati
 INFO HTTP Request: POST https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/ev_representativeness_curve?on_conflict=calculation_run_id%2Cresearch_method_version%2Cscope_kind%2Csealed_product_key%2Cpack_count%2Cmetric_key%2Cstage&columns=%22calculation_run_id%22%2C%22successes%22%2C%22pack_count%22%2C%22scope_kind%22%2C%22session_count%22%2C%22ci_upper%22%2C%22metric_key%22%2C%22ci_method%22%2C%22stage%22%2C%22research_method_version%22%2C%22seed%22%2C%22ci_lower%22%2C%22estimate%22%2C%22monte_carlo_standard_error%22%2C%22sealed_product_key%22 "HTTP/2 201 Created"
 INFO HTTP Request: POST https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/ev_representativeness_curve?on_conflict=calculation_run_id%2Cresearch_method_version%2Cscope_kind%2Csealed_product_key%2Cpack_count%2Cmetric_key%2Cstage&columns=%22calculation_run_id%22%2C%22successes%22%2C%22pack_count%22%2C%22scope_kind%22%2C%22session_count%22%2C%22ci_upper%22%2C%22metric_key%22%2C%22ci_method%22%2C%22stage%22%2C%22research_method_version%22%2C%22seed%22%2C%22ci_lower%22%2C%22estimate%22%2C%22monte_carlo_standard_error%22%2C%22sealed_product_key%22 "HTTP/2 201 Created"
 INFO HTTP Request: POST https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/ev_representativeness_run_summary?on_conflict=calculation_run_id%2Cresearch_method_version "HTTP/2 201 Created"
+INFO [publication-gate] promotion ALLOWED — batch 2026-08-28 is complete (promoted_at=2026-08-28T09:00:21.560798+00:00, expected=163, missing=0)
+INFO [refresh-plan] starting sets=210
+INFO [refresh-plan] checked 3/210 key=dpTrainerKitManaphyAndLucario elapsed=3.58s
+INFO [refresh-plan] checked 6/210 key=countdownCalendarPromos elapsed=3.44s
+INFO [refresh-plan] checked 9/210 key=mcdonaldSPromos2023 elapsed=3.52s
+INFO [refresh-plan] checked 12/210 key=smTrainerKitAlolanSandslashAndAlolanNinetales elapsed=3.38s
+INFO [refresh-plan] checked 15/210 key=me30thCelebration elapsed=2.77s
+INFO [refresh-plan] checked 18/210 key=tradingCardGameClassic elapsed=3.59s
+INFO [refresh-plan] checked 21/210 key=xyTrainerKitBisharpAndWigglytuff elapsed=3.47s
+INFO [refresh-plan] checked 24/210 key=hgssTrainerKitGyaradosAndRaichu elapsed=3.42s
+INFO [refresh-plan] checked 27/210 key=xyTrainerKitSylveonAndNoivern elapsed=3.44s
+INFO [refresh-plan] checked 30/210 key=baseSetShadowless elapsed=3.88s
+INFO [refresh-plan] checked 33/210 key=eReaderSampleCards elapsed=2.72s
+INFO [refresh-plan] checked 36/210 key=battleAcademy elapsed=3.47s
+INFO [refresh-plan] checked 39/210 key=pitchBlack elapsed=6.75s
+INFO [refresh-plan] checked 42/210 key=ascendedHeroes elapsed=12.64s
+INFO [refresh-plan] checked 45/210 key=blackBolt elapsed=9.02s
+INFO [refresh-plan] checked 47/210 key=destinedRivals elapsed=10.19s
+INFO [refresh-plan] checked 48/210 key=journeyTogether elapsed=8.27s
+INFO [refresh-plan] checked 51/210 key=stellarCrown elapsed=7.17s
+INFO [refresh-plan] checked 54/210 key=temporalForces elapsed=8.78s
+INFO [refresh-plan] checked 57/210 key=scarletAndViolet151 elapsed=8.22s
+INFO [refresh-plan] checked 60/210 key=scarletAndVioletBase elapsed=9.02s
+INFO [refresh-plan] checked 63/210 key=silverTempestTrainerGallery elapsed=5.20s
+INFO [refresh-plan] checked 66/210 key=lostOriginTrainerGallery elapsed=5.36s
+INFO [refresh-plan] checked 69/210 key=astralRadiance elapsed=9.05s
+INFO [refresh-plan] checked 72/210 key=brilliantStars elapsed=7.94s
+INFO [refresh-plan] checked 73/210 key=fusionStrike elapsed=10.00s
+INFO [refresh-plan] checked 75/210 key=celebrations elapsed=6.20s
+INFO [refresh-plan] checked 76/210 key=evolvingSkies elapsed=11.14s
+INFO [refresh-plan] checked 78/210 key=battleStyles elapsed=8.44s
+INFO [refresh-plan] checked 81/210 key=mcdonaldSCollection2021 elapsed=5.11s
+INFO [refresh-plan] checked 84/210 key=pokMonFutsalCollection elapsed=2.84s
+INFO [refresh-plan] checked 86/210 key=rebelClash elapsed=12.78s
+INFO [refresh-plan] checked 87/210 key=swordAndShield elapsed=10.06s
+INFO [refresh-plan] checked 90/210 key=mcdonaldSCollection2019 elapsed=4.83s
+INFO [refresh-plan] checked 93/210 key=unifiedMinds elapsed=8.81s
+INFO [refresh-plan] checked 96/210 key=teamUp elapsed=8.03s
+INFO [refresh-plan] checked 99/210 key=dragonMajesty elapsed=5.97s
+INFO [refresh-plan] checked 102/210 key=ultraPrism elapsed=7.23s
+INFO [refresh-plan] checked 105/210 key=shiningLegends elapsed=5.67s
+INFO [refresh-plan] checked 108/210 key=sunAndMoon elapsed=7.44s
+INFO [refresh-plan] checked 111/210 key=mcdonaldSCollection2016 elapsed=3.88s
+INFO [refresh-plan] checked 114/210 key=generations elapsed=6.03s
+INFO [refresh-plan] checked 117/210 key=breakthrough elapsed=7.00s
+INFO [refresh-plan] checked 120/210 key=doubleCrisis elapsed=5.59s
+INFO [refresh-plan] checked 123/210 key=furiousFists elapsed=6.78s
+INFO [refresh-plan] checked 126/210 key=xy elapsed=6.83s
+INFO [refresh-plan] checked 129/210 key=xyBlackStarPromos elapsed=8.83s
+INFO [refresh-plan] checked 132/210 key=plasmaStorm elapsed=6.88s
+INFO [refresh-plan] checked 135/210 key=dragonsExalted elapsed=7.39s
+INFO [refresh-plan] checked 138/210 key=nextDestinies elapsed=6.27s
+INFO [refresh-plan] checked 141/210 key=mcdonaldSCollection2011 elapsed=5.03s
+INFO [refresh-plan] checked 144/210 key=callOfLegends elapsed=7.88s
+INFO [refresh-plan] checked 147/210 key=hsUnleashed elapsed=6.72s
+INFO [refresh-plan] checked 150/210 key=pokMonRumble elapsed=5.44s
+INFO [refresh-plan] checked 153/210 key=risingRivals elapsed=7.89s
+INFO [refresh-plan] checked 156/210 key=stormfront elapsed=6.86s
+INFO [refresh-plan] checked 159/210 key=majesticDawn elapsed=7.41s
+INFO [refresh-plan] checked 162/210 key=secretWonders elapsed=9.42s
+INFO [refresh-plan] checked 165/210 key=diamondAndPearl elapsed=7.86s
+INFO [refresh-plan] checked 168/210 key=powerKeepers elapsed=7.88s
+INFO [refresh-plan] checked 171/210 key=popSeries4 elapsed=5.66s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=8.59s
+INFO [refresh-plan] checked 173/210 key=popSeries3 elapsed=13.30s
+INFO [refresh-plan] checked 174/210 key=exTrainerKit2Minun elapsed=5.11s
+INFO [refresh-plan] checked 177/210 key=deltaSpecies elapsed=9.02s
+INFO [refresh-plan] checked 180/210 key=emerald elapsed=8.22s
+INFO [refresh-plan] checked 183/210 key=fireredAndLeafGreen elapsed=7.56s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=6.64s
+INFO [refresh-plan] checked 185/210 key=hiddenLegends elapsed=12.92s
+INFO [refresh-plan] checked 186/210 key=exTrainerKitLatias elapsed=4.41s
+INFO [refresh-plan] checked 189/210 key=dragon elapsed=9.86s
+INFO [refresh-plan] checked 190/210 key=nintendoBlackStarPromos elapsed=10.69s
+INFO [refresh-plan] checked 192/210 key=rubyAndSapphire elapsed=8.26s
+INFO [refresh-plan] checked 194/210 key=aquapolis elapsed=11.78s
+INFO [refresh-plan] checked 195/210 key=bestOfGame elapsed=3.03s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=10.56s
+INFO [refresh-plan] checked 197/210 key=legendaryCollection elapsed=18.70s
+INFO [refresh-plan] checked 198/210 key=neoDestiny elapsed=36.94s
+INFO [refresh-plan] checked 199/210 key=neoRevelation elapsed=13.98s
+INFO [refresh-plan] checked 201/210 key=neoDiscovery elapsed=8.58s
+INFO [refresh-plan] checked 202/210 key=neoGenesis elapsed=10.28s
+WARNING [refresh-query] slow label=pokemon_set_market_dashboard_snapshot_latest.snapshot set_id=None elapsed=6.73s
+INFO [refresh-plan] checked 203/210 key=gymChallenge elapsed=17.31s
+INFO [refresh-plan] checked 204/210 key=gymHeroes elapsed=9.69s
+INFO [refresh-plan] checked 206/210 key=baseSet2 elapsed=11.30s
+INFO [refresh-plan] checked 207/210 key=fossil elapsed=9.36s
+INFO [refresh-plan] checked 210/210 key=base elapsed=7.62s
+INFO [refresh-plan] checking global families (explore_rankings, desirability_validation)
+INFO [scrape-runner] loaded config map: 210 sets across 17 era(s): baseWotcEra, blackAndWhiteEra, diamondAndPearlEra, eCardEra, exEra, gymEra, heartGoldAndSoulSilverEra, megaEvolutionEra, neoEra, npEra, otherEra, platinumEra, popEra, scarletAndVioletEra, sunAndMoonEra, swordAndShieldEra, xyEra
+INFO [refresh-plan] complete sets=210 elapsed=1490.97s
+INFO [refresh-phase] planning complete; entering rebuild/write phase sets=210
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=472f851c-2e41-4c80-b6fc-8478d1d92730 rows=120
+INFO [pokemon-set-market] canonical top chase history set_id=472f851c-2e41-4c80-b6fc-8478d1d92730 cards=10 variants=10 observations=280 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=472f851c-2e41-4c80-b6fc-8478d1d92730 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 280/280 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 280 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=5bdbfae1-3f2e-44e7-b8c9-1035ad45b896 rows=122
+INFO [pokemon-set-market] canonical top chase history set_id=5bdbfae1-3f2e-44e7-b8c9-1035ad45b896 cards=10 variants=10 observations=649 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=5bdbfae1-3f2e-44e7-b8c9-1035ad45b896 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/740 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 740/740 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 740 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=5e99f658-39f0-4845-9228-db8db3965f32 rows=124
+INFO [pokemon-set-market] canonical top chase history set_id=5e99f658-39f0-4845-9228-db8db3965f32 cards=10 variants=10 observations=1366 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=5e99f658-39f0-4845-9228-db8db3965f32 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=75cd439d-aaa2-41cb-86f3-2fefa5b26e29 rows=305
+INFO [pokemon-set-market] canonical top chase history set_id=75cd439d-aaa2-41cb-86f3-2fefa5b26e29 cards=10 variants=10 observations=1367 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=75cd439d-aaa2-41cb-86f3-2fefa5b26e29 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=0f7e51e2-5a78-4500-9c9c-f690e934a069 rows=132
+INFO [pokemon-set-market] canonical top chase history set_id=0f7e51e2-5a78-4500-9c9c-f690e934a069 cards=10 variants=10 observations=1370 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=0f7e51e2-5a78-4500-9c9c-f690e934a069 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=b3c96740-a4a9-4c3d-a8f6-81ed4584549d rows=189
+INFO [pokemon-set-market] canonical top chase history set_id=b3c96740-a4a9-4c3d-a8f6-81ed4584549d cards=10 variants=10 observations=1370 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=b3c96740-a4a9-4c3d-a8f6-81ed4584549d cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=41a0ac1c-27ca-444b-8665-8ba35e583a3b rows=175
+INFO [pokemon-set-market] canonical top chase history set_id=41a0ac1c-27ca-444b-8665-8ba35e583a3b cards=10 variants=13 observations=1636 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=41a0ac1c-27ca-444b-8665-8ba35e583a3b cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1290 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1290 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1290/1290 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1290 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=c38df164-ea0d-4e9e-bae6-4c3a517beb8f rows=173
+INFO [pokemon-set-market] canonical top chase history set_id=c38df164-ea0d-4e9e-bae6-4c3a517beb8f cards=10 variants=10 observations=1368 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=c38df164-ea0d-4e9e-bae6-4c3a517beb8f cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=de291399-ead5-41dc-bc12-e7c587684f85 rows=244
+INFO [pokemon-set-market] canonical top chase history set_id=de291399-ead5-41dc-bc12-e7c587684f85 cards=10 variants=10 observations=1370 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=de291399-ead5-41dc-bc12-e7c587684f85 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=142d3869-9d39-48b6-a810-751af2aac748 rows=191
+INFO [pokemon-set-market] canonical top chase history set_id=142d3869-9d39-48b6-a810-751af2aac748 cards=10 variants=11 observations=1307 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=142d3869-9d39-48b6-a810-751af2aac748 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=7a3dd188-4375-41af-94de-c5247fe0b1a6 rows=181
+INFO [pokemon-set-market] canonical top chase history set_id=7a3dd188-4375-41af-94de-c5247fe0b1a6 cards=10 variants=10 observations=1378 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=7a3dd188-4375-41af-94de-c5247fe0b1a6 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1440/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1440 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=f59f25a2-d3da-4100-a918-901271a99925 rows=252
+INFO [pokemon-set-market] canonical top chase history set_id=f59f25a2-d3da-4100-a918-901271a99925 cards=10 variants=10 observations=1370 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=f59f25a2-d3da-4100-a918-901271a99925 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=4b15f040-4351-41ea-90e1-c07eb1b2f4d6 rows=175
+INFO [pokemon-set-market] canonical top chase history set_id=4b15f040-4351-41ea-90e1-c07eb1b2f4d6 cards=10 variants=10 observations=1353 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=4b15f040-4351-41ea-90e1-c07eb1b2f4d6 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=3b753fb6-a465-4e68-8ad9-4e34e114d4b7 rows=107
+INFO [pokemon-set-market] canonical top chase history set_id=3b753fb6-a465-4e68-8ad9-4e34e114d4b7 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=3b753fb6-a465-4e68-8ad9-4e34e114d4b7 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=cb68bfe9-53a6-4345-b0e3-f6cd6c33383b rows=226
+INFO [pokemon-set-market] canonical top chase history set_id=cb68bfe9-53a6-4345-b0e3-f6cd6c33383b cards=10 variants=10 observations=1358 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=cb68bfe9-53a6-4345-b0e3-f6cd6c33383b cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=91442900-3949-4ba4-8398-9e3dc2db1fa6 rows=218
+INFO [pokemon-set-market] canonical top chase history set_id=91442900-3949-4ba4-8398-9e3dc2db1fa6 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=91442900-3949-4ba4-8398-9e3dc2db1fa6 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=fd1538dd-36b9-4d02-98dc-fd65a5230d27 rows=247
+INFO [pokemon-set-market] canonical top chase history set_id=fd1538dd-36b9-4d02-98dc-fd65a5230d27 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=fd1538dd-36b9-4d02-98dc-fd65a5230d27 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=5d3d5c23-7098-4393-ad63-6ad9372aee30 rows=266
+INFO [pokemon-set-market] canonical top chase history set_id=5d3d5c23-7098-4393-ad63-6ad9372aee30 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=5d3d5c23-7098-4393-ad63-6ad9372aee30 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=d001d563-988b-4f8e-904f-acb926748e22 rows=208
+INFO [pokemon-set-market] canonical top chase history set_id=d001d563-988b-4f8e-904f-acb926748e22 cards=10 variants=10 observations=1329 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=d001d563-988b-4f8e-904f-acb926748e22 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1440/1440 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1440 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=b4b34b61-ce48-4fc4-bd91-201a350b2600 rows=230
+INFO [pokemon-set-market] canonical top chase history set_id=b4b34b61-ce48-4fc4-bd91-201a350b2600 cards=10 variants=10 observations=1240 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=b4b34b61-ce48-4fc4-bd91-201a350b2600 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1280 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1280 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1280/1280 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1280 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=202518a0-5e86-4949-b1cd-c1c8ad95b616 rows=279
+INFO [pokemon-set-market] canonical top chase history set_id=202518a0-5e86-4949-b1cd-c1c8ad95b616 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=202518a0-5e86-4949-b1cd-c1c8ad95b616 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=3c459327-59d0-41d5-b21e-aae36361cc77 rows=262
+INFO [pokemon-set-market] canonical top chase history set_id=3c459327-59d0-41d5-b21e-aae36361cc77 cards=10 variants=10 observations=1360 window=2025-08-29..2026-08-28
+INFO [pokemon-snapshot] canonical top chase histories set_id=3c459327-59d0-41d5-b21e-aae36361cc77 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=42a3740d-4778-4857-9c28-e116f34b51f3 rows=113
+INFO [pokemon-snapshot] canonical top chase histories set_id=42a3740d-4778-4857-9c28-e116f34b51f3 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1272 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1272 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1272/1272 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1272 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=497a77be-f0e9-4dda-bbdb-b561bc91f3b2 rows=133
+INFO [pokemon-snapshot] canonical top chase histories set_id=497a77be-f0e9-4dda-bbdb-b561bc91f3b2 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1188 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1188 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1188/1188 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1188 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=537d3312-9622-4015-9ef2-66e16a27287c rows=132
+INFO [pokemon-snapshot] canonical top chase histories set_id=537d3312-9622-4015-9ef2-66e16a27287c cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=4f84d317-e15d-4598-bc8d-52baa04b3485 rows=83
+INFO [pokemon-snapshot] canonical top chase histories set_id=4f84d317-e15d-4598-bc8d-52baa04b3485 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=6c82fb37-b9b9-4961-a528-12556bd15417 rows=130
+INFO [pokemon-snapshot] canonical top chase histories set_id=6c82fb37-b9b9-4961-a528-12556bd15417 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=c86889c9-ea25-4caa-b63c-7aa0b9796da8 rows=62
+INFO [pokemon-snapshot] canonical top chase histories set_id=c86889c9-ea25-4caa-b63c-7aa0b9796da8 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=37e1b616-c5f4-4279-83c4-ea8dcdd83c69 rows=64
+INFO [pokemon-snapshot] canonical top chase histories set_id=37e1b616-c5f4-4279-83c4-ea8dcdd83c69 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260/1260 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1260 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO refreshed pokemon_canonical_card_market_prices_latest set_id=0010d2ec-894e-4c17-855d-5de6ff6fd204 rows=101
+INFO [pokemon-snapshot] canonical top chase histories set_id=0010d2ec-894e-4c17-855d-5de6ff6fd204 cards=10 variants=10
+INFO upserted pokemon_set_cards_snapshot_latest conflict=set_id
+INFO upserted 500/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1000/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400/1400 rows into pokemon_set_top_chase_card_daily_history conflict=set_id,snapshot_date,rank
+INFO upserted 1400 rows into pokemon_set_top_chase_card_daily_history
+INFO upserted pokemon_set_market_dashboard_snapshot_latest conflict=set_id,window_key
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [market-quality-gate] publication ALLOWED for 2026-08-28 (status=READY)
+WARNING [scrape-alerts] queued alert type=pokemon_market_quality_ready severity=info title=✅ Market Quality READY — 2026-08-28
+WARNING [scrape-alerts] queued alert type=pokemon_market_index_published severity=info title=✅ Pokémon Market Index — 2026-08-28
+WARNING [scrape-alerts] queued alert type=pokemon_global_market_published severity=info title=✅ Global Pokémon Market published — 2026-08-28
+ERROR failed explore rankings snapshot refresh
+Traceback (most recent call last):
+  File "D:\EVRCalculator\backend\scripts\refresh_stale_public_snapshots.py", line 1621, in _maybe_rebuild_rankings
+    publish_explore_rip_rankings_snapshot(client, commit=True)
+  File "D:\EVRCalculator\backend\scripts\pokemon_explore_rankings_publisher.py", line 554, in publish_explore_rip_rankings_snapshot
+    row = build_explore_rankings_snapshot_row(limit=limit)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\EVRCalculator\backend\scripts\pokemon_snapshot_builders.py", line 4178, in build_explore_rankings_snapshot_row
+    payload = get_rip_statistics_targets_payload(limit=limit)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\EVRCalculator\backend\db\services\explore_rip_statistics_service.py", line 1734, in get_rip_statistics_targets_payload
+    rankings_top_chase_lookup = _load_rankings_top_chase_lookup(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\EVRCalculator\backend\db\services\explore_rip_statistics_service.py", line 1646, in _load_rankings_top_chase_lookup
+    raise RuntimeError(
+RuntimeError: Refusing stale Rankings Top Chase publication for set_id=0f7e51e2-5a78-4500-9c9c-f690e934a069: target run 7603944e-bbe6-4d1b-a97a-175b3ac277b9 != set-page chase run e26bfac0-e608-4c85-9857-1f912f3ab383
+INFO set page snapshot building as simulation-unavailable set_id=9d26311a-2df9-4509-95b7-f2c0fa84be97 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=708f76d0-3b41-4a10-bcdf-515911c95b44 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=718e3e69-aa91-4e44-bf33-0c3b80e46083 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=499768a1-e523-45a1-acd1-3b7517e30e71 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0e7872d8-5de9-40be-bcee-d3715b86e6f3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8ac94f2a-bb38-46da-964e-553a6738bfed reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=897af8d8-29f0-4695-ac0f-1818681a8347 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3658ed92-28bb-4157-9499-a362ea2131f4 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4f5809fb-003b-4b48-87b8-ddac6bb8cb3e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=eac925d2-b5fd-4924-b44b-b9248b792e8e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=620d3f6e-579c-49c1-9104-96cffc92808c reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9d1fc476-98fc-4242-82e4-dcf577fb287c reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=38bb9c0d-8463-4e3c-8f6a-183b5d8026bc reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a7be046d-97a9-42a2-8f94-ba65d9437c54 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8dbf97f7-b7e8-4ff5-883a-0bb3356291bf reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a7173805-4be3-4b17-aee9-63ca51198e28 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=633200a6-13cd-4631-9831-4f6c36fadc15 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=691a893f-a2a2-4981-8654-bcde6fd04241 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=27682e80-4233-4019-bd88-3c6b899d2c9c reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3e4adf68-773f-4ed5-86a2-ce4fcead8bff reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=de4ffcac-bffa-48e3-b61b-ee42a1207832 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3afc0db0-e663-4145-8ab6-b3ea0bb08c4d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=cf0803d1-bcea-4bc4-b263-62b82a1104ba reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=f666d013-7d6c-47a2-a587-1d41b1a0268a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=e055d45e-3eb1-41af-9903-52fdcb96121e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5e473875-7d0f-43ff-86bd-9aa939e6ca32 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=61403394-018a-41e9-8565-2d9974d6086d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=21f603ea-ddb3-4f89-9989-b72de2800ce1 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=d3a942b0-feaa-4002-8204-645aca7c97e7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=d0a3d2ba-c685-4d8c-a5f7-b781b6b730f7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9afac122-a330-4891-b18b-553ffe8d8cf8 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1c097569-7ad5-4531-a51c-a0c619348029 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9a17644c-e449-4b75-a4f8-9a4c8306bf27 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=04cd092f-0e97-4f45-bf91-ef7ebdf9420e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=653c64a2-e05c-4843-8227-38341b08749f reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=e1a1f0dc-d89e-4b97-9bb9-6465f1f08c18 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=d46f3d54-020e-4f00-b02c-394aaf4ece13 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=007ab2d1-b71b-4049-bf2d-b772b53cbfed reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+WARNING [explore-page] calculation_history_trend select fallback failed target_type=set target_id=472f851c-2e41-4c80-b6fc-8478d1d92730 source=OK_CANONICAL: {'message': 'column calculation_history_trend.mean_value_to_cost_ratio does not exist', 'code': '42703', 'hint': None, 'details': None}
+WARNING [explore-page] calculation_history_trend select fallback failed target_type=set target_id=472f851c-2e41-4c80-b6fc-8478d1d92730 source=OK_CANONICAL_NO_P95: {'message': 'column calculation_history_trend.mean_value_to_cost_ratio does not exist', 'code': '42703', 'hint': None, 'details': None}
+WARNING [explore-page] calculation_history_trend select fallback failed target_type=set target_id=472f851c-2e41-4c80-b6fc-8478d1d92730 source=OK_CANONICAL_CORE: {'message': 'column calculation_history_trend.mean_value_to_cost_ratio does not exist', 'code': '42703', 'hint': None, 'details': None}
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 796.2ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO [universal-desirability] built 172 payloads (version=universal_set_desirability_v3) from 172 exact-version rows (scanned=514 missing=0 duplicates=0) set_value_association_spearman=0.3093 (diagnostic only)
+INFO [collector-appeal-inputs] live pull-model fallback resolved set_id=5109f22e-0799-46b5-a4ad-8861d1cfefee rarities=9
+INFO [collector-appeal] resolved 1/12 unmodeled sets from the live pull-rate source
+INFO [collector-appeal] built 172 sets (22 with a Collector Appeal score) in 137878ms
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 557.8ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 104.9ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 91.9ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 102.6ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 98.1ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 132.9ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 104.0ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 83.4ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 92.2ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 82.5ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 127.4ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 232.9ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 190.2ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 120.8ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 153.0ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 154.0ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 118.6ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 145.2ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 152.1ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 118.1ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+WARNING batch read failed operation=explore_rip_statistics_latest.targets attempt=1/4 error_type=APIError error_code=57014 status=57014 transient=True final=false
+INFO [rip-statistics-targets] loaded checklist set values matched=34/34 in 372.3ms
+INFO [rip-statistics-targets] RIP desirability comparison valid=34/34 missing_desirability=0 raises_rank=12 lowers_rank=17 minimal=5
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=70a8d8f3-9aee-4ac8-88e4-dfbca50652f4 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=532d2ad5-32b3-434d-9772-2159fcdfbd5b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1f5a156b-2335-4803-a82c-803976263e8b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=2d6ec108-70b2-4698-a21a-1af39828004f reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5109f22e-0799-46b5-a4ad-8861d1cfefee reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=fc711667-a178-41c9-afbc-7e7d88bfe593 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=250f0404-e380-42e7-9aec-385ca8290ad4 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6b5aa766-ca92-4ca2-a750-6323bbd97d13 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0d90b4ed-16a1-456c-81c6-83d2869d3846 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=01b45c4b-c606-41f7-9669-0137cd4aafaf reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7b44aba2-0e04-4b04-a1c7-9b6273daf3d5 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a72c75bd-0d61-4643-b603-fef78425dcfa reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8cd0a0f0-d17c-4a5c-bc52-47e1723e0699 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=09f1674c-26c5-40df-8d52-4ce823c7c2fb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=be7c981b-c55e-4f60-a1b8-be922531452d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=93212749-ce0e-498e-975e-7d947a3448ce reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1c7aa5c4-c8c9-4ae8-a1eb-d613f7e4b890 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=46ab39a7-dd96-4a2d-af0f-44b868918114 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=03764ded-825a-45c0-8b15-ce100cff9552 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=f93ca977-cfc9-4d06-a62a-f9dcf9afbfb8 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=332b2885-9354-4a29-ba52-03fca35594d1 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=26fedb88-87d7-487a-9f01-528d603c682e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=076aa350-5b36-4ff4-9095-fe4e95c01b79 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=e9063738-f85d-4e2c-8cbe-9a5dc98883e9 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3836457c-77dc-44b0-a72f-779b6dd78884 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=759c09f8-8a1b-4212-be89-66088afa6893 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=cbc11b3c-0244-4fca-880f-68ebdd599894 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a8e71483-9883-4e9c-b0ce-1ef5049c9ed0 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=dfcf6c98-1bf3-43a8-83a2-7e56b3c65d03 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9a59b345-59b0-4fc1-a4a3-5f79cb6f2310 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=db98ee23-c79a-4bfb-8a50-a5ba8a69120d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=528c1630-0565-427c-98a3-0ad3d85da32e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6e18dc34-5d2f-47b2-8595-e350ebd4a630 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=476a8f1c-bd50-4ba7-a217-562015fee3d6 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=29901e65-a5d2-4e12-8e26-62216ed947ab reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a8064dc8-57b9-4e6b-87fd-c0aa077fea7a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7c998bc2-6073-4461-8873-64d1b3e78930 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=2fed4a27-a176-4d60-a92a-3c8b15f81dfb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=279f849e-9de7-4ca3-a922-a4f92ba9d89b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=03bfd551-26be-423f-a4f2-9c4e936f3de3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=c79eb59b-03a4-41c9-891b-de78a8f50d5e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8158d0ae-0255-48f0-b189-d134035b72b0 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=950b9e19-eb8d-41bd-995f-01bdf98103b3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=212383a2-ed84-4a5e-af37-50814247a437 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ed036406-26a7-4c68-92d5-dcd04f62556d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8b5fb7da-391e-477d-b46c-f99ae584e7d3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=be72ec5d-de1a-41db-81e0-89c310ed75ae reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8938c853-2282-46d8-ba44-87584fa2c168 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0a49ab45-80d7-47e3-be40-425e254d2ff2 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=75cc9ef9-1099-4e47-8d09-17f416606865 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=f769797d-2683-497c-b0b3-28ac04f6e304 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=69d6d1be-f610-421b-b29c-c3348fe19518 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5ee1fc9a-a49e-4323-8aa7-43df6d3c8124 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1e5eb27b-53bb-490b-9edb-1ce98b3a4341 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4de777b3-396e-4f19-9d78-c054b296bedb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=74043b01-c2d0-49ad-a86e-404b7579aa83 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6c5be923-95d0-46ee-86a4-61148fb5152a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3f3c7677-b876-4353-821e-6bdd610fd683 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=26db83e5-986f-4b91-82f4-c993ad1a0aaf reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=806b7046-4fd5-4259-be17-54b28381f034 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=c825e588-8070-4dc7-b2b4-bedaf811ffed reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=d38ee646-382d-45c0-9463-e9302aa2471a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8a2c6f1f-dff9-45d7-9ae2-61ad05e4cee7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=27077ea7-cd5d-4ba7-ae66-e905e780f0fd reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7fed6bc2-a67f-47e1-a453-d8c4ff986947 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=29d1d610-11c5-479c-a9ff-dace7bb96f92 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=f133524e-50e2-4238-91db-393770680c9b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8fe71704-0369-427a-ad32-4d173b43b1e1 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0b8ebcec-2b4e-4a77-9923-ffc4be6514c5 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6d813ed0-f263-4294-a099-18f1d5c7bd81 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ddbc1691-ea68-4775-8343-7b8fddbf81e6 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=65ee8536-af5a-4242-8a1f-9928c81f501b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ca0ad9de-678b-4734-9e91-93a1d7201e51 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4b792f11-635a-4e2f-9f60-09aafe387a4a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=fdbc28d8-0b83-455c-b25c-13d2a222365a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=262dcb31-b7af-423e-8b11-2b7ba469ff72 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7a87a5b5-17dc-43e6-9eac-3de88beab0e7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=488bda22-33b7-40d7-9fe1-b3f87c2d2204 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5361a918-eb23-447e-a00e-e21493bc4320 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=34a48f79-1bd3-4f1d-9e3c-758955be70ee reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7705c538-c6c1-4846-8efc-4bf4650f92e0 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=591a2b3e-2dc8-4e80-b42d-aec4f4b786e4 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6cfb0c2c-0758-4b54-89b6-e1dd00771fa6 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=b5172ada-e0d5-4c3f-a4c7-06b4ac3391de reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=965b3000-c483-4110-bb21-ff5ffe120564 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0cb8a5a6-5b5a-4288-aded-8b03f0fd9ded reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1c48d45b-199b-4925-bbfe-168c59faf66a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=069f83b6-3028-4a00-ae8e-96ef2083a11d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=bbea2ee9-6be2-44bd-b14e-b4a8b9c858de reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=d425bce0-952c-456b-8402-707daeb35850 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=bd6207d5-eeb5-4e67-aceb-29cf9c2bd9b6 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7e99a62d-57ab-4ef4-8338-576524fb8d0d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ffc6b635-fe16-4416-b4fc-0f727e4c81d4 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9d282514-6b63-48cd-bc25-9ce330632cd3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=98301e8a-8aa3-43d8-a85b-908883264721 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=77bde285-03f8-4a48-b6a5-2f548225c3eb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ba05227c-b7eb-4428-9e8e-ae70b52fe89f reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=2262c6e4-3f9a-4364-b03a-d811cd604739 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=bd54a027-2b93-4cfb-b118-687bd0481def reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=2d477c9a-bb2c-42aa-ae25-7cd4ca0f2a4a reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=15fd93a2-82e3-4a5f-9f11-112cee192c95 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8f78267f-493b-4d60-a19e-587ae1f60f69 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=9e777620-7479-41c4-84fb-17d2aea123bb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ca43d96a-ad90-4717-a4f6-253fb26a6d53 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7a1b8de0-331f-4635-8512-b737da431f7d reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=e7370b09-d1ba-41e4-b5b9-bb999c9628af reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1c6a8735-af2a-475b-b230-5bd18f827b06 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=30396643-190c-416d-92a4-e8414c8b4980 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=c56fe006-6d9a-4b26-a4e0-6726138edecb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=93050f21-b805-41fc-a49d-b5afcb9c41dc reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=62aaa567-d5a7-4d0c-b1b0-1fde562c0081 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4099fc11-a3f6-4034-8208-fbf82bd89de5 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=92575c0d-fac2-42ff-86f3-fb81f7452188 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ef5828b5-4fc5-4ebf-a7fa-6efd4afcfb5b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7a845016-3a12-4b14-abf6-9afd07984bbd reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=cb1dc8ed-925b-443d-ba23-d6ffa8f7084c reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=1b3250bb-f123-47d8-b090-499e5879eda7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a91d2dfa-fd33-44ff-ac12-f221b833a2e2 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=126093d8-50e7-4a7c-891d-8cffd5733eeb reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ff3a0e62-c79e-4721-aee8-41fb9d9e864b reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=388dd649-960b-4fd8-a8df-e56b3730972e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=ed118173-d54b-40d5-bdb4-1964024dbad3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=50c5370b-a5e7-4fbc-98fe-efc35e05ff80 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=549f2297-a03b-4276-ad96-ad41a8bcef8f reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=846787ce-2e12-4dab-b941-886f95cd16f8 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3b9f2e5c-3b1c-43ae-83c6-c89b208e7175 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=8d87b580-01fb-4a17-912c-200b5455ead7 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a69e4091-5b33-499d-85a5-a8f0b7ecaddc reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4c0902e8-fc57-4e07-82e1-e4bdb9fe9990 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=78c7f000-9a9e-45ca-8233-8f36030f6019 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=27f3eb48-9964-4a3f-9861-a434ae244697 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=b0d7bd6a-4e57-4495-b975-e132417cc071 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a2cc93d2-762d-4dcc-ac17-62f244abce06 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=aac3de95-9f92-44af-966d-70b1d201c01e reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=e5c150bd-9a74-4bd3-a0a4-68e0508b7ba6 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7ceb2e94-7968-4394-95cb-742b01804974 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5bb951fd-bb74-40d7-b496-cca5bf959515 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=42a3740d-4778-4857-9c28-e116f34b51f3 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=89e710d1-c378-4b4e-aaea-5994d8441f45 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=5e160c6d-8f0e-4694-bf72-1fc3b7f01e45 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=a5e6c9df-5a1b-4ab9-92ef-9fac0984c8d2 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=3562f9c9-f879-4d49-9d69-d0ab511230f9 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=497a77be-f0e9-4dda-bbdb-b561bc91f3b2 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=537d3312-9622-4015-9ef2-66e16a27287c reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=4f84d317-e15d-4598-bc8d-52baa04b3485 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=6c82fb37-b9b9-4961-a528-12556bd15417 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=c86889c9-ea25-4caa-b63c-7aa0b9796da8 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=7a2814b3-1153-4b1a-a0b2-2a0725258214 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=37e1b616-c5f4-4279-83c4-ea8dcdd83c69 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO set page snapshot building as simulation-unavailable set_id=0010d2ec-894e-4c17-855d-5de6ff6fd204 reason=canonical_supports_opening_simulation_false
+INFO upserted pokemon_set_page_snapshot_latest conflict=set_id
+INFO [set-revalidation] not configured (SET_REVALIDATION_URL/SECRET); skipping cache invalidation
+INFO [set-revalidation] publication diagnostics: cache_invalidation_configured=no sets_considered=240 attempted=240 succeeded=0 failed=240 skipped_dry_run=0 skipped_duplicate=0 failed_sets=pitchBlack,chaosRising,perfectOrder,ascendedHeroes,phantasmalFlames,megaEvolution,blackBolt,whiteFlare,destinedRivals,journeyTogether,prismaticEvolutions,surgingSparks,stellarCrown,shroudedFable,twilightMasquerade,temporalForces,paldeanFates,paradoxRift,scarletAndViolet151,obsidianFlames,paldeaEvolved,scarletAndVioletBase,neoDestiny,gymChallenge,gymHeroes,teamRocket,baseSet2,fossil,jungle,base,blisterExclusives,pikachuWorldCollectionPromos,dpTrainerKitManaphyAndLucario,deckExclusives,smTrainerKitLycanrocAndAlolanRaichu,countdownCalendarPromos,worldChampionshipDecks,trickOrTradeBOOsterBundle2023,mcdonaldSPromos2023,battleAcademy2024,trickOrTradeBOOsterBundle2024,smTrainerKitAlolanSandslashAndAlolanNinetales,alternateArtPromos,sveScarletAndVioletEnergies,me30thCelebration,firstPartnerCollection2026,swshSwordAndShieldPromoCards,tradingCardGameClassic,professorProgramPromos,svScarletAndVioletPromoCards,xyTrainerKitBisharpAndWigglytuff,diamondAndPearlPromos,wotcPromo,hgssTrainerKitGyaradosAndRaichu,bwTrainerKitExcadrillAndZoroark,legendaryTreasuresRadiantCollection,xyTrainerKitSylveonAndNoivern,xyTrainerKitPikachuLibreAndSuicune,xyTrainerKitLatiasAndLatios,baseSetShadowless,generationsRadiantCollection,bestOfPromos,eReaderSampleCards,battleAcademy2022,firstPartnerPack,battleAcademy,expedition,megaEvolutionPromos,pitchBlack,chaosRising,perfectOrder,ascendedHeroes,phantasmalFlames,megaEvolution,blackBolt,whiteFlare,destinedRivals,journeyTogether,prismaticEvolutions,surgingSparks,stellarCrown,shroudedFable,twilightMasquerade,temporalForces,paldeanFates,paradoxRift,scarletAndViolet151,obsidianFlames,paldeaEvolved,scarletAndVioletBase,crownZenith,crownZenithGalarianGallery,silverTempestTrainerGallery,silverTempest,lostOrigin,lostOriginTrainerGallery,mcdonaldSCollection2022,pokMonGO,astralRadiance,astralRadianceTrainerGallery,brilliantStarsTrainerGallery,brilliantStars,fusionStrike,celebrationsClassicCollection,celebrations,evolvingSkies,chillingReign,battleStyles,shiningFates,shiningFatesShinyVault,mcdonaldSCollection2021,vividVoltage,championSPath,pokMonFutsalCollection,darknessAblaze,rebelClash,swordAndShield,swshBlackStarPromos,cosmicEclipse,mcdonaldSCollection2019,hiddenFates,hiddenFatesShinyVault,unifiedMinds,unbrokenBonds,detectivePikachu,teamUp,lostThunder,mcdonaldSCollection2018,dragonMajesty,celestialStorm,forbiddenLight,ultraPrism,mcdonaldSCollection2017,crimsonInvasion,shiningLegends,burningShadows,guardiansRising,sunAndMoon,smBlackStarPromos,evolutions,mcdonaldSCollection2016,steamSiege,fatesCollide,generations,breakpoint,mcdonaldSCollection2015,breakthrough,ancientOrigins,roaringSkies,doubleCrisis,primalClash,phantomForces,furiousFists,mcdonaldSCollection2014,flashfire,xy,kalosStarterSet,legendaryTreasures,xyBlackStarPromos,plasmaBlast,plasmaFreeze,plasmaStorm,boundariesCrossed,dragonVault,dragonsExalted,mcdonaldSCollection2012,darkExplorers,nextDestinies,nobleVictories,emergingPowers,mcdonaldSCollection2011,blackAndWhite,bwBlackStarPromos,callOfLegends,hsTriumphant,hsUndaunted,hsUnleashed,heartgoldAndSoulSilver,hgssBlackStarPromos,pokMonRumble,arceus,supremeVictors,risingRivals,popSeries9,platinum,stormfront,popSeries8,legendsAwakened,majesticDawn,popSeries7,greatEncounters,secretWonders,popSeries6,mysteriousTreasures,diamondAndPearl,dpBlackStarPromos,popSeries5,powerKeepers,dragonFrontiers,crystalGuardians,popSeries4,holonPhantoms,popSeries3,exTrainerKit2Minun,exTrainerKit2Plusle,legendMaker,deltaSpecies,popSeries2,unseenForces,emerald,deoxys,teamRocketReturns,fireredAndLeafGreen,popSeries1,hiddenLegends,exTrainerKitLatias,exTrainerKitLatios,teamMagmaVsTeamAqua,dragon,nintendoBlackStarPromos,sandstorm,rubyAndSapphire,skyridge,aquapolis,bestOfGame,expeditionBaseSet,legendaryCollection,neoDestiny,neoRevelation,southernIslands,neoDiscovery,neoGenesis,gymChallenge,gymHeroes,teamRocket,baseSet2,fossil,wizardsBlackStarPromos,jungle,base note=tagged seeds were NOT invalidated; the set page serves its cached seed until the tag timer elapses
+[market-quality] persisted verdict date=2026-08-28 status=READY
+stale public snapshot refresh: Market Date Quality [market_allowed_ready] status=READY: Market cohort 22/22 qualifying for 2026-08-28; status=READY
+[market-quality] date=2026-08-28 status=READY qualifying=22/22
+[market-index] raw/top10 target=2026-08-28 latest=2026-08-28
+public snapshot refresh summary
+source checks performed: 7476
+stale snapshot families detected: explore_card_movers, explore_rankings, explore_set_values, market_dashboard, set_page
+global rebuilt: explore_set_values, explore_card_movers
+global skipped: none
+global failed: explore_rankings: Refusing stale Rankings Top Chase publication for set_id=0f7e51e2-5a78-4500-9c9c-f690e934a069: target run 7603944e-bbe6-4d1b-a97a-175b3ac277b9 != set-page chase run e26bfac0-e608-4c85-9857-1f912f3ab383
+sealed_market rebuilt: 210 ['blisterExclusives', 'pikachuWorldCollectionPromos', 'dpTrainerKitManaphyAndLucario', 'deckExclusives', 'smTrainerKitLycanrocAndAlolanRaichu', 'countdownCalendarPromos', 'worldChampionshipDecks', 'trickOrTradeBOOsterBundle2023', 'mcdonaldSPromos2023', 'battleAcademy2024', 'trickOrTradeBOOsterBundle2024', 'smTrainerKitAlolanSandslashAndAlolanNinetales', 'alternateArtPromos', 'sveScarletAndVioletEnergies', 'me30thCelebration', 'firstPartnerCollection2026', 'swshSwordAndShieldPromoCards', 'tradingCardGameClassic', 'professorProgramPromos', 'svScarletAndVioletPromoCards']
+sealed_market skipped: 0 []
+sealed_market failed: 0 []
+cards rebuilt: 30 ['pitchBlack', 'chaosRising', 'perfectOrder', 'ascendedHeroes', 'phantasmalFlames', 'megaEvolution', 'blackBolt', 'whiteFlare', 'destinedRivals', 'journeyTogether', 'prismaticEvolutions', 'surgingSparks', 'stellarCrown', 'shroudedFable', 'twilightMasquerade', 'temporalForces', 'paldeanFates', 'paradoxRift', 'scarletAndViolet151', 'obsidianFlames']
+cards skipped: 0 []
+cards failed: 0 []
+market_dashboard rebuilt: 30 ['pitchBlack', 'chaosRising', 'perfectOrder', 'ascendedHeroes', 'phantasmalFlames', 'megaEvolution', 'blackBolt', 'whiteFlare', 'destinedRivals', 'journeyTogether', 'prismaticEvolutions', 'surgingSparks', 'stellarCrown', 'shroudedFable', 'twilightMasquerade', 'temporalForces', 'paldeanFates', 'paradoxRift', 'scarletAndViolet151', 'obsidianFlames']
+market_dashboard skipped: 0 []
+market_dashboard failed: 0 []
+set_page rebuilt: 210 ['blisterExclusives', 'pikachuWorldCollectionPromos', 'dpTrainerKitManaphyAndLucario', 'deckExclusives', 'smTrainerKitLycanrocAndAlolanRaichu', 'countdownCalendarPromos', 'worldChampionshipDecks', 'trickOrTradeBOOsterBundle2023', 'mcdonaldSPromos2023', 'battleAcademy2024', 'trickOrTradeBOOsterBundle2024', 'smTrainerKitAlolanSandslashAndAlolanNinetales', 'alternateArtPromos', 'sveScarletAndVioletEnergies', 'me30thCelebration', 'firstPartnerCollection2026', 'swshSwordAndShieldPromoCards', 'tradingCardGameClassic', 'professorProgramPromos', 'svScarletAndVioletPromoCards']
+set_page skipped: 0 []
+set_page failed: 0 []
+warnings remaining: 0
+first 10 problem canonical keys: []
+set page freshness audit
+  sets compared: 210
+  fresh: 210
+  stale: 0
+[set-revalidation] publication diagnostics: cache_invalidation_configured=no sets_considered=240 attempted=240 succeeded=0 failed=240 skipped_dry_run=0 skipped_duplicate=0 failed_sets=pitchBlack,chaosRising,perfectOrder,ascendedHeroes,phantasmalFlames,megaEvolution,blackBolt,whiteFlare,destinedRivals,journeyTogether,prismaticEvolutions,surgingSparks,stellarCrown,shroudedFable,twilightMasquerade,temporalForces,paldeanFates,paradoxRift,scarletAndViolet151,obsidianFlames,paldeaEvolved,scarletAndVioletBase,neoDestiny,gymChallenge,gymHeroes,teamRocket,baseSet2,fossil,jungle,base,blisterExclusives,pikachuWorldCollectionPromos,dpTrainerKitManaphyAndLucario,deckExclusives,smTrainerKitLycanrocAndAlolanRaichu,countdownCalendarPromos,worldChampionshipDecks,trickOrTradeBOOsterBundle2023,mcdonaldSPromos2023,battleAcademy2024,trickOrTradeBOOsterBundle2024,smTrainerKitAlolanSandslashAndAlolanNinetales,alternateArtPromos,sveScarletAndVioletEnergies,me30thCelebration,firstPartnerCollection2026,swshSwordAndShieldPromoCards,tradingCardGameClassic,professorProgramPromos,svScarletAndVioletPromoCards,xyTrainerKitBisharpAndWigglytuff,diamondAndPearlPromos,wotcPromo,hgssTrainerKitGyaradosAndRaichu,bwTrainerKitExcadrillAndZoroark,legendaryTreasuresRadiantCollection,xyTrainerKitSylveonAndNoivern,xyTrainerKitPikachuLibreAndSuicune,xyTrainerKitLatiasAndLatios,baseSetShadowless,generationsRadiantCollection,bestOfPromos,eReaderSampleCards,battleAcademy2022,firstPartnerPack,battleAcademy,expedition,megaEvolutionPromos,pitchBlack,chaosRising,perfectOrder,ascendedHeroes,phantasmalFlames,megaEvolution,blackBolt,whiteFlare,destinedRivals,journeyTogether,prismaticEvolutions,surgingSparks,stellarCrown,shroudedFable,twilightMasquerade,temporalForces,paldeanFates,paradoxRift,scarletAndViolet151,obsidianFlames,paldeaEvolved,scarletAndVioletBase,crownZenith,crownZenithGalarianGallery,silverTempestTrainerGallery,silverTempest,lostOrigin,lostOriginTrainerGallery,mcdonaldSCollection2022,pokMonGO,astralRadiance,astralRadianceTrainerGallery,brilliantStarsTrainerGallery,brilliantStars,fusionStrike,celebrationsClassicCollection,celebrations,evolvingSkies,chillingReign,battleStyles,shiningFates,shiningFatesShinyVault,mcdonaldSCollection2021,vividVoltage,championSPath,pokMonFutsalCollection,darknessAblaze,rebelClash,swordAndShield,swshBlackStarPromos,cosmicEclipse,mcdonaldSCollection2019,hiddenFates,hiddenFatesShinyVault,unifiedMinds,unbrokenBonds,detectivePikachu,teamUp,lostThunder,mcdonaldSCollection2018,dragonMajesty,celestialStorm,forbiddenLight,ultraPrism,mcdonaldSCollection2017,crimsonInvasion,shiningLegends,burningShadows,guardiansRising,sunAndMoon,smBlackStarPromos,evolutions,mcdonaldSCollection2016,steamSiege,fatesCollide,generations,breakpoint,mcdonaldSCollection2015,breakthrough,ancientOrigins,roaringSkies,doubleCrisis,primalClash,phantomForces,furiousFists,mcdonaldSCollection2014,flashfire,xy,kalosStarterSet,legendaryTreasures,xyBlackStarPromos,plasmaBlast,plasmaFreeze,plasmaStorm,boundariesCrossed,dragonVault,dragonsExalted,mcdonaldSCollection2012,darkExplorers,nextDestinies,nobleVictories,emergingPowers,mcdonaldSCollection2011,blackAndWhite,bwBlackStarPromos,callOfLegends,hsTriumphant,hsUndaunted,hsUnleashed,heartgoldAndSoulSilver,hgssBlackStarPromos,pokMonRumble,arceus,supremeVictors,risingRivals,popSeries9,platinum,stormfront,popSeries8,legendsAwakened,majesticDawn,popSeries7,greatEncounters,secretWonders,popSeries6,mysteriousTreasures,diamondAndPearl,dpBlackStarPromos,popSeries5,powerKeepers,dragonFrontiers,crystalGuardians,popSeries4,holonPhantoms,popSeries3,exTrainerKit2Minun,exTrainerKit2Plusle,legendMaker,deltaSpecies,popSeries2,unseenForces,emerald,deoxys,teamRocketReturns,fireredAndLeafGreen,popSeries1,hiddenLegends,exTrainerKitLatias,exTrainerKitLatios,teamMagmaVsTeamAqua,dragon,nintendoBlackStarPromos,sandstorm,rubyAndSapphire,skyridge,aquapolis,bestOfGame,expeditionBaseSet,legendaryCollection,neoDestiny,neoRevelation,southernIslands,neoDiscovery,neoGenesis,gymChallenge,gymHeroes,teamRocket,baseSet2,fossil,wizardsBlackStarPromos,jungle,base note=tagged seeds were NOT invalidated; the set page serves its cached seed until the tag timer elapses
+[daily-opening-publication] market_date=2026-08-28 eligible=22 pending=22
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set ascendedHeroes
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set blackBolt
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set chaosRising
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set destinedRivals
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set journeyTogether
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set megaEvolution
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set obsidianFlames
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set paldeaEvolved
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set paldeanFates
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set paradoxRift
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set perfectOrder
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set phantasmalFlames
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set pitchBlack
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set prismaticEvolutions
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set scarletAndViolet151
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set scarletAndVioletBase
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set shroudedFable
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set stellarCrown
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set surgingSparks
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set temporalForces
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set twilightMasquerade
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\run_all_v2_sets.py --set whiteFlare
+[daily-opening-publication] simulation FAILED set=destinedRivals reason=run_all_v2_sets exited 1
+[opening-simulation-gate] entry_point='daily opening publication' market_date=2026-08-28 eligible=22 current=21 failed=1 skipped=0 ok=False
+[opening-simulation-gate] set=ascendedHeroes name='Ascended Heroes' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=blackBolt name='Black Bolt' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=chaosRising name='Chaos Rising' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=journeyTogether name='Journey Together' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=megaEvolution name='Mega Evolution' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=obsidianFlames name='Obsidian Flames' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=paldeaEvolved name='Paldea Evolved' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=paldeanFates name='Paldean Fates' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=paradoxRift name='Paradox Rift' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=perfectOrder name='Perfect Order' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=phantasmalFlames name='Phantasmal Flames' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=pitchBlack name='Pitch Black' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=prismaticEvolutions name='Prismatic Evolutions' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=scarletAndViolet151 name='Scarlet and Violet 151' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=scarletAndVioletBase name='Scarlet and Violet Base Set' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=shroudedFable name='Shrouded Fable' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=stellarCrown name='Stellar Crown' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=surgingSparks name='Surging Sparks' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=temporalForces name='Temporal Forces' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=twilightMasquerade name='Twilight Masquerade' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=whiteFlare name='White Flare' status=current latest_simulation_date=2026-08-28 reason=-
+[opening-simulation-gate] set=destinedRivals name='Destined Rivals' status=invalid latest_simulation_date=2026-08-28 reason=calculation_run_id 2925570c-5580-4903-b8dc-c08ea52cd79f has no simulation_run_summary row
+[daily-opening-publication] running: D:\EVRCalculator\.venv\Scripts\python.exe D:\EVRCalculator\backend\scripts\refresh_stale_public_snapshots.py --commit --strict --gate-wait-attempts 6 --gate-wait-seconds 600
+[daily-opening-publication] ===== daily opening publication summary =====
+[daily-opening-publication] market_date=2026-08-28
+[daily-opening-publication] eligible_sets=22
+[daily-opening-publication] simulations_succeeded=21
+[daily-opening-publication] simulations_failed=1
+[daily-opening-publication] skipped_sets=0
+[daily-opening-publication] latest_simulation_date_by_set:
+[daily-opening-publication]   ascendedHeroes=2026-08-28
+[daily-opening-publication]   blackBolt=2026-08-28
+[daily-opening-publication]   chaosRising=2026-08-28
+[daily-opening-publication]   destinedRivals=2026-08-28
+[daily-opening-publication]   journeyTogether=2026-08-28
+[daily-opening-publication]   megaEvolution=2026-08-28
+[daily-opening-publication]   obsidianFlames=2026-08-28
+[daily-opening-publication]   paldeaEvolved=2026-08-28
+[daily-opening-publication]   paldeanFates=2026-08-28
+[daily-opening-publication]   paradoxRift=2026-08-28
+[daily-opening-publication]   perfectOrder=2026-08-28
+[daily-opening-publication]   phantasmalFlames=2026-08-28
+[daily-opening-publication]   pitchBlack=2026-08-28
+[daily-opening-publication]   prismaticEvolutions=2026-08-28
+[daily-opening-publication]   scarletAndViolet151=2026-08-28
+[daily-opening-publication]   scarletAndVioletBase=2026-08-28
+[daily-opening-publication]   shroudedFable=2026-08-28
+[daily-opening-publication]   stellarCrown=2026-08-28
+[daily-opening-publication]   surgingSparks=2026-08-28
+[daily-opening-publication]   temporalForces=2026-08-28
+[daily-opening-publication]   twilightMasquerade=2026-08-28
+[daily-opening-publication]   whiteFlare=2026-08-28
+[daily-opening-publication] sealed_product_finalization_status=skipped_cohort_not_verified
+[daily-opening-publication] snapshot_publication_status=failed_exit_1
+[daily-opening-publication] chase_snapshot_publication_status=not_attempted
+[daily-opening-publication] chase_efficiency_publication_status=not_attempted
+[daily-opening-publication] chase_audit_status=not_attempted
+[daily-opening-publication] rip_stats_publication_status=skipped_cohort_not_verified
+[daily-opening-publication] ev_representativeness_status=research_complete eligible=21 existing=0 built=21 failed=0
+[daily-opening-publication] rip_stats_audit_status=not_attempted
+[daily-opening-publication] rip_stats_market_date=None
+[daily-opening-publication] rip_stats_set_count=0
+[daily-opening-publication] rip_stats_source_run_fingerprint=None
+[daily-opening-publication] verification_passed=False
+[daily-opening-publication] publication_audit_status=not_attempted
+[daily-opening-publication] market_audit_status=not_attempted
+[daily-opening-publication] rip_contract_audit_status=not_attempted
+[daily-opening-publication] exit_code=1
+[scrape-runner] loaded config map: 210 sets across 17 era(s): baseWotcEra, blackAndWhiteEra, diamondAndPearlEra, eCardEra, exEra, gymEra, heartGoldAndSoulSilverEra, megaEvolutionEra, neoEra, npEra, otherEra, platinumEra, popEra, scarletAndVioletEra, sunAndMoonEra, swordAndShieldEra, xyEra
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/sets?select=id%2Cname%2Ccanonical_key%2Ccatalog_only%2Csupports_opening_simulation&canonical_key=in.%28ascendedHeroes%2CblackBolt%2CchaosRising%2CdestinedRivals%2CjourneyTogether%2CmegaEvolution%2CobsidianFlames%2CpaldeaEvolved%2CpaldeanFates%2CparadoxRift%2CperfectOrder%2CphantasmalFlames%2CpitchBlack%2CprismaticEvolutions%2CscarletAndViolet151%2CscarletAndVioletBase%2CshroudedFable%2CstellarCrown%2CsurgingSparks%2CtemporalForces%2CtwilightMasquerade%2CwhiteFlare%29 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=0&limit=1000 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=1000&limit=1000 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulation_run_summary?select=calculation_run_id&calculation_run_id=in.%28e9ccb779-bd84-4729-9746-850291092523%2Cde0aee28-b39a-4286-9b97-e03ffd3097b0%2C28ffeb1c-09e5-4ffa-b960-3e093c713140%2Cc2b02b6a-8aae-467f-88ea-4e935dea2e19%2Cbcbbe948-c6d5-47b2-a604-9700f6b33238%2C2925570c-5580-4903-b8dc-c08ea52cd79f%2Cfa64ac79-78be-478e-bb73-ecbf107952b5%2Cdb55e9c3-a7e5-4a35-aea2-1c9231df4251%2Cf1506299-38a2-4874-a2ce-291ee14fc09f%2Ca804197e-2fa9-44a7-91c8-f65ed4e0301f%2Cc1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86%2Cbf4498c2-8743-4b7d-aad1-59118f5ec74b%2C9d63b06a-37b6-4803-8d7a-31fddf2139ef%2C3e1940e7-6dd6-4dcf-a59c-739dc754be34%2Cb20e3796-86c1-4024-9a5f-ee5b815469ea%2Cfef3dc93-9bf1-4536-a0bc-d36ce4883bec%2C7893e94d-197e-4eb3-8b8a-94dfab7afd8b%2Cf2ed9183-1159-4782-b168-585a63397870%2Ca0be1d95-d185-4a42-9312-a21d20de8d9c%2C716ef97d-1d85-4e8d-89d6-923c97507ac8%2C5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4%2C7603944e-bbe6-4d1b-a97a-175b3ac277b9%29 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulation_sealed_product_results?select=price_as_of&price_as_of=not.is.null&order=price_as_of.desc&limit=1 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/pokemon_scrape_batches?select=id%2Cmarket_date%2Cstatus%2Cpromoted_at%2Cmissing_set_count%2Cexpected_set_count%2Csucceeded_set_count%2Cfailed_set_count&market_date=eq.2026-08-28&order=market_date.desc&limit=1 "HTTP/2 200 OK"
+[publication-gate] promotion ALLOWED — batch 2026-08-28 is complete (promoted_at=2026-08-28T09:00:21.560798+00:00, expected=163, missing=0)
+[scrape-runner] loaded config map: 210 sets across 17 era(s): baseWotcEra, blackAndWhiteEra, diamondAndPearlEra, eCardEra, exEra, gymEra, heartGoldAndSoulSilverEra, megaEvolutionEra, neoEra, npEra, otherEra, platinumEra, popEra, scarletAndVioletEra, sunAndMoonEra, swordAndShieldEra, xyEra
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/sets?select=id%2Cname%2Ccanonical_key%2Ccatalog_only%2Csupports_opening_simulation&canonical_key=in.%28ascendedHeroes%2CblackBolt%2CchaosRising%2CdestinedRivals%2CjourneyTogether%2CmegaEvolution%2CobsidianFlames%2CpaldeaEvolved%2CpaldeanFates%2CparadoxRift%2CperfectOrder%2CphantasmalFlames%2CpitchBlack%2CprismaticEvolutions%2CscarletAndViolet151%2CscarletAndVioletBase%2CshroudedFable%2CstellarCrown%2CsurgingSparks%2CtemporalForces%2CtwilightMasquerade%2CwhiteFlare%29 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=0&limit=1000 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/calculation_history_trend?select=snapshot_date%2Ctarget_id%2Ccalculation_run_id%2Csimulated_mean_pack_value_vs_pack_cost%2Csimulated_median_pack_value_vs_pack_cost&target_type=eq.set&target_id=in.%280f7e51e2-5a78-4500-9c9c-f690e934a069%2Ccb68bfe9-53a6-4345-b0e3-f6cd6c33383b%2C41a0ac1c-27ca-444b-8665-8ba35e583a3b%2Cde291399-ead5-41dc-bc12-e7c587684f85%2Cf59f25a2-d3da-4100-a918-901271a99925%2C142d3869-9d39-48b6-a810-751af2aac748%2Cb4b34b61-ce48-4fc4-bd91-201a350b2600%2C202518a0-5e86-4949-b1cd-c1c8ad95b616%2Cfd1538dd-36b9-4d02-98dc-fd65a5230d27%2C5d3d5c23-7098-4393-ad63-6ad9372aee30%2C7a3dd188-4375-41af-94de-c5247fe0b1a6%2Cd001d563-988b-4f8e-904f-acb926748e22%2C4b15f040-4351-41ea-90e1-c07eb1b2f4d6%2C5e99f658-39f0-4845-9228-db8db3965f32%2C3c459327-59d0-41d5-b21e-aae36361cc77%2C5bdbfae1-3f2e-44e7-b8c9-1035ad45b896%2C3b753fb6-a465-4e68-8ad9-4e34e114d4b7%2C91442900-3949-4ba4-8398-9e3dc2db1fa6%2Cc38df164-ea0d-4e9e-bae6-4c3a517beb8f%2C75cd439d-aaa2-41cb-86f3-2fefa5b26e29%2C472f851c-2e41-4c80-b6fc-8478d1d92730%2Cb3c96740-a4a9-4c3d-a8f6-81ed4584549d%29&order=snapshot_date.asc&offset=1000&limit=1000 "HTTP/2 200 OK"
+HTTP Request: GET https://zwxzxuuawalvwioadhmf.supabase.co/rest/v1/simulation_run_summary?select=calculation_run_id&calculation_run_id=in.%28e9ccb779-bd84-4729-9746-850291092523%2Cde0aee28-b39a-4286-9b97-e03ffd3097b0%2C28ffeb1c-09e5-4ffa-b960-3e093c713140%2Cc2b02b6a-8aae-467f-88ea-4e935dea2e19%2Cbcbbe948-c6d5-47b2-a604-9700f6b33238%2C2925570c-5580-4903-b8dc-c08ea52cd79f%2Cfa64ac79-78be-478e-bb73-ecbf107952b5%2Cdb55e9c3-a7e5-4a35-aea2-1c9231df4251%2Cf1506299-38a2-4874-a2ce-291ee14fc09f%2Ca804197e-2fa9-44a7-91c8-f65ed4e0301f%2Cc1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86%2Cbf4498c2-8743-4b7d-aad1-59118f5ec74b%2C9d63b06a-37b6-4803-8d7a-31fddf2139ef%2C3e1940e7-6dd6-4dcf-a59c-739dc754be34%2Cb20e3796-86c1-4024-9a5f-ee5b815469ea%2Cfef3dc93-9bf1-4536-a0bc-d36ce4883bec%2C7893e94d-197e-4eb3-8b8a-94dfab7afd8b%2Cf2ed9183-1159-4782-b168-585a63397870%2Ca0be1d95-d185-4a42-9312-a21d20de8d9c%2C716ef97d-1d85-4e8d-89d6-923c97507ac8%2C5b8ff5dd-efbf-4e9f-b221-33aa1fcf58d4%2C7603944e-bbe6-4d1b-a97a-175b3ac277b9%29 "HTTP/2 200 OK"
+[budget-ranking] {"status": "UPSTREAM_NOT_READY", "previous_price_as_of": "2026-08-27", "selected_price_as_of": null, "snapshot_id": null, "row_count": null, "failed_gate": "opening_freshness", "warnings": [], "duration_ms": 2369}
+[budget-ranking] status=UPSTREAM_NOT_READY price_as_of=None snapshot=None rows=None warnings=0

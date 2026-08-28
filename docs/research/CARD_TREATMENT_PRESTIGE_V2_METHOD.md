@@ -37,3 +37,11 @@ Round 5 reuses the Round 4 mapping and hashes without any `latest` lookup. It bu
 Aliased nuisance dummies are classified as mathematical redundancy when the treatment residual remains nonzero. When set, species, or mechanic controls reduce treatment residual variation to numerical zero, the result is scientific nesting: deleting that control would change the identifying assumption rather than merely reparameterize the same estimand.
 
 An alternative `V2B_ADJUSTED_DEMAND_ASSOCIATION` is eligible only with at least 90% frozen-cohort coverage from a contemporaneously frozen, price-independent species-demand signal, plus the existing support, balance, estimability, and robustness gates. No such demand snapshot was included in Round 4, so Round 5 does not estimate V2B.
+
+## Round 6 nuisance reparameterization
+
+Round 6 estimates only the six contrasts whose treatment indicators remain outside the complete nuisance-control column space. Pivoted QR selects a full-rank basis of the original nuisance columns while keeping treatment explicit. A removed column is accepted only when the selected basis has the same rank and reconstructs the original nuisance matrix to numerical tolerance. This changes parameterization, not the scientific model or treatment estimand.
+
+Inference uses 1,000 Rademacher wild-bootstrap draws clustered by set. Robustness includes every leave-one-set-out refit under the same reparameterization, scarcity strata, the locked top-5% species-price outlier diagnostic, mechanics sensitivity, scarcity-cell balance weighting, and 199 within-set/exact-pull-scarcity-stratum permutations. Six permutation p-values are adjusted with the preregistered Holm family-wise procedure. Validation requires complete estimable and stable leave-one-set-out results, stable sensitivity signs and magnitudes, a wild-bootstrap interval excluding zero, and Holm-adjusted p below 0.05.
+
+The independent demand signal is frozen separately for future work and is not used in Round 6 estimation.

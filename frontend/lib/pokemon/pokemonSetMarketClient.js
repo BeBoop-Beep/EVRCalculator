@@ -28,6 +28,7 @@ const DEFAULT_MARKET_DASHBOARD_WINDOW = "365d";
 // the duplicate network round trip without adding any persistent caching.
 const slimModuleInflight = new Map();
 const consumerSealedCache = new Map();
+const consumerSealedSummaryCache = new Map();
 const CONSUMER_SEALED_CACHE_MAX_ENTRIES = 8;
 const CONSUMER_SEALED_CACHE_TTL_MS = 5 * 60 * 1000;
 const SET_VALUE_SNAPSHOT_CONTRACT_VERSION = "set-value-v2";
@@ -1277,6 +1278,46 @@ export async function getPokemonSetConsumerSealedMarket(setId) {
     consumerSealedCache.set(cacheKey, { storedAt: Date.now(), payload: normalized });
     while (consumerSealedCache.size > CONSUMER_SEALED_CACHE_MAX_ENTRIES) {
       consumerSealedCache.delete(consumerSealedCache.keys().next().value);
+    }
+    return normalized;
+  });
+}
+
+export async function getPokemonSetConsumerSealedSummary(setId) {
+  const resolvedSetId = String(setId || "").trim();
+  if (!resolvedSetId) throw new Error("Set id is required");
+  const cacheKey = `sealed-summary:${resolvedSetId}`;
+  const cached = consumerSealedSummaryCache.get(cacheKey);
+  if (cached && Date.now() - cached.storedAt <= CONSUMER_SEALED_CACHE_TTL_MS) return cached.payload;
+  return joinSlimModuleRequest(cacheKey, async ({ signal } = {}) => {
+    const response = await fetch(`/api/tcgs/pokemon/sets/${encodeURIComponent(resolvedSetId)}/market/sealed-summary`, {
+      method: "GET", signal, cache: "no-store",
+    });
+    const payload = await readJsonResponse(response, "Unable to load sealed market summary");
+    const identity = payload?.set || {};
+    const target = resolvedSetId.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const matches = [identity.id, identity.canonicalKey, identity.slug].filter(Boolean)
+      .some((value) => String(value).toLowerCase().replace(/[^a-z0-9]+/g, "") === target);
+    if (!matches || !payload?.setPageConsumerMarket) {
+      const error = new Error("Sealed summary response did not match the requested set");
+      error.code = "POKEMON_SET_SEALED_MARKET_IDENTITY_MISMATCH";
+      error.retryable = false;
+      throw error;
+    }
+    const market = payload.setPageConsumerMarket;
+    const normalized = {
+      ...payload,
+      setPageConsumerMarket: {
+        ...market,
+        history: market.history || [],
+        productCount: market.productCount ?? market.product_count ?? null,
+        marketBreadth: market.marketBreadth || market.market_breadth || {},
+        marketIndex: normalizePreparedMarketIndex(market.marketIndex || market.market_index),
+      },
+    };
+    consumerSealedSummaryCache.set(cacheKey, { storedAt: Date.now(), payload: normalized });
+    while (consumerSealedSummaryCache.size > CONSUMER_SEALED_CACHE_MAX_ENTRIES) {
+      consumerSealedSummaryCache.delete(consumerSealedSummaryCache.keys().next().value);
     }
     return normalized;
   });

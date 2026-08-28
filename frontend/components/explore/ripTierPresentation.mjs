@@ -7,6 +7,21 @@ export function normalizeRipTier(tier) {
   return Object.prototype.hasOwnProperty.call(RANK_CONFIG, key) ? key : null;
 }
 
+// Mirrors backend.rankings.public_relative.public_leader_rip_tier for metrics
+// that have a public leader score but no separately published tier field.
+export function publicLeaderScoreTier(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const score = Number(value);
+  if (!Number.isFinite(score)) return null;
+  const displayScore = Math.floor(score + 0.5) / 10;
+  if (displayScore >= 9.6) return "S";
+  if (displayScore >= 9) return "A";
+  if (displayScore >= 8) return "B";
+  if (displayScore >= 6.5) return "C";
+  if (displayScore >= 5) return "D";
+  return "F";
+}
+
 export function getRipTierPresentation(tier, { strength = "factor" } = {}) {
   const normalized = normalizeRipTier(tier);
   const config = normalized ? RANK_CONFIG[normalized] : null;

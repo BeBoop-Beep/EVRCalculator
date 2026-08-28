@@ -1,9 +1,10 @@
-import { ArticleJsonLd, ArticleShell, DefinitionGrid, DragoniteFigure, EditorialSplit, H2 } from "@/components/articles/ArticlePrimitives";
+import { ArticleJsonLd, ArticleShell, Citation, DefinitionGrid, DragoniteFigure, EditorialSplit, H2, ReferenceList } from "@/components/articles/ArticlePrimitives";
 import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "How Collector Appeal Measures What Collectors Actually Want";
 const description = "How Collector Appeal V5 combines contextual Pokémon desirability with modeled access while keeping financial values out of its score arithmetic.";
 const registeredArticle = articleByKey("collector");
+const references = [{ id: "ref-metropolis-ulam", href: "https://doi.org/10.1080/01621459.1949.10483310", citation: "Metropolis, N. & Ulam, S. (1949). “The Monte Carlo Method.” Journal of the American Statistical Association, 44(247), 335–341.", note: "Supports the general repeated-random-sampling method used to estimate modeled opening-access frequencies." }];
 export const metadata = buildRouteMetadata({ path: "/Articles/how-collector-appeal-works", title: `${title} | inDex`, description, ogTitle: title });
 export default function Page() { return <ArticleShell category="Methodology" title={title} deck="A pack can be financially efficient and still contain nothing you care about. That is a different problem, so I measure it separately." lastUpdated={registeredArticle.lastUpdated} related={related("rip", "financial", "simulation")}>
   <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.collector} lastUpdated={registeredArticle.lastUpdated} />
@@ -13,7 +14,7 @@ export default function Page() { return <ArticleShell category="Methodology" tit
     <p className="mt-4">The current model is Collector Appeal V5. Dual-Path Depth is still shown as a useful diagnostic, but it is not a V5 score input.</p>
   </EditorialSplit>
   <H2>The two current factors</H2>
-  <DefinitionGrid items={[["Contextual Pokémon desirability", "The desirability of Pokémon that meaningfully represent the set’s current chase context. Same-run modeled chase evidence establishes roster relevance before the desirability baseline is evaluated."],["Desirable Outcome Frequency", "The modeled probability that a pack contains at least one card tied to an eligible desirable Pokémon subject. This is not the financial win rate."]]} />
+  <DefinitionGrid items={[["Contextual Pokémon desirability", "The desirability of Pokémon that meaningfully represent the set’s current chase context. Same-run modeled chase evidence establishes roster relevance before the desirability baseline is evaluated."],["Desirable Outcome Frequency", <>The modeled probability that a pack contains at least one card tied to an eligible desirable Pokémon subject. Its repeated-sampling foundation follows the general Monte Carlo approach described by <Citation href="https://doi.org/10.1080/01621459.1949.10483310">Metropolis and Ulam</Citation>; the Pokémon-specific access model is inDex’s implementation. This is not the financial win rate.</>]]} />
   <p>Contextual Pokémon desirability gives the score its baseline. Desirable Outcome Frequency adjusts for access. A set full of popular Pokémon should not get the same opening assessment if the modeled pack almost never reaches any of them.</p>
   <p>But accessibility is deliberately bounded. It can adjust the result, not bulldoze the roster signal. The protected anchors, modifier budget, and tuning constants are not published.</p>
   <H2>What stays out</H2>
@@ -24,4 +25,7 @@ export default function Page() { return <ArticleShell category="Methodology" tit
   <H2>Separate from Financial RIP</H2>
   <p>A set can have strong Collector Appeal and weak opening economics. Its roster may be excellent while pack cost is high, losses are deep, or financial value sits in a thin tail. The reverse can happen too: a pack can return value efficiently without having the subjects a collector is excited to chase.</p>
   <p>Overall RIP keeps both perspectives because “worth opening” contains both questions. The financial side carries most of the decision. Collector Appeal adds a smaller, separate view of whether the modeled outcomes are things collectors tend to want. Neither one is a promise about what you personally should like.</p>
+  <H2>References</H2>
+  <p>Collector Appeal is an inDex modeling construct built from the project’s Pokémon desirability and modeled opening-access signals. The reference below supports the general statistical sampling concept; it should not be read as external validation of the Collector Appeal formula or its desirability construction.</p>
+  <ReferenceList items={references} />
 </ArticleShell>; }

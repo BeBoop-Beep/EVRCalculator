@@ -30,3 +30,5 @@ Checkout mode: local
 Expected branch:  
 [publication-checkout] mode=local repo=/d/EVRCalculator branch=feature/ui_updates_and_set_market head=b3bf791c113ba3656e3eaa40de314970ea93ec68 working_tree=modified
 [publication-environment] repo=/d/EVRCalculator python=\EVRCalculator\.venv/Scripts/python supabase_project=zwxzxuuawalvwioadhmf mode=local
+Task finished at Fri 08/28/2026 12:33:45.34 with exit code 1 
+================================ 

@@ -131,10 +131,7 @@ import { selectTrendScores } from "./trendScoresSelector.mjs";
 import { getCardMovement7d, selectMoversTickerItems } from "./moversTickerSelector.mjs";
 import { PUBLIC_SCORE_SCALE_NOTE, resolveCanonicalRipV7 } from "./canonicalRipV7.mjs";
 import { resolvePokemonBoosterPackAsset } from "@/lib/pokemon/pokemonBoosterPackAssets.mjs";
-import {
-  getPokemonSetRipGlobalContext,
-  selectCompatibleSetRipGlobalContext,
-} from "@/lib/pokemon/pokemonSetRipGlobalContextClient.mjs";
+import { getPokemonSetRipRankContext, selectSetRipRankContext } from "@/lib/pokemon/pokemonSetRipRankContextClient.mjs";
 import {
   getPokemonSetRipAdvanced,
   getPokemonSetRipSimulationEvidence,
@@ -164,6 +161,7 @@ import {
 } from "@/lib/pokemon/pokemonSetCardsClient";
 import PageArtworkAtmosphere from "@/components/ui/PageArtworkAtmosphere";
 import usePokemonSetSealedMarket from "@/hooks/pokemon/usePokemonSetSealedMarket";
+import usePokemonSetSealedSummary from "@/hooks/pokemon/usePokemonSetSealedSummary";
 import usePokemonSetMarketSignals from "@/hooks/pokemon/usePokemonSetMarketSignals";
 import { PRICING_SNAPSHOT_CONTRACT_VERSION } from "@/lib/pokemon/pricingSnapshotContract.mjs";
 import {
@@ -3906,7 +3904,7 @@ function MarketValueTrendPanel({
  * what makes this read as "one dominant chart with supporting signals" rather
  * than as two equal cards competing for the eye.
  */
-function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedState }) {
+function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrackedCount, top10Value, standardValue, sealedSummaryState }) {
   const { canViewSetMarketSignals } = useSetMarketSignalAccess();
   const signalsState = usePokemonSetMarketSignals(setId, { enabled: canViewSetMarketSignals });
   const [activeSegmentKey, setActiveSegmentKey] = useState("cards");
@@ -3927,7 +3925,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
   );
 
   const sealedTrend = useMemo(() => {
-    const setMarket = sealedState.payload?.setPageConsumerMarket || null;
+    const setMarket = sealedSummaryState.payload?.setPageConsumerMarket || null;
     if (!setMarket?.history?.length) {
       return unavailableSegmentTrend({ trackedItemNoun: "Sealed Products" });
     }
@@ -3938,7 +3936,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
       trackedItemCount: setMarket.productCount,
       trackedItemNoun: "Sealed Products",
     });
-  }, [sealedState.payload, selectedWindowKey]);
+  }, [sealedSummaryState.payload, selectedWindowKey]);
 
   // GRADED. The product publishes no graded market series for a set — the only
   // graded prices that exist anywhere are per-user collection valuations, which
@@ -3950,19 +3948,19 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     () => ({ cards: cardsTrend, sealed: sealedTrend, graded: gradedTrend }),
     [cardsTrend, gradedTrend, sealedTrend]
   );
-  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedState.status)
+  const resolvedSegmentKey = activeSegmentKey === "sealed" && ["loading", "error"].includes(sealedSummaryState.status)
     ? "sealed"
     : resolveActiveSegmentKey(activeSegmentKey, trendsByKey);
   const activeTrend = trendsByKey[resolvedSegmentKey] || cardsTrend;
   const segmentRows = useMemo(
-    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedState.status === "loading" ? { ...row, selectable: true } : row),
-    [sealedState.status, trendsByKey]
+    () => buildMarketSegmentRows(trendsByKey).map((row) => row.key === "sealed" && sealedSummaryState.status === "loading" ? { ...row, selectable: true } : row),
+    [sealedSummaryState.status, trendsByKey]
   );
   const effectiveWindowKey = activeTrend.effectiveWindowKey || selectedWindowKey;
   const windowLabel = getDeltaWindowLabel(effectiveWindowKey) || "Trend";
 
   const breadthSource = resolvedSegmentKey === "sealed"
-    ? sealedState.payload?.setPageConsumerMarket?.marketBreadth || sealedState.payload?.setPageConsumerMarket?.market_breadth
+    ? sealedSummaryState.payload?.setPageConsumerMarket?.marketBreadth || sealedSummaryState.payload?.setPageConsumerMarket?.market_breadth
     : resolvedSegmentKey === "cards"
     ? signalsState.payload?.marketBreadth
     : resolvedSegmentKey === "cards" && signalsState.status === "loading" ? "Loading Market Breadthâ€¦"
@@ -3976,10 +3974,10 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
     }),
     [activeTrend.trackedItemCount, breadthSource, effectiveWindowKey]
   );
-  const breadthStatus = resolvedSegmentKey === "sealed" && sealedState.status === "loading" && !sealedState.payload
+  const breadthStatus = resolvedSegmentKey === "sealed" && sealedSummaryState.status === "loading" && !sealedSummaryState.payload
     ? "Loading Sealed market…"
-    : resolvedSegmentKey === "sealed" && sealedState.status === "error" && !sealedState.payload
-    ? sealedState.error || "Unable to load sealed market breadth"
+    : resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" && !sealedSummaryState.payload
+    ? sealedSummaryState.error || "Unable to load sealed market breadth"
     : null;
   // INDEPENDENT of cardsTrend: Chase Concentration only needs the current
   // Standard and Top 10 set-value scopes, not a full Cards Market Index
@@ -3996,7 +3994,7 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
           setId={setId}
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
+          onSegmentChange={(key) => { if (key === "sealed") sealedSummaryState.load?.(); setActiveSegmentKey(key); }}
           trend={activeTrend}
           onWindowChange={setSelectedWindowKey}
           windowLabel={windowLabel}
@@ -4006,13 +4004,13 @@ function SetMarketOverviewSection({ setId, cardsHistory, cardsMarket, cardsTrack
         <SetSignalsRail
           segmentRows={segmentRows}
           activeSegmentKey={resolvedSegmentKey}
-          onSegmentChange={(key) => { if (key === "sealed") sealedState.load?.(); setActiveSegmentKey(key); }}
+          onSegmentChange={(key) => { if (key === "sealed") sealedSummaryState.load?.(); setActiveSegmentKey(key); }}
           breadth={breadth}
           breadthStatus={breadthStatus}
           concentration={concentration}
           windowLabel={windowLabel}
-          sealedError={resolvedSegmentKey === "sealed" && sealedState.status === "error" ? sealedState.error : null}
-          onSealedRetry={sealedState.retry}
+          sealedError={resolvedSegmentKey === "sealed" && sealedSummaryState.status === "error" ? sealedSummaryState.error : null}
+          onSealedRetry={sealedSummaryState.retry}
           onSignalsRetry={["error", "forbidden"].includes(signalsState.status) ? signalsState.retry : null}
         />
       </div>
@@ -9054,7 +9052,7 @@ export default function RipStatisticsPageClient({
   const displayedTargetId = pendingTargetId || requestedTargetId;
   // TODO: Direct or unknown set page visits may default to Overview later once this surface is mature.
   const [setDetailTab, setSetDetailTab] = useState(() => getSetDetailTabParam(searchParams));
-  const [ripGlobalContextState, setRipGlobalContextState] = useState({
+  const [ripRankContextState, setRipRankContextState] = useState({
     status: "idle",
     setId: null,
     expectedCalculationRunId: null,
@@ -9063,17 +9061,17 @@ export default function RipStatisticsPageClient({
   });
   const [ripSimulationState, setRipSimulationState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
   const [ripAdvancedState, setRipAdvancedState] = useState({ status: "idle", setId: null, calculationRunId: null, payload: null, error: null });
-  const loadRipGlobalContext = useCallback(({ force = false } = {}) => {
+  const loadRipRankContext = useCallback(({ force = false } = {}) => {
     const setId = resolvedSetResourceId;
     const expectedCalculationRunId = ripBootstrap?.calculationRunId;
     if (!setId || !expectedCalculationRunId) return;
-    setRipGlobalContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
-    getPokemonSetRipGlobalContext(setId, { expectedCalculationRunId, force })
+    setRipRankContextState({ status: "loading", setId, expectedCalculationRunId, payload: null, error: null });
+    getPokemonSetRipRankContext(setId, expectedCalculationRunId, { force })
       .then((payload) => {
-        const compatible = selectCompatibleSetRipGlobalContext(payload, expectedCalculationRunId);
-        setRipGlobalContextState({ status: compatible ? "success" : "stale", setId, expectedCalculationRunId, payload: compatible, error: compatible ? null : "Family rank awaiting current Rankings publication." });
+        const rankContext = selectSetRipRankContext(payload, { setId, calculationRunId: expectedCalculationRunId });
+        setRipRankContextState({ status: rankContext ? "success" : "error", setId, expectedCalculationRunId, payload: rankContext, error: rankContext ? null : "Rank context response was malformed." });
       })
-      .catch((error) => setRipGlobalContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Global context unavailable." }));
+      .catch((error) => setRipRankContextState({ status: "error", setId, expectedCalculationRunId, payload: null, error: error?.message || "Rank context unavailable." }));
   }, [resolvedSetResourceId, ripBootstrap?.calculationRunId]);
   const loadRipSimulation = useCallback(({ force = false } = {}) => {
     const setId = resolvedSetResourceId;
@@ -9103,13 +9101,13 @@ export default function RipStatisticsPageClient({
     if (!setDetailMode || setDetailTab !== "overview" || !resolvedSetResourceId || !ripBootstrap?.calculationRunId) {
       return undefined;
     }
-    loadRipGlobalContext();
+    loadRipRankContext();
     return undefined;
-  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipGlobalContext]);
-  const compatibleRipGlobalContext =
-    ripGlobalContextState.setId === resolvedSetResourceId &&
-    ripGlobalContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
-      ? ripGlobalContextState.payload
+  }, [setDetailMode, setDetailTab, resolvedSetResourceId, ripBootstrap?.calculationRunId, loadRipRankContext]);
+  const ripRankContext =
+    ripRankContextState.setId === resolvedSetResourceId &&
+    ripRankContextState.expectedCalculationRunId === ripBootstrap?.calculationRunId
+      ? ripRankContextState.payload
       : null;
   const compatibleRipSimulation = ripSimulationState.setId === resolvedSetResourceId && ripSimulationState.calculationRunId === ripBootstrap?.calculationRunId ? ripSimulationState.payload : null;
   const compatibleRipAdvanced = ripAdvancedState.setId === resolvedSetResourceId && ripAdvancedState.calculationRunId === ripBootstrap?.calculationRunId ? ripAdvancedState.payload : null;
@@ -11423,6 +11421,16 @@ export default function RipStatisticsPageClient({
     setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
     { enabled: false }
   );
+  const desktopSealedSummaryState = usePokemonSetSealedSummary(
+    setDetailTab === "market" && isDesktopHeroComposition ? resolvedSetResourceId : null,
+    { enabled: false }
+  );
+  useEffect(() => {
+    const marketCriticalSettled =
+      ["success", "success_stale", "error", "empty"].includes(activeOverviewState.status) &&
+      ["success", "success_stale", "error", "empty"].includes(activeMarketMoversState.status);
+    if (setDetailTab === "market" && isDesktopHeroComposition && marketCriticalSettled) desktopSealedSummaryState.load();
+  }, [setDetailTab, isDesktopHeroComposition, resolvedSetResourceId, activeOverviewState.status, activeMarketMoversState.status, desktopSealedSummaryState.load]);
   // 7D Movers ticker source: only ever the 7D window. Prefer the live slim fetch when
   // it carries 7D rows; otherwise fall back to the (possibly stale)
   // dashboard-seeded 7D entry until the live 7D fetch lands.
@@ -14002,14 +14010,16 @@ export default function RipStatisticsPageClient({
                     // read past this point. Passed straight through; the only
                     // new code is the lookup-by-sealedProductId inside
                     // RipDecisionPage, not a second ranking calculation.
-                    productFamilyRankings={compatibleRipGlobalContext?.productFamilyRankings ?? null}
-                    evRepresentativeness={compatibleRipGlobalContext?.target?.evRepresentativeness ?? null}
-                    openingOutcomeProfile={compatibleRipGlobalContext?.target?.openingOutcomeProfile ?? null}
+                    productFamilyRankings={ripRankContext?.productFamilyRankings ?? null}
+                    rankContextFreshness={ripRankContext?.freshness ?? null}
+                    rankContextUpdatedAt={ripRankContext?.rankingUpdatedAt ?? null}
+                    evRepresentativeness={compatibleRipSimulation?.evRepresentativeness ?? null}
+                    openingOutcomeProfile={compatibleRipSimulation?.openingOutcomeProfile ?? null}
                     calculationRunId={activeCalculationRunId}
-                    globalContextStatus={ripGlobalContextState.status}
-                    globalContextError={ripGlobalContextState.error}
-                    onGlobalContextRetry={() => loadRipGlobalContext({ force: true })}
-                    setRip={compatibleRipGlobalContext?.target?.setRipV1 ?? null}
+                    rankContextStatus={ripRankContextState.status}
+                    rankContextError={ripRankContextState.error}
+                    onRankContextRetry={() => loadRipRankContext({ force: true })}
+                    setRip={null}
                     setName={selectedTarget?.name ?? selectedTarget?.set_name ?? null}
                     setSlug={activeSetSlug}
                     cardCount={authoritativeSetCardCount}
@@ -14147,7 +14157,7 @@ export default function RipStatisticsPageClient({
                           cardsTrackedCount={authoritativeSetCardCount}
                           top10Value={setValueTop10CurrentValue}
                           standardValue={setValueStandardCurrentValue}
-                          sealedState={desktopSealedMarketState}
+                          sealedSummaryState={desktopSealedSummaryState}
                         />
                       </SectionErrorBoundary>
                     </div>

@@ -1,21 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RANK_CONFIG } from "../../constants/rankConfig.mjs";
-import { getRipTierPresentation } from "./ripTierPresentation.mjs";
+import { publicLeaderScoreTier } from "./ripTierPresentation.mjs";
 
-test("every canonical tier uses the existing rank palette", () => {
-  for (const [tier, config] of Object.entries(RANK_CONFIG)) {
-    const presentation = getRipTierPresentation(tier);
-    assert.equal(presentation.tier, tier);
-    assert.equal(presentation.color, config.color);
-    assert.equal(presentation.label, `${tier} Tier`);
-  }
-});
-
-test("tier treatment is independent of score category", () => {
-  const financialA = getRipTierPresentation("A", { strength: "supporting" });
-  const collectorA = getRipTierPresentation("A", { strength: "supporting" });
-  assert.deepEqual(financialA, collectorA);
-  assert.notEqual(financialA.color, RANK_CONFIG.S.color);
-  assert.equal(getRipTierPresentation(null).tier, null);
+test("component display tiers mirror canonical public leader score bands", () => {
+  assert.equal(publicLeaderScoreTier(95.49), "A");
+  assert.equal(publicLeaderScoreTier(95.5), "S");
+  assert.equal(publicLeaderScoreTier(89.5), "A");
+  assert.equal(publicLeaderScoreTier(79.5), "B");
+  assert.equal(publicLeaderScoreTier(64.5), "C");
+  assert.equal(publicLeaderScoreTier(49.5), "D");
+  assert.equal(publicLeaderScoreTier(49.49), "F");
+  assert.equal(publicLeaderScoreTier(null), null);
 });

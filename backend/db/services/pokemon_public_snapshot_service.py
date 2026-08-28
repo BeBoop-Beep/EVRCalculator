@@ -13,6 +13,8 @@ from backend.db.clients.supabase_client import create_short_timeout_service_clie
 from backend.db.services.chase_economics_service import read_chase_economics_snapshot
 from backend.db.services.data_service_health import is_transient_data_service_error
 from backend.db.services.public_read_retry import run_public_read_with_retry
+from backend.db.services.ev_representativeness_public_service import project_opening_outcome_profile_v1
+from backend.research.ev_representativeness.version import EV_REPRESENTATIVENESS_VERSION
 from backend.db.services.public_rip_publication_contract import (
     canonical_publication_identity,
     payload_guarantees_canonical_set_value,
@@ -6711,12 +6713,48 @@ def get_pokemon_set_rip_bootstrap_snapshot_payload(set_id: str) -> Dict[str, Any
 
 
 def get_pokemon_set_rip_simulation_evidence_snapshot_payload(set_id: str) -> Dict[str, Any]:
-    return _read_set_rip_projection(
+    payload = _read_set_rip_projection(
         set_id, column="rip_simulation_evidence_json",
         contract_version="pokemon-set-rip-simulation-evidence-v1",
         incomplete_code="POKEMON_SET_RIP_SIMULATION_SNAPSHOT_INCOMPLETE",
         operation_name="pokemon_set_rip_simulation_evidence_snapshot",
     )
+    run_id = _to_optional_str(payload.get("calculationRunId"))
+    if not run_id:
+        return payload
+    try:
+        result = run_public_read_with_retry(
+            lambda client: client.table("ev_representativeness_run_summary")
+                .select(
+                    "calculation_run_id,research_method_version,market_date,source_artifact_sha256,"
+                    "ev,p50,return_ratio_buckets_json"
+                )
+                .eq("calculation_run_id", run_id)
+                .eq("research_method_version", EV_REPRESENTATIVENESS_VERSION)
+                .limit(1)
+                .execute(),
+            operation_name="pokemon_set_rip_simulation_outcome_profile",
+            initial_client=service_read_client,
+            client_factory=create_short_timeout_service_client,
+        )
+        research_row = _first_row(result)
+        profile = project_opening_outcome_profile_v1(
+            research_row or {}, expected_calculation_run_id=run_id,
+        )
+        if profile:
+            return {**payload, "openingOutcomeProfile": profile}
+        return {
+            **payload,
+            "openingOutcomeProfile": None,
+            "meta": {**(payload.get("meta") or {}), "warnings": ["Exact-run opening outcome research is unavailable."]},
+        }
+    except Exception:
+        logger.exception("Optional same-run outcome profile unavailable run_id=%s", run_id)
+        return {
+            **payload,
+            "openingOutcomeProfile": None,
+            "meta": {**(payload.get("meta") or {}), "warnings": ["Exact-run opening outcome research is temporarily unavailable."]},
+        }
 
 
 def get_pokemon_set_rip_advanced_snapshot_payload(set_id: str) -> Dict[str, Any]:
@@ -6747,6 +6785,22 @@ def get_pokemon_set_rip_global_context_payload(set_id: str, expected_calculation
         raise PokemonSetMarketError(503, "Set RIP global context publication is incomplete",
                                     "POKEMON_SET_RIP_GLOBAL_CONTEXT_INCOMPLETE")
     return payload
+
+
+def get_pokemon_set_rip_rank_context_payload(set_id: str) -> Dict[str, Any]:
+    """Latest published cross-set product ranks, isolated from same-run research."""
+    payload = get_pokemon_set_rip_global_context_payload(set_id, expected_calculation_run_id=None)
+    families = ((payload.get("productFamilyRankings") or {}).get("families") or {})
+    if not isinstance(families, dict):
+        families = {}
+    return {
+        "contractVersion": "pokemon-set-rip-rank-context-v1",
+        "setId": payload.get("setId") or set_id,
+        "productFamilyRankings": {"families": families},
+        "rankingCalculationRunId": payload.get("rankingCalculationRunId"),
+        "rankingUpdatedAt": (payload.get("meta") or {}).get("rankingUpdatedAt"),
+        "meta": {"source": "get_pokemon_set_rip_global_context"},
+    }
 
 
 def _fetch_insights_snapshot_row(set_id: str):

@@ -48,6 +48,19 @@ test("every registered article has one shared modification date wired to its pag
     assert.ok(page.includes("lastUpdated={registeredArticle.lastUpdated}"), registered.key);
   }
 });
+test("every published article ends with meaningful references using the shared citation system", () => {
+  for (const registered of ARTICLES) {
+    const page = read(`${registered.href.replace("/Articles/", "")}/page.js`);
+    assert.ok(page.includes("<H2>References</H2>"), registered.key);
+    assert.ok(page.includes("ReferenceList"), registered.key);
+    assert.ok(page.includes("<ReferenceList items={references} />"), registered.key);
+    assert.match(page, /const references = \[[\s\S]*?id: "ref-/, registered.key);
+    assert.ok(!page.includes("example.com"), registered.key);
+    assert.ok(!/TODO[: ]+citation/i.test(page), registered.key);
+  }
+  assert.ok(primitives.includes('target="_blank"'));
+  assert.ok(primitives.includes('rel="noreferrer"'));
+});
 test("the shared article header and JSON-LD expose dateModified without inventing publication dates", () => {
   assert.ok(primitives.includes("<time dateTime={lastUpdated}"));
   assert.ok(primitives.includes("Last updated {formatLastUpdated(lastUpdated)}"));
@@ -75,6 +88,7 @@ test("the Chase Efficiency methodology article is public without exposing Premiu
   assert.ok(chase.includes("<ArticleShell"));
   assert.ok(chase.includes("<ArticleJsonLd"));
   for (const phrase of ["Chase Efficiency", "exact printing", "best verified", "Financial RIP", "Product Chase Economics", "50%", "75%", "90%", "95%", "4,862", "22", "17"]) assert.ok(chase.includes(phrase), phrase);
+  for (const phrase of ["ref-tcgplayer-market-price", "ref-openstax-geometric", "original inDex methodology", "Source: inDex Chase Efficiency production publication", "August 27, 2026"]) assert.ok(chase.includes(phrase), phrase);
   assert.ok(!chase.includes("/api/explore/card-chase-efficiency"));
   assert.ok(!chase.includes("getPokemonCardChaseEfficiency"));
   assert.ok(!chase.includes("Top 10"));

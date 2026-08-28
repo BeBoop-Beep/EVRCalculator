@@ -1,15 +1,19 @@
-import { ArticleJsonLd, ArticleShell, DefinitionGrid, EditorialSplit, H2, PackArt } from "@/components/articles/ArticlePrimitives";
+import { ArticleJsonLd, ArticleShell, Citation, DefinitionGrid, EditorialSplit, H2, PackArt, ReferenceList } from "@/components/articles/ArticlePrimitives";
 import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "How Financial RIP Measures the Economics of Opening Pokémon Packs";
 const description = "How Financial RIP reads win frequency, typical retention, loss resilience, realistic upside, jackpot upside, and base economic efficiency from modeled Pokémon pack openings.";
 const registeredArticle = articleByKey("financial");
+const references = [
+  { id: "ref-openstax-center", href: "https://openstax.org/books/introductory-statistics-2e/pages/2-key-terms", citation: "OpenStax. Introductory Statistics 2e. Chapter 2: Key Terms.", note: "Supports the definitions of mean, median, percentile, and skewed distributions used in the outcome profile." },
+  { id: "ref-metropolis-ulam", href: "https://doi.org/10.1080/01621459.1949.10483310", citation: "Metropolis, N. & Ulam, S. (1949). “The Monte Carlo Method.” Journal of the American Statistical Association, 44(247), 335–341.", note: "Supports the general Monte Carlo method used to generate modeled outcome distributions." },
+];
 export const metadata = buildRouteMetadata({ path: "/Articles/how-financial-rip-works", title: `${title} | inDex`, description, ogTitle: title });
 const components = [["True Win Frequency", "How often modeled pack value is at least the pack cost. A tie counts as a win."],["Typical Retention", "The median modeled pack value divided by pack cost. This keeps the middle of the distribution visible."],["Loss Resilience", "How much losing openings retain and how often a loss is near pack cost instead of a hard loss."],["Strong Upside Quality", "The P95 threshold relative to cost. In Financial RIP V4, this threshold alone supplies the Realistic Upside scoring signal."],["Jackpot Upside", "The P99 threshold and the modeled top 1% tail, measured separately and capped so it cannot take over the score."],["Base Economic Efficiency", "Average modeled return relative to cost after excluding the top 1%, so ordinary economics are not hidden by a jackpot."]];
 export default function Page() { return <ArticleShell category="Methodology" title={title} deck="I wanted the score to recognize a great chase without pretending that one rare card is the normal opening experience." lastUpdated={registeredArticle.lastUpdated} related={related("ev", "rip", "simulation")}>
   <ArticleJsonLd title={title} description={description} path={ARTICLE_PATHS.financial} lastUpdated={registeredArticle.lastUpdated} />
   <EditorialSplit media={<PackArt src="/images/pokemon/booster-packs/paldeanFates.webp" alt="Paldean Fates Pokemon booster pack" compact />}>
-    <p>I started with Expected Value because financially it is the obvious number. Then I looked at the full simulation and found the problem: two packs can have similar EVs while giving you completely different normal results.</p>
+    <p>I started with Expected Value because financially it is the obvious number. Then I looked at the full simulated distribution and found the problem: two packs can have similar EVs while giving you completely different normal results. The distinction between means, medians, percentiles, and skewed distributions follows the standard terminology summarized by <Citation href="https://openstax.org/books/introductory-statistics-2e/pages/2-key-terms">OpenStax</Citation>.</p>
     <p className="mt-4">Financial RIP reads the simulated pack values against pack cost. Popular Pokémon, set value, and Collector Appeal do not enter this side of the score.</p>
   </EditorialSplit>
   <p>The current canonical model is Financial RIP V4.</p>
@@ -27,4 +31,7 @@ export default function Page() { return <ArticleShell category="Methodology" tit
   <H2>Missing means unavailable</H2>
   <p>If the value vector, pack cost, trial support, or a required component input is missing, Financial RIP returns unavailable. It does not fill the hole with 50. “Unknown” and “middle of the pack” are different claims, and the ranking should not confuse them.</p>
   <p>Financial RIP is still a model. Card values can be hard to realize, seller costs vary, and the pull structure can be wrong. What it gives me is a consistent way to compare modeled opening economics without allowing one average or one chase card to decide everything.</p>
+  <H2>References</H2>
+  <p>Financial RIP is original inDex methodology. These references support the statistical concepts and general Monte Carlo approach underneath the model; the Financial RIP component structure and scoring design are inDex’s own methodology.</p>
+  <ReferenceList items={references} />
 </ArticleShell>; }

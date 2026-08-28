@@ -14,6 +14,7 @@ const setPack = read("./SetPackMetrics.jsx");
 const eraEconomics = read("./OpeningEconomicsEras.jsx");
 const setRankings = read("./ExploreTableClient.jsx");
 const shell = read("./AnalyticsTableShell.jsx");
+const css = read("./explore.module.css");
 
 const eraContract = {
   methodologyVersion: "era_set_strength_v1_equal_set_mean_of_set_rip_v1",
@@ -92,6 +93,7 @@ test("all four Era and Set lenses share the analytics shell and authoritative da
   assert.ok(setRankings.includes("styles.analyticsTableShell"));
   assert.ok(setRankings.includes("styles.analyticsToolbar"));
   assert.ok(shell.includes("data-analytics-table-shell"));
+  assert.ok(shell.includes("set-glass-surface"));
   assert.ok(page.includes("payload?.meta?.comparisonSnapshots?.currentMarketDate || null"));
   assert.ok(client.includes("marketDate={openingEconomics?.marketDate}"));
   for (const token of ["Best Eras to Rip Right Now", "Search eras...", "Select an era for the full RIP breakdown."]) assert.ok(eraRankings.includes(token));
@@ -156,5 +158,21 @@ test("Era baseline shares one renderer, one colgroup and identical column geomet
   assert.ok(eraEconomics.includes("COLUMNS.map((column) => <EraEconomicsCell"));
   assert.ok(eraEconomics.includes("baseline canViewRankingsIntelligence"));
   assert.ok(eraEconomics.includes("column.secondary && cells[column.secondary]"));
+  assert.ok(!eraEconomics.includes("<tfoot"));
+  assert.ok(eraEconomics.includes('className={`${styles.row} ${styles.eraGlobalBaselineRow}`}'));
+  assert.ok(eraEconomics.indexOf("data-era-baseline-row") < eraEconomics.indexOf("</tbody>"));
+  assert.ok(eraEconomics.includes("styles.eraEconomicsCell"));
+  assert.equal((css.match(/\.eraGlobalBaselineRow > td,/g) || []).length, 1);
+  assert.match(css, /\.eraGlobalBaselineRow > th\[scope="row"\] \{\s*border-top: 1px solid var\(--ex-line-strong\);/);
   assert.ok(!/baseline[^\n]*(translateX|margin-left|padding-right)/.test(eraEconomics));
+});
+
+test("Era and Set analytics add no table-specific color material", () => {
+  for (const source of [eraRankings, eraEconomics, setPack]) {
+    assert.ok(source.includes("styles.analyticsTableHead"));
+    assert.ok(!/<thead[^>]*(background|bg-\[)/.test(source));
+  }
+  assert.ok(shell.includes("styles.surface"));
+  assert.ok(shell.includes("styles.divider"));
+  assert.ok(shell.includes("styles.analyticsToolbar"));
 });

@@ -37,3 +37,16 @@ All three high-product-relevance contrasts remain scientifically confounded. Meg
 The independent `pokemon_desirability_composite_v1` signal is based on Favorite Pokémon fan popularity and Google Trends rather than card prices or rarity. It is a plausible future demand control, but no contemporaneous snapshot was frozen in the Round 4 manifest. Current values cannot be mixed into the immutable study. Consequently V2B is ineligible and no V2B coefficient is calculated.
 
 Primary status: `V2_ORIGINAL_ESTIMAND_REMAINS_PLAUSIBLY_IDENTIFIABLE_WITH_NEW_VARIATION`. Future releases could add the required cross-designation observations for the same Pokémon, inside common scarcity support and preferably within the same set and comparable mechanic class. Repeating rows in existing nested cells will not identify the effect. Production status remains `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`; score and database writes remain zero.
+
+## Round 6 valid local estimates
+
+Round 6 reparameterized only redundant nuisance columns and fit the six treatment-estimable original-V2 contrasts. Two pass the complete robustness and Holm multiplicity gates:
+
+* S&V Common→Rare: log coefficient 0.4174, conditional association +51.8%, 1,000-draw wild-cluster log interval 0.2523 to 0.6014, Holm-adjusted permutation p=0.03.
+* S&V Rare→Uncommon: log coefficient -0.2635, meaning Uncommon is conditionally associated with 23.2% lower price than Rare, interval -0.3119 to -0.2160, Holm-adjusted p=0.03.
+
+Mega Common–Rare, Mega Common–Uncommon, Mega Rare–Uncommon, and S&V Common–Uncommon remain uncertain because inference, functional-form, leave-one-set-out, or multiplicity evidence is incomplete or unstable. These are observational adjusted associations only within the frozen pair-specific exact-pull-scarcity overlap populations.
+
+The scientific answer is `LOCAL_RARITY_DESIGNATION_EFFECTS_VALIDATED`: designation carries a measurable adjusted association in some Common/Rare/Uncommon comparisons. This does not establish an upper-tier rarity effect or universal hierarchy. Mega Double Rare–IR, S&V IR–SIR, and S&V IR–Ultra Rare remain scientifically unidentified and receive no Round 6 coefficient.
+
+The independent-demand snapshot is frozen for future V2B research but is not used here. Universal status remains `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`; production rows and behavior remain unchanged. The next direction is to preserve the local evidence without creating a product score, then separately decide whether to wait for new upper-tier identifying variation or begin V3 research.

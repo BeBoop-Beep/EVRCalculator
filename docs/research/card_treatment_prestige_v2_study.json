@@ -58825,5 +58825,2529 @@
     "database_rows_persisted": 0,
     "production_scores_published": 0,
     "next_research_task": "preregister a new frozen cohort that includes an immutable independent-demand snapshot and collect new within-species cross-designation cells; do not enter V3 yet"
+  },
+  "round6": {
+    "status": "LOCAL_RARITY_DESIGNATION_EFFECTS_VALIDATED",
+    "universal_decision": "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
+    "frozen_study_id": "card-treatment-b2-r4-7baa40c8c8fb299b",
+    "manifest_hash": "7baa40c8c8fb299b2251d2c2ec0363e137b5eab959beeaae7891723871cc4cdd",
+    "canonical_mapping_hash": "7e0e9e2719aba8491fa777a1229cff52f23310e7fc49ca59f4a29e42fed29835",
+    "eligible_contrasts": [
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "common",
+        "treatment_b": "rare",
+        "n": 548,
+        "n_a": 422,
+        "n_b": 126,
+        "sets": 6,
+        "species": 317,
+        "exact_pull_scarcity_overlap": [
+          2.6238928930954866,
+          4.572122331941891
+        ],
+        "reparameterization": {
+          "raw_columns": 327,
+          "columns": 325,
+          "rank": 325,
+          "condition_number": 1575.5081669525143,
+          "residual_treatment_variance": 0.0009552938430990934,
+          "removed_columns": [
+            {
+              "column": "intercept",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:839",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            }
+          ],
+          "column_space_proof": {
+            "nuisance_rank_before": 324,
+            "nuisance_rank_after": 324,
+            "max_projection_error": 1.6645315916939234e-14,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": 0.13221690605043435,
+        "adjusted_price_association_pct": 14.135585941139208,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 6,
+          "draws": 1000,
+          "ci_low": -0.012971402596626547,
+          "ci_high": 0.27740521469749524
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "coefficient": null,
+            "estimable": false,
+            "sign": null
+          },
+          {
+            "excluded_set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "coefficient": 0.12441817169671948,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "coefficient": 0.12905610808168738,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "coefficient": null,
+            "estimable": false,
+            "sign": null
+          },
+          {
+            "excluded_set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "coefficient": 0.07733538214692884,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "coefficient": 0.2176504174993599,
+            "estimable": true,
+            "sign": 1
+          }
+        ],
+        "scarcity_strata_coefficient": -0.0327769049857922,
+        "demand_outlier_coefficient": 0.0915985634364719,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": -0.1960357128497276,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": 0.03359653943420893,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.03,
+          "holm_adjusted_p_value": 0.09
+        },
+        "robustness": {
+          "sensitivity_stable": false,
+          "leave_one_set_out_stable": false,
+          "wild_ci_excludes_zero": false
+        },
+        "status_pre_multiplicity": "LOCAL_EFFECT_UNCERTAIN",
+        "status": "LOCAL_EFFECT_UNCERTAIN"
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "common",
+        "treatment_b": "uncommon",
+        "n": 799,
+        "n_a": 573,
+        "n_b": 226,
+        "sets": 6,
+        "species": 359,
+        "exact_pull_scarcity_overlap": [
+          2.209778043407839,
+          4.571058656359323
+        ],
+        "reparameterization": {
+          "raw_columns": 369,
+          "columns": 366,
+          "rank": 366,
+          "condition_number": 1295.621042678054,
+          "residual_treatment_variance": 0.012563408969788999,
+          "removed_columns": [
+            {
+              "column": "species:56",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:689",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:733",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            }
+          ],
+          "column_space_proof": {
+            "nuisance_rank_before": 365,
+            "nuisance_rank_after": 365,
+            "max_projection_error": 2.682356620796224e-13,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": 0.09515632997668369,
+        "adjusted_price_association_pct": 9.983077820730031,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 6,
+          "draws": 1000,
+          "ci_low": 0.010955842715406089,
+          "ci_high": 0.19577450661277038
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "coefficient": 0.17231361986359742,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "coefficient": 0.07300762280454787,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "coefficient": 0.09471884164482709,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "coefficient": 0.05850621494585806,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "coefficient": 0.21313495289794737,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "coefficient": 0.03608695158805316,
+            "estimable": true,
+            "sign": 1
+          }
+        ],
+        "scarcity_strata_coefficient": 0.19031750277938847,
+        "demand_outlier_coefficient": 0.10242034422591263,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": 0.0951563299766655,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": 0.12336540843864238,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.215,
+          "holm_adjusted_p_value": 0.215
+        },
+        "robustness": {
+          "sensitivity_stable": true,
+          "leave_one_set_out_stable": true,
+          "wild_ci_excludes_zero": true
+        },
+        "status_pre_multiplicity": "CANDIDATE_VALIDATED",
+        "status": "LOCAL_EFFECT_UNCERTAIN"
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "rare",
+        "treatment_b": "uncommon",
+        "n": 330,
+        "n_a": 125,
+        "n_b": 205,
+        "sets": 6,
+        "species": 186,
+        "exact_pull_scarcity_overlap": [
+          2.6238928930954866,
+          4.571058656359323
+        ],
+        "reparameterization": {
+          "raw_columns": 195,
+          "columns": 193,
+          "rank": 193,
+          "condition_number": 721.4928496938074,
+          "residual_treatment_variance": 0.006695290898494628,
+          "removed_columns": [
+            {
+              "column": "species:272",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:781",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            }
+          ],
+          "column_space_proof": {
+            "nuisance_rank_before": 192,
+            "nuisance_rank_after": 192,
+            "max_projection_error": 6.392601942095158e-14,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": -0.4513422347883605,
+        "adjusted_price_association_pct": -36.322712094866816,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 6,
+          "draws": 1000,
+          "ci_low": -0.6554303677385718,
+          "ci_high": -0.24725410183814928
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+            "coefficient": -0.3867179915299635,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+            "coefficient": -0.343224468065229,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+            "coefficient": -0.45954806073335186,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+            "coefficient": -0.4583044192921692,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+            "coefficient": -0.1457622389963076,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+            "coefficient": -0.772494075473497,
+            "estimable": true,
+            "sign": -1
+          }
+        ],
+        "scarcity_strata_coefficient": 0.1432747222282984,
+        "demand_outlier_coefficient": -0.42569270984839874,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": -0.4513422347883847,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": -0.4381317181921863,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.005,
+          "holm_adjusted_p_value": 0.03
+        },
+        "robustness": {
+          "sensitivity_stable": false,
+          "leave_one_set_out_stable": true,
+          "wild_ci_excludes_zero": true
+        },
+        "status_pre_multiplicity": "LOCAL_EFFECT_UNCERTAIN",
+        "status": "LOCAL_EFFECT_UNCERTAIN"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "rare",
+        "n": 2874,
+        "n_a": 2268,
+        "n_b": 606,
+        "sets": 16,
+        "species": 687,
+        "exact_pull_scarcity_overlap": [
+          2.208266313555609,
+          7.308232845579262
+        ],
+        "reparameterization": {
+          "raw_columns": 708,
+          "columns": 708,
+          "rank": 708,
+          "condition_number": 5172.943792879788,
+          "residual_treatment_variance": 0.008271567731139956,
+          "removed_columns": [],
+          "column_space_proof": {
+            "nuisance_rank_before": 707,
+            "nuisance_rank_after": 707,
+            "max_projection_error": 1.0691998369486756e-13,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": 0.4173752556348899,
+        "adjusted_price_association_pct": 51.79720336297016,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 16,
+          "draws": 1000,
+          "ci_low": 0.25234614034193503,
+          "ci_high": 0.601431884203898
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+            "coefficient": 0.41901666735724125,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "coefficient": 0.4847479457827739,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "coefficient": 0.41558327504147236,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "coefficient": 0.39674361893106297,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "coefficient": 0.4563134640840787,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "coefficient": 0.46232930782549336,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "coefficient": 0.4351930282023259,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "coefficient": 0.4186520500355673,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "coefficient": 0.3289311477091539,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "coefficient": 0.4173896181179275,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "coefficient": 0.37763195344303824,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "coefficient": 0.41187667632477715,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+            "coefficient": 0.3844682588417025,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "coefficient": 0.4016795787035227,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+            "coefficient": 0.5114785325286364,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "coefficient": 0.440564152366805,
+            "estimable": true,
+            "sign": 1
+          }
+        ],
+        "scarcity_strata_coefficient": 0.4201416323751153,
+        "demand_outlier_coefficient": 0.41254763835084035,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": 0.42932690154085545,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": 0.45316578725095746,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.005,
+          "holm_adjusted_p_value": 0.03
+        },
+        "robustness": {
+          "sensitivity_stable": true,
+          "leave_one_set_out_stable": true,
+          "wild_ci_excludes_zero": true
+        },
+        "status_pre_multiplicity": "CANDIDATE_VALIDATED",
+        "status": "LOCALLY_VALIDATED"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "uncommon",
+        "n": 3479,
+        "n_a": 2297,
+        "n_b": 1182,
+        "sets": 16,
+        "species": 753,
+        "exact_pull_scarcity_overlap": [
+          2.178289973722439,
+          7.329349769020185
+        ],
+        "reparameterization": {
+          "raw_columns": 774,
+          "columns": 771,
+          "rank": 771,
+          "condition_number": 4208.225322951023,
+          "residual_treatment_variance": 0.038618741588723395,
+          "removed_columns": [
+            {
+              "column": "species:547",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:724",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            },
+            {
+              "column": "species:994",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            }
+          ],
+          "column_space_proof": {
+            "nuisance_rank_before": 770,
+            "nuisance_rank_after": 770,
+            "max_projection_error": 1.7408297026122455e-13,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": 0.05426251458281054,
+        "adjusted_price_association_pct": 5.57617186270438,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 16,
+          "draws": 1000,
+          "ci_low": -0.00456387656697217,
+          "ci_high": 0.11319577998253709
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+            "coefficient": 0.060348278075201336,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "coefficient": 0.08109650723612469,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "coefficient": 0.05812001501030109,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "coefficient": 0.042475792089063207,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "coefficient": 0.03940205063675552,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "coefficient": 0.054425203395289924,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "coefficient": 0.03943438860247671,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "coefficient": 0.05659885410401627,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "coefficient": 0.07049728054689845,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "coefficient": 0.06735185356770733,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "coefficient": 0.034614845601290155,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "coefficient": 0.07057776907400837,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+            "coefficient": 0.05261825035304401,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "coefficient": 0.0648877936576619,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+            "coefficient": 0.03784290263770198,
+            "estimable": true,
+            "sign": 1
+          },
+          {
+            "excluded_set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "coefficient": 0.04713583007844301,
+            "estimable": true,
+            "sign": 1
+          }
+        ],
+        "scarcity_strata_coefficient": 0.05769687402306195,
+        "demand_outlier_coefficient": 0.050967182385326576,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": 0.054527224242865636,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": 0.046878457011009025,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.1,
+          "holm_adjusted_p_value": 0.2
+        },
+        "robustness": {
+          "sensitivity_stable": true,
+          "leave_one_set_out_stable": true,
+          "wild_ci_excludes_zero": false
+        },
+        "status_pre_multiplicity": "LOCAL_EFFECT_UNCERTAIN",
+        "status": "LOCAL_EFFECT_UNCERTAIN"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "rare",
+        "treatment_b": "uncommon",
+        "n": 1786,
+        "n_a": 606,
+        "n_b": 1180,
+        "sets": 16,
+        "species": 476,
+        "exact_pull_scarcity_overlap": [
+          2.208266313555609,
+          7.308232845579262
+        ],
+        "reparameterization": {
+          "raw_columns": 497,
+          "columns": 496,
+          "rank": 496,
+          "condition_number": 2528.596663386619,
+          "residual_treatment_variance": 0.054660744609704694,
+          "removed_columns": [
+            {
+              "column": "species:1010",
+              "classification": "NUISANCE_REDUNDANCY_REMOVED"
+            }
+          ],
+          "column_space_proof": {
+            "nuisance_rank_before": 495,
+            "nuisance_rank_after": 495,
+            "max_projection_error": 5.030305944934116e-14,
+            "treatment_not_in_nuisance_span": true
+          }
+        },
+        "coefficient_log_price_b_vs_a": -0.2634929072823938,
+        "adjusted_price_association_pct": -23.163692779780824,
+        "wild_cluster_inference": {
+          "method": "Rademacher wild cluster bootstrap",
+          "cluster_unit": "set",
+          "clusters": 16,
+          "draws": 1000,
+          "ci_low": -0.311890628907158,
+          "ci_high": -0.21602384983780162
+        },
+        "leave_one_set_out": [
+          {
+            "excluded_set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+            "coefficient": -0.2604262036168317,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+            "coefficient": -0.2560581705240555,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+            "coefficient": -0.2709038166583316,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+            "coefficient": -0.2550502609544357,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+            "coefficient": -0.2760028920717733,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+            "coefficient": -0.25357464076416564,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+            "coefficient": -0.291561512515009,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+            "coefficient": -0.231313565398925,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+            "coefficient": -0.2731082975140012,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+            "coefficient": -0.28180594278109045,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+            "coefficient": -0.27037090053559143,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+            "coefficient": -0.2515476854392805,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+            "coefficient": -0.24374372724962082,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+            "coefficient": -0.2729382481253692,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+            "coefficient": -0.2537729226593488,
+            "estimable": true,
+            "sign": -1
+          },
+          {
+            "excluded_set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+            "coefficient": -0.27000719442859517,
+            "estimable": true,
+            "sign": -1
+          }
+        ],
+        "scarcity_strata_coefficient": -0.2516274374135996,
+        "demand_outlier_coefficient": -0.23301248184104043,
+        "demand_outlier_rule": "remove species above the 95th percentile of within-sample median price (locked B2 sensitivity; not an independent demand control)",
+        "mechanics_sensitivity_without_controls": -0.26046362025377806,
+        "mechanics_sensitivity_interpretation": "secondary sensitivity only; primary estimand retains mechanics",
+        "balance_weighted_coefficient": -0.3175648975964765,
+        "permutation_placebo": {
+          "draws": 199,
+          "raw_p_value": 0.005,
+          "holm_adjusted_p_value": 0.03
+        },
+        "robustness": {
+          "sensitivity_stable": true,
+          "leave_one_set_out_stable": true,
+          "wild_ci_excludes_zero": true
+        },
+        "status_pre_multiplicity": "CANDIDATE_VALIDATED",
+        "status": "LOCALLY_VALIDATED"
+      }
+    ],
+    "locally_validated_count": 2,
+    "multiple_testing": {
+      "method": "Holm family-wise correction applied to six preregistered permutation p-values",
+      "family_size": 6,
+      "alpha": 0.05
+    },
+    "scientifically_nested_contrasts": [
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "illustration_rare",
+        "observations": 105,
+        "sets": 6,
+        "species": 103,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 105,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 3.0417192134155933,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 0.23346938775510198,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.4103757887946757,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              12.4225769662227,
+              4.084064338165256
+            ],
+            "singular_values_smallest": [
+              12.4225769662227,
+              4.084064338165256
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 105,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 116.77634571572258,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 0.1303794718234187,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.5468079505389045,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              52.702640864070396,
+              5.199565827245573,
+              0.4513126399105551
+            ],
+            "singular_values_smallest": [
+              52.702640864070396,
+              5.199565827245573,
+              0.4513126399105551
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 105,
+            "columns_before_reference_reduction": 9,
+            "columns_after_reference_reduction": 8,
+            "rank": 7,
+            "rank_deficiency": 1,
+            "condition_number": null,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 1.4170137610062248e-30,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "set:75cd439d-aaa2-41cb-86f3-2fefa5b26e29"
+            ],
+            "singular_values_largest": [
+              52.91950363581877,
+              7.429576394268721,
+              4.096072544703195,
+              3.3166257039811096,
+              3.3166247903554003
+            ],
+            "singular_values_smallest": [
+              3.3166257039811096,
+              3.3166247903554003,
+              1.5349979366754893,
+              0.03188198390750366,
+              2.973141346368713e-15
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 105,
+            "columns_before_reference_reduction": 106,
+            "columns_after_reference_reduction": 105,
+            "rank": 105,
+            "rank_deficiency": 0,
+            "condition_number": 5433.934121036674,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 0.00016215434763530395,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -2.4888280712114703,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              52.712380558251034,
+              5.290757393784497,
+              1.4143484025644213,
+              1.400861560677106,
+              1.0937701421154444
+            ],
+            "singular_values_smallest": [
+              0.9999999999999997,
+              0.9999999999999993,
+              0.214318802796417,
+              0.12324662139756158,
+              0.009700592495993435
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 105,
+            "columns_before_reference_reduction": 112,
+            "columns_after_reference_reduction": 110,
+            "rank": 105,
+            "rank_deficiency": 5,
+            "condition_number": 295.328544337231,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 1.0441543068087249e-30,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              52.92920347244824,
+              7.4938143283488,
+              4.21304525783707,
+              3.4648809096152973,
+              3.464102188437756
+            ],
+            "singular_values_smallest": [
+              0.9999999999999994,
+              0.9999999999999986,
+              0.25377191423428463,
+              0.21892108542395192,
+              0.1792214280919938
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 105,
+            "columns_before_reference_reduction": 123,
+            "columns_after_reference_reduction": 120,
+            "rank": 105,
+            "rank_deficiency": 15,
+            "condition_number": 290.40232999247496,
+            "treatment_variance": 0.23346938775510198,
+            "residual_treatment_variance": 3.4734067828458615e-31,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              53.02504192287025,
+              8.174909181504521,
+              4.370969964382056,
+              4.180959170913716,
+              3.4722197961862555
+            ],
+            "singular_values_smallest": [
+              0.9999999999999994,
+              0.9999999999999984,
+              0.36390579941819495,
+              0.23766744601965833,
+              0.1825916545650452
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 2,
+            "observations_in_mixed_groups": 4,
+            "cohort_percentage": 0.0380952380952381
+          },
+          "set": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          },
+          "species_set": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "set_fe",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after set_fe"
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "rare",
+        "observations": 97,
+        "sets": 6,
+        "species": 93,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 97,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.606140431322255,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 0.24997342969497294,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.3609937905091979,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              11.242379369326992,
+              4.313804135114485
+            ],
+            "singular_values_smallest": [
+              11.242379369326992,
+              4.313804135114485
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 97,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 83.6861287496296,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 0.11921948091529616,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.2801941465320765,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              42.07024517918709,
+              4.671820758699678,
+              0.5027146769454705
+            ],
+            "singular_values_smallest": [
+              42.07024517918709,
+              4.671820758699678,
+              0.5027146769454705
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 97,
+            "columns_before_reference_reduction": 9,
+            "columns_after_reference_reduction": 8,
+            "rank": 8,
+            "rank_deficiency": 0,
+            "condition_number": 278.59872860907933,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 0.07606396860594604,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.3110339012333008,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              42.25649511117484,
+              5.815742269429318,
+              4.547703365167971,
+              3.171783923952556,
+              3.162277946240924
+            ],
+            "singular_values_smallest": [
+              3.171783923952556,
+              3.162277946240924,
+              2.4906844010175195,
+              1.6067322009343474,
+              0.15167511826828106
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 97,
+            "columns_before_reference_reduction": 96,
+            "columns_after_reference_reduction": 95,
+            "rank": 95,
+            "rank_deficiency": 0,
+            "condition_number": 515.270699251673,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 0.0055006760346415435,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.3963630879981301,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              42.08301307274843,
+              4.776876345265788,
+              1.4166136266106693,
+              1.414213562373095,
+              1.408312986445291
+            ],
+            "singular_values_smallest": [
+              0.9999999999999993,
+              0.9999999999999993,
+              0.23878186372155852,
+              0.13952320264966425,
+              0.0816716594478699
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 97,
+            "columns_before_reference_reduction": 102,
+            "columns_after_reference_reduction": 100,
+            "rank": 97,
+            "rank_deficiency": 3,
+            "condition_number": 476.6472398280619,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 4.347527202493517e-27,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              42.269205572187275,
+              5.899086596056098,
+              4.6511426088223695,
+              3.3266562540060094,
+              3.316625071228014
+            ],
+            "singular_values_smallest": [
+              0.35727815734013807,
+              0.30367462719516036,
+              0.1521883199593942,
+              0.13005807429552146,
+              0.08868026926461337
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 97,
+            "columns_before_reference_reduction": 111,
+            "columns_after_reference_reduction": 108,
+            "rank": 97,
+            "rank_deficiency": 11,
+            "condition_number": 321.4146828986743,
+            "treatment_variance": 0.24997342969497294,
+            "residual_treatment_variance": 5.6776394700897644e-30,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              42.35243120391193,
+              6.474272317744492,
+              4.753440906989417,
+              3.5819551008180097,
+              3.547352060930994
+            ],
+            "singular_values_smallest": [
+              0.4112749378765351,
+              0.36399070620685675,
+              0.30633325711538284,
+              0.1511303494164422,
+              0.13176881286802786
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 2,
+            "observations_in_mixed_groups": 4,
+            "cohort_percentage": 0.041237113402061855
+          },
+          "set": {
+            "mixed_groups": 3,
+            "observations_in_mixed_groups": 52,
+            "cohort_percentage": 0.5360824742268041
+          },
+          "species_set": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "set_species_fe",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after set_species_fe"
+      },
+      {
+        "era": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "treatment_a": "double_rare",
+        "treatment_b": "uncommon",
+        "observations": 119,
+        "sets": 6,
+        "species": 111,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 119,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.879880630848714,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 0.24221453287197248,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.2888437490901841,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              12.987057801960376,
+              4.509581981574365
+            ],
+            "singular_values_smallest": [
+              12.987057801960376,
+              4.509581981574365
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 119,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 114.9323157520977,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 0.0695938914845905,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.8992561370770298,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              47.51272386036813,
+              5.00039407476875,
+              0.41339742916909733
+            ],
+            "singular_values_smallest": [
+              47.51272386036813,
+              5.00039407476875,
+              0.41339742916909733
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 119,
+            "columns_before_reference_reduction": 9,
+            "columns_after_reference_reduction": 8,
+            "rank": 8,
+            "rank_deficiency": 0,
+            "condition_number": 565.9151819237254,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 0.016111935037556254,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.193404060165352,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              47.833893219942205,
+              6.603807929806588,
+              5.828041020386518,
+              3.1622780299140705,
+              3.0510409943204673
+            ],
+            "singular_values_smallest": [
+              3.1622780299140705,
+              3.0510409943204673,
+              2.0020917089236034,
+              1.2851910111666518,
+              0.08452484532636076
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 119,
+            "columns_before_reference_reduction": 114,
+            "columns_after_reference_reduction": 113,
+            "rank": 113,
+            "rank_deficiency": 0,
+            "condition_number": 596.6092713460977,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 0.00507864665797104,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -2.3082099882955394,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              47.52460175364689,
+              5.09454981265348,
+              1.415334038743242,
+              1.4142135623730958,
+              1.4142135623730954
+            ],
+            "singular_values_smallest": [
+              0.9999999999999994,
+              0.9999999999999984,
+              0.3027407034746182,
+              0.1407363655308608,
+              0.07965783308465801
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 119,
+            "columns_before_reference_reduction": 120,
+            "columns_after_reference_reduction": 118,
+            "rank": 116,
+            "rank_deficiency": 2,
+            "condition_number": null,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 4.600226720262664e-05,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 11.480287647946078,
+            "aliased_columns": [
+              "intercept",
+              "set:472f851c-2e41-4c80-b6fc-8478d1d92730",
+              "set:5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+              "set:5e99f658-39f0-4845-9228-db8db3965f32",
+              "set:75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+              "set:b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+              "species:210",
+              "species:214",
+              "species:319",
+              "species:321",
+              "species:395",
+              "species:409",
+              "species:428",
+              "species:429",
+              "species:479",
+              "species:491",
+              "species:530",
+              "species:6",
+              "species:609",
+              "species:655",
+              "species:719",
+              "species:741",
+              "species:754",
+              "species:80",
+              "species:807",
+              "species:877",
+              "species:94"
+            ],
+            "singular_values_largest": [
+              47.84569570569254,
+              6.670296582892146,
+              5.908396359637027,
+              3.3173618334139094,
+              3.2135570448562807
+            ],
+            "singular_values_smallest": [
+              0.19599316571212239,
+              0.089484177566666,
+              0.004972636306497315,
+              1.9314699961437692e-16,
+              7.489733049577037e-17
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 119,
+            "columns_before_reference_reduction": 129,
+            "columns_after_reference_reduction": 126,
+            "rank": 118,
+            "rank_deficiency": 8,
+            "condition_number": null,
+            "treatment_variance": 0.24221453287197248,
+            "residual_treatment_variance": 9.308524026326676e-31,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "species:479",
+              "species:741",
+              "mechanic:ex|mega|stage_2",
+              "mechanic:ex|stage_2"
+            ],
+            "singular_values_largest": [
+              48.07201113247234,
+              7.782397339559148,
+              6.106664158444976,
+              4.227929049757035,
+              3.5666527612998618
+            ],
+            "singular_values_smallest": [
+              0.18293287678156464,
+              0.16582827698735259,
+              0.11323213905694464,
+              0.0039049987996465922,
+              1.698917714700022e-16
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 5,
+            "observations_in_mixed_groups": 10,
+            "cohort_percentage": 0.08403361344537816
+          },
+          "set": {
+            "mixed_groups": 2,
+            "observations_in_mixed_groups": 49,
+            "cohort_percentage": 0.4117647058823529
+          },
+          "species_set": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "common",
+        "treatment_b": "double_rare",
+        "observations": 1242,
+        "sets": 16,
+        "species": 652,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 1242,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.681178613301398,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 0.1503840359297896,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.4451853265014416,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              35.9355341955454,
+              13.4028870800581
+            ],
+            "singular_values_smallest": [
+              35.9355341955454,
+              13.4028870800581
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 1242,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 93.10162502156138,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 0.1293958996712371,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.3918234942964918,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              159.80683634395106,
+              13.547931819384281,
+              1.7164774117201655
+            ],
+            "singular_values_smallest": [
+              159.80683634395106,
+              13.547931819384281,
+              1.7164774117201655
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 1242,
+            "columns_before_reference_reduction": 19,
+            "columns_after_reference_reduction": 18,
+            "rank": 18,
+            "rank_deficiency": 0,
+            "condition_number": 230.6176210151058,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 0.06965176039858344,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.1748666537660455,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              160.06478489795035,
+              13.65023622253438,
+              10.4744412483076,
+              10.237711161411186,
+              10.13426699435685
+            ],
+            "singular_values_smallest": [
+              6.701320494170014,
+              6.5869723111397445,
+              2.729147990464201,
+              2.2544329500573723,
+              0.6940700549827711
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 1242,
+            "columns_before_reference_reduction": 655,
+            "columns_after_reference_reduction": 654,
+            "rank": 654,
+            "rank_deficiency": 0,
+            "condition_number": 4091.8728336899703,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 0.01226761441456143,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.4291210440258673,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              159.8160119076315,
+              13.616925654419845,
+              3.305397981460621,
+              3.152321585277296,
+              3.000059228013152
+            ],
+            "singular_values_smallest": [
+              0.9999999999999962,
+              0.9999999999999957,
+              0.6636573928740271,
+              0.3476826049975379,
+              0.039056935150038025
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 1242,
+            "columns_before_reference_reduction": 671,
+            "columns_after_reference_reduction": 669,
+            "rank": 669,
+            "rank_deficiency": 0,
+            "condition_number": 4156.87638439668,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 0.009309366919011469,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 1.3593999165038215,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              160.07394730064908,
+              13.719876705995809,
+              10.52507506014701,
+              10.286969741409127,
+              10.1833598479265
+            ],
+            "singular_values_smallest": [
+              0.6467822603539622,
+              0.39022647414189177,
+              0.3366763906075143,
+              0.2669409476278085,
+              0.03850822889550079
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 1242,
+            "columns_before_reference_reduction": 681,
+            "columns_after_reference_reduction": 678,
+            "rank": 675,
+            "rank_deficiency": 3,
+            "condition_number": null,
+            "treatment_variance": 0.15038403592978963,
+            "residual_treatment_variance": 1.0769773920249874e-28,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "mechanic:basic",
+              "mechanic:stage_1"
+            ],
+            "singular_values_largest": [
+              161.92879064805783,
+              21.025027228744595,
+              14.400597505604642,
+              10.509981522791444,
+              10.285818341199233
+            ],
+            "singular_values_smallest": [
+              0.1939096333559801,
+              0.04778092803953768,
+              2.981962285456432e-13,
+              1.881892356324469e-15,
+              1.0474911035782496e-15
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 25,
+            "observations_in_mixed_groups": 72,
+            "cohort_percentage": 0.057971014492753624
+          },
+          "set": {
+            "mixed_groups": 15,
+            "observations_in_mixed_groups": 1236,
+            "cohort_percentage": 0.9951690821256038
+          },
+          "species_set": {
+            "mixed_groups": 3,
+            "observations_in_mixed_groups": 6,
+            "cohort_percentage": 0.004830917874396135
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "double_rare",
+        "treatment_b": "rare",
+        "observations": 490,
+        "sets": 16,
+        "species": 286,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 490,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.701730568523664,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 0.24893377759266977,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.0886985927058914,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              25.70040787033079,
+              9.512572485854703
+            ],
+            "singular_values_smallest": [
+              25.70040787033079,
+              9.512572485854703
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 490,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 79.99661942217404,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 0.21216235170268105,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.9885055571775956,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              102.39464314957195,
+              11.291316263397807,
+              1.2799871280709327
+            ],
+            "singular_values_smallest": [
+              102.39464314957195,
+              11.291316263397807,
+              1.2799871280709327
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 490,
+            "columns_before_reference_reduction": 19,
+            "columns_after_reference_reduction": 18,
+            "rank": 18,
+            "rank_deficiency": 0,
+            "condition_number": 177.44810689505871,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 0.15031256742846025,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.9521988097113732,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              102.55216266670412,
+              11.361709383239504,
+              6.814297393403272,
+              6.625554803726651,
+              6.301887045012644
+            ],
+            "singular_values_smallest": [
+              4.174161428294332,
+              4.000000092547671,
+              3.686811395080913,
+              1.4018475348495332,
+              0.5779276232422845
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 490,
+            "columns_before_reference_reduction": 289,
+            "columns_after_reference_reduction": 288,
+            "rank": 288,
+            "rank_deficiency": 0,
+            "condition_number": 1228.0602280230944,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 0.10765047832366327,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.0076751170311256,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              102.40560180556704,
+              11.330103146933432,
+              2.9591659734671483,
+              2.2371551233175007,
+              2.2360679404770734
+            ],
+            "singular_values_smallest": [
+              0.9999999999999984,
+              0.9999999999999983,
+              0.770729034474766,
+              0.6346283701997495,
+              0.08338809405986336
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 490,
+            "columns_before_reference_reduction": 305,
+            "columns_after_reference_reduction": 303,
+            "rank": 303,
+            "rank_deficiency": 0,
+            "condition_number": 1271.035447390267,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 0.07570606802172758,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.9141475104466398,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              102.56310491465706,
+              11.400475628748039,
+              6.903159447886618,
+              6.715945511515943,
+              6.377266574268419
+            ],
+            "singular_values_smallest": [
+              0.5572983975979101,
+              0.5106509336918261,
+              0.4732340922223889,
+              0.4258246608924551,
+              0.08069256064041573
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 490,
+            "columns_before_reference_reduction": 318,
+            "columns_after_reference_reduction": 315,
+            "rank": 312,
+            "rank_deficiency": 3,
+            "condition_number": null,
+            "treatment_variance": 0.2489337775926697,
+            "residual_treatment_variance": 1.6713050252917628e-29,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "mechanic:ancient|basic|ex",
+              "mechanic:basic|ex",
+              "mechanic:basic|ex|future",
+              "mechanic:basic|ex|tera",
+              "mechanic:ex|stage_1",
+              "mechanic:ex|stage_1|tera",
+              "mechanic:ex|stage_2",
+              "mechanic:ex|stage_2|tera"
+            ],
+            "singular_values_largest": [
+              102.85276522503602,
+              13.79606897233656,
+              9.68777771663005,
+              8.556134777665712,
+              7.665513637956588
+            ],
+            "singular_values_smallest": [
+              0.3188742199098634,
+              0.13159942504085587,
+              3.290333584454185e-15,
+              1.2823245042347908e-15,
+              1.0813305451890671e-15
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 102,
+            "observations_in_mixed_groups": 265,
+            "cohort_percentage": 0.5408163265306123
+          },
+          "set": {
+            "mixed_groups": 16,
+            "observations_in_mixed_groups": 490,
+            "cohort_percentage": 1.0
+          },
+          "species_set": {
+            "mixed_groups": 18,
+            "observations_in_mixed_groups": 39,
+            "cohort_percentage": 0.07959183673469387
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "double_rare",
+        "treatment_b": "uncommon",
+        "observations": 760,
+        "sets": 16,
+        "species": 439,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 760,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 3.4088582768673676,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 0.21052458448753464,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.2737845378635588,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              34.47759579120251,
+              10.11411827390088
+            ],
+            "singular_values_smallest": [
+              34.47759579120251,
+              10.11411827390088
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 760,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 91.35554455128961,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 0.17803545917544275,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.2057921815223953,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              127.1728462628002,
+              12.975620978038352,
+              1.3920648920373053
+            ],
+            "singular_values_smallest": [
+              127.1728462628002,
+              12.975620978038352,
+              1.3920648920373053
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 760,
+            "columns_before_reference_reduction": 19,
+            "columns_after_reference_reduction": 18,
+            "rank": 18,
+            "rank_deficiency": 0,
+            "condition_number": 225.52724807526005,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 0.09356720226138747,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.0311504308645114,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              127.38164165632269,
+              13.095008646922931,
+              9.06945419583361,
+              8.158877168317352,
+              7.828839136405158
+            ],
+            "singular_values_smallest": [
+              5.446404574071511,
+              5.069835382135449,
+              2.563182804514724,
+              1.6537999507580585,
+              0.5648170797251715
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 760,
+            "columns_before_reference_reduction": 442,
+            "columns_after_reference_reduction": 441,
+            "rank": 441,
+            "rank_deficiency": 0,
+            "condition_number": 1892.2093732009412,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 0.07264426612281152,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.077445173880539,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              127.1825265731097,
+              13.021005866349855,
+              3.423859279992851,
+              2.8182175318664044,
+              2.634830100188745
+            ],
+            "singular_values_smallest": [
+              0.9999999999999981,
+              0.9999999999999981,
+              0.7190105250282769,
+              0.5822125822444314,
+              0.0672137705131237
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 760,
+            "columns_before_reference_reduction": 458,
+            "columns_after_reference_reduction": 456,
+            "rank": 456,
+            "rank_deficiency": 0,
+            "condition_number": 1928.2657966122417,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 0.04352020215717555,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.9896965962809069,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              127.39130585470708,
+              13.140962996903301,
+              9.124880364443333,
+              8.221144599150382,
+              7.889843653929339
+            ],
+            "singular_values_smallest": [
+              0.5830387624958477,
+              0.5509160904476604,
+              0.37623275747332074,
+              0.32588286796246063,
+              0.06606522092468792
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 760,
+            "columns_before_reference_reduction": 471,
+            "columns_after_reference_reduction": 468,
+            "rank": 465,
+            "rank_deficiency": 3,
+            "condition_number": null,
+            "treatment_variance": 0.21052458448753464,
+            "residual_treatment_variance": 5.074581571696223e-30,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "mechanic:ancient|basic|ex",
+              "mechanic:basic|ex",
+              "mechanic:basic|ex|future",
+              "mechanic:basic|ex|tera",
+              "mechanic:ex|stage_1",
+              "mechanic:ex|stage_1|tera",
+              "mechanic:ex|stage_2",
+              "mechanic:ex|stage_2|tera"
+            ],
+            "singular_values_largest": [
+              128.0999223570896,
+              17.58959225052343,
+              12.53287950342802,
+              9.205699402186344,
+              8.8986980922717
+            ],
+            "singular_values_smallest": [
+              0.3109583477221979,
+              0.08996691132654691,
+              4.8615056406213695e-15,
+              1.3845441409572195e-15,
+              1.2104016760266607e-15
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 97,
+            "observations_in_mixed_groups": 286,
+            "cohort_percentage": 0.3763157894736842
+          },
+          "set": {
+            "mixed_groups": 15,
+            "observations_in_mixed_groups": 754,
+            "cohort_percentage": 0.9921052631578947
+          },
+          "species_set": {
+            "mixed_groups": 9,
+            "observations_in_mixed_groups": 18,
+            "cohort_percentage": 0.02368421052631579
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "illustration_rare",
+        "treatment_b": "special_illustration_rare",
+        "observations": 380,
+        "sets": 15,
+        "species": 353,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 380,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.9932301783359097,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 0.11619806094182826,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 0.772245311333948,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              19.69071907139838,
+              6.578417929203648
+            ],
+            "singular_values_smallest": [
+              19.69071907139838,
+              6.578417929203648
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 380,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 85.42472618377315,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 0.11511834572366093,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 0.8121870712408072,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              122.01797347242203,
+              6.666880337787264,
+              1.428368329913359
+            ],
+            "singular_values_smallest": [
+              122.01797347242203,
+              6.666880337787264,
+              1.428368329913359
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 380,
+            "columns_before_reference_reduction": 18,
+            "columns_after_reference_reduction": 17,
+            "rank": 17,
+            "rank_deficiency": 0,
+            "condition_number": 574.714921085144,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 0.03779435637337645,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 0.28435043638344537,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              122.20793404924696,
+              8.306625721544403,
+              8.111363113232409,
+              6.638775401663845,
+              6.207619907879098
+            ],
+            "singular_values_smallest": [
+              2.0000000000000004,
+              1.863012226360991,
+              1.6934300075535338,
+              0.6320088969740593,
+              0.21264096261586682
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 380,
+            "columns_before_reference_reduction": 356,
+            "columns_after_reference_reduction": 355,
+            "rank": 355,
+            "rank_deficiency": 0,
+            "condition_number": 2423.316132385791,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 0.006494203803364902,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": 0.3500400697342442,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              122.02268383980038,
+              6.751619368549228,
+              1.7712926029641756,
+              1.7259479337809558,
+              1.6671145092169624
+            ],
+            "singular_values_smallest": [
+              0.9999999999999982,
+              0.999999999999998,
+              0.2700553327400674,
+              0.2444638649379748,
+              0.050353596961229825
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 380,
+            "columns_before_reference_reduction": 371,
+            "columns_after_reference_reduction": 369,
+            "rank": 368,
+            "rank_deficiency": 1,
+            "condition_number": null,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 0.0005540759243185712,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -0.15480079749319398,
+            "aliased_columns": [
+              "set:3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "species:1014",
+              "species:1015",
+              "species:1016",
+              "species:1025"
+            ],
+            "singular_values_largest": [
+              122.21263678801469,
+              8.367632856189221,
+              8.173377655409698,
+              6.713763692845653,
+              6.291447449144133
+            ],
+            "singular_values_smallest": [
+              0.13147021904756032,
+              0.08009781391633393,
+              0.022235473924099806,
+              0.010342934924352969,
+              3.780486657964293e-16
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 380,
+            "columns_before_reference_reduction": 384,
+            "columns_after_reference_reduction": 381,
+            "rank": 371,
+            "rank_deficiency": 10,
+            "condition_number": null,
+            "treatment_variance": 0.11619806094182826,
+            "residual_treatment_variance": 2.214212528621563e-29,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "set:3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+              "species:1005",
+              "species:1006",
+              "species:1014",
+              "species:1015",
+              "species:1016",
+              "species:1022",
+              "species:1025",
+              "species:927",
+              "species:986",
+              "species:988",
+              "species:989",
+              "species:992",
+              "mechanic:ancient|basic|ex",
+              "mechanic:basic",
+              "mechanic:basic|ex",
+              "mechanic:basic|ex|future",
+              "mechanic:basic|ex|tera",
+              "mechanic:basic|future",
+              "mechanic:ex|stage_1",
+              "mechanic:ex|stage_1|tera",
+              "mechanic:ex|stage_2",
+              "mechanic:ex|stage_2|tera",
+              "mechanic:stage_1",
+              "mechanic:stage_2"
+            ],
+            "singular_values_largest": [
+              122.70884618341175,
+              12.01921486209186,
+              9.300666729588624,
+              8.367108404962815,
+              7.406216223627862
+            ],
+            "singular_values_smallest": [
+              1.7252741691405444e-16,
+              1.3182243404689583e-16,
+              1.144462552531767e-16,
+              3.6169608697089115e-17,
+              6.119433814789256e-18
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 5,
+            "observations_in_mixed_groups": 10,
+            "cohort_percentage": 0.02631578947368421
+          },
+          "set": {
+            "mixed_groups": 5,
+            "observations_in_mixed_groups": 154,
+            "cohort_percentage": 0.4052631578947368
+          },
+          "species_set": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      },
+      {
+        "era": "Scarlet and Violet",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "treatment_a": "illustration_rare",
+        "treatment_b": "ultra_rare",
+        "observations": 367,
+        "sets": 14,
+        "species": 323,
+        "stages": [
+          {
+            "stage": "treatment",
+            "observations": 367,
+            "columns_before_reference_reduction": 2,
+            "columns_after_reference_reduction": 2,
+            "rank": 2,
+            "rank_deficiency": 0,
+            "condition_number": 2.475704855752978,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 0.24396944071156512,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.5240285503913606,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              21.18440760489758,
+              8.556919681144466
+            ],
+            "singular_values_smallest": [
+              21.18440760489758,
+              8.556919681144466
+            ]
+          },
+          {
+            "stage": "scarcity",
+            "observations": 367,
+            "columns_before_reference_reduction": 3,
+            "columns_after_reference_reduction": 3,
+            "rank": 3,
+            "rank_deficiency": 0,
+            "condition_number": 98.16971504355463,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 0.23455227396753944,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.5197017788706055,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              109.72126188356786,
+              9.356087421026812,
+              1.1176691491351298
+            ],
+            "singular_values_smallest": [
+              109.72126188356786,
+              9.356087421026812,
+              1.1176691491351298
+            ]
+          },
+          {
+            "stage": "set_fe",
+            "observations": 367,
+            "columns_before_reference_reduction": 17,
+            "columns_after_reference_reduction": 16,
+            "rank": 16,
+            "rank_deficiency": 0,
+            "condition_number": 469.5391708676616,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 0.14988321633757054,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.5959909849206924,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              109.86486729841289,
+              9.478803488798604,
+              6.768801654139414,
+              6.0827637418444285,
+              6.034462296072492
+            ],
+            "singular_values_smallest": [
+              4.375305285186184,
+              2.5683543430043088,
+              2.4494903372812997,
+              1.1362338903141336,
+              0.23398445564273918
+            ]
+          },
+          {
+            "stage": "species_fe",
+            "observations": 367,
+            "columns_before_reference_reduction": 326,
+            "columns_after_reference_reduction": 325,
+            "rank": 325,
+            "rank_deficiency": 0,
+            "condition_number": 1452.5196635895686,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 0.03499851453934216,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.6115181641148877,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              109.72694794089372,
+              9.406541708898194,
+              1.982047566144626,
+              1.732148482852072,
+              1.5829375526255056
+            ],
+            "singular_values_smallest": [
+              0.9999999999999982,
+              0.9999999999999979,
+              0.4190921555797409,
+              0.2600935877578715,
+              0.07554248709427368
+            ]
+          },
+          {
+            "stage": "set_species_fe",
+            "observations": 367,
+            "columns_before_reference_reduction": 340,
+            "columns_after_reference_reduction": 338,
+            "rank": 338,
+            "rank_deficiency": 0,
+            "condition_number": 1726.4505961520924,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 0.020454848642759392,
+            "treatment_estimable": true,
+            "diagnostic_coefficient": -1.5182211522006748,
+            "aliased_columns": [],
+            "singular_values_largest": [
+              109.87054554940883,
+              9.529057619463977,
+              6.843879383519977,
+              6.1629478429213025,
+              6.113374490349462
+            ],
+            "singular_values_smallest": [
+              0.21578818157435392,
+              0.17337591900846286,
+              0.13205776572620354,
+              0.1005705541687149,
+              0.06363955377251336
+            ]
+          },
+          {
+            "stage": "full",
+            "observations": 367,
+            "columns_before_reference_reduction": 353,
+            "columns_after_reference_reduction": 350,
+            "rank": 343,
+            "rank_deficiency": 7,
+            "condition_number": null,
+            "treatment_variance": 0.24396944071156512,
+            "residual_treatment_variance": 6.019691702336823e-30,
+            "treatment_estimable": false,
+            "diagnostic_coefficient": null,
+            "aliased_columns": [
+              "intercept",
+              "treatment_b",
+              "species:1005",
+              "species:1006",
+              "species:1009",
+              "species:1010",
+              "species:1020",
+              "species:1021",
+              "species:1022",
+              "species:1023",
+              "species:985",
+              "species:986",
+              "species:988",
+              "species:989",
+              "species:992",
+              "species:993",
+              "species:994",
+              "species:995",
+              "mechanic:ancient|basic|ex",
+              "mechanic:basic",
+              "mechanic:basic|ex",
+              "mechanic:basic|ex|future",
+              "mechanic:basic|ex|tera",
+              "mechanic:basic|future",
+              "mechanic:ex|stage_1",
+              "mechanic:ex|stage_1|tera",
+              "mechanic:ex|stage_2",
+              "mechanic:ex|stage_2|tera",
+              "mechanic:stage_1",
+              "mechanic:stage_2"
+            ],
+            "singular_values_largest": [
+              110.16534111676889,
+              12.44300615266772,
+              9.377055625515174,
+              6.99105257626339,
+              6.4376123890445625
+            ],
+            "singular_values_smallest": [
+              4.842332019067436e-16,
+              4.054395930945742e-16,
+              3.2078759283723426e-16,
+              2.0276811526626433e-16,
+              1.8481020377424259e-16
+            ]
+          }
+        ],
+        "within_group_variation": {
+          "species": {
+            "mixed_groups": 29,
+            "observations_in_mixed_groups": 59,
+            "cohort_percentage": 0.16076294277929154
+          },
+          "set": {
+            "mixed_groups": 12,
+            "observations_in_mixed_groups": 355,
+            "cohort_percentage": 0.9673024523160763
+          },
+          "species_set": {
+            "mixed_groups": 4,
+            "observations_in_mixed_groups": 8,
+            "cohort_percentage": 0.021798365122615803
+          },
+          "mechanic": {
+            "mixed_groups": 0,
+            "observations_in_mixed_groups": 0,
+            "cohort_percentage": 0.0
+          }
+        },
+        "first_control_block_removing_treatment_estimability": "full",
+        "rank_failure_classification": "scientific_nesting",
+        "rank_failure_reason": "treatment loses all residual variation after full"
+      }
+    ],
+    "high_product_relevance_status": "scientifically unidentified; no coefficients estimated in Round 6",
+    "frozen_demand_snapshot": {
+      "snapshot_id": "pokemon-demand-v1-06935c2a4ee6da47",
+      "sha256": "06935c2a4ee6da47aac38bf8fba48468ab4a282b902092496749f20b92858cd3",
+      "rows": 1025,
+      "frozen_at": "2026-08-28T19:50:58.938291+00:00",
+      "source_table": "pokemon_desirability_composite_scores",
+      "scoring_versions": [
+        "pokemon_desirability_composite_v1"
+      ],
+      "build_timestamps": [
+        "2026-06-11T18:35:56.767591+00:00"
+      ],
+      "fan_snapshot_ids": [
+        2
+      ],
+      "trend_snapshot_ids": [
+        1,
+        3
+      ],
+      "uses_card_market_price": false,
+      "uses_rarity_or_treatment": false
+    },
+    "database_rows_persisted": 0,
+    "production_scores_published": 0,
+    "next_direction": "PRESERVE_LOCAL_V2_EVIDENCE_NO_PRODUCT_SCORE"
   }
 }

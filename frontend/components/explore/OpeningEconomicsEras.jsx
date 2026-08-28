@@ -49,9 +49,9 @@ function EraEconomicsCell({ column, cells, raw = null, onSelectEra = null, basel
   const identity = column.key === "eraName";
   const Cell = identity ? "th" : "td";
   const locked = !canViewRankingsIntelligence && !PUBLIC_ERA_COLUMN_KEYS.has(column.key);
-  const sharedClass = `${identity ? "text-left" : "text-right tabular-nums"} ${baseline ? "border-t border-[var(--ex-line-strong)] text-[var(--text-secondary)]" : ""}`;
+  const sharedClass = `${styles.eraEconomicsCell} ${identity ? "text-left" : "text-right tabular-nums"} ${baseline ? "text-[var(--text-secondary)]" : ""}`;
   let content = locked ? <PremiumMetricLock /> : <><span className={valueClass(column.emphasis)}>{cells[column.key] ?? <Dash />}</span>{column.secondary && cells[column.secondary] ? <span className="ml-1 text-[0.65rem] text-[var(--text-secondary)]">{cells[column.secondary]}</span> : null}</>;
-  if (identity) content = !baseline && onSelectEra ? <button type="button" onClick={() => onSelectEra(raw)} data-era-drilldown aria-label={`View the ${cells.eraName} sets`} className="text-sm font-medium text-[var(--text-primary)] underline-offset-2 hover:underline">{cells.eraName}</button> : <span className={`${baseline ? "text-xs text-[var(--text-secondary)]" : "text-sm text-[var(--text-primary)]"} font-medium`}>{cells.eraName}</span>;
+  if (identity) content = !baseline && onSelectEra ? <button type="button" onClick={() => onSelectEra(raw)} data-era-drilldown aria-label={`View the ${cells.eraName} sets`} className="text-sm font-medium text-[var(--text-primary)] underline-offset-2 hover:underline">{cells.eraName}</button> : <span className={`text-sm ${baseline ? "font-semibold text-[var(--text-secondary)]" : "font-medium text-[var(--text-primary)]"}`}>{cells.eraName}</span>;
   return <Cell key={column.key} scope={identity ? "row" : undefined} className={sharedClass} data-era-economics-cell={column.key}>{content}</Cell>;
 }
 
@@ -148,16 +148,13 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null, ca
                 {COLUMNS.map((column) => <EraEconomicsCell key={column.key} column={column} cells={cells} raw={raw} onSelectEra={onSelectEra} canViewRankingsIntelligence={canViewRankingsIntelligence} />)}
               </tr>
             ))}
-          </tbody>
-          {/* The all-sets baseline, so an era's numbers are read against the
-              whole modeled market rather than only against each other. It is
-              the SAME published global scope the Overall lens renders — not a
-              total recomputed from the era rows above. */}
-          <tfoot>
-            <tr data-era-baseline-row>
+            {/* The all-sets baseline is a peer data row, separated only by a
+                stronger top rule. It uses the same cells and colgroup as every
+                Era above, so its geometry cannot drift. */}
+            <tr className={`${styles.row} ${styles.eraGlobalBaselineRow}`} data-era-baseline-row>
               {COLUMNS.map((column) => <EraEconomicsCell key={column.key} column={column} cells={baseline} baseline canViewRankingsIntelligence={canViewRankingsIntelligence} />)}
             </tr>
-          </tfoot>
+          </tbody>
         </table>
       </div>
 

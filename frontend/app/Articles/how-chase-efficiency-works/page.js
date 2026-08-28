@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArticleJsonLd, ArticleShell, DefinitionGrid, EditorialSplit, H2, PackArt } from "@/components/articles/ArticlePrimitives";
+import { ArticleJsonLd, ArticleShell, Citation, DefinitionGrid, EditorialSplit, H2, PackArt, ReferenceList } from "@/components/articles/ArticlePrimitives";
 import { ChaseEfficiencyCoverageFigure, ChaseEfficiencyInputsFigure, ChaseEfficiencyRouteCostFigure, ChaseProbabilityMilestonesFigure, ExactPrintingFigure } from "@/components/articles/ChaseEfficiencyFigures";
 import { ARTICLE_PATHS, articleByKey, related } from "@/lib/articles/articleData.mjs";
 import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
@@ -7,6 +7,10 @@ import { buildRouteMetadata } from "@/lib/seo/routeMetadata.mjs";
 const title = "How Chase Efficiency Measures the Economics of Chasing a Pokémon Card";
 const description = "How inDex combines exact card value, modeled pull odds, and verified opening costs to measure how economically favorable a specific Pokémon card is to chase through packs.";
 const registeredArticle = articleByKey("chaseEfficiency");
+const references = [
+  { id: "ref-tcgplayer-market-price", href: "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean", citation: "TCGplayer. “What do the different price points on TCGplayer.com mean?”", note: "Defines TCGplayer Market Price from recent completed transactions and explains its printing- and condition-specific context." },
+  { id: "ref-openstax-geometric", href: "https://openstax.org/books/introductory-statistics-2e/pages/4-key-terms", citation: "OpenStax. Introductory Statistics 2e. Chapter 4: Geometric Distribution.", note: "Supports the Bernoulli/geometric probability concepts used to distinguish expected wait from cumulative hit probability." },
+];
 
 export const metadata = buildRouteMetadata({
   path: "/Articles/how-chase-efficiency-works",
@@ -31,7 +35,7 @@ export default function Page() {
     <H2>The three things a chase actually depends on</H2>
     <ChaseEfficiencyInputsFigure />
     <DefinitionGrid columns="md:grid-cols-3" items={[
-      ["Current card value", "The current Near Mint market value of the exact printing. Higher value makes successfully hitting that target more economically consequential."],
+      ["Current card value", <>The current Near Mint market value of the exact printing. TCGplayer explains that its Market Price is compiled from recent completed transactions and updates as transactions occur; selected printing and condition filters matter. <Citation href="https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean">TCGplayer’s price-point documentation</Citation> supports this price-data definition, not the Chase Efficiency metric.</>],
       ["Exact modeled pull probability", "The current modeled per-pack probability for that exact printing. A better hit probability improves the chase, but it does not decide the answer alone."],
       ["Best verified opening cost", "The cheapest current pack-equivalent cost across supported products whose random-pack composition is known. Lower opening cost improves the chase."],
     ]} />
@@ -50,6 +54,7 @@ export default function Page() {
     <p>I also tested whether this choice materially mattered. Across the frozen 4,862-printing cohort, recalculating relative position with loose-pack cost still produced a rank-position correlation of approximately 0.993. From far away, the two approaches looked nearly identical.</p>
     <p>Up close, average absolute movement was approximately 119.7 positions, the largest move was 934 positions, and 11 of the 100 cards occupying the leading hundred positions changed. Those identities remain inside Index Premium.</p>
     <p>The two approaches look similar from far away, but they are not interchangeable when the product is meant to rank thousands of card chases precisely. That was enough evidence to reject loose-pack-only pricing as the canonical basis.</p>
+    <p className="text-sm">Source: inDex Chase Efficiency production publication, August 27, 2026.</p>
 
     <H2>Pull odds are not Chase Efficiency</H2>
     <DefinitionGrid items={[
@@ -60,7 +65,7 @@ export default function Page() {
 
     <H2>Expected packs is not the 50% milestone</H2>
     <p className="rounded-xl border border-[var(--border-subtle)] bg-white/[.035] p-4 text-center font-semibold text-[var(--text-primary)]">P(at least one hit after n packs) = 1 − (1 − p)<sup>n</sup></p>
-    <p>The reciprocal, 1 / p, is expected packs per hit in the long run. It is not the pack count where your chance becomes 50%. At n = 1 / p, cumulative probability approaches roughly 63.2% for small p.</p>
+    <p>The cumulative equation follows from taking the complement of zero successes across repeated independent Bernoulli opportunities under the model’s independence assumption. The reciprocal, 1 / p, is expected packs per hit in the long run under the corresponding geometric waiting-time model, as summarized by <Citation href="https://openstax.org/books/introductory-statistics-2e/pages/4-key-terms">OpenStax</Citation>. It is not the pack count where your chance becomes 50%. At n = 1 / p, cumulative probability approaches roughly 63.2% for small p.</p>
     <ChaseProbabilityMilestonesFigure />
     <p>This probability journey prevents “expected packs” from sounding like a guarantee. It is still a model of repeated independent opportunities, not a statement about what a physical box must contain.</p>
 
@@ -102,5 +107,9 @@ export default function Page() {
     <p>Financial RIP asks whether opening the product is financially favorable. Pull Odds tell me how difficult one exact printing is to hit. Product Chase Economics tells me what happens if I pursue that target through a particular sealed format.</p>
     <p>Chase Efficiency asks one narrower question: if I am opening specifically for this exact card, how favorable is that chase?</p>
     <p>Separating those questions makes the card layer more useful—and, more importantly, more honest.</p>
+
+    <H2>References</H2>
+    <p>Chase Efficiency itself is original inDex methodology. The external references below support the probability mathematics and market-data definitions used by the model; they do not propose or validate the Chase Efficiency metric itself. Source: inDex Chase Efficiency production publication, August 27, 2026, for the frozen production statistics above.</p>
+    <ReferenceList items={references} />
   </ArticleShell>;
 }

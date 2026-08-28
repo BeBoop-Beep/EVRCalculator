@@ -4,6 +4,7 @@ const BROWSER_TIMEOUT_MS = 20_000;
 
 const caches = {
   "global-context": new Map(),
+  "rank-context": new Map(),
   "simulation-evidence": new Map(),
   advanced: new Map(),
 };

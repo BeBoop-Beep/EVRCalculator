@@ -7,7 +7,11 @@ export function selectSameRunRipSimulation(payload, { setId, calculationRunId } 
   if (payload?.contractVersion !== "pokemon-set-rip-simulation-evidence-v1") return null;
   if (String(payload?.setId || "") !== String(setId || "")) return null;
   if (String(payload?.calculationRunId || "") !== String(calculationRunId || "")) return null;
-  return { ...payload, summary: object(payload.summary), percentiles: array(payload.percentiles), distributionBins: array(payload.distributionBins), thresholdBins: array(payload.thresholdBins) };
+  const openingOutcomeProfile = object(payload.openingOutcomeProfile);
+  if (Object.keys(openingOutcomeProfile).length && String(openingOutcomeProfile.calculationRunId || "") !== String(calculationRunId || "")) return null;
+  const evRepresentativeness = object(payload.evRepresentativeness);
+  if (Object.keys(evRepresentativeness).length && String(evRepresentativeness.calculationRunId || "") !== String(calculationRunId || "")) return null;
+  return { ...payload, summary: object(payload.summary), percentiles: array(payload.percentiles), distributionBins: array(payload.distributionBins), thresholdBins: array(payload.thresholdBins), openingOutcomeProfile: Object.keys(openingOutcomeProfile).length ? openingOutcomeProfile : null, evRepresentativeness: Object.keys(evRepresentativeness).length ? evRepresentativeness : null };
 }
 
 export function selectSameRunRipAdvanced(payload, { setId, calculationRunId, bootstrapCanonical } = {}) {
