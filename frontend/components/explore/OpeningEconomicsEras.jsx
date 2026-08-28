@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from "react";
 import InfoPopover from "@/components/ui/InfoPopover";
 import styles from "./explore.module.css";
-import local from "./openingEconomics.module.css";
 import { OpeningEconomicsEmpty, OpeningEconomicsSkeleton } from "./OpeningEconomicsOverall";
 import {
   DEFAULT_ERA_SORT,
@@ -100,12 +99,12 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
       </header>
 
       {/* Desktop: compact, dense table. */}
-      <div className={`${styles.surface} hidden overflow-x-auto rounded-xl px-1 py-1 desk:block`}>
-        <table className={`${local.eraTable} text-sm`} data-era-table>
+      <div className={`${styles.surface} hidden overflow-x-auto desk:block`}>
+        <table className={styles.table} data-era-table>
           <caption className="sr-only">
             Opening economics by era. Sortable; sorting changes display order only and does not rank eras.
           </caption>
-          <thead>
+          <thead className={styles.head}>
             <tr>
               {COLUMNS.map((column) => {
                 const active = sort.key === column.sort;
@@ -140,7 +139,7 @@ export default function OpeningEconomicsEras({ economics, onSelectEra = null }) 
           </thead>
           <tbody>
             {rows.map(({ raw, cells }) => (
-              <tr key={cells.eraName} data-era-row={cells.eraName}>
+              <tr key={cells.eraName} className={styles.row} data-era-row={cells.eraName}>
                 <th scope="row" className="text-left">
                   {onSelectEra ? (
                     <button

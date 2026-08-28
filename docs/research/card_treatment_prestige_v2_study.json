@@ -1,219 +1,2424 @@
-﻿{
-    "study":  "card_treatment_prestige_v2",
-    "generated_at":  "2026-08-28T16:50:02.450737+00:00",
-    "study_as_of_date":  "2026-08-27",
-    "decision":  "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
-    "acceptance_gates":  {
-                             "min_cards":  100,
-                             "min_sets":  5,
-                             "min_species":  20,
-                             "min_finish_matches":  50,
-                             "min_rank_spearman":  0.85,
-                             "max_abs_log_effect_shift":  0.5,
-                             "min_common_support_coverage":  0.5
-                         },
-    "data_audit":  {
-                       "pokemon_canonical_cards":  20651,
-                       "pokemon_canonical_card_market_prices_latest":  null,
-                       "card_variants":  40654,
-                       "sets":  210,
-                       "simulation_card_variant_pull_rates":  933,
-                       "priced_canonical_cards":  19779,
-                       "priced_sets":  163,
-                       "raw_rarity_labels":  46,
-                       "priced_variants":  19778
-                   },
-    "cohort":  {
-                   "n":  366,
-                   "sets":  1,
-                   "species":  175,
-                   "eras":  1,
-                   "dropped":  {
-                                   "canonical_join":  2,
-                                   "unmapped_treatment":  9
-                               },
-                   "fingerprint":  "b7bf10f4c3f53585bab0686da33dec2e0a18ba0ca92c94d45b49e7b9336f09f2"
-               },
-    "common_support":  {
-                           "bounds_log_odds":  null,
-                           "trimmed_n":  0,
-                           "coverage":  0.0
-                       },
-    "rarity_treatment_results":  [
-                                     {
-                                         "treatment_key":  "common",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  71,
-                                         "variant_count":  71,
-                                         "set_count":  1,
-                                         "species_count":  70,
-                                         "median_odds":  20.63046707377455,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "common__reverse_holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  72,
-                                         "variant_count":  72,
-                                         "set_count":  1,
-                                         "species_count":  71,
-                                         "median_odds":  94.20634192123907,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "double_rare__holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  39,
-                                         "variant_count":  39,
-                                         "set_count":  1,
-                                         "species_count":  39,
-                                         "median_odds":  195.7713390759593,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "illustration_rare__holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  33,
-                                         "variant_count":  33,
-                                         "set_count":  1,
-                                         "species_count":  33,
-                                         "median_odds":  305.9039461609055,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "rare__holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  23,
-                                         "variant_count":  23,
-                                         "set_count":  1,
-                                         "species_count":  23,
-                                         "median_odds":  32.03793291256847,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "rare__reverse_holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  25,
-                                         "variant_count":  25,
-                                         "set_count":  1,
-                                         "species_count":  25,
-                                         "median_odds":  97.37098344693278,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "special_illustration_rare__holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  19,
-                                         "variant_count":  19,
-                                         "set_count":  1,
-                                         "species_count":  18,
-                                         "median_odds":  1328.021248339973,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "ultra_rare__holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  3,
-                                         "variant_count":  3,
-                                         "set_count":  1,
-                                         "species_count":  3,
-                                         "median_odds":  295.1593860684769,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "uncommon",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  40,
-                                         "variant_count":  40,
-                                         "set_count":  1,
-                                         "species_count":  40,
-                                         "median_odds":  23.026088668212644,
-                                         "status":  "insufficient_evidence"
-                                     },
-                                     {
-                                         "treatment_key":  "uncommon__reverse_holo",
-                                         "coefficient_log_price":  null,
-                                         "adjusted_premium_pct":  null,
-                                         "adjusted_premium_ci_low":  null,
-                                         "adjusted_premium_ci_high":  null,
-                                         "treatment_score_10":  null,
-                                         "score_ci_low":  null,
-                                         "score_ci_high":  null,
-                                         "card_count":  41,
-                                         "variant_count":  41,
-                                         "set_count":  1,
-                                         "species_count":  41,
-                                         "median_odds":  94.47331128956068,
-                                         "status":  "insufficient_evidence"
-                                     }
-                                 ],
-    "matched_variant_results":  [
-
-                                ],
-    "bootstrap":  {
-                      "seed":  20260828,
-                      "draws":  1000
-                  },
-    "limitations":  [
-                        "Exact-variant pull coverage is currently limited.",
-                        "Study B is not approved unless at least 50 pull-covered matched comparisons are available."
-                    ],
-    "publication":  {
-                        "committed":  false,
-                        "approved":  false
-                    }
+{
+  "study": "card_treatment_prestige_v2",
+  "study_round": "identification_taxonomy_exact_scarcity_round_2",
+  "generated_at": "2026-08-28T17:43:30.675236+00:00",
+  "study_as_of_date": "2026-08-28",
+  "decision": "DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2",
+  "acceptance_gates": {
+    "min_cards": 100,
+    "min_sets": 5,
+    "min_species": 20,
+    "min_finish_matches": 50,
+    "min_rank_spearman": 0.85,
+    "max_abs_log_effect_shift": 0.5,
+    "min_common_support_coverage": 0.5,
+    "max_exact_canonical_join_failure_rate": 0.05,
+    "max_unmapped_taxonomy_rate": 0.05
+  },
+  "data_audit": {
+    "pokemon_canonical_cards": 20651,
+    "pokemon_canonical_card_market_prices_latest": null,
+    "card_variants": 40654,
+    "sets": 210,
+    "simulation_card_variant_pull_rates": 5089,
+    "priced_canonical_cards": 19779,
+    "priced_sets": 163,
+    "raw_rarity_labels": 46,
+    "priced_variants": 19778
+  },
+  "round2": {
+    "authoritative_pull_source": {
+      "current_run_relation": "pokemon_set_page_snapshot_latest",
+      "current_run_expression": "payload_json.ripDecision.sourceCalculationRunId",
+      "card_level_relation": "simulation_input_cards",
+      "exact_variant_relation": "simulation_card_variant_pull_rates",
+      "probability_field": "modeled_probability",
+      "denominator_field": "effective_pull_rate",
+      "identity_keys": [
+        "calculation_run_id",
+        "set_id",
+        "card_id",
+        "card_variant_id"
+      ],
+      "semantics": "run-scoped exact card-variant pack-presence frequency from authoritative V2 simulator"
+    },
+    "read_path": {
+      "status": "repaired",
+      "root_cause": "entire large snapshot payload_json downloaded to extract one run id",
+      "repair": "PostgREST projects the snapshot run id server-side and mirrors Card Detail precedence: newest published exact-variant run, then snapshot run",
+      "sets_using_exact_run_precedence": 12,
+      "sets_where_exact_and_snapshot_run_differ": 9
+    },
+    "authority_cohort_fingerprint": "6f18e53b239407793a082921463c36cc61a3fb2cbbbd0f91b0089fa9b4d6cb17",
+    "data_state": {
+      "authoritative_run_ids": "available",
+      "exact_variant_data": "available_but_incomplete_by_set",
+      "card_level_data": "available_at_insufficient_printing_granularity",
+      "query_path": "repaired"
+    },
+    "supported_sets": 22,
+    "current_run_ids": 22,
+    "card_level_input_rows": 4879,
+    "exact_variant_rows": 3045,
+    "taxonomy_rows": 7900,
+    "dimensions": {
+      "rarity_designation": {
+        "unique_values": 14,
+        "frequency": [
+          {
+            "value": "ace_spec",
+            "observations": 33,
+            "pull_covered": 0,
+            "priced": 33,
+            "unmapped": 0
+          },
+          {
+            "value": "black_white_rare",
+            "observations": 2,
+            "pull_covered": 1,
+            "priced": 2,
+            "unmapped": 2
+          },
+          {
+            "value": "common",
+            "observations": 3192,
+            "pull_covered": 1268,
+            "priced": 2067,
+            "unmapped": 0
+          },
+          {
+            "value": "double_rare",
+            "observations": 319,
+            "pull_covered": 147,
+            "priced": 317,
+            "unmapped": 0
+          },
+          {
+            "value": "hyper_rare_gold",
+            "observations": 74,
+            "pull_covered": 20,
+            "priced": 74,
+            "unmapped": 0
+          },
+          {
+            "value": "illustration_rare",
+            "observations": 494,
+            "pull_covered": 177,
+            "priced": 492,
+            "unmapped": 0
+          },
+          {
+            "value": "mega_attack_rare",
+            "observations": 7,
+            "pull_covered": 2,
+            "priced": 7,
+            "unmapped": 7
+          },
+          {
+            "value": "mega_hyper_rare",
+            "observations": 8,
+            "pull_covered": 4,
+            "priced": 8,
+            "unmapped": 8
+          },
+          {
+            "value": "rare",
+            "observations": 832,
+            "pull_covered": 293,
+            "priced": 505,
+            "unmapped": 0
+          },
+          {
+            "value": "shiny_rare",
+            "observations": 120,
+            "pull_covered": 0,
+            "priced": 120,
+            "unmapped": 120
+          },
+          {
+            "value": "shiny_ultra_rare",
+            "observations": 13,
+            "pull_covered": 0,
+            "priced": 12,
+            "unmapped": 13
+          },
+          {
+            "value": "special_illustration_rare",
+            "observations": 222,
+            "pull_covered": 73,
+            "priced": 222,
+            "unmapped": 0
+          },
+          {
+            "value": "ultra_rare",
+            "observations": 356,
+            "pull_covered": 147,
+            "priced": 356,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon",
+            "observations": 2228,
+            "pull_covered": 911,
+            "priced": 1470,
+            "unmapped": 0
+          }
+        ]
+      },
+      "printing_finish": {
+        "unique_values": 3,
+        "frequency": [
+          {
+            "value": "holo",
+            "observations": 2478,
+            "pull_covered": 764,
+            "priced": 2048,
+            "unmapped": 149
+          },
+          {
+            "value": "normal",
+            "observations": 2405,
+            "pull_covered": 1040,
+            "priced": 2398,
+            "unmapped": 1
+          },
+          {
+            "value": "reverse_holo",
+            "observations": 3017,
+            "pull_covered": 1239,
+            "priced": 1239,
+            "unmapped": 0
+          }
+        ]
+      },
+      "special_treatment": {
+        "unique_values": 6,
+        "frequency": [
+          {
+            "value": "__unknown__",
+            "observations": 7357,
+            "pull_covered": 2987,
+            "priced": 5596,
+            "unmapped": 150
+          },
+          {
+            "value": "ace_spec",
+            "observations": 33,
+            "pull_covered": 0,
+            "priced": 33,
+            "unmapped": 0
+          },
+          {
+            "value": "journey_together_stamped",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "master_ball",
+            "observations": 211,
+            "pull_covered": 30,
+            "priced": 30,
+            "unmapped": 0
+          },
+          {
+            "value": "mega_evolution_stamped",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "poke_ball",
+            "observations": 297,
+            "pull_covered": 26,
+            "priced": 26,
+            "unmapped": 0
+          }
+        ]
+      },
+      "edition_status": {
+        "unique_values": 1,
+        "frequency": [
+          {
+            "value": "__unknown__",
+            "observations": 7900,
+            "pull_covered": 3043,
+            "priced": 5685,
+            "unmapped": 150
+          }
+        ]
+      },
+      "mechanic_or_card_form": {
+        "unique_values": 36,
+        "frequency": [
+          {
+            "value": "__unknown__",
+            "observations": 2,
+            "pull_covered": 0,
+            "priced": 1,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|ancient|item",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 1,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|future|item",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 1,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|item",
+            "observations": 18,
+            "pull_covered": 0,
+            "priced": 18,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|pokemon_tool",
+            "observations": 8,
+            "pull_covered": 0,
+            "priced": 8,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|special",
+            "observations": 3,
+            "pull_covered": 0,
+            "priced": 3,
+            "unmapped": 0
+          },
+          {
+            "value": "ace_spec|stadium",
+            "observations": 2,
+            "pull_covered": 0,
+            "priced": 2,
+            "unmapped": 0
+          },
+          {
+            "value": "ancient|basic",
+            "observations": 52,
+            "pull_covered": 8,
+            "priced": 26,
+            "unmapped": 0
+          },
+          {
+            "value": "ancient|basic|ex",
+            "observations": 28,
+            "pull_covered": 7,
+            "priced": 28,
+            "unmapped": 0
+          },
+          {
+            "value": "ancient|item",
+            "observations": 6,
+            "pull_covered": 2,
+            "priced": 4,
+            "unmapped": 0
+          },
+          {
+            "value": "ancient|pokemon_tool",
+            "observations": 4,
+            "pull_covered": 2,
+            "priced": 3,
+            "unmapped": 0
+          },
+          {
+            "value": "ancient|supporter",
+            "observations": 13,
+            "pull_covered": 4,
+            "priced": 8,
+            "unmapped": 0
+          },
+          {
+            "value": "basic",
+            "observations": 3430,
+            "pull_covered": 1357,
+            "priced": 2350,
+            "unmapped": 67
+          },
+          {
+            "value": "basic|ex",
+            "observations": 182,
+            "pull_covered": 75,
+            "priced": 182,
+            "unmapped": 4
+          },
+          {
+            "value": "basic|ex|future",
+            "observations": 29,
+            "pull_covered": 7,
+            "priced": 29,
+            "unmapped": 0
+          },
+          {
+            "value": "basic|ex|mega",
+            "observations": 37,
+            "pull_covered": 25,
+            "priced": 37,
+            "unmapped": 4
+          },
+          {
+            "value": "basic|ex|tera",
+            "observations": 54,
+            "pull_covered": 9,
+            "priced": 54,
+            "unmapped": 0
+          },
+          {
+            "value": "basic|future",
+            "observations": 40,
+            "pull_covered": 8,
+            "priced": 23,
+            "unmapped": 0
+          },
+          {
+            "value": "ex|mega",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 1,
+            "unmapped": 0
+          },
+          {
+            "value": "ex|mega|stage_1",
+            "observations": 37,
+            "pull_covered": 26,
+            "priced": 37,
+            "unmapped": 3
+          },
+          {
+            "value": "ex|mega|stage_2",
+            "observations": 39,
+            "pull_covered": 23,
+            "priced": 39,
+            "unmapped": 8
+          },
+          {
+            "value": "ex|stage_1",
+            "observations": 145,
+            "pull_covered": 60,
+            "priced": 143,
+            "unmapped": 6
+          },
+          {
+            "value": "ex|stage_1|tera",
+            "observations": 56,
+            "pull_covered": 9,
+            "priced": 55,
+            "unmapped": 2
+          },
+          {
+            "value": "ex|stage_2",
+            "observations": 107,
+            "pull_covered": 39,
+            "priced": 107,
+            "unmapped": 3
+          },
+          {
+            "value": "ex|stage_2|tera",
+            "observations": 32,
+            "pull_covered": 13,
+            "priced": 32,
+            "unmapped": 0
+          },
+          {
+            "value": "future|item",
+            "observations": 5,
+            "pull_covered": 2,
+            "priced": 3,
+            "unmapped": 0
+          },
+          {
+            "value": "future|pokemon_tool",
+            "observations": 4,
+            "pull_covered": 2,
+            "priced": 3,
+            "unmapped": 0
+          },
+          {
+            "value": "future|supporter",
+            "observations": 13,
+            "pull_covered": 4,
+            "priced": 8,
+            "unmapped": 0
+          },
+          {
+            "value": "item",
+            "observations": 277,
+            "pull_covered": 123,
+            "priced": 202,
+            "unmapped": 0
+          },
+          {
+            "value": "item|mega",
+            "observations": 2,
+            "pull_covered": 2,
+            "priced": 2,
+            "unmapped": 0
+          },
+          {
+            "value": "pokemon_tool",
+            "observations": 124,
+            "pull_covered": 47,
+            "priced": 87,
+            "unmapped": 0
+          },
+          {
+            "value": "special",
+            "observations": 49,
+            "pull_covered": 27,
+            "priced": 39,
+            "unmapped": 0
+          },
+          {
+            "value": "stadium",
+            "observations": 103,
+            "pull_covered": 54,
+            "priced": 81,
+            "unmapped": 0
+          },
+          {
+            "value": "stage_1",
+            "observations": 2022,
+            "pull_covered": 746,
+            "priced": 1357,
+            "unmapped": 43
+          },
+          {
+            "value": "stage_2",
+            "observations": 471,
+            "pull_covered": 175,
+            "priced": 319,
+            "unmapped": 10
+          },
+          {
+            "value": "supporter",
+            "observations": 503,
+            "pull_covered": 187,
+            "priced": 392,
+            "unmapped": 0
+          }
+        ]
+      },
+      "combined_treatment_key": {
+        "unique_values": 28,
+        "frequency": [
+          {
+            "value": "__unknown__",
+            "observations": 150,
+            "pull_covered": 7,
+            "priced": 149,
+            "unmapped": 150
+          },
+          {
+            "value": "ace_spec__holo",
+            "observations": 33,
+            "pull_covered": 0,
+            "priced": 33,
+            "unmapped": 0
+          },
+          {
+            "value": "common",
+            "observations": 1403,
+            "pull_covered": 605,
+            "priced": 1403,
+            "unmapped": 0
+          },
+          {
+            "value": "common__holo",
+            "observations": 7,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "common__holo__master_ball",
+            "observations": 109,
+            "pull_covered": 15,
+            "priced": 15,
+            "unmapped": 0
+          },
+          {
+            "value": "common__holo__poke_ball",
+            "observations": 123,
+            "pull_covered": 12,
+            "priced": 12,
+            "unmapped": 0
+          },
+          {
+            "value": "common__poke_ball",
+            "observations": 2,
+            "pull_covered": 1,
+            "priced": 2,
+            "unmapped": 0
+          },
+          {
+            "value": "common__reverse_holo",
+            "observations": 1530,
+            "pull_covered": 635,
+            "priced": 635,
+            "unmapped": 0
+          },
+          {
+            "value": "common__reverse_holo__poke_ball",
+            "observations": 18,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "double_rare",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "double_rare__holo",
+            "observations": 317,
+            "pull_covered": 147,
+            "priced": 317,
+            "unmapped": 0
+          },
+          {
+            "value": "double_rare__reverse_holo",
+            "observations": 1,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "hyper_rare_gold__holo",
+            "observations": 74,
+            "pull_covered": 20,
+            "priced": 74,
+            "unmapped": 0
+          },
+          {
+            "value": "illustration_rare__holo",
+            "observations": 494,
+            "pull_covered": 177,
+            "priced": 492,
+            "unmapped": 0
+          },
+          {
+            "value": "rare",
+            "observations": 5,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "rare__holo",
+            "observations": 350,
+            "pull_covered": 138,
+            "priced": 350,
+            "unmapped": 0
+          },
+          {
+            "value": "rare__holo__master_ball",
+            "observations": 41,
+            "pull_covered": 5,
+            "priced": 5,
+            "unmapped": 0
+          },
+          {
+            "value": "rare__holo__poke_ball",
+            "observations": 41,
+            "pull_covered": 2,
+            "priced": 2,
+            "unmapped": 0
+          },
+          {
+            "value": "rare__reverse_holo",
+            "observations": 386,
+            "pull_covered": 148,
+            "priced": 148,
+            "unmapped": 0
+          },
+          {
+            "value": "rare__reverse_holo__poke_ball",
+            "observations": 9,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          },
+          {
+            "value": "special_illustration_rare__holo",
+            "observations": 222,
+            "pull_covered": 73,
+            "priced": 222,
+            "unmapped": 0
+          },
+          {
+            "value": "ultra_rare__holo",
+            "observations": 356,
+            "pull_covered": 147,
+            "priced": 356,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon",
+            "observations": 993,
+            "pull_covered": 434,
+            "priced": 993,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon__holo",
+            "observations": 6,
+            "pull_covered": 0,
+            "priced": 1,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon__holo__master_ball",
+            "observations": 61,
+            "pull_covered": 10,
+            "priced": 10,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon__holo__poke_ball",
+            "observations": 95,
+            "pull_covered": 11,
+            "priced": 10,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon__reverse_holo",
+            "observations": 1064,
+            "pull_covered": 456,
+            "priced": 456,
+            "unmapped": 0
+          },
+          {
+            "value": "uncommon__reverse_holo__poke_ball",
+            "observations": 9,
+            "pull_covered": 0,
+            "priced": 0,
+            "unmapped": 0
+          }
+        ]
+      }
+    },
+    "combined_cell_sparsity": {
+      "cells": 28,
+      "median_observations": 84.5,
+      "below_5": 3,
+      "below_10": 8,
+      "below_25": 9,
+      "below_50": 12
+    },
+    "per_set": [
+      {
+        "set_id": "0f7e51e2-5a78-4500-9c9c-f690e934a069",
+        "set_name": "Phantasmal Flames",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "7603944e-bbe6-4d1b-a97a-175b3ac277b9",
+        "snapshot_run_id": "e26bfac0-e608-4c85-9857-1f912f3ab383",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 130,
+        "canonical_variants": 217,
+        "exact_pull_covered_variants": 214,
+        "pull_coverage_pct": 98.61751152073732,
+        "subject_linked_observations": 187,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 82,
+        "matched_cards": 84,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "cb68bfe9-53a6-4345-b0e3-f6cd6c33383b",
+        "set_name": "Twilight Masquerade",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "48907836-a7b6-45f7-ae32-962f3289877f",
+        "snapshot_run_id": "48907836-a7b6-45f7-ae32-962f3289877f",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 226,
+        "canonical_variants": 373,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 312,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "41a0ac1c-27ca-444b-8665-8ba35e583a3b",
+        "set_name": "Black Bolt",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "de0aee28-b39a-4286-9b97-e03ffd3097b0",
+        "snapshot_run_id": "de0aee28-b39a-4286-9b97-e03ffd3097b0",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 171,
+        "canonical_variants": 411,
+        "exact_pull_covered_variants": 97,
+        "pull_coverage_pct": 23.600973236009732,
+        "subject_linked_observations": 383,
+        "treatment_classes": 18,
+        "species_in_multiple_treatments": 25,
+        "matched_cards": 18,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "de291399-ead5-41dc-bc12-e7c587684f85",
+        "set_name": "Destined Rivals",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "2925570c-5580-4903-b8dc-c08ea52cd79f",
+        "snapshot_run_id": "de161271-7398-44a1-a24d-0c17d6f5ba85",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 244,
+        "canonical_variants": 410,
+        "exact_pull_covered_variants": 348,
+        "pull_coverage_pct": 84.8780487804878,
+        "subject_linked_observations": 353,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 126,
+        "matched_cards": 149,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "f59f25a2-d3da-4100-a918-901271a99925",
+        "set_name": "Surging Sparks",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "e159f4b4-e16d-49ce-887d-71fab757b470",
+        "snapshot_run_id": "e159f4b4-e16d-49ce-887d-71fab757b470",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 252,
+        "canonical_variants": 418,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 351,
+        "treatment_classes": 13,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "142d3869-9d39-48b6-a810-751af2aac748",
+        "set_name": "Journey Together",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+        "snapshot_run_id": "fef3dc93-9bf1-4536-a0bc-d36ce4883bec",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 190,
+        "canonical_variants": 334,
+        "exact_pull_covered_variants": 181,
+        "pull_coverage_pct": 54.191616766467064,
+        "subject_linked_observations": 294,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 26,
+        "matched_cards": 10,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "b4b34b61-ce48-4fc4-bd91-201a350b2600",
+        "set_name": "Obsidian Flames",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "c1fb0c2a-1990-4a6b-ae5f-2b3221b1fd86",
+        "snapshot_run_id": "f3f779a2-e9e2-46a7-bda6-59b3b259c395",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 230,
+        "canonical_variants": 406,
+        "exact_pull_covered_variants": 371,
+        "pull_coverage_pct": 91.37931034482759,
+        "subject_linked_observations": 374,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 151,
+        "matched_cards": 176,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "202518a0-5e86-4949-b1cd-c1c8ad95b616",
+        "set_name": "Paldea Evolved",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "e9ccb779-bd84-4729-9746-850291092523",
+        "snapshot_run_id": "d5bf5544-fcc4-4435-8b46-8844b9d2daa9",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 279,
+        "canonical_variants": 455,
+        "exact_pull_covered_variants": 455,
+        "pull_coverage_pct": 100.0,
+        "subject_linked_observations": 391,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 143,
+        "matched_cards": 176,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "fd1538dd-36b9-4d02-98dc-fd65a5230d27",
+        "set_name": "Paldean Fates",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "c2b02b6a-8aae-467f-88ea-4e935dea2e19",
+        "snapshot_run_id": "355f1d39-e252-48ef-bd49-67b564f101e2",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 245,
+        "canonical_variants": 327,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 285,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 133
+      },
+      {
+        "set_id": "5d3d5c23-7098-4393-ad63-6ad9372aee30",
+        "set_name": "Paradox Rift",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "bf4498c2-8743-4b7d-aad1-59118f5ec74b",
+        "snapshot_run_id": "f45a2692-999e-4c70-9aff-be4adcb992c9",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 266,
+        "canonical_variants": 428,
+        "exact_pull_covered_variants": 428,
+        "pull_coverage_pct": 100.0,
+        "subject_linked_observations": 360,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 142,
+        "matched_cards": 162,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "7a3dd188-4375-41af-94de-c5247fe0b1a6",
+        "set_name": "Prismatic Evolutions",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+        "snapshot_run_id": "7a5b5a0d-1c80-4ee5-b1e3-8c9640c6b686",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 180,
+        "canonical_variants": 448,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 325,
+        "treatment_classes": 18,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "d001d563-988b-4f8e-904f-acb926748e22",
+        "set_name": "Scarlet and Violet 151",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+        "snapshot_run_id": "bc4c2393-942b-4e5b-8a8c-ab48ac61b64e",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 207,
+        "canonical_variants": 360,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 324,
+        "treatment_classes": 11,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "4b15f040-4351-41ea-90e1-c07eb1b2f4d6",
+        "set_name": "Stellar Crown",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "587f51ce-5389-4643-b931-a73f8c141858",
+        "snapshot_run_id": "587f51ce-5389-4643-b931-a73f8c141858",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 175,
+        "canonical_variants": 300,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 267,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "5e99f658-39f0-4845-9228-db8db3965f32",
+        "set_name": "Perfect Order",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "3e1940e7-6dd6-4dcf-a59c-739dc754be34",
+        "snapshot_run_id": "9fd50ae1-df15-4a6a-9f16-b759e23daad4",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 124,
+        "canonical_variants": 203,
+        "exact_pull_covered_variants": 202,
+        "pull_coverage_pct": 99.50738916256158,
+        "subject_linked_observations": 149,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 66,
+        "matched_cards": 78,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "3c459327-59d0-41d5-b21e-aae36361cc77",
+        "set_name": "Scarlet and Violet Base Set",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "snapshot_run_id": "9cc40f31-9b7a-40de-a5d1-6f31328347c8",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 258,
+        "canonical_variants": 445,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 362,
+        "treatment_classes": 14,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "5bdbfae1-3f2e-44e7-b8c9-1035ad45b896",
+        "set_name": "Chaos Rising",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "28ffeb1c-09e5-4ffa-b960-3e093c713140",
+        "snapshot_run_id": "97327aad-d167-4f2e-935d-59e7dc678cf5",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 122,
+        "canonical_variants": 198,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 160,
+        "treatment_classes": 10,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "3b753fb6-a465-4e68-8ad9-4e34e114d4b7",
+        "set_name": "Shrouded Fable",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "871692b4-a521-441e-b334-e8efc77d8760",
+        "snapshot_run_id": "871692b4-a521-441e-b334-e8efc77d8760",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 99,
+        "canonical_variants": 154,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 126,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "91442900-3949-4ba4-8398-9e3dc2db1fa6",
+        "set_name": "Temporal Forces",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+        "snapshot_run_id": "f31dad41-6fd6-47af-9ee4-dc3c3e82e7ac",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 218,
+        "canonical_variants": 358,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 309,
+        "treatment_classes": 12,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 0
+      },
+      {
+        "set_id": "c38df164-ea0d-4e9e-bae6-4c3a517beb8f",
+        "set_name": "White Flare",
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "current_run_id": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+        "snapshot_run_id": "a26aac2e-7187-47b9-8a29-87a5e9618e53",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 173,
+        "canonical_variants": 407,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 380,
+        "treatment_classes": 18,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29",
+        "set_name": "Ascended Heroes",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "f2ed9183-1159-4782-b168-585a63397870",
+        "snapshot_run_id": "f2ed9183-1159-4782-b168-585a63397870",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 295,
+        "canonical_variants": 743,
+        "exact_pull_covered_variants": 437,
+        "pull_coverage_pct": 58.815612382234185,
+        "subject_linked_observations": 653,
+        "treatment_classes": 13,
+        "species_in_multiple_treatments": 142,
+        "matched_cards": 173,
+        "unmapped_treatment_count": 9
+      },
+      {
+        "set_id": "472f851c-2e41-4c80-b6fc-8478d1d92730",
+        "set_name": "Pitch Black",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+        "snapshot_run_id": "53ba1d75-f8c3-45b2-9e91-6ae69092fba5",
+        "exact_run_precedence_used": false,
+        "run_ids_differ": false,
+        "canonical_priced_cards": 120,
+        "canonical_variants": 194,
+        "exact_pull_covered_variants": 0,
+        "pull_coverage_pct": 0.0,
+        "subject_linked_observations": 156,
+        "treatment_classes": 10,
+        "species_in_multiple_treatments": 0,
+        "matched_cards": 0,
+        "unmapped_treatment_count": 1
+      },
+      {
+        "set_id": "b3c96740-a4a9-4c3d-a8f6-81ed4584549d",
+        "set_name": "Mega Evolution",
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "current_run_id": "f1506299-38a2-4874-a2ce-291ee14fc09f",
+        "snapshot_run_id": "a7045029-2d8c-4daa-930f-6e4d4f911087",
+        "exact_run_precedence_used": true,
+        "run_ids_differ": true,
+        "canonical_priced_cards": 188,
+        "canonical_variants": 311,
+        "exact_pull_covered_variants": 310,
+        "pull_coverage_pct": 99.67845659163987,
+        "subject_linked_observations": 255,
+        "treatment_classes": 10,
+        "species_in_multiple_treatments": 112,
+        "matched_cards": 122,
+        "unmapped_treatment_count": 2
+      }
+    ],
+    "per_era": [
+      {
+        "era_id": "dfb0dfa1-6a8e-4335-850f-e003867e19ee",
+        "sets": 16,
+        "canonical_variants": 6034,
+        "exact_pull_covered_variants": 1880
+      },
+      {
+        "era_id": "fb22f860-ae41-4879-a41a-857ca11bf0da",
+        "sets": 6,
+        "canonical_variants": 1866,
+        "exact_pull_covered_variants": 1163
+      }
+    ],
+    "join_failures": {
+      "legacy_to_canonical": 107,
+      "exact_variant_without_canonical_join": 2
+    },
+    "exact_canonical_join_failure_rate": 0.0006568144499178982,
+    "unmapped_total": 150,
+    "unmapped_rate": 0.0189873417721519,
+    "common_support": {
+      "combined_global": {
+        "global": {
+          "groups": {
+            "__unknown__": {
+              "n": 7,
+              "min": 5.242315176432752,
+              "p10": 5.259814498129787,
+              "p25": 6.22290455040908,
+              "median": 7.194104906200139,
+              "p75": 7.636908314197229,
+              "p90": 7.806469022363545,
+              "max": 7.888584531993863
+            },
+            "common": {
+              "n": 605,
+              "min": 2.316045276178879,
+              "p10": 2.430441230779293,
+              "p25": 2.846967500288879,
+              "median": 3.0321680681952046,
+              "p75": 3.074147972191513,
+              "p90": 3.149792957431006,
+              "max": 3.1628027219874064
+            },
+            "common__holo__master_ball": {
+              "n": 15,
+              "min": 7.194104906200139,
+              "p10": 7.205892681015184,
+              "p25": 7.212250215258748,
+              "median": 7.2404347173646535,
+              "p75": 7.251655031432146,
+              "p90": 7.28187942847577,
+              "max": 7.31722840848784
+            },
+            "common__holo__poke_ball": {
+              "n": 12,
+              "min": 5.487301066215542,
+              "p10": 5.491272776533164,
+              "p25": 5.503321784672521,
+              "median": 5.51572936321526,
+              "p75": 5.528676521785569,
+              "p90": 5.539118464705523,
+              "max": 5.546778725846536
+            },
+            "common__poke_ball": {
+              "n": 1,
+              "min": 2.209778043407839,
+              "p10": 2.209778043407839,
+              "p25": 2.209778043407839,
+              "median": 2.209778043407839,
+              "p75": 2.209778043407839,
+              "p90": 2.209778043407839,
+              "max": 2.209778043407839
+            },
+            "common__reverse_holo": {
+              "n": 635,
+              "min": 3.7186790853524556,
+              "p10": 3.793209423956046,
+              "p25": 4.184520956028335,
+              "median": 4.4578714989672115,
+              "p75": 4.538540103690329,
+              "p90": 4.5480906652194495,
+              "max": 4.572122331941891
+            },
+            "double_rare__holo": {
+              "n": 147,
+              "min": 3.8039761013450124,
+              "p10": 3.9121134426468207,
+              "p25": 4.3939373676283076,
+              "median": 4.7936707938587615,
+              "p75": 5.249151561207313,
+              "p90": 5.278361507406114,
+              "max": 5.305140591896162
+            },
+            "hyper_rare_gold__holo": {
+              "n": 20,
+              "min": 6.011259174436161,
+              "p10": 6.018630973719757,
+              "p25": 6.223648843074341,
+              "median": 6.243538134276678,
+              "p75": 6.337064142224229,
+              "p90": 6.3625297454804475,
+              "max": 6.7706054408349035
+            },
+            "illustration_rare__holo": {
+              "n": 177,
+              "min": 4.5777495904120995,
+              "p10": 4.76065525257277,
+              "p25": 5.280084598286977,
+              "median": 5.754970511425634,
+              "p75": 6.12843040218114,
+              "p90": 6.196390655190233,
+              "max": 6.717134919373487
+            },
+            "rare__holo": {
+              "n": 138,
+              "min": 2.4458898035680163,
+              "p10": 2.632270414956463,
+              "p25": 2.813073667688233,
+              "median": 3.444648004734737,
+              "p75": 3.4706922303241994,
+              "p90": 3.5569813967169033,
+              "max": 7.2293389031096
+            },
+            "rare__holo__master_ball": {
+              "n": 5,
+              "min": 7.225209509767588,
+              "p10": 7.231857862262004,
+              "p25": 7.241830391003629,
+              "median": 7.248838128161033,
+              "p75": 7.250245587928913,
+              "p90": 7.256190434863731,
+              "max": 7.2601536661536095
+            },
+            "rare__holo__poke_ball": {
+              "n": 2,
+              "min": 5.516722163515073,
+              "p10": 5.5175215682218575,
+              "p25": 5.518720675282035,
+              "median": 5.5207191870489964,
+              "p75": 5.522717698815957,
+              "p90": 5.5239168058761345,
+              "max": 5.524716210582919
+            },
+            "rare__reverse_holo": {
+              "n": 148,
+              "min": 3.78415763443025,
+              "p10": 3.870468514054856,
+              "p25": 4.367769604130533,
+              "median": 4.491172082929838,
+              "p75": 4.570382374496073,
+              "p90": 4.590202775172566,
+              "max": 4.6375900772442025
+            },
+            "special_illustration_rare__holo": {
+              "n": 73,
+              "min": 5.965407012788693,
+              "p10": 6.152854861323343,
+              "p25": 6.176349386305102,
+              "median": 6.556394429867174,
+              "p75": 6.917805614835639,
+              "p90": 7.15212259710155,
+              "max": 7.200784957760513
+            },
+            "ultra_rare__holo": {
+              "n": 147,
+              "min": 5.091791121057264,
+              "p10": 5.311038639738723,
+              "p25": 5.379202101166447,
+              "median": 5.687515502192329,
+              "p75": 6.021720161230846,
+              "p90": 6.076936409937655,
+              "max": 6.114762763452475
+            },
+            "uncommon": {
+              "n": 434,
+              "min": 2.1172015621642712,
+              "p10": 2.3674735424462936,
+              "p25": 2.9028295686859336,
+              "median": 3.0515198808099244,
+              "p75": 3.1640207613866544,
+              "p90": 3.2177289833323597,
+              "max": 3.23294939459956
+            },
+            "uncommon__holo__master_ball": {
+              "n": 10,
+              "min": 7.176942768797754,
+              "p10": 7.209324676077219,
+              "p25": 7.218367652967778,
+              "median": 7.236960068218051,
+              "p75": 7.2763297065616,
+              "p90": 7.2877105924370404,
+              "max": 7.3022804470519675
+            },
+            "uncommon__holo__poke_ball": {
+              "n": 11,
+              "min": 5.506326030277976,
+              "p10": 5.512748977260225,
+              "p25": 5.515730475394132,
+              "median": 5.52246141819583,
+              "p75": 5.5269763829199,
+              "p90": 5.54293994953937,
+              "max": 5.5576063644986
+            },
+            "uncommon__reverse_holo": {
+              "n": 456,
+              "min": 3.723429491873343,
+              "p10": 3.7953294521783194,
+              "p25": 4.318451096054989,
+              "median": 4.469241672573663,
+              "p75": 4.5399912482550056,
+              "p90": 4.549688177647801,
+              "max": 4.571058656359323
+            }
+          },
+          "eligible_group_count": 17,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      },
+      "combined_by_era": {
+        "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+          "groups": {
+            "__unknown__": {
+              "n": 6,
+              "min": 5.242315176432752,
+              "p10": 5.256897944513614,
+              "p25": 5.752136760995892,
+              "median": 7.358098092658966,
+              "p75": 7.6943168317369475,
+              "p90": 7.820154940635264,
+              "max": 7.888584531993863
+            },
+            "common": {
+              "n": 235,
+              "min": 2.401499761168483,
+              "p10": 2.410535633728816,
+              "p25": 2.430498053482628,
+              "median": 2.8396349183008693,
+              "p75": 3.036137688405863,
+              "p90": 3.041457938575962,
+              "max": 3.052916570081835
+            },
+            "common__poke_ball": {
+              "n": 1,
+              "min": 2.209778043407839,
+              "p10": 2.209778043407839,
+              "p25": 2.209778043407839,
+              "median": 2.209778043407839,
+              "p75": 2.209778043407839,
+              "p90": 2.209778043407839,
+              "max": 2.209778043407839
+            },
+            "common__reverse_holo": {
+              "n": 237,
+              "min": 3.7186790853524556,
+              "p10": 3.733525424916009,
+              "p25": 3.792153259577762,
+              "median": 4.166141361041786,
+              "p75": 4.542007611030451,
+              "p90": 4.553185169859195,
+              "max": 4.572122331941891
+            },
+            "double_rare__holo": {
+              "n": 68,
+              "min": 3.8039761013450124,
+              "p10": 3.8119966913610215,
+              "p25": 3.9145137515508805,
+              "median": 5.2543009389964475,
+              "p75": 5.275529037170224,
+              "p90": 5.288050517640276,
+              "max": 5.305140591896162
+            },
+            "illustration_rare__holo": {
+              "n": 66,
+              "min": 4.5777495904120995,
+              "p10": 4.5972565040645845,
+              "p25": 4.758380055187544,
+              "median": 5.282938014832377,
+              "p75": 5.714975199489721,
+              "p90": 5.737287565243296,
+              "max": 5.769281456888897
+            },
+            "rare__holo": {
+              "n": 56,
+              "min": 2.6238928930954866,
+              "p10": 2.634435673876842,
+              "p25": 2.728816845109819,
+              "median": 2.818624858665058,
+              "p75": 3.46599197400119,
+              "p90": 3.471094251675005,
+              "max": 3.4777113227624024
+            },
+            "rare__reverse_holo": {
+              "n": 58,
+              "min": 3.78415763443025,
+              "p10": 3.7952991580869617,
+              "p25": 3.8702095336630737,
+              "median": 4.235441974905406,
+              "p75": 4.578943021408412,
+              "p90": 4.589808795168809,
+              "max": 4.600282151915315
+            },
+            "special_illustration_rare__holo": {
+              "n": 32,
+              "min": 5.965407012788693,
+              "p10": 6.006352560380521,
+              "p25": 6.186788610829963,
+              "median": 6.908755779315721,
+              "p75": 7.151420618703767,
+              "p90": 7.162261179128423,
+              "max": 7.200784957760513
+            },
+            "ultra_rare__holo": {
+              "n": 71,
+              "min": 5.309580558826748,
+              "p10": 5.3329088113176555,
+              "p25": 5.362024050955174,
+              "median": 5.557865599756046,
+              "p75": 5.590945421278075,
+              "p90": 5.694327315885446,
+              "max": 5.727870270185291
+            },
+            "uncommon": {
+              "n": 166,
+              "min": 2.1172015621642712,
+              "p10": 2.1231802964773863,
+              "p25": 2.3675610458562755,
+              "median": 2.687439078169711,
+              "p75": 3.1347702304980647,
+              "p90": 3.1386331374581635,
+              "max": 3.1472530811952333
+            },
+            "uncommon__reverse_holo": {
+              "n": 167,
+              "min": 3.723429491873343,
+              "p10": 3.7354850503121977,
+              "p25": 3.7922198782649215,
+              "median": 4.173128063029475,
+              "p75": 4.545675631958801,
+              "p90": 4.554876460391368,
+              "max": 4.571058656359323
+            }
+          },
+          "eligible_group_count": 11,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+          "groups": {
+            "__unknown__": {
+              "n": 1,
+              "min": 7.174328388223683,
+              "p10": 7.174328388223683,
+              "p25": 7.174328388223683,
+              "median": 7.174328388223683,
+              "p75": 7.174328388223683,
+              "p90": 7.174328388223683,
+              "max": 7.174328388223683
+            },
+            "common": {
+              "n": 370,
+              "min": 2.316045276178879,
+              "p10": 3.022932878700741,
+              "p25": 3.027228100657333,
+              "median": 3.0709839769645892,
+              "p75": 3.085339917120227,
+              "p90": 3.152608331132493,
+              "max": 3.1628027219874064
+            },
+            "common__holo__master_ball": {
+              "n": 15,
+              "min": 7.194104906200139,
+              "p10": 7.205892681015184,
+              "p25": 7.212250215258748,
+              "median": 7.2404347173646535,
+              "p75": 7.251655031432146,
+              "p90": 7.28187942847577,
+              "max": 7.31722840848784
+            },
+            "common__holo__poke_ball": {
+              "n": 12,
+              "min": 5.487301066215542,
+              "p10": 5.491272776533164,
+              "p25": 5.503321784672521,
+              "median": 5.51572936321526,
+              "p75": 5.528676521785569,
+              "p90": 5.539118464705523,
+              "max": 5.546778725846536
+            },
+            "common__reverse_holo": {
+              "n": 398,
+              "min": 3.939240051721699,
+              "p10": 4.319803306326417,
+              "p25": 4.4446895831460935,
+              "median": 4.4654082436129325,
+              "p75": 4.536484028199644,
+              "p90": 4.546363687476687,
+              "max": 4.562398094144222
+            },
+            "double_rare__holo": {
+              "n": 79,
+              "min": 4.106396900746275,
+              "p10": 4.394180243289242,
+              "p25": 4.4478246298646,
+              "median": 4.790175340411247,
+              "p75": 4.80820478625572,
+              "p90": 5.006304941884945,
+              "max": 5.03487675846929
+            },
+            "hyper_rare_gold__holo": {
+              "n": 20,
+              "min": 6.011259174436161,
+              "p10": 6.018630973719757,
+              "p25": 6.223648843074341,
+              "median": 6.243538134276678,
+              "p75": 6.337064142224229,
+              "p90": 6.3625297454804475,
+              "max": 6.7706054408349035
+            },
+            "illustration_rare__holo": {
+              "n": 111,
+              "min": 4.868615034075827,
+              "p10": 5.040733741920289,
+              "p25": 6.059315305643347,
+              "median": 6.113858195322049,
+              "p75": 6.158227764986084,
+              "p90": 6.658554193348638,
+              "max": 6.717134919373487
+            },
+            "rare__holo": {
+              "n": 82,
+              "min": 2.4458898035680163,
+              "p10": 2.5312450826093107,
+              "p25": 3.1913518878333433,
+              "median": 3.446655105079768,
+              "p75": 3.5501963561683914,
+              "p90": 3.559944610338474,
+              "max": 7.2293389031096
+            },
+            "rare__holo__master_ball": {
+              "n": 5,
+              "min": 7.225209509767588,
+              "p10": 7.231857862262004,
+              "p25": 7.241830391003629,
+              "median": 7.248838128161033,
+              "p75": 7.250245587928913,
+              "p90": 7.256190434863731,
+              "max": 7.2601536661536095
+            },
+            "rare__holo__poke_ball": {
+              "n": 2,
+              "min": 5.516722163515073,
+              "p10": 5.5175215682218575,
+              "p25": 5.518720675282035,
+              "median": 5.5207191870489964,
+              "p75": 5.522717698815957,
+              "p90": 5.5239168058761345,
+              "max": 5.524716210582919
+            },
+            "rare__reverse_holo": {
+              "n": 90,
+              "min": 4.030693935145825,
+              "p10": 4.376028699506881,
+              "p25": 4.477965084465423,
+              "median": 4.498336202272659,
+              "p75": 4.567898682003903,
+              "p90": 4.603992098948996,
+              "max": 4.6375900772442025
+            },
+            "special_illustration_rare__holo": {
+              "n": 41,
+              "min": 6.131646577707844,
+              "p10": 6.154925096261018,
+              "p25": 6.176349386305102,
+              "median": 6.293110326577149,
+              "p75": 6.571283042360924,
+              "p90": 6.904759770002339,
+              "max": 6.977105357116931
+            },
+            "ultra_rare__holo": {
+              "n": 76,
+              "min": 5.091791121057264,
+              "p10": 5.128830385628865,
+              "p25": 5.888366637913096,
+              "median": 6.0194525836481505,
+              "p75": 6.067697923009908,
+              "p90": 6.095049257025509,
+              "max": 6.114762763452475
+            },
+            "uncommon": {
+              "n": 268,
+              "min": 2.364322208402062,
+              "p10": 2.908047457273121,
+              "p25": 3.0383162375652404,
+              "median": 3.1590868462912525,
+              "p75": 3.2135711862212344,
+              "p90": 3.2201341162505734,
+              "max": 3.23294939459956
+            },
+            "uncommon__holo__master_ball": {
+              "n": 10,
+              "min": 7.176942768797754,
+              "p10": 7.209324676077219,
+              "p25": 7.218367652967778,
+              "median": 7.236960068218051,
+              "p75": 7.2763297065616,
+              "p90": 7.2877105924370404,
+              "max": 7.3022804470519675
+            },
+            "uncommon__holo__poke_ball": {
+              "n": 11,
+              "min": 5.506326030277976,
+              "p10": 5.512748977260225,
+              "p25": 5.515730475394132,
+              "median": 5.52246141819583,
+              "p75": 5.5269763829199,
+              "p90": 5.54293994953937,
+              "max": 5.5576063644986
+            },
+            "uncommon__reverse_holo": {
+              "n": 289,
+              "min": 3.9333998711877314,
+              "p10": 4.407348303773798,
+              "p25": 4.450733832683673,
+              "median": 4.476952888187338,
+              "p75": 4.537978936447768,
+              "p90": 4.546184556484344,
+              "max": 4.564508204269202
+            }
+          },
+          "eligible_group_count": 16,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      },
+      "rarity_global": {
+        "global": {
+          "groups": {
+            "black_white_rare": {
+              "n": 1,
+              "min": 7.174328388223683,
+              "p10": 7.174328388223683,
+              "p25": 7.174328388223683,
+              "median": 7.174328388223683,
+              "p75": 7.174328388223683,
+              "p90": 7.174328388223683,
+              "max": 7.174328388223683
+            },
+            "common": {
+              "n": 1268,
+              "min": 2.209778043407839,
+              "p10": 2.8407887801508656,
+              "p25": 3.0338755676962808,
+              "median": 3.7345046330166465,
+              "p75": 4.464039616101528,
+              "p90": 4.545044513085969,
+              "max": 7.31722840848784
+            },
+            "double_rare": {
+              "n": 147,
+              "min": 3.8039761013450124,
+              "p10": 3.9121134426468207,
+              "p25": 4.3939373676283076,
+              "median": 4.7936707938587615,
+              "p75": 5.249151561207313,
+              "p90": 5.278361507406114,
+              "max": 5.305140591896162
+            },
+            "hyper_rare_gold": {
+              "n": 20,
+              "min": 6.011259174436161,
+              "p10": 6.018630973719757,
+              "p25": 6.223648843074341,
+              "median": 6.243538134276678,
+              "p75": 6.337064142224229,
+              "p90": 6.3625297454804475,
+              "max": 6.7706054408349035
+            },
+            "illustration_rare": {
+              "n": 177,
+              "min": 4.5777495904120995,
+              "p10": 4.76065525257277,
+              "p25": 5.280084598286977,
+              "median": 5.754970511425634,
+              "p75": 6.12843040218114,
+              "p90": 6.196390655190233,
+              "max": 6.717134919373487
+            },
+            "mega_attack_rare": {
+              "n": 2,
+              "min": 5.242315176432752,
+              "p10": 5.245231730048924,
+              "p25": 5.2496065604731825,
+              "median": 5.256897944513614,
+              "p75": 5.264189328554046,
+              "p90": 5.268564158978305,
+              "max": 5.271480712594477
+            },
+            "mega_hyper_rare": {
+              "n": 4,
+              "min": 7.194104906200139,
+              "p10": 7.292500818075435,
+              "p25": 7.440094685888379,
+              "median": 7.636908314197229,
+              "p75": 7.7859401449559655,
+              "p90": 7.847526777178704,
+              "max": 7.888584531993863
+            },
+            "rare": {
+              "n": 293,
+              "min": 2.4458898035680163,
+              "p10": 2.7313763255617873,
+              "p25": 3.4466237098769446,
+              "median": 3.8033031387139036,
+              "p75": 4.501711477619861,
+              "p90": 4.5862895591571755,
+              "max": 7.2601536661536095
+            },
+            "special_illustration_rare": {
+              "n": 73,
+              "min": 5.965407012788693,
+              "p10": 6.152854861323343,
+              "p25": 6.176349386305102,
+              "median": 6.556394429867174,
+              "p75": 6.917805614835639,
+              "p90": 7.15212259710155,
+              "max": 7.200784957760513
+            },
+            "ultra_rare": {
+              "n": 147,
+              "min": 5.091791121057264,
+              "p10": 5.311038639738723,
+              "p25": 5.379202101166447,
+              "median": 5.687515502192329,
+              "p75": 6.021720161230846,
+              "p90": 6.076936409937655,
+              "max": 6.114762763452475
+            },
+            "uncommon": {
+              "n": 911,
+              "min": 2.1172015621642712,
+              "p10": 2.687483160162246,
+              "p25": 3.1302241283205454,
+              "median": 3.738237779656478,
+              "p75": 4.51995626626078,
+              "p90": 4.546052581505003,
+              "max": 7.3022804470519675
+            }
+          },
+          "eligible_group_count": 8,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      },
+      "rarity_by_era": {
+        "fb22f860-ae41-4879-a41a-857ca11bf0da": {
+          "groups": {
+            "common": {
+              "n": 473,
+              "min": 2.209778043407839,
+              "p10": 2.4281052342415417,
+              "p25": 2.8396349183008693,
+              "median": 3.7186790853524556,
+              "p75": 4.166141361041786,
+              "p90": 4.546618299038476,
+              "max": 4.572122331941891
+            },
+            "double_rare": {
+              "n": 68,
+              "min": 3.8039761013450124,
+              "p10": 3.8119966913610215,
+              "p25": 3.9145137515508805,
+              "median": 5.2543009389964475,
+              "p75": 5.275529037170224,
+              "p90": 5.288050517640276,
+              "max": 5.305140591896162
+            },
+            "illustration_rare": {
+              "n": 66,
+              "min": 4.5777495904120995,
+              "p10": 4.5972565040645845,
+              "p25": 4.758380055187544,
+              "median": 5.282938014832377,
+              "p75": 5.714975199489721,
+              "p90": 5.737287565243296,
+              "max": 5.769281456888897
+            },
+            "mega_attack_rare": {
+              "n": 2,
+              "min": 5.242315176432752,
+              "p10": 5.245231730048924,
+              "p25": 5.2496065604731825,
+              "median": 5.256897944513614,
+              "p75": 5.264189328554046,
+              "p90": 5.268564158978305,
+              "max": 5.271480712594477
+            },
+            "mega_hyper_rare": {
+              "n": 4,
+              "min": 7.194104906200139,
+              "p10": 7.292500818075435,
+              "p25": 7.440094685888379,
+              "median": 7.636908314197229,
+              "p75": 7.7859401449559655,
+              "p90": 7.847526777178704,
+              "max": 7.888584531993863
+            },
+            "rare": {
+              "n": 114,
+              "min": 2.6238928930954866,
+              "p10": 2.726212206526673,
+              "p25": 2.8198019469458293,
+              "median": 3.7859648387602696,
+              "p75": 4.237186549643085,
+              "p90": 4.583301800081555,
+              "max": 4.600282151915315
+            },
+            "special_illustration_rare": {
+              "n": 32,
+              "min": 5.965407012788693,
+              "p10": 6.006352560380521,
+              "p25": 6.186788610829963,
+              "median": 6.908755779315721,
+              "p75": 7.151420618703767,
+              "p90": 7.162261179128423,
+              "max": 7.200784957760513
+            },
+            "ultra_rare": {
+              "n": 71,
+              "min": 5.309580558826748,
+              "p10": 5.3329088113176555,
+              "p25": 5.362024050955174,
+              "median": 5.557865599756046,
+              "p75": 5.590945421278075,
+              "p90": 5.694327315885446,
+              "max": 5.727870270185291
+            },
+            "uncommon": {
+              "n": 333,
+              "min": 2.1172015621642712,
+              "p10": 2.365923268613454,
+              "p25": 2.687483160162246,
+              "median": 3.723429491873343,
+              "p75": 4.173128063029475,
+              "p90": 4.5483173743953085,
+              "max": 4.571058656359323
+            }
+          },
+          "eligible_group_count": 7,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "dfb0dfa1-6a8e-4335-850f-e003867e19ee": {
+          "groups": {
+            "black_white_rare": {
+              "n": 1,
+              "min": 7.174328388223683,
+              "p10": 7.174328388223683,
+              "p25": 7.174328388223683,
+              "median": 7.174328388223683,
+              "p75": 7.174328388223683,
+              "p90": 7.174328388223683,
+              "max": 7.174328388223683
+            },
+            "common": {
+              "n": 795,
+              "min": 2.316045276178879,
+              "p10": 3.026591561111095,
+              "p25": 3.072224624542508,
+              "median": 4.3110836658633165,
+              "p75": 4.517022417612745,
+              "p90": 4.543981017675669,
+              "max": 7.31722840848784
+            },
+            "double_rare": {
+              "n": 79,
+              "min": 4.106396900746275,
+              "p10": 4.394180243289242,
+              "p25": 4.4478246298646,
+              "median": 4.790175340411247,
+              "p75": 4.80820478625572,
+              "p90": 5.006304941884945,
+              "max": 5.03487675846929
+            },
+            "hyper_rare_gold": {
+              "n": 20,
+              "min": 6.011259174436161,
+              "p10": 6.018630973719757,
+              "p25": 6.223648843074341,
+              "median": 6.243538134276678,
+              "p75": 6.337064142224229,
+              "p90": 6.3625297454804475,
+              "max": 6.7706054408349035
+            },
+            "illustration_rare": {
+              "n": 111,
+              "min": 4.868615034075827,
+              "p10": 5.040733741920289,
+              "p25": 6.059315305643347,
+              "median": 6.113858195322049,
+              "p75": 6.158227764986084,
+              "p90": 6.658554193348638,
+              "max": 6.717134919373487
+            },
+            "rare": {
+              "n": 179,
+              "min": 2.4458898035680163,
+              "p10": 3.1902932441585454,
+              "p25": 3.4484619602531117,
+              "median": 4.375170193877396,
+              "p75": 4.506502018295962,
+              "p90": 4.589773071268505,
+              "max": 7.2601536661536095
+            },
+            "special_illustration_rare": {
+              "n": 41,
+              "min": 6.131646577707844,
+              "p10": 6.154925096261018,
+              "p25": 6.176349386305102,
+              "median": 6.293110326577149,
+              "p75": 6.571283042360924,
+              "p90": 6.904759770002339,
+              "max": 6.977105357116931
+            },
+            "ultra_rare": {
+              "n": 76,
+              "min": 5.091791121057264,
+              "p10": 5.128830385628865,
+              "p25": 5.888366637913096,
+              "median": 6.0194525836481505,
+              "p75": 6.067697923009908,
+              "p90": 6.095049257025509,
+              "max": 6.114762763452475
+            },
+            "uncommon": {
+              "n": 578,
+              "min": 2.364322208402062,
+              "p10": 2.915260753677683,
+              "p25": 3.1614858406727673,
+              "median": 4.325684109850594,
+              "p75": 4.528371195822411,
+              "p90": 4.544197390426856,
+              "max": 7.3022804470519675
+            }
+          },
+          "eligible_group_count": 8,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      },
+      "finish_global": {
+        "global": {
+          "groups": {
+            "holo": {
+              "n": 764,
+              "min": 2.4458898035680163,
+              "p10": 3.448160084234411,
+              "p25": 4.457182912680255,
+              "median": 5.377038064029423,
+              "p75": 6.100386954332169,
+              "p90": 6.642855831230904,
+              "max": 7.888584531993863
+            },
+            "normal": {
+              "n": 1040,
+              "min": 2.1172015621642712,
+              "p10": 2.416257857810603,
+              "p25": 2.849599396963506,
+              "median": 3.0387650573218465,
+              "p75": 3.1374686640684004,
+              "p90": 3.1650175737080635,
+              "max": 3.23294939459956
+            },
+            "reverse_holo": {
+              "n": 1239,
+              "min": 3.7186790853524556,
+              "p10": 3.796544865387605,
+              "p25": 4.307810099743624,
+              "median": 4.465843120766992,
+              "p75": 4.540881696105729,
+              "p90": 4.552805468664266,
+              "max": 4.6375900772442025
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      },
+      "finish_by_set": {
+        "0f7e51e2-5a78-4500-9c9c-f690e934a069": {
+          "groups": {
+            "holo": {
+              "n": 56,
+              "min": 2.6238928930954866,
+              "p10": 2.634435673876842,
+              "p25": 3.913863588643804,
+              "median": 4.763113355833197,
+              "p75": 5.335344685355013,
+              "p90": 5.660464926553754,
+              "max": 7.194104906200139
+            },
+            "normal": {
+              "n": 74,
+              "min": 2.3611468439923105,
+              "p10": 2.365474842213238,
+              "p25": 2.3677291331561796,
+              "median": 2.406213775868628,
+              "p75": 2.410621413264699,
+              "p90": 2.413339015966511,
+              "max": 2.416325062866952
+            },
+            "reverse_holo": {
+              "n": 84,
+              "min": 3.776443711186323,
+              "p10": 3.785875053440135,
+              "p25": 3.7890423896965975,
+              "median": 3.7940400453024394,
+              "p75": 3.800481678709612,
+              "p90": 3.8549104786490838,
+              "max": 3.88908803414565
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "142d3869-9d39-48b6-a810-751af2aac748": {
+          "groups": {
+            "holo": {
+              "n": 47,
+              "min": 4.3723931857056435,
+              "p10": 4.39168927968046,
+              "p25": 4.399010179585511,
+              "median": 4.8941864814530085,
+              "p75": 5.128830385628865,
+              "p90": 6.215108223463874,
+              "max": 6.293110326577149
+            },
+            "normal": {
+              "n": 49,
+              "min": 2.6614338264736306,
+              "p10": 3.064259556926164,
+              "p25": 3.071771339839581,
+              "median": 3.0740181919525353,
+              "p75": 3.076964021188778,
+              "p90": 3.0789660673690813,
+              "max": 3.081508050575395
+            },
+            "reverse_holo": {
+              "n": 85,
+              "min": 4.2902134714014295,
+              "p10": 4.306355314418475,
+              "p25": 4.310413199864349,
+              "median": 4.3186387752937065,
+              "p75": 4.325721918463414,
+              "p90": 4.3521439706900455,
+              "max": 4.376124089021268
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "202518a0-5e86-4949-b1cd-c1c8ad95b616": {
+          "groups": {
+            "holo": {
+              "n": 128,
+              "min": 3.4360683686056377,
+              "p10": 3.4475221374765765,
+              "p25": 4.791801455237614,
+              "median": 6.036464101380545,
+              "p75": 6.155160723045661,
+              "p90": 6.189818829607341,
+              "max": 6.276483502140279
+            },
+            "normal": {
+              "n": 151,
+              "min": 3.014752007391246,
+              "p10": 3.0227746446658745,
+              "p25": 3.026315200031785,
+              "median": 3.0331434249521645,
+              "p75": 3.163251925593789,
+              "p90": 3.167731291545029,
+              "max": 3.1722785394914186
+            },
+            "reverse_holo": {
+              "n": 176,
+              "min": 4.508134223476497,
+              "p10": 4.528024015377401,
+              "p25": 4.533221686675508,
+              "median": 4.540272364290841,
+              "p75": 4.5475854749727045,
+              "p90": 4.563932351638549,
+              "max": 4.586348431747504
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "41a0ac1c-27ca-444b-8665-8ba35e583a3b": {
+          "groups": {
+            "holo": {
+              "n": 78,
+              "min": 2.4458898035680163,
+              "p10": 5.513096027341702,
+              "p25": 5.52653642376992,
+              "median": 6.687415735450557,
+              "p75": 7.228306554774097,
+              "p90": 7.254204621848585,
+              "max": 7.31722840848784
+            },
+            "normal": {
+              "n": 6,
+              "min": 2.316045276178879,
+              "p10": 2.316628408017544,
+              "p25": 2.3289892069926723,
+              "median": 2.3655629368613793,
+              "p75": 2.3672916679405946,
+              "p90": 2.367790559642663,
+              "max": 2.3681267838047657
+            },
+            "reverse_holo": {
+              "n": 13,
+              "min": 3.9333998711877314,
+              "p10": 3.939394249771022,
+              "p25": 3.9403196045832596,
+              "median": 3.9451145404283454,
+              "p75": 3.95055595514493,
+              "p90": 3.9573262195282717,
+              "max": 4.030693935145825
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "5d3d5c23-7098-4393-ad63-6ad9372aee30": {
+          "groups": {
+            "holo": {
+              "n": 131,
+              "min": 3.5423923503291976,
+              "p10": 3.5569393268809066,
+              "p25": 4.792222924426399,
+              "median": 6.0705077544484345,
+              "p75": 6.105754095690086,
+              "p90": 6.543112165394228,
+              "max": 6.6158322122731015
+            },
+            "normal": {
+              "n": 135,
+              "min": 2.8987507639270516,
+              "p10": 2.9068353426497504,
+              "p25": 2.9103806125246034,
+              "median": 3.022240533434787,
+              "p75": 3.0277390699022986,
+              "p90": 3.0311314991938767,
+              "max": 3.0364292758860953
+            },
+            "reverse_holo": {
+              "n": 162,
+              "min": 4.418524657714082,
+              "p10": 4.4372095895758745,
+              "p25": 4.44188280250357,
+              "median": 4.448337391961303,
+              "p75": 4.456728630074581,
+              "p90": 4.476407647679902,
+              "max": 4.494076138482504
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "5e99f658-39f0-4845-9228-db8db3965f32": {
+          "groups": {
+            "holo": {
+              "n": 56,
+              "min": 2.717540087975979,
+              "p10": 2.7295598903449116,
+              "p25": 3.8061213863829044,
+              "median": 4.601128644147478,
+              "p75": 5.39169876966424,
+              "p90": 6.1682035483396405,
+              "max": 7.5220912791177925
+            },
+            "normal": {
+              "n": 68,
+              "min": 2.1172015621642712,
+              "p10": 2.119095064704075,
+              "p25": 2.1232534261346996,
+              "median": 2.4293849095093494,
+              "p75": 2.4330412195397635,
+              "p90": 2.434958352038011,
+              "max": 2.4409280426157904
+            },
+            "reverse_holo": {
+              "n": 78,
+              "min": 3.7186790853524556,
+              "p10": 3.724564665250737,
+              "p25": 3.727724238585994,
+              "median": 3.733500329763424,
+              "p75": 3.738889378443785,
+              "p90": 3.7920069839097237,
+              "max": 3.808970150372064
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "75cd439d-aaa2-41cb-86f3-2fefa5b26e29": {
+          "groups": {
+            "holo": {
+              "n": 109,
+              "min": 3.448509139213406,
+              "p10": 3.466760429497985,
+              "p25": 5.252770551592066,
+              "median": 5.2869818568842915,
+              "p75": 5.725414774783315,
+              "p90": 6.039120427570679,
+              "max": 7.200784957760513
+            },
+            "normal": {
+              "n": 150,
+              "min": 3.0291649696423915,
+              "p10": 3.0349222674905896,
+              "p25": 3.039914072568265,
+              "median": 3.045216728334336,
+              "p75": 3.136069685505013,
+              "p90": 3.1390023622850376,
+              "max": 3.1472530811952333
+            },
+            "reverse_holo": {
+              "n": 178,
+              "min": 4.522208665273744,
+              "p10": 4.536484028199644,
+              "p25": 4.542711955458328,
+              "median": 4.54987740135852,
+              "p75": 4.559241254099692,
+              "p90": 4.572151358113845,
+              "max": 4.600282151915315
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "b4b34b61-ce48-4fc4-bd91-201a350b2600": {
+          "groups": {
+            "holo": {
+              "n": 29,
+              "min": 2.5239177849042926,
+              "p10": 2.526116250672196,
+              "p25": 2.530716060819302,
+              "median": 5.0059463046101245,
+              "p75": 5.020231187769703,
+              "p90": 5.096138147500362,
+              "max": 5.270313170138439
+            },
+            "normal": {
+              "n": 166,
+              "min": 3.1432350994097846,
+              "p10": 3.147043687426463,
+              "p25": 3.1509134850141507,
+              "median": 3.1579336120340655,
+              "p75": 3.217888812359483,
+              "p90": 3.2219430258828137,
+              "max": 3.23294939459956
+            },
+            "reverse_holo": {
+              "n": 176,
+              "min": 4.5132293122897345,
+              "p10": 4.526081779669128,
+              "p25": 4.532570493573748,
+              "median": 4.539663401330088,
+              "p75": 4.547089974911566,
+              "p90": 4.5544771123338545,
+              "max": 4.6375900772442025
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "de291399-ead5-41dc-bc12-e7c587684f85": {
+          "groups": {
+            "holo": {
+              "n": 52,
+              "min": 3.176630843274455,
+              "p10": 3.189115622901227,
+              "p25": 3.1944759460795185,
+              "median": 4.456149052328582,
+              "p75": 5.645144800833682,
+              "p90": 5.8993294982144215,
+              "max": 6.977105357116931
+            },
+            "normal": {
+              "n": 131,
+              "min": 3.0368042993294555,
+              "p10": 3.0410225694137982,
+              "p25": 3.0444814420916106,
+              "median": 3.0664122817417314,
+              "p75": 3.0749703240481727,
+              "p90": 3.077615006369306,
+              "max": 3.0856788631594636
+            },
+            "reverse_holo": {
+              "n": 165,
+              "min": 4.429034388281223,
+              "p10": 4.45042542866763,
+              "p25": 4.455544012032279,
+              "median": 4.462282698439544,
+              "p75": 4.470202325577607,
+              "p90": 4.486907380095806,
+              "max": 4.507045787994892
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        },
+        "b3c96740-a4a9-4c3d-a8f6-81ed4584549d": {
+          "groups": {
+            "holo": {
+              "n": 78,
+              "min": 2.8085060974265814,
+              "p10": 2.8199906689233822,
+              "p25": 3.9180285557650794,
+              "median": 5.296523468470397,
+              "p75": 5.588001468439377,
+              "p90": 6.9059585727963535,
+              "max": 7.888584531993863
+            },
+            "normal": {
+              "n": 110,
+              "min": 2.67912752347513,
+              "p10": 2.684289242351361,
+              "p25": 2.687417037173444,
+              "median": 2.8377973345413974,
+              "p75": 2.841197396392673,
+              "p90": 2.845083719494359,
+              "max": 2.850161150234772
+            },
+            "reverse_holo": {
+              "n": 122,
+              "min": 4.15129593867224,
+              "p10": 4.157431368726135,
+              "p25": 4.163180309395117,
+              "median": 4.168529460411477,
+              "p75": 4.176070144917581,
+              "p90": 4.185204061211387,
+              "max": 4.251208920747042
+            }
+          },
+          "eligible_group_count": 3,
+          "common_support_bounds_log_odds": null,
+          "common_support_coverage": 0.0
+        }
+      }
+    },
+    "matched_variant": {
+      "pull_covered_priced_groups": 1148,
+      "minimum_gate": 50
+    },
+    "pre_model_gate": {
+      "passed": false,
+      "failure_reasons": [
+        "insufficient_common_support"
+      ],
+      "regression_executed": false
+    },
+    "recommended_specification": {
+      "representation": "decomposed additive effects only where support passes",
+      "included": [
+        "species fixed effects",
+        "log exact pull odds",
+        "set fixed effects",
+        "mechanic controls"
+      ],
+      "candidate_dimensions": [
+        "rarity_designation",
+        "printing_finish",
+        "edition_status"
+      ],
+      "excluded": "special/edition interactions until cell and common-support gates pass"
+    },
+    "recommended_score_universe": "not_scoreable_with_current_evidence"
+  },
+  "regression_results": null,
+  "robustness_results": null,
+  "bootstrap": {
+    "seed": 20260828,
+    "draws_requested": 1000,
+    "executed": false
+  },
+  "publication": {
+    "committed": false,
+    "approved": false,
+    "study_run_id": null,
+    "score_rows": 0
+  },
+  "next_task": "abandonment_or_redefinition"
 }

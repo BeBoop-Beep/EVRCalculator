@@ -7,6 +7,9 @@ from backend.desirability.card_treatment_prestige_v2 import (
     common_support_bounds, log_pull_odds, pairwise_superiority_scores,
     positive_log_price, resolve_treatment_identity,
 )
+from backend.scripts.build_card_treatment_prestige_v2_study import (
+    dimension_table, normalize_dimension, support_audit,
+)
 
 
 def test_taxonomy_normalizes_without_numeric_score():
@@ -48,3 +51,17 @@ def test_v1_remains_historically_reproducible():
     assert ("special illustration rare", 96.0) in TREATMENT_SCORE_RULES_V1
     assert get_treatment_score("Special Illustration Rare") == 96.0
     assert get_treatment_score("unmatched historical label") == 30.0
+
+
+def test_research_dimensions_are_unicode_safe_and_keep_unknown_explicit():
+    assert normalize_dimension("Pokémon Tool") == "pokemon_tool"
+    table = dimension_table([{"printing_finish": None}, {"printing_finish": "holo"}], "printing_finish")
+    assert [row["value"] for row in table] == ["__unknown__", "holo"]
+
+
+def test_common_support_audit_fails_when_scarcity_bands_are_separated():
+    rows = ([{"treatment": "normal", "exact_pull": .1, "log_odds": x} for x in range(10)] +
+            [{"treatment": "reverse", "exact_pull": .01, "log_odds": x} for x in range(20, 30)])
+    result = support_audit(rows, "treatment")["global"]
+    assert result["common_support_bounds_log_odds"] is None
+    assert result["common_support_coverage"] == 0

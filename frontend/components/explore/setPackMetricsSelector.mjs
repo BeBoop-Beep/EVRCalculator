@@ -8,7 +8,7 @@ export const SET_PACK_COLUMNS = [
 ];
 export function projectSetPackMetric(target) {
   return { raw: { set_id: target?.setId, canonical_key: target?.setCanonicalKey, name: target?.setName }, setId: target?.setId, setName: target?.setName, canonicalKey: target?.setCanonicalKey,
-    logo: target?.logoImageUrl || target?.symbolImageUrl, canonicalRank: target?.canonicalSetRipRank,
+    logo: target?.logoImageUrl || target?.symbolImageUrl, canonicalRank: target?.canonicalSetRipRank, eraName: target?.eraName,
     productFamilies: finite(target?.productFamilyCount), products: finite(target?.productSkuCount),
     packPrice: finite(target?.averageCostPerPack), modelBreakEven: finite(target?.averageModelBreakEvenPerPack),
     typicalOpening: finite(target?.typicalOpeningPerPack), modeledReturn: finite(target?.modeledReturnOnSpend),

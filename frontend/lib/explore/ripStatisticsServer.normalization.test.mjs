@@ -14,6 +14,20 @@ test("Overall rankings do not travel through RIP statistics normalization", () =
   assert.equal(normalized.overallProductRankings, undefined);
 });
 
+test("authoritative Era Set Strength survives RIP statistics normalization unchanged", () => {
+  const eraSetStrengthV1 = {
+    methodologyVersion: "era_set_strength_v1_equal_set_mean_of_set_rip_v1",
+    cohortSize: 2,
+    eras: [
+      { eraName: "Mega Evolution", score: 61.749256, rank: 1, modeledSetCount: 6 },
+      { eraName: "Scarlet & Violet", score: 45.673312, rank: 2, modeledSetCount: 16 },
+    ],
+  };
+  const normalized = normalisePayload({ targets: [], eraSetStrengthV1 });
+  assert.equal(normalized.eraSetStrengthV1, eraSetStrengthV1);
+  assert.deepEqual(normalized.eraSetStrengthV1.eras, eraSetStrengthV1.eras);
+});
+
 test("relational era records are normalized to renderable target fields", () => {
   const era = {
     id: "era-1",

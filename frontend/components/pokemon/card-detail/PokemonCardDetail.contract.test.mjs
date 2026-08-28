@@ -215,14 +215,18 @@ test("top and bottom set navigation use the canonical bare set href", () => {
   assert.doesNotMatch(detailModel, /\?tab=cards/);
 });
 
-test("hero centers identity above bottom-aligned artwork without a details panel", () => {
+test("hero aligns identity to artwork in a shared frame without a details panel", () => {
+  assert.match(source, /data-card-visual-frame/);
   assert.match(source, /md:grid-rows-\[auto_minmax\(0,1fr\)\]/);
-  assert.match(source, /data-card-identity className="text-center"/);
+  assert.match(source, /data-card-identity className="min-w-0 text-left"/);
+  assert.doesNotMatch(source, /data-card-identity className="text-center"/);
   assert.match(source, /Market Price As Of \{dateLabel\(detail\.market\.marketDate\)\}/);
   assert.match(source, /card-detail-artwork/);
   assert.match(source, /md:items-end/);
   assert.match(source, /max-w-\[430px\]/);
   assert.match(source, /data-card-market-panel className="h-full"/);
+  assert.match(source, /data-card-back-navigation[\s\S]*?max-w-\[1600px\]/);
+  assert.match(source, /max-w-\[1400px\] space-y-4/);
   assert.doesNotMatch(source, /lg:-ml-6/);
   assert.doesNotMatch(source, /data-card-details-panel|Card Details/);
   assert.match(source, /data-card-market-panel/);

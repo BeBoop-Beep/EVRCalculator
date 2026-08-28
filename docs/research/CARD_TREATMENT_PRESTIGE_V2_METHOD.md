@@ -47,3 +47,11 @@ These sources determine design, not scores. Numeric results must come from the d
 ## Containment and promotion
 
 V1 remains reproducible as `TREATMENT_SCORE_RULES_V1` and continues to feed `card_appeal_v1`. V2 cannot change Collector Appeal, Overall/Financial RIP, set or product rankings, or historical snapshots. A research run may be stored, but the production view resolves only the most recently explicitly approved run. Card Detail reads frozen rows; it never fits a model online and never falls back to V1 for Treatment Prestige.
+
+## Round 2 identification representation
+
+Research preserves raw and normalized values independently for `rarity_designation`, `printing_finish`, `special_treatment`, `edition_status`, and `mechanic_or_card_form`. The combined V2 key remains reproducible but is not assumed to be the correct regression representation. Candidate treatment effects are additive and may enter a model only when their own sample and scarcity-overlap gates pass; sparse interactions remain excluded.
+
+The production-aligned pull authority is run scoped. Card Detail first uses the newest published `simulation_card_variant_pull_rates` run for a set and otherwise uses `pokemon_set_page_snapshot_latest.payload_json.ripDecision.sourceCalculationRunId`. `modeled_probability` is exact card-variant pack-presence probability from the authoritative V2 simulator; `effective_pull_rate` is its one-in-N representation. Card-level analytic `simulation_input_cards` values are audited separately and never substitute for missing exact printing scarcity.
+
+The Round 1 timeout came from downloading entire set-page JSON payloads. Round 2 projects only `payload_json->ripDecision->>sourceCalculationRunId` server-side, then batches narrow reads by authoritative run ID. No new view or index is required.

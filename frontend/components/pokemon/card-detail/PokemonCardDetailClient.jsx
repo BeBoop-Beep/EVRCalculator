@@ -167,18 +167,19 @@ function PlusLock({ title }) {
   const id = title.replace(/\s/g, "-").toLowerCase();
   return (
     <section
+      data-plus-lock
       aria-labelledby={id}
-      className="set-glass-surface relative overflow-hidden rounded-2xl border p-5"
+      className="set-glass-surface relative min-h-36 overflow-hidden rounded-2xl border"
     >
       <div
         aria-hidden="true"
-        className="grid grid-cols-3 gap-3 opacity-20 blur-sm"
+        className="absolute inset-0 grid grid-cols-3 gap-3 p-5 opacity-20 blur-sm"
       >
         <span className="h-16 rounded-xl bg-white/10" />
         <span className="h-16 rounded-xl bg-white/10" />
         <span className="h-16 rounded-xl bg-white/10" />
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.62)] text-center">
+      <div className="relative z-10 flex min-h-36 flex-col items-center justify-center bg-[rgba(2,6,23,.62)] px-5 py-6 text-center">
         <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-300">
           🔒 Index Plus
         </p>
@@ -751,24 +752,26 @@ function OpeningProductsSection({ detail }) {
 }
 
 function PremiumLock() {
+  const premiumTier = getRipTierPresentation("S", { strength: "hero" });
   return (
     <section
       data-chase-efficiency-lock
-      className="set-glass-surface relative overflow-hidden rounded-2xl border border-[rgba(45,212,191,.2)] p-5"
+      className="set-glass-surface relative min-h-44 overflow-hidden rounded-2xl border border-[var(--tier-border)]"
+      style={premiumTier.style}
     >
       <div
         aria-hidden="true"
-        className="grid grid-cols-4 gap-2 opacity-20 blur-sm"
+        className="absolute inset-0 grid grid-cols-4 gap-2 p-5 opacity-20 blur-sm"
       >
         {[1, 2, 3, 4].map((key) => (
           <span
             key={key}
-            className="h-16 rounded-xl bg-[rgba(45,212,191,.18)]"
+            className="h-16 rounded-xl bg-[var(--tier-surface)]"
           />
         ))}
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[rgba(2,6,23,.72)] text-center">
-        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
+      <div className="relative z-10 flex min-h-44 flex-col items-center justify-center bg-[rgba(2,6,23,.72)] px-5 py-6 text-center">
+        <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--tier-color)]">
           Index Premium
         </p>
         <h2 className="mt-2 text-xl font-semibold">Unlock Chase Efficiency</h2>
@@ -778,7 +781,7 @@ function PremiumLock() {
         </p>
         <Link
           href="/pricing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[rgba(45,212,191,.42)] bg-[rgba(45,212,191,.1)] px-4 text-sm font-semibold text-[var(--accent)]"
+          className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[var(--tier-border)] bg-[var(--tier-surface)] px-4 text-sm font-semibold text-[var(--tier-color)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tier-color)]"
         >
           Explore Index Premium
         </Link>
@@ -1223,42 +1226,54 @@ export default function PokemonCardDetailClient({ initialDetail }) {
         dataAttribute="data-card-set-ambient-artwork"
         visibilityClassName="hidden sm:block"
       />
+      <nav
+        data-card-back-navigation
+        className="relative mx-auto mb-4 max-w-[1600px]"
+      >
+        <Link
+          href={setHref}
+          className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          ← Back to {detail.set.name}
+        </Link>
+      </nav>
       <div className="relative mx-auto max-w-[1400px] space-y-4">
-        <div>
-          <Link
-            href={setHref}
-            className="inline-flex min-h-10 items-center rounded-lg pr-3 text-sm font-semibold text-[var(--accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
-            ← Back to {detail.set.name}
-          </Link>
-        </div>
         <section
           data-card-detail-hero
           className="grid gap-4 md:grid-cols-[minmax(260px,36%)_minmax(0,1fr)] md:items-stretch lg:gap-7"
         >
-          <div className="order-1 grid gap-4 md:h-full md:min-h-0 md:grid-rows-[auto_minmax(0,1fr)]">
-            <header data-card-identity className="text-center">
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
-                {detail.set.name}
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
-                {detail.card.name}
-              </h1>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-                {[
-                  detail.card.rarity,
-                  detail.card.printedNumber || detail.card.cardNumber,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                Market Price As Of {dateLabel(detail.market.marketDate)}
-              </p>
-              {error ? <p role="alert" className="mt-2 text-sm text-red-300">{error}</p> : null}
-            </header>
-            <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end">
-              <CardArtwork detail={detail} />
+          <div className="order-1 flex min-w-0 justify-center md:h-full md:min-h-0">
+            <div
+              data-card-visual-frame
+              className="grid h-full min-h-0 w-fit max-w-full gap-4 md:grid-rows-[auto_minmax(0,1fr)]"
+            >
+              <header data-card-identity className="min-w-0 text-left">
+                <p className="text-xs font-bold uppercase tracking-[.14em] text-[var(--accent)]">
+                  {detail.set.name}
+                </p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  {detail.card.name}
+                </h1>
+                <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
+                  {[
+                    detail.card.rarity,
+                    detail.card.printedNumber || detail.card.cardNumber,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  Market Price As Of {dateLabel(detail.market.marketDate)}
+                </p>
+                {error ? (
+                  <p role="alert" className="mt-2 text-sm text-red-300">
+                    {error}
+                  </p>
+                ) : null}
+              </header>
+              <div className="card-detail-artwork flex min-h-[280px] items-center justify-center md:min-h-0 md:items-end">
+                <CardArtwork detail={detail} />
+              </div>
             </div>
           </div>
           <div className="order-2 min-w-0 md:h-full">

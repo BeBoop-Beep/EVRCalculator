@@ -1,39 +1,39 @@
-# Card Treatment Prestige V2 — Results
+# Card Treatment Prestige V2 — Round 2 Results
 
 ## Decision
 
 `DO_NOT_APPROVE_CARD_TREATMENT_PRESTIGE_V2`
 
-The exact-printing scarcity cohort available on 2026-08-27 contained 366 single-subject variants, but all were from one set and treatment scarcity distributions had no common support. Study A’s broader analytic snapshot read also encountered repeated live database statement timeouts during this implementation run. Those facts fail the preregistered set-diversity, common-support, robustness, and matched-finish gates. No V2 score is approved, persisted, or shown as production truth.
+The authoritative read path is repaired and raw exact-scarcity coverage clears the count, set, era, taxonomy, join-quality, and matched-card gates. Identification still fails: treatment/designation and finish have no adequate pull-scarcity common support globally, within either represented era, or within statistically meaningful supported sets. No regression, bootstrap, robustness suite, or score was run.
 
-## Data audit
+## Authoritative source and timeout repair
 
-Live successful reads found 20,651 canonical cards, 19,779 priced canonical cards across the previously observed 163-set cohort, 40,654 variants, 210 catalog sets, 17 eras, 17,244 card/species links, 1,025 desirability rows, 499,332 historical simulation inputs, 933 exact-variant pull rows, and eight conditions. The 4.4-million-row price table exact count timed out and was not substituted with an estimate. The latest-price table still contains 19,779 rows. Counts are observations, not acceptance constants.
+Production resolves the newest published exact-variant run for a set from `simulation_card_variant_pull_rates`, falling back to the set-page snapshot's `ripDecision.sourceCalculationRunId`. Exact scarcity is `modeled_probability`; `effective_pull_rate` is one-in-N. The prior timeout downloaded whole `payload_json` values. Round 2 projects only the run ID in PostgREST and batches narrow run-scoped reads. The audit used exact-run precedence for 11 sets; eight exact and snapshot run IDs differed while simulations/publications were advancing.
 
-## Primary and matched cohorts
+## Taxonomy decomposition
 
-The completed exact-variant audit yielded 366 single-subject rows, 175 species, one set, one era, nine unmapped treatments, and two failed canonical joins. Cohort fingerprint: `b7bf10f4c3f53585bab0686da33dec2e0a18ba0ca92c94d45b49e7b9336f09f2`.
+The 7,900 joined supported-set variants contain 14 rarity/designation values, three printing finishes, six special-treatment values, one edition-status value (unknown throughout), 36 mechanic/card-form combinations, and 28 combined treatment cells. Combined-cell median size is 84.5; 3 cells have fewer than 5 observations, 8 fewer than 10, 9 fewer than 25, and 12 fewer than 50. There are 150 unmapped variants (1.90%), below the 5% gate. The combined key creates avoidable sparsity and conflates designation with finish; the recommended representation is decomposed additive terms without unsupported interactions.
 
-| Treatment | N | Sets | Adjusted Premium | 95% CI | Score /10 | Score CI | Stability | Scope | Status |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |
-| All classes | 366 | 1 | unavailable | unavailable | unavailable | unavailable | no common support | global | insufficient evidence |
+## Coverage
 
-| Finish | Matched Cards | Pull-Covered Matches | Adjusted Premium | 95% CI | Status |
-| --- | ---: | ---: | ---: | ---: | --- |
-| All finishes | unavailable | below gate | unavailable | unavailable | insufficient pull-scarcity coverage |
+The final audit found 22 supported sets, 4,879 current card-level analytic inputs, 3,045 current exact-variant probability rows, and 3,043 exact rows joined to canonical variants. Exact canonical join failures were 2/3,045 (0.07%); 107 additional catalog variants lacked a canonical join. Exact coverage spans ten sets and two eras. The Scarlet & Violet-era group contains 6,034 variants and 1,880 exact-covered variants; the Mega Evolution-era group contains 1,866 variants and 1,163 exact-covered variants. Authority fingerprint: `6f18e53b239407793a082921463c36cc61a3fb2cbbbd0f91b0089fa9b4d6cb17`.
 
-## Common support, era stability, and robustness
+Exact-covered sets were Phantasmal Flames (214), Black Bolt (97), Destined Rivals (348), Journey Together (181), Obsidian Flames (371), Paldea Evolved (455), Paradox Rift (428), Perfect Order (202), Ascended Heroes (437), and Mega Evolution (310). Complete per-set counts, pricing, subject linkage, treatment diversity, matching, unmapped totals, run IDs, and coverage percentages are in the machine-readable artifact.
 
-The intersection of treatment p10–p90 log-odds ranges was empty, so the common-support cohort had zero rows. One set and one era cannot support leave-set-out or era-heterogeneity inference. Consequently temporal, popularity-outlier, artist, permutation, and alternate-popularity stability cannot collectively pass. Reporting coefficients in this state would turn extrapolation into false precision.
+## Common support and matched variants
 
-## Database publication and production integration
+The global p10–p90 intersection is empty for the combined treatment key, rarity/designation alone, and printing finish alone. Both represented eras also have 0% overlap for combined and rarity specifications. Every supported set with at least two adequately sampled finish groups has 0% finish overlap. This is structural scarcity separation, not a query or sample-count problem.
 
-Run ID: none. Rows persisted: zero. The migration defines service-role-only research and score tables plus a latest-approved, security-invoker read view. It was not applied because the Supabase CLI/database DDL channel is unavailable in this environment. Card Detail now has additive `treatmentV1` and `treatmentPrestige` semantics; Treatment Prestige fails closed as “researching/unavailable.” Legacy Card Appeal remains V1 and is unchanged. Canonical RIP and rankings are untouched.
+There are 1,148 pull-covered, trailing-30-day Near Mint priced matched-card groups, exceeding the minimum gate of 50. That does not authorize Study B: finish scarcity bands remain non-overlapping, so a treatment intercept would depend on extrapolation.
 
-## Card Detail tooltip
+## Recommended specification and score universe
 
-It begins: “How much extra value does the market give a card just because of its treatment, once we remove the effects of Pokémon popularity and rarity/pull odds?” Until an approved run exists, it explains that approved scarcity-adjusted evidence has not been published.
+If a future design creates valid support, use species fixed effects, exact log pull odds, set fixed effects, mechanic controls, and separately supported rarity/designation, finish, and edition terms. Do not use the combined interaction key as a giant categorical ladder. At present the score comparison universe is `not_scoreable_with_current_evidence`; global, era-relative, family-relative, and era×family-relative scores are unsupported.
 
-## Remaining limitations
+## Publication and containment
 
-The live snapshot payload query repeatedly exceeded the database statement timeout. The exact-variant pipeline covers too little set diversity, and no supported treatment pair had usable shared scarcity support in the completed audit. A later run needs healthy snapshot access, broader exact-variant recalculation across supported sets, Study B matched pairs, and every preregistered sensitivity before approval.
+Run ID: none. Database rows persisted: zero. Latest-approved-only semantics remain unchanged. Card Detail continues to show Treatment Prestige as unavailable/researching. V1 Card Appeal, Collector Appeal, Overall/Financial RIP, rankings, and historical research are unchanged.
+
+## Next task
+
+**E. Abandonment/redefinition of the Treatment Prestige metric.** More rows generated by the same pull mechanics will improve precision but will not create missing scarcity overlap. A defensible next design must redefine the estimand around natural experiments or explicitly report total treatment-plus-scarcity value instead of claiming an independently identified treatment premium.

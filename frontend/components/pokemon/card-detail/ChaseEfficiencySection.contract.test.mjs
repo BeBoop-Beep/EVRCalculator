@@ -61,3 +61,17 @@ test("Premium inherits centralized Plus access", () => {
   assert.match(source, /hasIndexPlusAccess\(user\?\.index_plan\)/);
   assert.match(source, /hasIndexFeatureAccess\([\s\S]*?user\?\.index_plan,[\s\S]*?FEATURE_CARD_CHASE_EFFICIENCY/);
 });
+
+test("lock content establishes height and Premium reuses canonical S-tier purple", () => {
+  const plus = source.slice(source.indexOf("function PlusLock"), source.indexOf("function ProbabilityJourney"));
+  const premium = source.slice(source.indexOf("function PremiumLock"), source.indexOf("const rarityRankLabel"));
+  assert.doesNotMatch(plus, /className="absolute inset-0 flex/);
+  assert.doesNotMatch(premium, /className="absolute inset-0 flex/);
+  assert.match(plus, /relative z-10[\s\S]*?py-6/);
+  assert.match(plus, /text-amber-300/);
+  assert.match(premium, /getRipTierPresentation\("S", \{ strength: "hero" \}\)/);
+  assert.match(premium, /var\(--tier-color\)/);
+  assert.doesNotMatch(premium, /45,212,191|var\(--accent\)/);
+  assert.match(plus, /min-h-11/);
+  assert.match(premium, /min-h-11/);
+});
