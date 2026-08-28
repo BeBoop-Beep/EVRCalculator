@@ -79,3 +79,67 @@ def test_public_bootstrap_and_paid_signal_boundary_are_separate():
     assert 'status_code=403' in signals
     assert "get_pokemon_set_market_signals_snapshot_payload" in signals
     assert '"Cache-Control": "no-store"' in signals
+
+
+def test_market_signals_projection_is_breadth_only():
+    columns = snapshots._MARKET_SIGNALS_COLUMNS
+    assert "payload_json->cardsMarket->marketBreadth" in columns
+    for forbidden in (
+        "set_value_histories_json",
+        "performance_vs_cost_history_json",
+        "available_scopes_json",
+        "top_chase_cards_json",
+        "top_chase_card_histories_json",
+        "payload_json->cardsMarket,",
+        ",payload_json,",
+    ):
+        assert forbidden not in f",{columns},"
+
+
+def test_market_signals_reader_uses_bounded_retry_and_returns_prepared_breadth(monkeypatch):
+    breadth = {"7D": {"available": True, "advancing": 9, "declining": 4}}
+    captured = {}
+
+    class Result:
+        data = [{"set_id": "75cd439d-aaa2-41cb-86f3-2fefa5b26e29", "window_key": "365d", "latest_market_date": "2026-08-27", "updated_at": "2026-08-28T00:00:00Z", "marketBreadth": breadth}]
+
+    class Query:
+        def select(self, columns): captured["columns"] = columns; return self
+        def eq(self, *_args): return self
+        def limit(self, *_args): return self
+        def execute(self): return Result()
+
+    class Client:
+        def table(self, name): captured["table"] = name; return Query()
+
+    client = Client()
+    monkeypatch.setattr(snapshots, "service_read_client", client)
+
+    def retry(operation, **kwargs):
+        captured.update(kwargs)
+        return operation(client)
+
+    monkeypatch.setattr(snapshots, "run_public_read_with_retry", retry)
+    payload = snapshots.get_pokemon_set_market_signals_snapshot_payload("75cd439d-aaa2-41cb-86f3-2fefa5b26e29")
+    assert payload["marketBreadth"] == breadth
+    assert captured["columns"] == snapshots._MARKET_SIGNALS_COLUMNS
+    assert captured["operation_name"] == "pokemon_set_market_signals"
+    assert captured["initial_client"] is client
+
+
+@pytest.mark.parametrize(
+    ("rows", "status", "code"),
+    [
+        ([], 404, "POKEMON_SET_MARKET_SIGNALS_UNAVAILABLE"),
+        ([{"marketBreadth": None}], 503, "POKEMON_SET_MARKET_SIGNALS_SNAPSHOT_INCOMPLETE"),
+    ],
+)
+def test_market_signals_missing_and_incomplete_contracts(monkeypatch, rows, status, code):
+    class Result:
+        data = rows
+
+    monkeypatch.setattr(snapshots, "run_public_read_with_retry", lambda *_args, **_kwargs: Result())
+    with pytest.raises(snapshots.PokemonSetMarketError) as exc:
+        snapshots.get_pokemon_set_market_signals_snapshot_payload("75cd439d-aaa2-41cb-86f3-2fefa5b26e29")
+    assert exc.value.status_code == status
+    assert exc.value.code == code

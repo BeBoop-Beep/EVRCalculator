@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getPokemonSetMarketSignals } from "@/lib/pokemon/pokemonSetMarketClient";
+import { getPokemonSetMarketSignals } from "../../lib/pokemon/pokemonSetMarketClient.js";
 
 const RETRY_DELAY_MS = 350;
 const RETRYABLE_STATUSES = new Set([502, 503, 504]);
