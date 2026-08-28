@@ -8,6 +8,7 @@ from backend.db.services.opening_economics_v3_service import _normalize_preservi
 from backend.domain.pokemon.opening_economics_v3 import (
     OpeningEconomicsV3Error, WeightedEmpiricalMixture, aggregate_scalars,
     assign_hierarchical_weights, normalize_product, persisted_recovery_count,
+    percentile_key,
 )
 
 
@@ -106,6 +107,10 @@ def test_production_has_no_data_fitted_recovery_tolerance():
     from backend.domain.pokemon import opening_economics_v3
     source = open(opening_economics_v3.__file__, encoding="utf-8").read()
     assert "abs_tol=2e-5" not in source
+
+
+def test_percentile_keys_are_stable_for_all_integer_percentiles():
+    assert [percentile_key(i / 100) for i in range(1, 100)] == [f"p{i:02d}" for i in range(1, 100)]
 
 
 def test_weighted_exact_counts_match_independent_ecdf(tmp_path):

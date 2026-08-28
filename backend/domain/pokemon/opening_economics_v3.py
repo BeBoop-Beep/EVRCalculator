@@ -226,7 +226,9 @@ class WeightedEmpiricalMixture:
 
 
 def percentile_key(q: float) -> str:
-    value = q * 100
+    # Decimal-looking inputs such as 7/100 are not exact in binary; normalize
+    # the display key so P01..P99 cannot become p7_000000000000001.
+    value = round(q * 100, 10)
     return "p" + (str(int(value)).zfill(2) if value.is_integer() else str(value).replace(".", "_"))
 
 
