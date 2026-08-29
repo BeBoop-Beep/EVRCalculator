@@ -24,6 +24,12 @@ function LensSkeleton() {
   );
 }
 
+async function readLens(response, fallbackMessage) {
+  const payload = await response.json();
+  if (!response.ok && response.status !== 503) throw new Error(payload?.message || fallbackMessage);
+  return payload;
+}
+
 export default function RankingsLazyClient({
   targets,
   openingEconomics,
@@ -36,17 +42,14 @@ export default function RankingsLazyClient({
   const [setLens, setSetLens] = useState("rankings");
   const [selectedEra, setSelectedEra] = useState(null);
   const [eraState, setEraState] = useState({ status: "idle", contract: null, marketDate: rankingsMarketDate });
+  const [setsState, setSetsState] = useState({ status: "idle", targets: [], marketDate: rankingsMarketDate });
 
   useEffect(() => {
     if (lens !== "eras" || eraLens !== "rankings" || eraState.status !== "idle") return undefined;
     const controller = new AbortController();
     setEraState((current) => ({ ...current, status: "loading" }));
     fetch("/api/explore/rankings/lens?lens=eras", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok && response.status !== 503) throw new Error(payload?.message || "Unable to load era rankings");
-        return payload;
-      })
+      .then((response) => readLens(response, "Unable to load era rankings"))
       .then((payload) => {
         setEraState({
           status: payload?.status === "available" ? "ready" : "unavailable",
@@ -60,12 +63,34 @@ export default function RankingsLazyClient({
     return () => controller.abort();
   }, [lens, eraLens, eraState.status, rankingsMarketDate]);
 
+  useEffect(() => {
+    if (lens !== "sets" || setsState.status !== "idle") return undefined;
+    const controller = new AbortController();
+    setSetsState((current) => ({ ...current, status: "loading" }));
+    fetch("/api/explore/rankings/lens?lens=sets", { cache: "no-store", signal: controller.signal })
+      .then((response) => readLens(response, "Unable to load set rankings"))
+      .then((payload) => {
+        setSetsState({
+          status: payload?.status === "available" ? "ready" : "unavailable",
+          targets: Array.isArray(payload?.targets) ? payload.targets : [],
+          marketDate: payload?.marketDate || rankingsMarketDate,
+        });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setSetsState({ status: "error", error: error.message, targets: [], marketDate: rankingsMarketDate });
+      });
+    return () => controller.abort();
+  }, [lens, setsState.status, rankingsMarketDate]);
+
   const changeLens = (next) => {
     setLens(next);
     if (next !== "sets") setSelectedEra(null);
     if (next === "eras") setEraLens("rankings");
     if (next === "sets") setSetLens("rankings");
   };
+
+  const setTargets = setsState.status === "ready" ? setsState.targets : [];
+  const setsUnavailable = setsState.status === "unavailable" || setsState.status === "error";
 
   return (
     <>
@@ -133,22 +158,26 @@ export default function RankingsLazyClient({
           />
         )
       ) : lens === "sets" ? (
-        <>
-          {selectedEra ? (
-            <div className="mb-3 flex flex-wrap items-center gap-2" data-era-filter-chip>
-              <span className="text-xs text-[var(--text-secondary)]">Showing sets from</span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]">
-                {selectedEra}
-                <button type="button" onClick={() => setSelectedEra(null)} aria-label={`Clear the ${selectedEra} filter and show all sets`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">×</button>
-              </span>
-            </div>
-          ) : null}
-          {setLens === "economics" ? (
-            <SetPackMetrics sets={openingEconomics?.sets} targets={targets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
-          ) : (
-            <ExploreTableClient targets={targets} loadError={loadError} canViewProductRipIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} />
-          )}
-        </>
+        setsState.status === "loading" || setsState.status === "idle" ? <LensSkeleton /> : setsUnavailable ? (
+          <section className={`${styles.surface} set-glass-surface p-5 text-sm text-[var(--text-secondary)]`}>Set rankings are temporarily unavailable.</section>
+        ) : (
+          <>
+            {selectedEra ? (
+              <div className="mb-3 flex flex-wrap items-center gap-2" data-era-filter-chip>
+                <span className="text-xs text-[var(--text-secondary)]">Showing sets from</span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-page)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)]">
+                  {selectedEra}
+                  <button type="button" onClick={() => setSelectedEra(null)} aria-label={`Clear the ${selectedEra} filter and show all sets`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">×</button>
+                </span>
+              </div>
+            ) : null}
+            {setLens === "economics" ? (
+              <SetPackMetrics sets={openingEconomics?.sets} targets={setTargets} eraFilter={selectedEra} marketDate={openingEconomics?.marketDate} canViewRankingsIntelligence={canViewRankingsIntelligence} />
+            ) : (
+              <ExploreTableClient targets={setTargets} loadError={loadError || setsUnavailable} canViewProductRipIntelligence={canViewRankingsIntelligence} eraFilter={selectedEra} />
+            )}
+          </>
+        )
       ) : lens === "products" ? (
         <RankingsProductLensClient />
       ) : (
