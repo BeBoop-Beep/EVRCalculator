@@ -56,6 +56,11 @@ test("set analytics runtime is split out of the initial route chunk", () => {
   assert.ok(!/^import RipStatisticsPageClient/m.test(source));
 });
 
+test("Recharts named imports stay optimized across analytical routes", () => {
+  const source = read("next.config.mjs");
+  assert.ok(source.includes('optimizePackageImports: ["recharts"]'));
+});
+
 test("card and sealed-product server detail reads use bounded Next cache windows", () => {
   const card = read("lib/pokemon/pokemonCardDetailServer.js");
   const product = read("lib/pokemon/sealedProductDetailServer.js");
